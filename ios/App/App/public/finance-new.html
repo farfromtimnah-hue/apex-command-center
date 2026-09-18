@@ -1159,6 +1159,18 @@
        picker. Lower-case and lighter than the label it follows: it is a
        clarification, not a second heading. */
     .chart-scope-note { text-transform: none; letter-spacing: 0; opacity: 0.75; font-weight: 400; }
+
+    /* Contract progress. The bar is a glance; the numbers beside it are the
+       answer. Deliberately quiet -- this sits above the invoice workflow and
+       must not compete with it. */
+    .contract-bar {
+      height: 6px; border-radius: 3px; background: var(--border, #e5e0d8);
+      overflow: hidden; min-width: 90px; max-width: 160px;
+    }
+    .contract-fill { height: 100%; background: var(--gold, #c9a227); border-radius: 3px; }
+    .contract-fill.is-done { background: var(--green, #2e7d52); }
+    .contract-pct { font-size: 11.5px; color: var(--muted); margin-left: 0; display: inline-block; margin-top: 3px; }
+    .contract-sub { font-size: 11px; color: var(--muted); display: block; line-height: 1.4; }
     .flow-value { font-size: 17px; font-weight: 600; margin-top: 3px; }
     .is-green { color: var(--green); }
     .is-red   { color: var(--red); }
@@ -2438,6 +2450,42 @@
          glances at. On the old single-scroll layout, creating an invoice
          meant scrolling past the entire dashboard first. -->
     <div id="finPanelFaturas" class="fin-tab-panel" hidden>
+
+    <!-- ── Where each contract stands ──
+         Alice does the finances and has been working this out by hand: she
+         guessed DFN had made three payments when the bank shows two. Total
+         owed, paid to date, and what is left, per client.
+
+         Apex Club is excluded STRUCTURALLY, not by amount: Club money attaches
+         to transactions, never to invoices, so an invoice-based total cannot
+         include it. A "$50-$75 is Club" rule was considered and rejected --
+         DFN's own installment is $349.25, so an amount threshold breaks on a
+         real payment the first time it is used.
+
+         INTERNAL ONLY. Never rendered in the client portal. -->
+    <div id="contractCard" class="card" hidden>
+      <div class="sec-head">
+        <div class="card-title">
+          <span class="show-pt">Onde cada contrato está</span>
+          <span class="show-en">Where each contract stands</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>
+              <th class="num"><span class="show-pt">Total</span><span class="show-en">Total</span></th>
+              <th class="num"><span class="show-pt">Pago</span><span class="show-en">Paid</span></th>
+              <th class="num"><span class="show-pt">Falta</span><span class="show-en">Left</span></th>
+              <th><span class="show-pt">Progresso</span><span class="show-en">Progress</span></th>
+            </tr>
+          </thead>
+          <tbody id="contractBody"></tbody>
+        </table>
+      </div>
+      <div id="contractNotes" class="chart-caveat" hidden></div>
+    </div>
 
     <!-- ── Drafts ready to send ── -->
     <!-- A draft nobody notices is the same as no draft at all: the cron
@@ -8636,8 +8684,132 @@
           INVOICES = data.invoices || [];
           renderInvoices();
           renderDrafts();
+          // Contract progress is derived from invoices, so it is reloaded with
+          // them: the moment the matcher confirms a payment and an invoice
+          // flips to 'paid', this table reflects it on the next load. Nothing
+          // is cached or stored -- the endpoint computes from the rows.
+          loadContractProgress();
         })
         .catch(function() {});
+    }
+
+    // ── Where each contract stands ─────────────────────────────────────────
+    //
+    // Total owed, paid to date, what is left. Alice has been doing this by
+    // hand. It auto-updates with the invoices above, and Apex Club can never
+    // appear here: Club money is attached to TRANSACTIONS, never to invoices,
+    // so an invoice-derived total structurally cannot include it.
+    function loadContractProgress() {
+      return apiFetch("/api/finance-new/contract-progress")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error) { return; }
+          renderContractProgress(d.clients || []);
+        })
+        .catch(function() { /* a read-only summary must never break the page */ });
+    }
+
+    function renderContractProgress(rows) {
+      var card = document.getElementById("contractCard");
+      var body = document.getElementById("contractBody");
+      if (!card || !body) { return; }
+      if (!rows.length) { card.hidden = true; return; }
+      card.hidden = false;
+
+      var notes = [];
+      var html = "";
+      rows.forEach(function(c) {
+        // A contract with no total cannot report what is left. Say so rather
+        // than printing "$0 left", which reads as PAID IN FULL -- LIRA has
+        // $4,594 paid against a total nobody ever entered.
+        if (c.total_missing) {
+          html += '<tr><td>' + esc(c.client_name) + '</td>' +
+            '<td class="num muted">--</td>' +
+            '<td class="num">' + fmtCents(c.paid_cents) + '</td>' +
+            '<td class="num muted">--</td>' +
+            '<td><span class="muted" style="font-size:11.5px">' +
+              t("total do contrato não definido", "contract total not set") + '</span></td></tr>';
+          notes.push(t(
+            esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " recebido, mas o total do contrato não está definido.",
+            esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " received, but the contract total is not set."));
+          return;
+        }
+
+        var pct = c.pct_paid === null ? 0 : Math.max(0, Math.min(100, c.pct_paid));
+        var done = c.remaining_cents === 0;
+        var left = c.overpaid_cents > 0
+          ? '<span class="is-green">+' + fmtCents(c.overpaid_cents) + '</span>'
+          : fmtCents(c.remaining_cents);
+
+        // How many payments are left, when there is an installment amount to
+        // divide by. Null means the plan has no per-payment figure -- shown as
+        // nothing rather than a guessed count.
+        var sub = "";
+        if (c.installments_left) {
+          var unit = c.recurrence_unit === "weeks" ? t("semanais", "weekly")
+                   : c.recurrence_unit === "months" ? t("mensais", "monthly") : "";
+          sub = c.installments_left + " x " + fmtCents(c.installment_amount_cents) +
+                (unit ? " " + unit : "");
+        } else if (done) {
+          sub = t("quitado", "paid off");
+        }
+
+        html += '<tr><td>' + esc(c.client_name) +
+          (c.payments_before_count
+            ? ' <span class="muted" style="font-size:11px">(' + c.payments_before_count +
+              t(" antes do Apex", " before Apex") + ')</span>'
+            : "") +
+          '</td>' +
+          '<td class="num">' + fmtCents(c.total_cents) + '</td>' +
+          '<td class="num">' + fmtCents(c.paid_cents) +
+            (c.paid_source === "bank"
+              ? '<span class="contract-sub">' + t("pelo banco", "per the bank") + '</span>'
+              : "") +
+          '</td>' +
+          '<td class="num' + (done ? " is-green" : "") + '">' + left + '</td>' +
+          '<td><div class="contract-bar"><div class="contract-fill' + (done ? " is-done" : "") +
+            '" style="width:' + pct + '%"></div></div>' +
+            '<span class="contract-pct">' + (c.pct_paid === null ? "--" : pct + "%") + '</span>' +
+            (sub ? '<span class="contract-sub">' + sub + '</span>' : "") +
+          '</td></tr>';
+
+        // ⚠️ THE TWO SOURCES DISAGREE — say so, do not resolve it silently.
+        //
+        // Invoices are authoritative going forward. Before invoicing existed,
+        // contract money and Apex Club money arrived as Zelle from the same
+        // payer and only a human can tell them apart, so a gap here is a
+        // question for Alice, not something to average away.
+        var gap = Math.abs((c.paid_by_bank_cents || 0) - (c.paid_by_invoice_cents || 0));
+        if (gap > 0) {
+          if ((c.paid_by_bank_cents || 0) > (c.paid_by_invoice_cents || 0)) {
+            notes.push(t(
+              esc(c.client_name) + ": o banco mostra " + fmtCents(c.paid_by_bank_cents) +
+                " (" + c.bank_paid_count + " pagamentos) e as faturas mostram " +
+                fmtCents(c.paid_by_invoice_cents) + ". Diferença de " + fmtCents(gap) +
+                " — provavelmente de antes das faturas. Conferir à mão.",
+              esc(c.client_name) + ": the bank shows " + fmtCents(c.paid_by_bank_cents) +
+                " (" + c.bank_paid_count + " payments) and the invoices show " +
+                fmtCents(c.paid_by_invoice_cents) + ". A " + fmtCents(gap) +
+                " gap — probably from before invoicing. Needs checking by hand."));
+          } else {
+            notes.push(t(
+              esc(c.client_name) + ": as faturas mostram " + fmtCents(c.paid_by_invoice_cents) +
+                " e o banco só " + fmtCents(c.paid_by_bank_cents) +
+                ". Pode faltar aprovar o pagador de um pagamento.",
+              esc(c.client_name) + ": invoices show " + fmtCents(c.paid_by_invoice_cents) +
+                " and the bank only " + fmtCents(c.paid_by_bank_cents) +
+                ". A payer may still need approving."));
+          }
+        }
+      });
+
+      body.innerHTML = html;
+      var noteEl = document.getElementById("contractNotes");
+      if (noteEl) {
+        noteEl.hidden = !notes.length;
+        noteEl.innerHTML = notes.join("<br>");
+      }
+      applyFinBilingualAttrs();
     }
 
     // Workflow stages, not a filter. finance.html:2848 does the same thing.

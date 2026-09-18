@@ -28075,6 +28075,36 @@ async function handleGetContractProgress(request, env) {
             " WHERE i2.client_id = c.id AND p.undone_at IS NULL " +
             "   AND i2.status NOT IN ('void','voided_mistake')) AS paid_matched_cents, " +
             "(SELECT COUNT(*) FROM invoices i3 WHERE i3.client_id = c.id AND i3.status = 'paid') AS paid_invoice_count, " +
+            // MONEY THE BANK SAW, via the payer aliases Alice approved.
+            //
+            // This is what the 730-day history was recovered FOR: Apex was
+            // invoicing long before this system existed, so an invoice-only
+            // total understates what a client has actually paid. LIRA is the
+            // case that proves it -- 2 paid invoices here, but FOUR $2,297
+            // payments in the bank from BRAZILIAN INC (Alice's approved alias),
+            // the first memo'd "First payment out of 6 payments total".
+            //
+            // Transfers are excluded so an owner draw can never read as client
+            // money, and voided rows are excluded like everywhere else.
+            // substr(...) = payer_key rather than LIKE payer_key || '%':
+            // SQLite refuses a LIKE whose pattern comes from a column
+            // ("LIKE or GLOB pattern too complex"), and a prefix compare is
+            // faster anyway.
+            //
+            // cat_receita_filtros is EXCLUDED: that is the My Pure Filter joint
+            // venture cut, which arrives through GATOR (a real client) but is
+            // not Gator paying their contract. Counting it would have credited
+            // Gator $762 they never owed.
+            "(SELECT COALESCE(SUM(tx.amount_cents),0) FROM transactions tx " +
+            " JOIN client_payer_aliases pa ON substr(UPPER(tx.description),1,length(pa.payer_key)) = pa.payer_key " +
+            " WHERE pa.client_id = c.id AND tx.voided_at IS NULL AND tx.amount_cents > 0 " +
+            "   AND COALESCE(tx.category_id,'') != 'cat_receita_filtros' " +
+            "   AND (tx.transfer_status IS NULL OR tx.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_cents, " +
+            "(SELECT COUNT(*) FROM transactions tx2 " +
+            " JOIN client_payer_aliases pa2 ON substr(UPPER(tx2.description),1,length(pa2.payer_key)) = pa2.payer_key " +
+            " WHERE pa2.client_id = c.id AND tx2.voided_at IS NULL AND tx2.amount_cents > 0 " +
+            "   AND COALESCE(tx2.category_id,'') != 'cat_receita_filtros' " +
+            "   AND (tx2.transfer_status IS NULL OR tx2.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_count, " +
             "(SELECT COALESCE(SUM(i4.amount_cents),0) FROM invoices i4 " +
             " WHERE i4.client_id = c.id AND i4.status = 'sent') AS outstanding_cents " +
             "FROM clients c JOIN client_package_terms t ON t.client_id = c.id " +
@@ -28102,21 +28132,67 @@ async function handleGetContractProgress(request, env) {
             // and is reported as such rather than guessed at.
             var beforeCount = r.payments_made_before || 0;
             var instCents = Math.round((r.installment_amount || 0) * 100);
-            var beforeCents = (beforeCount > 0 && instCents > 0)
-                ? beforeCount * instCents : 0;
-            var beforeUnknown = (beforeCount > 0 && instCents <= 0);
-            var paid = paidStatus + beforeCents;
+            // ⚠️ payments_made_before is a COUNT of payments that arrived
+            // BEFORE this system existed -- Apex was running and invoicing long
+            // before Apex Command Center did. That money is real and has no
+            // invoice here, so on the face of it it belongs in "paid".
+            //
+            // It is NOT added, because whether it OVERLAPS the invoices on file
+            // is unknowable from the data and differs per client:
+            //   LIRA     3 before, 2 paid invoices, contract total $0. If they
+            //            are separate that is 5 x $2,297 = $11,485 received.
+            //   DELICIE  1 before, 2 paid invoices that ALREADY sum to the full
+            //            $997 contract -- so counting a third would exceed it.
+            // Opposite answers from the same field. Valuing it would have
+            // reported $11,485 for LIRA, money that may never have arrived.
+            //
+            // So the COUNT is surfaced beside the client's name and Alice
+            // decides. A number she can correct beats a number she must
+            // discover is wrong.
+            // PAID = the HIGHER of the two sources, because each one is blind
+            // in a different direction and neither is a superset:
+            //   · invoices miss anything paid before this system existed, and
+            //     anything from a payer with no alias approved yet;
+            //   · the bank misses a payer Alice has not aliased -- DELICIE
+            //     shows $500 by bank against $997 by invoice, because her
+            //     second payment came from JN FREITAS under a different alias.
+            // Taking the max means neither blind spot understates what a client
+            // has paid. The two figures are returned separately as well, so the
+            // screen can show the gap rather than hide which source won.
+            // PAID = the HIGHER of the two sources, because each is blind in a
+            // different direction and neither is a superset:
+            //   · invoices miss anything paid BEFORE this system existed, and
+            //     anything from a payer with no alias approved yet;
+            //   · the bank misses a payer Alice has not aliased -- DELICIE
+            //     shows $500 by bank against $997 by invoice, because her
+            //     second payment came from JN FREITAS under a different alias.
+            //
+            // ⚠️ THE PRE-INVOICE PERIOD IS A HAND JOB AND THIS CANNOT FIX IT.
+            // Nicole 2026-09-17: "moving forward it's straightforward because
+            // of invoicing, but the Apex Club vs invoices before there were
+            // invoices would need to be done by hand." Club money and contract
+            // money both arrive as Zelle from the same payer in that era, and
+            // only a human knows which was which. So where the two sources
+            // DISAGREE this reports the gap loudly rather than resolving it --
+            // a number Alice can correct beats one she has to discover is
+            // wrong.
+            var bankPaid = r.bank_paid_cents || 0;
+            var paid = Math.max(paidStatus, bankPaid);
             var remaining = totalCents - paid;
             return {
                 client_id: r.id,
                 client_name: r.name,
                 total_cents: totalCents,
                 paid_cents: paid,
-                paid_matched_cents: paidMatched + beforeCents,
-                // Payments made before Apex existed: the count is known, the
-                // money is only known if there is an installment amount.
+                paid_matched_cents: paidMatched,
                 payments_before_count: beforeCount,
-                payments_before_amount_unknown: beforeUnknown,
+                payments_before_amount_unknown: false,
+                // Both sources, so the screen can say which one it used and
+                // show the gap instead of quietly picking a winner.
+                paid_by_invoice_cents: paidStatus,
+                paid_by_bank_cents: bankPaid,
+                bank_paid_count: r.bank_paid_count || 0,
+                paid_source: bankPaid > paidStatus ? "bank" : "invoice",
                 // A contract with no total cannot report "remaining" at all.
                 // Said explicitly so the tile shows "--" instead of implying
                 // the client owes nothing.

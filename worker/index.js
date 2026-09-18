@@ -2838,6 +2838,9 @@ async function handleGetClientsNeedingReview(request, env) {
             // pre-system client will never have terms, by design. See the
             // billing_type comment on the attention queue.
             "  AND COALESCE(c.billing_type,'billable') = 'billable' " +
+            // Same reasoning as the attention queue: a negotiated total is not
+            // a gap in the record.
+            "  AND COALESCE(c.custom_pricing,0) = 0 " +
             "  AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id) " +
             "ORDER BY c.name"
         ).all();
@@ -27455,6 +27458,12 @@ async function handleGetFinanceNewAttention(request, env) {
             "WHERE COALESCE(c.status,'active') = 'active' " +
             "AND COALESCE(c.archived, 0) = 0 " +
             "AND COALESCE(c.billing_type,'billable') = 'billable' " +
+            // A bespoke total is not a missing one. The marketing add-on is
+            // priced per client, by what that client needs -- there is no
+            // catalog price and there never will be, so no amount of data can
+            // produce this number and asking for it forever is pure noise.
+            // JN FREITAS is ADVANCED ($8,382) PLUS an add-on only Rafa knows.
+            "AND COALESCE(c.custom_pricing,0) = 0 " +
             "AND NOT EXISTS (SELECT 1 FROM client_package_terms t WHERE t.client_id = c.id)"
         ).first();
 
@@ -28075,6 +28084,7 @@ async function handleGetContractProgress(request, env) {
             " WHERE i2.client_id = c.id AND p.undone_at IS NULL " +
             "   AND i2.status NOT IN ('void','voided_mistake')) AS paid_matched_cents, " +
             "(SELECT COUNT(*) FROM invoices i3 WHERE i3.client_id = c.id AND i3.status = 'paid') AS paid_invoice_count, " +
+            "c.custom_pricing, " +
             // MONEY THE BANK SAW, via the payer aliases Alice approved.
             //
             // This is what the 730-day history was recovered FOR: Apex was
@@ -28115,8 +28125,15 @@ async function handleGetContractProgress(request, env) {
             "   AND (tx2.transfer_status IS NULL OR tx2.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_count, " +
             "(SELECT COALESCE(SUM(i4.amount_cents),0) FROM invoices i4 " +
             " WHERE i4.client_id = c.id AND i4.status = 'sent') AS outstanding_cents " +
-            "FROM clients c JOIN client_package_terms t ON t.client_id = c.id " +
+            // LEFT JOIN, so a client with a NEGOTIATED total still appears with
+            // what IS known (what they have paid) instead of vanishing from
+            // the table. JN FREITAS is ADVANCED plus a marketing add-on priced
+            // to what he needs -- a real paying client whose total only Rafa
+            // knows. Hiding him would be worse than showing him with a blank.
+            "FROM clients c LEFT JOIN client_package_terms t ON t.client_id = c.id " +
             "WHERE COALESCE(c.archived,0) = 0 " +
+            "AND (t.client_id IS NOT NULL OR COALESCE(c.custom_pricing,0) = 1) " +
+            "AND COALESCE(c.status,'active') = 'active' " +
             // A joint venture, a pro-bono engagement or a client who paid in
             // full before the system existed has no contract to be partway
             // through. Showing them at 0% owing the full package would be a
@@ -28205,6 +28222,11 @@ async function handleGetContractProgress(request, env) {
                 // Said explicitly so the tile shows "--" instead of implying
                 // the client owes nothing.
                 total_missing: totalCents <= 0,
+                // ...and WHY it is missing. A negotiated total is not an
+                // oversight to chase: the marketing add-on is priced per
+                // client, by what that client needs, so no catalog lookup or
+                // payment history can ever produce it.
+                custom_pricing: !!r.custom_pricing,
                 // A gap means an invoice is marked paid with no bank match
                 // behind it. Surfaced, never silently reconciled.
                 unmatched_cents: paidStatus - paidMatched,

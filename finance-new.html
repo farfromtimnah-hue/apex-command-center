@@ -8723,15 +8723,26 @@
         // than printing "$0 left", which reads as PAID IN FULL -- LIRA has
         // $4,594 paid against a total nobody ever entered.
         if (c.total_missing) {
+          // A NEGOTIATED total is not a missing one. The marketing add-on is
+          // priced to what each client needs, so there is no catalog figure to
+          // look up and no payment history that can reveal it -- saying "not
+          // set" would read as an oversight and send someone hunting for a
+          // number that does not exist anywhere.
+          var why = c.custom_pricing
+            ? t("valor combinado caso a caso", "priced by arrangement")
+            : t("total do contrato não definido", "contract total not set");
           html += '<tr><td>' + esc(c.client_name) + '</td>' +
             '<td class="num muted">--</td>' +
             '<td class="num">' + fmtCents(c.paid_cents) + '</td>' +
             '<td class="num muted">--</td>' +
-            '<td><span class="muted" style="font-size:11.5px">' +
-              t("total do contrato não definido", "contract total not set") + '</span></td></tr>';
-          notes.push(t(
-            esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " recebido, mas o total do contrato não está definido.",
-            esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " received, but the contract total is not set."));
+            '<td><span class="muted" style="font-size:11.5px">' + why + '</span></td></tr>';
+          // Only the genuinely-missing case is worth a note. A bespoke total
+          // needs no action, so nagging about it is noise.
+          if (!c.custom_pricing) {
+            notes.push(t(
+              esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " recebido, mas o total do contrato não está definido.",
+              esc(c.client_name) + ": " + fmtCents(c.paid_cents) + " received, but the contract total is not set."));
+          }
           return;
         }
 

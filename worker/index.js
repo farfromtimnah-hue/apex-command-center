@@ -14375,7 +14375,8 @@ async function handleGetIndicatorHistory(id, request, env) {
 
         var monthsRes = await env.DB.prepare(
             "SELECT DISTINCT substr(entry_date, 1, 7) AS m FROM client_daily_entries " +
-            "WHERE client_id = ? AND completed = 1 ORDER BY m DESC LIMIT ?"
+            "WHERE client_id = ? AND completed = 1 AND entry_date <= date('now') " +
+            "ORDER BY m DESC LIMIT ?"
         ).bind(id, maxMonths).all();
         var months = (monthsRes.results || []).map(function(r) { return r.m; }).reverse();
 
@@ -14866,7 +14867,8 @@ async function handleGetClientEntries(id, request, env) {
 
         var entries = await env.DB.prepare(
             "SELECT entry_date, sections_json, completed, completed_at FROM client_daily_entries " +
-            "WHERE client_id = ? AND entry_date LIKE ? ORDER BY entry_date DESC"
+            "WHERE client_id = ? AND entry_date LIKE ? AND entry_date <= date('now') " +
+            "ORDER BY entry_date DESC"
         ).bind(id, month + "-%").all();
         var missed = await env.DB.prepare(
             "SELECT missed_date, status, reason FROM client_missed_days WHERE client_id = ? AND missed_date LIKE ?"
@@ -14896,7 +14898,8 @@ async function computeMonthlySummary(env, clientId, month) {
     var config = await getFieldConfig(env, clientId, month);
     var entries = await env.DB.prepare(
         "SELECT entry_date, sections_json FROM client_daily_entries " +
-        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1"
+        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1 " +
+        "AND entry_date <= date('now')"
     ).bind(clientId, month + "-%").all();
 
     var rows = (entries.results || []).map(function(r) {
@@ -15241,7 +15244,8 @@ async function handleGetEntryCoverage(id, request, env) {
 
         var entriesRes = await env.DB.prepare(
             "SELECT entry_date, completed FROM client_daily_entries " +
-            "WHERE client_id = ? AND entry_date LIKE ? ORDER BY entry_date"
+            "WHERE client_id = ? AND entry_date LIKE ? AND entry_date <= date('now') " +
+            "ORDER BY entry_date"
         ).bind(id, month + "-%").all();
 
         var missedRes = await env.DB.prepare(
@@ -33910,7 +33914,8 @@ async function loadCycleAssets(env, clientId, month) {
     // them built this month is a real asset, not a proxy for one.
     var entries = await env.DB.prepare(
         "SELECT sections_json FROM client_daily_entries " +
-        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1"
+        "WHERE client_id = ? AND entry_date LIKE ? AND completed = 1 " +
+        "AND entry_date <= date('now')"
     ).bind(clientId, monthLike).all();
 
     var processos = 0;

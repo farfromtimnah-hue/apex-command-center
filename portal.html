@@ -361,6 +361,21 @@
       border: 1px dashed var(--border, #d8d2c8); border-radius: 6px;
     }
     .field-tile .tile-suggest:hover { color: var(--text, #2b2b2b); }
+
+    /* Legal footer — privacy, terms, account deletion. Required in-app by the
+       App Store; quiet enough not to compete with the dock nav. Extra bottom
+       padding clears the fixed dock on phones. */
+    .legal-footer {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+      gap: 8px; padding: 24px 16px 120px; font-size: 12px;
+    }
+    .legal-footer a, .legal-footer .legal-link {
+      color: var(--muted); text-decoration: underline;
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font: inherit; font-size: 12px;
+    }
+    .legal-footer a:hover, .legal-footer .legal-link:hover { color: var(--text, #2b2b2b); }
+    .legal-sep { color: var(--muted); opacity: 0.6; }
     /* Says the pipeline holds nothing for this field. Same footprint as the
        suggestion chip so the tile does not resize when one replaces the other,
        but plainly not a button: no border, no pointer. */
@@ -1670,6 +1685,68 @@
       </div>
     </section>
   </main>
+
+  <!-- App Store requirements, and useful on the web too.
+       Guideline 5.1.1(v): an account-based app must offer account deletion
+       FROM INSIDE the app. Apex accounts are provisioned by the consultancy,
+       so a self-serve delete would let one person destroy a business's shared
+       records. A request path satisfies the guideline and is the honest
+       mechanism -- Apple's FAQ does not exempt admin-provisioned accounts.
+       The privacy policy must also be reachable in-app, not only on the
+       store listing. -->
+  <footer class="legal-footer">
+    <a href="privacy.html" target="_blank" rel="noopener">
+      <span class="show-pt">Pol&iacute;tica de Privacidade</span>
+      <span class="show-en">Privacy Policy</span>
+    </a>
+    <span class="legal-sep">&middot;</span>
+    <a href="terms.html" target="_blank" rel="noopener">
+      <span class="show-pt">Termos de Uso</span>
+      <span class="show-en">Terms of Use</span>
+    </a>
+    <span class="legal-sep">&middot;</span>
+    <button type="button" class="legal-link" onclick="openDeleteAccount()">
+      <span class="show-pt">Excluir minha conta</span>
+      <span class="show-en">Delete my account</span>
+    </button>
+  </footer>
+
+  <!-- Account deletion request. Opens the same support channel the rest of the
+       app uses rather than inventing a second one. -->
+  <div class="support-overlay" id="deleteAccountModal" hidden role="dialog" aria-modal="true"
+       aria-labelledby="deleteAccountTitle">
+    <div class="support-box">
+      <div class="support-head">
+        <div class="modal-title" id="deleteAccountTitle" style="margin:0;">
+          <span class="show-pt">Excluir minha conta</span>
+          <span class="show-en">Delete my account</span>
+        </div>
+      </div>
+      <div style="padding:16px;font-size:14px;line-height:1.5;">
+        <p style="margin:0 0 12px;">
+          <span class="show-pt">Sua conta e os dados da sua empresa ser&atilde;o exclu&iacute;dos em at&eacute; 30 dias.
+            Confirmamos por escrito quando estiver conclu&iacute;do.</span>
+          <span class="show-en">Your account and your company's data will be deleted within 30 days.
+            We confirm in writing once it is done.</span>
+        </p>
+        <p style="margin:0 0 16px;" class="muted">
+          <span class="show-pt">As contas do Apex s&atilde;o criadas pela consultoria, ent&atilde;o o pedido passa por
+            uma confirma&ccedil;&atilde;o para que ningu&eacute;m apague os registros de uma empresa sozinho.</span>
+          <span class="show-en">Apex accounts are created by the consultancy, so the request is confirmed
+            first -- no single person can erase a company's records on their own.</span>
+        </p>
+        <button type="button" class="btn-gold" style="width:100%;" onclick="submitDeleteAccount()">
+          <span class="show-pt">Enviar pedido de exclus&atilde;o</span>
+          <span class="show-en">Send deletion request</span>
+        </button>
+        <button type="button" class="btn-outline" style="width:100%;margin-top:8px;"
+                onclick="document.getElementById('deleteAccountModal').hidden = true;">
+          <span class="show-pt">Cancelar</span>
+          <span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Day-off modal -->
   <!-- ══ Support modal ══
@@ -4565,6 +4642,36 @@
     // Send stays disabled until BOTH a type is chosen and the description has
     // real content — a prefilled template alone gets sent blank, which is the
     // exact failure this modal exists to prevent.
+    // ── Account deletion request (App Store Guideline 5.1.1(v)) ────────────
+    //
+    // Apex accounts are provisioned by the consultancy and hold a whole
+    // business's shared records, so a one-tap self-serve delete would let a
+    // single person destroy a company's data. A request path satisfies the
+    // guideline; Apple's FAQ does not exempt admin-provisioned accounts, and
+    // the vault's standing note says not to rely on that loophole.
+    //
+    // Routed to Rafa on the same WhatsApp channel the support modal uses --
+    // a deletion is a business decision, not a technical fault, and inventing
+    // a second channel for it would be a surface nobody watches.
+    function openDeleteAccount() {
+      document.getElementById("deleteAccountModal").hidden = false;
+    }
+
+    // Same synchronous-window.open() contract as supportSend() below. No
+    // await, no alert() before the handoff.
+    function submitDeleteAccount() {
+      // clientName is the only identity this page holds; there is no portal-wide
+      // username variable, and referencing one would throw inside the click
+      // handler and kill the window.open() before it ran.
+      var who  = clientName || "—";
+      var text = "Pedido de exclusão de conta\n\n" +
+                 "Empresa: " + who + "\n" +
+                 "\nO titular pediu a exclusão da conta e dos dados pelo aplicativo.";
+      window.open("https://wa.me/" + SUPPORT_ROUTES.business.phone +
+                  "?text=" + encodeURIComponent(text), "_blank");
+      document.getElementById("deleteAccountModal").hidden = true;
+    }
+
     function supportSyncSend() {
       var desc = (document.getElementById("supportDesc").value || "").trim();
       document.getElementById("supportSendBtn").disabled = !(supportKind && desc.length >= 3);

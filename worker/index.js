@@ -13500,6 +13500,21 @@ function clientRequestAllowed(path, method, clientId) {
                 // not 'fechado'.
                 if (/^leads\/[A-Za-z0-9-]+\/promote$/.test(gmRest)) { return true; }
             }
+            // Recording the OUTCOME of a contact they already logged.
+            //
+            // Tapping WhatsApp or Call POSTs a pending row immediately (see
+            // c5988de: the app switches away, so the attempt is recorded at
+            // button press). Coming back and answering "how did it go?" PATCHes
+            // that same row rather than POSTing a second one, which would
+            // double-count the contact.
+            //
+            // The allowlist had NO PATCH entries at all, so that second half
+            // answered a bare "Forbidden" for every client -- the attempt was
+            // logged and the outcome could never be saved. Found on a device
+            // 2026-09-19, one tap before submitting to App Review.
+            if (method === "PATCH") {
+                if (/^leads\/[A-Za-z0-9-]+\/contacts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+            }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
                 // The client's own referral/sheet lists. Their own record only —
@@ -13623,6 +13638,13 @@ function sellerRequestAllowed(path, method, clientId) {
         // pictures, and Alice and the owner review what they attach.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
+        return false;
+    }
+    // Same pending-contact PATCH the owner needs (see clientRequestAllowed):
+    // the attempt is POSTed at button press and the outcome PATCHed on return.
+    // The handler re-checks that the lead is theirs via sellerCanActOnLead.
+    if (method === "PATCH") {
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         return false;
     }
     if (method === "PUT") {

@@ -14769,6 +14769,10 @@ async function handleGetPipelineGap(request, env) {
 // whether the field should be null in the first place.
 function num0(v) { return (v === null || v === undefined) ? 0 : Number(v); }
 
+// Money to cents. SUM() over REAL columns drifts (497.33000000000004), and a
+// suggested figure is read by the client as-is.
+function cents(v) { return Math.round((Number(v) || 0) * 100) / 100; }
+
 async function handleGetEntrySuggestions(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -14792,6 +14796,22 @@ async function handleGetEntrySuggestions(id, request, env) {
             "FROM gm_leads WHERE client_id = ?"
         ).bind(date, date, id).first();
 
+        // Money entered on the Financeiro page for this day. receita/saida were
+        // deliberately left out when suggestions were first built: gm_finance
+        // is optional, only some clients keep it current, and a $0 suggestion
+        // would have read as a measured zero. That reason is gone now that a
+        // suggestion can be null and the portal says "Nada no sistema" -- so a
+        // client who already logged the money does not type it twice, and one
+        // who logged nothing is told the system has nothing rather than shown
+        // a zero. Same editable-suggestion contract as the lead counts above.
+        var money = await env.DB.prepare(
+            "SELECT " +
+            "COUNT(*) AS row_count, " +
+            "SUM(CASE WHEN tipo = 'Entrada' THEN COALESCE(valor,0) ELSE 0 END) AS receita, " +
+            "SUM(CASE WHEN tipo = 'Saída'  THEN COALESCE(valor,0) ELSE 0 END) AS saida " +
+            "FROM gm_finance WHERE client_id = ? AND date(data) = ?"
+        ).bind(id, date).first();
+
         // gm_lead_events carries its own client_id, so no join to gm_leads.
         var closed = await env.DB.prepare(
             "SELECT COUNT(*) AS n FROM gm_lead_events " +
@@ -14812,7 +14832,16 @@ async function handleGetEntrySuggestions(id, request, env) {
                 leads_gerados:   hasLeadRows ? num0(leads.leads_gerados)   : null,
                 envio_propostas: hasLeadRows ? num0(leads.envio_propostas) : null,
                 vendas_fechadas: hasLeadRows ? num0(closed && closed.n)    : null,
-                pipeline_ativo:  hasLeadRows ? num0(leads.pipeline_ativo)  : null
+                pipeline_ativo:  hasLeadRows ? num0(leads.pipeline_ativo)  : null,
+                // Keyed on rows FOR THIS DAY, not on the client having any
+                // finance history at all: a day with no entries is a day the
+                // system knows nothing about, even for a client who uses the
+                // page daily. Suggesting 0 there would invent a measurement.
+                // Rounded to cents: SUM over REAL columns produces artifacts
+                // (497.33000000000004 in live data), and a suggestion is shown
+                // to the client verbatim before they accept it.
+                receita:         (money && money.row_count > 0) ? cents(money.receita) : null,
+                saida:           (money && money.row_count > 0) ? cents(money.saida)   : null
             }
         });
     } catch (e) {

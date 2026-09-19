@@ -709,6 +709,25 @@
     }
 
     /* ─── Content cards (left column) ───────────────────────────────────── */
+    /* Reported-vs-pipeline gap. Amber, not red: this is a conversation to have,
+       not a failure. Sits above the two-column layout so it is read before the
+       cards, and is display:none until the loader finds a real gap. */
+    .pipeline-gap {
+      display: flex; align-items: center; gap: 16px;
+      margin: 0 0 20px; padding: 14px 18px;
+      background: rgba(201,168,76,0.10);
+      border: 1px solid rgba(201,168,76,0.45);
+      border-left: 4px solid #C9A84C;
+      border-radius: var(--radius);
+      font-size: 13px; line-height: 1.45;
+    }
+    .pipeline-gap-n {
+      flex: 0 0 auto; min-width: 44px; text-align: center;
+      font-size: 26px; font-weight: 700; color: #8a6d17;
+    }
+    @media (prefers-color-scheme: dark) { .pipeline-gap-n { color: #e8c96a; } }
+    @media (max-width: 560px) { .pipeline-gap { flex-direction: column; align-items: flex-start; gap: 8px; } }
+
     .content-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -1968,6 +1987,13 @@
     </div>
 
     <div class="below-hero-section">
+
+    <!-- Leads reported in the daily log that never reached the pipeline.
+         Hidden entirely when there is no gap: an always-present card reading
+         "0 missing" trains the eye to skip it, and this only matters on the
+         days it says something. Rendered before the meeting Rafa is about to
+         walk into, which is the moment the number is actionable. -->
+    <div id="pipelineGapBanner" hidden></div>
 
     <!-- Two-column layout -->
     <div class="two-col-layout">
@@ -4020,6 +4046,7 @@
       loadPortalAccess();
       loadSellerLoginRequestsForClient();
       loadSellerSeats();
+      loadPipelineGap();
       loadAssessments();
       loadWeeklySummary();
       gmSectionsLoad();
@@ -4028,6 +4055,49 @@
       // which cannot run until its own fetch returns.
       setTimeout(applyDeepSection, 400);
       setTimeout(applyDeepModal, 400);
+    }
+
+    // ── Leads reported but never entered in the pipeline ───────────────────
+    //
+    // The daily log asks "Leads Gerados"; gm_leads is where a lead actually
+    // gets worked. A lead counted in one and missing from the other is a lead
+    // nobody can follow up. Summed over a 30-day window rather than compared
+    // day by day: clients routinely enter a lead days after it arrives, so
+    // same-day matching flags normal lag as a leak (19 of 25 recent days would
+    // have fired). Over a window the lag cancels and only a real hole remains.
+    function loadPipelineGap() {
+      var box = document.getElementById("pipelineGapBanner");
+      if (!box) { return; }
+      apiFetch("/api/clients/pipeline-gap?days=30")
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (!d || !d.clients) { return; }
+          var mine = d.clients.filter(function(c) { return c.client_id === clientId; })[0];
+          if (!mine || !mine.gap) { return; }   // no gap: stay hidden
+          var lastIn = mine.last_in_pipeline;
+          box.innerHTML =
+            '<div class="pipeline-gap">' +
+              '<div class="pipeline-gap-n">' + mine.gap + '</div>' +
+              '<div>' +
+                '<strong>' +
+                  '<span class="show-pt">Leads relatados que n&atilde;o est&atilde;o no pipeline</span>' +
+                  '<span class="show-en">Reported leads missing from the pipeline</span>' +
+                '</strong><br>' +
+                '<span class="show-pt">' + mine.reported + ' relatados no registro di&aacute;rio, ' +
+                  mine.in_pipeline + ' no pipeline (&uacute;ltimos 30 dias).' +
+                  (lastIn ? ' &Uacute;ltimo lead no pipeline: ' + escHtml(lastIn) + '.'
+                          : ' Nenhum lead entrou no pipeline nesse per&iacute;odo.') +
+                '</span>' +
+                '<span class="show-en">' + mine.reported + ' reported in the daily log, ' +
+                  mine.in_pipeline + ' in the pipeline (last 30 days).' +
+                  (lastIn ? ' Last lead entered: ' + escHtml(lastIn) + '.'
+                          : ' No leads entered the pipeline in this period.') +
+                '</span>' +
+              '</div>' +
+            '</div>';
+          box.hidden = false;
+        })
+        .catch(function() { /* never blocks the profile */ });
     }
 
     // ── Client Portal access (login + field config) ────────────────────────

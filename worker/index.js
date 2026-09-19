@@ -425,6 +425,15 @@ function isAdminRole(user) {
     return !!user && (user.role === "alice" || user.role === "rafa" || user.role === "developer");
 }
 
+// Rafa and Nicole, NOT Alice. The pipeline gap is a consulting conversation
+// about how a client is running their own sales process -- Rafa's to raise in
+// a meeting. Alice handles money and the CRM; a number telling her a client is
+// not entering leads is not hers to chase and would read as an accusation she
+// has no context for. Narrower than isAdminRole on purpose (Nicole, 2026-09-18).
+function isConsultingRole(user) {
+    return !!user && (user.role === "rafa" || user.role === "developer");
+}
+
 // Nicole only. Some surfaces are the build trail, not the product: the prep
 // block queue is a list of what Rafa asked for by building it himself, so
 // showing it to him turns a silent signal into a to-do list on his own screen
@@ -14614,6 +14623,115 @@ async function handleGetEntryState(id, request, env) {
         });
     } catch (e) {
         return jsonErr("Error fetching entry state: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/pipeline-gap   (admin only — this is Rafa's view)
+//
+// Leads a client SAID they got, against leads the pipeline actually holds.
+// The daily log asks "Leads Gerados" every day; gm_leads is where a lead gets
+// worked. A lead counted in the log and absent from the pipeline is not a
+// reporting discrepancy -- it is a lead nobody can follow up, sitting in a
+// notebook or a phone. That gap is the product.
+//
+// ⚠️ WHY THIS ACCUMULATES AND IS NOT A PER-DAY WARNING. Measured against real
+// data on 2026-09-18 before it was built: of 25 recent days where a client
+// reported at least one lead, 19 had ZERO matching leads in the pipeline.
+// A daily "2 leads missing" banner would therefore fire on three quarters of
+// days and be ignored inside a week. The real shape of the problem is not a
+// leak here and there -- MAZINHO's last pipeline lead is 2026-08-31 and he has
+// reported leads on nine days since. That is pipeline abandonment, and it
+// only reads as abandonment when the days are added up.
+//
+// ⚠️ WHY A WINDOW AND NOT SAME-DAY. Clients do not enter a lead the day it
+// arrives (the same finding that made entry-suggestions editable rather than
+// locked). Same-day matching therefore always overstates the gap. Summing both
+// sides over the same window lets normal lag cancel out: a lead reported
+// Monday and entered Wednesday counts once on each side and nets to zero.
+//
+// Negative gaps are reported as 0, never as a negative: more leads in the
+// pipeline than were reported means the log was under-filled, which is a
+// different problem and not this one's to claim.
+// ---------------------------------------------------------------------------
+async function handleGetPipelineGap(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+
+        // Rafa and Nicole see every client. A client session sees ONLY its own
+        // row -- same number, same window, so the figure Rafa raises in a
+        // meeting is the figure the client already has in front of them.
+        // `?client=` is ignored for a client session: scope comes from the
+        // session, never the query string.
+        //
+        // Alice is deliberately NOT here. She is an admin everywhere else, so
+        // isAdminRole would have handed her the whole cross-client list.
+        var isConsulting = isConsultingRole(user);
+        var scopeId = isConsulting ? null : (user.client_id || null);
+        if (!isConsulting && !scopeId) { return jsonErr("Forbidden", 403); }
+
+        var url  = new URL(request.url);
+        var days = parseInt(url.searchParams.get("days"), 10);
+        if (!isFinite(days) || days < 7 || days > 180) { days = 30; }
+
+        var today = new Date().toISOString().slice(0, 10);
+        var since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+
+        // Reported side: sum leads_gerados across every completed daily entry
+        // in the window. json_extract returns NULL for a day the section was
+        // never filled, and SUM skips NULLs -- an unfilled day contributes
+        // nothing rather than a zero, which is the correct reading.
+        var reported = await env.DB.prepare(
+            "SELECT client_id, " +
+            "SUM(CAST(json_extract(sections_json,'$.clientes_mercado.values.leads_gerados') AS INTEGER)) AS n, " +
+            "MAX(entry_date) AS last_day " +
+            "FROM client_daily_entries " +
+            "WHERE entry_date >= ? AND entry_date <= ? " +
+            "AND json_extract(sections_json,'$.clientes_mercado.values.leads_gerados') IS NOT NULL " +
+            "GROUP BY client_id"
+        ).bind(since, today).all();
+
+        var entered = await env.DB.prepare(
+            "SELECT client_id, COUNT(*) AS n, MAX(date(COALESCE(data_lead, created_at))) AS last_day " +
+            "FROM gm_leads WHERE date(COALESCE(data_lead, created_at)) >= ? " +
+            "AND date(COALESCE(data_lead, created_at)) <= ? GROUP BY client_id"
+        ).bind(since, today).all();
+
+        var names = await env.DB.prepare(
+            "SELECT id, name FROM clients WHERE archived = 0"
+        ).all();
+        var nameById = {};
+        (names.results || []).forEach(function(r) { nameById[r.id] = r.name; });
+
+        var enteredBy = {};
+        (entered.results || []).forEach(function(r) { enteredBy[r.client_id] = r; });
+
+        var out = [];
+        (reported.results || []).forEach(function(r) {
+            if (scopeId && r.client_id !== scopeId) { return; }
+            // An archived client is not Rafa's problem to chase.
+            if (!nameById[r.client_id]) { return; }
+            var said = Number(r.n) || 0;
+            var have = Number((enteredBy[r.client_id] || {}).n) || 0;
+            var gap  = said - have;
+            if (gap <= 0) { return; }
+            out.push({
+                client_id:        r.client_id,
+                client_name:      nameById[r.client_id],
+                reported:         said,
+                in_pipeline:      have,
+                gap:              gap,
+                last_reported:    r.last_day || null,
+                last_in_pipeline: (enteredBy[r.client_id] || {}).last_day || null
+            });
+        });
+        // Worst first: the biggest hole is the conversation to have.
+        out.sort(function(a, b) { return b.gap - a.gap; });
+
+        return jsonOk({ since: since, until: today, days: days, clients: out });
+    } catch (e) {
+        return jsonErr("Error computing pipeline gap: " + e.message, 500);
     }
 }
 
@@ -31842,6 +31960,7 @@ async function handleFetch(request, env, ctx) {
         // Must precede the /api/clients/:id segment matcher below, or
         // "engagement-dates" is read as a client id.
         if (path === "/api/clients/engagement-dates" && method === "GET") { return handleGetClientEngagementDates(request, env); }
+        if (path === "/api/clients/pipeline-gap"    && method === "GET") { return handleGetPipelineGap(request, env); }
         if (path === "/api/clients"              && method === "POST") { return handlePostClients(request, env); }
         if (path === "/api/transcript"           && method === "POST") { return handlePostTranscript(request, env); }
         if (path === "/api/summarize"            && method === "POST") { return handlePostSummarize(request, env); }

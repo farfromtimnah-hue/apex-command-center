@@ -26930,7 +26930,7 @@ async function handleGetClubBySession(sessionId, request, env) {
 // ===========================================================================
 
 var VAPID_PUBLIC_KEY = "BB2FU9n-Nm_LcDWEdML34BlMWvmsj2aEJkeoYHBA6ILqJmjZIvYmnaqtxU2R601HJNeXnU6ZwDAjJjsVV69WDw0";
-var VAPID_SUBJECT    = "mailto:nlepage.ao.ail@gmail.com";
+var VAPID_SUBJECT    = "mailto:support@resonateai.online";
 
 function b64urlToBytes(s) {
     s = String(s).replace(/-/g, "+").replace(/_/g, "/");

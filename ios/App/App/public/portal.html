@@ -4667,7 +4667,11 @@
       var text = "Pedido de exclusão de conta\n\n" +
                  "Empresa: " + who + "\n" +
                  "\nO titular pediu a exclusão da conta e dos dados pelo aplicativo.";
-      window.open("https://wa.me/" + SUPPORT_ROUTES.business.phone +
+      // Routed to NICOLE, not Rafa. An App Review tester will tap this button
+      // to verify 5.1.1(v) and the request would otherwise land on the
+      // consultant's personal WhatsApp as a real deletion request from a
+      // client that never asked. Nicole triages and forwards a genuine one.
+      window.open("https://wa.me/" + SUPPORT_ROUTES.technical.phone +
                   "?text=" + encodeURIComponent(text), "_blank");
       document.getElementById("deleteAccountModal").hidden = true;
     }

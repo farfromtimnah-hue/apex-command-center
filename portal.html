@@ -361,6 +361,14 @@
       border: 1px dashed var(--border, #d8d2c8); border-radius: 6px;
     }
     .field-tile .tile-suggest:hover { color: var(--text, #2b2b2b); }
+    /* Says the pipeline holds nothing for this field. Same footprint as the
+       suggestion chip so the tile does not resize when one replaces the other,
+       but plainly not a button: no border, no pointer. */
+    .field-tile .tile-nosug {
+      display: block; width: 100%; margin-top: 6px; padding: 6px 8px;
+      font-size: 11px; line-height: 1.3; text-align: left;
+      color: var(--muted); opacity: 0.75;
+    }
 
     /* toggle */
     .toggle-row { display: flex; align-items: center; gap: 12px; }
@@ -2291,7 +2299,14 @@
               ? '<button type="button" class="tile-suggest" onclick="useSuggestion(\'' + ind.key + '\',\'' + sec + '\')">' +
                 escHtml(isEn() ? "Pipeline says " + sug + " — use it" : "O pipeline indica " + sug + " — usar") +
                 '</button>'
-              : "") +
+              // A null suggestion is the system saying it holds nothing for this
+              // field -- said out loud, because an absent chip is indistinguishable
+              // from a field that was never wired to the pipeline at all.
+              : (v === "" && sug === null
+                  ? '<div class="tile-nosug">' +
+                    escHtml(isEn() ? "Nothing in the system" : "Nada no sistema") +
+                    '</div>'
+                  : "")) +
             '</div>';
         }
       });
@@ -6717,7 +6732,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1789593137"></script>
+  <script src="gm.js?v=1789786681"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

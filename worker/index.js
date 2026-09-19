@@ -375,6 +375,22 @@ function previewSellerName(user, request) {
     return gmStr(ps, 80) || null;
 }
 
+// Can this seller act on this lead? True when they are the primary OR the
+// opt-in secondary on a shared visit (Rafa, 2026-09-18). ONE definition, used
+// by every row-level gate -- six call sites compared `lead.vendedor` directly
+// and each would have silently locked a secondary out of a lead they can see.
+//
+// A lead whose vendedor is NULL/'' belongs to the owner and stays closed to
+// every seller: the exact comparison gives that for free, and the trim ensures
+// an empty secondary never matches an empty seller name.
+function sellerCanActOnLead(lead, sellerName) {
+    var me = String(sellerName || "").trim();
+    if (!me) { return false; }
+    var primary   = String((lead && lead.vendedor) || "").trim();
+    var secondary = String((lead && lead.vendedor_secundario) || "").trim();
+    return me === primary || me === secondary;
+}
+
 // The vendedor filter to apply to a client's leads: a real seller session's own
 // name, or the name an admin is previewing. The session ALWAYS wins -- a seller
 // cannot widen or redirect their own scope by adding a query param.
@@ -14630,6 +14646,11 @@ async function handleGetEntryState(id, request, env) {
 // receita/saida are deliberately NOT suggested: gm_finance is optional and only
 // some clients keep it current, so a $0 suggestion would read as a real zero.
 // ---------------------------------------------------------------------------
+// A suggestion of 0 is a real measurement; null is the absence of one. This
+// only ever converts a SQL NULL/undefined aggregate to 0 -- the caller decides
+// whether the field should be null in the first place.
+function num0(v) { return (v === null || v === undefined) ? 0 : Number(v); }
+
 async function handleGetEntrySuggestions(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -14645,6 +14666,7 @@ async function handleGetEntrySuggestions(id, request, env) {
         // correct behaviour -- an undated lead belongs to no particular day.
         var leads = await env.DB.prepare(
             "SELECT " +
+            "COUNT(*) AS row_count, " +
             "SUM(CASE WHEN date(COALESCE(data_lead, created_at)) = ? THEN 1 ELSE 0 END) AS leads_gerados, " +
             "SUM(CASE WHEN date(data_estimate) = ? THEN 1 ELSE 0 END) AS envio_propostas, " +
             "SUM(CASE WHEN estagio IN ('estimate_enviado','follow_up','negociacao') " +
@@ -14659,13 +14681,20 @@ async function handleGetEntrySuggestions(id, request, env) {
             "AND new_value = 'fechado' AND date(created_at) = ?"
         ).bind(id, date).first();
 
+        // NULL means "the system has nothing to say about this field", which is
+        // NOT the same claim as zero. `|| 0` collapsed the two: a client with no
+        // pipeline data saw "O pipeline indica 0" and could accept a fabricated
+        // zero as if it were a measured one. A real 0 (the pipeline genuinely
+        // recorded no leads that day) is still offered -- that is an answer.
+        // The portal already renders nothing when a suggestion is null.
+        var hasLeadRows = !!(leads && leads.row_count > 0);
         return jsonOk({
             date: date,
             suggestions: {
-                leads_gerados:   (leads && leads.leads_gerados) || 0,
-                envio_propostas: (leads && leads.envio_propostas) || 0,
-                vendas_fechadas: (closed && closed.n) || 0,
-                pipeline_ativo:  (leads && leads.pipeline_ativo) || 0
+                leads_gerados:   hasLeadRows ? num0(leads.leads_gerados)   : null,
+                envio_propostas: hasLeadRows ? num0(leads.envio_propostas) : null,
+                vendas_fechadas: hasLeadRows ? num0(closed && closed.n)    : null,
+                pipeline_ativo:  hasLeadRows ? num0(leads.pipeline_ativo)  : null
             }
         });
     } catch (e) {
@@ -17731,8 +17760,13 @@ async function handleGetGmLeads(id, request, env) {
         // previewing as. Identical filtering either way, which is the point:
         // the preview shows what that person would actually see.
         var sellerName = effectiveSellerName(user, request);
-        var sellerFilter = sellerName ? " AND l.vendedor = ?" : "";
-        var leadBinds = sellerName ? [id, sellerName] : [id];
+        // A seller sees a lead when they are EITHER the primary or the opt-in
+        // secondary on a shared visit (Rafa, 2026-09-18). Both the row list and
+        // the summary tiles below use the same predicate and the same binds --
+        // if they ever diverge, a seller's tiles would describe a pipeline
+        // their rows do not show, which is the bug the comment above warns of.
+        var sellerFilter = sellerName ? " AND (l.vendedor = ? OR l.vendedor_secundario = ?)" : "";
+        var leadBinds = sellerName ? [id, sellerName, sellerName] : [id];
         var rows = await env.DB.prepare(
             "SELECT l.*, p.name AS parceiro_name, " +
             "(SELECT COUNT(*) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS contatos_count, " +
@@ -17752,7 +17786,8 @@ async function handleGetGmLeads(id, request, env) {
             "SUM(CASE WHEN data_lead IS NOT NULL AND data_estimate IS NOT NULL " +
             "AND (julianday(data_estimate) - julianday(data_lead)) > 1.0 THEN 1 ELSE 0 END) AS fora_sla_estimate, " +
             "SUM(CASE WHEN estagio NOT IN ('fechado','perdido') THEN 1 ELSE 0 END) AS live_count " +
-            "FROM gm_leads WHERE client_id = ?" + (sellerName ? " AND vendedor = ?" : "")
+            "FROM gm_leads WHERE client_id = ?" +
+            (sellerName ? " AND (vendedor = ? OR vendedor_secundario = ?)" : "")
         ).bind(...leadBinds).first();
         var leadsTotais = (summary && summary.leads_totais) || 0;
         var fechados = (summary && summary.fechados) || 0;
@@ -17859,7 +17894,13 @@ async function gmLeadFields(body, config, partial, env, clientId) {
     // the client's own record. Both are optional and usually empty early on.
     var strFields = [
         ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 200], ["servico", 400],
-        ["observacao", 2000], ["vendedor", 80], ["data_contato", 40],
+        ["observacao", 2000], ["vendedor", 80],
+        // Opt-in second seller on a shared visit. Empty/NULL is the normal
+        // case and means a single-seller lead -- most leads have one. Setting
+        // it is what splits the commission 50/50 (Rafa, 2026-09-18); clearing
+        // it returns the whole commission to the primary.
+        ["vendedor_secundario", 80],
+        ["data_contato", 40],
         ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40],
         ["address", 200], ["city", 100],
         // servico_desc is what the customer wants BUILT, in their own words --
@@ -17913,7 +17954,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
 // three changes a human actually made under noise.
 var GM_LEAD_LOGGED_FIELDS = [
     "cliente", "telefone", "email", "origem", "parceiro_id", "servico",
-    "observacao", "vendedor", "valor", "proxima_acao", "data_contato",
+    "observacao", "vendedor", "vendedor_secundario", "valor", "proxima_acao", "data_contato",
     "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
     "servico_desc", "status_financiamento", "followups"
 ].concat(GM_LEAD_COST_FIELDS);
@@ -18043,7 +18084,7 @@ async function handlePutGmLead(id, leadId, request, env) {
         // A lead with vendedor NULL/'' is the owner's and is not editable by
         // any seller, which falls out of the exact comparison.
         var putSeller = sessionSellerName(user);
-        if (putSeller && existing.vendedor !== putSeller) { return jsonErr("Forbidden", 403); }
+        if (putSeller && !sellerCanActOnLead(existing, putSeller)) { return jsonErr("Forbidden", 403); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var config = await gmGetConfig(env, id);
@@ -18132,11 +18173,11 @@ async function handleGetGmLeadEvents(id, leadId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
         var lead = await env.DB.prepare(
-            "SELECT id, vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+            "SELECT id, vendedor, vendedor_secundario FROM gm_leads WHERE id = ? AND client_id = ?"
         ).bind(leadId, id).first();
         if (!lead) { return jsonErr("Lead not found", 404); }
         var sellerName = effectiveSellerName(user, request);
-        if (sellerName && (lead.vendedor || "") !== sellerName) {
+        if (sellerName && !sellerCanActOnLead(lead, sellerName)) {
             return jsonErr("Lead not found", 404);
         }
 
@@ -18164,7 +18205,7 @@ async function handleGetGmLeadContacts(id, leadId, request, env) {
         // Same row-level rule as the lead itself: a seller reads the outreach
         // log only for their own leads.
         var cSeller = sessionSellerName(user);
-        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
+        if (cSeller && !sellerCanActOnLead(lead, cSeller)) { return jsonErr("Forbidden", 403); }
         var rows = await env.DB.prepare(
             "SELECT id, lead_id, method, result, notes, objection, logged_by, logged_at " +
             "FROM gm_lead_contacts WHERE lead_id = ? ORDER BY logged_at DESC"
@@ -18183,7 +18224,7 @@ async function handlePostGmLeadContact(id, leadId, request, env) {
         var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!lead) { return jsonErr("Lead not found", 404); }
         var cSeller = sessionSellerName(user);
-        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
+        if (cSeller && !sellerCanActOnLead(lead, cSeller)) { return jsonErr("Forbidden", 403); }
         var body = await request.json();
         var method = gmStr(body.method, 40);
         if (LEAD_CONTACT_METHODS.indexOf(method) < 0) { return jsonErr("Invalid method", 400); }
@@ -18274,7 +18315,7 @@ async function handlePatchGmLeadContact(id, leadId, contactId, request, env) {
         var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
         if (!lead) { return jsonErr("Lead not found", 404); }
         var cSeller = sessionSellerName(user);
-        if (cSeller && lead.vendedor !== cSeller) { return jsonErr("Forbidden", 403); }
+        if (cSeller && !sellerCanActOnLead(lead, cSeller)) { return jsonErr("Forbidden", 403); }
 
         // The row must belong to THIS lead and THIS client — a guessed id from
         // another business must not be patchable. Same rule as gmEventFields.
@@ -19285,11 +19326,29 @@ function gmJobComputed(row, targetMargin) {
     var comissaoPct = (row.comissao !== null && row.comissao !== undefined &&
                        row.valor && row.valor > 0)
         ? Math.round((row.comissao / row.valor) * 1000) / 10 : null;
+    // COMMISSION SPLIT (Rafa, 2026-09-18). Two sellers sometimes go on the same
+    // visit, so a lead can carry a second one. The agreed TOTAL commission does
+    // not change -- `comissao` is what the business pays out either way, and the
+    // cost maths above is untouched. What changes is who it is owed to: 50/50
+    // when a second seller is named, all of it to the primary when not.
+    //
+    // Three states, not two. null means unanswerable (no commission entered),
+    // exactly like comissao_pct above -- the UI must render a blank, never $0,
+    // because "no commission agreed yet" and "a commission of zero" are
+    // different claims. Same rule this file applies to margem_pct and alvo_ok.
+    var hasSecond   = !!(row.vendedor_secundario && String(row.vendedor_secundario).trim());
+    var comissaoSet = (row.comissao !== null && row.comissao !== undefined);
+    var shareEach   = comissaoSet
+        ? Math.round((hasSecond ? row.comissao / 2 : row.comissao) * 100) / 100
+        : null;
     return {
         custo_total: custoTotal,
         lucro: lucro,
         margem_pct: margemPct,
         comissao_pct: comissaoPct,
+        comissao_dividida:            hasSecond,
+        comissao_vendedor:            shareEach,
+        comissao_vendedor_secundario: hasSecond ? shareEach : null,
         // ALVO? — warn when margin is below the client's configured minimum.
         // "No proposal goes out below this number."
         //
@@ -20152,10 +20211,10 @@ async function gmSellerLeadGuard(env, user, clientId, leadId) {
     var seller = sessionSellerName(user);
     if (!seller) { return null; }
     var lead = await env.DB.prepare(
-        "SELECT vendedor FROM gm_leads WHERE id = ? AND client_id = ?"
+        "SELECT vendedor, vendedor_secundario FROM gm_leads WHERE id = ? AND client_id = ?"
     ).bind(leadId, clientId).first();
     if (!lead) { return jsonErr("Lead not found", 404); }
-    if (lead.vendedor !== seller) { return jsonErr("Forbidden", 403); }
+    if (!sellerCanActOnLead(lead, seller)) { return jsonErr("Forbidden", 403); }
     return null;
 }
 
@@ -20635,14 +20694,17 @@ function gmRedactEventsForSeller(events, sellerName, leadOwners) {
         // An own-event linked to a lead inherits that lead's vendedor when it
         // carries no assigned_to of its own -- otherwise a seller's own
         // estimate visit, entered as a manual event, would redact against them.
-        var owner = String(
-            ev.vendedor ||
-            ev.assigned_to ||
-            (ev.lead_id ? owners[ev.lead_id] : "") ||
-            ""
-        ).trim();
+        // The event's own attribution first; otherwise the lead's owners. A
+        // lead can have two (primary + secondary on a shared visit), so this
+        // is a list and a match against ANY of them is the seller's own event.
+        var owner = String(ev.vendedor || ev.assigned_to || "").trim();
+        var ownerList = owner
+            ? [owner]
+            : (ev.lead_id && owners[ev.lead_id] ? [].concat(owners[ev.lead_id]) : []);
         // Exact match, same contract as the gm_leads seller filter.
-        if (owner && mine && owner === mine) { return ev; }
+        if (mine && ownerList.some(function (o) { return String(o || "").trim() === mine; })) {
+            return ev;
+        }
 
         return {
             kind: ev.kind,
@@ -20860,10 +20922,17 @@ async function handleGetGmEvents(id, request, env) {
         var sellerName = effectiveSellerName(user, request);
         if (sellerName) {
             var ownerRows = await env.DB.prepare(
-                "SELECT id, vendedor FROM gm_leads WHERE client_id = ?"
+                "SELECT id, vendedor, vendedor_secundario FROM gm_leads WHERE client_id = ?"
             ).bind(id).all();
+            // BOTH sellers on a shared visit. A lead now has up to two owners,
+            // so this map holds an array -- keyed on the lead, not the person.
+            // With only the primary here, the secondary's own visit redacted to
+            // "Horário reservado" on their calendar: visible in the pipeline,
+            // invisible on the day it happens.
             var leadOwners = {};
-            (ownerRows.results || []).forEach(function (r) { leadOwners[r.id] = r.vendedor || ""; });
+            (ownerRows.results || []).forEach(function (r) {
+                leadOwners[r.id] = [r.vendedor || "", r.vendedor_secundario || ""];
+            });
             all = gmRedactEventsForSeller(all, sellerName, leadOwners);
         }
 

@@ -93,7 +93,12 @@ function gmSpecFieldHidden(def) {
   // A salesperson never picks the Vendedor: the Worker forces every lead they
   // create to their own name and refuses to let them reassign one, so an
   // editable picker here would offer a choice the server discards.
-  if (def.key === "vendedor") { return (window.PORTAL_IS_SELLER === true) || gmListEmpty(cfg.vendedores); }
+  // Same rule for both seller pickers: hidden from a seller session (the
+  // Worker refuses their reassignment anyway) and from a business with no
+  // roster to pick from.
+  if (def.key === "vendedor" || def.key === "vendedor_secundario") {
+    return (window.PORTAL_IS_SELLER === true) || gmListEmpty(cfg.vendedores);
+  }
   if (def.key === "mes" || def.key === "mes_entrega") { return gmListEmpty(cfg.cycle_months); }
   return false;
 }
@@ -838,7 +843,7 @@ function gmSearchDigits(s) {
 // because it RANKS first -- see gmLeadSearchRank.
 var GM_SEARCH_FIELDS = [
   "telefone", "email", "address", "city", "origem",
-  "servico", "servico_desc", "observacao", "vendedor",
+  "servico", "servico_desc", "observacao", "vendedor", "vendedor_secundario",
   "proxima_acao", "parceiro_name", "estagio"
 ];
 
@@ -1939,6 +1944,11 @@ function gmLeadFieldDefs() {
     { key: "data_estimate",  type: "datetime", pt: "Data/hora estimate",      en: "Estimate date/time" },
     { key: "servico",        type: "multichoice", pt: "Serviço(s)",           en: "Service(s)", options: cfg.servicos },
     { key: "vendedor",       type: "choice",   pt: "Vendedor",                en: "Salesperson", options: cfg.vendedores },
+    // Opt-in second seller for a shared visit (Rafa, 2026-09-18). Blank on
+    // almost every lead and that is the normal state -- naming someone here is
+    // what splits the commission 50/50 and opens the lead to them. Clearing it
+    // gives the whole commission back to the primary.
+    { key: "vendedor_secundario", type: "choice", pt: "Vendedor secundário (opcional)", en: "Second salesperson (optional)", options: cfg.vendedores },
     { key: "origem",         type: "choice",   pt: "Origem",                  en: "Source",    options: method.origens },
     { key: "parceiro_id",    type: "partner",  pt: "Parceiro",                en: "Partner" },
     { key: "telefone",       type: "tel",      pt: "Telefone",                en: "Phone" },
@@ -2084,6 +2094,16 @@ function gmRenderLeadSheet() {
     // asked for on the project screen.
     gmSheetRowHtml("users", gmT("Comissão vendedor ($)", "Sales commission ($)"),
       val("comissao"), edit("comissao")) +
+    // Shown ONLY when a second seller is named -- on a single-seller lead the
+    // whole commission goes to the primary and a "split" row would be noise.
+    // Read-only: the split follows from the second name, it is never typed.
+    (lead.comissao_dividida && lead.comissao_vendedor !== null &&
+     lead.comissao_vendedor !== undefined
+      ? gmSheetRowHtml("users",
+          gmT("Dividida 50/50", "Split 50/50"),
+          escHtml(fmtNum(lead.comissao_vendedor, "currency")) +
+            gmT(" para cada vendedor", " to each salesperson"))
+      : "") +
     // Tax, added 2026-08-27 at Rafa's request: "could you add another little
     // box to TAX?". An ordinary cost like the rest -- it comes off the top
     // before lucro, so margem_pct and alvo_ok account for it with no further

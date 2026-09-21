@@ -160,14 +160,29 @@
        underneath. The scrim is what keeps white text legible over a photo
        whose brightness we do not control. */
     .hero { position: relative; width: 100%; display: none; }
+    /* A soft top scrim so a corner logo stays legible over a bright sky. */
+    .hero-scrim::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 64px;
+      background: linear-gradient(to bottom, rgba(12,12,14,0.55), rgba(12,12,14,0));
+    }
     body.has-hero .hero { display: block; }
     /* The brandbar's own background is dropped when it overlays the hero --
        the scrim below provides the contrast instead. */
     body.has-hero .brandbar { background: transparent; margin-bottom: 0; padding: 0 14px 12px; }
-    /* The logo is hidden over a hero -- it sat squarely on the summit, and the
-       "Apex Business" wordmark directly beneath it already says the same thing.
-       One mark, not two competing for the subject of the photo. */
+    /* The logo stays -- hiding it removed the brand mark, which is not a
+       trade worth making. It moves to the TOP-LEFT corner instead, out of the
+       centre where the summit sits, so both survive. */
+    /* Over a hero the brandbar's own logo is hidden and .hero-logo (a separate
+       element, a direct child of .hero) is shown instead. Moving the mark to
+       its own element beats fighting containing blocks: it pins to the banner's
+       top-left cleanly, clear of the centred summit and the bottom text. */
     body.has-hero .brandbar img { display: none; }
+    .hero-logo {
+      position: absolute; top: 12px; left: 16px;
+      height: 22px; width: auto; z-index: 2; display: none;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+    }
+    body.has-hero .hero-logo { display: block; }
     body.has-hero .brandbar h1 { font-size: 20px; }
 
     .hero-img {
@@ -250,6 +265,7 @@
        original position -- byte-identical rendering to before. -->
   <div class="hero" id="heroWrap">
     <img class="hero-img" id="heroImg" alt="" decoding="async" fetchpriority="high">
+    <img class="hero-logo" src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex">
     <div class="hero-scrim"></div>
     <div class="hero-overlay" id="heroOverlay"></div>
   </div>

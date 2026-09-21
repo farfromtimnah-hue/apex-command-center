@@ -153,17 +153,31 @@
     body.has-hero .hero { display: block; }
     /* The brandbar's own background is dropped when it overlays the hero --
        the scrim below provides the contrast instead. */
-    body.has-hero .brandbar { background: transparent; margin-bottom: 0; }
+    body.has-hero .brandbar { background: transparent; margin-bottom: 0; padding: 10px 14px 14px; }
+    body.has-hero .brandbar img { height: 26px; margin-bottom: 7px; }
+    body.has-hero .brandbar h1 { font-size: 19px; }
 
     .hero-img {
       display: block; width: 100%;
-      /* Tall enough to read as a banner, short enough that the form is still
-         visible on a phone without scrolling. Ratio-based, not fixed px, so
-         it scales with the viewport instead of letterboxing. */
-      aspect-ratio: 16 / 7; object-fit: cover;
+      /* A BANNER, not a hero section. The form is the purpose of this page, so
+         the image is capped in real pixels as well as by ratio -- on a wide
+         desktop a pure ratio would run the banner to 500px+ and push the form
+         under the fold, which costs conversions for decoration. */
+      aspect-ratio: 21 / 6; object-fit: cover;
+      max-height: 260px;
+      /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
+         bottom equally, which on a mountain shot cuts the summit -- the one
+         part that has to survive. Biasing the crop upward keeps the peak in
+         frame with air above it, and sacrifices foreground instead, which is
+         where the text sits anyway. */
+      object-position: center 32%;
       background: var(--ink);
     }
-    @media (max-width: 520px) { .hero-img { aspect-ratio: 3 / 2; } }
+    @media (max-width: 520px) {
+      /* Taller crop on a phone: a 16:7 slice of a landscape photo leaves almost
+         no vertical room for a subject once the overlay takes the bottom half. */
+      .hero-img { aspect-ratio: 16 / 9; max-height: 200px; object-position: center 30%; }
+    }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white
        text, plus a stronger gradient at the bottom where the type actually
@@ -172,7 +186,16 @@
     .hero-scrim {
       position: absolute; inset: 0;
       background:
-        linear-gradient(to top, rgba(12,12,14,0.92) 0%, rgba(12,12,14,0.55) 38%, rgba(12,12,14,0.18) 70%, rgba(12,12,14,0.30) 100%);
+        /* Bottom-weighted so the type is legible, but held OFF the upper third
+           so the subject of the photo stays visible rather than being dimmed
+           into a grey field. The slight top vignette stops a bright sky from
+           blowing out against the page edge. */
+        linear-gradient(to top,
+          rgba(12,12,14,0.94) 0%,
+          rgba(12,12,14,0.86) 22%,
+          rgba(12,12,14,0.42) 46%,
+          rgba(12,12,14,0.10) 68%,
+          rgba(12,12,14,0.22) 100%);
     }
     .hero-overlay {
       position: absolute; left: 0; right: 0; bottom: 0;

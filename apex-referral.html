@@ -163,9 +163,12 @@
     body.has-hero .hero { display: block; }
     /* The brandbar's own background is dropped when it overlays the hero --
        the scrim below provides the contrast instead. */
-    body.has-hero .brandbar { background: transparent; margin-bottom: 0; padding: 10px 14px 14px; }
-    body.has-hero .brandbar img { height: 26px; margin-bottom: 7px; }
-    body.has-hero .brandbar h1 { font-size: 19px; }
+    body.has-hero .brandbar { background: transparent; margin-bottom: 0; padding: 0 14px 12px; }
+    /* The logo is hidden over a hero -- it sat squarely on the summit, and the
+       "Apex Business" wordmark directly beneath it already says the same thing.
+       One mark, not two competing for the subject of the photo. */
+    body.has-hero .brandbar img { display: none; }
+    body.has-hero .brandbar h1 { font-size: 20px; }
 
     .hero-img {
       display: block; width: 100%;
@@ -178,7 +181,7 @@
          max-height cap never applied at all, so the summit stayed cropped no
          matter what the cap said. Setting an explicit height makes the cap the
          real constraint and lets the ratio go wide naturally. */
-      height: clamp(180px, 26svh, 210px);
+      height: clamp(200px, 30svh, 240px);
       object-fit: cover;
       /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
          bottom equally, which on a mountain shot cuts the summit -- the one
@@ -194,7 +197,7 @@
       /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
          a real iPhone's browser chrome (~620px usable) would cut off. Capped
          with svh so it scales with the ACTUAL viewport rather than a guess. */
-      .hero-img { height: clamp(160px, 24svh, 190px); object-position: center 40%; }
+      .hero-img { height: clamp(175px, 26svh, 205px); object-position: center 38%; }
     }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white
@@ -209,15 +212,19 @@
            into a grey field. The slight top vignette stops a bright sky from
            blowing out against the page edge. */
         linear-gradient(to top,
-          rgba(12,12,14,0.96) 0%,
-          rgba(12,12,14,0.90) 30%,
-          rgba(12,12,14,0.62) 55%,
-          rgba(12,12,14,0.30) 78%,
-          rgba(12,12,14,0.40) 100%);
+          rgba(12,12,14,0.95) 0%,
+          rgba(12,12,14,0.88) 26%,
+          rgba(12,12,14,0.55) 44%,
+          rgba(12,12,14,0.12) 62%,
+          rgba(12,12,14,0.00) 80%,
+          rgba(12,12,14,0.10) 100%);
     }
     .hero-overlay {
       position: absolute; left: 0; right: 0; bottom: 0;
       padding: 0 0 4px;
+      /* Pinned to the bottom so the type never lands on the subject. The
+         summit owns the upper half of the banner; the words own the lower. */
+      display: flex; align-items: flex-end; justify-content: center;
     }
     /* A hairline of Apex gold along the bottom edge -- the one piece of brand
        colour that survives over an arbitrary photo. */

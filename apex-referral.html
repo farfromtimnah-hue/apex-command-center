@@ -173,11 +173,13 @@
          the image is capped in real pixels as well as by ratio -- on a wide
          desktop a pure ratio would run the banner to 500px+ and push the form
          under the fold, which costs conversions for decoration. */
-      aspect-ratio: 21 / 6; object-fit: cover;
-      /* Measured: 260px pushed the submit button below a phone's usable area;
-         159px cropped the summit out entirely. 200px is the band where the
-         subject survives AND the form stays above the fold. */
-      max-height: min(200px, 26svh);
+      /* HEIGHT-DRIVEN, not ratio-driven. Measured the hard way: with a 21/6
+         ratio the width dictated the height (556px wide forced 159px) and the
+         max-height cap never applied at all, so the summit stayed cropped no
+         matter what the cap said. Setting an explicit height makes the cap the
+         real constraint and lets the ratio go wide naturally. */
+      height: clamp(180px, 26svh, 210px);
+      object-fit: cover;
       /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
          bottom equally, which on a mountain shot cuts the summit -- the one
          part that has to survive. Biasing the crop upward keeps the peak in
@@ -192,7 +194,7 @@
       /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
          a real iPhone's browser chrome (~620px usable) would cut off. Capped
          with svh so it scales with the ACTUAL viewport rather than a guess. */
-      .hero-img { aspect-ratio: 16 / 9; max-height: min(170px, 24svh); object-position: center 40%; }
+      .hero-img { height: clamp(160px, 24svh, 190px); object-position: center 40%; }
     }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white

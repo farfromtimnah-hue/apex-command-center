@@ -1,0 +1,11 @@
+-- Optional hero image for an Apex partner's public referral landing
+-- (apex-referral.html?p=<slug>).
+--
+-- Nullable by design: the hero is OPTIONAL. A partner with no hero gets the
+-- existing black-and-gold brandbar exactly as before -- this adds a branch,
+-- never a requirement, so every current link keeps rendering unchanged.
+--
+-- Stores an R2 OBJECT KEY ("partner-heroes/<id>.<ext>"), not a URL, mirroring
+-- clients.logo_url. Raw R2 paths are never exposed to the frontend; the image
+-- is served through /api/apex-referral/:slug/hero-image.
+ALTER TABLE apex_partners ADD COLUMN hero_url TEXT;

@@ -19062,6 +19062,116 @@ async function handleGetApexPartners(request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Route: POST   /api/apex-partners/:id/hero      (admin; multipart "hero")
+// Route: DELETE /api/apex-partners/:id/hero      (admin; removes it)
+// Route: GET    /api/apex-referral/:slug/hero-image   (PUBLIC, by slug)
+//
+// The OPTIONAL hero image on a partner's public referral landing. Mirrors the
+// clients logo pattern deliberately: R2 object key in the DB, never a URL, and
+// the bytes served through our own route so no raw R2 path is ever exposed.
+//
+// Read by SLUG, not by partner id: the public page only ever knows the slug,
+// and keying the read on it means a partner id is never guessable from the
+// image URL.
+// ---------------------------------------------------------------------------
+
+var APEX_HERO_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+function apexHeroExt(type) {
+    return (type === "image/png")  ? "png"
+         : (type === "image/webp") ? "webp"
+         : "jpg";
+}
+
+async function handlePostApexPartnerHero(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var existing = await env.DB.prepare("SELECT id FROM apex_partners WHERE id = ?")
+            .bind(id).first();
+        if (!existing) { return jsonErr("Partner not found", 404); }
+
+        var form = await request.formData();
+        var file = form.get("hero");
+        if (!file || typeof file.arrayBuffer !== "function") {
+            return jsonErr("hero file is required", 400);
+        }
+        if (APEX_HERO_TYPES.indexOf(file.type) === -1) {
+            return jsonErr("Envie uma imagem JPG, PNG ou WebP.", 400);
+        }
+        // A hero is a full-width banner, so the ceiling is higher than a logo's
+        // -- but still bounded, because this is uploaded by hand and a 20MB
+        // phone photo would make the public page unusable on mobile data.
+        if (file.size > 5 * 1024 * 1024) {
+            return jsonErr("Imagem muito grande. O limite é 5MB.", 400);
+        }
+
+        var key = "partner-heroes/" + id + "." + apexHeroExt(file.type);
+        await env.ASSETS.put(key, await file.arrayBuffer(), {
+            httpMetadata: { contentType: file.type }
+        });
+        await env.DB.prepare("UPDATE apex_partners SET hero_url = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(key, id).run();
+
+        return jsonOk({ hero_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading hero: " + e.message, 500);
+    }
+}
+
+async function handleDeleteApexPartnerHero(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+
+        var row = await env.DB.prepare("SELECT hero_url FROM apex_partners WHERE id = ?")
+            .bind(id).first();
+        if (!row) { return jsonErr("Partner not found", 404); }
+
+        // Clear the pointer FIRST, then best-effort delete the object. If the
+        // R2 delete fails the page has already stopped showing the image, which
+        // is the behaviour that actually matters; an orphan object is harmless.
+        await env.DB.prepare("UPDATE apex_partners SET hero_url = NULL, updated_at = datetime('now') WHERE id = ?")
+            .bind(id).run();
+        if (row.hero_url) {
+            try { await env.ASSETS.delete(row.hero_url); } catch (e2) { /* orphan is harmless */ }
+        }
+        return jsonOk({ removed: true });
+    } catch (e) {
+        return jsonErr("Error removing hero: " + e.message, 500);
+    }
+}
+
+async function handleGetApexReferralHeroImage(slug, request, env) {
+    try {
+        var partner = await apexPartnerBySlug(env, slug);
+        if (!partner || !partner.hero_url) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+        if (!/^partner-heroes\/[A-Za-z0-9_-]+\.(png|jpe?g|webp)$/.test(partner.hero_url)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+        var obj = await env.ASSETS.get(partner.hero_url);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+
+        var allowed = { "image/jpeg": 1, "image/png": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ctype = allowed[stored] ? stored : "image/jpeg";
+
+        var headers = Object.assign({}, CORS_HEADERS, {
+            "Content-Type":  ctype,
+            "Cache-Control": "public, max-age=300"
+        });
+        return new Response(obj.body, { status: 200, headers: headers });
+    } catch (e) {
+        return new Response(null, { status: 404, headers: CORS_HEADERS });
+    }
+}
+
 async function handlePostApexPartner(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -19161,7 +19271,7 @@ async function handleDeleteApexPartner(rowId, request, env) {
 async function apexPartnerBySlug(env, slug) {
     if (!gmReferralSlugValid(slug)) { return null; }
     return env.DB.prepare(
-        "SELECT id, name FROM apex_partners WHERE referral_slug = ?"
+        "SELECT id, name, hero_url FROM apex_partners WHERE referral_slug = ?"
     ).bind(slug).first();
 }
 
@@ -19171,7 +19281,13 @@ async function handleGetApexReferralInfo(slug, request, env) {
         if (!partner) { return jsonErr("Not found", 404); }
         // First name only — it is the partner's own link, and nothing else
         // about Apex's partner roster is exposed publicly.
-        return jsonOk({ partner_name: (partner.name || "").split(/\s+/)[0] });
+        //
+        // has_hero is a BOOLEAN, never the R2 key: the page only needs to know
+        // whether to render the hero branch, and the key stays server-side.
+        return jsonOk({
+            partner_name: (partner.name || "").split(/\s+/)[0],
+            has_hero:     !!partner.hero_url
+        });
     } catch (e) {
         return jsonErr("Error loading referral form", 500);
     }
@@ -31916,6 +32032,14 @@ async function handleFetch(request, env, ctx) {
         // PUBLIC intake for APEX'S OWN referral partners. Separate path and
         // separate handlers from /api/referral/ above: that one creates a
         // gm_leads row for a CLIENT, this one creates an Apex-internal lead.
+        // PUBLIC hero image for a partner's landing. Checked BEFORE the bare
+        // slug route below, since that one would not match this longer path
+        // but keeping them adjacent makes the ordering intent explicit.
+        var apexHeroMatch = path.match(/^\/api\/apex-referral\/([A-Za-z0-9]+)\/hero-image$/);
+        if (apexHeroMatch && method === "GET") {
+            return handleGetApexReferralHeroImage(apexHeroMatch[1], request, env);
+        }
+
         var apexRefMatch = path.match(/^\/api\/apex-referral\/([A-Za-z0-9]+)$/);
         if (apexRefMatch) {
             if (method === "GET")  { return handleGetApexReferralInfo(apexRefMatch[1], request, env); }
@@ -31928,6 +32052,14 @@ async function handleFetch(request, env, ctx) {
             if (method === "GET")  { return handleGetApexPartners(request, env); }
             if (method === "POST") { return handlePostApexPartner(request, env); }
         }
+        // Admin hero upload/removal. Must precede the bare :id route so the
+        // longer path is not shadowed.
+        var apexPartnerHeroMatch = path.match(/^\/api\/apex-partners\/([A-Za-z0-9-]+)\/hero$/);
+        if (apexPartnerHeroMatch) {
+            if (method === "POST")   { return handlePostApexPartnerHero(apexPartnerHeroMatch[1], request, env); }
+            if (method === "DELETE") { return handleDeleteApexPartnerHero(apexPartnerHeroMatch[1], request, env); }
+        }
+
         var apexPartnerMatch = path.match(/^\/api\/apex-partners\/([A-Za-z0-9-]+)$/);
         if (apexPartnerMatch) {
             if (method === "PUT")    { return handlePutApexPartner(apexPartnerMatch[1], request, env); }

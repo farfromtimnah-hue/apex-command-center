@@ -1061,6 +1061,29 @@
           <label><span class="show-pt">Próxima ação</span><span class="show-en">Next action</span></label>
           <input type="text" id="apProxima" maxlength="500">
         </div>
+        <!-- OPTIONAL hero image for this partner's public referral link.
+             Only offered once the partner exists (it uploads against their id),
+             so it is hidden on the create form. -->
+        <div class="field-group" id="apHeroGroup" hidden>
+          <label>
+            <span class="show-pt">Imagem de capa do link (opcional)</span>
+            <span class="show-en">Link cover image (optional)</span>
+          </label>
+          <div id="apHeroPreviewWrap" hidden style="margin-bottom:8px;">
+            <img id="apHeroPreview" alt="" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e3ded6);display:block;">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="apHeroFile" accept="image/jpeg,image/png,image/webp" style="flex:1;min-width:180px;font-size:13px;">
+            <button type="button" class="ap-btn" id="apHeroRemove" hidden
+                    style="color:#b44040;border-color:#b44040;" onclick="removeApexPartnerHero()">
+              <span class="show-pt">Remover</span><span class="show-en">Remove</span>
+            </button>
+          </div>
+          <div style="font-size:12px;color:#6b6660;margin-top:6px;">
+            <span class="show-pt">JPG, PNG ou WebP. Máximo 5MB. Sem imagem, o link mantém o visual padrão.</span>
+            <span class="show-en">JPG, PNG or WebP. Max 5MB. Without one, the link keeps the default look.</span>
+          </div>
+        </div>
         <div class="form-status" id="apStatusMsg"></div>
         <div style="display:flex;gap:10px;margin-top:12px;">
           <button class="btn-primary" style="flex:1;" onclick="saveApexPartner()">
@@ -2050,6 +2073,28 @@
 
       document.getElementById("apStatusMsg").textContent = "";
       document.getElementById("apDelete").hidden = !id;
+
+      // Hero: only offered for a partner that already exists, since the upload
+      // is keyed on their id. Cleared every open so a previous partner's image
+      // never bleeds into the next one.
+      var heroGroup = document.getElementById("apHeroGroup");
+      var heroFile  = document.getElementById("apHeroFile");
+      var heroWrap  = document.getElementById("apHeroPreviewWrap");
+      var heroRm    = document.getElementById("apHeroRemove");
+      heroFile.value = "";
+      heroGroup.hidden = !id;
+      if (id && p && p.hero_url && p.referral_slug) {
+        // Cache-busted: after a re-upload the key is unchanged, so without this
+        // the browser would keep showing the previous image.
+        document.getElementById("apHeroPreview").src =
+          WORKER_URL + "/api/apex-referral/" + p.referral_slug + "/hero-image?t=" + Date.now();
+        heroWrap.hidden = false;
+        heroRm.hidden = false;
+      } else {
+        heroWrap.hidden = true;
+        heroRm.hidden = true;
+      }
+
       document.getElementById("modalApexPartner").hidden = false;
     }
 
@@ -2073,8 +2118,56 @@
       var req = apexOpenPartnerId
         ? apexApi("/api/apex-partners/" + apexOpenPartnerId, "PUT", body)
         : apexApi("/api/apex-partners", "POST", body);
-      req.then(function () {
+      req.then(function (saved) {
+          // Upload the hero only after the row itself saved, and only when a
+          // file was actually chosen. A failed upload must NOT silently look
+          // like a failed save, so it reports its own error and leaves the
+          // modal open rather than closing on a half-done result.
+          var f = document.getElementById("apHeroFile").files[0];
+          var targetId = apexOpenPartnerId || (saved && saved.partner && saved.partner.id);
+          if (!f || !targetId) { return null; }
+          msg.textContent = en ? "Uploading image…" : "Enviando imagem…";
+          return uploadApexPartnerHero(targetId, f);
+        })
+        .then(function () {
           document.getElementById("modalApexPartner").hidden = true;
+          return loadApexPartners();
+        })
+        .catch(function (e) { msg.textContent = e.message; });
+    }
+
+    // Multipart, so it cannot go through apexApi (which forces JSON).
+    function uploadApexPartnerHero(id, file) {
+      return getToken().then(function (token) {
+        var fd = new FormData();
+        fd.append("hero", file);
+        return fetch(WORKER_URL + "/api/apex-partners/" + id + "/hero", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: fd
+        });
+      }).then(function (res) {
+        return res.json().then(function (d) {
+          if (!res.ok || d.error) { throw new Error(d.error || "HTTP " + res.status); }
+          return d;
+        });
+      });
+    }
+
+    function removeApexPartnerHero() {
+      if (!apexOpenPartnerId) { return; }
+      var en = document.body.classList.contains("lang-en");
+      if (!window.confirm(en
+        ? "Remove the cover image from this partner's link?"
+        : "Remover a imagem de capa do link deste parceiro?")) { return; }
+      var msg = document.getElementById("apStatusMsg");
+      msg.textContent = en ? "Removing…" : "Removendo…";
+      apexApi("/api/apex-partners/" + apexOpenPartnerId + "/hero", "DELETE")
+        .then(function () {
+          document.getElementById("apHeroPreviewWrap").hidden = true;
+          document.getElementById("apHeroRemove").hidden = true;
+          document.getElementById("apHeroFile").value = "";
+          msg.textContent = "";
           return loadApexPartners();
         })
         .catch(function (e) { msg.textContent = e.message; });

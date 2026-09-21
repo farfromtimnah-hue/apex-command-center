@@ -138,14 +138,74 @@
     /* Honeypot: visually removed but present in the DOM for bots. */
     .hp-field { position: absolute; left: -9999px; top: -9999px; height: 0; overflow: hidden; }
     .loading, .notfound { text-align: center; color: var(--muted); padding: 30px 0; font-size: 15px; }
+
+    /* ---- OPTIONAL hero image -------------------------------------------
+       Hidden by default and revealed only when the partner actually has one.
+       A partner with no hero renders EXACTLY as before this existed -- the
+       brandbar is unchanged, so no current link shifts.
+
+       When a hero IS present the brandbar sits on top of it rather than above
+       it: the image becomes the surface the logo and headline sit on, which
+       reads as one composed banner instead of a photo with a black bar glued
+       underneath. The scrim is what keeps white text legible over a photo
+       whose brightness we do not control. */
+    .hero { position: relative; width: 100%; display: none; }
+    body.has-hero .hero { display: block; }
+    /* The brandbar's own background is dropped when it overlays the hero --
+       the scrim below provides the contrast instead. */
+    body.has-hero .brandbar { background: transparent; margin-bottom: 0; }
+
+    .hero-img {
+      display: block; width: 100%;
+      /* Tall enough to read as a banner, short enough that the form is still
+         visible on a phone without scrolling. Ratio-based, not fixed px, so
+         it scales with the viewport instead of letterboxing. */
+      aspect-ratio: 16 / 7; object-fit: cover;
+      background: var(--ink);
+    }
+    @media (max-width: 520px) { .hero-img { aspect-ratio: 3 / 2; } }
+
+    /* Two stacked layers: a base darkening pass so ANY photo can carry white
+       text, plus a stronger gradient at the bottom where the type actually
+       sits. Doing it in two passes keeps the top of the image from going
+       muddy while still guaranteeing contrast where it is needed. */
+    .hero-scrim {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(to top, rgba(12,12,14,0.92) 0%, rgba(12,12,14,0.55) 38%, rgba(12,12,14,0.18) 70%, rgba(12,12,14,0.30) 100%);
+    }
+    .hero-overlay {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 0 0 4px;
+    }
+    /* A hairline of Apex gold along the bottom edge -- the one piece of brand
+       colour that survives over an arbitrary photo. */
+    .hero::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+      height: 3px; background: var(--gold);
+    }
+    body.has-hero .brandbar img { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.55)); }
+    body.has-hero .brandbar h1 { text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+    body.has-hero .brandbar .sub { text-shadow: 0 1px 6px rgba(0,0,0,0.55); }
   </style>
 </head>
 <body>
-  <div class="brandbar">
-    <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex">
-    <div class="eyebrow">Indicação</div>
-    <h1>Apex Business</h1>
-    <div class="sub" id="introLine"></div>
+  <!-- Hero wrapper. When no hero exists, body lacks .has-hero, this whole
+       block is display:none, and #brandbarSlot below holds the brandbar in its
+       original position -- byte-identical rendering to before. -->
+  <div class="hero" id="heroWrap">
+    <img class="hero-img" id="heroImg" alt="">
+    <div class="hero-scrim"></div>
+    <div class="hero-overlay" id="heroOverlay"></div>
+  </div>
+
+  <div id="brandbarSlot">
+    <div class="brandbar" id="brandbar">
+      <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex">
+      <div class="eyebrow">Indicação</div>
+      <h1>Apex Business</h1>
+      <div class="sub" id="introLine"></div>
+    </div>
   </div>
 
   <div class="card" id="cardLoading">
@@ -208,6 +268,7 @@
           document.getElementById("introLine").innerHTML =
             (d.partner_name ? escHtml(d.partner_name) + " indicou você. " : "") +
             "Deixe seus dados e a equipe entra em contato.";
+          if (d.has_hero) { applyHero(); }
           showCard("cardForm");
         })
         .catch(function() { showCard("cardNotFound"); });
@@ -242,6 +303,21 @@
           btn.disabled = false;
           err.textContent = e.message;
         });
+    }
+
+    // Moves the brandbar INTO the hero and switches the page to hero layout --
+    // but only once the image has genuinely decoded. If the request 404s or the
+    // bytes are corrupt, onerror leaves the page in its default state, so a
+    // broken hero degrades to the normal black brandbar instead of a blank
+    // gap with white text floating over nothing.
+    function applyHero() {
+      var img = document.getElementById("heroImg");
+      img.onload = function() {
+        document.getElementById("heroOverlay").appendChild(document.getElementById("brandbar"));
+        document.body.classList.add("has-hero");
+      };
+      img.onerror = function() { /* stay on the default brandbar */ };
+      img.src = WORKER_URL + "/api/apex-referral/" + slug + "/hero-image";
     }
 
     loadForm();

@@ -183,14 +183,21 @@
          real constraint and lets the ratio go wide naturally. */
       height: clamp(200px, 30svh, 240px);
       object-fit: cover;
+      /* No background fill. An <img> paints its own background while the bytes
+         are still arriving, so a dark fill here IS the "black hero" on a slow
+         connection: a black box with text floating on it until the photo lands.
+         The wrapper carries a neutral tone instead, and the hero only reveals
+         once the image has actually decoded. */
       /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
          bottom equally, which on a mountain shot cuts the summit -- the one
          part that has to survive. Biasing the crop upward keeps the peak in
          frame with air above it, and sacrifices foreground instead, which is
          where the text sits anyway. */
       object-position: center 42%;
-      background: var(--ink);
+      /* Fades in on decode rather than snapping from a blank box. */
+      opacity: 0; transition: opacity 260ms ease;
     }
+    body.has-hero .hero-img { opacity: 1; }
     @media (max-width: 520px) {
       /* Taller crop on a phone: a 16:7 slice of a landscape photo leaves almost
          no vertical room for a subject once the overlay takes the bottom half. */
@@ -242,7 +249,7 @@
        block is display:none, and #brandbarSlot below holds the brandbar in its
        original position -- byte-identical rendering to before. -->
   <div class="hero" id="heroWrap">
-    <img class="hero-img" id="heroImg" alt="">
+    <img class="hero-img" id="heroImg" alt="" decoding="async" fetchpriority="high">
     <div class="hero-scrim"></div>
     <div class="hero-overlay" id="heroOverlay"></div>
   </div>
@@ -361,8 +368,14 @@
     function applyHero() {
       var img = document.getElementById("heroImg");
       img.onload = function() {
-        document.getElementById("heroOverlay").appendChild(document.getElementById("brandbar"));
-        document.body.classList.add("has-hero");
+        // decode() resolves only once the bitmap is actually ready to paint.
+        // onload alone can fire while the frame is still blank, which is how a
+        // black box reached the screen in the first place.
+        var reveal = function() {
+          document.getElementById("heroOverlay").appendChild(document.getElementById("brandbar"));
+          document.body.classList.add("has-hero");
+        };
+        if (img.decode) { img.decode().then(reveal).catch(reveal); } else { reveal(); }
       };
       img.onerror = function() { /* stay on the default brandbar */ };
       img.src = WORKER_URL + "/api/apex-referral/" + slug + "/hero-image";

@@ -174,13 +174,16 @@
          desktop a pure ratio would run the banner to 500px+ and push the form
          under the fold, which costs conversions for decoration. */
       aspect-ratio: 21 / 6; object-fit: cover;
-      max-height: 260px;
+      /* Measured: 260px pushed the submit button below a phone's usable area;
+         159px cropped the summit out entirely. 200px is the band where the
+         subject survives AND the form stays above the fold. */
+      max-height: min(200px, 26svh);
       /* Anchored ABOVE centre. A cover-crop of a landscape photo trims top and
          bottom equally, which on a mountain shot cuts the summit -- the one
          part that has to survive. Biasing the crop upward keeps the peak in
          frame with air above it, and sacrifices foreground instead, which is
          where the text sits anyway. */
-      object-position: center 32%;
+      object-position: center 42%;
       background: var(--ink);
     }
     @media (max-width: 520px) {
@@ -189,7 +192,7 @@
       /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
          a real iPhone's browser chrome (~620px usable) would cut off. Capped
          with svh so it scales with the ACTUAL viewport rather than a guess. */
-      .hero-img { aspect-ratio: 16 / 9; max-height: min(150px, 22svh); object-position: center 30%; }
+      .hero-img { aspect-ratio: 16 / 9; max-height: min(170px, 24svh); object-position: center 40%; }
     }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white
@@ -204,11 +207,11 @@
            into a grey field. The slight top vignette stops a bright sky from
            blowing out against the page edge. */
         linear-gradient(to top,
-          rgba(12,12,14,0.94) 0%,
-          rgba(12,12,14,0.86) 22%,
-          rgba(12,12,14,0.42) 46%,
-          rgba(12,12,14,0.10) 68%,
-          rgba(12,12,14,0.22) 100%);
+          rgba(12,12,14,0.96) 0%,
+          rgba(12,12,14,0.90) 30%,
+          rgba(12,12,14,0.62) 55%,
+          rgba(12,12,14,0.30) 78%,
+          rgba(12,12,14,0.40) 100%);
     }
     .hero-overlay {
       position: absolute; left: 0; right: 0; bottom: 0;

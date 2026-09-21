@@ -179,13 +179,17 @@
        than behind the logo. */
     .hero-logo { display: none; }
     body.has-hero .brandbar img {
-      /* 22px was sized for the abandoned corner placement. Back in the centred
-         block it has room to carry the brand properly -- matches the no-hero
-         brandbar's own 34px. */
-      display: block; height: 34px; margin: 0 auto 9px;
-      filter: drop-shadow(0 2px 7px rgba(0,0,0,0.65));
+      /* The logo IS the headline over a hero -- it carries the wordmark and the
+         "Business & Leadership" lockup already, so the <h1> repeating "Apex
+         Business" underneath it was redundant AND was eating the height the
+         mark needed. h1 is hidden below; the logo takes that space. */
+      display: block; height: clamp(58px, 13vw, 76px); width: auto;
+      margin: 0 auto 10px;
+      filter: drop-shadow(0 3px 10px rgba(0,0,0,0.7));
     }
-    body.has-hero .brandbar h1 { font-size: 20px; }
+    /* Redundant with the logo's own wordmark. */
+    body.has-hero .brandbar h1 { display: none; }
+
 
     .hero-img {
       display: block; width: 100%;
@@ -198,7 +202,7 @@
          max-height cap never applied at all, so the summit stayed cropped no
          matter what the cap said. Setting an explicit height makes the cap the
          real constraint and lets the ratio go wide naturally. */
-      height: clamp(245px, 35svh, 285px);
+      height: clamp(255px, 36svh, 295px);
       object-fit: cover;
       /* No background fill. An <img> paints its own background while the bytes
          are still arriving, so a dark fill here IS the "black hero" on a slow
@@ -221,7 +225,7 @@
       /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
          a real iPhone's browser chrome (~620px usable) would cut off. Capped
          with svh so it scales with the ACTUAL viewport rather than a guess. */
-      .hero-img { height: clamp(215px, 32svh, 245px); object-position: center 35%; }
+      .hero-img { height: clamp(225px, 33svh, 255px); object-position: center 34%; }
     }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white

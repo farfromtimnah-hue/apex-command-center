@@ -183,12 +183,17 @@
          "Business & Leadership" lockup already, so the <h1> repeating "Apex
          Business" underneath it was redundant AND was eating the height the
          mark needed. h1 is hidden below; the logo takes that space. */
-      display: block; height: clamp(58px, 13vw, 76px); width: auto;
-      margin: 0 auto 10px;
+      display: block; height: clamp(76px, 17vw, 104px); width: auto;
+      margin: 0 auto 12px;
       filter: drop-shadow(0 3px 10px rgba(0,0,0,0.7));
     }
-    /* Redundant with the logo's own wordmark. */
-    body.has-hero .brandbar h1 { display: none; }
+    /* EITHER/OR, per the original design intent: the name is the FALLBACK for
+       a missing logo, never a second copy of it. The logo already carries the
+       wordmark, so showing both says it twice. .logo-failed is set by the
+       onerror below, which is the only case where the name has to appear. */
+    .brandbar h1 { display: none; }
+    body.logo-failed .brandbar h1 { display: block; }
+    body.logo-failed .brandbar img { display: none; }
 
 
     .hero-img {
@@ -240,19 +245,22 @@
            into a grey field. The slight top vignette stops a bright sky from
            blowing out against the page edge. */
         linear-gradient(to top,
-          rgba(12,12,14,0.95) 0%,
-          rgba(12,12,14,0.88) 26%,
-          rgba(12,12,14,0.55) 44%,
-          rgba(12,12,14,0.12) 62%,
-          rgba(12,12,14,0.00) 80%,
-          rgba(12,12,14,0.10) 100%);
+          rgba(12,12,14,0.86) 0%,
+          rgba(12,12,14,0.72) 30%,
+          rgba(12,12,14,0.58) 55%,
+          rgba(12,12,14,0.42) 78%,
+          rgba(12,12,14,0.44) 100%);
     }
     .hero-overlay {
-      position: absolute; left: 0; right: 0; bottom: 0;
+      position: absolute; left: 0; right: 0; top: 0; bottom: 0;
       padding: 0 0 4px;
       /* Pinned to the bottom so the type never lands on the subject. The
          summit owns the upper half of the banner; the words own the lower. */
-      display: flex; align-items: flex-end; justify-content: center;
+      /* Was flex-end, which pinned the block to the bottom and left a band of
+         unused sky above the logo. Now the overlay spans the banner and the
+         block centres in it, so the mark sits in the frame rather than under
+         it. */
+      display: flex; align-items: center; justify-content: center;
     }
     /* A hairline of Apex gold along the bottom edge -- the one piece of brand
        colour that survives over an arbitrary photo. */
@@ -278,7 +286,8 @@
 
   <div id="brandbarSlot">
     <div class="brandbar" id="brandbar">
-      <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex">
+      <img src="https://apexbusiness.pro/wp-content/uploads/2025/12/LogoApex.png" alt="Apex"
+           onerror="document.body.classList.add('logo-failed')">
       <div class="eyebrow">Indicação</div>
       <h1>Apex Business</h1>
       <div class="sub" id="introLine"></div>

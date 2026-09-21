@@ -172,17 +172,16 @@
     /* The logo stays -- hiding it removed the brand mark, which is not a
        trade worth making. It moves to the TOP-LEFT corner instead, out of the
        centre where the summit sits, so both survive. */
-    /* Over a hero the brandbar's own logo is hidden and .hero-logo (a separate
-       element, a direct child of .hero) is shown instead. Moving the mark to
-       its own element beats fighting containing blocks: it pins to the banner's
-       top-left cleanly, clear of the centred summit and the bottom text. */
-    body.has-hero .brandbar img { display: none; }
-    .hero-logo {
-      position: absolute; top: 12px; left: 16px;
-      height: 22px; width: auto; z-index: 2; display: none;
+    /* The logo stays IN the centred block with the rest of the type, where it
+       reads as one composed unit. The corner placement was tried and looked
+       detached from the text it belongs to. Keeping it in the block is why the
+       banner is tall enough for the summit to sit ABOVE the whole group rather
+       than behind the logo. */
+    .hero-logo { display: none; }
+    body.has-hero .brandbar img {
+      display: block; height: 22px; margin: 0 auto 6px;
       filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
     }
-    body.has-hero .hero-logo { display: block; }
     body.has-hero .brandbar h1 { font-size: 20px; }
 
     .hero-img {
@@ -196,7 +195,7 @@
          max-height cap never applied at all, so the summit stayed cropped no
          matter what the cap said. Setting an explicit height makes the cap the
          real constraint and lets the ratio go wide naturally. */
-      height: clamp(200px, 30svh, 240px);
+      height: clamp(225px, 33svh, 265px);
       object-fit: cover;
       /* No background fill. An <img> paints its own background while the bytes
          are still arriving, so a dark fill here IS the "black hero" on a slow
@@ -219,7 +218,7 @@
       /* Measured: at 390x706 a 200px cap put the submit button at y=604, which
          a real iPhone's browser chrome (~620px usable) would cut off. Capped
          with svh so it scales with the ACTUAL viewport rather than a guess. */
-      .hero-img { height: clamp(175px, 26svh, 205px); object-position: center 38%; }
+      .hero-img { height: clamp(200px, 30svh, 230px); object-position: center 36%; }
     }
 
     /* Two stacked layers: a base darkening pass so ANY photo can carry white

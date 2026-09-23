@@ -19915,33 +19915,15 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
 
         // ── Metric 8 — closed vs lost counts ────────────────────────────────
         //
-        // CLOSED WORK LIVES IN gm_jobs, NOT IN gm_leads.estagio='Fechado'.
-        // Counting only the lead stage made this metric blind: Andrey Sans owns
-        // a $64,000 signed project and has zero leads at 'Fechado', so the page
-        // said "0 fechados" and 0% next to money it had itself just reported.
-        // Asaf was the same at $75,000. Same family of bug as the overdue-tasks
-        // tile that could not see 96% of its rows — the query structurally
-        // excluded the data, so the number was not slightly off, it was blind.
-        //
-        // Jobs are counted where the lead never reached 'Fechado', so a deal
-        // that exists in both tables is not counted twice. `jobs` is loaded
-        // further down (it is also what the money tiles use); the lookup is
-        // built here and consumed after that query runs.
+        // Closed deals are the 'Fechado' leads, each linked project counted
+        // once. Computed with the money figures below; see the WON note there.
         var wonLeads = leads.filter(function(l) { return l.estagio === "fechado"; }).length;
         var lost = leads.filter(function(l) { return l.estagio === "perdido"; }).length;
 
         // ── Metric 9 — average deal value on closed deals ───────────────────
         // Catches DISCOUNTING, which a closing ratio alone hides: a seller
         // closing 80% at low average value is buying deals.
-        // Values come from gm_jobs for the same reason as the counts above: a
-        // 'Fechado' lead here carries no valor, so averaging the lead rows
-        // produced an average over an empty set. Computed after `jobs` loads.
-        var closedValues = [];
-        leads.forEach(function(l) {
-            if (l.estagio === "fechado" && l.valor !== null && l.valor !== undefined) {
-                closedValues.push(l.valor);
-            }
-        });
+        // Averaged over the same closed deals the counts use, further down.
         var avgDeal = null;
 
         // ── Metric 10 — touches before close/loss ───────────────────────────
@@ -20018,36 +20000,72 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
             return l.estagio !== "perdido" && l.estagio !== "fechado";
         });
 
-        // WON comes from gm_jobs, not from gm_leads: a job is the signed work,
-        // and gm_jobs.vendedor is backfilled. gm_leads.estagio='Fechado' is a
-        // pipeline state that mostly predates the jobs table here and carries
-        // no value, so summing it would under-report what was actually sold.
-        var jobBinds = sellerFilter ? [id, sellerFilter] : [id];
+        // WON comes from the CLOSED LEADS, with each linked project counted
+        // ONCE through gm_jobs.lead_id. Superseded 2026-09-23: this used to add
+        // every job on top of every 'Fechado' lead, back when almost no lead
+        // sat at Fechado. Once sellers closed leads AND hand-typed a matching
+        // project (before 2026-09-16, when a won lead started becoming its own
+        // project), each deal counted twice: JM read "10 closed" for 5 deals,
+        // and the closed tile summed the projects ($350,900) instead of the
+        // deals Rafa actually closed ($422,000), crediting nothing to the
+        // seller named on the lead.
+        //
+        // A project with NO lead is not counted: nothing ties it to a seller's
+        // pipeline, and it may be the same deal as a closed lead under a
+        // different spelling. It is FLAGGED instead, by name, with the reason,
+        // so the page never silently drops money. The one exception is a
+        // project marked legacy_closed: a deal from before won leads became
+        // projects, marked by hand as a one-time catch-up (see
+        // migrations/gm_jobs_legacy_closed.sql). It counts on its own. Same for a linked pair whose
+        // values disagree: counted at the lead's value, flagged with both.
         var jobRows = await env.DB.prepare(
-            "SELECT obra AS nome, vendedor, valor FROM gm_jobs WHERE client_id = ?" +
-            (sellerFilter ? " AND vendedor = ?" : "")
-        ).bind(...jobBinds).all();
-        var jobs = jobRows.results || [];
+            "SELECT id, lead_id, obra AS nome, vendedor, valor, legacy_closed FROM gm_jobs WHERE client_id = ?"
+        ).bind(id).all();
+        var allJobs = jobRows.results || [];
+        var jobByLead = {};
+        allJobs.forEach(function(j) { if (j.lead_id) { jobByLead[j.lead_id] = j; } });
 
-        var wonMoney = gmDiagMoney(jobs);
+        var closedDeals = [];
+        var dealFlags = [];
+        leads.forEach(function(l) {
+            if (l.estagio !== "fechado") { return; }
+            var j = jobByLead[l.id] || null;
+            var hasLeadVal = l.valor !== null && l.valor !== undefined && l.valor > 0;
+            var hasJobVal = j && j.valor !== null && j.valor !== undefined && j.valor > 0;
+            closedDeals.push({
+                nome: l.nome,
+                vendedor: l.vendedor || (j ? j.vendedor : null),
+                valor: hasLeadVal ? l.valor : (hasJobVal ? j.valor : null)
+            });
+            if (hasLeadVal && hasJobVal && l.valor !== j.valor) {
+                dealFlags.push({ kind: "value_mismatch", nome: gmDiagDealLabel(l.nome),
+                                 vendedor: l.vendedor || null, lead_valor: l.valor, job_valor: j.valor });
+            }
+        });
+        allJobs.forEach(function(j) {
+            if (sellerFilter && j.vendedor !== sellerFilter) { return; }
+            if (j.lead_id) { return; }
+            if (j.legacy_closed) {
+                closedDeals.push({ nome: j.nome, vendedor: j.vendedor || null, valor: j.valor });
+                dealFlags.push({ kind: "legacy", nome: gmDiagDealLabel(j.nome),
+                                 vendedor: j.vendedor || null, job_valor: j.valor });
+                return;
+            }
+            dealFlags.push({ kind: "no_lead", nome: gmDiagDealLabel(j.nome),
+                             vendedor: j.vendedor || null, job_valor: j.valor });
+        });
+
+        var wonMoney = gmDiagMoney(closedDeals);
         var activeMoney = gmDiagMoney(activeLeads);
         var lostMoney = gmDiagMoney(lostLeads);
 
-        // ── Metrics 8 and 9, completed now that gm_jobs is loaded ───────────
-        //
-        // Signed jobs are the closed work. Only one lead in the whole database
-        // sits at 'Fechado' (a test row, no value), so before this the closed
-        // count and the average deal value were both computed over an empty
-        // set while gm_jobs held the real thing.
-        var won = wonLeads + jobs.length;
+        var won = closedDeals.length;
+        var linkedJobs = leads.filter(function(l) {
+            return l.estagio === "fechado" && jobByLead[l.id];
+        }).length;
 
-        // The average is over jobs that actually carry a value, and still
-        // refuses to answer below the sample threshold.
-        var jobValues = [];
-        jobs.forEach(function(j) {
-            if (j.valor !== null && j.valor !== undefined && j.valor > 0) { jobValues.push(j.valor); }
-        });
-        var allClosedValues = closedValues.concat(jobValues);
+        var allClosedValues = [];
+        closedDeals.forEach(function(d) { if (d.valor !== null && d.valor > 0) { allClosedValues.push(d.valor); } });
         if (allClosedValues.length >= GM_DIAG_MIN_SAMPLE) {
             var vs = 0;
             allClosedValues.forEach(function(v) { vs += v; });
@@ -20102,7 +20120,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
         var sellerMoney = sellers.map(function(name) {
             var theirLost = lostLeads.filter(function(l) { return l.vendedor === name; });
             var theirActive = activeLeads.filter(function(l) { return l.vendedor === name; });
-            var theirJobs = jobs.filter(function(j) { return j.vendedor === name; });
+            var theirJobs = closedDeals.filter(function(d) { return d.vendedor === name; });
 
             // Dominant origem, only when it genuinely dominates. The threshold
             // is on the seller's own lead count, and it is reported with both
@@ -20187,7 +20205,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     return !!c.objection; }).length },
                 closing_ratio: {
                     won: won, lost: lost, decided: won + lost,
-                    won_jobs: jobs.length, won_leads: wonLeads,
+                    won_leads: wonLeads, linked_jobs: linkedJobs,
                     pct: closingPct,
                     // The ratio's denominator: every lead assigned to this
                     // seller. Rendered beside the percentage, never hidden.
@@ -20195,7 +20213,7 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     sample: leadsForDenominator
                 },
                 // Sample counts the values the average was actually taken
-                // over — jobs included — so the printed sample can never
+                // over, so the printed sample can never
                 // disagree with the number beside it.
                 average_deal_value: { value: avgDeal, sample: allClosedValues.length },
                 touches_before_close: { avg: avgTouches, sample: touchCounts.length },
@@ -20204,7 +20222,8 @@ async function handleGetGmSellerDiagnostics(id, request, env) {
                     won: wonMoney,
                     active: activeMoney,
                     lost: lostMoney,
-                    biggest_win: gmDiagBiggest(jobs),
+                    biggest_win: gmDiagBiggest(closedDeals),
+                    flags: dealFlags,
                     biggest_loss: gmDiagBiggest(lostLeads),
                     by_seller: sellerMoney
                 }

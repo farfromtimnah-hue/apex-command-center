@@ -250,6 +250,12 @@
 
     /* Provenance flag on a seller row: says where their leads came from, so a
        lopsided row reads as sampling rather than as performance. */
+    .deal-flags {
+      margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+      background: rgba(122,92,46,0.08); color: var(--brown); font-size: 12px; line-height: 1.5;
+    }
+    .deal-flags-title { font-weight: 700; margin-bottom: 4px; }
+    .deal-flags ul { margin: 0; padding-left: 18px; }
     .origem-flag {
       display: inline-block; margin-top: 4px;
       font-size: 11px; line-height: 1.4; color: var(--brown);
@@ -622,7 +628,7 @@
 
         html += moneyTile("won",
           t("Valor fechado", "Closed value"), mny.won,
-          "obras", "jobs",
+          "negócios fechados", "closed deals",
           biggestLine("Maior venda", "Biggest win", mny.biggest_win));
 
         html += moneyTile("active",
@@ -635,6 +641,33 @@
           biggestLine("Maior perda", "Biggest loss", mny.biggest_loss));
 
         html += '</div>';
+
+        // Deals the totals above deliberately leave out, or count with a
+        // caveat. Named one by one with the reason, so a figure that differs
+        // from the client's own count explains itself instead of looking wrong.
+        var flags = mny.flags || [];
+        if (flags.length) {
+          html += '<div class="deal-flags"><div class="deal-flags-title">' +
+            t("⚠ Precisa de conferência", "⚠ Needs checking") + '</div><ul>';
+          flags.forEach(function (f) {
+            var who = f.vendedor ? " · " + f.vendedor : "";
+            var why = f.kind === "legacy"
+              ? t("projeto " + fmtMoney0(f.job_valor) + " anterior ao sistema, sem lead. Contado no valor fechado.",
+                  "project of " + fmtMoney0(f.job_valor) + " from before the system, no lead. Counted in the closed value.")
+              : f.kind === "value_mismatch"
+              ? t("o lead diz " + fmtMoney0(f.lead_valor) + ", o projeto diz " + fmtMoney0(f.job_valor) +
+                  ". Contado pelo valor do lead.",
+                  "the lead says " + fmtMoney0(f.lead_valor) + ", the project says " + fmtMoney0(f.job_valor) +
+                  ". Counted at the lead's value.")
+              : t("projeto " + fmtMoney0(f.job_valor) + " sem lead vinculado. Fora do valor fechado " +
+                  "até ser ligado a um lead fechado.",
+                  "project of " + fmtMoney0(f.job_valor) + " with no linked lead. Left out of the closed " +
+                  "value until it is tied to a closed lead.");
+            html += '<li><strong>' + escHtml((f.nome || t("(sem nome)", "(no name)")) + who) +
+              '</strong>: ' + escHtml(why) + '</li>';
+          });
+          html += '</ul></div>';
+        }
 
         // Per-seller money. Sorted by CLOSED value descending, and carrying NO
         // close rate or win/loss ratio — this client's leads were imported from
@@ -674,7 +707,7 @@
                           r.origem_concentration.of + t(" leads", " leads")) + '</span>'
                 : "") +
               '</td>' +
-              cell(r.won, "obras", "jobs") +
+              cell(r.won, "negócios", "deals") +
               cell(r.active, "leads", "leads") +
               cell(r.lost, "leads", "leads") +
               '</tr>';
@@ -765,11 +798,7 @@
               clr.won + " " + t("de", "of") + " " + clr.of_leads + " " +
               t("leads", "leads")) + '</div>',
         escHtml(clr.won + " " + t("fechados", "closed") + " · " +
-                clr.lost + " " + t("perdidos", "lost")) +
-        (clr.won_jobs
-          ? '<br><span class="muted">' + escHtml(
-              clr.won_jobs + " " + t("de obras assinadas", "from signed jobs")) + '</span>'
-          : ""),
+                clr.lost + " " + t("perdidos", "lost")),
         sampleLine(clr.sample, "leads do vendedor", "leads assigned")
       );
 

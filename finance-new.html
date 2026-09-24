@@ -8775,6 +8775,8 @@
           '<td class="num">' + fmtCents(c.paid_cents) +
             (c.paid_source === "bank"
               ? '<span class="contract-sub">' + t("pelo banco", "per the bank") + '</span>'
+              : c.paid_source === "stripe"
+              ? '<span class="contract-sub">' + t("via Stripe", "via Stripe") + '</span>'
               : "") +
           '</td>' +
           '<td class="num' + (done ? " is-green" : "") + '">' + left + '</td>' +

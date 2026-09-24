@@ -28415,6 +28415,317 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// STRIPE PAYMENT SYNC (2026-09-23)
+//
+// The bank only ever sees a Stripe PAYOUT: one lump deposit reading
+// "Transfer STRIPE ; APEX BUSINESS" with no customer name. So General Tile,
+// paying a $1,437/month card subscription since 07-28, read as $0 paid. When
+// Rafa matched a payout to them by amount, Alice undid it -- correctly: DFN
+// owes the same monthly figure, so an amount is not evidence of who paid.
+//
+// Stripe's API knows who paid. This pulls every charge and payout into D1 so
+// contract progress can credit the right client with no one matching by hand.
+//
+// Key: STRIPE_RESTRICTED_KEY, a RESTRICTED key (read on charges, customers,
+// payment intents, balance, payouts, invoices, subscriptions; write only on
+// products, prices, payment links). It can never refund or move money.
+//
+// Client resolution, in order -- and NEVER by name or amount:
+//   1. charge.metadata.client_id (payment links Apex creates will stamp it)
+//   2. stripe_customer_clients, set once per customer from evidence
+// ---------------------------------------------------------------------------
+
+// Pinned so a Stripe account-level upgrade cannot silently drop fields this
+// code reads (charge.invoice was removed from Charge in later versions).
+var STRIPE_API_VERSION = "2024-06-20";
+
+async function stripeGet(env, path, params) {
+    if (!env.STRIPE_RESTRICTED_KEY) { throw new Error("STRIPE_RESTRICTED_KEY is not set"); }
+    var qs = [];
+    (params || []).forEach(function(p) {
+        qs.push(encodeURIComponent(p[0]) + "=" + encodeURIComponent(p[1]));
+    });
+    var url = "https://api.stripe.com/v1/" + path + (qs.length ? "?" + qs.join("&") : "");
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+    var res;
+    try {
+        res = await fetch(url, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + env.STRIPE_RESTRICTED_KEY,
+                "Stripe-Version": STRIPE_API_VERSION
+            },
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+    var body = await res.json().catch(function() { return {}; });
+    if (!res.ok) {
+        // Stripe's message names the missing permission on a 403, which is
+        // exactly what is needed to fix the key -- and it never echoes the key.
+        var msg = (body && body.error && body.error.message) || ("HTTP " + res.status);
+        var err = new Error("Stripe " + path + " failed: " + msg);
+        err.status = res.status;
+        throw err;
+    }
+    return body;
+}
+
+// Every page of a Stripe list, capped so a runaway loop cannot eat the
+// Worker's subrequest budget.
+async function stripeListAll(env, path, params, maxPages) {
+    var out = [];
+    var after = null;
+    for (var page = 0; page < (maxPages || 10); page++) {
+        var p = (params || []).slice();
+        p.push(["limit", "100"]);
+        if (after) { p.push(["starting_after", after]); }
+        var body = await stripeGet(env, path, p);
+        var data = body.data || [];
+        out = out.concat(data);
+        if (!body.has_more || !data.length) { break; }
+        after = data[data.length - 1].id;
+    }
+    return out;
+}
+
+// Stripe timestamps are unix seconds; D1 stores UTC as "YYYY-MM-DD HH:MM:SS".
+function stripeTs(sec) {
+    if (!sec) { return null; }
+    return new Date(sec * 1000).toISOString().replace("T", " ").slice(0, 19);
+}
+
+async function syncStripe(env) {
+    var summary = { charges: 0, payouts: 0, linked: 0 };
+    try {
+        // --- 1. Charges. Always the full list: volume is tiny (14 charges
+        // Feb-Sep 2026), and a full pass is what picks up refunds on old ones.
+        var charges = await stripeListAll(env, "charges",
+            [["expand[]", "data.customer"], ["expand[]", "data.balance_transaction"]], 20);
+        var stmts = charges.map(function(ch) {
+            var cust = (ch.customer && typeof ch.customer === "object") ? ch.customer : null;
+            var bt = (ch.balance_transaction && typeof ch.balance_transaction === "object") ? ch.balance_transaction : null;
+            var bd = ch.billing_details || {};
+            var metaClient = (ch.metadata && ch.metadata.client_id) ? String(ch.metadata.client_id) : null;
+            return env.DB.prepare(
+                "INSERT INTO stripe_charges (id, payment_intent_id, customer_id, customer_name, customer_email, " +
+                "billing_name, description, amount_cents, amount_refunded_cents, fee_cents, net_cents, currency, " +
+                "status, created_at, invoice_id, metadata_client_id, synced_at) " +
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')) " +
+                "ON CONFLICT(id) DO UPDATE SET customer_id=excluded.customer_id, customer_name=excluded.customer_name, " +
+                "customer_email=excluded.customer_email, billing_name=excluded.billing_name, " +
+                "description=excluded.description, amount_cents=excluded.amount_cents, " +
+                "amount_refunded_cents=excluded.amount_refunded_cents, fee_cents=excluded.fee_cents, " +
+                "net_cents=excluded.net_cents, status=excluded.status, invoice_id=excluded.invoice_id, " +
+                "metadata_client_id=excluded.metadata_client_id, synced_at=datetime('now')"
+            ).bind(
+                ch.id, ch.payment_intent || null,
+                cust ? cust.id : (typeof ch.customer === "string" ? ch.customer : null),
+                cust && !cust.deleted ? (cust.name || null) : null,
+                cust && !cust.deleted ? (cust.email || null) : (ch.receipt_email || null),
+                bd.name || null, ch.description || null,
+                ch.amount || 0, ch.amount_refunded || 0,
+                bt ? bt.fee : null, bt ? bt.net : null,
+                ch.currency || null, ch.status || null, stripeTs(ch.created),
+                typeof ch.invoice === "string" ? ch.invoice : null, metaClient
+            );
+        });
+        for (var i = 0; i < stmts.length; i += 50) { await env.DB.batch(stmts.slice(i, i + 50)); }
+        summary.charges = charges.length;
+
+        // --- 2. Payouts. charges_linked and bank_transaction_id are kept on
+        // conflict: they are this system's own work, not Stripe's data.
+        var payouts = await stripeListAll(env, "payouts", [], 10);
+        var pstmts = payouts.map(function(po) {
+            var arrival = po.arrival_date ? stripeTs(po.arrival_date).slice(0, 10) : null;
+            return env.DB.prepare(
+                "INSERT INTO stripe_payouts (id, amount_cents, arrival_date, status, created_at, synced_at) " +
+                "VALUES (?,?,?,?,?,datetime('now')) " +
+                "ON CONFLICT(id) DO UPDATE SET amount_cents=excluded.amount_cents, arrival_date=excluded.arrival_date, " +
+                "status=excluded.status, synced_at=datetime('now')"
+            ).bind(po.id, po.amount || 0, arrival, po.status || null, stripeTs(po.created));
+        });
+        for (var j = 0; j < pstmts.length; j += 50) { await env.DB.batch(pstmts.slice(j, j + 50)); }
+        summary.payouts = payouts.length;
+
+        // --- 3. Which charges each PAID payout carried. Done once per payout
+        // (charges_linked), at most 25 per run to bound subrequests.
+        var todo = await env.DB.prepare(
+            "SELECT id FROM stripe_payouts WHERE status = 'paid' AND charges_linked = 0 AND amount_cents > 0 " +
+            "ORDER BY arrival_date LIMIT 25"
+        ).all();
+        for (var k = 0; k < (todo.results || []).length; k++) {
+            var poId = todo.results[k].id;
+            var bts;
+            try {
+                bts = await stripeListAll(env, "balance_transactions", [["payout", poId]], 5);
+            } catch (eb) {
+                // Stripe refuses to itemise some payouts with a 400: ones
+                // started by hand in the dashboard, and auto-debits. Marked 2
+                // so they are not retried every run; their charges still count
+                // toward their client, only the deposit breakdown is lost. Any
+                // other failure (a bad key, a timeout) still stops the sync.
+                if (eb.status === 400) {
+                    await env.DB.prepare("UPDATE stripe_payouts SET charges_linked = 2 WHERE id = ?").bind(poId).run();
+                    continue;
+                }
+                throw eb;
+            }
+            var ustmts = [];
+            bts.forEach(function(t) {
+                var src = typeof t.source === "string" ? t.source : (t.source && t.source.id);
+                if (src && /^(ch|py)_/.test(src)) {
+                    ustmts.push(env.DB.prepare("UPDATE stripe_charges SET payout_id = ? WHERE id = ?").bind(poId, src));
+                }
+            });
+            ustmts.push(env.DB.prepare("UPDATE stripe_payouts SET charges_linked = 1 WHERE id = ?").bind(poId));
+            await env.DB.batch(ustmts);
+        }
+
+        // --- 4. Each paid payout to its bank deposit: exact amount, a Stripe
+        // description, arriving -2..+5 days of Stripe's arrival date, closest
+        // first, never a row another payout already claimed.
+        var unlinked = await env.DB.prepare(
+            "SELECT id, amount_cents, arrival_date FROM stripe_payouts " +
+            "WHERE status = 'paid' AND bank_transaction_id IS NULL AND arrival_date IS NOT NULL"
+        ).all();
+        for (var m = 0; m < (unlinked.results || []).length; m++) {
+            var po2 = unlinked.results[m];
+            var tx = await env.DB.prepare(
+                "SELECT id FROM transactions WHERE amount_cents = ? AND voided_at IS NULL AND superseded_by IS NULL " +
+                "AND UPPER(description) LIKE '%STRIPE%' " +
+                "AND date BETWEEN date(?, '-2 day') AND date(?, '+5 day') " +
+                "AND id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
+                "ORDER BY ABS(julianday(date) - julianday(?)) LIMIT 1"
+            ).bind(po2.amount_cents, po2.arrival_date, po2.arrival_date, po2.arrival_date).first();
+            if (tx) {
+                await env.DB.prepare("UPDATE stripe_payouts SET bank_transaction_id = ? WHERE id = ?").bind(tx.id, po2.id).run();
+                summary.linked++;
+            }
+        }
+
+        await env.DB.prepare(
+            "INSERT INTO stripe_sync_runs (ok, charges, payouts, linked) VALUES (1, ?, ?, ?)"
+        ).bind(summary.charges, summary.payouts, summary.linked).run();
+        return summary;
+    } catch (e) {
+        await env.DB.prepare(
+            "INSERT INTO stripe_sync_runs (ok, charges, payouts, linked, error) VALUES (0, ?, ?, ?, ?)"
+        ).bind(summary.charges, summary.payouts, summary.linked, String(e.message).slice(0, 500)).run().catch(function() {});
+        throw e;
+    }
+}
+
+// Same constant-time compare as serviceCaller. STRIPE_SYNC_TOKEN lets a sync
+// be triggered without a user session; it can start a sync and nothing else.
+function stripeSyncTokenOk(request, env) {
+    var auth = request.headers.get("Authorization") || "";
+    var mt = /^Bearer\s+(.+)$/i.exec(auth.trim());
+    var expected = env.STRIPE_SYNC_TOKEN;
+    if (!mt || !expected) { return false; }
+    var given = mt[1].trim();
+    if (given.length !== expected.length) { return false; }
+    var diff = 0;
+    for (var i = 0; i < given.length; i++) { diff |= given.charCodeAt(i) ^ expected.charCodeAt(i); }
+    return diff === 0;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/stripe/sync — admin, or the sync token.
+// Returns counts only. The 4-hourly cron runs the same thing.
+// ---------------------------------------------------------------------------
+async function handlePostStripeSync(request, env) {
+    try {
+        if (!stripeSyncTokenOk(request, env)) {
+            var user = await authenticate(request, env);
+            if (!user) { return jsonErr("Unauthorized", 401); }
+            if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+        }
+        var sum = await syncStripe(env);
+        return jsonOk({ synced: sum });
+    } catch (e) {
+        return jsonErr("Stripe sync failed: " + e.message, 502);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/stripe/charges — admin only. INTERNAL.
+// Every charge with the client it resolved to (and how), the customers still
+// unmapped, and the last sync run -- so a dead sync is visible, not silent.
+// ---------------------------------------------------------------------------
+async function handleGetStripeCharges(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+        var rows = await env.DB.prepare(
+            "SELECT sc.id, sc.created_at, sc.amount_cents, sc.amount_refunded_cents, sc.fee_cents, sc.net_cents, " +
+            "sc.status, sc.description, sc.customer_id, sc.customer_name, sc.customer_email, sc.billing_name, " +
+            "sc.payout_id, sp.bank_transaction_id, " +
+            "COALESCE(sc.metadata_client_id, m.client_id) AS client_id, " +
+            "CASE WHEN sc.metadata_client_id IS NOT NULL THEN 'metadata' WHEN m.client_id IS NOT NULL THEN 'customer_map' ELSE NULL END AS client_source, " +
+            "c.name AS client_name " +
+            "FROM stripe_charges sc " +
+            "LEFT JOIN stripe_customer_clients m ON m.stripe_customer_id = sc.customer_id " +
+            "LEFT JOIN clients c ON c.id = COALESCE(sc.metadata_client_id, m.client_id) " +
+            "LEFT JOIN stripe_payouts sp ON sp.id = sc.payout_id " +
+            "ORDER BY sc.created_at DESC"
+        ).all();
+        var lastRun = await env.DB.prepare(
+            "SELECT ran_at, ok, charges, payouts, linked, error FROM stripe_sync_runs ORDER BY id DESC LIMIT 1"
+        ).first();
+        var unmapped = {};
+        (rows.results || []).forEach(function(r) {
+            if (r.client_id || r.status !== "succeeded") { return; }
+            var key = r.customer_id || ("guest:" + (r.billing_name || r.customer_email || r.id));
+            if (!unmapped[key]) {
+                unmapped[key] = { stripe_customer_id: r.customer_id, name: r.customer_name || r.billing_name,
+                                  email: r.customer_email, charges: 0, total_cents: 0 };
+            }
+            unmapped[key].charges++;
+            unmapped[key].total_cents += (r.amount_cents - r.amount_refunded_cents);
+        });
+        return jsonOk({
+            charges: rows.results || [],
+            unmapped_customers: Object.keys(unmapped).map(function(k) { return unmapped[k]; }),
+            last_run: lastRun || null
+        });
+    } catch (e) {
+        return jsonErr("Error loading Stripe charges: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/stripe/customer-map — alice / rafa / developer.
+// Body: { stripe_customer_id, client_id, note }. One decision per customer;
+// every past and future charge from that customer follows it.
+// ---------------------------------------------------------------------------
+async function handlePostStripeCustomerMap(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!canEditResources(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return null; });
+        if (!body || !body.stripe_customer_id || !body.client_id) {
+            return jsonErr("stripe_customer_id and client_id are required", 400);
+        }
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(body.client_id).first();
+        if (!client) { return jsonErr("Client not found", 404); }
+        await env.DB.prepare(
+            "INSERT INTO stripe_customer_clients (stripe_customer_id, client_id, note, created_by) VALUES (?,?,?,?) " +
+            "ON CONFLICT(stripe_customer_id) DO UPDATE SET client_id=excluded.client_id, note=excluded.note, " +
+            "created_by=excluded.created_by, created_at=datetime('now')"
+        ).bind(String(body.stripe_customer_id), body.client_id, body.note || null,
+               user.display_name || user.role).run();
+        return jsonOk({ stripe_customer_id: body.stripe_customer_id, client_id: body.client_id });
+    } catch (e) {
+        return jsonErr("Error saving Stripe customer mapping: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/finance-new/contract-progress — admin only. INTERNAL.
 //
 // Where each client stands in their package: total, paid, remaining, and how
@@ -28493,13 +28804,28 @@ async function handleGetContractProgress(request, env) {
             "      length(REPLACE(REPLACE(pa.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa.payer_key,',',''),'.','') " +
             " WHERE pa.client_id = c.id AND tx.voided_at IS NULL AND tx.amount_cents > 0 " +
             "   AND COALESCE(tx.category_id,'') != 'cat_receita_filtros' " +
+            // A Stripe payout deposit is counted through its charges below, by
+            // the client Stripe says paid -- never also as bank money.
+            "  AND tx.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
             "   AND (tx.transfer_status IS NULL OR tx.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_cents, " +
             "(SELECT COUNT(*) FROM transactions tx2 " +
             " JOIN client_payer_aliases pa2 ON substr(REPLACE(REPLACE(UPPER(tx2.description),',',''),'.',''),1," +
             "      length(REPLACE(REPLACE(pa2.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa2.payer_key,',',''),'.','') " +
             " WHERE pa2.client_id = c.id AND tx2.voided_at IS NULL AND tx2.amount_cents > 0 " +
             "   AND COALESCE(tx2.category_id,'') != 'cat_receita_filtros' " +
+            "   AND tx2.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
             "   AND (tx2.transfer_status IS NULL OR tx2.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_count, " +
+            // CARD MONEY, per Stripe itself. Gross (what the client paid), less
+            // refunds; the processing fee is Apex's cost, not the client's
+            // shortfall. Resolved by metadata first, then the customer map --
+            // never by name or amount, since two clients owe $1,397/month.
+            "(SELECT COALESCE(SUM(sc.amount_cents - sc.amount_refunded_cents),0) FROM stripe_charges sc " +
+            " LEFT JOIN stripe_customer_clients scm ON scm.stripe_customer_id = sc.customer_id " +
+            " WHERE sc.status = 'succeeded' AND COALESCE(sc.metadata_client_id, scm.client_id) = c.id) AS stripe_paid_cents, " +
+            "(SELECT COUNT(*) FROM stripe_charges sc2 " +
+            " LEFT JOIN stripe_customer_clients scm2 ON scm2.stripe_customer_id = sc2.customer_id " +
+            " WHERE sc2.status = 'succeeded' AND sc2.amount_refunded_cents < sc2.amount_cents " +
+            "   AND COALESCE(sc2.metadata_client_id, scm2.client_id) = c.id) AS stripe_paid_count, " +
             "(SELECT COALESCE(SUM(i4.amount_cents),0) FROM invoices i4 " +
             " WHERE i4.client_id = c.id AND i4.status = 'sent') AS outstanding_cents " +
             // LEFT JOIN, so a client with a NEGOTIATED total still appears with
@@ -28579,7 +28905,14 @@ async function handleGetContractProgress(request, env) {
             // a number Alice can correct beats one she has to discover is
             // wrong.
             var bankPaid = r.bank_paid_cents || 0;
-            var paid = Math.max(paidStatus, bankPaid);
+            // Stripe money sits on the bank side: both are money actually
+            // received, and they never overlap because payout deposits are
+            // excluded from bankPaid above. General Tile pays only by card and
+            // has no Apex invoices (Stripe bills them), so without this they
+            // read $0 paid on a live subscription.
+            var stripePaid = r.stripe_paid_cents || 0;
+            var receivedPaid = bankPaid + stripePaid;
+            var paid = Math.max(paidStatus, receivedPaid);
             var remaining = totalCents - paid;
             return {
                 client_id: r.id,
@@ -28594,7 +28927,9 @@ async function handleGetContractProgress(request, env) {
                 paid_by_invoice_cents: paidStatus,
                 paid_by_bank_cents: bankPaid,
                 bank_paid_count: r.bank_paid_count || 0,
-                paid_source: bankPaid > paidStatus ? "bank" : "invoice",
+                paid_by_stripe_cents: stripePaid,
+                stripe_paid_count: r.stripe_paid_count || 0,
+                paid_source: receivedPaid > paidStatus ? (bankPaid > 0 ? "bank" : "stripe") : "invoice",
                 // A contract with no total cannot report "remaining" at all.
                 // Said explicitly so the tile shows "--" instead of implying
                 // the client owes nothing.
@@ -31969,6 +32304,12 @@ export default {
         ctx.waitUntil(runRecurringInvoices(env).catch(function(e) {
             return notifyNicoleTelegram(env, "Recurring invoices failed: " + e.message).catch(function() {});
         }));
+        // Independent like the others: a Stripe outage must not stop Plaid or
+        // invoicing. A failure alerts, because a dead sync means card clients
+        // quietly stop being credited on the contract tile.
+        ctx.waitUntil(syncStripe(env).catch(function(e) {
+            return notifyNicoleTelegram(env, "Stripe sync failed: " + e.message).catch(function() {});
+        }));
     }
 };
 
@@ -32883,6 +33224,9 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/push/apns" && method === "POST") { return handlePostApnsToken(request, env); }
         if (path === "/api/push/test"      && method === "POST") { return handlePostPushTest(request, env); }
         if (path === "/api/finance-new/contract-progress" && method === "GET")  { return handleGetContractProgress(request, env); }
+        if (path === "/api/finance-new/stripe/sync" && method === "POST")  { return handlePostStripeSync(request, env); }
+        if (path === "/api/finance-new/stripe/charges" && method === "GET")  { return handleGetStripeCharges(request, env); }
+        if (path === "/api/finance-new/stripe/customer-map" && method === "POST")  { return handlePostStripeCustomerMap(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "GET")  { return handleGetFinanceNewInvoices(request, env); }
         if (path === "/api/finance-new/invoices"          && method === "POST") { return handlePostFinanceNewInvoice(request, env); }
         if (path === "/api/finance-new/invoices/recurrence-check" && method === "GET") { return handleGetFinanceNewRecurrenceCheck(request, env); }

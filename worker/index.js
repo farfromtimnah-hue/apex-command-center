@@ -23399,8 +23399,15 @@ async function syncPlaidTransactions(env) {
         var item = items.results[i];
         summary.items++;
 
+        // ⚠️ HIDDEN ACCOUNTS ARE NOT SYNCED. The 2026-09-16 merge hid the old
+        // BofA ...2545 row but its Plaid Item stayed live, so from 09-18 it
+        // kept importing a second copy of every business transaction -- filed
+        // as PERSONAL money, and crediting JN Freitas' $703 to Delicie twice.
+        // Nothing anywhere filtered on status = 'hidden'; this is the one door
+        // every transaction comes through, so the filter lives here.
         var accountRows = await env.DB.prepare(
-            "SELECT id, plaid_account_id FROM accounts WHERE plaid_item_id = ?"
+            "SELECT id, plaid_account_id FROM accounts WHERE plaid_item_id = ? " +
+            "AND COALESCE(status, 'active') != 'hidden'"
         ).bind(item.plaid_item_id).all();
         var acctIdByPlaid = {};
         var r;
@@ -28753,6 +28760,29 @@ async function handlePostStripeCustomerMap(request, env) {
 // gap rather than silently picking a side.
 // ---------------------------------------------------------------------------
 
+// The bank-money predicate for contract progress, shared by the sum and the
+// count so they can never disagree. Correlates on c.id. See the comment at
+// its use for why invoice matches outrank aliases.
+var BANK_PAID_WHERE =
+    "WHERE tx.voided_at IS NULL AND tx.amount_cents > 0 " +
+    // My Pure Filter JV cut arrives via GATOR but is not Gator paying.
+    "AND COALESCE(tx.category_id,'') != 'cat_receita_filtros' " +
+    "AND (tx.transfer_status IS NULL OR tx.transfer_status NOT IN ('suspected','confirmed')) " +
+    // A Stripe payout is counted through its charges, never as bank money.
+    "AND tx.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
+    "AND ( EXISTS (SELECT 1 FROM invoice_payments p JOIN invoices i ON i.id = p.invoice_id " +
+    "              WHERE p.transaction_id = tx.id AND p.undone_at IS NULL AND i.client_id = c.id " +
+    "                AND i.status NOT IN ('void','voided_mistake')) " +
+    "   OR ( EXISTS (SELECT 1 FROM client_payer_aliases pa WHERE pa.client_id = c.id " +
+    // ⚠️ Punctuation stripped both sides: the alias says "...SERVICES LLC",
+    // BofA writes "...SERVICES, LLC". substr() = key, not LIKE: SQLite
+    // refuses a LIKE whose pattern comes from a column.
+    "              AND substr(REPLACE(REPLACE(UPPER(tx.description),',',''),'.',''),1," +
+    "                  length(REPLACE(REPLACE(pa.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa.payer_key,',',''),'.','')) " +
+    "        AND NOT EXISTS (SELECT 1 FROM invoice_payments p2 JOIN invoices i2 ON i2.id = p2.invoice_id " +
+    "              WHERE p2.transaction_id = tx.id AND p2.undone_at IS NULL AND i2.client_id != c.id " +
+    "                AND i2.status NOT IN ('void','voided_mistake')) ) ) ";
+
 async function handleGetContractProgress(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -28799,22 +28829,18 @@ async function handleGetContractProgress(request, env) {
             // and Delicie's second payment went uncounted, showing $500 by bank
             // against $997 by invoice. Commas and periods are the ones that
             // actually differ in BofA's descriptions.
-            "(SELECT COALESCE(SUM(tx.amount_cents),0) FROM transactions tx " +
-            " JOIN client_payer_aliases pa ON substr(REPLACE(REPLACE(UPPER(tx.description),',',''),'.',''),1," +
-            "      length(REPLACE(REPLACE(pa.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa.payer_key,',',''),'.','') " +
-            " WHERE pa.client_id = c.id AND tx.voided_at IS NULL AND tx.amount_cents > 0 " +
-            "   AND COALESCE(tx.category_id,'') != 'cat_receita_filtros' " +
-            // A Stripe payout deposit is counted through its charges below, by
-            // the client Stripe says paid -- never also as bank money.
-            "  AND tx.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
-            "   AND (tx.transfer_status IS NULL OR tx.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_cents, " +
-            "(SELECT COUNT(*) FROM transactions tx2 " +
-            " JOIN client_payer_aliases pa2 ON substr(REPLACE(REPLACE(UPPER(tx2.description),',',''),'.',''),1," +
-            "      length(REPLACE(REPLACE(pa2.payer_key,',',''),'.',''))) = REPLACE(REPLACE(pa2.payer_key,',',''),'.','') " +
-            " WHERE pa2.client_id = c.id AND tx2.voided_at IS NULL AND tx2.amount_cents > 0 " +
-            "   AND COALESCE(tx2.category_id,'') != 'cat_receita_filtros' " +
-            "   AND tx2.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL) " +
-            "   AND (tx2.transfer_status IS NULL OR tx2.transfer_status NOT IN ('suspected','confirmed'))) AS bank_paid_count, " +
+            // ⚠️ A PAYMENT MATCHED TO AN INVOICE BELONGS TO THAT INVOICE'S CLIENT,
+            // whatever name the payer used. JN FREITAS' company paid his wife's
+            // (DELICIE's) second invoice in August, so its alias pointed at her;
+            // when he became a client himself, his own payments credited her too
+            // and she read $2,406 paid on a $997 contract. The alias now points
+            // at him, and the invoice match -- a decision Alice made on that
+            // exact payment -- is what keeps August's $500 hers. So a row counts
+            // for client c when it is matched to c's invoice, or when it is
+            // c's alias AND not matched to someone else's invoice. EXISTS, not a
+            // JOIN, so two overlapping aliases can never count one row twice.
+            "(SELECT COALESCE(SUM(tx.amount_cents),0) FROM transactions tx " + BANK_PAID_WHERE + ") AS bank_paid_cents, " +
+            "(SELECT COUNT(*) FROM transactions tx " + BANK_PAID_WHERE + ") AS bank_paid_count, " +
             // CARD MONEY, per Stripe itself. Gross (what the client paid), less
             // refunds; the processing fee is Apex's cost, not the client's
             // shortfall. Resolved by metadata first, then the customer map --

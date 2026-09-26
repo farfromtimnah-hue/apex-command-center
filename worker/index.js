@@ -4884,7 +4884,9 @@ async function handlePostSessionsVoice(request, env) {
             // Rafa's Brazilian Portuguese and the occasional English note.
             // Output: results.channels[0].alternatives[0].transcript.
             var asr = await env.AI.run("@cf/deepgram/nova-3", {
-                audio: { body: new Uint8Array(buf), contentType: (audio.type && String(audio.type)) || "audio/webm" },
+                // body must be a ReadableStream (the binding rejects raw bytes with
+                // "required properties at '/audio' are 'body,contentType'").
+                audio: { body: new Response(buf).body, contentType: (audio.type && String(audio.type)) || "audio/webm" },
                 language: "multi",
                 smart_format: true,
                 punctuate: true

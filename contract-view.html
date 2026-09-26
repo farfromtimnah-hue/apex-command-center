@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Contract</title>
+  <style>
+    /* CONTRACT page (contracts build, checkpoint B3). Copied from
+       estimate-view.html (fix build): hero band + logo tile + brand pill,
+       meta area, amount tile, payment tiles, signature pad, signed block.
+       Public, no-login page for a client's CUSTOMER. Modelled on
+       referral.html: self-contained, no app JS/CSS, the CLIENT's brand only.
+       No Apex name, logo, colours or URL anywhere on this page.
+       --brand-bg / --brand-accent are overridden from the client's settings;
+       the defaults are a neutral dark gray and white, never Apex's palette.
+       Text on a brand colour is chosen at runtime for 4.5:1 (textOn).
+       Header reworked in the 2026-09-26 fix build after templates/
+       apex-invoice-template-DRAFT.html: the logo is a frosted tile ON the
+       photo and the business name a pill beside it -- one unit, not a photo
+       and a separate band. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    /* ---- HERO BAND + TILE ROW (DRAFT .hero-band / .header-tile-row /
+       .client-logo-tile / .client-name-mark / .gold-bar-label -> .brand-pill) */
+    .hero-band { position: relative; height: 190px; background: var(--brand-bg); overflow: hidden; }
+    .hero-band img.hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+    .hero-band img.hero-img[hidden] { display: none; }
+    .header-tile-row { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 0; max-width: 720px; margin: 0 auto; padding: 0 16px; }
+    .client-logo-tile { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 18px; display: flex; align-items: center; justify-content: center; width: 220px; min-width: 220px; height: 90px; box-shadow: 0 4px 20px rgba(0,0,0,0.55); flex-shrink: 0; }
+    .client-logo-tile img { max-height: 64px; max-width: 190px; object-fit: contain; display: block; }
+    .client-logo-tile img[hidden] { display: none; }
+    .client-logo-tile .client-name-mark { font-size: 15px; font-weight: 700; line-height: 1.25; color: #fff; letter-spacing: 0.3px; text-align: center; max-width: 190px; display: inline-block; word-break: break-word; }
+    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
+    .client-logo-tile .client-name-mark[hidden] { display: none; }
+    .brand-pill { margin-left: 22px; display: inline-block; background: rgba(20, 20, 20, 0.82); border-radius: 20px; padding: 5px 18px; color: var(--accent-on-dark); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.18); max-width: 100%; overflow-wrap: anywhere; }
+    @media (max-width: 480px) {
+      .client-logo-tile { width: 180px; min-width: 180px; height: 74px; padding: 6px 12px; }
+      .client-logo-tile img { max-height: 54px; max-width: 150px; }
+      .brand-pill { margin-left: 12px; font-size: 13px; padding: 4px 12px; }
+    }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    /* ---- META (DRAFT .invoice-meta-area): customer + business left,
+       document number / dates / terms right, the amount tile under them. */
+    .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .meta-left { flex: 1; min-width: 0; font-size: 14px; }
+    .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-left .who { font-size: 17px; font-weight: 700; }
+    .meta-left .from { margin-top: 10px; font-size: 13px; color: #444; line-height: 1.55; }
+    .meta-right { flex: 0 1 260px; text-align: right; }
+    .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+    .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
+    .meta-right table { width: 100%; border-collapse: collapse; margin-left: auto; }
+    .meta-right td { padding: 2px 6px; font-size: 13px; vertical-align: top; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: nowrap; text-align: left; }
+    .meta-right td.fv { text-align: right; }
+    .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; }
+    .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); }
+    .amount-due-tile { background-color: var(--brand-accent); color: var(--on-brand-accent); border-radius: 10px; padding: 12px 24px; text-align: center; margin-top: 12px; }
+    .amount-due-tile .adt-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3px; }
+    .amount-due-tile .adt-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+    @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .section { margin-top: 14px; }
+    .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }
+    .cat-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 10px 0 2px; }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .line .math { font-size: 13px; color: var(--muted); }
+    .line .amt { font-weight: 700; white-space: nowrap; text-align: right; }
+    .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 20px; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
+    .option.picked { border-color: var(--brand-accent); }
+    .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .option-head .tier { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 900; }
+    .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
+    .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
+    .sched .line { padding: 8px 0; }
+    /* DRAFT .payment-tiles / .payment-tile: one per method, detail as text. */
+    .payment-tiles { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 120px; max-width: 100%; }
+    .payment-tile .pt-label { font-size: 10px; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 14px; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .terms p { white-space: pre-wrap; margin-bottom: 10px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand-accent); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; }
+    .chips button { flex: 1; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .signed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; text-align: left; font-size: 14px; margin-top: 12px; }
+    .signed-grid .cell { min-width: 0; }
+    @media (max-width: 400px) { .signed-grid { grid-template-columns: 1fr; } }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .banner b { display: block; font-size: 15px; margin-bottom: 2px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); }
+    .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
+    .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; padding: 6px 0; }
+    .hidden { display: none !important; }
+    @media (max-width: 400px) { .option-head { flex-wrap: wrap; } }
+    /* ---- Contract sections. Clause text is Markdown-light: **bold** and
+       blank-line paragraphs, rendered by richHtml(). ---- */
+    .clause { margin-top: 14px; }
+    .clause .clause-title { font-weight: 800; font-size: 15px; padding: 8px 0 4px; border-bottom: 2px solid var(--brand-accent); margin-bottom: 6px; }
+    .clause p { font-size: 14px; margin: 0 0 8px; line-height: 1.55; }
+    .clause.locked p { font-weight: 700; }
+    /* L1: 12pt+ bold capitals, its own card, its own signature (statute format). */
+    .lien-card p { font-size: 16px; font-weight: 800; text-transform: uppercase; line-height: 1.45; }
+    .lien-card .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .l5a { font-weight: 800; font-size: 14px; border: 2px solid var(--ink); border-radius: 8px; padding: 10px 12px; margin: 14px 0 6px; }
+    .noc-copy { border: 1px solid var(--ink); border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .noc-copy .copy-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .noc-copy p { font-weight: 700; font-size: 13.5px; margin: 0 0 8px; }
+    .docs a { display: block; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .disclaimer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; }
+    .preview-banner { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; border-radius: 10px; padding: 10px 14px; font-weight: 700; text-align: center; margin-top: 14px; }
+    .step { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 12px; }
+    .step h3 { font-size: 15px; margin-bottom: 4px; }
+    .sig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+    @media (max-width: 520px) { .sig-pair { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="hero-band" id="hero">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="cardLoading"><div class="state"><p>Loading...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Contract not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+
+    <div id="doc" class="hidden">
+      <div class="preview-banner hidden" id="previewBanner">PREVIEW - not sent. This is exactly what the homeowner will see.</div>
+      <div class="card" id="cardMeta"></div>
+      <div class="card hidden" id="cardStateBanner"></div>
+      <div id="sections"></div>
+      <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
+      <div class="card" id="cardActions"></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button><p class="disclaimer" id="disclaimerEnd"></p></div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // Portal preview (the builder's Preview button): the same payload through
+    // the owner's session, rendered with a banner and no signing controls.
+    var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
+    // Local mock for offline checks only (mock=path.json); never used in production.
+    var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    // UTC from D1 -> Eastern, 12-hour.
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+    function byId(id) { return document.getElementById(id); }
+    // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
+    // as line breaks (the statutory forms rely on them).
+    function richHtml(text) {
+      var paras = String(text || "").split(/\n\s*\n/);
+      return paras.map(function(p) {
+        var h = escHtml(p).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+        return h.trim() ? "<p>" + h + "</p>" : "";
+      }).join("");
+    }
+
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand-bg", primary); root.setProperty("--on-brand-bg", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+      var name = b.name || "";
+      var mark = byId("bizMark");
+      var logo = byId("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (b.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = b.logo_url;
+      }
+      var hero = byId("heroImg");
+      if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+    function fromHtml(b) {
+      var lines = [];
+      if (b.name) { lines.push('<strong>' + escHtml(b.name) + '</strong>'); }
+      (b.license_numbers || []).forEach(function(l) { lines.push("License " + escHtml(l)); });
+      if (b.address) { lines.push(escHtml(b.address)); }
+      if (b.phone) { lines.push(escHtml(fmtPhone(b.phone))); }
+      if (b.email) { lines.push(escHtml(b.email)); }
+      return '<div class="from"><div class="k">From</div>' + lines.join("<br>") + '</div>';
+    }
+    function metaHtml(leftLabel, who, whoLines, b, title, num, rows, stamp, tile) {
+      var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
+      return '<div class="meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
+        (whoLines.length ? '<div class="small muted">' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
+        '<div class="meta-right"><div class="title">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
+        (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "");
+    }
+    function paymentTilesHtml(methods) {
+      return '<div class="payment-tiles">' + methods.map(function(m) {
+        return '<div class="payment-tile"><div class="pt-label">' + escHtml(PM_LABEL[m.key] || m.key) + '</div>' + (m.detail ? '<div class="pt-detail">' + escHtml(m.detail) + '</div>' : "") + '</div>';
+      }).join("") + '</div>';
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+
+    var con = null;
+    var sigKind = "typed", lienKind = "typed";
+    var pads = {};   // canvas id -> { ctx, drew }
+
+    function req(k) { return !!(con && con.requires && con.requires[k]); }
+    function canRespond() { return !previewId && ["sent", "viewed", "changes_requested"].indexOf(con.status) !== -1; }
+    function sectionById(id) { var out = null; (con.sections || []).forEach(function(s) { if (s.id === id) { out = s; } }); return out; }
+
+    function renderMeta() {
+      var b = con.business;
+      var whoLines = [];
+      if (con.property_address) { whoLines.push(con.property_address); }
+      var rows = [["Contract date", escHtml(fmtDate(con.contract_date))]];
+      if (con.offer_expiry_date) { rows.push(["Offer valid until", escHtml(fmtDate(con.offer_expiry_date))]); }
+      rows.push(["Job", escHtml(con.job_name || "")]);
+      if (con.estimate_display_number) { rows.push(["Estimate", escHtml(con.estimate_display_number)]); }
+      var stamp = "";
+      if (con.status === "completed") { stamp = '<span class="stamp ok">SIGNED BY BOTH PARTIES</span>'; }
+      else if (con.status === "homeowner_signed") { stamp = '<span class="stamp ok">SIGNED ' + escHtml(fmtDate(con.homeowner_signature && con.homeowner_signature.signed_at)) + '</span>'; }
+      else if (con.status === "expired") { stamp = '<span class="stamp bad">OFFER EXPIRED</span>'; }
+      var tile = { label: "Contract price", value: money(con.contract_amount_cents) };
+      var card = byId("cardMeta");
+      if (card) { card.innerHTML = metaHtml("Prepared for", con.customer_name, whoLines, b, "Contract", con.display_number, rows, stamp, tile); }
+    }
+
+    // The clauses in array order. L1 gets its own card (12pt+ bold capitals,
+    // separately signed); L5-A and L5-B are printed at the signature area
+    // and as two copies, so they are skipped here; L6 shows the two
+    // documents and the delivery acknowledgment.
+    function renderSections() {
+      var box = byId("sections");
+      if (!box) { return; }
+      var h = '<div class="card">';
+      (con.sections || []).forEach(function(s) {
+        if (s.id === "L5-A" || s.id === "L5-B") { return; }
+        if (s.id === "L1") {
+          h += '</div><div class="card lien-card" id="lienCard"><h2>Construction lien notice</h2>' + richHtml(s.text) + lienSignHtml() + '</div><div class="card">';
+          return;
+        }
+        if (s.id === "L6") {
+          h += '</div><div class="card" id="poolCard"><h2>Pool safety documents</h2><div class="clause locked">' + richHtml(s.text) + '</div>' + poolDocsHtml() + '</div><div class="card">';
+          return;
+        }
+        h += '<div class="clause' + (s.kind === "locked" ? " locked" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.text) + '</div>';
+      });
+      h += '</div>';
+      box.innerHTML = h;
+      setupCanvas("lienCanvas", "lien");
+    }
+
+    function lienSignHtml() {
+      var ls = con.lien_signature;
+      if (ls) {
+        var visual = (ls.kind === "drawn" && ls.image_url) ? '<img class="sigimg" src="' + escHtml(ls.image_url) + '" alt="Signature">' : '<div class="typed-sig">' + escHtml((con.homeowner_signature && con.homeowner_signature.signer_name) || con.customer_name || "") + '</div>';
+        return '<div class="lien-sign"><div class="k">Owner signature on this notice</div>' + visual + '<div class="small muted">Signed ' + escHtml(fmtDateTime(ls.signed_at)) + '</div></div>';
+      }
+      if (!canRespond() || !req("lien_signature")) {
+        return '<div class="lien-sign small muted">Owner signature and date: collected when you sign below.</div>';
+      }
+      return '<div class="lien-sign"><h3 style="font-size:15px;">Sign the lien notice</h3><p class="small muted" style="font-weight:400;text-transform:none;">This notice is signed and dated separately from the contract.</p>' +
+        '<div class="chips"><button type="button" id="lienTyped" class="sel" onclick="setLien(\'typed\')">Type my name</button><button type="button" id="lienDrawn" onclick="setLien(\'drawn\')">Draw</button></div>' +
+        '<div id="lienTypedBox" style="margin-top:8px;"><p class="small muted" style="font-weight:400;text-transform:none;">Your typed name (entered below) will be used as your signature on this notice.</p></div>' +
+        '<div id="lienDrawnBox" class="hidden" style="margin-top:8px;"><canvas class="sig" id="lienCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'lienCanvas\')">Clear</button></div></div>';
+    }
+
+    function poolDocsHtml() {
+      var p = con.pool || {};
+      var h = "";
+      if (p.safety_feature) { h += '<p style="margin-top:8px;"><strong>Pool safety feature included in this contract:</strong> ' + escHtml(p.safety_feature) + '</p>'; }
+      if (p.docs && p.docs.length) {
+        h += '<div class="docs" style="margin-top:8px;">' + p.docs.map(function(d) { return '<a href="' + escHtml(d.url) + '" target="_blank" rel="noopener">' + escHtml(d.label) + '</a>'; }).join("") + '</div>';
+      }
+      if (con.pool_ack) { h += '<p class="small muted" style="margin-top:8px;">Delivery acknowledged ' + escHtml(fmtDateTime(con.pool_ack.signed_at)) + ' (' + escHtml(con.pool_ack.method || "electronic delivery on this page") + ').</p>'; }
+      return h;
+    }
+
+    function renderPay() {
+      var pm = (con.business && con.business.payment_methods) || [];
+      if (!pm.length) { return; }
+      var el = byId("payMethods"); if (el) { el.innerHTML = paymentTilesHtml(pm); }
+      var c = byId("cardPay"); if (c) { c.classList.remove("hidden"); }
+    }
+
+    function signatureCell(label, sig, fallbackName) {
+      if (!sig) { return '<div class="cell"><div class="k">' + label + '</div><div class="muted small">Not signed yet</div></div>'; }
+      var drawn = sig.kind === "drawn";
+      var visual = (drawn && sig.image_url) ? '<img class="sigimg" src="' + escHtml(sig.image_url) + '" alt="Signature">' : '<div class="typed-sig">' + escHtml(sig.signer_name || fallbackName || "") + '</div>';
+      return '<div class="cell"><div class="k">' + label + '</div>' + visual +
+        '<div class="k" style="margin-top:8px;">Signer</div>' + escHtml(sig.signer_name || "") +
+        '<div class="k" style="margin-top:8px;">Date and time</div>' + escHtml(fmtDateTime(sig.signed_at)) +
+        '<div class="k" style="margin-top:8px;">Method</div>' + (drawn ? "Signed electronically - drawn signature" : "Signed electronically - typed name") +
+        (sig.device ? '<div class="k" style="margin-top:8px;">Device</div>' + escHtml(sig.device) : "") + '</div>';
+    }
+
+    function signedHtml() {
+      var hs = con.homeowner_signature;
+      var head = con.status === "completed" ? "Signed by both parties" : "Signed";
+      var h = '<div class="state"><h3 class="ok">' + head + '</h3>' +
+        (hs ? '<p>Signed by ' + escHtml(hs.signer_name || "") + (hs.signed_at ? ' on ' + escHtml(fmtDateTime(hs.signed_at)) : "") + '.</p>' : "") +
+        '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) + '</div>';
+      if (con.cancellation && con.cancellation.sold_in_home && con.cancellation.deadline_date) {
+        h += '<p style="margin-top:12px;font-weight:700;">You may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the Notice of Cancellation below.</p>';
+      }
+      if (con.content_hash) { h += '<p class="hash" style="margin-top:10px;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</p>'; }
+      return h + '</div>';
+    }
+
+    function initialsNote() {
+      var items = [];
+      if (req("arbitration_initials")) { items.push("arbitration clause"); }
+      if (req("jury_initials")) { items.push("jury trial waiver"); }
+      return items.join(" and ");
+    }
+
+    function renderActions() {
+      var card = byId("cardActions");
+      var banner = byId("cardStateBanner");
+      if (!card || !banner) { return; }
+      banner.classList.add("hidden");
+      var disc = con.disclaimer_line ? '<p class="disclaimer">' + escHtml(con.disclaimer_line) + '</p>' : "";
+      if (previewId) {
+        card.innerHTML = '<h2>Signing</h2><p class="muted">The homeowner signs here after the company has signed. Signing is not available in preview.</p>' + cancellationCopiesHtml() + disc;
+        return;
+      }
+      if (con.status === "homeowner_signed" || con.status === "completed") {
+        banner.innerHTML = signedHtml();
+        banner.classList.remove("hidden");
+        card.innerHTML = '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml() + disc;
+        return;
+      }
+      if (con.status === "awaiting_company") {
+        banner.innerHTML = '<div class="state"><h3>Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = disc;
+        return;
+      }
+      if (con.status === "expired") {
+        banner.innerHTML = '<div class="state"><h3>This offer expired' + (con.offer_expiry_date ? ' on ' + escHtml(fmtDate(con.offer_expiry_date)) : "") + '.</h3><p>Request an updated contract.</p><button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated contract</button><div class="err" id="renewErr"></div></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = disc;
+        return;
+      }
+      if (con.status === "declined") {
+        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined this contract' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = disc;
+        return;
+      }
+      if (con.status === "void") {
+        banner.innerHTML = '<div class="state"><h3>This contract was withdrawn.</h3><p>Contact the company for a current version.</p></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = disc;
+        return;
+      }
+      if (con.status === "changes_requested") {
+        banner.innerHTML = '<div class="state"><h3>Changes requested</h3><p>' + escHtml(con.change_request_text || "") + '</p><p class="muted small">The company will send a revised contract.</p></div>';
+        banner.classList.remove("hidden");
+      }
+      var l5a = sectionById("L5-A");
+      var h = '<h2>Sign this contract</h2>';
+      if (req("lien_signature")) { h += '<p class="small muted">Step 1 is the lien notice above (sign it there). Step 2 is the contract itself, below.</p>'; }
+      if (req("pool_ack")) {
+        h += '<div class="step"><h3>Pool safety documents</h3><label class="consent"><input type="checkbox" id="poolAck"><span>I received both documents listed under Pool safety documents above: the Chapter 515 requirements document and the state drowning-prevention publication.</span></label></div>';
+      }
+      if (req("arbitration_initials") || req("jury_initials")) {
+        h += '<div class="step"><h3>Initials</h3><p class="small muted">Type your initials to confirm you read the ' + escHtml(initialsNote()) + '.</p><label for="initials">Your initials</label><input type="text" id="initials" maxlength="6" autocomplete="off"></div>';
+      }
+      if (req("marketing_checkbox")) {
+        h += '<div class="step"><h3>Photos</h3><label class="consent"><input type="checkbox" id="marketing"><span>I allow the use of photos of the finished work as described in the Photos clause. I can withdraw this in writing at any time.</span></label></div>';
+      }
+      h += '<label for="signer">Your full name</label><input type="text" id="signer" autocomplete="name" value="' + escHtml(con.customer_name || "") + '">' +
+        '<label>Signature</label>' +
+        '<div class="chips"><button type="button" id="chipTyped" class="sel" onclick="setSig(\'typed\')">Type my name</button><button type="button" id="chipDrawn" onclick="setSig(\'drawn\')">Draw</button></div>' +
+        '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
+        '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>';
+      if (l5a && req("cancellation")) { h += '<div class="l5a">' + richHtml(l5a.text) + '</div>'; }
+      h += '<label class="consent"><input type="checkbox" id="consent"><span>I agree to sign electronically and to receive this document electronically. I can download a copy at any time.</span></label>' +
+        '<div class="err" id="signErr"></div>' +
+        '<button type="button" class="btn" id="btnSign" onclick="sign()">Sign contract</button>' + disc +
+        '<h2 style="margin-top:22px;">Or</h2>' +
+        '<label for="changes">Request changes</label><textarea id="changes" placeholder="Tell us what you would like changed"></textarea>' +
+        '<button type="button" class="btn secondary" id="btnChanges" onclick="respond(\'changes\')">Send change request</button>' +
+        '<label for="declineReason">Decline (optional reason)</label><input type="text" id="declineReason">' +
+        '<button type="button" class="btn secondary" id="btnDecline" onclick="respond(\'decline\')">Decline this contract</button>' +
+        '<div class="err" id="respondErr"></div>' + cancellationCopiesHtml();
+      card.innerHTML = h;
+      setupCanvas("sigCanvas", "main");
+    }
+
+    // Two completed copies of the NOTICE OF CANCELLATION (16 CFR 429.1(b)).
+    function cancellationCopiesHtml() {
+      var c = con.cancellation || {};
+      if (!req("cancellation") || !c.notice_form_text) { return ""; }
+      var copy = function(n) { return '<div class="noc-copy"><div class="copy-label">Notice of cancellation - copy ' + n + ' of 2</div>' + richHtml(c.notice_form_text) + '</div>'; };
+      return '<h2 style="margin-top:22px;">Notice of cancellation</h2><p class="small muted">Two completed copies are furnished with this contract. Keep both; use one if you decide to cancel.</p>' + copy(1) + copy(2);
+    }
+
+    function setSig(kind) {
+      sigKind = kind;
+      var ct = byId("chipTyped"), cd = byId("chipDrawn"), st = byId("sigTyped"), sd = byId("sigDrawn");
+      if (ct) { ct.className = kind === "typed" ? "sel" : ""; }
+      if (cd) { cd.className = kind === "drawn" ? "sel" : ""; }
+      if (st) { st.classList.toggle("hidden", kind !== "typed"); }
+      if (sd) { sd.classList.toggle("hidden", kind !== "drawn"); }
+      if (kind === "drawn") { setupCanvas("sigCanvas", "main"); }
+    }
+    function setLien(kind) {
+      lienKind = kind;
+      var ct = byId("lienTyped"), cd = byId("lienDrawn"), st = byId("lienTypedBox"), sd = byId("lienDrawnBox");
+      if (ct) { ct.className = kind === "typed" ? "sel" : ""; }
+      if (cd) { cd.className = kind === "drawn" ? "sel" : ""; }
+      if (st) { st.classList.toggle("hidden", kind !== "typed"); }
+      if (sd) { sd.classList.toggle("hidden", kind !== "drawn"); }
+      if (kind === "drawn") { setupCanvas("lienCanvas", "lien"); }
+    }
+
+    // One pad per canvas id (the contract and the lien notice each have one).
+    function setupCanvas(id, key) {
+      var c = byId(id);
+      if (!c) { return; }
+      var ratio = window.devicePixelRatio || 1;
+      var w = c.clientWidth || 300, h = 160;
+      if (c.width !== Math.round(w * ratio)) { c.width = Math.round(w * ratio); c.height = Math.round(h * ratio); }
+      var ctx = c.getContext("2d");
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#111";
+      var pad = pads[id] || { drew: false, drawing: false };
+      pad.ctx = ctx; pads[id] = pad;
+      function pos(ev) { var r = c.getBoundingClientRect(); var t = ev.touches ? ev.touches[0] : ev; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+      c.onpointerdown = function(ev) { pad.drawing = true; pad.drew = true; var p = pos(ev); ctx.beginPath(); ctx.moveTo(p.x, p.y); ev.preventDefault(); };
+      c.onpointermove = function(ev) { if (!pad.drawing) { return; } var p = pos(ev); ctx.lineTo(p.x, p.y); ctx.stroke(); ev.preventDefault(); };
+      c.onpointerup = c.onpointerleave = function() { pad.drawing = false; };
+    }
+    function clearPad(id) { var c = byId(id); var pad = pads[id]; if (c && pad && pad.ctx) { pad.ctx.clearRect(0, 0, c.width, c.height); pad.drew = false; } }
+
+    function sign() {
+      var err = byId("signErr"); if (!err) { return; }
+      err.textContent = "";
+      var signerEl = byId("signer");
+      var signer = signerEl ? signerEl.value.trim() : "";
+      if (!signer) { err.textContent = "Please type your full name."; return; }
+      var body = { signer_name: signer, signature_kind: sigKind, consent: true };
+      if (req("lien_signature")) {
+        if (lienKind === "drawn") {
+          var lc = byId("lienCanvas"); var lp = pads["lienCanvas"];
+          if (!lc || !lp || !lp.drew) { err.textContent = "Please draw your signature on the lien notice above."; return; }
+          body.lien_signature_png = lc.toDataURL("image/png");
+        } else { body.lien_typed = true; }
+      }
+      if (req("pool_ack")) {
+        var pa = byId("poolAck");
+        if (!pa || !pa.checked) { err.textContent = "Please confirm you received the two pool safety documents."; return; }
+        body.pool_ack = true;
+      }
+      if (req("arbitration_initials") || req("jury_initials")) {
+        var ini = byId("initials");
+        var v = ini ? ini.value.trim() : "";
+        if (!v) { err.textContent = "Please type your initials."; return; }
+        body.initials = v;
+      }
+      if (req("marketing_checkbox")) { var mk = byId("marketing"); body.marketing_consent = !!(mk && mk.checked); }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { err.textContent = "Please tick the box to agree to sign electronically."; return; }
+      if (sigKind === "drawn") {
+        var c = byId("sigCanvas"); var p = pads["sigCanvas"];
+        if (!c || !p || !p.drew) { err.textContent = "Please draw your signature."; return; }
+        body.signature_png = c.toDataURL("image/png");
+      }
+      var btn = byId("btnSign"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+    }
+
+    function respond(kind) {
+      var err = byId("respondErr"); if (!err) { return; }
+      err.textContent = "";
+      var src = byId(kind === "changes" ? "changes" : "declineReason");
+      var text = src ? src.value.trim() : "";
+      if (kind === "changes" && !text) { err.textContent = "Please describe the changes you would like."; return; }
+      var btn = byId(kind === "changes" ? "btnChanges" : "btnDecline"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/" + kind, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text || null }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+    }
+
+    function renew() {
+      var err = byId("renewErr"); var btn = byId("btnRenew");
+      if (!err || !btn) { return; }
+      err.textContent = ""; btn.disabled = true;
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/changes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "The offer expired. Please send an updated contract." }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } btn.textContent = "Request sent"; })
+        .catch(function(e) { btn.disabled = false; err.textContent = e.message; console.error(e); });
+    }
+
+    function fetchContract() {
+      if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
+      if (previewId) {
+        var cid = null, tok = null;
+        try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+        if (!cid || !tok) { return Promise.reject(new Error("nf")); }
+        return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/contracts/" + encodeURIComponent(previewId) + "/preview", { headers: { "Authorization": "Bearer " + tok } })
+          .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+      }
+      return fetch(WORKER_URL + "/api/public/contracts/" + token).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+    }
+
+    function load() {
+      if (!token && !previewId && !mockUrl) { show("cardNotFound"); return Promise.resolve(); }
+      return fetchContract()
+        .then(function(d) {
+          if (d.superseded) {
+            if (d.current_token) { window.location.replace("contract-view?t=" + d.current_token); return; }
+            show("cardNotFound"); return;
+          }
+          con = d.contract;
+          applyBranding(con.business);
+          document.title = "Contract " + con.display_number + (con.business.name ? " - " + con.business.name : "");
+          var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !previewId); }
+          renderMeta(); renderSections(); renderPay(); renderActions();
+          var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }
+          var pdf = byId("btnPdf");
+          if (pdf) { pdf.onclick = function() { window.open("templates/client-contract-template.html?" + (previewId ? "preview=" + previewId : "t=" + token), "_blank"); }; }
+          show("doc");
+        })
+        .catch(function(e) { console.error(e); show("cardNotFound"); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

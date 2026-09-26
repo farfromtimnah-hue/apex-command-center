@@ -4067,6 +4067,7 @@
       var invTab = null;
       PORTAL_TABS.forEach(function(t) { if (t.tab === "gminvoices") { invTab = t; } });
       window.gmAttentionEnabled = !isSeller() && !isLead() && !!invTab && portalTabEnabled(invTab);
+      window.PORTAL_CONTRACTS_ENABLED = !isLead() && portalTabEnabled({ gate: "contracts" });
       if (window.gmAttentionEnabled && typeof gmLoadAttention === "function") { gmLoadAttention(); }
       populateMobileDock();
       // ?tab=<id> lands straight on a tab. PORTAL_TABS has always called these
@@ -4558,7 +4559,11 @@
     // list of client ids back here to narrow a tab again.
     var PORTAL_TAB_GATES = {
       estimates: ["test-client-temp-001"],
-      invoices:  ["test-client-temp-001"]
+      invoices:  ["test-client-temp-001"],
+      // Contracts build: builder, contract settings, change orders, dispute
+      // tools. Not a tab of its own (it lives on the project and under
+      // Estimates > Settings); gm.js reads window.PORTAL_CONTRACTS_ENABLED.
+      contracts: ["test-client-temp-001"]
     };
     function portalTabEnabled(t) {
       if (!t || !t.gate) { return true; }
@@ -6977,7 +6982,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790448978"></script>
+  <script src="gm.js?v=1790461037"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

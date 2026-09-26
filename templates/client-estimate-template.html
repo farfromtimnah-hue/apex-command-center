@@ -199,15 +199,30 @@
     // would not fit; a block flagged keepWithNext (a section header, the
     // page header) is moved along with what follows it; a table row keeps
     // its thead, repeated at the top of every continued table.
+    // Heights INCLUDE vertical margins (getBoundingClientRect does not), plus
+    // 1px of slack per block: an under-measured block is exactly how content
+    // ends up under the footer line.
     function measure(html, asRow, thead) {
       var stage = document.getElementById("stage");
       stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
-      var h = stage.firstElementChild ? stage.firstElementChild.getBoundingClientRect().height : 0;
-      if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : h; }
+      var el = stage.firstElementChild;
+      var h = 0;
+      if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : 0; }
+      else if (el) {
+        var cs = window.getComputedStyle(el);
+        h = el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+      }
       stage.innerHTML = "";
-      return h;
+      return h + 1;
     }
-    function measureThead(thead) { return measure("", true, thead); }
+    function measureThead(thead) {
+      var stage = document.getElementById("stage");
+      stage.innerHTML = '<table>' + thead + '<tbody></tbody></table>';
+      var th = stage.querySelector("thead");
+      var h = th ? th.getBoundingClientRect().height : 0;
+      stage.innerHTML = "";
+      return h + 1;
+    }
 
     function paginate(blocks) {
       var slides = [];       // each: { parts: [html...], used: px }
@@ -246,7 +261,18 @@
 
     function render() {
       var blocks = buildBlocks();
-      var slides = paginate(blocks);
+      // Belt and braces: if a slide still overflows after measuring, shrink
+      // the usable height and paginate again. overflow:hidden must never be
+      // what decides where a page ends.
+      var slides, tries = 0, budget = CONTENT_H;
+      while (tries < 6) {
+        CONTENT_H = budget;
+        slides = paginate(blocks);
+        var worst = maxOverflow(slides, blocks);
+        if (worst <= 0) { break; }
+        budget -= worst + 8;
+        tries++;
+      }
       var footer = (est.business.name || "") + " · " + est.display_number;
       var html = "";
       slides.forEach(function(s, i) {
@@ -254,13 +280,35 @@
       });
       document.getElementById("pages").innerHTML = html;
       document.title = "Estimate " + est.display_number + (est.business.name ? " - " + est.business.name : "");
-      // Overflow check (nothing may be cut by overflow:hidden): log and mark.
+      // Final overflow check (nothing may be cut by overflow:hidden).
       var sections = document.querySelectorAll("#pages .slide");
       for (var i = 0; i < sections.length; i++) {
         var inner = sections[i].scrollHeight;
         if (inner > sections[i].clientHeight + 1) { console.error("[estimate-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
       }
       window.__estimatePages = slides.length;
+    }
+
+    // Renders candidate slides off-screen and reports the worst overflow in
+    // px (0 = every page fits above the footer line).
+    function maxOverflow(slides, blocks) {
+      var host = document.getElementById("pages");
+      var probe = document.createElement("div");
+      probe.style.cssText = "position:absolute;left:-20000px;top:0;";
+      probe.innerHTML = slides.map(function(s) { return '<section class="slide" data-footer="">' + s.parts.join("") + '</section>'; }).join("");
+      document.body.appendChild(probe);
+      var worst = 0;
+      var secs = probe.querySelectorAll(".slide");
+      for (var i = 0; i < secs.length; i++) {
+        var kids = secs[i].children;
+        var last = kids[kids.length - 1];
+        if (!last) { continue; }
+        var bottom = last.getBoundingClientRect().bottom - secs[i].getBoundingClientRect().top;
+        var limit = 11 * 96 - 1 * 96;   // the slide's bottom padding edge, above the footer rule
+        if (bottom - limit > worst) { worst = bottom - limit; }
+      }
+      document.body.removeChild(probe);
+      return Math.ceil(worst);
     }
 
     function applyBrand(b) {

@@ -1659,6 +1659,34 @@
       el.innerHTML = h;
     }
 
+    // Contracts build (checkpoint C2): a job over $2,500 with no signed
+    // contract, unresolved for 7+ days, is raised in the weekly meeting. Own
+    // copy of the loader here (meeting-prep keeps its own shared code).
+    function renderContractNoticesCard() {
+      return '<div class="card" id="prepContractNotices" hidden></div>';
+    }
+    function loadPrepContractNotices() {
+      var box = document.getElementById("prepContractNotices");
+      if (!box || !CLIENT_ID) { return; }
+      apiFetch("/api/contracts/stale-notices?client_id=" + encodeURIComponent(CLIENT_ID))
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var rows = (d && d.notices) || [];
+          if (!rows.length) { box.hidden = true; return; }
+          var h = '<p class="sec-title">' + ptEn("Obras sem contrato assinado (7+ dias)", "Jobs without a signed contract (7+ days)") + '</p>';
+          rows.forEach(function(n) {
+            var days = Math.floor((Date.now() - Date.parse(String(n.created_at).replace(" ", "T") + "Z")) / 86400000);
+            var val = Number(n.valor) || 0;
+            h += '<p style="margin:0 0 8px;font-size:14px;"><strong>' + escHtml(n.job_name || "") + '</strong> &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' &middot; ' +
+              ptEn("aberto h\u00e1 " + days + " dias", "open for " + days + " days") + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) : '') +
+              '<br><span style="font-size:12px;color:var(--muted);">' + ptEn("Levantar na reuni\u00e3o: o contrato pode ser enviado pelo projeto no Apex.", "Raise in the meeting: the contract can be sent from the project in Apex.") + '</span></p>';
+          });
+          box.innerHTML = h;
+          box.hidden = false;
+        })
+        .catch(function() {});
+    }
+
     // The container. The week itself loads after render(), since it has its
     // own endpoint and its own navigation.
     function renderWeekCard(d) {
@@ -3030,6 +3058,7 @@
         h += renderLastSession(d);
         h += renderWeeklyIndicators(d);
         h += renderWeekCard(d);
+        h += renderContractNoticesCard();
         h += renderGold(d);
         h += renderStrategic(d);
         h += renderEngagement(d);
@@ -3080,6 +3109,7 @@
       // The week has its own endpoint and its own navigation, so it loads
       // after the page is in the DOM.
       if (d.meeting_type === "rde_semanal") { loadWeek(); }
+      loadPrepContractNotices();
     }
 
     // Autosave on blur, debounced. A save that changes the text re-ranks the

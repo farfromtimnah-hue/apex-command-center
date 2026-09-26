@@ -1248,6 +1248,20 @@
         <div id="contractReviewsList"></div>
       </div>
     </div>
+    <!-- Contracts build (checkpoint C2): jobs over $2,500 without a signed
+         contract, open for 7+ days. Same queue card as the others. -->
+    <div class="below-section" id="staleContractNoticesSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Obras sem contrato assinado (7+ dias)</span>
+            <span class="show-en">Jobs without a signed contract (7+ days)</span>
+            <span id="staleContractNoticesBadge" style="display:inline-block;margin-left:8px;background:rgba(180,64,64,0.12);color:#b44040;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <div id="staleContractNoticesList"></div>
+      </div>
+    </div>
     <div class="below-section" id="sellerLoginRequestsSection" hidden>
       <div class="content-card">
         <div class="content-card-header">
@@ -1951,6 +1965,7 @@
         loadPrepBlockQueue();
         loadWatchedFiles();
         loadContractReviewStatus("developer");
+        loadStaleContractNotices();
         window.setView(sessionStorage.getItem("apex_dev_view") || "dev");
       }
     }
@@ -2467,6 +2482,34 @@
       apiFetch("/api/contracts/review-submissions/" + encodeURIComponent(id) + "/seen", { method: "POST" })
         .then(function() { loadContractReviewStatus("developer"); })
         .catch(function(e) { if (btn) { btn.disabled = false; } window.alert("Erro: " + e.message); });
+    }
+
+    // Contracts build (checkpoint C2): after 7 days unresolved, a job over
+    // $2,500 with no signed contract is raised here (rafa + developer) and in
+    // meeting prep, so it comes up in the weekly meeting.
+    function loadStaleContractNotices() {
+      apiFetch("/api/contracts/stale-notices")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var section = document.getElementById("staleContractNoticesSection");
+          var listEl = document.getElementById("staleContractNoticesList");
+          var badge = document.getElementById("staleContractNoticesBadge");
+          if (!section || !listEl) { return; }
+          var rows = d.notices || [];
+          if (!rows.length) { section.hidden = true; return; }
+          if (badge) { badge.textContent = rows.length; }
+          var isEnLang = document.body.classList.contains("lang-en");
+          listEl.innerHTML = rows.map(function(n) {
+            var days = Math.floor((Date.now() - Date.parse(String(n.created_at).replace(" ", "T") + "Z")) / 86400000);
+            var val = Number(n.valor) || 0;
+            return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
+              '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(n.client_name || "") + ' &middot; ' + escHtml(n.job_name || "") + ' &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Open for ' + days + ' days' : 'Aberto h\u00e1 ' + days + ' dias') + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) + ' (' + escHtml(n.opened_role || "") + ')' : '') + '</div></div>' +
+              '<a href="meeting-prep.html?client_id=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a></div>';
+          }).join("");
+          section.hidden = false;
+        })
+        .catch(function() {});
     }
 
     function loadSellerLoginRequests() {
@@ -3242,6 +3285,7 @@
     function renderRafaDashboard() {
       // Overdue tiles load once, independent of scope
       loadRafaOverdue();
+      loadStaleContractNotices();
       // Scope-dependent data
       loadRafaMeetingsAndTasks();
     }
@@ -3719,6 +3763,7 @@
         initHeroBg("heroBgImageDev", "heroBgScrimDev");
         loadDevOverview();
         loadContractReviewStatus("developer");
+        loadStaleContractNotices();
       }
     };
 

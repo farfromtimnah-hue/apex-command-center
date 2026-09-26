@@ -3602,7 +3602,7 @@ function gmOpenJob(idx) {
   gmRenderSimpleSheet("job");
   // A brand-new project has no id yet, so it has nothing to attach photos or
   // notes to. A seller has no route to either, so neither is fetched.
-  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); }
+  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); }
   if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
@@ -4591,7 +4591,7 @@ function gmConSignOpen() {
     '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmConConsent" style="width:22px;height:22px;"> <span>' + gmT("Concordo em assinar eletronicamente este contrato em nome da empresa.", "I agree to sign this contract electronically on behalf of the company.") + '</span></label>' +
     '<p class="gm-warn" id="gmConSignMsg" hidden></p>' +
     '<button type="button" class="gm-btn-primary" id="gmConSignBtn" onclick="gmConSignSave()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>' +
-    '<button type="button" class="gm-btn-secondary" onclick="gmRenderContractSheet()">' + gmT("Cancelar", "Cancel") + '</button></div>';
+    '<button type="button" class="gm-btn-secondary" onclick="' + (c._co ? "gmRenderChangeOrderSheet()" : "gmRenderContractSheet()") + '">' + gmT("Cancelar", "Cancel") + '</button></div>';
   gmSheetOpen(gmT("Assinatura da empresa · ", "Company signature · ") + escHtml(c.display_number), body);
   gmConSigKind = "typed"; gmConSigDrew = false;
 }
@@ -4627,8 +4627,9 @@ function gmConSignSave() {
     var cv = document.getElementById("gmConSigCanvas"); body.signature_png = cv ? cv.toDataURL("image/png") : null;
   }
   if (btn) { btn.disabled = true; }
-  gmApi("contracts/" + encodeURIComponent(gmConDetail.id) + "/company-sign", { method: "POST", body: body })
-    .then(function() { gmToast(gmT("Assinado pela empresa. Agora envie ao cliente.", "Signed by the company. Now send it to the homeowner.")); gmLoadJobContracts(gmConDetail.job_id); gmOpenContract(gmConDetail.id); })
+  var isCo = !!gmConDetail._co;
+  gmApi((isCo ? "change-orders/" : "contracts/") + encodeURIComponent(gmConDetail.id) + "/company-sign", { method: "POST", body: body })
+    .then(function() { gmToast(gmT("Assinado pela empresa. Agora envie ao cliente.", "Signed by the company. Now send it to the homeowner.")); if (isCo) { gmLoadJobChangeOrders(gmConDetail.job_id); gmOpenChangeOrder(gmConDetail.id); } else { gmLoadJobContracts(gmConDetail.job_id); gmOpenContract(gmConDetail.id); } })
     .catch(function(e) { if (btn) { btn.disabled = false; } say(e.message); console.error(e); });
 }
 
@@ -4658,7 +4659,7 @@ function gmConSendOpen() {
   gmSheetOpen(gmT("Enviar contrato", "Send contract"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmDocMsgLoad().then(function() {
     var tpl = (gmDocMessages.messages && gmDocMessages.messages.contract_message) || "";
-    var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (gmSellerDisplayName() || "") : gmDocSenderFallback(), link: c.link });
+    var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: (gmDocMessages.settings_lite && gmDocMessages.settings_lite.legal_name) || (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (gmSellerDisplayName() || "") : gmDocSenderFallback(), link: c.link });
     gmDocSendSheetRender(gmT("Enviar contrato", "Send contract") + " · " + escHtml(c.display_number), c.send_phone || "", text, "contract_message",
       function() { gmApi("contracts/" + encodeURIComponent(c.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Contrato marcado como enviado", "Contract marked as sent")); gmLoadJobContracts(c.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
       function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); });
@@ -4677,6 +4678,211 @@ function gmConAwaitingCardHtml() {
     gmConAwaiting.map(function(c) {
       return '<button type="button" class="gm-row" onclick="switchTab(\'gmjobs\'); gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number) + ' · ' + escHtml(c.job_name || "") + '</span>' +
         '<div class="gm-lead-sub">' + gmT("encaminhado ", "routed ") + escHtml(formatDateTimeUTC(c.routed_at)) + '</div></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("assinar", "sign")) + '</span></span></button>';
+    }).join("");
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════
+// CHANGE ORDERS (contracts build, checkpoint C1) — Rafael's one-page addendum,
+// built from Preços on the project, signed company first, then homeowner.
+// Copies: the estimate wizard's pick list (lines), the contract sheet (sign /
+// send). NO-CONTRACT NOTICE (C2): a warning when a job over $2,500 with no
+// signed contract gets progress, a second invoice send, or a status change.
+// ═════════════════════════════════════════════════════════════════════════
+var gmJobCOs = {};
+function gmLoadJobChangeOrders(jobId) {
+  if (!gmContractsEnabled()) { return; }
+  gmApi("change-orders?job_id=" + encodeURIComponent(jobId))
+    .then(function(d) { gmJobCOs[jobId] = d.change_orders || []; gmRenderJobChangeOrders(jobId); })
+    .catch(function(e) { gmJobCOs[jobId] = []; gmRenderJobChangeOrders(jobId, e.message); console.error(e); });
+}
+function gmRenderJobChangeOrders(jobId, failedMsg) {
+  var box = document.getElementById("gmJobCOSection");
+  if (!box) { return; }
+  var list = gmJobCOs[jobId] || [];
+  var inner = "";
+  if (failedMsg) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(failedMsg) + '</p>'; }
+  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum aditivo.", "No change orders.") + '</p>'; }
+  else {
+    list.forEach(function(co) {
+      inner += gmSheetRowHtml("tag", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + (co.amount_cents < 0 ? "−" : "+") + gmMoney(Math.abs(co.amount_cents)), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
+        gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : ""));
+    });
+  }
+  box.innerHTML = gmSheetSection(gmT("Aditivos (change orders)", "Change orders"), inner) +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmCOWizardOpen(\'' + escHtml(jobId) + '\')">' + gmT("+ Aditivo", "+ Change order") + '</button>';
+}
+
+var gmCOWiz = null;
+function gmCOWizardOpen(jobId) {
+  gmCOWiz = { jobId: jobId, items: [], description: "", schedule_days: "0", payment_change: "adjust_remaining", payment_note: "" };
+  var go = function() { gmCOWizardRender(); };
+  if (gmPricingData) { go(); } else { gmApi("pricing").then(function(d) { gmPricingData = d; go(); }).catch(function(e) { gmToast(e.message); console.error(e); }); }
+}
+function gmCOWizardRender() {
+  var w = gmCOWiz;
+  var items = (gmPricingData && gmPricingData.items) || [];
+  var total = 0; w.items.forEach(function(it) { total += Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents) * (it.kind === "remove" ? -1 : 1); });
+  var h = '<div class="gm-sheet-section"><label class="gm-field-label" for="gmCODesc">' + gmT("O que muda (uma frase)", "What changes (one sentence)") + '</label><input type="text" id="gmCODesc" class="gm-input" value="' + escHtml(w.description) + '" oninput="gmCOWiz.description = this.value"></div>';
+  h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Itens da tabela de preços", "Items from the price list") + '</p>' +
+    items.slice(0, 60).map(function(p) {
+      return '<div class="gm-cost-line gm-est-pick"><span class="gm-cost-label"><strong>' + escHtml(p.item) + '</strong> <span class="muted">' + gmMoney(Math.round((Number(p.price) || 0) * 100)) + (p.unit ? " / " + escHtml(p.unit) : "") + '</span></span>' +
+        '<button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'add\')">+</button><button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'remove\')">−</button></div>';
+    }).join("") +
+    '<button type="button" class="gm-btn-secondary" onclick="gmCOWiz.items.push({ pricing_id: null, item_name: \'\', qty: \'1\', unit: \'\', rate_cents: 0, kind: \'add\' }); gmCOWizardRender();">' + gmT("+ Linha avulsa", "+ Custom line") + '</button></div>';
+  if (w.items.length) {
+    h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Linhas do aditivo", "Change order lines") + ' <span class="gm-sheet-section-note">' + gmT("remoção vira crédito", "a removal is a credit") + '</span></p>' +
+      w.items.map(function(it, i) {
+        return '<div class="gm-est-line"><div class="gm-cost-line"><input type="text" class="gm-input gm-cost-label" value="' + escHtml(it.item_name) + '" oninput="gmCOWiz.items[' + i + '].item_name = this.value">' +
+          '<button type="button" class="gm-cost-del" onclick="gmCOWiz.items.splice(' + i + ', 1); gmCOWizardRender();">&times;</button></div>' +
+          '<div class="gm-cost-line"><input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(it.qty) + '" onchange="gmCOWiz.items[' + i + '].qty = this.value; gmCOWizardRender();"><span class="gm-est-x">×</span>' +
+          '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml((it.rate_cents / 100).toFixed(2)) + '" onchange="var n = gmParseMoney(this.value); if (n !== null) { gmCOWiz.items[' + i + '].rate_cents = Math.round(n * 100); } gmCOWizardRender();">' +
+          '<select class="gm-input gm-cost-type" onchange="gmCOWiz.items[' + i + '].kind = this.value; gmCOWizardRender();"><option value="add"' + (it.kind === "add" ? " selected" : "") + '>' + gmT("Acrescenta", "Add") + '</option><option value="remove"' + (it.kind === "remove" ? " selected" : "") + '>' + gmT("Remove (crédito)", "Remove (credit)") + '</option></select></div>' +
+          '<div class="gm-lead-sub">' + (it.kind === "remove" ? "− " : "+ ") + gmMoney(Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents)) + '</div></div>';
+      }).join("") + '</div>';
+  }
+  h += '<div class="gm-sheet-section"><div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Mudança no preço", "Change in price"), "<strong>" + (total < 0 ? "− " : "+ ") + gmMoney(Math.abs(total)) + "</strong>") + '</div>' +
+    '<label class="gm-field-label" for="gmCODays">' + gmT("Impacto no prazo (dias úteis; negativo encurta)", "Schedule impact (working days; negative shortens)") + '</label><input type="text" inputmode="numeric" id="gmCODays" class="gm-input" value="' + escHtml(w.schedule_days) + '" oninput="gmCOWiz.schedule_days = this.value">' +
+    '<p class="gm-sheet-section-title" style="margin-top:10px;">' + gmT("Parcelas", "Payment schedule") + '</p><div class="gm-chip-set">' +
+    '<button type="button" class="gm-choice-chip' + (w.payment_change === "adjust_remaining" ? " gm-chip-sel" : "") + '" onclick="gmCOWiz.payment_change = \'adjust_remaining\'; gmCOWizardRender();">' + gmT("Ajustar as faturas em aberto", "Adjust the unpaid invoices") + '</button>' +
+    '<button type="button" class="gm-choice-chip' + (w.payment_change === "new_step" ? " gm-chip-sel" : "") + '" onclick="gmCOWiz.payment_change = \'new_step\'; gmCOWizardRender();">' + gmT("Nova parcela só para o aditivo", "New invoice step for the change") + '</button></div>' +
+    '<p class="gm-warn" id="gmCOMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmCOWizardSave()">' + gmT("Criar aditivo", "Create change order") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button></div>';
+  gmSheetOpen(gmT("Novo aditivo", "New change order"), h);
+}
+function gmCOAdd(pricingId, kind) {
+  var p = ((gmPricingData && gmPricingData.items) || []).filter(function(x) { return x.id === pricingId; })[0];
+  if (!p) { return; }
+  gmCOWiz.items.push({ pricing_id: p.id, item_name: p.item, qty: "1", unit: p.unit || "", rate_cents: Math.round((Number(p.price) || 0) * 100), kind: kind });
+  gmCOWizardRender();
+}
+function gmCOWizardSave() {
+  var w = gmCOWiz, msg = document.getElementById("gmCOMsg");
+  function say(t) { if (msg) { msg.textContent = t; msg.hidden = false; } }
+  if (!w.items.length) { say(gmT("Adicione ao menos uma linha.", "Add at least one line.")); return; }
+  for (var i = 0; i < w.items.length; i++) { if (!String(w.items[i].item_name || "").trim()) { say(gmT("Toda linha precisa de um nome.", "Every line needs a name.")); return; } }
+  gmApi("jobs/" + encodeURIComponent(w.jobId) + "/change-orders", { method: "POST", body: { description: w.description.trim() || null, schedule_days: Number(w.schedule_days) || 0, payment_change: w.payment_change,
+    items: w.items.map(function(it) { return { pricing_id: it.pricing_id, item_name: it.item_name.trim(), qty: Number(String(it.qty).replace(",", ".")) || 1, unit: it.unit || null, rate_cents: it.rate_cents, kind: it.kind }; }) } })
+    .then(function(d) { gmToast(gmT("Aditivo criado: ", "Change order created: ") + d.number); gmLoadJobChangeOrders(w.jobId); gmOpenChangeOrder(d.change_order_id); })
+    .catch(function(e) { say(e.message); console.error(e); });
+}
+
+var gmCODetail = null;
+function gmOpenChangeOrder(id) {
+  gmSheetOpen(gmT("Aditivo", "Change order"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("change-orders/" + encodeURIComponent(id)).then(function(d) { gmCODetail = d.change_order; gmRenderChangeOrderSheet(); })
+    .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+function gmRenderChangeOrderSheet() {
+  var co = gmCODetail; if (!co) { return; }
+  var body = '<div class="gm-sheet-hero">' +
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span><span class="gm-sheet-hero-pill">' + gmConPill(co.status) + '</span></span></div>' +
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Mudança", "Change") + '</span><span class="gm-sheet-hero-value">' + (co.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(co.amount_cents)) + '</span></span></div></div>';
+  body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
+  if (co.status === "draft" && co.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
+  if (["company_signed", "sent", "viewed"].indexOf(co.status) !== -1) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>'; }
+  body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
+  if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(co.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (!gmIsSeller() && ["void", "completed"].indexOf(co.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmCOVoid()">' + gmT("Anular", "Void") + '</button>'; }
+  body += '</div></div>';
+  body += gmSheetSection(gmT("Resumo", "Summary"),
+    gmSheetRowHtml("tag", gmT("Contrato", "Contract"), escHtml(co.contract_display_number || gmT("estimate aceito (sem contrato assinado)", "accepted estimate (no signed contract)"))) +
+    gmSheetRowHtml("dollar", gmT("Preço antes", "Price before"), gmMoney(co.price_before_cents)) +
+    gmSheetRowHtml("dollar", gmT("Mudança", "Change"), (co.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(co.amount_cents))) +
+    gmSheetRowHtml("dollar", gmT("Novo preço", "New price"), "<strong>" + gmMoney(co.price_after_cents) + "</strong>") +
+    gmSheetRowHtml("clock", gmT("Prazo", "Schedule"), (co.schedule_days || 0) + gmT(" dias úteis", " working days")) +
+    gmSheetRowHtml("tag", gmT("Parcelas", "Payments"), co.payment_change === "new_step" ? gmT("nova parcela para o aditivo", "new invoice step") : gmT("faturas em aberto ajustadas", "unpaid invoices adjusted")));
+  body += gmSheetSection(gmT("Linhas", "Lines"), (co.items || []).map(function(it) { return gmSheetRowHtml("tag", escHtml(it.item_name), (it.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(it.amount_cents)), null, null, escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + " × " + gmMoney(it.rate_cents)); }).join(""));
+  var sig = "";
+  if (co.company_signature) { sig += gmSheetRowHtml("check", gmT("Empresa", "Company"), escHtml(co.company_signature.signer_name || ""), null, null, escHtml(formatDateTimeUTC(co.company_signature.signed_at))); }
+  if (co.homeowner_signature) { sig += gmSheetRowHtml("check", gmT("Cliente", "Homeowner"), escHtml(co.homeowner_signature.signer_name || ""), null, null, escHtml(formatDateTimeUTC(co.homeowner_signature.signed_at)) + (co.homeowner_signature.device ? " · " + escHtml(co.homeowner_signature.device) : "")); }
+  if (co.applied) { sig += gmSheetRowHtml("dollar", gmT("Aplicado", "Applied"), (co.applied.invoices || []).map(function(x) { return escHtml(x.number) + " " + (x.delta_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(x.delta_cents)); }).join("<br>") || gmT("sem faturas", "no invoices"), null, null, escHtml(formatDateTimeUTC(co.applied_at))); }
+  if (co.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(co.content_hash) + '</span>'); }
+  if (sig) { body += gmSheetSection(gmT("Assinaturas", "Signatures"), sig); }
+  body += '<p class="gm-derived-note">' + escHtml(co.disclaimer_line || "") + '</p>';
+  gmSheetOpen(escHtml(co.number) + " · " + escHtml(co.job_name || ""), body);
+}
+function DEFAULT_ORIGIN_PORTAL() { return window.location.origin; }
+function gmCOSignOpen() {
+  var co = gmCODetail;
+  gmConDetail = { id: co.id, display_number: co.number, signer_name: co.signer_name, job_id: co.job_id, _co: true };
+  gmConSignOpen();
+}
+function gmCOSendOpen() {
+  var co = gmCODetail;
+  gmApi("change-orders/" + encodeURIComponent(co.id) + "/send", { method: "POST" })
+    .then(function(d) { gmDocSendSheetRender(gmT("Enviar aditivo · ", "Send change order · ") + escHtml(co.number), d.phone || co.send_phone || "", d.message, "contract_message", null, function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); }); gmLoadJobChangeOrders(co.job_id); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmCOVoid() {
+  var co = gmCODetail;
+  gmOpenFieldEditor(gmT("Motivo da anulação", "Void reason"), "textarea", "", [], function(reason) {
+    if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderChangeOrderSheet(); return; }
+    gmApi("change-orders/" + encodeURIComponent(co.id) + "/void", { method: "POST", body: { reason: reason } }).then(function() { gmToast(gmT("Aditivo anulado", "Change order voided")); gmLoadJobChangeOrders(co.job_id); gmOpenChangeOrder(co.id); }).catch(function(e) { gmToast(e.message); console.error(e); gmRenderChangeOrderSheet(); });
+  }, null, function() { gmRenderChangeOrderSheet(); });
+}
+
+// ── No signed contract on a job over $2,500 (C2) ─────────────────────────
+// Called before progress photos, a status change and a second invoice send.
+// The action runs after the owner continues (or the seller notifies the owner).
+function gmContractGuard(jobId, trigger, proceed) {
+  if (!gmContractsEnabled() || !jobId) { proceed(); return; }
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-status")
+    .then(function(st) {
+      if (!st.needs_warning) { proceed(); return; }
+      gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "open", trigger: trigger } }).catch(function(e) { console.error(e); });
+      var body = '<div class="gm-sheet-section"><p class="gm-warn">' + gmT("Este projeto passa de $2,500 e não tem contrato assinado. Para obra residencial acima desse valor, a Flórida exige no contrato o aviso de lien (seção 713.015) e o aviso do Recovery Fund (seção 489.1425).",
+          "This project is over $2,500 and has no signed contract. For residential jobs over that amount, Florida requires the construction lien notice (section 713.015) and the Recovery Fund notice (section 489.1425) in the contract.") + '</p>';
+      if (st.is_seller) {
+        var digits = gmWaDigits(st.owner_phone || "");
+        body += '<p class="muted">' + gmT("Para continuar, avise o dono. Abre uma mensagem no seu telefone com este texto fixo:", "To continue, notify the owner. This opens a message from your phone with this fixed text:") + '</p>' +
+          '<p class="gm-derived-note" style="white-space:pre-wrap;">' + escHtml(st.seller_message) + '</p>' +
+          (!st.owner_phone ? '<p class="gm-warn">' + gmT("O dono não tem telefone cadastrado; a mensagem abre sem número.", "The owner has no phone on file; the message opens without a number.") + '</p>' : "") +
+          '<div class="gm-contact-row"><a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(st.owner_phone || "").replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(st.seller_message) + '" onclick="gmContractGuardTap(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmIcon("sms") + gmT("Avisar o dono e continuar", "Notify owner and continue") + '</a>' +
+          '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(st.seller_message) + '" target="_blank" rel="noopener" onclick="gmContractGuardTap(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmIcon("wa") + 'WhatsApp</a></div>' +
+          '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + gmT("Voltar", "Back") + '</button></div>';
+      } else {
+        body += '<div class="gm-est-actions"><button type="button" class="gm-btn-primary" onclick="gmSheetClose(); switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(jobId) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' +
+          '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div>' +
+          '<p class="muted" style="font-size:13px;">' + gmT("Continuar fica registrado com o seu nome e a hora.", "Continuing is logged with your name and the time.") + '</p></div>';
+      }
+      gmContractGuardProceed = proceed;
+      gmSheetOpen(gmT("Sem contrato assinado", "No signed contract"), body);
+    })
+    .catch(function(e) { console.error(e); proceed(); });
+}
+var gmContractGuardProceed = null;
+function gmContractGuardTap(jobId, trigger) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "seller_notify_tap", trigger: trigger } }).catch(function(e) { console.error(e); });
+  var p = gmContractGuardProceed; gmContractGuardProceed = null;
+  setTimeout(function() { gmSheetClose(); if (p) { p(); } }, 300);
+}
+function gmContractGuardContinue(jobId, trigger) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "owner_continue", trigger: trigger } })
+    .then(function() { var p = gmContractGuardProceed; gmContractGuardProceed = null; gmSheetClose(); gmToast(gmT("Registrado: continuando sem contrato.", "Logged: continuing without a contract.")); gmConLoadNotices(); if (p) { p(); } })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmContractGuardSend(jobId) {
+  // Opens the project sheet; the Contract section there creates or opens the contract.
+  var idx = -1; ((gmJobsData && gmJobsData.jobs) || []).forEach(function(j, i) { if (j.id === jobId) { idx = i; } });
+  if (idx === -1) { gmToast(gmT("Abra o projeto e use a seção Contrato.", "Open the project and use the Contract section.")); return; }
+  gmOpenJob(idx);
+}
+// Owner Home: open notices with the two buttons.
+var gmConNotices = [];
+function gmConLoadNotices() {
+  if (!gmContractsEnabled() || gmIsSeller()) { return Promise.resolve([]); }
+  return gmApi("contract-notices").then(function(d) { gmConNotices = d.notices || []; if (typeof gmAttentionChanged === "function") { gmAttentionChanged(gmAttention); } return gmConNotices; }).catch(function(e) { console.error(e); return []; });
+}
+function gmConNoticesCardHtml() {
+  if (!gmConNotices.length) { return ""; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Projetos sem contrato assinado", "Projects without a signed contract") + ' <span class="goal-pending-badge">' + gmConNotices.length + '</span></div>' +
+    gmConNotices.map(function(n) {
+      return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(n.job_name || "") + ' · ' + gmMoney(Math.round((Number(n.valor) || 0) * 100)) + '</span>' +
+        '<div class="gm-lead-sub">' + gmT("aberto em ", "opened ") + escHtml(formatDateTimeUTC(n.created_at)) + (n.opened_by ? " · " + escHtml(n.opened_by) : "") + '</div>' +
+        '<div class="gm-est-actions" style="margin-top:6px;"><button type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(n.job_id) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(n.job_id) + '\', \'home\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div></span></div>';
     }).join("");
 }
 
@@ -4837,6 +5043,10 @@ function gmOpenAuthedFile(fileUrl) {
 }
 
 function gmUploadJobPhoto(jobId, input) {
+  if (!gmUploadJobPhoto._guarded) {
+    gmContractGuard(jobId, "progress_photo", function() { gmUploadJobPhoto._guarded = true; gmUploadJobPhoto(jobId, input); gmUploadJobPhoto._guarded = false; });
+    return;
+  }
   if (!input.files || !input.files[0]) { return; }
   var file = input.files[0];
 
@@ -5282,7 +5492,7 @@ function gmRenderSimpleSheet(kind) {
     // them); filled by gmLoadJobInvoices().
     if (row.id) { body += '<div id="gmJobInvoicesSection"></div>'; }
     // Contract (contracts build): built from the accepted estimate; gated.
-    if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div>'; }
+    if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div>'; }
 
     // ── Progress photos ─────────────────────────────────────────────────
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
@@ -5468,6 +5678,11 @@ function gmEditJobComissaoPct() {
 function gmSaveSimpleField(kind, key, value) {
   var spec = gmSimpleSpec(kind);
   var row = gmSheetRow;
+  // C2: marking a job over $2,500 as in progress without a signed contract warns first.
+  if (kind === "job" && key === "status" && row && row.id && (value === "Em andamento" || value === "Atrasada") && !gmSaveSimpleField._guarded) {
+    gmContractGuard(row.id, "job_status:" + value, function() { gmSaveSimpleField._guarded = true; gmSaveSimpleField(kind, key, value); gmSaveSimpleField._guarded = false; });
+    return;
+  }
   var payload = {};
   payload[key] = value;
   gmApi(spec.collection + "/" + row.id, { method: "PUT", body: payload })
@@ -8621,6 +8836,7 @@ function gmLoadAttention() {
   if (!gmInvList) { loads.push(gmApi("invoices").then(function(d) { gmInvList = d; })); }
   if (!gmEstList) { loads.push(gmLoadEstimatesList()); }
   loads.push(gmConLoadAwaiting());
+  loads.push(gmConLoadNotices());
   return Promise.all(loads).then(function() { gmAttentionRecompute(); return gmAttention; })
     .catch(function(e) { console.error("attention load failed", e); return gmAttention; });
 }
@@ -8637,8 +8853,8 @@ function gmAttentionRecompute() {
 function gmAttentionCount() { return (gmAttention.pending_alerts || []).length; }
 function gmAttentionCardHtml() {
   var a = gmAttention;
-  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length) { return ""; }
-  var h = gmConAwaitingCardHtml();
+  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length) { return ""; }
+  var h = gmConNoticesCardHtml() + gmConAwaitingCardHtml();
   if (a.pending_alerts.length) {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
     a.pending_alerts.forEach(function(x) {
@@ -8750,7 +8966,12 @@ function gmInvSendOpen() {
     var tpl = gmDocMessages.messages.invoice_message || "";
     var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (inv.vendedor || gmSellerDisplayName() || "") : (inv.sender_name || inv.vendedor || gmDocSenderFallback()), link: inv.link });
     gmDocSendSheetRender(gmT("Enviar fatura", "Send invoice") + " · " + escHtml(inv.number), inv.customer_phone || "", text, "invoice_message",
-      function() { gmApi("invoices/" + encodeURIComponent(inv.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Fatura marcada como enviada", "Invoice marked as sent")); gmLoadInvoicesSilent(); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
+      function() {
+        var doSend = function() { gmApi("invoices/" + encodeURIComponent(inv.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Fatura marcada como enviada", "Invoice marked as sent")); gmLoadInvoicesSilent(); }).catch(function(e) { gmToast(e.message); console.error(e); }); };
+        // C2: a second invoice on a job over $2,500 with no signed contract warns first.
+        var others = ((gmInvList && gmInvList.invoices) || []).filter(function(x) { return x.job_id === inv.job_id && x.id !== inv.id && x.sent_at; });
+        if (others.length && !inv.sent_at) { gmContractGuard(inv.job_id, "second_invoice_send", doSend); } else { doSend(); }
+      },
       function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); });
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }

@@ -4835,7 +4835,7 @@ function gmDRenderLienors(jobId) {
     });
     if (d.open_count) { inner += '<p class="gm-warn" style="margin:0 12px 10px;">' + d.open_count + " " + gmT("sem liberação. Não faça o pagamento final antes de receber a liberação de cada um.", "without a release. Do not make the final payment before you have a release from each one.") + '</p>'; }
   }
-  box.innerHTML = gmSheetSection(gmT("Notices to Owner e liberações", "Notices to Owner and lien releases"), inner, d && d.info_45_days ? '<span class="muted">' + escHtml(d.info_45_days) + '</span>' : null) +
+  box.innerHTML = gmSheetSection(gmT("Notices to Owner e liberações", "Notices to Owner and lien releases"), inner, d && !d.error ? '<span class="muted">' + gmT("Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real.", "Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute.") + '</span>' : null) +
     '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDLienorAdd(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Registrar Notice to Owner", "Record a Notice to Owner") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDAffidavitOpen(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Declaração de pagamento final", "Final payment affidavit") + '</button></div>';
 }
@@ -4888,7 +4888,7 @@ function gmDAffidavitOpen(jobId) {
     var body = '<div class="gm-sheet-section">' +
       '<p>' + gmT("Antes de receber o pagamento final, o cliente pode pedir esta declaração juramentada dizendo quem já foi pago e quem ainda falta.", "Before the final payment, the homeowner can ask for this sworn statement listing who has been paid and who is still owed.") + '</p>' +
       '<p class="muted">' + gmT("Valor do contrato ", "Contract amount ") + gmMoney(a.contract.current_amount_cents) + ' · ' + gmT("pago até hoje ", "paid to date ") + gmMoney(a.paid_to_date_cents) + ' · ' + gmT("pagamento final ", "final payment ") + gmMoney(a.final_payment_due_cents) + '</p>' +
-      (a.warnings || []).map(function(w) { return '<p class="gm-warn">' + escHtml(w) + '</p>'; }).join("") +
+      (a.warning_lienors || []).map(function(w) { return '<p class="gm-warn">' + escHtml(w.name) + (w.notice_date ? gmT(" mandou um Notice to Owner em ", " served a Notice to Owner on ") + escHtml(formatDate(w.notice_date)) : gmT(" mandou um Notice to Owner", " served a Notice to Owner")) + gmT(" e não tem liberação arquivada.", " and has no release on file.") + '</p>'; }).join("") +
       (a.mode === "declaration" ? '<p class="gm-derived-note">' + gmT("Modo: declaração escrita sob pena de perjúrio (sem cartório).", "Mode: written declaration under penalty of perjury (no notary).") + '</p>' : "") +
       '</div><div class="gm-est-actions">' +
       '<a class="gm-btn-primary" href="' + escHtml(a.print_link) + '" target="_blank" rel="noopener">' + gmT("Abrir para imprimir / PDF", "Open to print / PDF") + '</a></div>';
@@ -4926,7 +4926,7 @@ function gmDRenderJobSubs(jobId) {
   if (!mine.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum subempreiteiro neste projeto.", "No subcontractor on this project.") + '</p>'; }
   mine.forEach(function(a) {
     var s = (gmDSubs.subcontractors || []).filter(function(x) { return x.id === a.subcontractor_id; })[0] || { name: "?" , warnings: [] };
-    inner += gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml((s.warnings || []).join("; ")));
+    inner += gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml(gmDSubMsgs(s.warning_codes).join("; ")));
   });
   box.innerHTML = gmSheetSection(gmT("Subempreiteiros", "Subcontractors"), inner) +
     '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSubAssign(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Adicionar subempreiteiro ao projeto", "Add a subcontractor to this project") + '</button></div>';
@@ -4943,7 +4943,7 @@ function gmDSubAssign(jobId) {
 }
 function gmDSubAssignDo(jobId, sid) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/subcontractors", { method: "POST", body: { subcontractor_id: sid } })
-    .then(function(d) { if (d.warnings && d.warnings.length) { gmToast(gmT("Atenção: ", "Warning: ") + d.warnings.join("; ")); } gmDLoadJobTools(jobId); })
+    .then(function(d) { if (d.warning_codes && d.warning_codes.length) { gmToast(gmT("Atenção: ", "Warning: ") + gmDSubMsgs(d.warning_codes).join("; ")); } gmDLoadJobTools(jobId); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDSubNew(done) {
@@ -4964,8 +4964,8 @@ function gmDSubOpen(sid) {
     row(gmT("Seguro (COI) vence em", "Insurance certificate (COI) expires"), s.coi_expires ? formatDate(s.coi_expires) : "", "gmDSubEdit('" + sid + "','coi_expires','date')") +
     row(gmT("Workers' comp", "Workers' comp"), s.wc_kind === "exemption" ? gmT("Isenção", "Exemption") : (s.wc_kind === "policy" ? gmT("Apólice", "Policy") : ""), "gmDSubEdit('" + sid + "','wc_kind','select')") +
     row(gmT("Workers' comp vence em", "Workers' comp expires"), s.wc_expires ? formatDate(s.wc_expires) : "", "gmDSubEdit('" + sid + "','wc_expires','date')")) +
-    ((s.warnings || []).length ? '<p class="gm-warn">' + s.warnings.map(escHtml).join("<br>") + '</p>' : "") +
-    ((s.expiring || []).length ? '<p class="gm-warn">' + s.expiring.map(escHtml).join("<br>") + '</p>' : "") +
+    ((s.warning_codes || []).length ? '<p class="gm-warn">' + gmDSubMsgs(s.warning_codes).map(escHtml).join("<br>") + '</p>' : "") +
+    ((s.expiring_codes || []).length ? '<p class="gm-warn">' + gmDSubMsgs(s.expiring_codes).map(escHtml).join("<br>") + '</p>' : "") +
     '<div class="gm-est-actions">' +
     '<label class="gm-btn-secondary">' + gmT("Enviar COI (foto ou PDF)", "Upload COI (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDSubUpload(\'' + sid + '\', \'coi\', this)"></label>' +
     '<label class="gm-btn-secondary">' + gmT("Enviar workers' comp (foto ou PDF)", "Upload workers' comp (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDSubUpload(\'' + sid + '\', \'wc\', this)"></label>' +
@@ -4991,12 +4991,20 @@ function gmDSubUpload(sid, kind, input) {
     .then(function() { return gmDSubsReload(); }).then(function() { gmToast(gmT("Arquivo salvo", "File saved")); gmDSubOpen(sid); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
+function gmDSubMsg(code) {
+  var p = String(code).split(":"), k = p[0], d = p[1] ? formatDate(p[1]) : "";
+  var m = { no_license: ["sem número de licença", "no license number on file"], no_coi: ["sem certificado de seguro (COI)", "no certificate of insurance on file"], coi_expired: ["seguro (COI) venceu em " + d, "certificate of insurance expired " + d],
+    no_wc: ["sem workers' comp (apólice ou isenção)", "no workers' compensation certificate or exemption on file"], wc_expired: ["workers' comp venceu em " + d, "workers' compensation expired " + d],
+    coi_expiring: ["seguro (COI) vence em " + d, "certificate of insurance expires " + d], wc_expiring: ["workers' comp vence em " + d, "workers' compensation expires " + d] };
+  return m[k] ? gmT(m[k][0], m[k][1]) : String(code);
+}
+function gmDSubMsgs(codes) { return (codes || []).map(gmDSubMsg); }
 // Estimates > Settings: the subcontractor list for the whole company.
 function gmDSubsSettingsHtml() {
   if (!gmContractsEnabled() || gmIsSeller()) { return ""; }
   if (!gmDSubs) { gmDSubsReload().then(function() { gmRenderEstimatesTab(); }).catch(function(e) { console.error(e); }); return ""; }
   var rows = (gmDSubs.subcontractors || []).map(function(s) {
-    return gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml((s.expiring || []).concat(s.warnings || []).join("; ")));
+    return gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml(gmDSubMsgs((s.expiring_codes || []).concat(s.warning_codes || [])).join("; ")));
   }).join("") || '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum subempreiteiro cadastrado.", "No subcontractors yet.") + '</p>';
   return '<div class="content-card">' + gmSheetSection(gmT("Subempreiteiros (licença e seguro)", "Subcontractors (license and insurance)"), rows) +
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmDSubNew()">' + gmT("Cadastrar subempreiteiro", "Add subcontractor") + '</button></div>';
@@ -5007,7 +5015,7 @@ function gmDSubsCardHtml() {
   var exp = (gmDSubs.subcontractors || []).filter(function(s) { return s.expiring && s.expiring.length; });
   if (!exp.length) { return ""; }
   return '<div class="card-title" style="margin-top:12px;">' + gmT("Documentos de subempreiteiros vencendo", "Subcontractor documents expiring") + ' <span class="goal-pending-badge">' + exp.length + '</span></div>' +
-    exp.map(function(s) { return '<button type="button" class="gm-row" onclick="gmDSubOpen(\'' + escHtml(s.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(s.name) + '</span><div class="gm-lead-sub">' + escHtml(s.expiring.join("; ")) + '</div></span></button>'; }).join("");
+    exp.map(function(s) { return '<button type="button" class="gm-row" onclick="gmDSubOpen(\'' + escHtml(s.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(s.name) + '</span><div class="gm-lead-sub">' + escHtml(gmDSubMsgs(s.expiring_codes).join("; ")) + '</div></span></button>'; }).join("");
 }
 
 // ═════════════════════════════════════════════════════════════════════════

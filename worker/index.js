@@ -27103,10 +27103,10 @@ async function handleGetGmAffidavit(id, jobId, request, env) {
         var contract = await gmInvContract(env, id, jobId, con ? (gmDocParseJsonObject(con.estimate_ids_json, [])[0] || null) : null, gmEasternToday());
         var origAmount = con ? (con.contract_amount_cents - cos.reduce(function(a, c) { return a + c.amount_cents; }, 0)) : contract.contract_total_cents;
         var lienors = (await env.DB.prepare("SELECT * FROM gm_job_lienors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY created_at").bind(id, jobId).all()).results || [];
-        var warnings = [];
+        var warnings = [], warningLienors = [];
         var lrows = lienors.map(function(l) {
             var rs = l.unconditional_release_at ? "unconditional" : (l.conditional_release_at ? "conditional" : "none");
-            if (rs === "none") { warnings.push(l.name + " served a Notice to Owner" + (l.notice_date ? " on " + contractFmtDate(l.notice_date) : "") + " and has no release on file."); }
+            if (rs === "none") { warnings.push(l.name + " served a Notice to Owner" + (l.notice_date ? " on " + contractFmtDate(l.notice_date) : "") + " and has no release on file."); warningLienors.push({ name: l.name, notice_date: l.notice_date }); }
             return { name: l.name, notice_date: l.notice_date, amount_claimed_cents: l.amount_claimed_cents, conditional_release_at: l.conditional_release_at, unconditional_release_at: l.unconditional_release_at, release_status: rs };
         });
         var unpaid = lrows.filter(function(l) { return l.release_status !== "unconditional"; }).map(function(l) { return { name: l.name, amount_due_cents: l.amount_claimed_cents || 0 }; });
@@ -27121,7 +27121,7 @@ async function handleGetGmAffidavit(id, jobId, request, env) {
                         change_orders: cos.map(function(c) { return { number: c.number, amount_cents: c.amount_cents, signed_at: c.homeowner_signed_at }; }), current_amount_cents: con ? con.contract_amount_cents : contract.contract_total_cents },
             paid_to_date_cents: contract.paid_cents, final_payment_due_cents: Math.max(0, (con ? con.contract_amount_cents : contract.contract_total_cents) - contract.paid_cents - (contract.credit_cents || 0)),
             lienors: lrows, unpaid_lienors: unpaid, generated_at: new Date().toISOString().slice(0, 19).replace("T", " "), county: (con && gmDocParseJsonObject(con.answers_json, {}).property_county) || null,
-            warnings: warnings, info_45_days: D_45_DAY_INFO
+            warnings: warnings, warning_lienors: warningLienors, info_45_days: D_45_DAY_INFO
         };
         var aid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, mode, JSON.stringify(payload), actorName(user)).run();
@@ -27162,15 +27162,15 @@ async function handleGetGmAffidavitFile(id, affId, request, env) {
 
 // ── D5: subcontractors ───────────────────────────────────────────────────
 function dSubWarnings(s, today) {
-    var w = [];
-    if (!s.license_number) { w.push("no license number on file"); }
-    if (!s.coi_expires) { w.push("no certificate of insurance on file"); } else if (s.coi_expires < today) { w.push("certificate of insurance expired " + contractFmtDate(s.coi_expires)); }
-    if (!s.wc_kind) { w.push("no workers' compensation certificate or exemption on file"); } else if (s.wc_expires && s.wc_expires < today) { w.push("workers' compensation " + s.wc_kind + " expired " + contractFmtDate(s.wc_expires)); }
+    var w = [], codes = [];
+    if (!s.license_number) { w.push("no license number on file"); codes.push("no_license"); }
+    if (!s.coi_expires) { w.push("no certificate of insurance on file"); codes.push("no_coi"); } else if (s.coi_expires < today) { w.push("certificate of insurance expired " + contractFmtDate(s.coi_expires)); codes.push("coi_expired:" + s.coi_expires); }
+    if (!s.wc_kind) { w.push("no workers' compensation certificate or exemption on file"); codes.push("no_wc"); } else if (s.wc_expires && s.wc_expires < today) { w.push("workers' compensation " + s.wc_kind + " expired " + contractFmtDate(s.wc_expires)); codes.push("wc_expired:" + s.wc_expires); }
     var soon = gmDateAddDays(today, 30);
-    var expiring = [];
-    if (s.coi_expires && s.coi_expires >= today && s.coi_expires <= soon) { expiring.push("certificate of insurance expires " + contractFmtDate(s.coi_expires)); }
-    if (s.wc_expires && s.wc_expires >= today && s.wc_expires <= soon) { expiring.push("workers' compensation " + (s.wc_kind || "") + " expires " + contractFmtDate(s.wc_expires)); }
-    return { warnings: w, expiring: expiring };
+    var expiring = [], ecodes = [];
+    if (s.coi_expires && s.coi_expires >= today && s.coi_expires <= soon) { expiring.push("certificate of insurance expires " + contractFmtDate(s.coi_expires)); ecodes.push("coi_expiring:" + s.coi_expires); }
+    if (s.wc_expires && s.wc_expires >= today && s.wc_expires <= soon) { expiring.push("workers' compensation " + (s.wc_kind || "") + " expires " + contractFmtDate(s.wc_expires)); ecodes.push("wc_expiring:" + s.wc_expires); }
+    return { warnings: w, expiring: expiring, warning_codes: codes, expiring_codes: ecodes };
 }
 async function handleGetGmSubcontractors(id, request, env) {
     try {
@@ -27181,7 +27181,7 @@ async function handleGetGmSubcontractors(id, request, env) {
         var rows = (await env.DB.prepare("SELECT * FROM gm_subcontractors WHERE client_id = ? AND archived = 0 ORDER BY name").bind(id).all()).results || [];
         var seller = !!sessionSellerName(user);
         rows.forEach(function(s) {
-            var dw = dSubWarnings(s, today); s.warnings = dw.warnings; s.expiring = dw.expiring;
+            var dw = dSubWarnings(s, today); s.warnings = dw.warnings; s.expiring = dw.expiring; s.warning_codes = dw.warning_codes; s.expiring_codes = dw.expiring_codes;
             s.coi_url = s.coi_r2_key && !seller ? dFileOut(env, origin, id, "subcontractors/" + s.id + "/file/coi") : null;
             s.wc_url = s.wc_r2_key && !seller ? dFileOut(env, origin, id, "subcontractors/" + s.id + "/file/wc") : null;
             delete s.coi_r2_key; delete s.wc_r2_key;
@@ -27262,7 +27262,7 @@ async function handlePostGmJobSubcontractor(id, jobId, request, env) {
         var dw = dSubWarnings(s, gmEasternToday());
         var aid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_job_subcontractors (id, client_id, job_id, subcontractor_id, warning_json, assigned_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, s.id, JSON.stringify(dw.warnings), actorName(user)).run();
-        return jsonOk({ assigned: true, warnings: dw.warnings, expiring: dw.expiring });
+        return jsonOk({ assigned: true, warnings: dw.warnings, expiring: dw.expiring, warning_codes: dw.warning_codes, expiring_codes: dw.expiring_codes });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 

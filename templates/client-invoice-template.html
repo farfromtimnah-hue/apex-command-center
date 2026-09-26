@@ -200,6 +200,7 @@
       var whoLines = [];
       if (inv.customer_address) { whoLines.push(inv.customer_address); }
       var rows = [["Issued", escHtml(fmtDate(inv.issue_date))], ["Due", escHtml(fmtDate(inv.due_date))], ["Terms", b.terms_days ? "Net " + escHtml(String(b.terms_days)) + " days" : "Due on receipt"], ["Job", escHtml(inv.job_name || "")]];
+      if (inv.completion_signed_at) { rows.push(["Completion signed", escHtml((inv.completion_signer || "") + " on " + (typeof fmtDateTime === "function" ? fmtDateTime(inv.completion_signed_at) : fmtDate(inv.completion_signed_at)))]); }
       if (inv.step_label) { rows.push(["Step", escHtml(inv.step_label) + (inv.step_pct ? " (" + escHtml(String(inv.step_pct)) + "% of contract)" : "")]); }
       var stamp = inv.status === "paid" ? '<span class="stamp ok">PAID</span>' : (inv.status === "overdue" ? '<span class="stamp bad">PAST DUE</span>' : (inv.awaiting_verification ? '<span class="stamp">PAYMENT REPORTED - AWAITING CONFIRMATION</span>' : ""));
       var tile = { label: inv.status === "paid" ? "Paid in full" : "Balance due now", value: money(inv.balance_cents) };

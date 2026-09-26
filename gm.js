@@ -3602,7 +3602,7 @@ function gmOpenJob(idx) {
   gmRenderSimpleSheet("job");
   // A brand-new project has no id yet, so it has nothing to attach photos or
   // notes to. A seller has no route to either, so neither is fetched.
-  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); }
+  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); gmDLoadJobTools(gmSheetRow.id); }
   if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
@@ -4682,6 +4682,334 @@ function gmConAwaitingCardHtml() {
 }
 
 
+
+// ═════════════════════════════════════════════════════════════════════════
+// DISPUTE-PREVENTION TOOLS (contracts build, checkpoint D). Gated with the
+// contracts tab. Copies: the progress-photo grid (gmRenderJobPhotos), the
+// contract section rows (gmSheetSection/gmSheetRowHtml), the send sheet
+// (gmDocSendSheetRender), the field editor (gmOpenFieldEditor).
+// ═════════════════════════════════════════════════════════════════════════
+var gmDTools = {};
+function gmDLoadJobTools(jobId) {
+  if (!gmContractsEnabled()) { return; }
+  gmDTools[jobId] = gmDTools[jobId] || {};
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/condition-photos").then(function(d) { gmDTools[jobId].cond = d; gmDRenderConditions(jobId); }).catch(function(e) { gmDTools[jobId].cond = { error: e.message }; gmDRenderConditions(jobId); console.error(e); });
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/punch").then(function(d) { gmDTools[jobId].punch = d; gmDRenderPunch(jobId); }).catch(function(e) { gmDTools[jobId].punch = { error: e.message }; gmDRenderPunch(jobId); console.error(e); });
+  if (!gmIsSeller()) {
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/lienors").then(function(d) { gmDTools[jobId].lienors = d; gmDRenderLienors(jobId); }).catch(function(e) { gmDTools[jobId].lienors = { error: e.message }; gmDRenderLienors(jobId); console.error(e); });
+    gmApi("subcontractors").then(function(d) { gmDSubs = d; gmDRenderJobSubs(jobId); }).catch(function(e) { console.error(e); });
+  }
+}
+function gmDAckPill(a) {
+  var m = { sent: ["gm-gold", "●", "Enviado", "Sent"], viewed: ["gm-gold", "●", "Visto", "Viewed"], signed: ["gm-green", "✓", "Assinado", "Signed"], declined: ["gm-red", "✕", "Não concordou", "Declined"], void: ["gm-muted", "○", "Anulado", "Void"] };
+  var s = m[a.status] || ["gm-muted", "○", a.status, a.status];
+  return '<span class="gm-pill ' + s[0] + '">' + s[1] + ' ' + escHtml(gmT(s[2], s[3])) + '</span>';
+}
+function gmDCopyLink(link) {
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(function() { gmToast(gmT("Link copiado", "Link copied")); }).catch(function() { gmToast(link); }); } else { gmToast(link); }
+}
+
+// ── D2: before-work condition photos ─────────────────────────────────────
+function gmDRenderConditions(jobId) {
+  var box = document.getElementById("gmJobConditionSection");
+  if (!box) { return; }
+  var d = gmDTools[jobId] && gmDTools[jobId].cond;
+  var inner = "";
+  if (!d) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>'; }
+  else if (d.error) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(d.error) + '</p>'; }
+  else {
+    var photos = d.photos || [];
+    if (!photos.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Fotografe rachaduras, manchas, calçadas, grama e cercas ANTES de começar. O cliente confirma que já estavam assim.", "Photograph cracks, stains, driveways, lawn and fences BEFORE starting. The homeowner confirms they were already like this.") + '</p>'; }
+    else {
+      inner = '<div class="gm-photo-grid">' + photos.map(function(p) {
+        return '<figure class="gm-photo"><img id="gmCondImg_' + escHtml(p.id) + '" class="gm-photo-loading" alt="' + escHtml(p.note || gmT("Condição existente", "Existing condition")) + '">' + (p.note ? '<figcaption>' + escHtml(p.note) + '</figcaption>' : "") + '</figure>';
+      }).join("") + '</div>';
+    }
+    (d.acks || []).filter(function(a) { return a.kind === "before_photos"; }).forEach(function(a) {
+      inner += gmSheetRowHtml("file", gmT("Reconhecimento do cliente", "Homeowner acknowledgment"), gmDAckPill(a), "window.open(" + JSON.stringify(a.status === "signed" ? a.link : a.preview_link).replace(/"/g, "&quot;") + ", '_blank')", null,
+        a.signed_at ? escHtml(a.signer_name || "") + " · " + escHtml(formatDateTimeUTC(a.signed_at)) : (a.sent_at ? gmT("enviado ", "sent ") + escHtml(formatDateTimeUTC(a.sent_at)) : ""));
+    });
+  }
+  var canSend = d && !d.error && (d.photos || []).length && !(d.acks || []).some(function(a) { return a.kind === "before_photos" && a.status === "signed"; });
+  box.innerHTML = gmSheetSection(gmT("Fotos de antes (condições existentes)", "Before-work photos (existing conditions)"), inner) +
+    '<div class="gm-est-actions">' +
+    '<label class="gm-btn-secondary gm-photo-add">' + gmT("Adicionar foto", "Add photo") + '<input type="file" accept="image/*" hidden onchange="gmDUploadCondition(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)"></label>' +
+    (canSend ? '<button type="button" class="gm-btn-primary" onclick="gmDSendAck(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', \'before_photos\')">' + gmT("Enviar para o cliente reconhecer", "Send for acknowledgment") + '</button>' : "") +
+    '</div>';
+  (d && d.photos || []).forEach(function(p) { gmDLoadImg("gmCondImg_" + p.id, p.url); });
+}
+function gmDLoadImg(elId, url) {
+  var img = document.getElementById(elId);
+  if (!img) { return; }
+  apiFetch(url).then(function(res) { return res.ok ? res.blob() : null; }).then(function(blob) {
+    if (!blob) { return; }
+    var u = URL.createObjectURL(blob); gmPhotoObjectUrls[elId] = u;
+    var el = document.getElementById(elId); if (el) { el.src = u; el.classList.remove("gm-photo-loading"); }
+  }).catch(function(e) { console.error(e); });
+}
+function gmDUploadCondition(jobId, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var file = input.files[0];
+  if (file.size > 15 * 1024 * 1024) { gmToast(gmT("Arquivo muito grande. Máximo 15 MB.", "File too large. Maximum 15 MB.")); input.value = ""; return; }
+  gmOpenFieldEditor(gmT("O que esta foto mostra? (opcional)", "What does this photo show? (optional)"), "text", "", null, function(note) {
+    var fd = new FormData(); fd.append("photo", file); fd.append("note", note || "");
+    gmToast(gmT("Enviando foto...", "Uploading photo..."));
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/condition-photos", { method: "POST", formData: fd })
+      .then(function() { gmToast(gmT("Foto adicionada.", "Photo added.")); gmDLoadJobTools(jobId); })
+      .catch(function(e) { gmToast(e.message); console.error(e); });
+    input.value = "";
+  }, null, function() { input.value = ""; });
+}
+function gmDSendAck(jobId, kind) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/acks", { method: "POST", body: { kind: kind } })
+    .then(function(d) {
+      gmDLoadJobTools(jobId);
+      var title = kind === "completion" ? gmT("Enviar aceite de conclusão", "Send completion sign-off") : gmT("Enviar fotos para reconhecimento", "Send photos for acknowledgment");
+      gmSheetOpen(title, "");
+      gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {});
+    })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+// ── D3: completion walkthrough / punch list ──────────────────────────────
+function gmDRenderPunch(jobId) {
+  var box = document.getElementById("gmJobPunchSection");
+  if (!box) { return; }
+  var d = gmDTools[jobId] && gmDTools[jobId].punch;
+  var inner = "";
+  if (!d) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>'; }
+  else if (d.error) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(d.error) + '</p>'; }
+  else {
+    var items = d.items || [];
+    if (!items.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Ande pela obra com o cliente e anote cada pendência. Quando tudo estiver feito, envie o aceite de conclusão.", "Walk the job with the homeowner and note each item. When everything is done, send the completion sign-off.") + '</p>'; }
+    items.forEach(function(it) {
+      inner += '<div class="gm-sheet-row" style="align-items:center;gap:10px;">' +
+        '<input type="checkbox" ' + (it.done ? "checked" : "") + ' aria-label="' + gmT("Feito", "Done") + '" onchange="gmDPunchToggle(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ', this.checked)">' +
+        '<span class="gm-lead-main" style="flex:1;"><span class="gm-lead-name" style="white-space:normal;' + (it.done ? "text-decoration:line-through;opacity:.7;" : "") + '">' + escHtml(it.text) + '</span>' +
+        (it.done_at ? '<div class="gm-lead-sub">' + gmT("feito ", "done ") + escHtml(formatDateTimeUTC(it.done_at)) + (it.done_by ? " · " + escHtml(it.done_by) : "") + '</div>' : "") + '</span>' +
+        (it.photo_url ? '<button type="button" class="gm-btn-secondary" style="padding:4px 8px;" onclick="gmDOpenPunchPhoto(' + JSON.stringify(it.photo_url).replace(/"/g, "&quot;") + ')">' + gmT("Foto", "Photo") + '</button>' : "") +
+        '<button type="button" class="gm-photo-del" style="position:static;" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">&times;</button></div>';
+    });
+    if (d.completion) { inner += '<p class="gm-derived-note" style="padding:0 12px 10px;">✓ ' + gmT("Conclusão aceita por ", "Completion signed by ") + escHtml(d.completion.signer_name) + ' · ' + escHtml(formatDateTimeUTC(d.completion.signed_at)) + '</p>'; }
+  }
+  var items2 = (d && d.items) || [];
+  var allDone = items2.length && items2.every(function(it) { return it.done; });
+  var pending = (gmDTools[jobId].cond && gmDTools[jobId].cond.acks || []).some(function(a) { return a.kind === "completion" && (a.status === "sent" || a.status === "viewed"); });
+  box.innerHTML = gmSheetSection(gmT("Vistoria final e pendências", "Completion walkthrough and punch list"), inner) +
+    '<div class="gm-est-actions">' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDPunchAdd(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Adicionar pendência", "Add item") + '</button>' +
+    (allDone && !(d && d.completion) ? '<button type="button" class="gm-btn-primary" onclick="gmDSendAck(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', \'completion\')">' + (pending ? gmT("Reenviar aceite de conclusão", "Resend completion sign-off") : gmT("Enviar aceite de conclusão", "Send completion sign-off")) + '</button>' : "") +
+    '</div>';
+}
+function gmDPunchAdd(jobId) {
+  gmOpenFieldEditor(gmT("Pendência", "Punch list item"), "text", "", null, function(text) {
+    if (!String(text || "").trim()) { return; }
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/punch", { method: "POST", body: { text: text } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  });
+}
+function gmDPunchToggle(jobId, itemId, done) {
+  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { done: !!done } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); gmDLoadJobTools(jobId); });
+}
+function gmDPunchRemove(jobId, itemId) {
+  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: true } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmDOpenPunchPhoto(url) {
+  apiFetch(url).then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); }).then(function(blob) { var u = URL.createObjectURL(blob); gmPhotoObjectUrls["file-" + Date.now()] = u; window.open(u, "_blank"); }).catch(function(e) { gmToast(e.message); });
+}
+
+// ── D4: lienors (Notices to Owner) and releases ──────────────────────────
+function gmDRenderLienors(jobId) {
+  var box = document.getElementById("gmJobLienorSection");
+  if (!box) { return; }
+  var d = gmDTools[jobId] && gmDTools[jobId].lienors;
+  var inner = "";
+  if (!d) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>'; }
+  else if (d.error) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(d.error) + '</p>'; }
+  else {
+    var rows = d.lienors || [];
+    if (!rows.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Quando um fornecedor ou subempreiteiro mandar um Notice to Owner, registre aqui. Antes do pagamento final, peça a liberação (release) de cada um.", "When a supplier or subcontractor serves a Notice to Owner, record it here. Before the final payment, get a release from each one.") + '</p>'; }
+    rows.forEach(function(l) {
+      var pill = l.release_status === "unconditional" ? '<span class="gm-pill gm-green">✓ ' + gmT("Liberação final", "Final release") + '</span>' : (l.release_status === "conditional" ? '<span class="gm-pill gm-gold">● ' + gmT("Liberação condicional", "Conditional release") + '</span>' : '<span class="gm-pill gm-red">! ' + gmT("Sem liberação", "No release") + '</span>');
+      inner += gmSheetRowHtml("file", escHtml(l.name), pill + (l.amount_claimed_cents ? " " + gmMoney(l.amount_claimed_cents) : ""), "gmDLienorOpen(" + JSON.stringify(jobId).replace(/"/g, "&quot;") + "," + JSON.stringify(l.id).replace(/"/g, "&quot;") + ")", null,
+        (l.notice_date ? gmT("Notice to Owner ", "Notice to Owner ") + escHtml(formatDate(l.notice_date)) : "") + (l.note ? " · " + escHtml(l.note) : ""));
+    });
+    if (d.open_count) { inner += '<p class="gm-warn" style="margin:0 12px 10px;">' + d.open_count + " " + gmT("sem liberação. Não faça o pagamento final antes de receber a liberação de cada um.", "without a release. Do not make the final payment before you have a release from each one.") + '</p>'; }
+  }
+  box.innerHTML = gmSheetSection(gmT("Notices to Owner e liberações", "Notices to Owner and lien releases"), inner, d && d.info_45_days ? '<span class="muted">' + escHtml(d.info_45_days) + '</span>' : null) +
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDLienorAdd(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Registrar Notice to Owner", "Record a Notice to Owner") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDAffidavitOpen(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Declaração de pagamento final", "Final payment affidavit") + '</button></div>';
+}
+function gmDLienorAdd(jobId) {
+  gmOpenFieldEditor(gmT("Quem mandou o Notice to Owner?", "Who served the Notice to Owner?"), "text", "", null, function(name) {
+    if (!String(name || "").trim()) { return; }
+    gmOpenFieldEditor(gmT("Data do aviso", "Notice date"), "date", "", null, function(date) {
+      gmOpenFieldEditor(gmT("Valor reclamado (opcional)", "Amount claimed (optional)"), "currency", "", null, function(amount) {
+        gmApi("jobs/" + encodeURIComponent(jobId) + "/lienors", { method: "POST", body: { name: name, notice_date: date || null, amount_claimed_cents: gmParseMoneyCents(amount) } })
+          .then(function() { gmToast(gmT("Registrado", "Recorded")); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+      });
+    });
+  });
+}
+function gmParseMoneyCents(v) { var n = parseFloat(String(v || "").replace(/[^0-9.]/g, "")); return isFinite(n) ? Math.round(n * 100) : 0; }
+function gmDLienorOpen(jobId, lienorId) {
+  var d = gmDTools[jobId] && gmDTools[jobId].lienors, l = d && (d.lienors || []).filter(function(x) { return x.id === lienorId; })[0];
+  if (!l) { return; }
+  var body = '<div class="gm-sheet-section">' +
+    '<p>' + escHtml(l.name) + (l.notice_date ? ' · ' + gmT("Notice to Owner em ", "Notice to Owner on ") + escHtml(formatDate(l.notice_date)) : "") + (l.amount_claimed_cents ? ' · ' + gmMoney(l.amount_claimed_cents) : "") + '</p>' +
+    '<p class="muted">' + gmT("Liberação condicional: vale quando o pagamento compensar. Liberação final (incondicional): depois que o pagamento compensou.", "Conditional release: takes effect when the payment clears. Final (unconditional) release: after the payment has cleared.") + '</p>' +
+    (l.conditional_release_at ? '<p>✓ ' + gmT("Liberação condicional registrada ", "Conditional release recorded ") + escHtml(formatDateTimeUTC(l.conditional_release_at)) + (l.conditional_release_url ? ' · <a href="#" onclick="gmDOpenPunchPhoto(' + JSON.stringify(l.conditional_release_url).replace(/"/g, "&quot;") + '); return false;">' + gmT("ver arquivo", "view file") + '</a>' : "") + '</p>' : "") +
+    (l.unconditional_release_at ? '<p>✓ ' + gmT("Liberação final registrada ", "Final release recorded ") + escHtml(formatDateTimeUTC(l.unconditional_release_at)) + (l.unconditional_release_url ? ' · <a href="#" onclick="gmDOpenPunchPhoto(' + JSON.stringify(l.unconditional_release_url).replace(/"/g, "&quot;") + '); return false;">' + gmT("ver arquivo", "view file") + '</a>' : "") + '</p>' : "") +
+    '</div><div class="gm-est-actions">' +
+    '<label class="gm-btn-secondary">' + gmT("Enviar liberação condicional (foto ou PDF)", "Upload conditional release (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDLienorUpload(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(lienorId).replace(/"/g, "&quot;") + ', \'conditional\', this)"></label>' +
+    '<label class="gm-btn-secondary">' + gmT("Enviar liberação final (foto ou PDF)", "Upload final release (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDLienorUpload(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(lienorId).replace(/"/g, "&quot;") + ', \'unconditional\', this)"></label>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDLienorRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(lienorId).replace(/"/g, "&quot;") + ')">' + gmT("Remover (com motivo)", "Remove (with a reason)") + '</button></div>';
+  gmSheetOpen(gmT("Notice to Owner", "Notice to Owner"), body);
+}
+function gmDLienorUpload(jobId, lienorId, kind, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var fd = new FormData(); fd.append("file", input.files[0]); fd.append("kind", kind);
+  gmToast(gmT("Enviando...", "Uploading..."));
+  gmApi("lienors/" + encodeURIComponent(lienorId), { method: "PUT", formData: fd })
+    .then(function() { gmToast(gmT("Liberação registrada", "Release recorded")); gmSheetClose(); gmDLoadJobTools(jobId); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmDLienorRemove(jobId, lienorId) {
+  gmOpenFieldEditor(gmT("Motivo da remoção", "Reason for removing"), "text", "", null, function(reason) {
+    if (!String(reason || "").trim()) { gmToast(gmT("Escreva o motivo.", "Write the reason.")); return; }
+    gmApi("lienors/" + encodeURIComponent(lienorId), { method: "PUT", body: { removed: true, removed_reason: reason } }).then(function() { gmSheetClose(); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  });
+}
+
+// ── D1: final payment affidavit + "Get it notarized" helper ──────────────
+function gmDAffidavitOpen(jobId) {
+  gmSheetOpen(gmT("Declaração de pagamento final", "Final payment affidavit"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit").then(function(d) {
+    var a = d.affidavit;
+    var body = '<div class="gm-sheet-section">' +
+      '<p>' + gmT("Antes de receber o pagamento final, o cliente pode pedir esta declaração juramentada dizendo quem já foi pago e quem ainda falta.", "Before the final payment, the homeowner can ask for this sworn statement listing who has been paid and who is still owed.") + '</p>' +
+      '<p class="muted">' + gmT("Valor do contrato ", "Contract amount ") + gmMoney(a.contract.current_amount_cents) + ' · ' + gmT("pago até hoje ", "paid to date ") + gmMoney(a.paid_to_date_cents) + ' · ' + gmT("pagamento final ", "final payment ") + gmMoney(a.final_payment_due_cents) + '</p>' +
+      (a.warnings || []).map(function(w) { return '<p class="gm-warn">' + escHtml(w) + '</p>'; }).join("") +
+      (a.mode === "declaration" ? '<p class="gm-derived-note">' + gmT("Modo: declaração escrita sob pena de perjúrio (sem cartório).", "Mode: written declaration under penalty of perjury (no notary).") + '</p>' : "") +
+      '</div><div class="gm-est-actions">' +
+      '<a class="gm-btn-primary" href="' + escHtml(a.print_link) + '" target="_blank" rel="noopener">' + gmT("Abrir para imprimir / PDF", "Open to print / PDF") + '</a></div>';
+    if (a.mode !== "declaration") {
+      body += gmSheetSection(gmT("Onde reconhecer firma (notarize)", "Get it notarized"),
+        '<div style="padding:6px 12px;">' +
+        '<p><strong>' + gmT("Online: ", "Online: ") + '</strong><a href="https://www.proof.com" target="_blank" rel="noopener">Proof (Notarize)</a> · ' + gmT("Flórida aceita reconhecimento online.", "Florida accepts online notarization.") + '</p>' +
+        '<p><strong>' + gmT("Presencial: ", "In person: ") + '</strong>' + gmT("agências AAA, UPS Store, FedEx Office, a maioria dos bancos (muitos grátis para correntistas).", "AAA offices, UPS Store, FedEx Office, most banks (many free for account holders).") + '</p>' +
+        '<p><strong>' + gmT("Seu próprio notário: ", "Your own notary: ") + '</strong>' + gmT("qualquer pessoa da empresa pode virar notário público na Flórida (curso + fiança). Um notário não pode reconhecer a própria assinatura.", "anyone at the company can become a Florida notary public (course + bond). A notary cannot notarize their own signature.") + '</p>' +
+        '<p class="muted">' + gmT("Leve o documento SEM assinar; assine na frente do notário com documento com foto.", "Bring the document UNSIGNED; sign in front of the notary with photo ID.") + '</p></div>');
+    }
+    body += '<div class="gm-est-actions"><label class="gm-btn-secondary">' + gmT("Enviar cópia assinada/reconhecida (foto ou PDF)", "Upload the signed/notarized copy (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDAffidavitUpload(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)"></label></div>';
+    if (a.notarized_copies && a.notarized_copies.length) {
+      body += gmSheetSection(gmT("Cópias arquivadas", "Copies on file"), a.notarized_copies.map(function(n) { return gmSheetRowHtml("file", escHtml(formatDateTimeUTC(n.notarized_at)), escHtml(n.notarized_uploaded_by || ""), "gmDOpenPunchPhoto(" + JSON.stringify(n.url).replace(/"/g, "&quot;") + ")"); }).join(""));
+    }
+    var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = body; }
+  }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } console.error(e); });
+}
+function gmDAffidavitUpload(jobId, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var fd = new FormData(); fd.append("file", input.files[0]);
+  gmToast(gmT("Enviando...", "Uploading..."));
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit/notarized", { method: "POST", formData: fd })
+    .then(function() { gmToast(gmT("Cópia arquivada", "Copy filed")); gmDAffidavitOpen(jobId); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+// ── D5: subcontractors (license + insurance on file) ─────────────────────
+var gmDSubs = null;
+function gmDRenderJobSubs(jobId) {
+  var box = document.getElementById("gmJobSubsSection");
+  if (!box || !gmDSubs) { return; }
+  var mine = (gmDSubs.assignments || []).filter(function(a) { return a.job_id === jobId; });
+  var inner = "";
+  if (!mine.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum subempreiteiro neste projeto.", "No subcontractor on this project.") + '</p>'; }
+  mine.forEach(function(a) {
+    var s = (gmDSubs.subcontractors || []).filter(function(x) { return x.id === a.subcontractor_id; })[0] || { name: "?" , warnings: [] };
+    inner += gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml((s.warnings || []).join("; ")));
+  });
+  box.innerHTML = gmSheetSection(gmT("Subempreiteiros", "Subcontractors"), inner) +
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSubAssign(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Adicionar subempreiteiro ao projeto", "Add a subcontractor to this project") + '</button></div>';
+}
+function gmDSubAssign(jobId) {
+  var subs = (gmDSubs && gmDSubs.subcontractors) || [];
+  var labels = subs.map(function(s) { return s.name + (s.trade ? " · " + s.trade : ""); });
+  var addNew = gmT("+ Cadastrar novo", "+ Add new");
+  gmOpenFieldEditor(gmT("Subempreiteiro", "Subcontractor"), "choice", "", labels.concat([addNew]), function(v) {
+    if (v === addNew) { gmDSubNew(function(sid) { gmDSubAssignDo(jobId, sid); }); return; }
+    var i = labels.indexOf(v);
+    if (i !== -1) { gmDSubAssignDo(jobId, subs[i].id); }
+  });
+}
+function gmDSubAssignDo(jobId, sid) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/subcontractors", { method: "POST", body: { subcontractor_id: sid } })
+    .then(function(d) { if (d.warnings && d.warnings.length) { gmToast(gmT("Atenção: ", "Warning: ") + d.warnings.join("; ")); } gmDLoadJobTools(jobId); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmDSubNew(done) {
+  gmOpenFieldEditor(gmT("Nome do subempreiteiro", "Subcontractor name"), "text", "", null, function(name) {
+    if (!String(name || "").trim()) { return; }
+    gmApi("subcontractors", { method: "POST", body: { name: name } }).then(function(d) { gmDSubsReload().then(function() { if (done) { done(d.subcontractor_id); } else { gmDSubOpen(d.subcontractor_id); } }); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  });
+}
+function gmDSubsReload() { return gmApi("subcontractors").then(function(d) { gmDSubs = d; return d; }); }
+function gmDSubOpen(sid) {
+  var s = (gmDSubs && gmDSubs.subcontractors || []).filter(function(x) { return x.id === sid; })[0];
+  if (!s) { return; }
+  function row(label, value, onclick) { return gmSheetRowHtml("edit", label, value ? escHtml(value) : '<span class="muted">' + gmT("— toque para preencher", "— tap to fill") + '</span>', onclick); }
+  var body = gmSheetSection(gmT("Dados", "Details"),
+    row(gmT("Nome", "Name"), s.name, "gmDSubEdit('" + sid + "','name','text')") +
+    row(gmT("Ofício", "Trade"), s.trade, "gmDSubEdit('" + sid + "','trade','text')") +
+    row(gmT("Número da licença", "License number"), s.license_number, "gmDSubEdit('" + sid + "','license_number','text')") +
+    row(gmT("Seguro (COI) vence em", "Insurance certificate (COI) expires"), s.coi_expires ? formatDate(s.coi_expires) : "", "gmDSubEdit('" + sid + "','coi_expires','date')") +
+    row(gmT("Workers' comp", "Workers' comp"), s.wc_kind === "exemption" ? gmT("Isenção", "Exemption") : (s.wc_kind === "policy" ? gmT("Apólice", "Policy") : ""), "gmDSubEdit('" + sid + "','wc_kind','select')") +
+    row(gmT("Workers' comp vence em", "Workers' comp expires"), s.wc_expires ? formatDate(s.wc_expires) : "", "gmDSubEdit('" + sid + "','wc_expires','date')")) +
+    ((s.warnings || []).length ? '<p class="gm-warn">' + s.warnings.map(escHtml).join("<br>") + '</p>' : "") +
+    ((s.expiring || []).length ? '<p class="gm-warn">' + s.expiring.map(escHtml).join("<br>") + '</p>' : "") +
+    '<div class="gm-est-actions">' +
+    '<label class="gm-btn-secondary">' + gmT("Enviar COI (foto ou PDF)", "Upload COI (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDSubUpload(\'' + sid + '\', \'coi\', this)"></label>' +
+    '<label class="gm-btn-secondary">' + gmT("Enviar workers' comp (foto ou PDF)", "Upload workers' comp (photo or PDF)") + '<input type="file" accept="image/*,application/pdf" hidden onchange="gmDSubUpload(\'' + sid + '\', \'wc\', this)"></label>' +
+    (s.coi_url ? '<button type="button" class="gm-btn-secondary" onclick="gmDOpenPunchPhoto(' + JSON.stringify(s.coi_url).replace(/"/g, "&quot;") + ')">' + gmT("Ver COI", "View COI") + '</button>' : "") +
+    (s.wc_url ? '<button type="button" class="gm-btn-secondary" onclick="gmDOpenPunchPhoto(' + JSON.stringify(s.wc_url).replace(/"/g, "&quot;") + ')">' + gmT("Ver workers' comp", "View workers' comp") + '</button>' : "") +
+    '</div>';
+  gmSheetOpen(escHtml(s.name), body);
+}
+function gmDSubEdit(sid, field, type) {
+  var s = (gmDSubs && gmDSubs.subcontractors || []).filter(function(x) { return x.id === sid; })[0] || {};
+  var opts = field === "wc_kind" ? ["policy", "exemption"] : null;
+  if (field === "wc_kind") { type = "choice"; }
+  gmOpenFieldEditor(field, type, s[field] || "", opts, function(v) {
+    var body = {}; body[field] = v;
+    gmApi("subcontractors/" + encodeURIComponent(sid), { method: "PUT", body: body }).then(function() { return gmDSubsReload(); }).then(function() { gmDSubOpen(sid); if (gmSheetRow && gmSheetRow.id) { gmDRenderJobSubs(gmSheetRow.id); } }).catch(function(e) { gmToast(e.message); console.error(e); });
+  }, null, function() { gmDSubOpen(sid); });
+}
+function gmDSubUpload(sid, kind, input) {
+  if (!input.files || !input.files[0]) { return; }
+  var fd = new FormData(); fd.append("file", input.files[0]); fd.append("kind", kind);
+  gmToast(gmT("Enviando...", "Uploading..."));
+  gmApi("subcontractors/" + encodeURIComponent(sid), { method: "PUT", formData: fd })
+    .then(function() { return gmDSubsReload(); }).then(function() { gmToast(gmT("Arquivo salvo", "File saved")); gmDSubOpen(sid); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+// Estimates > Settings: the subcontractor list for the whole company.
+function gmDSubsSettingsHtml() {
+  if (!gmContractsEnabled() || gmIsSeller()) { return ""; }
+  if (!gmDSubs) { gmDSubsReload().then(function() { gmRenderEstimatesTab(); }).catch(function(e) { console.error(e); }); return ""; }
+  var rows = (gmDSubs.subcontractors || []).map(function(s) {
+    return gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml((s.expiring || []).concat(s.warnings || []).join("; ")));
+  }).join("") || '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum subempreiteiro cadastrado.", "No subcontractors yet.") + '</p>';
+  return '<div class="content-card">' + gmSheetSection(gmT("Subempreiteiros (licença e seguro)", "Subcontractors (license and insurance)"), rows) +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmDSubNew()">' + gmT("Cadastrar subempreiteiro", "Add subcontractor") + '</button></div>';
+}
+// Home card: documents expiring within 30 days.
+function gmDSubsCardHtml() {
+  if (!gmDSubs || gmIsSeller()) { return ""; }
+  var exp = (gmDSubs.subcontractors || []).filter(function(s) { return s.expiring && s.expiring.length; });
+  if (!exp.length) { return ""; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Documentos de subempreiteiros vencendo", "Subcontractor documents expiring") + ' <span class="goal-pending-badge">' + exp.length + '</span></div>' +
+    exp.map(function(s) { return '<button type="button" class="gm-row" onclick="gmDSubOpen(\'' + escHtml(s.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(s.name) + '</span><div class="gm-lead-sub">' + escHtml(s.expiring.join("; ")) + '</div></span></button>'; }).join("");
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // CHANGE ORDERS (contracts build, checkpoint C1) — Rafael's one-page addendum,
 // built from Preços on the project, signed company first, then homeowner.
@@ -5492,7 +5820,7 @@ function gmRenderSimpleSheet(kind) {
     // them); filled by gmLoadJobInvoices().
     if (row.id) { body += '<div id="gmJobInvoicesSection"></div>'; }
     // Contract (contracts build): built from the accepted estimate; gated.
-    if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div>'; }
+    if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div><div id="gmJobConditionSection"></div><div id="gmJobPunchSection"></div>' + (gmIsSeller() ? "" : '<div id="gmJobLienorSection"></div><div id="gmJobSubsSection"></div>'); }
 
     // ── Progress photos ─────────────────────────────────────────────────
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
@@ -6898,6 +7226,7 @@ function gmRenderEstimatesTab() {
   if (gmEstimatesSection === "settings") {
     html += gmDocSettingsFormHtml();
     html += gmConSettingsHtml();
+    html += gmDSubsSettingsHtml();
   } else {
     html += gmEstimatesListHtml();
   }
@@ -8837,6 +9166,7 @@ function gmLoadAttention() {
   if (!gmEstList) { loads.push(gmLoadEstimatesList()); }
   loads.push(gmConLoadAwaiting());
   loads.push(gmConLoadNotices());
+  if (gmContractsEnabled()) { loads.push(gmDSubsReload().catch(function(e) { console.error(e); })); }
   return Promise.all(loads).then(function() { gmAttentionRecompute(); return gmAttention; })
     .catch(function(e) { console.error("attention load failed", e); return gmAttention; });
 }
@@ -8853,8 +9183,9 @@ function gmAttentionRecompute() {
 function gmAttentionCount() { return (gmAttention.pending_alerts || []).length; }
 function gmAttentionCardHtml() {
   var a = gmAttention;
-  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length) { return ""; }
-  var h = gmConNoticesCardHtml() + gmConAwaitingCardHtml();
+  var subsCard = gmDSubsCardHtml();
+  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length && !subsCard) { return ""; }
+  var h = gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
   if (a.pending_alerts.length) {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
     a.pending_alerts.forEach(function(x) {

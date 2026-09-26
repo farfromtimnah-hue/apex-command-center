@@ -13498,6 +13498,14 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/contract-status$/.test(gmRest)) { return true; }
+                // Dispute-prevention tools.
+                if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|punch|lienors|affidavit)$/.test(gmRest)) { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                if (/^acks\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                if (/^punch\/[A-Za-z0-9-]+\/photo$/.test(gmRest)) { return true; }
+                if (/^lienors\/[A-Za-z0-9-]+\/file\/(conditional|unconditional)$/.test(gmRest)) { return true; }
+                if (/^affidavits\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                if (gmRest === "subcontractors" || /^subcontractors\/[A-Za-z0-9-]+\/file\/(coi|wc)$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Attachments on their own lead, and the file itself. Same
                 // reasoning as the project photos below: the client's own
@@ -13544,6 +13552,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|void|revise|custom-clause)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+\/(company-sign|send|void)$/.test(gmRest)) { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch|lienors|subcontractors|affidavit\/notarized)$/.test(gmRest)) { return true; }
+                if (gmRest === "subcontractors") { return true; }
                 if (/^payments\/[A-Za-z0-9-]+\/(verify|reject|reverse|receipt-message)$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
@@ -13577,6 +13587,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "contract-settings") { return true; }
                 if (/^contracts\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^custom-clauses\/[A-Za-z0-9-]+\/attorney-review$/.test(gmRest)) { return true; }
+                if (/^(punch|lienors|subcontractors)\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // The client's own referral/sheet lists. Their own record only —
                 // requireClientAccess in the handler enforces it, and the handler
                 // ignores the admin-only keys.
@@ -13674,6 +13685,11 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/contract-status$/.test(rest)) { return true; }
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|punch)$/.test(rest)) { return true; }
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
+        if (/^gm\/acks\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        if (/^gm\/punch\/[A-Za-z0-9-]+\/photo$/.test(rest)) { return true; }
+        if (rest === "gm/subcontractors") { return true; }
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
@@ -13741,6 +13757,7 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+\/(company-sign|send)$/.test(rest)) { return true; }
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch)$/.test(rest)) { return true; }
         if (/^gm\/payments\/[A-Za-z0-9-]+\/receipt-message$/.test(rest)) { return true; }
         return false;
     }
@@ -24355,6 +24372,9 @@ async function handleGetGmInvoice(id, invId, request, env) {
         out.customer_phone = gmDocSendPhone(lead, await gmInvEstimatePhone(env, inv));
         out.vendedor = lead ? lead.vendedor : null;
         out.sender_name = gmDocSenderName(user, lead, client, settings);
+        // D3: the completion sign-off, shown on the final invoice.
+        var compAck = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(id, inv.job_id).first();
+        out.completion_signed_at = compAck ? compAck.signed_at : null; out.completion_signer = compAck ? compAck.signer_name : null;
         // A7: interest on the unpaid principal for the days not yet charged.
         var lf = gmInvLateFeeCents(inv, d, settings.late_fee_annual_pct, settings.late_fee_grace_days, today);
         out.late_fee_available = !sessionSellerName(user) && lf.cents > 0;
@@ -24689,7 +24709,9 @@ async function gmInvPublicPayload(env, inv, origin) {
         }
     }
     var customer = inv.lead_id ? await env.DB.prepare("SELECT cliente, address, city, telefone, email FROM gm_leads WHERE id = ?").bind(inv.lead_id).first() : null;
+    var compAckPub = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(inv.client_id, inv.job_id).first();
     return {
+        completion_signed_at: compAckPub ? compAckPub.signed_at : null, completion_signer: compAckPub ? compAckPub.signer_name : null,
         number: inv.number, status: d.derived_status, awaiting_verification: d.awaiting_verification,
         step_label: inv.step_label, step_pct: inv.step_pct, job_name: job ? job.obra : null,
         customer_name: customer ? customer.cliente : null, customer_address: customer ? [customer.address, customer.city].filter(Boolean).join(", ") : null,
@@ -25539,9 +25561,23 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         pool_ack: c.pool_ack_at ? { signed_at: c.pool_ack_at, delivered_at: c.pool_ack_at, method: "electronic delivery on this page" } : null,
         disclaimer_line: c.disclaimer_line || comp.disclaimer_line,
         content_hash: c.content_hash || null,
+        appendix_photos: await contractAppendixPhotos(env, c, origin),
         pdf_link: DEFAULT_ORIGIN + "/templates/client-contract-template.html?t=" + c.public_token,
         change_request_text: c.change_request_text, decline_reason: c.decline_reason
     };
+}
+
+// D2: a before-work photo set the homeowner acknowledged BEFORE the contract
+// was signed rides along as the contract's appendix.
+async function contractAppendixPhotos(env, c, origin) {
+    try {
+        var ack = await env.DB.prepare("SELECT * FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'before_photos' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(c.client_id, c.job_id).first();
+        if (!ack) { return []; }
+        if (c.company_signed_at && ack.signed_at > c.company_signed_at) { return []; }
+        var payload = gmDocParseJsonObject(ack.payload_json, {}) || {};
+        var base = origin + "/api/public/acks/" + ack.public_token;
+        return (payload.photos || []).map(function(p) { return { url: base + "/photo/" + p.id, note: p.note, taken_at: p.created_at, signed_at: ack.signed_at, signer_name: ack.signer_name }; });
+    } catch (e) { return []; }
 }
 
 async function gmContractEvent(env, clientId, contractId, actor, action, detail) {
@@ -26682,6 +26718,552 @@ async function handleGetAdminStaleContractNotices(request, env) {
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }
+}
+
+// ---------------------------------------------------------------------------
+// CLIENT CONTRACT BUILDER — checkpoint D: notary helper (final payment
+// affidavit), before-work condition photos with homeowner acknowledgment,
+// completion walkthrough / punch list with sign-off, lien release tracking,
+// subcontractor license and insurance on file. Nothing here blocks anything;
+// it records, warns and prefills.
+// ---------------------------------------------------------------------------
+
+async function dJobGuard(env, user, clientId, jobId) {
+    if (!(await gmJobBelongsToClient(env, clientId, jobId))) { return jsonErr("Project not found", 404); }
+    return gmInvSellerGuardJob(env, user, clientId, jobId);
+}
+function dFileOut(env, origin, clientId, path) { return origin + "/api/clients/" + clientId + "/gm/" + path; }
+
+async function dStoreUpload(env, form, field, prefix, allowPdf) {
+    var file = form.get(field);
+    if (!file || typeof file.arrayBuffer !== "function") { return { error: field + " is required" }; }
+    var ext = JOB_PHOTO_TYPES[file.type];
+    if (!ext || (!allowPdf && file.type === "application/pdf")) { return { error: allowPdf ? "Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image." : "Upload a JPG, PNG, GIF, WebP or HEIC image." }; }
+    var buf = await file.arrayBuffer();
+    if (buf.byteLength > JOB_PHOTO_MAX_BYTES) { return { error: "File too large. Maximum size is 15 MB." }; }
+    var key = prefix + "/" + crypto.randomUUID() + "." + ext;
+    await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
+    return { key: key, content_type: file.type };
+}
+async function dServeR2(env, key, allowedPrefix) {
+    if (!key || key.indexOf(allowedPrefix) !== 0 || !/^[A-Za-z0-9_\/-]+\.[a-z0-9]+$/.test(key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var obj = await env.ASSETS.get(key);
+    if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var ctype = (obj.httpMetadata && obj.httpMetadata.contentType) || "application/octet-stream";
+    return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": ctype, "X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=300" }) });
+}
+
+// ── D2: before-work condition photos ─────────────────────────────────────
+async function handleGetGmConditionPhotos(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var origin = new URL(request.url).origin;
+        var rows = (await env.DB.prepare("SELECT * FROM gm_job_condition_photos WHERE client_id = ? AND job_id = ? ORDER BY created_at").bind(id, jobId).all()).results || [];
+        rows.forEach(function(r) { r.url = dFileOut(env, origin, id, "jobs/" + jobId + "/condition-photos/" + r.id + "/file"); delete r.r2_key; });
+        var acks = (await env.DB.prepare("SELECT id, kind, status, sent_at, signer_name, signed_at, public_token, payload_json FROM gm_job_acks WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC").bind(id, jobId).all()).results || [];
+        acks.forEach(function(a) { a.link = DEFAULT_ORIGIN + "/ack-view?t=" + a.public_token; a.preview_link = DEFAULT_ORIGIN + "/ack-view?preview=" + a.id; a.payload = gmDocParseJsonObject(a.payload_json, null); delete a.payload_json; delete a.public_token; });
+        return jsonOk({ photos: rows, acks: acks });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmConditionPhoto(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var form = await request.formData();
+        var st = await dStoreUpload(env, form, "photo", "condition-photos/" + id, false);
+        if (st.error) { return jsonErr(st.error, 400); }
+        var note = gmStr(form.get("note"), 300);
+        var pid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_job_condition_photos (id, client_id, job_id, r2_key, content_type, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(pid, id, jobId, st.key, st.content_type, note, actorName(user)).run();
+        return jsonOk({ photo_id: pid });
+    } catch (e) { return jsonErr("Error uploading photo: " + e.message, 500); }
+}
+async function handleGetGmConditionPhotoFile(id, jobId, photoId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT r2_key FROM gm_job_condition_photos WHERE id = ? AND job_id = ? AND client_id = ?").bind(photoId, jobId, id).first();
+        if (!row) { return jsonErr("Not found", 404); }
+        return await dServeR2(env, row.r2_key, "condition-photos/");
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+
+// ── Acknowledgments (D2 send for acknowledgment, D3 completion sign-off) ──
+var D_ACK_STATEMENTS = { before_photos: "These conditions existed before work began.", completion: "I have walked through the work with the contractor, the punch list items are complete, and I accept the work as complete." };
+
+async function handlePostGmJobAck(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var kind = body.kind === "completion" ? "completion" : (body.kind === "before_photos" ? "before_photos" : null);
+        if (!kind) { return jsonErr("kind must be before_photos or completion", 400); }
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        var payload;
+        if (kind === "before_photos") {
+            var photos = (await env.DB.prepare("SELECT id, note, created_at FROM gm_job_condition_photos WHERE client_id = ? AND job_id = ? ORDER BY created_at").bind(id, jobId).all()).results || [];
+            if (!photos.length) { return jsonErr("Upload at least one photo first", 400); }
+            payload = { photos: photos };
+        } else {
+            var items = (await env.DB.prepare("SELECT id, text, done, done_at, photo_r2_key FROM gm_job_punch_items WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY sort_order, created_at").bind(id, jobId).all()).results || [];
+            if (!items.length) { return jsonErr("Add the punch list first", 400); }
+            if (items.some(function(it) { return !it.done; })) { return jsonErr("Every punch list item must be done before the completion sign-off", 409); }
+            payload = { punch_items: items.map(function(it) { return { id: it.id, text: it.text, done_at: it.done_at, has_photo: !!it.photo_r2_key }; }) };
+        }
+        var open = await env.DB.prepare("SELECT id FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = ? AND status IN ('sent','viewed') LIMIT 1").bind(id, jobId, kind).first();
+        if (open) { await env.DB.prepare("UPDATE gm_job_acks SET status = 'void' WHERE id = ?").bind(open.id).run(); }
+        var aid = crypto.randomUUID();
+        var json = JSON.stringify({ kind: kind, statement: D_ACK_STATEMENTS[kind], payload: payload, job: job ? job.obra : null });
+        var hash = await sha256Hex(json);
+        var key = "acks/" + aid + "/snapshot.json";
+        await env.ASSETS.put(key, json, { httpMetadata: { contentType: "application/json" } });
+        await env.DB.prepare("INSERT INTO gm_job_acks (id, client_id, job_id, lead_id, kind, status, public_token, payload_json, statement, snapshot_r2_key, content_hash, sent_at, created_by) VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, ?, ?, datetime('now'), ?)")
+            .bind(aid, id, jobId, job ? job.lead_id : null, kind, gmEstNewToken(), JSON.stringify(payload), D_ACK_STATEMENTS[kind], key, hash, actorName(user)).run();
+        var doc = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
+        var lead = job && job.lead_id ? await gmOwnedRow(env, "gm_leads", job.lead_id, id) : null;
+        var row = await env.DB.prepare("SELECT public_token FROM gm_job_acks WHERE id = ?").bind(aid).first();
+        var link = DEFAULT_ORIGIN + "/ack-view?t=" + row.public_token;
+        var tpl = kind === "before_photos" ? "Hi {customer_first_name}, it's {seller_name} from {business_name}. Before we start on {job_name}, please look at the photos of the existing conditions and sign the acknowledgment: {link}"
+                                            : "Hi {customer_first_name}, it's {seller_name} from {business_name}. The work on {job_name} is complete. Please review the walkthrough list and sign the completion acceptance: {link}";
+        var msg = gmDocFillMessage(tpl, { customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "", business_name: doc.legal_name || (client && client.name) || "", seller_name: gmDocSenderName(user, lead, client, doc), link: link });
+        if (job && job.lead_id) { await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: kind === "before_photos" ? "conditions_sent" : "completion_sent", field: "acknowledgment", old_value: null, new_value: link }]); }
+        return jsonOk({ ack_id: aid, link: link, message: msg, phone: gmDocSendPhone(lead, null) });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function dAckPayload(env, a, origin) {
+    var job = await gmOwnedRow(env, "gm_jobs", a.job_id, a.client_id);
+    var lead = a.lead_id ? await gmOwnedRow(env, "gm_leads", a.lead_id, a.client_id) : null;
+    var doc = await gmDocSettingsRow(env, a.client_id);
+    var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(a.client_id).first();
+    var payload = gmDocParseJsonObject(a.payload_json, {}) || {};
+    var base = origin + "/api/public/acks/" + a.public_token;
+    var con = await env.DB.prepare("SELECT number, revision FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status = 'completed' ORDER BY homeowner_signed_at DESC LIMIT 1").bind(a.client_id, a.job_id).first();
+    return {
+        kind: a.kind, status: a.status, statement: a.statement, job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null),
+        property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null, created_at: a.created_at,
+        business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: doc.hero_r2_key ? origin + "/api/clients/" + a.client_id + "/doc-hero-image" : null,
+            brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
+        photos: (payload.photos || []).map(function(p) { return { id: p.id, url: base + "/photo/" + p.id, note: p.note, taken_at: p.created_at }; }),
+        punch_items: (payload.punch_items || []).map(function(it) { return { text: it.text, done_at: it.done_at, photo_url: it.has_photo ? base + "/punch-photo/" + it.id : null }; }),
+        contract_display_number: con ? con.number + (con.revision > 1 ? "-R" + con.revision : "") : null,
+        signature: a.signed_at ? { signer_name: a.signer_name, signed_at: a.signed_at, kind: a.signature_kind, image_url: a.signature_r2_key ? base + "/signature-image" : null, device: gmEstSummarizeUa(a.signed_ua) } : null,
+        content_hash: a.content_hash, disclaimer_line: null, decline_reason: a.decline_reason
+    };
+}
+async function handleGetGmAck(id, ackId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var a = await env.DB.prepare("SELECT * FROM gm_job_acks WHERE id = ? AND client_id = ?").bind(ackId, id).first();
+        if (!a) { return jsonErr("Not found", 404); }
+        var g = await dJobGuard(env, user, id, a.job_id); if (g) { return g; }
+        var pub = await dAckPayload(env, a, new URL(request.url).origin); pub.preview = true;
+        return jsonOk({ ack: pub });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function dAckByToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token)) { return null; }
+    return env.DB.prepare("SELECT * FROM gm_job_acks WHERE public_token = ?").bind(token).first();
+}
+async function handleGetPublicAck(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return limited; }
+        var a = await dAckByToken(env, token);
+        if (!a || a.status === "void") { return jsonErr("Not found", 404); }
+        await env.DB.prepare("UPDATE gm_job_acks SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(a.id).run();
+        if (a.status === "sent") { a.status = "viewed"; }
+        return jsonOk({ ack: await dAckPayload(env, a, new URL(request.url).origin) });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostPublicAckSign(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        var a = await dAckByToken(env, token);
+        if (!a) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        var signer = gmStr(body.signer_name, 120);
+        if (!signer) { return jsonErr("Please type your name", 400); }
+        var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
+        var sigKey = null;
+        if (kind === "drawn") { var st = await contractStoreSignature(env, { id: "ack-" + a.id, revision: 1 }, "homeowner", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
+        var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        var res = await env.DB.prepare("UPDATE gm_job_acks SET status = 'signed', signer_name = ?, signed_at = datetime('now'), signature_kind = ?, signature_r2_key = ?, signed_ip = ?, signed_ua = ? WHERE id = ? AND status IN ('sent','viewed')").bind(signer, kind, sigKey, ip, ua, a.id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("This acknowledgment can no longer be signed.", 409); }
+        if (a.lead_id) { await gmLogLeadEvents(env, a.client_id, a.lead_id, signer, [{ action: a.kind === "before_photos" ? "conditions_acknowledged" : "completion_signed", field: "acknowledgment", old_value: null, new_value: a.kind, reason: "signed online (" + kind + ")" }]); }
+        return jsonOk({ signed: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostPublicAckDecline(token, request, env) {
+    try {
+        var a = await dAckByToken(env, token);
+        if (!a) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var res = await env.DB.prepare("UPDATE gm_job_acks SET status = 'declined', decline_reason = ? WHERE id = ? AND status IN ('sent','viewed')").bind(gmStr(body.text, 1000), a.id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("This acknowledgment can no longer be answered.", 409); }
+        return jsonOk({ ok: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handleGetPublicAckFile(token, which, itemId, request, env) {
+    try {
+        var a = await dAckByToken(env, token);
+        if (!a) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (which === "signature-image") { return await dServeR2(env, a.signature_r2_key, "contracts/ack-"); }
+        var payload = gmDocParseJsonObject(a.payload_json, {}) || {};
+        if (which === "photo") {
+            if (!(payload.photos || []).some(function(p) { return p.id === itemId; })) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+            var row = await env.DB.prepare("SELECT r2_key FROM gm_job_condition_photos WHERE id = ? AND client_id = ?").bind(itemId, a.client_id).first();
+            return await dServeR2(env, row && row.r2_key, "condition-photos/");
+        }
+        if (which === "punch-photo") {
+            if (!(payload.punch_items || []).some(function(p) { return p.id === itemId; })) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+            var prow = await env.DB.prepare("SELECT photo_r2_key FROM gm_job_punch_items WHERE id = ? AND client_id = ?").bind(itemId, a.client_id).first();
+            return await dServeR2(env, prow && prow.photo_r2_key, "punch-photos/");
+        }
+        return new Response(null, { status: 404, headers: CORS_HEADERS });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+
+// ── D3: punch list ───────────────────────────────────────────────────────
+async function handleGetGmPunch(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var origin = new URL(request.url).origin;
+        var rows = (await env.DB.prepare("SELECT * FROM gm_job_punch_items WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY sort_order, created_at").bind(id, jobId).all()).results || [];
+        rows.forEach(function(r) { r.photo_url = r.photo_r2_key ? dFileOut(env, origin, id, "punch/" + r.id + "/photo") : null; delete r.photo_r2_key; });
+        var signed = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(id, jobId).first();
+        return jsonOk({ items: rows, completion: signed || null });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmPunch(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var ctype = request.headers.get("Content-Type") || "";
+        var text, photo = null;
+        if (ctype.indexOf("multipart/form-data") !== -1) {
+            var form = await request.formData();
+            text = gmStr(form.get("text"), 300);
+            if (form.get("photo") && typeof form.get("photo").arrayBuffer === "function") { photo = await dStoreUpload(env, form, "photo", "punch-photos/" + id, false); if (photo.error) { return jsonErr(photo.error, 400); } }
+        } else {
+            var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+            text = gmStr(body.text, 300);
+        }
+        if (!text) { return jsonErr("Describe the item", 400); }
+        var pid = crypto.randomUUID();
+        var maxSort = await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM gm_job_punch_items WHERE job_id = ?").bind(jobId).first();
+        await env.DB.prepare("INSERT INTO gm_job_punch_items (id, client_id, job_id, text, photo_r2_key, photo_content_type, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(pid, id, jobId, text, photo ? photo.key : null, photo ? photo.content_type : null, (maxSort.m || 0) + 1, actorName(user)).run();
+        return jsonOk({ item_id: pid });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePutGmPunch(id, itemId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var it = await env.DB.prepare("SELECT * FROM gm_job_punch_items WHERE id = ? AND client_id = ?").bind(itemId, id).first();
+        if (!it) { return jsonErr("Not found", 404); }
+        var g = await dJobGuard(env, user, id, it.job_id); if (g) { return g; }
+        var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+        var sets = [], binds = [];
+        if (body.done !== undefined) { sets.push("done = ?"); binds.push(body.done ? 1 : 0); sets.push("done_at = ?"); binds.push(body.done ? new Date().toISOString().slice(0, 19).replace("T", " ") : null); sets.push("done_by = ?"); binds.push(body.done ? actorName(user) : null); }
+        if (body.text !== undefined) { var t = gmStr(body.text, 300); if (!t) { return jsonErr("Describe the item", 400); } sets.push("text = ?"); binds.push(t); }
+        if (body.removed === true) { sets.push("removed_at = datetime('now')"); }
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')"); binds.push(itemId, id);
+        await gmRunUpdate(env, "UPDATE gm_job_punch_items SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        return jsonOk({ saved: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handleGetGmPunchPhoto(id, itemId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var it = await env.DB.prepare("SELECT photo_r2_key FROM gm_job_punch_items WHERE id = ? AND client_id = ?").bind(itemId, id).first();
+        return await dServeR2(env, it && it.photo_r2_key, "punch-photos/");
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+
+// ── D4: lienors (Notices to Owner) and releases ──────────────────────────
+var D_45_DAY_INFO = "Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute.";
+async function handleGetGmLienors(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
+        var origin = new URL(request.url).origin;
+        var rows = (await env.DB.prepare("SELECT * FROM gm_job_lienors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY created_at").bind(id, jobId).all()).results || [];
+        rows.forEach(function(r) {
+            r.release_status = r.unconditional_release_at ? "unconditional" : (r.conditional_release_at ? "conditional" : "none");
+            r.conditional_release_url = r.conditional_release_r2_key ? dFileOut(env, origin, id, "lienors/" + r.id + "/file/conditional") : null;
+            r.unconditional_release_url = r.unconditional_release_r2_key ? dFileOut(env, origin, id, "lienors/" + r.id + "/file/unconditional") : null;
+            delete r.conditional_release_r2_key; delete r.unconditional_release_r2_key;
+        });
+        return jsonOk({ lienors: rows, open_count: rows.filter(function(r) { return r.release_status === "none"; }).length, info_45_days: D_45_DAY_INFO });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmLienor(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+        var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+        var name = gmStr(body.name, 200); if (!name) { return jsonErr("The lienor's name is required", 400); }
+        var date = gmStr(body.notice_date, 10); if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { return jsonErr("notice_date must be YYYY-MM-DD", 400); }
+        var amt = gmCents(body.amount_claimed_cents);
+        var lid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_job_lienors (id, client_id, job_id, name, notice_date, amount_claimed_cents, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(lid, id, jobId, name, date, amt, gmStr(body.note, 500), actorName(user)).run();
+        return jsonOk({ lienor_id: lid });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// PUT JSON {conditional_release_note|unconditional_release_note|removed,removed_reason} or multipart file + kind.
+async function handlePutGmLienor(id, lienorId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT * FROM gm_job_lienors WHERE id = ? AND client_id = ?").bind(lienorId, id).first();
+        if (!row) { return jsonErr("Not found", 404); }
+        var ctype = request.headers.get("Content-Type") || "";
+        var sets = [], binds = [];
+        if (ctype.indexOf("multipart/form-data") !== -1) {
+            var form = await request.formData();
+            var kind = form.get("kind") === "unconditional" ? "unconditional" : "conditional";
+            var st = await dStoreUpload(env, form, "file", "lien-releases/" + id, true);
+            if (st.error) { return jsonErr(st.error, 400); }
+            sets.push(kind + "_release_r2_key = ?"); binds.push(st.key);
+            sets.push(kind + "_release_at = datetime('now')");
+            var note = gmStr(form.get("note"), 300); if (note) { sets.push(kind + "_release_note = ?"); binds.push(note); }
+        } else {
+            var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+            ["conditional", "unconditional"].forEach(function(k) {
+                if (body[k + "_release_recorded"] === true) { sets.push(k + "_release_at = COALESCE(" + k + "_release_at, datetime('now'))"); var n = gmStr(body[k + "_release_note"], 300); if (n) { sets.push(k + "_release_note = ?"); binds.push(n); } }
+            });
+            if (body.removed === true) { var rr = gmStr(body.removed_reason, 300); if (!rr) { return jsonErr("A reason is required to remove a lienor", 400); } sets.push("removed_at = datetime('now')"); sets.push("removed_reason = ?"); binds.push(rr); }
+            if (body.amount_claimed_cents !== undefined) { sets.push("amount_claimed_cents = ?"); binds.push(gmCents(body.amount_claimed_cents)); }
+            if (body.note !== undefined) { sets.push("note = ?"); binds.push(gmStr(body.note, 500)); }
+        }
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')"); binds.push(lienorId, id);
+        await gmRunUpdate(env, "UPDATE gm_job_lienors SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        return jsonOk({ saved: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handleGetGmLienorFile(id, lienorId, kind, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT conditional_release_r2_key, unconditional_release_r2_key FROM gm_job_lienors WHERE id = ? AND client_id = ?").bind(lienorId, id).first();
+        return await dServeR2(env, row && (kind === "unconditional" ? row.unconditional_release_r2_key : row.conditional_release_r2_key), "lien-releases/");
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+
+// ── D1: final payment affidavit (prefill) + notarized copy ───────────────
+async function handleGetGmAffidavit(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        if (!job) { return jsonErr("Project not found", 404); }
+        var lead = job.lead_id ? await gmOwnedRow(env, "gm_leads", job.lead_id, id) : null;
+        var doc = await gmDocSettingsRow(env, id);
+        var cs = await contractSettingsRow(env, id);
+        var admin = await contractAdminSettings(env);
+        var con = await coLiveContract(env, id, jobId);
+        var cos = (await env.DB.prepare("SELECT number, amount_cents, homeowner_signed_at FROM gm_change_orders WHERE client_id = ? AND job_id = ? AND status = 'completed' ORDER BY homeowner_signed_at").bind(id, jobId).all()).results || [];
+        var contract = await gmInvContract(env, id, jobId, con ? (gmDocParseJsonObject(con.estimate_ids_json, [])[0] || null) : null, gmEasternToday());
+        var origAmount = con ? (con.contract_amount_cents - cos.reduce(function(a, c) { return a + c.amount_cents; }, 0)) : contract.contract_total_cents;
+        var lienors = (await env.DB.prepare("SELECT * FROM gm_job_lienors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY created_at").bind(id, jobId).all()).results || [];
+        var warnings = [];
+        var lrows = lienors.map(function(l) {
+            var rs = l.unconditional_release_at ? "unconditional" : (l.conditional_release_at ? "conditional" : "none");
+            if (rs === "none") { warnings.push(l.name + " served a Notice to Owner" + (l.notice_date ? " on " + contractFmtDate(l.notice_date) : "") + " and has no release on file."); }
+            return { name: l.name, notice_date: l.notice_date, amount_claimed_cents: l.amount_claimed_cents, conditional_release_at: l.conditional_release_at, unconditional_release_at: l.unconditional_release_at, release_status: rs };
+        });
+        var unpaid = lrows.filter(function(l) { return l.release_status !== "unconditional"; }).map(function(l) { return { name: l.name, amount_due_cents: l.amount_claimed_cents || 0 }; });
+        var mode = admin.affidavit_written_declaration === "1" ? "declaration" : "notary";
+        var payload = {
+            mode: mode,
+            business: { legal_name: doc.legal_name || "", address: doc.address || "", phone: doc.phone || "", license_numbers: doc.license_numbers || [], entity_type: cs.values.business_entity_type || "", qualifier_name: cs.values.qualifier_name || "" },
+            affiant: { name: cs.owner_signer_name || cs.values.qualifier_name || "", title: cs.values.affiant_title || "Owner" },
+            owner: { name: lead ? lead.cliente : job.obra, address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : "" },
+            property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : "",
+            contract: { display_number: con ? contractDisplayNumber(con) : null, contract_date: con ? con.contract_date : null, original_amount_cents: origAmount,
+                        change_orders: cos.map(function(c) { return { number: c.number, amount_cents: c.amount_cents, signed_at: c.homeowner_signed_at }; }), current_amount_cents: con ? con.contract_amount_cents : contract.contract_total_cents },
+            paid_to_date_cents: contract.paid_cents, final_payment_due_cents: Math.max(0, (con ? con.contract_amount_cents : contract.contract_total_cents) - contract.paid_cents - (contract.credit_cents || 0)),
+            lienors: lrows, unpaid_lienors: unpaid, generated_at: new Date().toISOString().slice(0, 19).replace("T", " "), county: (con && gmDocParseJsonObject(con.answers_json, {}).property_county) || null,
+            warnings: warnings, info_45_days: D_45_DAY_INFO
+        };
+        var aid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, mode, JSON.stringify(payload), actorName(user)).run();
+        var origin = new URL(request.url).origin;
+        var notarized = (await env.DB.prepare("SELECT id, notarized_at, notarized_uploaded_by FROM gm_job_affidavits WHERE client_id = ? AND job_id = ? AND notarized_r2_key IS NOT NULL ORDER BY notarized_at DESC").bind(id, jobId).all()).results || [];
+        notarized.forEach(function(n) { n.url = dFileOut(env, origin, id, "affidavits/" + n.id + "/file"); });
+        payload.affidavit_id = aid; payload.notarized_copies = notarized;
+        payload.print_link = DEFAULT_ORIGIN + "/templates/client-affidavit-template.html?job=" + jobId;
+        return jsonOk({ affidavit: payload });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmAffidavitNotarized(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+        var form = await request.formData();
+        var st = await dStoreUpload(env, form, "file", "affidavits/" + id, true);
+        if (st.error) { return jsonErr(st.error, 400); }
+        var aid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by, notarized_r2_key, notarized_content_type, notarized_at, notarized_uploaded_by) VALUES (?, ?, ?, 'notary', NULL, ?, ?, ?, datetime('now'), ?)").bind(aid, id, jobId, actorName(user), st.key, st.content_type, actorName(user)).run();
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        if (job && job.lead_id) { await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: "affidavit_notarized_uploaded", field: "affidavit", old_value: null, new_value: aid }]); }
+        return jsonOk({ affidavit_id: aid });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handleGetGmAffidavitFile(id, affId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT notarized_r2_key FROM gm_job_affidavits WHERE id = ? AND client_id = ?").bind(affId, id).first();
+        return await dServeR2(env, row && row.notarized_r2_key, "affidavits/");
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+
+// ── D5: subcontractors ───────────────────────────────────────────────────
+function dSubWarnings(s, today) {
+    var w = [];
+    if (!s.license_number) { w.push("no license number on file"); }
+    if (!s.coi_expires) { w.push("no certificate of insurance on file"); } else if (s.coi_expires < today) { w.push("certificate of insurance expired " + contractFmtDate(s.coi_expires)); }
+    if (!s.wc_kind) { w.push("no workers' compensation certificate or exemption on file"); } else if (s.wc_expires && s.wc_expires < today) { w.push("workers' compensation " + s.wc_kind + " expired " + contractFmtDate(s.wc_expires)); }
+    var soon = gmDateAddDays(today, 30);
+    var expiring = [];
+    if (s.coi_expires && s.coi_expires >= today && s.coi_expires <= soon) { expiring.push("certificate of insurance expires " + contractFmtDate(s.coi_expires)); }
+    if (s.wc_expires && s.wc_expires >= today && s.wc_expires <= soon) { expiring.push("workers' compensation " + (s.wc_kind || "") + " expires " + contractFmtDate(s.wc_expires)); }
+    return { warnings: w, expiring: expiring };
+}
+async function handleGetGmSubcontractors(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var origin = new URL(request.url).origin, today = gmEasternToday();
+        var rows = (await env.DB.prepare("SELECT * FROM gm_subcontractors WHERE client_id = ? AND archived = 0 ORDER BY name").bind(id).all()).results || [];
+        var seller = !!sessionSellerName(user);
+        rows.forEach(function(s) {
+            var dw = dSubWarnings(s, today); s.warnings = dw.warnings; s.expiring = dw.expiring;
+            s.coi_url = s.coi_r2_key && !seller ? dFileOut(env, origin, id, "subcontractors/" + s.id + "/file/coi") : null;
+            s.wc_url = s.wc_r2_key && !seller ? dFileOut(env, origin, id, "subcontractors/" + s.id + "/file/wc") : null;
+            delete s.coi_r2_key; delete s.wc_r2_key;
+        });
+        var assigns = (await env.DB.prepare("SELECT js.*, j.obra AS job_name FROM gm_job_subcontractors js JOIN gm_jobs j ON j.id = js.job_id WHERE js.client_id = ? AND js.removed_at IS NULL").bind(id).all()).results || [];
+        return jsonOk({ subcontractors: rows, assignments: assigns, expiring_count: rows.filter(function(s) { return s.expiring.length; }).length });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmSubcontractor(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+        var name = gmStr(body.name, 200); if (!name) { return jsonErr("Name is required", 400); }
+        var sid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_subcontractors (id, client_id, name, trade, license_number, coi_expires, wc_kind, wc_expires, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(sid, id, name, gmStr(body.trade, 80), gmStr(body.license_number, 60), gmStr(body.coi_expires, 10), ["policy", "exemption"].indexOf(body.wc_kind) === -1 ? null : body.wc_kind, gmStr(body.wc_expires, 10), gmStr(body.notes, 500), actorName(user)).run();
+        return jsonOk({ subcontractor_id: sid });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePutGmSubcontractor(id, sid, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT id FROM gm_subcontractors WHERE id = ? AND client_id = ?").bind(sid, id).first();
+        if (!row) { return jsonErr("Not found", 404); }
+        var ctype = request.headers.get("Content-Type") || "";
+        var sets = [], binds = [];
+        if (ctype.indexOf("multipart/form-data") !== -1) {
+            var form = await request.formData();
+            var kind = form.get("kind") === "wc" ? "wc" : "coi";
+            var st = await dStoreUpload(env, form, "file", "sub-docs/" + id, true);
+            if (st.error) { return jsonErr(st.error, 400); }
+            sets.push(kind + "_r2_key = ?"); binds.push(st.key);
+            var exp = gmStr(form.get("expires"), 10); if (exp) { sets.push(kind + "_expires = ?"); binds.push(exp); }
+            if (kind === "wc") { var wk = form.get("wc_kind"); sets.push("wc_kind = ?"); binds.push(wk === "exemption" ? "exemption" : "policy"); }
+        } else {
+            var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+            [["name", 200], ["trade", 80], ["license_number", 60], ["coi_expires", 10], ["wc_expires", 10], ["notes", 500]].forEach(function(f) { if (body[f[0]] !== undefined) { sets.push(f[0] + " = ?"); binds.push(gmStr(body[f[0]], f[1])); } });
+            if (body.wc_kind !== undefined) { sets.push("wc_kind = ?"); binds.push(["policy", "exemption"].indexOf(body.wc_kind) === -1 ? null : body.wc_kind); }
+            if (body.archived !== undefined) { sets.push("archived = ?"); binds.push(body.archived ? 1 : 0); }
+        }
+        if (!sets.length) { return jsonErr("Nothing to update", 400); }
+        sets.push("updated_at = datetime('now')"); binds.push(sid, id);
+        await gmRunUpdate(env, "UPDATE gm_subcontractors SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        return jsonOk({ saved: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handleGetGmSubcontractorFile(id, sid, kind, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var row = await env.DB.prepare("SELECT coi_r2_key, wc_r2_key FROM gm_subcontractors WHERE id = ? AND client_id = ?").bind(sid, id).first();
+        return await dServeR2(env, row && (kind === "wc" ? row.wc_r2_key : row.coi_r2_key), "sub-docs/");
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// Assign to a project: the warning is returned and stored, never a block.
+async function handlePostGmJobSubcontractor(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+        var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+        if (body.remove_id) {
+            await env.DB.prepare("UPDATE gm_job_subcontractors SET removed_at = datetime('now') WHERE id = ? AND client_id = ? AND job_id = ? AND removed_at IS NULL").bind(gmStr(body.remove_id, 80), id, jobId).run();
+            return jsonOk({ removed: true });
+        }
+        var s = await env.DB.prepare("SELECT * FROM gm_subcontractors WHERE id = ? AND client_id = ?").bind(gmStr(body.subcontractor_id, 80), id).first();
+        if (!s) { return jsonErr("Subcontractor not found", 404); }
+        var dw = dSubWarnings(s, gmEasternToday());
+        var aid = crypto.randomUUID();
+        await env.DB.prepare("INSERT INTO gm_job_subcontractors (id, client_id, job_id, subcontractor_id, warning_json, assigned_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, s.id, JSON.stringify(dw.warnings), actorName(user)).run();
+        return jsonOk({ assigned: true, warnings: dw.warnings, expiring: dw.expiring });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 
 // ---------------------------------------------------------------------------
@@ -37075,6 +37657,14 @@ async function handleFetch(request, env, ctx) {
             if (pubCo[2] === "decline" && method === "POST") { return handlePostPublicChangeOrderDecline(pubCo[1], request, env); }
             if (pubCo[3] && method === "GET") { return handleGetPublicChangeOrderSignature(pubCo[1], pubCo[3], request, env); }
         }
+        var pubAck = path.match(/^\/api\/public\/acks\/([a-f0-9]{48})(?:\/(sign|decline|signature-image)|\/(photo|punch-photo)\/([A-Za-z0-9-]+))?$/);
+        if (pubAck) {
+            if (!pubAck[2] && !pubAck[3] && method === "GET") { return handleGetPublicAck(pubAck[1], request, env); }
+            if (pubAck[2] === "sign" && method === "POST") { return handlePostPublicAckSign(pubAck[1], request, env); }
+            if (pubAck[2] === "decline" && method === "POST") { return handlePostPublicAckDecline(pubAck[1], request, env); }
+            if (pubAck[2] === "signature-image" && method === "GET") { return handleGetPublicAckFile(pubAck[1], "signature-image", null, request, env); }
+            if (pubAck[3] && method === "GET") { return handleGetPublicAckFile(pubAck[1], pubAck[3], pubAck[4], request, env); }
+        }
         if (path === "/api/contracts/stale-notices"     && method === "GET")  { return handleGetAdminStaleContractNotices(request, env); }
         if (path === "/api/contracts/library"           && method === "GET")  { return handleGetContractLibrary(request, env); }
         if (path === "/api/contracts/library/review"    && method === "POST") { return handlePostContractReview(request, env); }
@@ -37616,6 +38206,36 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "custom-clauses" && segs[6] === "attorney-review" && method === "PUT") {
                     return handlePutGmCustomClauseReview(cid, segs[5], request, env);
                 }
+                // Dispute-prevention tools (checkpoint D).
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "condition-photos") {
+                    if (method === "GET")  { return handleGetGmConditionPhotos(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmConditionPhoto(cid, segs[5], request, env); }
+                }
+                if (segs.length === 9 && gmCol === "jobs" && segs[6] === "condition-photos" && segs[8] === "file" && method === "GET") { return handleGetGmConditionPhotoFile(cid, segs[5], segs[7], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "acks" && method === "POST") { return handlePostGmJobAck(cid, segs[5], request, env); }
+                if (segs.length === 6 && gmCol === "acks" && method === "GET") { return handleGetGmAck(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "punch") {
+                    if (method === "GET")  { return handleGetGmPunch(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmPunch(cid, segs[5], request, env); }
+                }
+                if (segs.length === 6 && gmCol === "punch" && method === "PUT") { return handlePutGmPunch(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "punch" && segs[6] === "photo" && method === "GET") { return handleGetGmPunchPhoto(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "lienors") {
+                    if (method === "GET")  { return handleGetGmLienors(cid, segs[5], request, env); }
+                    if (method === "POST") { return handlePostGmLienor(cid, segs[5], request, env); }
+                }
+                if (segs.length === 6 && gmCol === "lienors" && method === "PUT") { return handlePutGmLienor(cid, segs[5], request, env); }
+                if (segs.length === 8 && gmCol === "lienors" && segs[6] === "file" && method === "GET") { return handleGetGmLienorFile(cid, segs[5], segs[7], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "affidavit" && method === "GET") { return handleGetGmAffidavit(cid, segs[5], request, env); }
+                if (segs.length === 8 && gmCol === "jobs" && segs[6] === "affidavit" && segs[7] === "notarized" && method === "POST") { return handlePostGmAffidavitNotarized(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "affidavits" && segs[6] === "file" && method === "GET") { return handleGetGmAffidavitFile(cid, segs[5], request, env); }
+                if (segs.length === 5 && gmCol === "subcontractors") {
+                    if (method === "GET")  { return handleGetGmSubcontractors(cid, request, env); }
+                    if (method === "POST") { return handlePostGmSubcontractor(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "subcontractors" && method === "PUT") { return handlePutGmSubcontractor(cid, segs[5], request, env); }
+                if (segs.length === 8 && gmCol === "subcontractors" && segs[6] === "file" && method === "GET") { return handleGetGmSubcontractorFile(cid, segs[5], segs[7], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "subcontractors" && method === "POST") { return handlePostGmJobSubcontractor(cid, segs[5], request, env); }
                 // Change orders + the no-contract notice (checkpoint C).
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "change-orders" && method === "POST") { return handlePostGmJobChangeOrder(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "contract-status" && method === "GET") { return handleGetGmJobContractStatus(cid, segs[5], request, env); }

@@ -18424,7 +18424,7 @@ async function handleGetGmLeadEvents(id, leadId, request, env) {
         }
 
         var rows = await env.DB.prepare(
-            "SELECT id, action, field, old_value, new_value, actor, created_at " +
+            "SELECT id, action, field, old_value, new_value, actor, reason, created_at " +
             "FROM gm_lead_events WHERE lead_id = ? AND client_id = ? " +
             "ORDER BY created_at DESC, rowid DESC LIMIT 200"
         ).bind(leadId, id).all();
@@ -23407,9 +23407,9 @@ async function handlePutGmEstimate(id, estId, request, env) {
                f.valid_until, f.discount_type, f.discount_value, f.schedule_json, f.terms_included, f.terms_excluded, f.customer_notes, f.internal_notes, token, actor).run();
         var newEst = { id: newId, number: est.number, revision: rev, discount_type: f.discount_type, discount_value: f.discount_value };
         await gmEstWriteOptions(env, newEst, parsed.options);
-        await env.DB.prepare(
-            "UPDATE gm_estimates SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('sent','viewed','changes_requested')"
-        ).bind(estId, id).run();
+        // The old revision stays live (the customer's link keeps working)
+        // until the new one is SENT; handlePostGmEstimateSend supersedes
+        // every older revision of the number at that moment, guarded in SQL.
         await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_revised", field: "estimate", old_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), new_value: est.number + "-R" + rev }].concat(gmEstOverrideEvents(newEst, parsed.options)));
         var fullNew = await gmEstLoad(env, id, newId);
         await gmEstApplyToLead(env, id, fullNew, actor, { sending: false });

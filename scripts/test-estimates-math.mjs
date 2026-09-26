@@ -73,7 +73,7 @@ ok(!/comissao = /.test(slice(worker, "async function gmEstApplyToLead", "\n// â”
 
 // SQL-guarded transitions
 ok(/status IN \('sent','viewed','changes_requested'\) AND valid_until >= \?/.test(worker), "customer acceptance is guarded in SQL on status and valid_until");
-ok(/status = 'superseded'[^;]*status IN \('sent','viewed','changes_requested'\)/.test(worker), "supersede on edit is guarded in SQL");
+ok(/status = 'superseded'[^;]*revision < \? AND status IN \('sent','viewed','changes_requested','accepted','declined'\)/.test(worker), "older revisions are superseded on SEND, guarded in SQL by number, revision and status");
 
 // public payload never carries internal fields
 const pub = slice(worker, "function gmEstimatePublicPayload", "\n// The internal detail");

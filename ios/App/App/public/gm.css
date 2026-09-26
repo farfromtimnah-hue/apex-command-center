@@ -966,6 +966,9 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 /* ── Estimates (estimates build, phase 2) ─────────────────────────────── */
 .gm-est-actions { display: flex; flex-direction: column; gap: 8px; }
 .gm-est-actions .gm-btn-secondary, .gm-est-actions .gm-btn-primary { margin: 0; text-align: center; text-decoration: none; display: block; box-sizing: border-box; }
+/* The message pencil beside Send (template-edit.js's affordance) sits at the
+   button's right edge instead of on a line of its own. */
+.gm-est-actions .tpl-pencil { align-self: flex-end; margin: -6px 4px 0 0; min-height: 32px; }
 .gm-est-line { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .gm-est-line:last-child { border-bottom: none; }
 .gm-est-line .gm-input { margin-bottom: 8px; }

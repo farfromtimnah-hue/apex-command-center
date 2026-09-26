@@ -22389,6 +22389,13 @@ function gmDocParseLicenses(v) {
     return out;
 }
 
+// '#RRGGBB' or null. Anything else is not a color.
+function gmDocHexColor(v) {
+    if (typeof v !== "string") { return null; }
+    var t = v.trim();
+    return /^#[0-9a-fA-F]{6}$/.test(t) ? t.toLowerCase() : null;
+}
+
 function gmDocParseJsonObject(v, fallback) {
     if (v === null || v === undefined) { return fallback; }
     if (typeof v !== "string") { return v; }
@@ -22405,6 +22412,11 @@ async function gmDocSettingsRow(env, clientId) {
         client_id:             clientId,
         exists:                !!row,
         hero_r2_key:           r.hero_r2_key || null,
+        // Brand colors for the customer-facing documents. NEVER Apex's own
+        // palette: a homeowner is dealing with the client's company. Null
+        // means "use the neutral default" (dark gray + white).
+        brand_primary:         gmDocHexColor(r.brand_primary),
+        brand_accent:          gmDocHexColor(r.brand_accent),
         legal_name:            r.legal_name || null,
         address:               r.address || null,
         phone:                 r.phone || null,
@@ -22445,14 +22457,19 @@ async function handleGetGmDocSettings(id, request, env) {
         // owner confirms or edits; nothing is copied into gm_doc_settings
         // until they save.
         var client = await env.DB.prepare(
-            "SELECT name, legal_entity_name, legal_entity_address, phone, email, logo_url FROM clients WHERE id = ?"
+            "SELECT name, legal_entity_name, legal_entity_address, phone, email, logo_url, " +
+            "referral_bg_color, referral_text_color FROM clients WHERE id = ?"
         ).bind(id).first();
         settings.prefill = {
             business_name: (client && client.name) || null,
             legal_name:    (client && client.legal_entity_name) || null,
             address:       (client && client.legal_entity_address) || null,
             phone:         (client && client.phone) || null,
-            email:         (client && client.email) || null
+            email:         (client && client.email) || null,
+            // The referral page's colors are the same brand; offered as the
+            // starting point, never copied until the owner saves.
+            brand_primary: gmDocHexColor(client && client.referral_bg_color),
+            brand_accent:  gmDocHexColor(client && client.referral_text_color)
         };
         settings.has_logo = !!(client && client.logo_url);
         settings.has_hero = !!settings.hero_r2_key;
@@ -22467,6 +22484,7 @@ async function handleGetGmDocSettings(id, request, env) {
 // Fields that are compared old/new and logged. JSON fields compare on their
 // canonical string. hero_r2_key is logged by the upload route instead.
 var GM_DOC_SETTINGS_FIELDS = [
+    "brand_primary", "brand_accent",
     "legal_name", "address", "phone", "email", "license_numbers", "min_margin_pct",
     "estimate_valid_days", "default_terms_days", "payment_methods_json",
     "late_fee_annual_pct", "late_fee_grace_days", "schedule_presets_json",
@@ -22486,6 +22504,17 @@ async function handlePutGmDocSettings(id, request, env) {
         var cur = existing || {};
         var f = {};
 
+        ["brand_primary", "brand_accent"].forEach(function(k) {
+            if (!has(k)) { return; }
+            if (body[k] === null || body[k] === "") { f[k] = null; return; }
+            var hex = gmDocHexColor(body[k]);
+            if (!hex) { f[k] = undefined; return; }
+            f[k] = hex;
+        });
+        if ((has("brand_primary") && body.brand_primary && !f.brand_primary) ||
+            (has("brand_accent") && body.brand_accent && !f.brand_accent)) {
+            return jsonErr("Colors must be a 6-digit hex value like #1F2A44", 400);
+        }
         if (has("legal_name")) { f.legal_name = body.legal_name === null ? null : gmStr(body.legal_name, 200); }
         if (has("address"))    { f.address    = body.address    === null ? null : gmStr(body.address, 400); }
         if (has("phone"))      { f.phone      = body.phone      === null ? null : gmStr(body.phone, 40); }

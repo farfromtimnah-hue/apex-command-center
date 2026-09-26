@@ -851,6 +851,12 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   min-height: 48px; font-size: 15px; color: var(--text); cursor: pointer;
 }
 .gm-doc-check-line input { width: 22px; height: 22px; accent-color: var(--gold); flex: 0 0 auto; }
+.gm-doc-color-pick { flex: 0 0 64px; padding: 4px; height: 48px; }
+.gm-doc-color-swatch {
+  flex: 0 0 auto; min-width: 48px; min-height: 48px; border-radius: 10px;
+  border: 1.5px solid var(--border); display: inline-flex; align-items: center;
+  justify-content: center; font-weight: 800; font-size: 15px;
+}
 .gm-doc-preset { padding: 10px 0 4px; border-top: 1px solid var(--border); }
 .gm-doc-preset:first-child { border-top: none; padding-top: 0; }
 .gm-doc-preset .gm-doc-step { padding-left: 14px; }

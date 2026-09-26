@@ -6000,6 +6000,8 @@ function gmDocDraftFromSettings() {
   var pre = st.prefill || {};
   var pm = st.payment_methods || {};
   gmDocDraft = {
+    brand_primary: st.brand_primary || pre.brand_primary || "",
+    brand_accent:  st.brand_accent  || pre.brand_accent  || "",
     legal_name: st.legal_name || pre.legal_name || pre.business_name || "",
     address:    st.address || pre.address || "",
     phone:      st.phone || pre.phone || "",
@@ -6076,6 +6078,16 @@ function gmDocSettingsFormHtml() {
       '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocHeroInput\').click()">' +
         gmT(st.has_hero ? "Trocar imagem" : "Enviar imagem", st.has_hero ? "Replace image" : "Upload image") + '</button>' +
     '</div>' +
+    '</div>';
+
+  // ── Brand colors ──
+  // The customer's documents carry the CLIENT's brand, never Apex's. A
+  // picker and a hex field kept in sync; blank = neutral default.
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Cores da marca", "Brand colors") +
+    ' <span class="gm-sheet-section-note">' + gmT("usadas nos documentos do seu cliente", "used on your customer's documents") + '</span></p>' +
+    gmDocColorField("brand_primary", "Cor principal", "Primary color", d.brand_primary) +
+    gmDocColorField("brand_accent", "Cor de destaque", "Accent color", d.brand_accent) +
     '</div>';
 
   // ── Business ──
@@ -6172,6 +6184,67 @@ function gmDocSettingsFormHtml() {
       : '') +
     '</div>';
   return html;
+}
+
+// A color picker and a hex text input, kept in sync both ways. The swatch
+// previews the color with the text color gmDocTextOn() would choose.
+function gmDocColorField(key, labelPt, labelEn, value) {
+  var hex = gmDocHexOk(value) ? value.toLowerCase() : "";
+  var textOn = hex ? gmDocTextOn(hex) : "#ffffff";
+  return '<label class="gm-field-label" for="gmDocHex_' + key + '">' + gmT(labelPt, labelEn) + '</label>' +
+    '<div class="gm-cost-line">' +
+      '<input type="color" class="gm-input gm-doc-color-pick" id="gmDocPick_' + key + '" value="' + escHtml(hex || "#2b2f36") + '" ' +
+        'aria-label="' + gmT(labelPt, labelEn) + '" oninput="gmDocColorSet(\'' + key + '\', this.value, \'pick\')">' +
+      '<input type="text" class="gm-input gm-cost-label" id="gmDocHex_' + key + '" value="' + escHtml(hex) + '" placeholder="#1f2a44" maxlength="7" ' +
+        'aria-label="' + gmT(labelPt, labelEn) + ' (hex)" oninput="gmDocColorSet(\'' + key + '\', this.value, \'hex\')">' +
+      '<span class="gm-doc-color-swatch" id="gmDocSwatch_' + key + '" style="background:' + escHtml(hex || "#2b2f36") + ';color:' + textOn + ';">Aa</span>' +
+    '</div>' +
+    '<p class="muted gm-doc-color-note" id="gmDocColorNote_' + key + '" style="margin:-4px 0 10px;">' +
+      (value && !hex ? '<span class="gm-warn">' + gmT("Use 6 dígitos hex, ex.: #1F2A44", "Use a 6-digit hex value, e.g. #1F2A44") + '</span>'
+                     : gmT("Em branco = cinza escuro e branco (padrão neutro).", "Blank = dark gray and white (neutral default).")) + '</p>';
+}
+
+function gmDocHexOk(v) { return /^#[0-9a-fA-F]{6}$/.test(String(v || "")); }
+
+// WCAG relative luminance -> contrast ratio. Used to pick white or black
+// text on a brand color (4.5:1 minimum), here for the swatch and on the
+// customer pages for every element painted with a brand color.
+function gmDocLuminance(hex) {
+  var h = hex.replace("#", "");
+  var rgb = [0, 2, 4].map(function(i) {
+    var c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+function gmDocContrast(hexA, hexB) {
+  var a = gmDocLuminance(hexA), b = gmDocLuminance(hexB);
+  var hi = Math.max(a, b), lo = Math.min(a, b);
+  return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+}
+// White when it reaches 4.5:1 on the color, else black.
+function gmDocTextOn(hex) {
+  if (!gmDocHexOk(hex)) { return "#ffffff"; }
+  return gmDocContrast(hex, "#ffffff") >= 4.5 ? "#ffffff" : "#111111";
+}
+
+function gmDocColorSet(key, value, from) {
+  if (!gmDocDraft) { return; }
+  var v = String(value || "").trim();
+  gmDocDraft[key] = v;
+  var pick = document.getElementById("gmDocPick_" + key);
+  var hexEl = document.getElementById("gmDocHex_" + key);
+  var swatch = document.getElementById("gmDocSwatch_" + key);
+  var note = document.getElementById("gmDocColorNote_" + key);
+  var ok = gmDocHexOk(v);
+  if (from === "pick" && hexEl) { hexEl.value = v; }
+  if (from === "hex" && pick && ok) { pick.value = v.toLowerCase(); }
+  if (swatch && (ok || !v)) { swatch.style.background = ok ? v : "#2b2f36"; swatch.style.color = ok ? gmDocTextOn(v) : "#ffffff"; }
+  if (note) {
+    note.innerHTML = (v && !ok)
+      ? '<span class="gm-warn">' + gmT("Use 6 dígitos hex, ex.: #1F2A44", "Use a 6-digit hex value, e.g. #1F2A44") + '</span>'
+      : gmT("Em branco = cinza escuro e branco (padrão neutro).", "Blank = dark gray and white (neutral default).");
+  }
 }
 
 function gmDocSaveMsgHtml() {
@@ -6307,6 +6380,10 @@ function gmDocSettingsSave() {
     gmDocShowMsg(false, gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN));
     return;
   }
+  if ((d.brand_primary && !gmDocHexOk(d.brand_primary)) || (d.brand_accent && !gmDocHexOk(d.brand_accent))) {
+    gmDocShowMsg(false, gmT("As cores precisam ter 6 dígitos hex, ex.: #1F2A44.", "Colors must be a 6-digit hex value, e.g. #1F2A44."));
+    return;
+  }
   for (var i = 0; i < d.presets.length; i++) {
     if (!String(d.presets[i].name || "").trim()) {
       gmDocShowMsg(false, gmT("Todo modelo de parcelamento precisa de um nome.", "Every schedule preset needs a name."));
@@ -6321,6 +6398,8 @@ function gmDocSettingsSave() {
   var pm = {};
   d.payment_methods.forEach(function(m) { if (m.on) { pm[m.key] = (m.detail || "").trim(); } });
   var payload = {
+    brand_primary: d.brand_primary ? d.brand_primary.toLowerCase() : null,
+    brand_accent:  d.brand_accent  ? d.brand_accent.toLowerCase()  : null,
     legal_name: d.legal_name.trim() || null,
     address: d.address.trim() || null,
     phone: d.phone.trim() || null,

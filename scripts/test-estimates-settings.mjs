@@ -120,6 +120,19 @@ ok(G.gmDocStepsOk([{ pct: "33.34" }, { pct: "33.33" }, { pct: "33.33" }]) && !G.
    "gm.js gmDocStepsOk matches the Worker rule (100 exactly, empty = Custom)");
 ok(G.gmDocStepsTotal([{ pct: "0.1" }, { pct: "0.2" }]) === 0.3, "running total is rounded to two decimals");
 
+// ---- brand colors (Nicole, 2026-09-26) ----
+const B = {};
+new Function("g", [fnSrc(gm, "gmDocHexOk"), fnSrc(gm, "gmDocLuminance"), fnSrc(gm, "gmDocContrast"), fnSrc(gm, "gmDocTextOn")].join("\n") +
+  "\ng.gmDocHexOk=gmDocHexOk; g.gmDocContrast=gmDocContrast; g.gmDocTextOn=gmDocTextOn;")(B);
+ok(B.gmDocHexOk("#1F2A44") && !B.gmDocHexOk("#fff") && !B.gmDocHexOk("1F2A44") && !B.gmDocHexOk("#12345G"), "hex validation is /^#[0-9a-fA-F]{6}$/");
+ok(B.gmDocContrast("#000000", "#ffffff") === 21, "black on white = 21:1");
+ok(B.gmDocTextOn("#1f2a44") === "#ffffff", "white text on a dark navy");
+ok(B.gmDocTextOn("#f5d76e") === "#111111", "black text on a pale yellow");
+ok(B.gmDocContrast("#767676", "#ffffff") >= 4.5 && B.gmDocTextOn("#767676") === "#ffffff", "#767676 just clears 4.5:1 with white");
+ok(B.gmDocTextOn("#777777") === "#111111" || B.gmDocContrast("#777777", "#ffffff") >= 4.5, "the 4.5:1 threshold decides, not a guess");
+const WH = {}; new Function("g", fnSrc(worker, "gmDocHexColor") + "\ng.f=gmDocHexColor;")(WH);
+ok(WH.f(" #ABCDEF ") === "#abcdef" && WH.f("#abc") === null && WH.f(null) === null, "the Worker normalises a valid hex to lowercase and drops junk");
+
 // ---- static rules ----
 ok(!/\bconst\b|\blet\b|=>/.test(slice(gm, "// TAB 8 — ESTIMATES", "\n// ═══") + slice(gm, "// TAB 9 — FATURAS", "function gmRenderInvoicesTab")),
    "the new gm.js code uses var and function() only");

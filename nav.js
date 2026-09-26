@@ -766,8 +766,22 @@
     var navRole = (role === "developer" && (devView === "alice" || devView === "rafa")) ? devView : role;
 
     var items = (navRole === "rafa") ? NAV_ITEMS_RAFA : NAV_ITEMS_ALICE;
+    // Contract clause review (contracts build, checkpoint A): always for the
+    // developer; for Rafa only once the developer released it (dashboard.html
+    // stores the flag it reads from /api/contracts/review-status). The API
+    // enforces the same gate, so a stale flag only ever shows a 403 page.
+    var CONTRACT_REVIEW_ITEM = {
+      key: "contractreview", href: "contract-review.html", icon: "file",
+      labelPt: "Revis&atilde;o do contrato", labelEn: "Contract review",
+      tipPt: "Revisao do contrato",           tipEn: "Contract review"
+    };
+    if (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1") {
+      items = items.slice();
+      items.push(CONTRACT_REVIEW_ITEM);
+    }
     if (navRole === "developer") {
       items = items.slice();
+      items.push(CONTRACT_REVIEW_ITEM);
       items.push({
         key: "adduser", href: "add-user.html", icon: "user-plus",
         labelPt: "Adicionar Usu&aacute;rio", labelEn: "Add User",

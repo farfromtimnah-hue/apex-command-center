@@ -1,0 +1,1773 @@
+{
+ "library_version": 1,
+ "version_label": "Version: draft 1, 2026-09-26. Trades covered: Pools and Spas; Tile and Flooring; Remodeling (kitchens, baths, interior); Hardscape and Outdoor Living (pavers, decks, pergolas, outdoor kitchens); General Services (painting, handyman). Cleaning is out of scope for this draft.",
+ "source_file": "apex-clause-library-draft-v1.md",
+ "disclaimer_unreviewed": "This contract template has not been reviewed by an attorney. Have your attorney review it.",
+ "trades": [
+  "Pools and Spas",
+  "Tile and Flooring",
+  "Remodeling (kitchens, baths, interior)",
+  "Hardscape and Outdoor Living (pavers, decks, pergolas, outdoor kitchens)",
+  "General Services (painting, handyman)"
+ ],
+ "trade_keys": {
+  "pools": "Pools and Spas",
+  "tile": "Tile and Flooring",
+  "remodeling": "Remodeling (kitchens, baths, interior)",
+  "hardscape": "Hardscape and Outdoor Living (pavers, decks, pergolas, outdoor kitchens)",
+  "general": "General Services (painting, handyman)"
+ },
+ "locked_blocks": [
+  {
+   "id": "L1",
+   "title": "Construction lien notice (§713.015)",
+   "source_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0700-0799/0713/Sections/0713.015.html (cross-checked against https://www.flsenate.gov/Laws/Statutes/2025/713.015)",
+   "status": "",
+   "trigger": "any direct contract **greater than $2,500** between an owner and a contractor, related to improvements to real property consisting of single or multiple family dwellings up to and including four units. Exactly $2,500 does not trigger it. The statute says it does not apply when the owner is a contractor licensed under chapter 489, or is a person who created parcels or offers parcels for sale or lease in the ordinary course of business.",
+   "format": "printed in no less than 12-point, capitalized, boldfaced type, on the front page of the contract or on a separate page, signed by the owner and dated. If the contract is written, the notice must be in the contract document.",
+   "builder_rule": "render on a separate page in 12-point or larger bold capitals, with its own owner signature and date line, separate from the main contract signature. The owner's e-signature on this page is a distinct signing event in the audit trail.",
+   "text": "**ACCORDING TO FLORIDA’S CONSTRUCTION LIEN LAW (SECTIONS 713.001-713.37, FLORIDA STATUTES), THOSE WHO WORK ON YOUR PROPERTY OR PROVIDE MATERIALS AND SERVICES AND ARE NOT PAID IN FULL HAVE A RIGHT TO ENFORCE THEIR CLAIM FOR PAYMENT AGAINST YOUR PROPERTY. THIS CLAIM IS KNOWN AS A CONSTRUCTION LIEN. IF YOUR CONTRACTOR OR A SUBCONTRACTOR FAILS TO PAY SUBCONTRACTORS, SUB-SUBCONTRACTORS, OR MATERIAL SUPPLIERS, THOSE PEOPLE WHO ARE OWED MONEY MAY LOOK TO YOUR PROPERTY FOR PAYMENT, EVEN IF YOU HAVE ALREADY PAID YOUR CONTRACTOR IN FULL. IF YOU FAIL TO PAY YOUR CONTRACTOR, YOUR CONTRACTOR MAY ALSO HAVE A LIEN ON YOUR PROPERTY. THIS MEANS IF A LIEN IS FILED YOUR PROPERTY COULD BE SOLD AGAINST YOUR WILL TO PAY FOR LABOR, MATERIALS, OR OTHER SERVICES THAT YOUR CONTRACTOR OR A SUBCONTRACTOR MAY HAVE FAILED TO PAY. TO PROTECT YOURSELF, YOU SHOULD STIPULATE IN THIS CONTRACT THAT BEFORE ANY PAYMENT IS MADE, YOUR CONTRACTOR IS REQUIRED TO PROVIDE YOU WITH A WRITTEN RELEASE OF LIEN FROM ANY PERSON OR COMPANY THAT HAS PROVIDED TO YOU A “NOTICE TO OWNER.” FLORIDA’S CONSTRUCTION LIEN LAW IS COMPLEX, AND IT IS RECOMMENDED THAT YOU CONSULT AN ATTORNEY.**\n\nOWNER SIGNATURE: {owner_signature_lien_notice}    DATE: {owner_signature_lien_notice_date}\n\nPRINTED NAME: {owner_full_name}",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0700-0799/0713/Sections/0713.015.html (cross-checked against https://www.flsenate.gov/Laws/Statutes/2025/713.015)\n- **Status: verified verbatim.**\n- **IMPORTANT CORRECTION to the research:** the research file ends the notice with \"IT IS RECOMMENDED THAT WHENEVER A SPECIFIC PROBLEM ARISES, YOU CONSULT AN ATTORNEY.\" The official 2026 text on both official sites ends \"IT IS RECOMMENDED THAT YOU CONSULT AN ATTORNEY.\" The words \"WHENEVER A SPECIFIC PROBLEM ARISES,\" are not in the current statute. The block below uses the official wording. Any template already built from the research text must be corrected.\n- **When it appears:** any direct contract **greater than $2,500** between an owner and a contractor, related to improvements to real property consisting of single or multiple family dwellings up to and including four units. Exactly $2,500 does not trigger it. The statute says it does not apply when the owner is a contractor licensed under chapter 489, or is a person who created parcels or offers parcels for sale or lease in the ordinary course of business.\n- **Format (from the statute):** printed in no less than 12-point, capitalized, boldfaced type, on the front page of the contract or on a separate page, signed by the owner and dated. If the contract is written, the notice must be in the contract document.\n- **Builder rule:** render on a separate page in 12-point or larger bold capitals, with its own owner signature and date line, separate from the main contract signature. The owner's e-signature on this page is a distinct signing event in the audit trail.\n\n> **ACCORDING TO FLORIDA’S CONSTRUCTION LIEN LAW (SECTIONS 713.001-713.37, FLORIDA STATUTES), THOSE WHO WORK ON YOUR PROPERTY OR PROVIDE MATERIALS AND SERVICES AND ARE NOT PAID IN FULL HAVE A RIGHT TO ENFORCE THEIR CLAIM FOR PAYMENT AGAINST YOUR PROPERTY. THIS CLAIM IS KNOWN AS A CONSTRUCTION LIEN. IF YOUR CONTRACTOR OR A SUBCONTRACTOR FAILS TO PAY SUBCONTRACTORS, SUB-SUBCONTRACTORS, OR MATERIAL SUPPLIERS, THOSE PEOPLE WHO ARE OWED MONEY MAY LOOK TO YOUR PROPERTY FOR PAYMENT, EVEN IF YOU HAVE ALREADY PAID YOUR CONTRACTOR IN FULL. IF YOU FAIL TO PAY YOUR CONTRACTOR, YOUR CONTRACTOR MAY ALSO HAVE A LIEN ON YOUR PROPERTY. THIS MEANS IF A LIEN IS FILED YOUR PROPERTY COULD BE SOLD AGAINST YOUR WILL TO PAY FOR LABOR, MATERIALS, OR OTHER SERVICES THAT YOUR CONTRACTOR OR A SUBCONTRACTOR MAY HAVE FAILED TO PAY. TO PROTECT YOURSELF, YOU SHOULD STIPULATE IN THIS CONTRACT THAT BEFORE ANY PAYMENT IS MADE, YOUR CONTRACTOR IS REQUIRED TO PROVIDE YOU WITH A WRITTEN RELEASE OF LIEN FROM ANY PERSON OR COMPANY THAT HAS PROVIDED TO YOU A “NOTICE TO OWNER.” FLORIDA’S CONSTRUCTION LIEN LAW IS COMPLEX, AND IT IS RECOMMENDED THAT YOU CONSULT AN ATTORNEY.**\n>\n> OWNER SIGNATURE: {owner_signature_lien_notice}    DATE: {owner_signature_lien_notice_date}\n>\n> PRINTED NAME: {owner_full_name}\n\nNote for the attorney: the notice tells the homeowner to \"stipulate in this contract\" that lien releases come before any payment. Clause C12 offers wording on lien releases. Whether the library should also offer a per-payment release clause is an attorney question."
+  },
+  {
+   "id": "L2",
+   "title": "Homeowners' Construction Recovery Fund notice (§489.1425)",
+   "source_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.1425.html",
+   "status": "",
+   "trigger": "each agreement or contract for repair, restoration, improvement, or construction to residential real property, except where the value of all labor and materials does not exceed $2,500.",
+   "format": "the statute says \"substantially in the following form\" and that the statement must be immediately followed by the board's address and telephone number as established by board rule. No type size, capitals, placement or signature rule is stated in the section. Builder rule: print as shown, in capitals as the statute prints it, with the admin-managed contact block directly under it.",
+   "builder_rule": null,
+   "text": "**FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND**\n\n**PAYMENT, UP TO A LIMITED AMOUNT, MAY BE AVAILABLE FROM THE FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND IF YOU LOSE MONEY ON A PROJECT PERFORMED UNDER CONTRACT, WHERE THE LOSS RESULTS FROM SPECIFIED VIOLATIONS OF FLORIDA LAW BY A LICENSED CONTRACTOR. FOR INFORMATION ABOUT THE RECOVERY FUND AND FILING A CLAIM, CONTACT THE FLORIDA CONSTRUCTION INDUSTRY LICENSING BOARD AT THE FOLLOWING TELEPHONE NUMBER AND ADDRESS:**\n\n{recovery_fund_contact_block}",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.1425.html\n- **Status: statement text verified verbatim. Board address and phone: NOT verified as a single correct value (conflict, see below).**\n- **When it appears:** each agreement or contract for repair, restoration, improvement, or construction to residential real property, except where the value of all labor and materials does not exceed $2,500.\n- **Format:** the statute says \"substantially in the following form\" and that the statement must be immediately followed by the board's address and telephone number as established by board rule. No type size, capitals, placement or signature rule is stated in the section. Builder rule: print as shown, in capitals as the statute prints it, with the admin-managed contact block directly under it.\n- **Penalty (from the statute):** first violation, fine up to $500; second or later, $1,000 per violation.\n\n> **FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND**\n>\n> **PAYMENT, UP TO A LIMITED AMOUNT, MAY BE AVAILABLE FROM THE FLORIDA HOMEOWNERS’ CONSTRUCTION RECOVERY FUND IF YOU LOSE MONEY ON A PROJECT PERFORMED UNDER CONTRACT, WHERE THE LOSS RESULTS FROM SPECIFIED VIOLATIONS OF FLORIDA LAW BY A LICENSED CONTRACTOR. FOR INFORMATION ABOUT THE RECOVERY FUND AND FILING A CLAIM, CONTACT THE FLORIDA CONSTRUCTION INDUSTRY LICENSING BOARD AT THE FOLLOWING TELEPHONE NUMBER AND ADDRESS:**\n>\n> {recovery_fund_contact_block}\n\n**`{recovery_fund_contact_block}` is ADMIN-MANAGED DATA.** It is stored once by Apex admin, versioned, and never typed by a client. Current candidate values found on official sources on 2026-09-26, which conflict:\n\n| Source | Address | Phone |\n|---|---|---|\n| Rule chapter 61G4-21, F.A.C. (flrules.org, chapter file last saved 2016): \"The address of the Fund where the form can be obtained is...\" | 2601 Blair Stone Road, Tallahassee, FL 32399-1039 | (850) 921-6593 |\n| DBPR Recovery Fund web page (www2.myfloridalicense.com/construction-industry/recovery-fund/) | Florida Homeowners’ Construction Recovery Fund, 2601 Blair Stone Road, Tallahassee, FL 32399-2215 | 850.921.6593 |\n| DBPR Construction Industry Licensing Board contact block on the same site | Construction Industry Licensing Board, 2601 Blair Stone Road, Tallahassee, FL 32399-0791 | 850.487.1395 |\n\nThe street address agrees everywhere. The ZIP+4 differs three ways, and the statute asks for the **board's** address and telephone number, while the rule text found gives the **Fund's** address and phone. Which value the board rule \"establishes\" is an attorney question (and a call to DBPR). Until then the admin value should not be treated as final."
+  },
+  {
+   "id": "L3",
+   "title": "Construction defect notice (§558.005(6))",
+   "source_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0558/Sections/0558.005.html",
+   "status": "",
+   "trigger": "every written contract for improvement of real property between an owner and a contractor, entered into after October 1, 2009, unless the parties agree that Chapter 558 does not apply. No dollar threshold. The statute says leaving it out does not subject the owner or contractor to any penalty, and that the purpose is awareness.",
+   "format": "\"substantially the following notice\". No type size or placement rule. Builder rule: print in capitals as shown, near the warranty clause (C11) or the signature page.",
+   "builder_rule": null,
+   "text": "**ANY CLAIMS FOR CONSTRUCTION DEFECTS ARE SUBJECT TO THE NOTICE AND CURE PROVISIONS OF CHAPTER 558, FLORIDA STATUTES.**",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0558/Sections/0558.005.html\n- **Status: verified verbatim.**\n- **When it appears:** every written contract for improvement of real property between an owner and a contractor, entered into after October 1, 2009, unless the parties agree that Chapter 558 does not apply. No dollar threshold. The statute says leaving it out does not subject the owner or contractor to any penalty, and that the purpose is awareness.\n- **Format:** \"substantially the following notice\". No type size or placement rule. Builder rule: print in capitals as shown, near the warranty clause (C11) or the signature page.\n\n> **ANY CLAIMS FOR CONSTRUCTION DEFECTS ARE SUBJECT TO THE NOTICE AND CURE PROVISIONS OF CHAPTER 558, FLORIDA STATUTES.**\n\nThis library never offers an opt-out of Chapter 558. Whether an opt-out option should exist is left to the attorney."
+  },
+  {
+   "id": "L4",
+   "title": "License number line (§489.119(5)(b))",
+   "source_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.119.html",
+   "status": "The statute prescribes no wording, only that \"The registration or certification number of each contractor shall appear in each offer of services, business proposal, bid, contract, or advertisement, regardless of medium, as defined by board rule\". The line below is this draft's wording for that number, not statutory text.",
+   "trigger": "every contract, every estimate, every change order, in the header or first page.",
+   "format": null,
+   "builder_rule": null,
+   "text": "{business_legal_name}, Florida {license_type} License No. {license_number}. Qualifying agent: {qualifier_name}.",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.119.html\n- **Status: verified.** The statute prescribes no wording, only that \"The registration or certification number of each contractor shall appear in each offer of services, business proposal, bid, contract, or advertisement, regardless of medium, as defined by board rule\". The line below is this draft's wording for that number, not statutory text.\n- **When it appears:** every contract, every estimate, every change order, in the header or first page.\n\n> {business_legal_name}, Florida {license_type} License No. {license_number}. Qualifying agent: {qualifier_name}.\n\nBuilder rule: if `{license_number}` is empty, the contract cannot be generated. If the business holds only a local certificate of competency, the attorney must confirm the wording (see questions).\n\nRelated fact from the same section, §489.119(5)(f)2: a local government may fine a person who is not certified or registered under the part if the person \"Claims to be insured in any offer of services, business proposal, bid, contract, or advertisement\" when the work is not covered by a general liability or workers' compensation policy. This is one reason C15 prints insurance statements only from a certificate on file."
+  },
+  {
+   "id": "L5",
+   "title": "Three-day cancellation (FTC Cooling-Off Rule and Florida home solicitation sale)",
+   "source_url": null,
+   "status": null,
+   "trigger": "**Trigger in the builder (spec decision C9):** the question \"Was this sold during a visit to the customer's home?\" default Yes. If Yes, L5-A and L5-B are inserted. Whether L5-C (Florida) is also inserted is a rule the attorney must set (see below); this draft inserts it whenever L5-A is inserted, so both sets are present.",
+   "format": null,
+   "builder_rule": null,
+   "text": "",
+   "extra_quote_blocks": [],
+   "notes_md": "**Trigger in the builder (spec decision C9):** the question \"Was this sold during a visit to the customer's home?\" default Yes. If Yes, L5-A and L5-B are inserted. Whether L5-C (Florida) is also inserted is a rule the attorney must set (see below); this draft inserts it whenever L5-A is inserted, so both sets are present."
+  },
+  {
+   "id": "L5-A",
+   "title": "Federal statement beside the buyer's signature (16 CFR 429.1(a))",
+   "source_url": "https://www.ecfr.gov/current/title-16/chapter-I/subchapter-D/part-429/section-429.1 (text retrieved through the eCFR renderer API for the same section)",
+   "status": "",
+   "trigger": null,
+   "format": "on the contract, \"in immediate proximity to the space reserved in the contract for the signature of the buyer\", in bold face type of a minimum size of 10 points. The contract or receipt must be \"in the same language, e.g., Spanish, as that principally used in the oral sales presentation\", must show the date of the transaction and the seller's name and address. If both cancellation forms are not attached to the contract, the rule requires the seller to alter the last sentence to state where the forms actually are.",
+   "builder_rule": null,
+   "text": "**You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.**",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** https://www.ecfr.gov/current/title-16/chapter-I/subchapter-D/part-429/section-429.1 (text retrieved through the eCFR renderer API for the same section)\n- **Status: verified verbatim.**\n- **Format (from the rule):** on the contract, \"in immediate proximity to the space reserved in the contract for the signature of the buyer\", in bold face type of a minimum size of 10 points. The contract or receipt must be \"in the same language, e.g., Spanish, as that principally used in the oral sales presentation\", must show the date of the transaction and the seller's name and address. If both cancellation forms are not attached to the contract, the rule requires the seller to alter the last sentence to state where the forms actually are.\n\n> **You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.**"
+  },
+  {
+   "id": "L5-B",
+   "title": "NOTICE OF CANCELLATION form, two completed copies (16 CFR 429.1(b) and (c))",
+   "source_url": "same as L5-A.",
+   "status": "The bracketed items in the regulation are shown as fill-in fields.",
+   "trigger": null,
+   "format": "furnished in duplicate at the time the buyer signs, captioned either \"NOTICE OF RIGHT TO CANCEL\" or \"NOTICE OF CANCELLATION\", in ten point bold face type, in the same language as the contract. Before giving them to the buyer, the seller must complete both copies with the seller's name, the address of the seller's place of business, the date of the transaction, and the cancellation deadline date, which may not be earlier than the third business day after the transaction. The buyer does not sign the form at signing; the signature line is for the buyer to use if the buyer cancels.",
+   "builder_rule": null,
+   "text": "**NOTICE OF CANCELLATION**\n\n**{transaction_date}**\n**(Date)**\n\n**You may CANCEL this transaction, without any Penalty or Obligation, within THREE BUSINESS DAYS from the above date.**\n\n**If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within TEN BUSINESS DAYS following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.**\n\n**If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale, or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.**\n\n**If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your Notice of Cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.**\n\n**To cancel this transaction, mail or deliver a signed and dated copy of this Cancellation Notice or any other written notice, or send a telegram, to {business_legal_name}, at {business_address} NOT LATER THAN MIDNIGHT OF {cancellation_deadline_date}.**\n\n**I HEREBY CANCEL THIS TRANSACTION.**\n\n**______________________ (Date)**\n\n**______________________ (Buyer's signature)**",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URL:** same as L5-A.\n- **Status: verified verbatim.** The bracketed items in the regulation are shown as fill-in fields.\n- **Format (from the rule):** furnished in duplicate at the time the buyer signs, captioned either \"NOTICE OF RIGHT TO CANCEL\" or \"NOTICE OF CANCELLATION\", in ten point bold face type, in the same language as the contract. Before giving them to the buyer, the seller must complete both copies with the seller's name, the address of the seller's place of business, the date of the transaction, and the cancellation deadline date, which may not be earlier than the third business day after the transaction. The buyer does not sign the form at signing; the signature line is for the buyer to use if the buyer cancels.\n- **Business day (16 CFR 429.0(f)):** any calendar day except Sunday or any federal holiday. Saturday counts.\n- **Note on \"(where applicable)\":** the rule says the form contains the information \"(where applicable)\". Whether the paragraphs about returning goods and trade-ins may be left out of a construction services contract is an attorney question. This draft keeps every paragraph.\n\n> **NOTICE OF CANCELLATION**\n>\n> **{transaction_date}**\n> **(Date)**\n>\n> **You may CANCEL this transaction, without any Penalty or Obligation, within THREE BUSINESS DAYS from the above date.**\n>\n> **If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within TEN BUSINESS DAYS following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.**\n>\n> **If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale, or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.**\n>\n> **If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your Notice of Cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.**\n>\n> **To cancel this transaction, mail or deliver a signed and dated copy of this Cancellation Notice or any other written notice, or send a telegram, to {business_legal_name}, at {business_address} NOT LATER THAN MIDNIGHT OF {cancellation_deadline_date}.**\n>\n> **I HEREBY CANCEL THIS TRANSACTION.**\n>\n> **______________________ (Date)**\n>\n> **______________________ (Buyer's signature)**\n\nOther rule points the builder must respect (16 CFR 429.1(d) to (i), verified): no confession of judgment and no waiver of the right to cancel in the contract; the seller must tell the buyer orally of the right to cancel at signing; the seller may not misrepresent the right; on a valid cancellation the seller has 10 business days to refund all payments, return trade-ins and cancel any negotiable instrument; the seller may not assign a note before midnight of the fifth business day; and within 10 business days of a cancellation notice the seller must tell the buyer whether it will repossess or abandon delivered goods.\n\nScope facts from 16 CFR 429.0(a) (verified): the rule covers sales where the seller personally solicits the sale, \"including those in response to or following an invitation by the buyer\", with a purchase price of $25 or more at the buyer's residence. Listed exclusions include a bona fide immediate personal emergency where the buyer initiated contact and gives a separate handwritten, dated and signed statement waiving the right to cancel, and a buyer-initiated visit to repair or perform maintenance on the buyer's personal property (additional goods or services sold during that visit are not excluded). The builder does not offer the emergency waiver path in this draft."
+  },
+  {
+   "id": "L5-C",
+   "title": "Florida home solicitation sale statement (§501.031)",
+   "source_url": "§501.021 http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0501/Sections/0501.021.html ; §501.025 .../0501.025.html ; §501.031 .../0501.031.html ; §501.041 .../0501.041.html ; §501.045 .../0501.045.html ; §501.047 .../0501.047.html ; §501.055 .../0501.055.html ; §501.022 .../0501.022.html (same URL pattern, 0500-0599/0501/Sections/).",
+   "status": "Florida does prescribe exact wording, under a required caption.",
+   "trigger": null,
+   "format": "the statement must appear under the conspicuous caption \"BUYER’S RIGHT TO CANCEL\" and read exactly as below. The written agreement must be signed by the buyer and must designate as the date of the transaction the date on which the buyer actually signs. No point size is prescribed.",
+   "builder_rule": null,
+   "text": "**BUYER’S RIGHT TO CANCEL**\n\nThis is a home solicitation sale, and if you do not want the goods or services, you may cancel this agreement by providing written notice to the seller in person, by telegram, or by mail. This notice must indicate that you do not want the goods or services and must be delivered or postmarked before midnight of the third business day after you sign this agreement. If you cancel this agreement, the seller may not keep all or part of any cash down payment.",
+   "extra_quote_blocks": [],
+   "notes_md": "- **Source URLs:** §501.021 http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0501/Sections/0501.021.html ; §501.025 .../0501.025.html ; §501.031 .../0501.031.html ; §501.041 .../0501.041.html ; §501.045 .../0501.045.html ; §501.047 .../0501.047.html ; §501.055 .../0501.055.html ; §501.022 .../0501.022.html (same URL pattern, 0500-0599/0501/Sections/).\n- **Status: verified verbatim.** Florida does prescribe exact wording, under a required caption.\n- **Format (from §501.031):** the statement must appear under the conspicuous caption \"BUYER’S RIGHT TO CANCEL\" and read exactly as below. The written agreement must be signed by the buyer and must designate as the date of the transaction the date on which the buyer actually signs. No point size is prescribed.\n\n> **BUYER’S RIGHT TO CANCEL**\n>\n> This is a home solicitation sale, and if you do not want the goods or services, you may cancel this agreement by providing written notice to the seller in person, by telegram, or by mail. This notice must indicate that you do not want the goods or services and must be delivered or postmarked before midnight of the third business day after you sign this agreement. If you cancel this agreement, the seller may not keep all or part of any cash down payment.\n\n**What Florida adds or does differently from the FTC rule (all from the verified sections):**\n\n| Point | FTC rule (16 CFR 429) | Florida (§501.021 to §501.055) |\n|---|---|---|\n| What is covered | Personal solicitation away from the seller's place of business, including after the buyer's invitation; $25 or more at the residence | Personal solicitation and consummation away from the seller's fixed location, over $25 including charges. **Excludes** \"a sale, lease, or rental that results from a request for specific goods or services by the purchaser\" (§501.021(1)). So a homeowner who asked for a specific job may fall outside Florida's definition while still inside the FTC rule. |\n| Business day | Every day except Sunday and federal holidays | Same (§501.021(2)) |\n| Deadline | Midnight of the third business day after the date of the transaction | Midnight of the third business day after the day the buyer signs (§501.025) |\n| Required wording | Short bold statement near signature plus two completed NOTICE OF CANCELLATION forms, 10-point bold | One statement, exact wording, under the caption \"BUYER’S RIGHT TO CANCEL\" (§501.031). No form required; the buyer's notice \"need not take a particular form\" (§501.025) |\n| How the buyer cancels | Mail or deliver the signed form or other written notice, or telegram | Written notice in person, by telegram, or by mail to the address in the agreement; mail is effective on postmark (§501.025) |\n| Refund timing | 10 business days | Within 10 days (the statute says \"10 days\", not business days) the seller must tender back payments and any note (§501.041) |\n| Work done before cancellation | Not addressed in the form | \"If the seller has performed any services pursuant to a home solicitation sale prior to its cancellation, the seller is entitled to no compensation for such services.\" (§501.045) |\n| Salesperson permit | None | A home solicitation sale permit from the clerk of the circuit court is required (§501.022), but the permit section excludes a salesperson making a visit \"upon the express invitation, oral or written, of an inhabitant of the premises\". That exclusion is from the permit section only. |\n| Penalties | FTC Act unfair or deceptive practice | Violation of §501.025 to §501.047 is a first-degree misdemeanor (§501.055(1)) |\n| Prohibited statements | Misrepresenting the right to cancel | Also may not \"Allege or imply that the agreement ... is noncancelable when such is not a fact\" (§501.047(4)) |\n\n**Builder consequences (drafting choices, for the attorney to confirm):** when L5 is on, the contract's start date (C06) cannot be earlier than the day after `{cancellation_deadline_date}`, and no deposit is spent on non-returnable materials before that date. Language: customer-facing documents are English by decision of 2026-09-26. The FTC rule requires the contract and forms in the language principally used in the oral sales presentation, so if a sale is presented mainly in Portuguese, an English-only contract may not meet the rule. See attorney questions."
+  },
+  {
+   "id": "L6",
+   "title": "Pool documents and safety feature (§515.33, §515.27, §515.29)",
+   "source_url": "§515.33 http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0515/Sections/0515.33.html ; §515.27 .../0515/Sections/0515.27.html ; §515.29 .../0515/Sections/0515.29.html ; §515.25 (definitions) .../0515/Sections/0515.25.html ; §515.31 .../0515/Sections/0515.31.html",
+   "status": "Chapter 515 requires **delivery** of the two documents; it does not require the buyer to sign or initial anything. The acknowledgment is evidence of delivery only.",
+   "trigger": "the business answered \"Do you build pools or spas?\" Yes in Settings, and the pool box on this contract is checked (spec C10). Chapter 515 defines \"residential\" as the premises of a detached one-family or two-family dwelling or a one-family townhouse not more than three stories high, and \"swimming pool\" as a structure intended for swimming or recreational bathing that contains water over 24 inches deep, including hot tubs and nonportable spas (§515.25(10) and (11)).",
+   "format": null,
+   "builder_rule": null,
+   "text": "A licensed pool contractor, on entering into an agreement with a buyer to build a residential swimming pool, or a licensed home builder or developer, on entering into an agreement with a buyer to build a house that includes a residential swimming pool, must give the buyer a document containing the requirements of this chapter and a copy of the publication produced by the department under s. 515.31 that provides information on drowning prevention and the responsibilities of pool ownership.",
+   "extra_quote_blocks": [
+    "**POOL SAFETY DOCUMENTS RECEIVED**\n\nOn {pool_docs_delivered_at}, {business_legal_name} gave me, by {pool_docs_delivery_method}, (1) a document containing the requirements of Chapter 515, Florida Statutes, version {ch515_doc_version}, and (2) a copy of the state publication on drowning prevention and the responsibilities of pool ownership, version {drowning_pub_version}. This acknowledgment confirms delivery only.\n\nThe pool safety feature included in this contract is: **{pool_safety_feature}**\n\nOWNER: {owner_signature_pool_ack}    DATE: {owner_signature_pool_ack_date}",
+    "(1) In order to pass final inspection and receive a certificate of completion, a residential swimming pool must meet at least one of the following requirements relating to pool safety features:\n(a) The pool must be isolated from access to a home by an enclosure that meets the pool barrier requirements of s. 515.29;\n(b) The pool must be equipped with an approved safety pool cover;\n(c) All doors and windows providing direct access from the home to the pool must be equipped with an exit alarm that has a minimum sound pressure rating of 85 dB A at 10 feet;\n(d) All doors providing direct access from the home to the pool must be equipped with a self-closing, self-latching device with a release mechanism placed no lower than 54 inches above the floor; or\n(e) A swimming pool alarm that, when placed in a pool, sounds an alarm upon detection of an accidental or unauthorized entrance into the water. Such pool alarm must meet and be independently certified to ASTM Standard F2208, titled “Standard Safety Specification for Residential Pool Alarms,” which includes surface motion, pressure, sonar, laser, and infrared alarms. For purposes of this paragraph, the term “swimming pool alarm” does not include any swimming protection alarm device designed for individual use, such as an alarm attached to a child that sounds when the child exceeds a certain distance or becomes submerged in water.",
+    "(1) A residential swimming pool barrier must have all of the following characteristics:\n(a) The barrier must be at least 4 feet high on the outside.\n(b) The barrier may not have any gaps, openings, indentations, protrusions, or structural components that could allow a young child to crawl under, squeeze through, or climb over the barrier.\n(c) The barrier must be placed around the perimeter of the pool and must be separate from any fence, wall, or other enclosure surrounding the yard unless the fence, wall, or other enclosure or portion thereof is situated on the perimeter of the pool, is being used as part of the barrier, and meets the barrier requirements of this section.\n(d) The barrier must be placed sufficiently away from the water’s edge to prevent a young child or medically frail elderly person who may have managed to penetrate the barrier from immediately falling into the water.\n(2) The structure of an aboveground swimming pool may be used as its barrier or the barrier for such a pool may be mounted on top of its structure; however, such structure or separately mounted barrier must meet all barrier requirements of this section. In addition, any ladder or steps that are the means of access to an aboveground pool must be capable of being secured, locked, or removed to prevent access or must be surrounded by a barrier that meets the requirements of this section.\n(3) Gates that provide access to swimming pools must open outward away from the pool and be self-closing and equipped with a self-latching locking device, the release mechanism of which must be located on the pool side of the gate and so placed that it cannot be reached by a young child over the top or through any opening or gap.\n(4) A wall of a dwelling may serve as part of the barrier if it does not contain any door or window that opens to provide access to the swimming pool.\n(5) A barrier may not be located in a way that allows any permanent structure, equipment, or similar object to be used for climbing the barrier."
+   ],
+   "notes_md": "- **Source URLs:** §515.33 http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0515/Sections/0515.33.html ; §515.27 .../0515/Sections/0515.27.html ; §515.29 .../0515/Sections/0515.29.html ; §515.25 (definitions) .../0515/Sections/0515.25.html ; §515.31 .../0515/Sections/0515.31.html\n- **Status: statutory text verified verbatim. The acknowledgment wording is this draft's, not statutory.** Chapter 515 requires **delivery** of the two documents; it does not require the buyer to sign or initial anything. The acknowledgment is evidence of delivery only.\n- **When it appears:** the business answered \"Do you build pools or spas?\" Yes in Settings, and the pool box on this contract is checked (spec C10). Chapter 515 defines \"residential\" as the premises of a detached one-family or two-family dwelling or a one-family townhouse not more than three stories high, and \"swimming pool\" as a structure intended for swimming or recreational bathing that contains water over 24 inches deep, including hot tubs and nonportable spas (§515.25(10) and (11)).\n\n**Statutory duty (§515.33, verbatim):**\n\n> A licensed pool contractor, on entering into an agreement with a buyer to build a residential swimming pool, or a licensed home builder or developer, on entering into an agreement with a buyer to build a house that includes a residential swimming pool, must give the buyer a document containing the requirements of this chapter and a copy of the publication produced by the department under s. 515.31 that provides information on drowning prevention and the responsibilities of pool ownership.\n\n**Acknowledgment of delivery (draft wording, not statutory):**\n\n> **POOL SAFETY DOCUMENTS RECEIVED**\n>\n> On {pool_docs_delivered_at}, {business_legal_name} gave me, by {pool_docs_delivery_method}, (1) a document containing the requirements of Chapter 515, Florida Statutes, version {ch515_doc_version}, and (2) a copy of the state publication on drowning prevention and the responsibilities of pool ownership, version {drowning_pub_version}. This acknowledgment confirms delivery only.\n>\n> The pool safety feature included in this contract is: **{pool_safety_feature}**\n>\n> OWNER: {owner_signature_pool_ack}    DATE: {owner_signature_pool_ack_date}\n\n**Safety feature options (§515.27(1), verbatim; the owner chooses at least one, stored as `{pool_safety_feature}`):**\n\n> (1) In order to pass final inspection and receive a certificate of completion, a residential swimming pool must meet at least one of the following requirements relating to pool safety features:\n> (a) The pool must be isolated from access to a home by an enclosure that meets the pool barrier requirements of s. 515.29;\n> (b) The pool must be equipped with an approved safety pool cover;\n> (c) All doors and windows providing direct access from the home to the pool must be equipped with an exit alarm that has a minimum sound pressure rating of 85 dB A at 10 feet;\n> (d) All doors providing direct access from the home to the pool must be equipped with a self-closing, self-latching device with a release mechanism placed no lower than 54 inches above the floor; or\n> (e) A swimming pool alarm that, when placed in a pool, sounds an alarm upon detection of an accidental or unauthorized entrance into the water. Such pool alarm must meet and be independently certified to ASTM Standard F2208, titled “Standard Safety Specification for Residential Pool Alarms,” which includes surface motion, pressure, sonar, laser, and infrared alarms. For purposes of this paragraph, the term “swimming pool alarm” does not include any swimming protection alarm device designed for individual use, such as an alarm attached to a child that sounds when the child exceeds a certain distance or becomes submerged in water.\n\nPenalty fact (§515.27(2), verified): failing to equip a new residential pool with at least one feature is a second-degree misdemeanor, with no penalty if within 45 days the person equips the pool and attends a drowning prevention education program.\n\n**Barrier requirements (§515.29, verbatim), printed as an exhibit when option (a) is chosen:**\n\n> (1) A residential swimming pool barrier must have all of the following characteristics:\n> (a) The barrier must be at least 4 feet high on the outside.\n> (b) The barrier may not have any gaps, openings, indentations, protrusions, or structural components that could allow a young child to crawl under, squeeze through, or climb over the barrier.\n> (c) The barrier must be placed around the perimeter of the pool and must be separate from any fence, wall, or other enclosure surrounding the yard unless the fence, wall, or other enclosure or portion thereof is situated on the perimeter of the pool, is being used as part of the barrier, and meets the barrier requirements of this section.\n> (d) The barrier must be placed sufficiently away from the water’s edge to prevent a young child or medically frail elderly person who may have managed to penetrate the barrier from immediately falling into the water.\n> (2) The structure of an aboveground swimming pool may be used as its barrier or the barrier for such a pool may be mounted on top of its structure; however, such structure or separately mounted barrier must meet all barrier requirements of this section. In addition, any ladder or steps that are the means of access to an aboveground pool must be capable of being secured, locked, or removed to prevent access or must be surrounded by a barrier that meets the requirements of this section.\n> (3) Gates that provide access to swimming pools must open outward away from the pool and be self-closing and equipped with a self-latching locking device, the release mechanism of which must be located on the pool side of the gate and so placed that it cannot be reached by a young child over the top or through any opening or gap.\n> (4) A wall of a dwelling may serve as part of the barrier if it does not contain any door or window that opens to provide access to the swimming pool.\n> (5) A barrier may not be located in a way that allows any permanent structure, equipment, or similar object to be used for climbing the barrier.\n\nAdmin data needed: the current department drowning-prevention publication (file and version) and the \"document containing the requirements of this chapter\" (this draft suggests the full text of Chapter 515 as the document; the attorney confirms). Both are admin-managed attachments, not typed by clients."
+  },
+  {
+   "id": "L7",
+   "title": "Deposit timing information (§489.126), informational",
+   "source_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.126.html",
+   "status": "The research found no requirement that the contract disclose this rule, and the verified statute contains none. It is offered as an optional informational clause and as data for the app's permit and start clock.",
+   "trigger": null,
+   "format": null,
+   "builder_rule": null,
+   "text": "(a) A contractor who receives, as initial payment, money totaling more than 10 percent of the contract price for repair, restoration, improvement, or construction to residential real property must:\n1. Apply for permits necessary to do work within 30 days after the date payment is made, except where the work does not require a permit under the applicable codes and ordinances, and\n2. Start the work within 90 days after the date all necessary permits for work, if any, are issued,\nunless the contractor has just cause for failing to apply for the necessary permits, starting the work, or refunding the payment, or unless the person who made the payment agreed, in writing, to a longer period to apply for the necessary permits or start the work or to longer periods for both.",
+   "extra_quote_blocks": [
+    "**Initial payment and start timing.** The initial payment under this contract is {deposit_amount}, which is more than 10 percent of the Contract Price. Because of that, Florida law (section 489.126, Florida Statutes) requires the Contractor to apply for any necessary permits within 30 days after the payment date, unless the work does not require a permit, and to start the work within 90 days after all necessary permits are issued, unless the Contractor has just cause or you agree in writing to a longer period. {extension_sentence}"
+   ],
+   "notes_md": "- **Source URL:** http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0400-0499/0489/Sections/0489.126.html\n- **Status: statute verified; the clause wording below is this draft's, NOT a required disclosure.** The research found no requirement that the contract disclose this rule, and the verified statute contains none. It is offered as an optional informational clause and as data for the app's permit and start clock.\n- **What the statute says (verbatim, §489.126(2)(a)):**\n\n> (a) A contractor who receives, as initial payment, money totaling more than 10 percent of the contract price for repair, restoration, improvement, or construction to residential real property must:\n> 1. Apply for permits necessary to do work within 30 days after the date payment is made, except where the work does not require a permit under the applicable codes and ordinances, and\n> 2. Start the work within 90 days after the date all necessary permits for work, if any, are issued,\n> unless the contractor has just cause for failing to apply for the necessary permits, starting the work, or refunding the payment, or unless the person who made the payment agreed, in writing, to a longer period to apply for the necessary permits or start the work or to longer periods for both.\n\n- Related verified facts: §489.126(3)(b)3.a requires a contractor's termination letter to be sent \"via certified mail, return receipt requested\" to the owner's address in the contract (used in C13). The section's history shows an amendment in chapter 2025-40.\n- **When the builder offers it:** only when `{deposit_amount}` is more than 10 percent of `{contract_price}` on residential property.\n\n**L7 informational clause (draft, optional, shown only when triggered):**\n\n> **Initial payment and start timing.** The initial payment under this contract is {deposit_amount}, which is more than 10 percent of the Contract Price. Because of that, Florida law (section 489.126, Florida Statutes) requires the Contractor to apply for any necessary permits within 30 days after the payment date, unless the work does not require a permit, and to start the work within 90 days after all necessary permits are issued, unless the Contractor has just cause or you agree in writing to a longer period. {extension_sentence}\n\n`{extension_sentence}` is empty unless the owner and contractor agree to a longer period, in which case it reads: \"You agree that the Contractor may apply for permits within {extended_permit_days} days and start the work within {extended_start_days} days after permits are issued.\" Whether this written agreement may sit inside the main contract or must be a separate signed writing is an attorney question."
+  }
+ ],
+ "clause_areas": [
+  {
+   "id": "C01",
+   "title": "Parties, property and project description",
+   "intro_md": "",
+   "notes_md": "---"
+  },
+  {
+   "id": "C02",
+   "title": "Scope of work and exclusions",
+   "intro_md": "The exclusion list is data, not free text: the builder shows the trade's default exclusion checklist (table after the options) and the business ticks the items that apply. Ticked items print in `{exclusions_list}`.",
+   "notes_md": "**Default exclusion checklists by trade (the business ticks what applies; this is data, not an option):**\n\n| Trade | Default exclusion items offered |\n|---|---|\n| All trades | Permit fees above the amount in the Estimate; engineering or survey unless listed; repair of conditions found under C08; HOA application fees; work by other trades not listed; relocation or storage of furniture and belongings; landscape, irrigation or sod restoration beyond the work area; electrical or plumbing work beyond the connection points listed |\n| Pools and spas | Rock removal, dewatering and hauling beyond the Estimate's allowance; screen enclosure; fence or barrier unless it is the chosen safety feature; electrical service upgrade or panel work; gas line; start-up chemicals beyond first fill; water for the first fill; landscaping and sod; drainage beyond the pool deck; repair of driveway or sidewalk damage from equipment access |\n| Tile and flooring | Subfloor or slab repair and leveling beyond the Estimate; moisture mitigation; removal of more than one existing layer; asbestos testing or abatement; moving appliances; baseboard or trim replacement; door trimming; furniture moving |\n| Remodeling | Structural changes; asbestos or mold remediation; lead-based paint abatement (as opposed to lead-safe work practices); relocation of plumbing or electrical beyond the Estimate; appliance installation; cabinet or countertop templating changes after approval; painting outside the work area |\n| Hardscape and outdoor living | Rock removal; soil import or export beyond the Estimate; drainage systems; irrigation relocation; electrical or gas for outdoor kitchens; engineering for decks or pergolas; HOA architectural approval fees; tree or root removal |\n| General services (painting, handyman) | Surface repair beyond light patching; wood rot replacement; pressure washing unless listed; lead-safe work beyond what the Estimate lists; moving furniture; hauling of owner's items |\n\n---"
+  },
+  {
+   "id": "C03",
+   "title": "Contract price",
+   "intro_md": "",
+   "notes_md": "`{tax_statement}` defaults to: \"The Contract Price includes all sales tax Contractor pays on materials. No sales tax is added to this Contract.\" This follows the research finding from Florida Department of Revenue brochure GT-800007 (lump sum and similar real property contracts: the contractor pays tax on materials and does not collect tax from the owner). The research reports this was confirmed against the DOR brochure; this session did not re-read it. A retail-sale-plus-installation job would need different wording (attorney and accountant question).\n\n---"
+  },
+  {
+   "id": "C04",
+   "title": "Payment schedule, methods and late payment",
+   "intro_md": "Builder rule for every C04 option: `{payment_schedule_table}` is copied from the accepted estimate's schedule and is never re-entered. If the business edits the schedule, the builder requires a new estimate version first, so the contract and estimate cannot disagree.",
+   "notes_md": "Notes for all C04 options:\n- The 18 percent figure comes from §687.03 (verified): usury is interest greater than \"the equivalent of 18 percent per annum simple interest\" (with a higher limit only above $500,000). Whether interest on an unpaid construction invoice is a \"forbearance\" or \"obligation\" under that section, and whether §715.12's statutory interest (the §55.03 rate plus 12 percent per annum on payments due under that law) interacts with a contract rate, is an attorney question.\n- The research mentions a delinquency charge of up to 5 percent \"only if the contract provides for it\". The statute behind that was not identified or verified, so no option offers a flat late fee. Attorney question.\n- Collections follow Rafa's three steps in the app's messages (reminder on the due date, friendly follow-up the next day, contract language only on step three). The clause text is only quoted at step three.\n\n---"
+  },
+  {
+   "id": "C05",
+   "title": "Change orders",
+   "intro_md": "All options use Rafa's addendum pattern: a one-page Change Order that references this Contract and states only what changed, the old total, the change, the new total and the schedule impact. The app generates it from the project (spec decision C6).",
+   "notes_md": "---"
+  },
+  {
+   "id": "C06",
+   "title": "Schedule, start conditions, delays and weather",
+   "intro_md": "",
+   "notes_md": "**Selection deadlines (used by C06 and C10):** `{selection_deadlines_table}` lists each selection Owner must make (for example tile, grout color, plaster color, paver pattern, fixtures) with a date. It is filled in the contract builder.\n\n---"
+  },
+  {
+   "id": "C07",
+   "title": "Site access and owner responsibilities",
+   "intro_md": "",
+   "notes_md": "---"
+  },
+  {
+   "id": "C08",
+   "title": "Concealed and unforeseen conditions",
+   "intro_md": "All options share one procedure: stop the affected work, notify the owner with photos, price the fix, proceed only on a signed Change Order (or C05-C urgent authorization).",
+   "notes_md": "- Source note: 40 CFR 745.84(a) (read on ecfr.gov) requires the firm, no more than 60 days before renovation in target housing, to give the owner the pamphlet and obtain a written acknowledgment or a certificate of mailing at least 7 days before the renovation. The 1978 cutoff comes from the federal definition of target housing, which was not re-read in this session. Whether the firm itself must hold EPA certification to use this clause is an attorney and compliance question.\n\n---"
+  },
+  {
+   "id": "C09",
+   "title": "Permits, Notice of Commencement and inspections",
+   "intro_md": "Verified facts behind these options: §713.13(1)(a) says the owner or the owner's authorized agent records the Notice of Commencement before commencing to improve real property, except for improvements exempt under §713.02(5), which exempts improvements with a direct contract price of $2,500 or less. §713.135(1)(e) requires the permit applicant to file a copy of the recorded Notice of Commencement with the issuing authority before the first inspection if the direct contract is greater than $5,000 (this is the 2025 change; confirmed in the 2026 statute text). The research also reports a 2026 law requiring local governments to exempt certain single-family work under $7,500 from permits; that was **not verified** in this session.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C10",
+   "title": "Materials, selections and substitutions",
+   "intro_md": "",
+   "notes_md": "---"
+  },
+  {
+   "id": "C11",
+   "title": "Workmanship warranty and manufacturer warranties",
+   "intro_md": "Every C11 option is followed by the locked L3 Chapter 558 notice. No option offers a refund based on satisfaction or results (Rafa's rule).",
+   "notes_md": "Pool-specific note: when the Pool box is on, the \"Not covered\" list in any C11 option adds: \"damage from water chemistry outside the ranges in the care instructions, from draining the pool without Contractor's guidance, or from freezing.\"\n\n---"
+  },
+  {
+   "id": "C12",
+   "title": "Completion, punch list, final payment, lien releases and final payment affidavit",
+   "intro_md": "Verified basis: §713.06(3)(d)1 requires the contractor, when final payment becomes due, to give the owner a Contractor's Final Payment Affidavit (statutory form, sworn before a notary) listing any unpaid lienors who served a Notice to Owner; the contractor \"shall have no lien or right of action against the owner\" while in default for not giving it, and must deliver it at least 5 days before suing to enforce a lien. §713.20 supplies statutory lien waiver forms (from the research; the form text was not re-read). §715.12(7) (verified) lets owner and contractor agree to withhold part of each progress payment until substantial completion, then requires payment within 14 days after the listed events and a written punch list; if the contract does not set a punch-list period, the statute sets 15 days.",
+   "notes_md": "Open point for all C12 options: the affidavit must be sworn. Spec decision C14 routes it to a notary (Proof or in person) now, with a later switch to a §92.525 written declaration if the attorney confirms that is allowed. §92.525 (verified to exist and to allow verification by written declaration \"If authorized or required by law\") is an attorney question.\n\n---"
+  },
+  {
+   "id": "C13",
+   "title": "Suspension and termination",
+   "intro_md": "Rafa's asymmetric termination: the Contractor may suspend or end the Contract for non-payment or denied access after notice; the Owner may end it for cause after notice and a chance to cure. Verified fact used in every option: §489.126(3)(b)3.a describes \"proper notification of termination\" by a contractor as a letter stating the reason, \"sent via certified mail, return receipt requested, mailed to the address of the owner listed in the contracting agreement\". §713.06(3)(c)5 requires the contractor to give the final payment affidavit if the contract is terminated before completion.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C14",
+   "title": "Dispute resolution (attorney-managed packages)",
+   "intro_md": "The business picks one package. The pieces inside a package (steps, venue, fees, jury) cannot be mixed with another package. Every package starts after, and does not replace, the Chapter 558 notice and cure process for construction defect claims (L3). The attorney writes or approves the final text of each package; the text below is a starting draft only.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C15",
+   "title": "Limitation of liability and insurance",
+   "intro_md": "Builder rule for every C15 option: `{insurance_statement}` prints only if a current certificate is on file in Settings (carrier, policy type, policy number, expiry date after the contract date). If none is on file, `{insurance_statement}` is empty and nothing about insurance or bonding is printed. The word \"bonded\" prints only if a bond document is on file. This follows the research rule and §489.119(5)(f)2 (verified), which lets local governments fine an unlicensed person who claims to be insured when the work is not covered.\n\n`{insurance_statement}` when on file: \"Contractor carries {insurance_policy_types} insurance with {insurance_carrier}, policy {insurance_policy_number}, effective through {insurance_expiry_date}. A certificate is available on request.\" Workers' compensation appears only if a workers' compensation policy or exemption certificate is on file, and the exemption wording (if any) is an attorney question.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C16",
+   "title": "Offer validity and acceptance",
+   "intro_md": "Spec decision C13a: the company signs first, then the homeowner. The validity date makes the company-signed offer expire.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C17",
+   "title": "Cleanup, debris and site protection",
+   "intro_md": "",
+   "notes_md": "Pool and hardscape add-on sentence (printed with any C17 option when the trade is pools or hardscape): \"Excavated soil will be {spoil_disposition}.\"\n\n---"
+  },
+  {
+   "id": "C18",
+   "title": "Photos and marketing permission (opt-in)",
+   "intro_md": "Builder rule: photos for job records (progress, concealed conditions, warranty) are always allowed and are covered in C08, C11 and C12; C18 is only about marketing use. The default in the builder is C18-A. C18-B and C18-C require the homeowner's separate checkbox at signing, and the homeowner may withdraw consent in writing for future use.",
+   "notes_md": "---"
+  },
+  {
+   "id": "C19",
+   "title": "Entire agreement, notices, electronic signatures, severability, governing law",
+   "intro_md": "Verified: §668.50, Florida Statutes, is the Florida Uniform Electronic Transaction Act (short title verified). ESIGN is cited from the research only (15 U.S.C. 7001), not re-read in this session. The ESIGN consumer-consent items listed in the research (paper-copy right, withdrawal, scope, updating contact information, paper copies and fees, hardware and software requirements, and a demonstration of access) are shown before signing as a separate consent screen; the clause refers to it.",
+   "notes_md": "---"
+  }
+ ],
+ "clause_options": [
+  {
+   "id": "C01-A",
+   "area": "C01",
+   "title": "Parties and property: individual owner or owners",
+   "trades": "all",
+   "owner_description": "The standard opening for a home owned by one or more people who sign themselves. It names everyone who signs and the job address, and pulls the project name from the accepted estimate.",
+   "text": "**1. Parties and Property.** This Contract is made on {contract_date} between {business_legal_name}{business_dba_clause}, a Florida {business_entity_type}, {business_address}, phone {business_phone}, email {business_email} (\"Contractor\"), and {owner_full_name}{co_owner_clause}, {owner_mailing_address}, phone {owner_phone}, email {owner_email} (\"Owner\"). The work will be performed at {property_address}, {property_county} County, Florida (the \"Property\"). Owner states that Owner owns the Property{owner_title_note}.\n\n**Project.** {project_name}: {project_summary}, as described in Contractor's Estimate No. {estimate_number}, version {estimate_version}, dated {estimate_date} and accepted by Owner on {estimate_accepted_date} (the \"Estimate\").",
+   "text_note": null,
+   "fields": "contract_date, business_legal_name, business_dba_clause, business_entity_type, business_address, business_phone, business_email, owner_full_name, co_owner_clause, owner_mailing_address, owner_phone, owner_email, property_address, property_county, owner_title_note, project_name, project_summary, estimate_number, estimate_version, estimate_date, estimate_accepted_date",
+   "pt_summary": "Abertura padrão para quando o dono da casa (ou o casal) assina em nome próprio. Identifica as duas partes por completo, o endereço da obra e o condado, e amarra o contrato ao orçamento aceito pelo número e versão. Resolve os pontos 2 e 3 da auditoria do template 11 (partes mal identificadas e falta de endereço da obra).",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C01-B",
+   "area": "C01",
+   "title": "Parties and property: owner signs through an entity, trust or representative",
+   "trades": "all",
+   "owner_description": "Used when the property belongs to an LLC, a trust or another person, and someone signs on its behalf. It adds a sentence where the signer states they have authority to sign.",
+   "text": "**1. Parties and Property.** This Contract is made on {contract_date} between {business_legal_name}{business_dba_clause}, a Florida {business_entity_type}, {business_address}, phone {business_phone}, email {business_email} (\"Contractor\"), and {owner_entity_name}, {owner_mailing_address} (\"Owner\"), acting through {owner_signer_name}, {owner_signer_title}, phone {owner_phone}, email {owner_email}. The person signing for Owner states that he or she has authority to sign this Contract and to approve change orders and payments for Owner. The work will be performed at {property_address}, {property_county} County, Florida (the \"Property\"), which Owner states it owns.\n\n**Project.** {project_name}: {project_summary}, as described in Contractor's Estimate No. {estimate_number}, version {estimate_version}, dated {estimate_date} and accepted on {estimate_accepted_date} (the \"Estimate\").",
+   "text_note": null,
+   "fields": "as C01-A plus owner_entity_name, owner_signer_name, owner_signer_title",
+   "pt_summary": "Para imóvel em nome de LLC, trust ou de outra pessoa, com alguém assinando pela proprietária. O signatário declara que tem autoridade para assinar e aprovar aditivos e pagamentos. Evita a discussão depois de que \"quem assinou não podia assinar\".",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C01-C",
+   "area": "C01",
+   "title": "Parties and property: rental or non-occupied property",
+   "trades": "all",
+   "owner_description": "For a property the owner does not live in, for example a rental. It names the on-site contact (tenant or manager) and says who may give instructions, which is only the Owner or a named agent.",
+   "text": "**1. Parties and Property.** This Contract is made on {contract_date} between {business_legal_name}{business_dba_clause}, a Florida {business_entity_type}, {business_address}, phone {business_phone}, email {business_email} (\"Contractor\"), and {owner_full_name}{co_owner_clause}, {owner_mailing_address}, phone {owner_phone}, email {owner_email} (\"Owner\"). The work will be performed at {property_address}, {property_county} County, Florida (the \"Property\"). Owner states that Owner owns the Property and does not occupy it.\n\n**On-site contact.** Owner names {site_contact_name}, phone {site_contact_phone}, as the on-site contact for access and scheduling. Only Owner, or {owner_agent_name} if named here, may approve changes, selections or payments. Instructions from tenants or other occupants are not changes to this Contract.\n\n**Project.** {project_name}: {project_summary}, as described in Contractor's Estimate No. {estimate_number}, version {estimate_version}, dated {estimate_date} and accepted on {estimate_accepted_date} (the \"Estimate\").",
+   "text_note": null,
+   "fields": "as C01-A plus site_contact_name, site_contact_phone, owner_agent_name",
+   "pt_summary": "Para imóvel alugado ou onde o proprietário não mora. Define um contato no local só para acesso e agenda, e deixa claro que pedidos do inquilino não mudam o contrato; só o proprietário ou o agente nomeado aprova mudanças e pagamentos.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C02-A",
+   "area": "C02",
+   "title": "Scope: accepted estimate incorporated, contract controls on conflict",
+   "trades": "all",
+   "owner_description": "The accepted estimate becomes the scope. If the estimate and the contract text ever disagree on terms, the contract text wins; on quantities, models and finishes, the estimate wins.",
+   "text": "**2. Scope of Work.** Contractor will furnish the labor, materials and equipment to perform the work described in the Estimate, which is attached and made part of this Contract (the \"Work\"). The Work includes only what the Estimate lists. Quantities, measurements, product models, colors and finishes are as stated in the Estimate. If the Estimate and the terms of this Contract conflict, this Contract controls, except that the Estimate controls on quantities, models and finishes.\n\n**Not included.** The following are not part of the Work unless added by a signed Change Order: {exclusions_list}. Anything not listed in the Estimate is also not included.\n\n**Owner-supplied items.** Owner will supply: {owner_supplied_items}. Contractor is not responsible for the quality, fitness, delivery timing or warranty of owner-supplied items.",
+   "text_note": null,
+   "fields": "exclusions_list, owner_supplied_items",
+   "pt_summary": "O orçamento aceito vira o escopo do contrato. Tudo o que não está listado no orçamento está fora, e a lista de exclusões marcada pela empresa é impressa. Se houver conflito, o contrato vale para as condições e o orçamento vale para quantidades, modelos e acabamentos.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C02-B",
+   "area": "C02",
+   "title": "Scope: estimate plus plans, drawings or renderings",
+   "trades": "all (most used by pools, remodeling and hardscape)",
+   "owner_description": "Same as C02-A, but also incorporates plans, engineering drawings or 3D renderings, and sets which document wins when they differ. Renderings are marked as illustrations, not specifications.",
+   "text": "**2. Scope of Work.** Contractor will furnish the labor, materials and equipment to perform the work described in the Estimate and in the following documents, which are attached and made part of this Contract: {plan_documents_list} (together, the \"Contract Documents\"; the work they describe is the \"Work\"). If they conflict, this order controls: (1) signed Change Orders, newest first; (2) this Contract; (3) engineered or permitted plans; (4) the Estimate; (5) other drawings. Renderings, 3D images and photos of other jobs show general appearance only. They are not specifications, and colors, shading, plants and furniture shown in them are not included unless the Estimate lists them.\n\n**Not included.** The following are not part of the Work unless added by a signed Change Order: {exclusions_list}. Anything not described in the Contract Documents is also not included.\n\n**Owner-supplied items.** Owner will supply: {owner_supplied_items}. Contractor is not responsible for the quality, fitness, delivery timing or warranty of owner-supplied items.",
+   "text_note": null,
+   "fields": "plan_documents_list, exclusions_list, owner_supplied_items",
+   "pt_summary": "Igual ao C02-A, mas incorpora plantas, projeto de engenharia ou renderização 3D e define qual documento prevalece em caso de conflito. Deixa claro que a imagem 3D mostra a aparência geral e não é especificação, o que evita a cobrança de \"estava no desenho\".",
+   "trailing_notes_md": "**Default exclusion checklists by trade (the business ticks what applies; this is data, not an option):**\n\n| Trade | Default exclusion items offered |\n|---|---|\n| All trades | Permit fees above the amount in the Estimate; engineering or survey unless listed; repair of conditions found under C08; HOA application fees; work by other trades not listed; relocation or storage of furniture and belongings; landscape, irrigation or sod restoration beyond the work area; electrical or plumbing work beyond the connection points listed |\n| Pools and spas | Rock removal, dewatering and hauling beyond the Estimate's allowance; screen enclosure; fence or barrier unless it is the chosen safety feature; electrical service upgrade or panel work; gas line; start-up chemicals beyond first fill; water for the first fill; landscaping and sod; drainage beyond the pool deck; repair of driveway or sidewalk damage from equipment access |\n| Tile and flooring | Subfloor or slab repair and leveling beyond the Estimate; moisture mitigation; removal of more than one existing layer; asbestos testing or abatement; moving appliances; baseboard or trim replacement; door trimming; furniture moving |\n| Remodeling | Structural changes; asbestos or mold remediation; lead-based paint abatement (as opposed to lead-safe work practices); relocation of plumbing or electrical beyond the Estimate; appliance installation; cabinet or countertop templating changes after approval; painting outside the work area |\n| Hardscape and outdoor living | Rock removal; soil import or export beyond the Estimate; drainage systems; irrigation relocation; electrical or gas for outdoor kitchens; engineering for decks or pergolas; HOA architectural approval fees; tree or root removal |\n| General services (painting, handyman) | Surface repair beyond light patching; wood rot replacement; pressure washing unless listed; lead-safe work beyond what the Estimate lists; moving furniture; hauling of owner's items |\n\n---"
+  },
+  {
+   "id": "C03-A",
+   "area": "C03",
+   "title": "Fixed total price",
+   "trades": "all",
+   "owner_description": "One firm total for the whole job. The price changes only through a signed change order. Nothing in it lets the price move for any other reason.",
+   "text": "**3. Contract Price.** Owner will pay Contractor a fixed total of {contract_price} (the \"Contract Price\") for the Work. The Contract Price changes only by a Change Order signed by both parties under Section 5. {tax_statement}",
+   "text_note": null,
+   "fields": "contract_price, tax_statement",
+   "pt_summary": "Preço fechado e firme para a obra inteira. Só muda por aditivo assinado pelas duas partes. Segue a regra do Pr. Rafael: o total é firme; se o cliente pedir desconto, a empresa cede no cronograma, nunca no preço (isso é regra de venda e não aparece no texto).",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C03-B",
+   "area": "C03",
+   "title": "Fixed total price with allowances",
+   "trades": "all (most used by remodeling, tile and flooring, and pools)",
+   "owner_description": "A firm total that includes set dollar amounts (allowances) for items the homeowner has not chosen yet, like tile or fixtures. If the final choice costs more or less than the allowance, the difference is added or credited through a change order.",
+   "text": "**3. Contract Price.** Owner will pay Contractor a fixed total of {contract_price} (the \"Contract Price\") for the Work. The Contract Price includes these allowances for items Owner has not yet selected: {allowance_list}. Each allowance covers {allowance_basis}. When Owner makes a selection, Contractor will show the actual cost against the allowance. If the actual cost is higher, the difference{allowance_markup_clause} is added by Change Order; if lower, the difference is credited by Change Order. Apart from allowance adjustments, the Contract Price changes only by a Change Order signed by both parties. {tax_statement}",
+   "text_note": null,
+   "fields": "contract_price, allowance_list, allowance_basis, allowance_markup_clause, tax_statement",
+   "pt_summary": "Preço fechado que já inclui verbas (allowances) para itens que o cliente ainda vai escolher, como piso ou louças. Se a escolha custar mais, a diferença entra por aditivo; se custar menos, vira crédito. Deixa claro o que a verba cobre (só material, ou material e instalação).",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C03-C",
+   "area": "C03",
+   "title": "Fixed total price with unit prices for uncertain quantities",
+   "trades": "pools, hardscape, tile, remodeling",
+   "owner_description": "A firm total for the known work, plus a price per unit for things nobody can measure until work starts, such as rock removal or rotted subfloor. The unit prices are agreed now, so only the quantity is open.",
+   "text": "**3. Contract Price.** Owner will pay Contractor a fixed total of {contract_price} (the \"Contract Price\") for the Work. The following items cannot be measured before work starts and will be charged at these agreed unit prices if they are needed: {unit_price_list}. Before performing any unit-priced item, Contractor will show Owner the quantity (with photos where practical) and the total, and Owner will approve it by signed Change Order. Apart from those items, the Contract Price changes only by a Change Order signed by both parties. {tax_statement}",
+   "text_note": null,
+   "fields": "contract_price, unit_price_list, tax_statement",
+   "pt_summary": "Preço fechado para o que se conhece, mais preço por unidade já combinado para o que só aparece durante a obra (remoção de rocha, contrapiso podre). O preço unitário fica fixo agora e só a quantidade fica em aberto, sempre aprovada por aditivo com foto antes de executar.",
+   "trailing_notes_md": "`{tax_statement}` defaults to: \"The Contract Price includes all sales tax Contractor pays on materials. No sales tax is added to this Contract.\" This follows the research finding from Florida Department of Revenue brochure GT-800007 (lump sum and similar real property contracts: the contractor pays tax on materials and does not collect tax from the owner). The research reports this was confirmed against the DOR brochure; this session did not re-read it. A retail-sale-plus-installation job would need different wording (attorney and accountant question).\n\n---"
+  },
+  {
+   "id": "C04-A",
+   "area": "C04",
+   "title": "Milestone schedule, receipts, no late charge",
+   "trades": "all",
+   "owner_description": "Payments are due at the milestones copied from the estimate. Every payment gets a written receipt. There is no interest or late fee; the remedy for non-payment is suspension under Section 13.",
+   "text": "**4. Payments.** Owner will pay the Contract Price as follows: {payment_schedule_table}. Each payment is due on the date or at the milestone shown. Contractor will send a written request for each payment when it becomes due, and a written receipt for every payment received, showing the amount, date, method and remaining balance.\n\n**How to pay.** Payments are accepted only by: {payment_methods_list}, made out or sent to {business_legal_name}{payment_account_hint}. Do not pay cash to any worker, and do not send payment to any person or account not listed here, even if asked. If you receive payment instructions that differ from this list, call Contractor at {business_phone} before paying.\n\n**Late payment.** If a payment is not received by its due date, Contractor may suspend the Work as described in Section 13.",
+   "text_note": null,
+   "fields": "payment_schedule_table, payment_methods_list, payment_account_hint, business_phone",
+   "pt_summary": "Pagamentos nas etapas copiadas do orçamento, com recibo escrito de cada pagamento mostrando o saldo. Só aceita os meios listados e em nome da empresa, com o aviso de nunca pagar em dinheiro a funcionário nem para conta diferente (isso responde ao ponto 5 da auditoria: Zelle sem proteção). Não cobra juros; o remédio é a suspensão da obra.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C04-B",
+   "area": "C04",
+   "title": "Milestone schedule with grace period and simple interest",
+   "trades": "all",
+   "owner_description": "Same as C04-A, plus simple interest on late payments after a grace period you set. The interest rate cannot be set above 18 percent per year.",
+   "text": "**4. Payments.** Owner will pay the Contract Price as follows: {payment_schedule_table}. Each payment is due on the date or at the milestone shown. Contractor will send a written request for each payment when it becomes due, and a written receipt for every payment received, showing the amount, date, method and remaining balance.\n\n**How to pay.** Payments are accepted only by: {payment_methods_list}, made out or sent to {business_legal_name}{payment_account_hint}. Do not pay cash to any worker, and do not send payment to any person or account not listed here, even if asked. If you receive payment instructions that differ from this list, call Contractor at {business_phone} before paying.\n\n**Late payment.** A payment not received within {grace_period_days} days after its due date is late. A late payment bears simple interest at {late_interest_rate} percent per year from the due date until paid. Contractor may also suspend the Work as described in Section 13.",
+   "text_note": null,
+   "fields": "as C04-A plus grace_period_days, late_interest_rate (builder validation: number from 0 to 18; default 12; see note)",
+   "pt_summary": "Igual ao C04-A, mais juros simples sobre atraso depois de um prazo de carência escolhido pela empresa. A taxa nunca pode passar de 18% ao ano (teto de usura da Flórida, §687.03). Os juros só entram na terceira etapa da cobrança, nunca no lembrete.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C04-C",
+   "area": "C04",
+   "title": "Deposit to order materials, balance at completion (short jobs)",
+   "trades": "tile, general, hardscape (small jobs)",
+   "owner_description": "A two-payment structure for short jobs: a deposit to buy materials and the balance when the work is done. It says the deposit is used for materials for this job.",
+   "text": "**4. Payments.** Owner will pay a deposit of {deposit_amount} on signing, which Contractor will use to order materials for this Work, and the balance of {balance_amount} when the Work is complete under Section 12. {payment_schedule_note} Contractor will send a written receipt for every payment received, showing the amount, date, method and remaining balance.\n\n**How to pay.** Payments are accepted only by: {payment_methods_list}, made out or sent to {business_legal_name}{payment_account_hint}. Do not pay cash to any worker, and do not send payment to any person or account not listed here, even if asked. If you receive payment instructions that differ from this list, call Contractor at {business_phone} before paying.\n\n**Late payment.** {late_payment_sentence}",
+   "text_note": null,
+   "fields": "deposit_amount, balance_amount, payment_schedule_note, payment_methods_list, payment_account_hint, business_phone, late_payment_sentence (either the C04-A or the C04-B late-payment sentence, picked in setup)",
+   "pt_summary": "Duas parcelas para obras curtas: sinal para comprar o material e o saldo na conclusão. Se o sinal passar de 10% do preço em imóvel residencial, o app liga o relógio do §489.126 (licença em 30 dias, início em 90 dias depois da licença).",
+   "trailing_notes_md": "Notes for all C04 options:\n- The 18 percent figure comes from §687.03 (verified): usury is interest greater than \"the equivalent of 18 percent per annum simple interest\" (with a higher limit only above $500,000). Whether interest on an unpaid construction invoice is a \"forbearance\" or \"obligation\" under that section, and whether §715.12's statutory interest (the §55.03 rate plus 12 percent per annum on payments due under that law) interacts with a contract rate, is an attorney question.\n- The research mentions a delinquency charge of up to 5 percent \"only if the contract provides for it\". The statute behind that was not identified or verified, so no option offers a flat late fee. Attorney question.\n- Collections follow Rafa's three steps in the app's messages (reminder on the due date, friendly follow-up the next day, contract language only on step three). The clause text is only quoted at step three.\n\n---"
+  },
+  {
+   "id": "C05-A",
+   "area": "C05",
+   "title": "Signed change order before changed work starts",
+   "trades": "all",
+   "owner_description": "No extra or changed work starts until the change order is signed by both sides. The rest of the job continues while the change order waits.",
+   "text": "**5. Change Orders.** Any change to the Work, the Contract Price or the schedule must be in a written Change Order signed by Owner and Contractor. Each Change Order is a one-page addendum to this Contract that refers to this Contract by date and number and states only: what is added or removed; the Contract Price before the change; the amount of the change (a removal is a credit); the new Contract Price; any change to the payment schedule; and the effect on the schedule in working days. Contractor will not start changed or extra work until the Change Order is signed. Work not affected by the change continues. Verbal requests, texts and emails are requests only, not Change Orders. Everything in this Contract not changed by a Change Order stays the same.",
+   "text_note": null,
+   "fields": "none beyond the Change Order's own fields (co_number, co_date, co_description, co_price_before, co_amount, co_price_after, co_schedule_days, co_payment_change)",
+   "pt_summary": "Nenhum trabalho extra ou alterado começa sem aditivo assinado pelos dois. O aditivo tem uma página, cita o contrato original e diz só o que mudou: total anterior, valor da mudança, novo total e impacto no prazo. O resto da obra segue normalmente. Pedido por WhatsApp ou verbal é só pedido, não é aditivo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C05-B",
+   "area": "C05",
+   "title": "Signed change order; affected work pauses until signed",
+   "trades": "all",
+   "owner_description": "Same as C05-A, but any part of the job that depends on the change pauses until it is signed, and the pause time is added to the schedule.",
+   "text": "**5. Change Orders.** Any change to the Work, the Contract Price or the schedule must be in a written Change Order signed by Owner and Contractor. Each Change Order is a one-page addendum to this Contract that refers to this Contract by date and number and states only: what is added or removed; the Contract Price before the change; the amount of the change (a removal is a credit); the new Contract Price; any change to the payment schedule; and the effect on the schedule in working days. When Owner requests a change, Contractor will send the Change Order within {co_response_days} business days. Work that depends on the change stops until the Change Order is signed or the request is withdrawn in writing, and the days of that pause are added to the schedule. Verbal requests, texts and emails are requests only, not Change Orders. Everything in this Contract not changed by a Change Order stays the same.",
+   "text_note": null,
+   "fields": "co_response_days",
+   "pt_summary": "Igual ao C05-A, mas a parte da obra que depende da mudança fica parada até a assinatura, e os dias parados são somados ao prazo. A empresa se compromete a mandar o aditivo em poucos dias úteis, o que dá prazo às duas partes.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C05-C",
+   "area": "C05",
+   "title": "Signed change order, with urgent-condition authorization",
+   "trades": "all",
+   "owner_description": "Same as C05-A, plus a narrow exception when something urgent is found (for example an active leak or a safety hazard): the owner can approve limited work by text or email, and the change order is signed within two business days.",
+   "text": "**5. Change Orders.** Any change to the Work, the Contract Price or the schedule must be in a written Change Order signed by Owner and Contractor. Each Change Order is a one-page addendum to this Contract that refers to this Contract by date and number and states only: what is added or removed; the Contract Price before the change; the amount of the change (a removal is a credit); the new Contract Price; any change to the payment schedule; and the effect on the schedule in working days. Contractor will not start changed or extra work until the Change Order is signed, with one exception: if a condition is found that must be addressed immediately to prevent injury or damage to the Property, Owner may authorize limited work up to {urgent_cap_amount} by text or email, and both parties will sign a Change Order for that work within 2 business days. If Owner cannot be reached, Contractor may take only the steps needed to make the area safe and will notify Owner the same day. Everything in this Contract not changed by a Change Order stays the same.",
+   "text_note": null,
+   "fields": "urgent_cap_amount",
+   "pt_summary": "Igual ao C05-A, com uma exceção estreita para urgência (vazamento ativo, risco de segurança): o cliente autoriza por mensagem um trabalho limitado a um valor máximo, e o aditivo é assinado em até 2 dias úteis. Sem contato com o cliente, a empresa só deixa a área segura e avisa no mesmo dia.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C06-A",
+   "area": "C06",
+   "title": "Estimated dates, not guaranteed",
+   "trades": "all",
+   "owner_description": "Gives an estimated start and an estimated duration, and says plainly that they are estimates. Lists what must happen before work starts and which delays extend the dates.",
+   "text": "**6. Schedule.** Contractor estimates that the Work will start on or about {estimated_start_date} and take about {estimated_duration_working_days} working days. These dates are estimates, not guarantees. Work starts after all of these have happened: this Contract is signed by both parties{cancellation_period_clause}; the deposit is received; required permits are issued; required HOA approval is received; and Owner has made the selections listed in Section 10 by their deadlines.\n\n**Delays.** The schedule is extended, day for day, for delays Contractor does not control, including: weather that prevents safe or proper work; permit, inspection or utility company delays; manufacturer or supplier delays; concealed conditions under Section 8; Change Orders; late payments; Owner's late selections or decisions; lack of access under Section 7; work by Owner's other contractors; and natural disasters, declared emergencies or government orders. Contractor will tell Owner in writing of a delay and its expected length within {delay_notice_days} business days of knowing about it.",
+   "text_note": null,
+   "fields": "estimated_start_date, estimated_duration_working_days, cancellation_period_clause (filled only when L5 is on: \", and the three-business-day cancellation period has ended on {cancellation_deadline_date}\"), delay_notice_days",
+   "pt_summary": "Data de início e duração estimadas, com a frase clara de que são estimativas. Lista o que precisa acontecer antes de começar (contrato assinado, sinal pago, licença, aprovação do condomínio, escolhas feitas) e quais atrasos estendem o prazo, com aviso por escrito ao cliente.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C06-B",
+   "area": "C06",
+   "title": "Target completion date with extensions",
+   "trades": "all",
+   "owner_description": "Names a target completion date that Contractor commits to work toward, which moves only for the listed delays, each confirmed in writing. There is no money penalty for missing it.",
+   "text": "**6. Schedule.** Contractor will start the Work on or about {estimated_start_date}, once the start conditions below are met, and will work toward substantial completion by {target_completion_date}. Start conditions: this Contract is signed by both parties{cancellation_period_clause}; the deposit is received; required permits are issued; required HOA approval is received; and Owner has made the selections in Section 10 by their deadlines. If a start condition is met late, the start and completion dates move by the same number of days.\n\n**Extensions.** The completion date is extended by the number of working days lost to delays Contractor does not control, including: weather that prevents safe or proper work; permit, inspection or utility company delays; manufacturer or supplier delays; concealed conditions under Section 8; Change Orders; late payments; Owner's late selections or decisions; lack of access under Section 7; work by Owner's other contractors; and natural disasters, declared emergencies or government orders. Each extension will be stated in writing to Owner within {delay_notice_days} business days, with the new date.",
+   "text_note": null,
+   "fields": "estimated_start_date, target_completion_date, cancellation_period_clause, delay_notice_days",
+   "pt_summary": "Dá uma data alvo de conclusão com que a empresa se compromete, que só muda pelos atrasos listados, cada um confirmado por escrito com a nova data. Não há multa por atraso. É o formato mais próximo do padrão americano de \"datas explícitas e próximo passo claro\".",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C06-C",
+   "area": "C06",
+   "title": "Outdoor work: weather, rain days and curing time",
+   "trades": "pools, hardscape",
+   "owner_description": "Same structure as C06-A but written for outdoor work: it counts rain days and the days after heavy rain when the ground is too wet, and it says that curing and inspection waiting times are part of the schedule, not delays.",
+   "text": "**6. Schedule.** Contractor estimates that the Work will start on or about {estimated_start_date} and take about {estimated_duration_working_days} working days. These dates are estimates, not guarantees. Work starts after all of these have happened: this Contract is signed by both parties{cancellation_period_clause}; the deposit is received; required permits are issued; required HOA approval is received; utility locates are completed; and Owner has made the selections in Section 10 by their deadlines.\n\n**Weather and site.** Outdoor work cannot be done safely or properly in rain, lightning, or when the ground is saturated. Each day lost to rain or lightning, and each day the ground is too wet to excavate, compact or pour, extends the schedule by one working day. Curing, drying and settling times required by the materials, and waiting for scheduled inspections, are part of the normal process. During a named storm watch or warning, Contractor may secure the site and remove loose materials and equipment, and the schedule is extended for that time.\n\n**Other delays.** The schedule is also extended, day for day, for permit, inspection or utility delays; supplier delays; concealed conditions under Section 8; Change Orders; late payments; Owner's late selections; lack of access under Section 7; and declared emergencies or government orders. Contractor will tell Owner in writing of a delay and its expected length within {delay_notice_days} business days.",
+   "text_note": null,
+   "fields": "as C06-A",
+   "pt_summary": "Versão para obra externa (piscina e hardscape). Conta dias de chuva e dias em que o solo está encharcado como extensão de prazo, e explica que tempo de cura e espera de vistoria fazem parte do processo e não são atraso. Em alerta de tempestade nomeada, a empresa pode proteger o canteiro e o prazo se estende.",
+   "trailing_notes_md": "**Selection deadlines (used by C06 and C10):** `{selection_deadlines_table}` lists each selection Owner must make (for example tile, grout color, plaster color, paver pattern, fixtures) with a date. It is filled in the contract builder.\n\n---"
+  },
+  {
+   "id": "C07-A",
+   "area": "C07",
+   "title": "General access and owner responsibilities",
+   "trades": "all",
+   "owner_description": "The basic list of what the homeowner provides: access on working days, water and electricity, a clear work area, pets secured, and HOA approval.",
+   "text": "**7. Access and Owner Responsibilities.** Owner will:\n(a) give Contractor access to the work area on working days from {work_hours_start} to {work_hours_end}, {work_days};\n(b) provide water and electricity at the Property at no cost to Contractor;\n(c) clear the work area of furniture, vehicles, decorations and personal items before the start date;\n(d) keep pets and children out of the work area while work is in progress;\n(e) obtain any HOA or condominium approval that the Property requires, unless the Estimate says Contractor will apply for it;\n(f) provide keys, gate or garage codes, or lockbox access needed for the Work: {access_instructions}; and\n(g) respond to Contractor's questions that affect the Work within {owner_response_days} business days.\nIf Contractor cannot access the work area on a scheduled working day because of Owner, the schedule is extended and Contractor may charge the documented cost of a return trip under a Change Order.",
+   "text_note": null,
+   "fields": "work_hours_start, work_hours_end, work_days, access_instructions, owner_response_days",
+   "pt_summary": "Lista básica do que o cliente fornece: acesso nos dias de trabalho, água e luz, área liberada, animais presos, aprovação do condomínio, chaves e códigos, e resposta às perguntas em poucos dias úteis. Se a equipe perder a viagem por falta de acesso, o prazo se estende e a viagem extra pode ser cobrada por aditivo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C07-B",
+   "area": "C07",
+   "title": "Occupied home (remodeling and interior work)",
+   "trades": "remodeling, tile, general",
+   "owner_description": "For homeowners living in the house during the work. Adds that some rooms will be out of use, that dust is controlled but not zero, and that valuables should be removed from the work area.",
+   "text": "**7. Access and Owner Responsibilities.** Owner will:\n(a) give Contractor access to the work area on working days from {work_hours_start} to {work_hours_end}, {work_days};\n(b) provide water and electricity, and access to a bathroom for the crew or allow Contractor to place a portable toilet at {portable_toilet_location};\n(c) remove valuables, fragile items, artwork and electronics from the work area and nearby rooms before the start date;\n(d) keep pets and children out of the work area while work is in progress;\n(e) obtain any HOA or condominium approval, including elevator or loading-dock reservations, unless the Estimate says Contractor will do it;\n(f) provide keys, gate or garage codes, or lockbox access: {access_instructions}; and\n(g) respond to Contractor's questions that affect the Work within {owner_response_days} business days.\n**Living in the home during work.** Owner understands that {rooms_out_of_use} will be out of use for about {days_out_of_use} days. Contractor will use dust barriers and floor protection in the work path, but some dust and noise will reach other rooms. If Contractor cannot access the work area on a scheduled working day because of Owner, the schedule is extended and Contractor may charge the documented cost of a return trip under a Change Order.",
+   "text_note": null,
+   "fields": "work_hours_start, work_hours_end, work_days, portable_toilet_location, access_instructions, owner_response_days, rooms_out_of_use, days_out_of_use",
+   "pt_summary": "Para cliente que mora na casa durante a obra. Avisa quais cômodos ficam sem uso e por quanto tempo, que haverá barreira de pó mas não pó zero, e pede que objetos de valor sejam retirados. Resolve o banheiro da equipe (da casa ou banheiro químico).",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C07-C",
+   "area": "C07",
+   "title": "Exterior work with equipment access",
+   "trades": "pools, hardscape",
+   "owner_description": "For jobs that bring machinery into the yard. Covers the access path, fence sections that may be removed and replaced, sprinkler lines, utility locates, and marking private lines like septic or irrigation.",
+   "text": "**7. Access and Owner Responsibilities.** Owner will:\n(a) give Contractor access to the work area on working days from {work_hours_start} to {work_hours_end}, {work_days};\n(b) provide water and electricity at the Property at no cost to Contractor;\n(c) provide an equipment access path of at least {access_width} wide along {access_route}; Contractor may remove and replace these fence sections: {fence_sections}; replacement is to working condition, not new condition;\n(d) show Contractor, before digging, the location of private underground lines not marked by public utility locates, such as irrigation, septic, drain lines, low-voltage lighting and propane lines; Contractor is not responsible for damage to private lines that were not shown;\n(e) keep pets and children out of the work area, including open excavations, at all times;\n(f) obtain HOA approval unless the Estimate says Contractor will apply for it;\n(g) provide gate codes or keys: {access_instructions}; and\n(h) respond to Contractor's questions within {owner_response_days} business days.\n**Yard and driveway.** Heavy equipment can leave ruts in lawns and marks on driveways along the access path. Contractor will grade ruts smooth. Sod, landscaping and driveway repair are not included unless listed in the Estimate. Contractor will request public utility locates before digging.",
+   "text_note": null,
+   "fields": "work_hours_start, work_hours_end, work_days, access_width, access_route, fence_sections, access_instructions, owner_response_days",
+   "pt_summary": "Para obra com máquina no quintal (piscina e hardscape). Define a passagem da máquina, trechos de cerca que podem ser retirados e recolocados, e pede que o cliente mostre linhas particulares enterradas (irrigação, fossa, gás) que o serviço público de localização não marca. Deixa claro que grama e jardim não estão incluídos, salvo se constar no orçamento.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C08-A",
+   "area": "C08",
+   "title": "General concealed conditions",
+   "trades": "all",
+   "owner_description": "A short, general clause for any trade. It lists the kinds of hidden problems and the stop, notify, change order process.",
+   "text": "**8. Concealed Conditions.** The Contract Price is based on conditions that can be seen during a normal visual inspection before signing. If Contractor finds a condition that was hidden or could not reasonably be known, or that differs from what the Estimate assumes, such as rot, water damage, mold, termite damage, hidden pipes or wiring, structural defects, code violations in existing work, or hazardous materials, Contractor will stop work on the affected area, notify Owner in writing with photos within {concealed_notice_days} business day(s), and propose the price and schedule effect of dealing with it. Contractor will not correct the condition without a signed Change Order. If Owner decides not to correct it, Contractor may complete the rest of the Work where that can be done properly, and is not responsible for the condition or for its effect on the Work.",
+   "text_note": null,
+   "fields": "concealed_notice_days",
+   "pt_summary": "Cláusula geral de condições ocultas para qualquer ofício. O preço vale para o que se vê numa inspeção visual normal; se aparecer algo escondido, a empresa para aquela parte, avisa com fotos, apresenta preço e prazo, e só corrige com aditivo assinado. Se o cliente não quiser corrigir, a empresa não responde por aquilo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C08-B",
+   "area": "C08",
+   "title": "Below ground: pools and hardscape",
+   "trades": "pools, hardscape",
+   "owner_description": "Written for digging. Names rock, high groundwater, buried debris, old foundations, tree roots and unsuitable soil, and ties any extra work to the unit prices from C03-C when those are used.",
+   "text": "**8. Below-Ground Conditions.** Nobody can see below the surface before digging. The Contract Price assumes soil that can be excavated with standard equipment, groundwater below the planned excavation depth, and no buried obstructions. If Contractor finds rock or hard material that standard equipment cannot remove, groundwater that requires pumping (dewatering), buried debris, concrete, old foundations, septic parts, tanks, large roots, organic or unsuitable soil, or soil that requires engineering, Contractor will stop work on the affected area, notify Owner in writing with photos within {concealed_notice_days} business day(s), and propose the price and schedule effect. Where Section 3 lists a unit price for the item, that unit price applies. Contractor will not proceed with the extra work without a signed Change Order, except for steps needed to keep an open excavation safe. If an engineer or the building department requires a design change because of soil or water conditions, that change is a Change Order.",
+   "text_note": null,
+   "fields": "concealed_notice_days",
+   "pt_summary": "Versão para escavação (piscina e hardscape). Cita rocha, lençol freático alto, entulho enterrado, fundações antigas, raízes e solo ruim. Se houver preço unitário no contrato (C03-C), ele se aplica. Exigência de engenheiro ou da prefeitura por causa do solo vira aditivo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C08-C",
+   "area": "C08",
+   "title": "Substrate: tile and flooring",
+   "trades": "tile",
+   "owner_description": "Written for floors and walls. Covers what is found after removing the old floor: uneven or cracked slab, damaged subfloor, moisture, and old adhesive or flooring layers that may contain asbestos.",
+   "text": "**8. Substrate Conditions.** The Contract Price assumes the surface under the existing floor or wall covering is sound, dry and within the flatness the new material requires, needing no more than {leveling_included} of leveling. If, after removal, Contractor finds cracks in the slab, an uneven or damaged subfloor, loose or rotted wood, excess moisture, more than one layer of old flooring, or old adhesive or flooring that may contain asbestos, Contractor will stop work on the affected area, notify Owner in writing with photos within {concealed_notice_days} business day(s), and propose the price and schedule effect of correcting it. Where Section 3 lists a unit price, that unit price applies. Contractor will not proceed without a signed Change Order. Contractor does not test for or remove asbestos; if suspected material is found, work in that area stops until Owner has it tested and, if needed, removed by a qualified company. If Owner chooses not to correct a substrate condition, the manufacturer's warranty and Contractor's warranty do not cover problems caused by that condition, such as cracked tile or grout, lippage or hollow sounds.",
+   "text_note": null,
+   "fields": "leveling_included, concealed_notice_days",
+   "pt_summary": "Versão para piso e revestimento. O preço supõe contrapiso firme, seco e nivelado dentro de um limite. Se ao remover o piso antigo aparecer laje trincada, contrapiso podre, umidade, várias camadas antigas ou cola que pode ter amianto, a empresa para, avisa com fotos e só segue com aditivo. Se o cliente não corrigir, a garantia não cobre os problemas causados por isso.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C08-D",
+   "area": "C08",
+   "title": "Inside walls and older homes: remodeling and general services",
+   "trades": "remodeling, general",
+   "owner_description": "Written for opening walls, ceilings and cabinets, and for painting. Adds outdated wiring or plumbing that must be brought to code once exposed, the surface condition of what will be painted, and lead-safe rules for homes built before 1978.",
+   "text": "**8. Hidden and Existing Conditions.** The Contract Price is based on what can be seen before work starts. When walls, floors, ceilings or cabinets are opened, Contractor may find rot, mold, water or termite damage, structural problems, or wiring, plumbing or venting that does not meet current code and that the building department may require to be corrected once exposed. Contractor will stop work on the affected area, notify Owner in writing with photos within {concealed_notice_days} business day(s), and propose the price and schedule effect. Contractor will not proceed without a signed Change Order. Contractor does not test for or remediate mold or asbestos; if either is suspected, work in that area stops until Owner has it assessed by a qualified company.\n\n**Surfaces to be painted or finished.** The Contract Price includes the surface preparation listed in the Estimate: {surface_prep_included}. Peeling, chalking, water-stained or damaged surfaces beyond that preparation, and wood rot found during preparation, are priced by Change Order. Paint cannot correct an unsound surface, and Contractor's warranty does not cover failure caused by a surface condition Owner chose not to correct.\n\n**Homes built before 1978.** {lead_paint_clause}",
+   "text_note": null,
+   "fields": "concealed_notice_days, surface_prep_included, year_built, lead_paint_clause, lead_testing_sentence",
+   "pt_summary": "Versão para reforma e pintura. Ao abrir paredes pode aparecer podridão, mofo, cupim, fiação ou encanamento fora do código, que a prefeitura pode exigir corrigir. Define a preparação de superfície incluída na pintura. Para casas anteriores a 1978, a empresa entrega o folheto federal sobre chumbo, pega o recibo assinado e trabalha com práticas seguras (regra RRP da EPA).",
+   "trailing_notes_md": "- Source note: 40 CFR 745.84(a) (read on ecfr.gov) requires the firm, no more than 60 days before renovation in target housing, to give the owner the pamphlet and obtain a written acknowledgment or a certificate of mailing at least 7 days before the renovation. The 1978 cutoff comes from the federal definition of target housing, which was not re-read in this session. Whether the firm itself must hold EPA certification to use this clause is an attorney and compliance question.\n\n---"
+  },
+  {
+   "id": "C09-A",
+   "area": "C09",
+   "title": "Contractor pulls permits; Owner records the Notice of Commencement",
+   "trades": "all",
+   "owner_description": "The business pulls the permits (cost included in the price unless stated otherwise) and schedules inspections. The homeowner records the Notice of Commencement, which Contractor prepares for signature.",
+   "text": "**9. Permits, Notice of Commencement and Inspections.** Contractor will apply for the building permits the Work requires and schedule the required inspections. Permit fees {permit_fee_treatment}. Owner will sign the permit documents that require the owner's signature within {owner_response_days} business days of receiving them. {noc_sentence} Contractor will not start work that requires a permit before the permit is issued, and will not request the first inspection until {noc_first_inspection_sentence}. Delays caused by the building department or by failed inspections of Owner-supplied items are excusable delays under Section 6. If an inspector requires work beyond the Estimate, it is handled by Change Order, except to correct Contractor's own work, which Contractor fixes at no charge.",
+   "text_note": null,
+   "fields": "permit_fee_treatment (\"are included in the Contract Price\" or \"will be charged at the actual amount, estimated at {permit_fee_estimate}\"), owner_response_days, noc_sentence, noc_first_inspection_sentence, contract_price, property_county",
+   "pt_summary": "A empresa tira as licenças e agenda as vistorias; o cliente registra a Notice of Commencement (a empresa prepara para ele assinar em cartório). Acima de US$ 5.000 a cópia registrada vai para a prefeitura antes da primeira vistoria. Exigência do fiscal além do orçamento vira aditivo, salvo correção do próprio trabalho da empresa.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C09-B",
+   "area": "C09",
+   "title": "Contractor pulls permits and records the Notice of Commencement as Owner's agent",
+   "trades": "all",
+   "owner_description": "Same as C09-A, but the homeowner authorizes the business to record the signed Notice of Commencement on the homeowner's behalf. The homeowner still signs it.",
+   "text": "**9. Permits, Notice of Commencement and Inspections.** Contractor will apply for the building permits the Work requires and schedule the required inspections. Permit fees {permit_fee_treatment}. Owner will sign the permit documents that require the owner's signature within {owner_response_days} business days of receiving them. Owner authorizes Contractor, as Owner's agent for this purpose only, to record the Notice of Commencement signed by Owner in the {property_county} County official records, to post a copy at the job site, and to file a copy with the building department when required. Recording fees {recording_fee_treatment}. Contractor will give Owner a copy of the recorded Notice of Commencement. Contractor will not start work that requires a permit before the permit is issued. Delays caused by the building department are excusable delays under Section 6. If an inspector requires work beyond the Estimate, it is handled by Change Order, except to correct Contractor's own work, which Contractor fixes at no charge.",
+   "text_note": null,
+   "fields": "permit_fee_treatment, owner_response_days, property_county, recording_fee_treatment",
+   "pt_summary": "Igual ao C09-A, mas o cliente autoriza a empresa a registrar a Notice of Commencement em nome dele (ele continua assinando). A empresa entrega cópia registrada ao cliente. Útil porque na prática quem cuida do registro costuma ser a empresa.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C09-C",
+   "area": "C09",
+   "title": "No permit required",
+   "trades": "tile, general, hardscape (small jobs)",
+   "owner_description": "For work the business has determined needs no permit under the local code. It says so, and says that if the building department decides otherwise, the permit becomes a change order.",
+   "text": "**9. Permits and Inspections.** Based on the Estimate and the local building code as Contractor understands it, the Work does not require a building permit in {permit_jurisdiction}. If the building department requires a permit, Contractor will apply for it, the permit fee and any required changes will be added by Change Order, and the schedule will be extended for the permit process. Owner is responsible for any HOA approval.",
+   "text_note": null,
+   "fields": "permit_jurisdiction",
+   "pt_summary": "Para serviço que a empresa entende que não precisa de licença no município. Se a prefeitura exigir, a empresa tira a licença e a taxa e as mudanças entram por aditivo. Atenção: sem licença, o relógio do §489.126 (se o sinal passar de 10%) conta só o início de obra.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C10-A",
+   "area": "C10",
+   "title": "General selections and substitutions",
+   "trades": "all",
+   "owner_description": "Sets selection deadlines, allows substitution only with an equal or better product and the homeowner's written OK, and covers backorders.",
+   "text": "**10. Materials and Selections.** Owner will make the selections listed here by the dates shown: {selection_deadlines_table}. A late selection extends the schedule. Once Owner approves a selection in writing and Contractor orders it, changing it is a Change Order, including any restocking fee the supplier charges. If a specified product is discontinued or backordered for more than {backorder_days} days, Contractor will propose an equal or better substitute in writing, and will not use it without Owner's written approval. If Owner prefers to wait for the original product, the schedule is extended. Materials remain Contractor's property until paid for, and leftover materials that Owner paid for are left with Owner unless Owner asks Contractor to remove them.",
+   "text_note": null,
+   "fields": "selection_deadlines_table, backorder_days",
+   "pt_summary": "Define prazos para as escolhas do cliente; escolha atrasada estende o prazo e mudança depois de pedido o material vira aditivo (com taxa de devolução do fornecedor). Substituição só por produto igual ou melhor e com aprovação por escrito. Sobra de material pago fica com o cliente.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C10-B",
+   "area": "C10",
+   "title": "Tile and natural stone: lots, variation, grout and attic stock",
+   "trades": "tile",
+   "owner_description": "Adds what is specific to tile and stone: color differences between production lots, natural variation in stone, grout color appearance, and extra tile left for future repairs.",
+   "text": "**10. Materials and Selections.** Owner will make the selections listed here by the dates shown: {selection_deadlines_table}. A late selection extends the schedule. Once Owner approves a selection in writing and Contractor orders it, changing it is a Change Order, including any restocking fee the supplier charges.\n\n**Lots and variation.** Tile is made in production lots (dye lots), and color and size can vary between lots. Contractor will try to order the full quantity from one lot; if the supplier cannot, Contractor will tell Owner before installing. Natural stone, and porcelain made to look like stone or wood, varies in color, veining and texture from piece to piece and from any sample or showroom display. That variation is a characteristic of the material, not a defect.\n\n**Grout.** Grout color on the wall or floor can look different from the color chart because of lighting, joint width and the tile around it. Owner will approve the grout color in writing: {grout_color}. Slight shade variation in grout is not a defect.\n\n**Extra material.** The Estimate includes {overage_percent} percent extra for cuts and breakage. Contractor will leave {attic_stock_quantity} of unused tile with Owner for future repairs. Contractor cannot guarantee that the same tile will be available later.\n\n**Backorders.** If a specified product is discontinued or backordered for more than {backorder_days} days, Contractor will propose an equal or better substitute in writing and will not use it without Owner's written approval.",
+   "text_note": null,
+   "fields": "selection_deadlines_table, grout_color, overage_percent, attic_stock_quantity, backorder_days",
+   "pt_summary": "Específico de cerâmica e pedra: variação de cor entre lotes de fabricação, variação natural da pedra, rejunte que parece diferente da cartela, porcentagem de sobra para corte e quebra, e peças que ficam com o cliente para reparo futuro. Variação natural não é defeito, e isso fica escrito antes da obra.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C10-C",
+   "area": "C10",
+   "title": "Pools and hardscape: finishes, pavers and natural products",
+   "trades": "pools, hardscape",
+   "owner_description": "Adds what is specific to pool finishes and outdoor surfaces: plaster and pebble color variation, paver lot and shade variation, travertine characteristics, and efflorescence.",
+   "text": "**10. Materials and Selections.** Owner will make the selections listed here by the dates shown: {selection_deadlines_table}. A late selection extends the schedule. Once Owner approves a selection in writing and Contractor orders it, changing it is a Change Order, including any restocking fee.\n\n**Finishes and natural products.** Pool interior finishes (plaster, quartz, pebble) cure to a color that can vary from samples and can show mottling or shade differences, which change with water chemistry and sunlight. Pavers, travertine and natural stone vary in shade between pallets and from samples; Contractor will blend pallets during installation. Travertine has natural holes and pits. A white haze on concrete pavers or masonry (efflorescence) can appear as the material cures. These are characteristics of the materials, not defects.\n\n**Extra material.** Contractor will leave {attic_stock_quantity} of unused pavers, coping or tile with Owner for future repairs. Contractor cannot guarantee that the same product or shade will be available later.\n\n**Backorders.** If a specified product or equipment model is discontinued or backordered for more than {backorder_days} days, Contractor will propose an equal or better substitute in writing and will not use it without Owner's written approval.",
+   "text_note": null,
+   "fields": "selection_deadlines_table, attic_stock_quantity, backorder_days",
+   "pt_summary": "Específico de piscina e área externa: acabamento da piscina (reboco, quartzo, pebble) varia de cor com a cura e com a química da água, pavers e travertino variam entre paletes, o travertino tem furinhos naturais e a eflorescência branca pode aparecer. Tudo isso fica declarado como característica do material.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C10-D",
+   "area": "C10",
+   "title": "Owner-supplied materials",
+   "trades": "all",
+   "owner_description": "Used when the homeowner buys some materials. The homeowner is responsible for the right quantity arriving on time; labor for handling problems with those materials is extra, and the workmanship warranty covers installation only.",
+   "text": "**10. Materials and Selections.** Owner will make the selections listed here by the dates shown: {selection_deadlines_table}. Owner will supply these materials: {owner_supplied_items}, in the quantities Contractor specifies, delivered to the Property by {owner_materials_due_date}. Contractor will inspect them on delivery and tell Owner of visible damage or shortages. Delays caused by late, short or damaged owner-supplied materials extend the schedule, and a return trip caused by them may be charged by Change Order. Contractor's warranty covers Contractor's installation of owner-supplied materials, not the materials themselves. For materials Contractor supplies, if a product is discontinued or backordered for more than {backorder_days} days, Contractor will propose an equal or better substitute in writing and will not use it without Owner's written approval.",
+   "text_note": null,
+   "fields": "selection_deadlines_table, owner_supplied_items, owner_materials_due_date, backorder_days",
+   "pt_summary": "Para quando o cliente compra parte do material. Ele é responsável pela quantidade certa e pela entrega no prazo; atraso ou material danificado estende o prazo e a viagem extra pode ser cobrada. A garantia da empresa cobre só a instalação, não o material comprado pelo cliente.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C11-A",
+   "area": "C11",
+   "title": "One-year workmanship warranty",
+   "trades": "all",
+   "owner_description": "Contractor warrants its workmanship for one year from completion. Manufacturer warranties pass to the homeowner. Lists exclusions and the claim steps.",
+   "text": "**11. Warranty.** Contractor warrants that the Work will be free from defects in workmanship for {warranty_months_workmanship} months from the date of substantial completion (the \"Warranty Period\"). If a defect in workmanship appears during the Warranty Period, Contractor will repair it, or at Contractor's choice replace the defective part of the Work, at no charge. This is Contractor's only warranty; it does not promise any refund.\n\n**Manufacturer warranties.** Products and equipment carry their manufacturers' warranties, which Contractor will pass to Owner at completion along with registration information. Contractor does not add its own warranty to manufactured products, but will install them according to the manufacturer's instructions.\n\n**Not covered.** The warranty does not cover: normal wear; damage from misuse, neglect, lack of the maintenance described in the care instructions Contractor provides, accidents, storms, flooding, settling of the ground or structure not caused by the Work, or pests; work or repairs by anyone other than Contractor; owner-supplied materials; natural variation in materials described in Section 10; conditions Owner chose not to correct under Section 8; and minor hairline cracks in concrete, grout or plaster that do not affect function.\n\n**How to make a claim.** Owner will notify Contractor in writing at {warranty_contact} within {warranty_notice_days} days of noticing a problem, with photos if possible, and will give Contractor access to inspect within {warranty_inspect_days} business days. Contractor will tell Owner in writing whether the problem is covered and, if covered, schedule the repair. Owner will give Contractor the chance to inspect and repair before hiring anyone else to fix a covered item.\n\n**ANY CLAIMS FOR CONSTRUCTION DEFECTS ARE SUBJECT TO THE NOTICE AND CURE PROVISIONS OF CHAPTER 558, FLORIDA STATUTES.**",
+   "text_note": null,
+   "fields": "warranty_months_workmanship (fixed at 12 in this option), warranty_contact, warranty_notice_days, warranty_inspect_days",
+   "pt_summary": "Garantia de mão de obra de 12 meses a partir da conclusão substancial. As garantias dos fabricantes passam para o cliente. Lista o que não é coberto (desgaste, falta de manutenção, tempestade, serviço de terceiros, material do cliente) e o passo a passo do pedido de garantia, com direito de a empresa inspecionar e reparar antes de o cliente chamar outro. Nenhuma devolução de dinheiro é prometida.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C11-B",
+   "area": "C11",
+   "title": "Two-year workmanship warranty",
+   "trades": "all",
+   "owner_description": "Identical to C11-A except that the workmanship warranty lasts two years.",
+   "text": "",
+   "text_note": "identical to C11-A with `{warranty_months_workmanship}` fixed at 24.",
+   "fields": "as C11-A",
+   "pt_summary": "Igual ao C11-A, com garantia de mão de obra de 24 meses. É uma escolha comercial da empresa (garantia maior como diferencial), com o mesmo processo de pedido e as mesmas exclusões.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C11-C",
+   "area": "C11",
+   "title": "Component warranty schedule",
+   "trades": "all (most used by pools, hardscape and remodeling)",
+   "owner_description": "Different warranty lengths for different parts of the job, set by the business in a table, for example a longer term for structure and a shorter one for finishes or adjustments. Everything else matches C11-A.",
+   "text": "**11. Warranty.** Contractor warrants the following parts of the Work against defects in workmanship for the periods shown, each starting on the date of substantial completion: {warranty_component_table}. Any part of the Work not listed is warranted for {warranty_months_workmanship} months. If a defect in workmanship appears during its warranty period, Contractor will repair it, or at Contractor's choice replace the defective part, at no charge. This is Contractor's only warranty; it does not promise any refund.\n\n**Manufacturer warranties, Not covered, How to make a claim:** same text as C11-A.\n\n**ANY CLAIMS FOR CONSTRUCTION DEFECTS ARE SUBJECT TO THE NOTICE AND CURE PROVISIONS OF CHAPTER 558, FLORIDA STATUTES.**",
+   "text_note": null,
+   "fields": "warranty_component_table (rows: component, months; filled in setup per trade, no defaults supplied by this draft), warranty_months_workmanship, warranty_contact, warranty_notice_days, warranty_inspect_days",
+   "pt_summary": "Prazos diferentes por parte da obra, definidos pela empresa numa tabela (por exemplo, estrutura com prazo maior e acabamento com prazo menor). O rascunho não sugere prazos por ofício, porque não há fonte verificada para \"prazo típico\"; a empresa preenche. O resto é igual ao C11-A.",
+   "trailing_notes_md": "Pool-specific note: when the Pool box is on, the \"Not covered\" list in any C11 option adds: \"damage from water chemistry outside the ranges in the care instructions, from draining the pool without Contractor's guidance, or from freezing.\"\n\n---"
+  },
+  {
+   "id": "C12-A",
+   "area": "C12",
+   "title": "Final payment at substantial completion, small punch-list holdback",
+   "trades": "all",
+   "owner_description": "The final payment is due when the job is substantially complete, except a small amount the homeowner may hold until the punch list is done. The affidavit and lien releases are delivered with the final invoice.",
+   "text": "**12. Completion and Final Payment.** The Work is \"substantially complete\" when it can be used for its intended purpose{final_inspection_clause}, even if minor items remain. Contractor will notify Owner in writing when the Work is substantially complete and walk through it with Owner within {walkthrough_days} business days. At the walkthrough, Owner and Contractor will sign a written punch list of remaining items. Owner may hold back {punch_holdback_amount} from the final payment until the punch list is finished; Contractor will finish the punch list within {punch_completion_days} business days, unless an item depends on a backordered product. Items not on the signed punch list, other than hidden defects, are covered by the warranty in Section 11 rather than the punch list.\n\n**Final payment documents.** With the final invoice, Contractor will give Owner: (1) the Contractor's Final Payment Affidavit required by section 713.06, Florida Statutes; (2) releases of lien from Contractor and from each subcontractor or supplier that served Owner with a Notice to Owner, for amounts paid so far, with final releases on receipt of final payment; (3) manufacturer warranties and care instructions; and (4) any inspection approvals or certificates of completion. Owner is not required to make the final payment until item (1) is delivered. The final payment, less any punch-list holdback, is due within {final_payment_days} days after these documents are delivered.",
+   "text_note": null,
+   "fields": "final_inspection_clause (\", has passed final inspection,\" when permitted, empty otherwise), walkthrough_days, punch_holdback_amount, punch_completion_days, final_payment_days",
+   "pt_summary": "O pagamento final vence na conclusão substancial, e o cliente pode segurar um valor pequeno até terminar a lista de pendências (punch list) assinada pelos dois. Com a fatura final a empresa entrega a declaração juramentada de pagamento final (Final Payment Affidavit, §713.06), as liberações de ônus (lien releases), as garantias e as aprovações. Sem a declaração, o cliente não é obrigado a pagar o final.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C12-B",
+   "area": "C12",
+   "title": "Final payment at final completion",
+   "trades": "all (most used by tile, general and small hardscape jobs)",
+   "owner_description": "The whole final payment is due once everything, including the punch list, is done. There is no holdback because nothing is left open.",
+   "text": "**12. Completion and Final Payment.** When Contractor believes the Work is complete, Contractor will notify Owner and walk through it with Owner within {walkthrough_days} business days. Owner will list in writing, at the walkthrough, any items Owner believes are incomplete or not in accordance with this Contract. Contractor will correct listed items that are its responsibility within {punch_completion_days} business days. The Work is \"complete\" when those items are corrected{final_inspection_clause}.\n\n**Final payment documents.** With the final invoice, Contractor will give Owner: (1) the Contractor's Final Payment Affidavit required by section 713.06, Florida Statutes; (2) releases of lien from Contractor and from each subcontractor or supplier that served Owner with a Notice to Owner, with final releases on receipt of final payment; (3) manufacturer warranties and care instructions; and (4) any inspection approvals. Owner is not required to make the final payment until item (1) is delivered. The final payment is due within {final_payment_days} days after the Work is complete and these documents are delivered. Owner may not withhold payment for items not listed at the walkthrough; those are handled under the warranty in Section 11.",
+   "text_note": null,
+   "fields": "walkthrough_days, punch_completion_days, final_inspection_clause, final_payment_days",
+   "pt_summary": "O pagamento final vence só quando tudo estiver pronto, inclusive as pendências. Não há retenção porque nada fica em aberto. O cliente precisa apontar as pendências por escrito na vistoria final; o que não foi apontado ali vai para a garantia, não serve para segurar o pagamento.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C12-C",
+   "area": "C12",
+   "title": "Retainage on each progress payment",
+   "trades": "pools, remodeling, hardscape (larger jobs)",
+   "owner_description": "The homeowner holds back a percentage of each progress payment until substantial completion, then pays it after the punch list, on the timing in Florida's prompt payment law.",
+   "text": "**12. Retainage, Completion and Final Payment.** Owner may withhold {retainage_percent} percent of each progress payment (\"retainage\") until the Work is substantially complete. The Work is \"substantially complete\" when it can be used for its intended purpose{final_inspection_clause}. Within {punchlist_submit_days} days after substantial completion, Owner will give Contractor a written punch list. Owner will pay the retainage and any remaining balance within 14 days after Contractor substantially completes the items on that punch list, as provided in section 715.12, Florida Statutes.\n\n**Final payment documents.** With the final invoice, Contractor will give Owner: (1) the Contractor's Final Payment Affidavit required by section 713.06, Florida Statutes; (2) releases of lien from Contractor and from each subcontractor or supplier that served Owner with a Notice to Owner; (3) manufacturer warranties and care instructions; and (4) any inspection approvals or certificates of completion. Owner is not required to make the final payment until item (1) is delivered.",
+   "text_note": null,
+   "fields": "retainage_percent, final_inspection_clause, punchlist_submit_days (default 15, matching the statute's fallback)",
+   "pt_summary": "O cliente retém uma porcentagem de cada parcela até a conclusão substancial e paga a retenção 14 dias depois de a empresa concluir a lista de pendências, conforme a lei de pagamento pontual da Flórida (§715.12). Mais comum em obras grandes.",
+   "trailing_notes_md": "Open point for all C12 options: the affidavit must be sworn. Spec decision C14 routes it to a notary (Proof or in person) now, with a later switch to a §92.525 written declaration if the attorney confirms that is allowed. §92.525 (verified to exist and to allow verification by written declaration \"If authorized or required by law\") is an attorney question.\n\n---"
+  },
+  {
+   "id": "C13-A",
+   "area": "C13",
+   "title": "Asymmetric: Contractor may suspend or terminate for non-payment or access; Owner for cause",
+   "trades": "all",
+   "owner_description": "The business can pause work after a short written notice if a payment is late or access is denied, and can end the contract if that continues. The homeowner can end the contract if the business fails to perform and does not fix it after notice. Neither side can end it just by changing their mind.",
+   "text": "**13. Suspension and Termination.**\n**Suspension by Contractor.** If a payment is more than {suspension_trigger_days} days late, or Owner does not provide access under Section 7, Contractor may suspend the Work after giving Owner {suspension_notice_days} business days' written notice. The schedule is extended for the suspension, and Owner will pay Contractor's documented costs of demobilizing and remobilizing.\n**Termination by Contractor.** If the cause of a suspension is not corrected within {contractor_termination_days} days after the suspension starts, Contractor may terminate this Contract by letter stating the reason, sent by certified mail, return receipt requested, to Owner's address in this Contract, with a copy by email.\n**Termination by Owner.** If Contractor fails to perform the Work as this Contract requires, Owner may give Contractor written notice describing the failure. If Contractor does not begin to correct it within {owner_cure_days} business days after receiving the notice and diligently complete the correction, Owner may terminate this Contract by a second written notice.\n**Payment on termination.** On any termination, Owner will pay Contractor for Work performed up to the termination date, valued on the basis of the Contract Price and the payment schedule, plus materials ordered for this Work that cannot be returned or cancelled (which become Owner's property), less payments already made. If Owner terminates under this section, Owner may deduct Owner's reasonable, documented cost to correct Contractor's defective work. Contractor will give Owner the Contractor's Final Payment Affidavit and releases of lien for amounts paid.",
+   "text_note": null,
+   "fields": "suspension_trigger_days, suspension_notice_days, contractor_termination_days, owner_cure_days",
+   "pt_summary": "Rescisão assimétrica do Pr. Rafael. A empresa pode suspender com aviso por escrito se o pagamento atrasar ou o acesso for negado, e rescindir se continuar, por carta registrada com aviso de recebimento (é a forma descrita no §489.126). O cliente pode rescindir por falha da empresa depois de aviso e prazo para corrigir. Ninguém rescinde só por mudar de ideia. Na rescisão, paga-se o trabalho feito e o material que não pode ser devolvido.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C13-B",
+   "area": "C13",
+   "title": "Asymmetric, plus Owner termination for convenience with a fee",
+   "trades": "all",
+   "owner_description": "Same as C13-A, but the homeowner may also end the contract without a reason, by paying for work done, non-returnable materials, and a fixed termination amount that you set. The termination amount must be written as a real estimate of your costs.",
+   "text": "**Termination by Owner without cause.** Owner may also terminate this Contract for any reason by written notice to Contractor. In that case, in addition to the payment on termination above, Owner will pay {convenience_fee_description}, which the parties agree is a reasonable estimate of Contractor's costs of scheduling, crew commitment and lost opportunity that are hard to calculate at the time of signing. This paragraph does not apply during the three-business-day cancellation period, if any, in the Notice of Cancellation attached to this Contract.",
+   "text_note": "C13-A, plus:",
+   "fields": "as C13-A plus convenience_fee_description (e.g. \"{convenience_fee_percent} percent of the unpaid Contract Price\")",
+   "pt_summary": "Igual ao C13-A, mas o cliente também pode rescindir sem motivo, pagando o trabalho feito, o material que não volta e um valor fixo de rescisão definido pela empresa como estimativa real dos custos. Nunca se aplica durante os 3 dias úteis de cancelamento. Se esse valor é exigível na Flórida é pergunta para o advogado.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C13-C",
+   "area": "C13",
+   "title": "Mutual for-cause termination only",
+   "trades": "all",
+   "owner_description": "Both sides have the same rights: either may end the contract only for the other's serious failure after written notice and a cure period. The business keeps the right to suspend for non-payment.",
+   "text": "**13. Suspension and Termination.**\n**Suspension for non-payment or access.** If a payment is more than {suspension_trigger_days} days late, or Owner does not provide access under Section 7, Contractor may suspend the Work after giving Owner {suspension_notice_days} business days' written notice. The schedule is extended for the suspension.\n**Termination for cause.** If either party materially fails to perform this Contract, the other may give written notice describing the failure. If the failure is not corrected within {mutual_cure_days} days after the notice is received, the party that gave notice may terminate this Contract by a second written notice. A termination notice from Contractor will be sent by certified mail, return receipt requested, to Owner's address in this Contract, with a copy by email.\n**Payment on termination.** On any termination, Owner will pay Contractor for Work performed up to the termination date, valued on the basis of the Contract Price and the payment schedule, plus materials ordered for this Work that cannot be returned or cancelled (which become Owner's property), less payments already made and less Owner's reasonable, documented cost to correct Contractor's defective work if Owner terminated for cause. Contractor will give Owner the Contractor's Final Payment Affidavit and releases of lien for amounts paid.",
+   "text_note": null,
+   "fields": "suspension_trigger_days, suspension_notice_days, mutual_cure_days",
+   "pt_summary": "Direitos iguais para os dois lados: só se rescinde por falha grave da outra parte, depois de aviso e prazo para corrigir. A empresa mantém o direito de suspender por falta de pagamento. É a versão menos assimétrica, oferecida para quem prefere igualdade formal.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C14-A",
+   "area": "C14",
+   "title": "Package A: negotiation, mediation, then court in the property's county",
+   "trades": "all",
+   "owner_description": "Talk first, then a mediator, then a lawsuit in the county court or circuit court where the property is. Each side pays its own lawyer unless the court orders otherwise by law.",
+   "text": "**14. Disputes.** If a dispute arises under this Contract, the parties will first meet (in person or by video) within {negotiation_days} days after either gives written notice of the dispute, to try to resolve it. If it is not resolved within {negotiation_days} days after that meeting, either party may request mediation by a Florida Supreme Court certified mediator in {property_county} County, with the mediator's fee shared equally. If mediation does not resolve the dispute within {mediation_days} days after the request, either party may file suit. Any suit will be filed in the state courts for {property_county} County, Florida. Each party will pay its own attorney's fees and costs, except as a statute or court rule provides otherwise. Claims for construction defects are also subject to Chapter 558, Florida Statutes. Nothing in this section prevents Contractor from recording or enforcing a claim of lien within the time the law allows, or either party from seeking emergency relief from a court.",
+   "text_note": null,
+   "fields": "negotiation_days, mediation_days, property_county",
+   "pt_summary": "Pacote A: conversa, depois mediador certificado, depois ação judicial no condado do imóvel. Cada parte paga seu advogado. A empresa mantém o direito de registrar o lien no prazo legal, que não espera a mediação.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C14-B",
+   "area": "C14",
+   "title": "Package B: negotiation, mediation, then binding arbitration",
+   "trades": "all",
+   "owner_description": "Talk first, then a mediator, then a private arbitrator whose decision is final instead of a court and jury. The arbitration is held in the property's county; fees are split as the package states.",
+   "text": "**14. Disputes.** If a dispute arises under this Contract, the parties will first meet (in person or by video) within {negotiation_days} days after either gives written notice of the dispute, to try to resolve it. If it is not resolved within {negotiation_days} days after that meeting, either party may request mediation by a Florida Supreme Court certified mediator in {property_county} County, with the mediator's fee shared equally. If mediation does not resolve the dispute within {mediation_days} days after the request, the dispute will be decided by binding arbitration before a single arbitrator under {arbitration_rules}, held in {property_county} County, Florida. The arbitrator's decision is final and may be entered as a judgment in court. **BY AGREEING TO ARBITRATION, OWNER AND CONTRACTOR EACH GIVE UP THE RIGHT TO HAVE THE DISPUTE DECIDED BY A JUDGE OR JURY IN COURT.** {arbitration_fee_allocation} Claims for construction defects are also subject to Chapter 558, Florida Statutes. Nothing in this section prevents Contractor from recording or enforcing a claim of lien within the time the law allows, or either party from seeking emergency relief from a court. Claims within the small claims limit may be brought in small claims court instead of arbitration.\n\nOwner initials: {owner_initials_arbitration}   Contractor initials: {contractor_initials_arbitration}",
+   "text_note": null,
+   "fields": "negotiation_days, mediation_days, property_county, arbitration_rules (attorney-set), arbitration_fee_allocation (attorney-set), owner_initials_arbitration, contractor_initials_arbitration",
+   "pt_summary": "Pacote B: conversa, mediador e depois arbitragem obrigatória, com árbitro privado cuja decisão é final, sem juiz nem júri. O cliente rubrica ao lado da cláusula. Causas pequenas podem ir ao juizado de pequenas causas. As regras e a divisão de custos da arbitragem são definidas pelo advogado.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C14-C",
+   "area": "C14",
+   "title": "Package C: negotiation, mediation, court, prevailing party fees, jury waiver",
+   "trades": "all",
+   "owner_description": "Same path as Package A, but whoever wins in court recovers reasonable attorney's fees from the other side, and both sides give up a jury trial (a judge decides).",
+   "text": "**14. Disputes.** If a dispute arises under this Contract, the parties will first meet (in person or by video) within {negotiation_days} days after either gives written notice of the dispute, to try to resolve it. If it is not resolved within {negotiation_days} days after that meeting, either party may request mediation by a Florida Supreme Court certified mediator in {property_county} County, with the mediator's fee shared equally. If mediation does not resolve the dispute within {mediation_days} days after the request, either party may file suit in the state courts for {property_county} County, Florida. In any suit or proceeding arising from this Contract, the prevailing party may recover its reasonable attorney's fees and costs, including on appeal. **OWNER AND CONTRACTOR EACH KNOWINGLY AND VOLUNTARILY WAIVE ANY RIGHT TO A TRIAL BY JURY IN ANY ACTION ARISING FROM THIS CONTRACT.** Claims for construction defects are also subject to Chapter 558, Florida Statutes. Nothing in this section prevents Contractor from recording or enforcing a claim of lien within the time the law allows, or either party from seeking emergency relief from a court.\n\nOwner initials: {owner_initials_jury}   Contractor initials: {contractor_initials_jury}",
+   "text_note": null,
+   "fields": "negotiation_days, mediation_days, property_county, owner_initials_jury, contractor_initials_jury",
+   "pt_summary": "Pacote C: mesmo caminho do A, mas quem ganhar na justiça recebe honorários advocatícios razoáveis da outra parte, e as duas partes renunciam ao júri (quem decide é o juiz). O cliente rubrica ao lado da renúncia ao júri.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C15-A",
+   "area": "C15",
+   "title": "Liability limited to the Contract Price; no indirect damages",
+   "trades": "all",
+   "owner_description": "Caps what the business can owe for claims under the contract at the contract price, and excludes indirect losses like lost rent or hotel costs. Personal injury, property damage caused by the business's negligence, and intentional wrongdoing are not capped.",
+   "text": "**15. Liability and Insurance.** {insurance_statement} Except for bodily injury, damage to property other than the Work caused by Contractor's negligence, and fraud or intentional misconduct, Contractor's total liability for all claims arising from this Contract will not exceed the Contract Price. Neither party is liable to the other for indirect or consequential losses, such as loss of use, lost rent, temporary housing, or lost profits, except as this Contract states otherwise. Owner is responsible for insuring the Property, including the Work as it is installed, under Owner's homeowner's policy.",
+   "text_note": null,
+   "fields": "insurance_statement",
+   "pt_summary": "Limita a responsabilidade da empresa ao valor do contrato e exclui perdas indiretas (aluguel perdido, hotel, lucro cessante). Não limita lesão corporal, dano à propriedade por negligência nem fraude. Seguro só aparece se houver certificado válido cadastrado; nunca se escreve \"segurado\" ou \"bonded\" sem documento. Responde ao ponto 7 da auditoria (falta de limite de responsabilidade).",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C15-B",
+   "area": "C15",
+   "title": "No liability cap; insurance statement only",
+   "trades": "all",
+   "owner_description": "No limit on liability. The clause only states the insurance on file (if any) and that the homeowner insures the property.",
+   "text": "**15. Insurance.** {insurance_statement} Owner is responsible for insuring the Property, including the Work as it is installed, under Owner's homeowner's policy.",
+   "text_note": null,
+   "fields": "insurance_statement",
+   "pt_summary": "Sem limite de responsabilidade. Só informa o seguro que estiver cadastrado (se houver) e que o cliente segura o imóvel pelo seguro residencial dele. É a versão mais curta.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C15-C",
+   "area": "C15",
+   "title": "Liability limited to the amount paid for the affected part of the Work",
+   "trades": "all",
+   "owner_description": "A narrower cap than C15-A: liability for a claim is limited to what the homeowner paid for the part of the job the claim is about. Same carve-outs and indirect-loss exclusion as C15-A.",
+   "text": "**15. Liability and Insurance.** {insurance_statement} Except for bodily injury, damage to property other than the Work caused by Contractor's negligence, and fraud or intentional misconduct, Contractor's liability for any claim arising from this Contract will not exceed the amount Owner paid for the part of the Work the claim concerns, as shown in the Estimate or a Change Order. Neither party is liable to the other for indirect or consequential losses, such as loss of use, lost rent, temporary housing, or lost profits, except as this Contract states otherwise. Owner is responsible for insuring the Property, including the Work as it is installed, under Owner's homeowner's policy.",
+   "text_note": null,
+   "fields": "insurance_statement",
+   "pt_summary": "Limite mais estreito que o C15-A: a responsabilidade por uma reclamação fica limitada ao que o cliente pagou pela parte da obra em questão. Mesmas exceções e mesma exclusão de perdas indiretas. Se esse limite é aceito na Flórida em contrato com consumidor é pergunta para o advogado.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C16-A",
+   "area": "C16",
+   "title": "Validity date tied to the estimate",
+   "trades": "all",
+   "owner_description": "The contract offer expires on the same date as the accepted estimate's validity date. After that, prices and dates must be confirmed again.",
+   "text": "**16. Offer and Acceptance.** Contractor has signed this Contract as an offer, which remains open until {offer_expiry_date}. If Owner has not signed by then, the offer expires, and Contractor may update the price and schedule before offering again. This Contract takes effect when both parties have signed it.",
+   "text_note": null,
+   "fields": "offer_expiry_date (defaults to the estimate's `{estimate_valid_until}`)",
+   "pt_summary": "A proposta assinada pela empresa vale até a mesma data de validade do orçamento. Depois disso expira, e a empresa pode atualizar preço e prazo antes de oferecer de novo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C16-B",
+   "area": "C16",
+   "title": "Rafa's 72-hour mutual execution",
+   "trades": "all",
+   "owner_description": "The homeowner has 72 hours from when the business signs and sends the contract to sign it. The clause names the exact date and time.",
+   "text": "**16. Offer and Acceptance.** Contractor signed and sent this Contract on {company_signed_at}. Owner has 72 hours, until {mutual_execution_deadline} Eastern Time, to sign it. If Owner has not signed by then, this offer expires, the reserved start date is released, and Contractor may update the price and schedule before offering again. This Contract takes effect when both parties have signed it.",
+   "text_note": null,
+   "fields": "company_signed_at, mutual_execution_deadline (computed: company_signed_at plus 72 hours, shown in 12-hour Eastern time)",
+   "pt_summary": "A cláusula de 72 horas de execução mútua do Pr. Rafael. O cliente tem 72 horas a partir da assinatura da empresa, com data e hora explícitas, para assinar. Se não assinar, a data de início reservada é liberada e a empresa pode atualizar preço e prazo.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C16-C",
+   "area": "C16",
+   "title": "Validity date with reserved start date",
+   "trades": "all",
+   "owner_description": "Like C16-A, but it says the start date shown in Section 6 is held for the homeowner only until a stated date, separate from the price validity.",
+   "text": "**16. Offer and Acceptance.** Contractor has signed this Contract as an offer. The price is valid until {offer_expiry_date}. The start date in Section 6 is reserved for Owner until {start_hold_until_date}; if Owner signs after that date, Contractor will confirm the next available start date in writing. This Contract takes effect when both parties have signed it.",
+   "text_note": null,
+   "fields": "offer_expiry_date, start_hold_until_date",
+   "pt_summary": "Separa a validade do preço da reserva da data de início. A data fica segura só até um dia definido; depois, a empresa confirma a próxima data livre por escrito. Combina com a regra de negociação de ceder no cronograma e não no preço.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C17-A",
+   "area": "C17",
+   "title": "Daily tidy and final cleanup, debris removal included",
+   "trades": "all",
+   "owner_description": "The crew tidies the work area at the end of each working day, removes construction debris, and does a final broom-clean at completion.",
+   "text": "**17. Cleanup and Protection.** Contractor will protect floors, fixtures and finished surfaces in the work path, keep the work area reasonably tidy at the end of each working day, and remove construction debris from the Property {debris_frequency}. At completion Contractor will remove its tools, equipment and debris and leave the work area broom-clean. Detailed or professional cleaning is not included. Contractor may place a dumpster or trailer at {dumpster_location}; Owner confirms that location is allowed by any HOA.",
+   "text_note": null,
+   "fields": "debris_frequency (e.g. \"at least weekly\"), dumpster_location",
+   "pt_summary": "A equipe arruma a área ao fim de cada dia, retira o entulho e entrega varrido no final. Limpeza fina ou profissional não está incluída. Define o local da caçamba e o cliente confirma que o condomínio permite.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C17-B",
+   "area": "C17",
+   "title": "Final cleanup only",
+   "trades": "all",
+   "owner_description": "Debris is kept in one area during the job and removed at completion, with a final broom-clean. No daily tidy commitment.",
+   "text": "**17. Cleanup and Protection.** Contractor will protect floors, fixtures and finished surfaces in the work path and keep debris in {debris_staging_area} during the Work. At completion Contractor will remove its tools, equipment and debris and leave the work area broom-clean. Detailed or professional cleaning is not included.",
+   "text_note": null,
+   "fields": "debris_staging_area",
+   "pt_summary": "O entulho fica num local definido durante a obra e é retirado no final, com entrega varrida. Não há compromisso de arrumação diária. Mais barato e adequado a obras curtas.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C17-C",
+   "area": "C17",
+   "title": "Owner provides debris container",
+   "trades": "all",
+   "owner_description": "The homeowner arranges the dumpster; the crew loads debris into it and leaves the area broom-clean. The price reflects that hauling is not included.",
+   "text": "**17. Cleanup and Protection.** Owner will provide a debris container at the Property by the start date and arrange its removal. Contractor will place its construction debris in that container, protect floors, fixtures and finished surfaces in the work path, and at completion remove its tools and equipment and leave the work area broom-clean. Hauling and disposal fees are not included in the Contract Price. Detailed or professional cleaning is not included.",
+   "text_note": null,
+   "fields": "none",
+   "pt_summary": "O cliente providencia a caçamba e a retirada; a equipe coloca o entulho nela e entrega varrido. O preço já considera que o transporte do entulho não está incluído.",
+   "trailing_notes_md": "Pool and hardscape add-on sentence (printed with any C17 option when the trade is pools or hardscape): \"Excavated soil will be {spoil_disposition}.\"\n\n---"
+  },
+  {
+   "id": "C18-A",
+   "area": "C18",
+   "title": "No marketing use",
+   "trades": "all",
+   "owner_description": "Photos are used only for the job record. Nothing is used for marketing.",
+   "text": "**18. Photos.** Contractor may take photos and video of the Work for its job records, warranty and permit purposes only. Contractor will not use them for advertising.",
+   "text_note": null,
+   "fields": "none",
+   "pt_summary": "Fotos só para registro da obra, garantia e licença. Nada para marketing. É o padrão; o cliente não precisa marcar nada.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C18-B",
+   "area": "C18",
+   "title": "Marketing use without identifying details",
+   "trades": "all",
+   "owner_description": "With the homeowner's checkbox, the business may use photos of the finished work in marketing, without the address, house number, people, or anything that identifies the home.",
+   "text": "**18. Photos.** Contractor may take photos and video of the Work for its job records, warranty and permit purposes. ☐ Owner also allows Contractor to use photos and video of the Work on its website, social media and printed materials, without showing people, the address, house numbers, license plates or other details that identify the Property or Owner. Owner may withdraw this permission for future use at any time by written notice.",
+   "text_note": null,
+   "fields": "owner_marketing_consent_checkbox",
+   "pt_summary": "Com o aceite do cliente (caixa marcada), a empresa usa fotos da obra pronta no marketing, sem pessoas, endereço, número da casa ou placa de carro. O cliente pode retirar a permissão para usos futuros.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C18-C",
+   "area": "C18",
+   "title": "Marketing use with first name and city, and review request",
+   "trades": "all",
+   "owner_description": "With the homeowner's checkbox, photos may be used with the homeowner's first name and city, and the business may ask for a review. Still no street address.",
+   "text": "**18. Photos.** Contractor may take photos and video of the Work for its job records, warranty and permit purposes. ☐ Owner also allows Contractor to use photos and video of the Work on its website, social media and printed materials, identified only by Owner's first name and city, without the street address or house number. Contractor may ask Owner for a review after completion; Owner is free to decline. Owner may withdraw this permission for future use at any time by written notice.",
+   "text_note": null,
+   "fields": "owner_marketing_consent_checkbox",
+   "pt_summary": "Com o aceite do cliente, as fotos podem sair com o primeiro nome e a cidade, e a empresa pode pedir uma avaliação ao final (o cliente pode recusar). Nunca o endereço. Útil para depoimento e prova social.",
+   "trailing_notes_md": "---"
+  },
+  {
+   "id": "C19-A",
+   "area": "C19",
+   "title": "Standard general terms",
+   "trades": "all",
+   "owner_description": "The standard closing terms: this contract plus its attachments is the whole agreement, how notices are sent, electronic signatures, what happens if one part is invalid, and Florida law.",
+   "text": "**19. General Terms.**\n**Entire agreement.** This Contract, the Estimate, the attachments listed below and any signed Change Orders are the entire agreement between Owner and Contractor. They replace all earlier discussions, messages and proposals. Only a written document signed by both parties can change this Contract. Attachments: {attachments_list}.\n**Notices.** Formal notices under this Contract (delay, concealed condition, suspension, termination, warranty claim, dispute) must be in writing and sent to the addresses in Section 1, by email and by one of: hand delivery, certified mail, or a nationally recognized courier. A termination notice from Contractor is also sent by certified mail, return receipt requested. Day-to-day scheduling messages may be sent by text or messaging app.\n**Electronic signatures and records.** Before signing, Owner consented to receive and sign this Contract electronically on the consent screen that is part of the signing record. Electronic signatures on this Contract, its notices and Change Orders have the same effect as handwritten signatures under the federal Electronic Signatures in Global and National Commerce Act and section 668.50, Florida Statutes. Each party will receive a complete copy of the signed Contract. Owner may request a paper copy at no charge by contacting Contractor.\n**Severability.** If any part of this Contract is found unenforceable, the rest remains in effect, and the unenforceable part will be applied to the greatest extent the law allows.\n**Governing law.** Florida law governs this Contract.\n**No waiver.** Accepting a late payment or allowing a delay once does not waive the right to insist on the terms later.\n**Assignment.** Neither party may assign this Contract without the other's written consent, except that Contractor may use licensed subcontractors for parts of the Work and remains responsible for their work.",
+   "text_note": null,
+   "fields": "attachments_list",
+   "pt_summary": "Cláusulas finais padrão: o contrato com anexos e aditivos é o acordo inteiro, como enviar avisos formais (e-mail mais entrega pessoal, carta registrada ou courier), assinatura eletrônica com consentimento prévio (ESIGN e lei UETA da Flórida, §668.50), cópia ao cliente, divisibilidade e lei da Flórida. Subcontratados licenciados são permitidos com a empresa respondendo por eles.",
+   "trailing_notes_md": ""
+  },
+  {
+   "id": "C19-B",
+   "area": "C19",
+   "title": "Standard terms plus courtesy Portuguese translation",
+   "trades": "all",
+   "owner_description": "Same as C19-A, plus a courtesy Portuguese copy for homeowners who speak Portuguese, stating that the English version controls if they differ. This option stays locked until the attorney approves it because of the federal same-language rule for in-home sales.",
+   "text": "**Language.** At Owner's request, Contractor has provided a Portuguese translation of this Contract for convenience. If the English and Portuguese versions differ, the English version controls.",
+   "text_note": "C19-A, plus:",
+   "fields": "none (the Portuguese copy is generated from the same clause IDs)",
+   "pt_summary": "Igual ao C19-A, mais uma cópia de cortesia em português para cliente que fala português, dizendo que a versão em inglês prevalece. Fica bloqueada até o advogado aprovar, porque a regra federal (FTC) exige que, em venda feita na casa do cliente, o contrato esteja no idioma principal da apresentação de venda; uma versão \"de cortesia\" pode não bastar nesse caso.",
+   "trailing_notes_md": "---"
+  }
+ ],
+ "exclusion_checklists": [
+  {
+   "trade": "All trades",
+   "items": [
+    "Permit fees above the amount in the Estimate",
+    "engineering or survey unless listed",
+    "repair of conditions found under C08",
+    "HOA application fees",
+    "work by other trades not listed",
+    "relocation or storage of furniture and belongings",
+    "landscape, irrigation or sod restoration beyond the work area",
+    "electrical or plumbing work beyond the connection points listed"
+   ]
+  },
+  {
+   "trade": "Pools and spas",
+   "items": [
+    "Rock removal, dewatering and hauling beyond the Estimate's allowance",
+    "screen enclosure",
+    "fence or barrier unless it is the chosen safety feature",
+    "electrical service upgrade or panel work",
+    "gas line",
+    "start-up chemicals beyond first fill",
+    "water for the first fill",
+    "landscaping and sod",
+    "drainage beyond the pool deck",
+    "repair of driveway or sidewalk damage from equipment access"
+   ]
+  },
+  {
+   "trade": "Tile and flooring",
+   "items": [
+    "Subfloor or slab repair and leveling beyond the Estimate",
+    "moisture mitigation",
+    "removal of more than one existing layer",
+    "asbestos testing or abatement",
+    "moving appliances",
+    "baseboard or trim replacement",
+    "door trimming",
+    "furniture moving"
+   ]
+  },
+  {
+   "trade": "Remodeling",
+   "items": [
+    "Structural changes",
+    "asbestos or mold remediation",
+    "lead-based paint abatement (as opposed to lead-safe work practices)",
+    "relocation of plumbing or electrical beyond the Estimate",
+    "appliance installation",
+    "cabinet or countertop templating changes after approval",
+    "painting outside the work area"
+   ]
+  },
+  {
+   "trade": "Hardscape and outdoor living",
+   "items": [
+    "Rock removal",
+    "soil import or export beyond the Estimate",
+    "drainage systems",
+    "irrigation relocation",
+    "electrical or gas for outdoor kitchens",
+    "engineering for decks or pergolas",
+    "HOA architectural approval fees",
+    "tree or root removal"
+   ]
+  },
+  {
+   "trade": "General services (painting, handyman)",
+   "items": [
+    "Surface repair beyond light patching",
+    "wood rot replacement",
+    "pressure washing unless listed",
+    "lead-safe work beyond what the Estimate lists",
+    "moving furniture",
+    "hauling of owner's items"
+   ]
+  }
+ ],
+ "placeholders": [
+  {
+   "field": "access_instructions",
+   "meaning": "Keys, gate or garage codes, lockbox details",
+   "source": "Builder"
+  },
+  {
+   "field": "access_route",
+   "meaning": "Path equipment will use to reach the work area",
+   "source": "Builder"
+  },
+  {
+   "field": "access_width",
+   "meaning": "Minimum width of the equipment path",
+   "source": "Builder (trade default in Settings)"
+  },
+  {
+   "field": "allowance_basis",
+   "meaning": "What each allowance covers (material only, or material and installation)",
+   "source": "Settings (default), Builder (override)"
+  },
+  {
+   "field": "allowance_list",
+   "meaning": "Allowance items and dollar amounts",
+   "source": "Estimate"
+  },
+  {
+   "field": "allowance_markup_clause",
+   "meaning": "Optional markup on allowance overages, e.g. \" plus {x} percent\" or empty",
+   "source": "Settings"
+  },
+  {
+   "field": "arbitration_fee_allocation",
+   "meaning": "How arbitration fees are split in Package B",
+   "source": "Admin (attorney-set)"
+  },
+  {
+   "field": "arbitration_rules",
+   "meaning": "Named arbitration rules for Package B",
+   "source": "Admin (attorney-set)"
+  },
+  {
+   "field": "attachments_list",
+   "meaning": "List of attached documents (Estimate, plans, notices, pool documents)",
+   "source": "Computed"
+  },
+  {
+   "field": "attic_stock_quantity",
+   "meaning": "Quantity of spare material left with the Owner",
+   "source": "Builder (trade default in Settings)"
+  },
+  {
+   "field": "backorder_days",
+   "meaning": "Days of backorder before a substitute is proposed",
+   "source": "Settings"
+  },
+  {
+   "field": "balance_amount",
+   "meaning": "Balance due at completion in C04-C",
+   "source": "Computed from Estimate"
+  },
+  {
+   "field": "business_address",
+   "meaning": "Business mailing address (also the cancellation address)",
+   "source": "Settings"
+  },
+  {
+   "field": "business_dba_clause",
+   "meaning": "\", doing business as {dba}\" or empty",
+   "source": "Settings"
+  },
+  {
+   "field": "business_email",
+   "meaning": "Business email",
+   "source": "Settings"
+  },
+  {
+   "field": "business_entity_type",
+   "meaning": "e.g. limited liability company, corporation",
+   "source": "Settings"
+  },
+  {
+   "field": "business_legal_name",
+   "meaning": "Legal name of the business",
+   "source": "Settings"
+  },
+  {
+   "field": "business_phone",
+   "meaning": "Business phone",
+   "source": "Settings"
+  },
+  {
+   "field": "cancellation_deadline_date",
+   "meaning": "Midnight of the third business day after signing (Sundays and federal holidays excluded)",
+   "source": "Computed"
+  },
+  {
+   "field": "cancellation_period_clause",
+   "meaning": "Start condition text used only when L5 applies",
+   "source": "Computed"
+  },
+  {
+   "field": "ch515_doc_version",
+   "meaning": "Version of the Chapter 515 requirements document delivered",
+   "source": "Admin"
+  },
+  {
+   "field": "co_owner_clause",
+   "meaning": "\" and {second owner}\" or empty",
+   "source": "Lead / Builder"
+  },
+  {
+   "field": "co_response_days",
+   "meaning": "Business days to send a Change Order after a request",
+   "source": "Settings"
+  },
+  {
+   "field": "co_number, co_date, co_description, co_price_before, co_amount, co_price_after, co_schedule_days, co_payment_change",
+   "meaning": "Fields of each Change Order addendum",
+   "source": "Computed from project and Preços items, Builder"
+  },
+  {
+   "field": "company_signed_at",
+   "meaning": "Date and time the company signed",
+   "source": "Signing"
+  },
+  {
+   "field": "concealed_notice_days",
+   "meaning": "Business days to notify Owner of a concealed condition",
+   "source": "Settings"
+  },
+  {
+   "field": "contract_date",
+   "meaning": "Date the contract is generated",
+   "source": "Computed"
+  },
+  {
+   "field": "contract_price",
+   "meaning": "Fixed total",
+   "source": "Estimate"
+  },
+  {
+   "field": "contractor_initials_arbitration, contractor_initials_jury",
+   "meaning": "Contractor initials beside arbitration or jury waiver",
+   "source": "Signing"
+  },
+  {
+   "field": "contractor_termination_days",
+   "meaning": "Days a suspension may continue before Contractor may terminate",
+   "source": "Settings"
+  },
+  {
+   "field": "convenience_fee_description, convenience_fee_percent",
+   "meaning": "Owner termination-for-convenience amount (C13-B)",
+   "source": "Settings"
+  },
+  {
+   "field": "days_out_of_use",
+   "meaning": "Days rooms will be out of use",
+   "source": "Builder"
+  },
+  {
+   "field": "debris_frequency",
+   "meaning": "How often debris is hauled",
+   "source": "Settings"
+  },
+  {
+   "field": "debris_staging_area",
+   "meaning": "Where debris is kept during the job",
+   "source": "Builder"
+  },
+  {
+   "field": "delay_notice_days",
+   "meaning": "Business days to notify a delay",
+   "source": "Settings"
+  },
+  {
+   "field": "deposit_amount",
+   "meaning": "Initial payment",
+   "source": "Estimate"
+  },
+  {
+   "field": "drowning_pub_version",
+   "meaning": "Version of the state drowning-prevention publication delivered",
+   "source": "Admin"
+  },
+  {
+   "field": "dumpster_location",
+   "meaning": "Where a dumpster or trailer is placed",
+   "source": "Builder"
+  },
+  {
+   "field": "estimate_accepted_date",
+   "meaning": "Date the Owner accepted the Estimate",
+   "source": "Estimate"
+  },
+  {
+   "field": "estimate_date",
+   "meaning": "Date of the Estimate version",
+   "source": "Estimate"
+  },
+  {
+   "field": "estimate_number",
+   "meaning": "Estimate number",
+   "source": "Estimate"
+  },
+  {
+   "field": "estimate_valid_until",
+   "meaning": "Validity date of the Estimate",
+   "source": "Estimate"
+  },
+  {
+   "field": "estimate_version",
+   "meaning": "Accepted version number",
+   "source": "Estimate"
+  },
+  {
+   "field": "estimated_duration_working_days",
+   "meaning": "Estimated duration",
+   "source": "Estimate or Builder"
+  },
+  {
+   "field": "estimated_start_date",
+   "meaning": "Estimated start date",
+   "source": "Builder"
+  },
+  {
+   "field": "exclusions_list",
+   "meaning": "Ticked exclusion items",
+   "source": "Builder (trade checklist from Settings)"
+  },
+  {
+   "field": "extended_permit_days, extended_start_days",
+   "meaning": "Agreed longer periods under §489.126",
+   "source": "Builder"
+  },
+  {
+   "field": "extension_sentence",
+   "meaning": "Optional written extension sentence in L7",
+   "source": "Computed"
+  },
+  {
+   "field": "fence_sections",
+   "meaning": "Fence sections that may be removed and replaced",
+   "source": "Builder"
+  },
+  {
+   "field": "final_inspection_clause",
+   "meaning": "\", has passed final inspection,\" when permitted, else empty",
+   "source": "Computed"
+  },
+  {
+   "field": "final_payment_days",
+   "meaning": "Days to pay after final documents are delivered",
+   "source": "Settings"
+  },
+  {
+   "field": "grace_period_days",
+   "meaning": "Grace days before a payment is late (C04-B)",
+   "source": "Settings"
+  },
+  {
+   "field": "grout_color",
+   "meaning": "Approved grout color",
+   "source": "Builder"
+  },
+  {
+   "field": "insurance_carrier, insurance_expiry_date, insurance_policy_number, insurance_policy_types",
+   "meaning": "Insurance data from the certificate on file",
+   "source": "Settings (document upload required)"
+  },
+  {
+   "field": "insurance_statement",
+   "meaning": "Insurance sentence, empty unless a current certificate is on file",
+   "source": "Computed"
+  },
+  {
+   "field": "late_interest_rate",
+   "meaning": "Annual simple interest rate, 0 to 18",
+   "source": "Settings"
+  },
+  {
+   "field": "late_payment_sentence",
+   "meaning": "C04-A or C04-B late sentence, for C04-C",
+   "source": "Settings"
+  },
+  {
+   "field": "lead_paint_clause, lead_testing_sentence",
+   "meaning": "Pre-1978 lead text",
+   "source": "Computed from year_built, Settings"
+  },
+  {
+   "field": "leveling_included",
+   "meaning": "Amount of leveling included in the price",
+   "source": "Estimate or Builder"
+  },
+  {
+   "field": "license_number, license_type",
+   "meaning": "Florida registration or certification number and category",
+   "source": "Settings (required)"
+  },
+  {
+   "field": "mediation_days",
+   "meaning": "Days allowed for mediation",
+   "source": "Admin (attorney-set per package)"
+  },
+  {
+   "field": "mutual_cure_days",
+   "meaning": "Cure period in C13-C",
+   "source": "Settings"
+  },
+  {
+   "field": "mutual_execution_deadline",
+   "meaning": "company_signed_at plus 72 hours, Eastern time, 12-hour format",
+   "source": "Computed"
+  },
+  {
+   "field": "negotiation_days",
+   "meaning": "Days for the negotiation step",
+   "source": "Admin (attorney-set per package)"
+  },
+  {
+   "field": "noc_first_inspection_sentence, noc_sentence",
+   "meaning": "Notice of Commencement text by contract amount",
+   "source": "Computed"
+  },
+  {
+   "field": "offer_expiry_date",
+   "meaning": "Offer expiry, defaults to estimate_valid_until",
+   "source": "Estimate / Builder"
+  },
+  {
+   "field": "overage_percent",
+   "meaning": "Extra material percentage for cuts and breakage",
+   "source": "Estimate"
+  },
+  {
+   "field": "owner_agent_name",
+   "meaning": "Owner's named agent for a non-occupied property",
+   "source": "Builder"
+  },
+  {
+   "field": "owner_cure_days",
+   "meaning": "Business days Contractor has to begin a cure (C13-A)",
+   "source": "Settings"
+  },
+  {
+   "field": "owner_email, owner_phone, owner_mailing_address, owner_full_name",
+   "meaning": "Homeowner contact data",
+   "source": "Lead"
+  },
+  {
+   "field": "owner_entity_name, owner_signer_name, owner_signer_title",
+   "meaning": "Entity owner and its signer",
+   "source": "Builder"
+  },
+  {
+   "field": "owner_initials_arbitration, owner_initials_jury",
+   "meaning": "Owner initials beside arbitration or jury waiver",
+   "source": "Signing"
+  },
+  {
+   "field": "owner_marketing_consent_checkbox",
+   "meaning": "Owner's opt-in for marketing photos",
+   "source": "Signing"
+  },
+  {
+   "field": "owner_materials_due_date",
+   "meaning": "When Owner-supplied materials must arrive",
+   "source": "Builder"
+  },
+  {
+   "field": "owner_response_days",
+   "meaning": "Business days for Owner to answer questions and sign permit papers",
+   "source": "Settings"
+  },
+  {
+   "field": "owner_signature_lien_notice, owner_signature_lien_notice_date",
+   "meaning": "Owner's separate signature and date on L1",
+   "source": "Signing"
+  },
+  {
+   "field": "owner_signature_pool_ack, owner_signature_pool_ack_date",
+   "meaning": "Owner's signature on the pool delivery acknowledgment",
+   "source": "Signing"
+  },
+  {
+   "field": "owner_supplied_items",
+   "meaning": "Items the Owner supplies",
+   "source": "Estimate or Builder"
+  },
+  {
+   "field": "owner_title_note",
+   "meaning": "Optional note on title (e.g. \"jointly with spouse\")",
+   "source": "Builder"
+  },
+  {
+   "field": "payment_account_hint",
+   "meaning": "e.g. \" (Zelle: {business Zelle handle})\"",
+   "source": "Settings"
+  },
+  {
+   "field": "payment_methods_list",
+   "meaning": "Accepted payment methods",
+   "source": "Settings"
+  },
+  {
+   "field": "payment_schedule_note",
+   "meaning": "Extra schedule note in C04-C",
+   "source": "Estimate"
+  },
+  {
+   "field": "payment_schedule_table",
+   "meaning": "Payment schedule copied from the Estimate",
+   "source": "Estimate (never re-entered)"
+  },
+  {
+   "field": "permit_fee_estimate, permit_fee_treatment",
+   "meaning": "Permit fee handling",
+   "source": "Estimate / Builder"
+  },
+  {
+   "field": "permit_jurisdiction",
+   "meaning": "City or county whose code applies",
+   "source": "Computed from property_address"
+  },
+  {
+   "field": "plan_documents_list",
+   "meaning": "Plans, engineering, renderings attached",
+   "source": "Builder (uploads)"
+  },
+  {
+   "field": "pool_docs_delivered_at, pool_docs_delivery_method",
+   "meaning": "Time and method of pool document delivery",
+   "source": "Computed at signing"
+  },
+  {
+   "field": "pool_safety_feature",
+   "meaning": "Chosen §515.27 safety feature",
+   "source": "Builder (required on pool jobs)"
+  },
+  {
+   "field": "portable_toilet_location",
+   "meaning": "Where a portable toilet goes, or \"not needed\"",
+   "source": "Builder"
+  },
+  {
+   "field": "project_name",
+   "meaning": "Job name",
+   "source": "Lead / Estimate"
+  },
+  {
+   "field": "project_summary",
+   "meaning": "One-line description",
+   "source": "Estimate"
+  },
+  {
+   "field": "property_address, property_county",
+   "meaning": "Job address and county",
+   "source": "Lead"
+  },
+  {
+   "field": "punch_completion_days",
+   "meaning": "Business days to finish punch list items",
+   "source": "Settings"
+  },
+  {
+   "field": "punch_holdback_amount",
+   "meaning": "Amount Owner may hold until punch list is done",
+   "source": "Settings (default), Builder"
+  },
+  {
+   "field": "punchlist_submit_days",
+   "meaning": "Days for Owner to give the punch list (C12-C)",
+   "source": "Settings (default 15)"
+  },
+  {
+   "field": "qualifier_name",
+   "meaning": "Qualifying agent's name",
+   "source": "Settings"
+  },
+  {
+   "field": "recording_fee_treatment",
+   "meaning": "Who pays the NOC recording fee",
+   "source": "Settings"
+  },
+  {
+   "field": "recovery_fund_contact_block",
+   "meaning": "Board address and phone for L2",
+   "source": "Admin (versioned; ZIP conflict open)"
+  },
+  {
+   "field": "retainage_percent",
+   "meaning": "Retainage percentage (C12-C)",
+   "source": "Settings / Builder"
+  },
+  {
+   "field": "rooms_out_of_use",
+   "meaning": "Rooms unavailable during work",
+   "source": "Builder"
+  },
+  {
+   "field": "selection_deadlines_table",
+   "meaning": "Selections and their due dates",
+   "source": "Builder"
+  },
+  {
+   "field": "site_contact_name, site_contact_phone",
+   "meaning": "On-site contact for non-occupied property",
+   "source": "Builder"
+  },
+  {
+   "field": "spoil_disposition",
+   "meaning": "\"hauled away\" or \"spread on site at {location}\"",
+   "source": "Builder"
+  },
+  {
+   "field": "start_hold_until_date",
+   "meaning": "Date the start date is held until (C16-C)",
+   "source": "Builder"
+  },
+  {
+   "field": "surface_prep_included",
+   "meaning": "Surface preparation included for painting",
+   "source": "Estimate"
+  },
+  {
+   "field": "suspension_notice_days, suspension_trigger_days",
+   "meaning": "Suspension notice and lateness trigger",
+   "source": "Settings"
+  },
+  {
+   "field": "target_completion_date",
+   "meaning": "Target substantial completion date (C06-B)",
+   "source": "Builder"
+  },
+  {
+   "field": "tax_statement",
+   "meaning": "No-sales-tax sentence (default)",
+   "source": "Settings (tax mode)"
+  },
+  {
+   "field": "transaction_date",
+   "meaning": "Date the buyer actually signs (L5)",
+   "source": "Signing"
+  },
+  {
+   "field": "unit_price_list",
+   "meaning": "Unit-priced uncertain items",
+   "source": "Estimate"
+  },
+  {
+   "field": "urgent_cap_amount",
+   "meaning": "Cap on urgent text-authorized work (C05-C)",
+   "source": "Settings"
+  },
+  {
+   "field": "walkthrough_days",
+   "meaning": "Business days to hold the walkthrough",
+   "source": "Settings"
+  },
+  {
+   "field": "warranty_component_table",
+   "meaning": "Components and warranty months (C11-C)",
+   "source": "Settings"
+  },
+  {
+   "field": "warranty_contact",
+   "meaning": "Where warranty claims are sent",
+   "source": "Settings"
+  },
+  {
+   "field": "warranty_inspect_days, warranty_notice_days",
+   "meaning": "Warranty claim timing",
+   "source": "Settings"
+  },
+  {
+   "field": "warranty_months_workmanship",
+   "meaning": "Workmanship warranty months",
+   "source": "Fixed by option (12 or 24) or Settings (C11-C)"
+  },
+  {
+   "field": "work_days, work_hours_start, work_hours_end",
+   "meaning": "Working days and hours",
+   "source": "Settings (default), Builder"
+  },
+  {
+   "field": "year_built",
+   "meaning": "Year the home was built",
+   "source": "Lead / Builder (required for remodeling and painting)"
+  }
+ ],
+ "attorney_questions": [
+  {
+   "n": 1,
+   "group": "Locked blocks",
+   "text": "L1: the research copy of §713.015 ended with \"WHENEVER A SPECIFIC PROBLEM ARISES\"; the 2026 official text does not. Please confirm the current wording, and whether a notice built on the old wording (if any is in use) needs replacing."
+  },
+  {
+   "n": 2,
+   "group": "Locked blocks",
+   "text": "L1: is a separate page with its own e-signature and date enough to satisfy \"signed by the owner and dated\" when the whole contract is signed electronically?"
+  },
+  {
+   "n": 3,
+   "group": "Locked blocks",
+   "text": "L1: the notice advises the owner to stipulate that lien releases come before any payment. Should the library offer a per-payment release clause (conditional progress releases under §713.20) as a C12 option?"
+  },
+  {
+   "n": 4,
+   "group": "Locked blocks",
+   "text": "L2: which board address and phone does \"as established by board rule\" currently point to? Official pages show ZIP+4 codes 32399-1039, 32399-2215 and 32399-0791, and phones (850) 921-6593 (Fund) and 850-487-1395 (Board). Which rule establishes it?"
+  },
+  {
+   "n": 5,
+   "group": "Locked blocks",
+   "text": "L4: correct wording when the business holds a local certificate of competency rather than a state registration or certification; and whether the qualifying agent's name should appear."
+  },
+  {
+   "n": 6,
+   "group": "Locked blocks",
+   "text": "L5: when should the builder insert the Florida §501.031 statement in addition to the FTC forms? Florida excludes sales that result \"from a request for specific goods or services by the purchaser\"; the FTC rule covers sales following the buyer's invitation. Is inserting both whenever the sale was made at the home acceptable, or does including a Florida notice when Florida's Act does not apply create any problem?"
+  },
+  {
+   "n": 7,
+   "group": "Locked blocks",
+   "text": "L5: may the goods-return and trade-in paragraphs of the FTC NOTICE OF CANCELLATION be omitted as not \"applicable\" for a services contract, or must the form be printed whole?"
+  },
+  {
+   "n": 8,
+   "group": "Locked blocks",
+   "text": "L5: the FTC rule requires the contract and forms in the language principally used in the oral sales presentation. The business owners are Brazilian and some sales will be presented in Portuguese. What must the builder do when the presentation was in Portuguese and the contract is English (the C19-B courtesy translation is locked pending your answer)?"
+  },
+  {
+   "n": 9,
+   "group": "Locked blocks",
+   "text": "L5: under §501.045 a seller \"is entitled to no compensation\" for services performed before cancellation. Confirm that the start date and deposit spending must wait until the cancellation deadline passes, and whether the FTC 10 business days or Florida's 10 days governs the refund."
+  },
+  {
+   "n": 10,
+   "group": "Locked blocks",
+   "text": "L6: what should the \"document containing the requirements of this chapter\" be (full text of Chapter 515, or a summary), and which department publication is current? Is the draft delivery acknowledgment acceptable given that the statute requires delivery only?"
+  },
+  {
+   "n": 11,
+   "group": "Locked blocks",
+   "text": "L7: may the written agreement to longer permit and start periods under §489.126(2)(a) sit inside the main contract, or should it be a separate signed writing? When no permit is required, from what date does the 90-day start period run?"
+  },
+  {
+   "n": 12,
+   "group": "Clause options",
+   "text": "C03: tax wording. Is \"No sales tax is added to this Contract\" accurate for all five trades under lump-sum pricing, and what should a retail-sale-plus-installation contract say?"
+  },
+  {
+   "n": 13,
+   "group": "Clause options",
+   "text": "C04: does §687.03's 18 percent cap apply to contract interest on late construction payments, and how does §715.12's statutory interest (the §55.03 rate plus 12 percent per annum) interact with a contract rate? The research mentions a delinquency charge of up to 5 percent allowed only if the contract provides for it; which statute is that, and does it apply to these contracts?"
+  },
+  {
+   "n": 14,
+   "group": "Clause options",
+   "text": "C04: is a grace period with interest from the original due date (not from the end of the grace period) acceptable?"
+  },
+  {
+   "n": 15,
+   "group": "Clause options",
+   "text": "C05-C: is a text or email authorization for urgent work, followed by a signed Change Order within 2 business days, workable under the Recovery Fund rules on change orders (rule 61G4-21.003 refers to contracts showing the original scope and change orders)?"
+  },
+  {
+   "n": 16,
+   "group": "Clause options",
+   "text": "C06: should any option include a delay remedy for the Owner (for example liquidated damages), or is \"no money penalty\" acceptable as written?"
+  },
+  {
+   "n": 17,
+   "group": "Clause options",
+   "text": "C08-D: does the business need EPA RRP firm certification before this clause is offered, and should the builder block the clause (or the job) when certification is not on file?"
+  },
+  {
+   "n": 18,
+   "group": "Clause options",
+   "text": "C09-B: can a contractor record the Notice of Commencement as the owner's authorized agent under §713.13 when the owner has signed it, and what does the agent authorization need to say? Please also confirm the 2026 single-family permit exemption under $7,500 reported in the research (not verified here) and its effect on C09-C."
+  },
+  {
+   "n": 19,
+   "group": "Clause options",
+   "text": "C11: are the exclusions (hairline cracks, water chemistry, settling) enforceable against a consumer, and should the library disclaim implied warranties? This draft does not disclaim them."
+  },
+  {
+   "n": 20,
+   "group": "Clause options",
+   "text": "C12: can the §713.06 Contractor's Final Payment Affidavit be signed as a §92.525 written declaration instead of before a notary (spec decision C14)? Is the \"Owner is not required to make the final payment until the affidavit is delivered\" sentence an accurate statement?"
+  },
+  {
+   "n": 21,
+   "group": "Clause options",
+   "text": "C12-C: is the retainage option consistent with §715.12(7) as drafted, including using 15 days as the default punch-list period?"
+  },
+  {
+   "n": 22,
+   "group": "Clause options",
+   "text": "C13: is the asymmetric structure (C13-A) enforceable against a consumer? Is the C13-B convenience fee enforceable, and how should it be expressed to be treated as a reasonable estimate rather than a penalty? Does the certified-mail termination letter described in §489.126(3)(b)3.a also satisfy the contract notice clause?"
+  },
+  {
+   "n": 23,
+   "group": "Clause options",
+   "text": "C14: please write or approve each package: arbitration rules and fee split for Package B; whether a jury waiver and prevailing-party fee clause (Package C) is enforceable in a consumer home improvement contract; whether a one-sided fee clause would become reciprocal under Florida law; small claims carve-out; and whether the lien-enforcement carve-out is correctly stated."
+  },
+  {
+   "n": 24,
+   "group": "Clause options",
+   "text": "C14 and L3: should any package, or any option, allow the parties to opt out of Chapter 558? This draft never does."
+  },
+  {
+   "n": 25,
+   "group": "Clause options",
+   "text": "C15: are liability caps (C15-A contract price, C15-C amount paid for the affected part) enforceable in a Florida consumer construction contract, and are the carve-outs sufficient? What wording should be used for workers' compensation exemptions?"
+  },
+  {
+   "n": 26,
+   "group": "Clause options",
+   "text": "C16-B: does a 72-hour offer expiry interact with the three-day cancellation right in any way that must be explained to the homeowner?"
+  },
+  {
+   "n": 27,
+   "group": "Clause options",
+   "text": "C18: is the checkbox opt-in with written withdrawal enough for marketing use of photos of a private home?"
+  },
+  {
+   "n": 28,
+   "group": "Clause options",
+   "text": "C19: are the ESIGN consumer-consent disclosures on the pre-signing consent screen sufficient for the required notices (L1 separate signature, L5 forms, L6 delivery) to be delivered electronically?"
+  },
+  {
+   "n": 29,
+   "group": "Clause options",
+   "text": "General: the draft disclaimer wording (\"This contract template has not been reviewed by an attorney. Have your attorney review it.\") and the post-review line (\"Template reviewed by [attorney], Florida Bar #, on [date]\"). Are both acceptable, and what must accompany a custom clause approved by a client's own attorney?"
+  },
+  {
+   "n": 30,
+   "group": "Clause options",
+   "text": "General: does any option here, or the builder's rule of inserting blocks by contract amount, trade and sale location, raise unauthorized-practice concerns for the software provider?"
+  }
+ ]
+}

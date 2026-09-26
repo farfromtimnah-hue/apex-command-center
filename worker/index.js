@@ -24739,6 +24739,357 @@ async function handleGetPublicReceipt(token, request, env) {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// CLIENT CONTRACT BUILDER — checkpoint A: the clause library in D1 and Pastor
+// Rafael's clause review tool.
+//
+// The library (data/contract-library-v1.json, loaded by
+// migrations/contracts_a_library.sql) is versioned: a later version is new
+// rows, never edits. Locked blocks are statutory text and are only ever
+// commented on. Every review choice is saved the moment it is made.
+//
+// Routes (admin side; roles rafa + developer, and rafa only once the
+// developer flips contract_admin_settings.review_released_to_rafa):
+//   GET  /api/contracts/library?version=1
+//   POST /api/contracts/library/review            {version, item_id, decision, comment}
+//   POST /api/contracts/library/submit            {version}
+//   GET  /api/contracts/review-status             (dashboards: released flag, submissions)
+//   POST /api/contracts/review-submissions/:id/seen (developer)
+//   PUT  /api/contracts/admin-settings            {key, value}
+//   PUT  /api/contracts/library/:version/attorney-review {attorney_name, bar_number, review_date}
+//   POST /api/contracts/admin-docs/:kind          (ch515 | drowning) multipart "file" + "version"
+//   GET  /api/contracts/admin-docs/:kind          serves the stored PDF
+//   POST /api/contracts/transcribe                multipart "audio" -> {transcript} (Deepgram Nova-3)
+// ---------------------------------------------------------------------------
+
+var CONTRACT_ADMIN_SETTING_KEYS = ["review_released_to_rafa", "recovery_fund_contact_block",
+    "ch515_doc_r2_key", "ch515_doc_version", "drowning_pub_r2_key", "drowning_pub_version",
+    "affidavit_written_declaration"];
+
+function contractIsReviewer(user) {
+    return !!user && (user.role === "rafa" || user.role === "developer");
+}
+function contractIsDeveloper(user) { return !!user && user.role === "developer"; }
+
+async function contractAdminSettings(env) {
+    var rows = (await env.DB.prepare("SELECT key, value, set_by, set_at FROM contract_admin_settings").all()).results || [];
+    var out = {};
+    rows.forEach(function(r) { out[r.key] = r.value; });
+    return out;
+}
+
+// rafa reaches the review only after the developer releases it (A2 visibility).
+async function contractReviewGate(user, env) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!contractIsReviewer(user)) { return jsonErr("Forbidden", 403); }
+    if (user.role === "rafa") {
+        var st = await contractAdminSettings(env);
+        if (st.review_released_to_rafa !== "1") { return jsonErr("A revisão ainda não foi liberada.", 403); }
+    }
+    return null;
+}
+
+async function contractDeveloperEmails(env) {
+    var rows = (await env.DB.prepare("SELECT email FROM users WHERE role = 'developer'").all()).results || [];
+    return rows.map(function(r) { return r.email; }).filter(Boolean);
+}
+
+async function contractLibraryLoad(env, version) {
+    var v = await env.DB.prepare("SELECT * FROM contract_library_versions WHERE version = ?").bind(version).first();
+    if (!v) { return null; }
+    var locked = (await env.DB.prepare("SELECT * FROM contract_locked_blocks WHERE version = ? ORDER BY sort_order").bind(version).all()).results || [];
+    var areas = (await env.DB.prepare("SELECT * FROM contract_clause_areas WHERE version = ? ORDER BY sort_order").bind(version).all()).results || [];
+    var options = (await env.DB.prepare("SELECT * FROM contract_clause_options WHERE version = ? AND scope = 'apex' ORDER BY sort_order").bind(version).all()).results || [];
+    var questions = (await env.DB.prepare("SELECT * FROM contract_attorney_questions WHERE version = ? ORDER BY n").bind(version).all()).results || [];
+    var placeholders = (await env.DB.prepare("SELECT * FROM contract_placeholders WHERE version = ? ORDER BY sort_order").bind(version).all()).results || [];
+    var excl = (await env.DB.prepare("SELECT * FROM contract_exclusion_checklists WHERE version = ?").bind(version).all()).results || [];
+    locked.forEach(function(b) { b.extra_blocks = gmDocParseJsonObject(b.extra_json, []) || []; delete b.extra_json; });
+    excl.forEach(function(e) { e.items = gmDocParseJsonObject(e.items_json, []) || []; delete e.items_json; });
+    return { version: v, locked_blocks: locked, clause_areas: areas, clause_options: options,
+             attorney_questions: questions, placeholders: placeholders, exclusion_checklists: excl };
+}
+
+async function handleGetContractLibrary(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var gate = await contractReviewGate(user, env);
+        if (gate) { return gate; }
+        var url = new URL(request.url);
+        var version = Math.round(gmNum(url.searchParams.get("version")) || 1);
+        var lib = await contractLibraryLoad(env, version);
+        if (!lib) { return jsonErr("Library version not found", 404); }
+        var revRows = (await env.DB.prepare(
+            "SELECT item_id, decision, comment, updated_at FROM contract_clause_reviews WHERE version = ? AND reviewer_email = ?"
+        ).bind(version, user.email).all()).results || [];
+        var reviews = {};
+        revRows.forEach(function(r) { reviews[r.item_id] = { decision: r.decision, comment: r.comment, updated_at: r.updated_at }; });
+        var total = lib.locked_blocks.length + lib.clause_options.length;
+        var settings = await contractAdminSettings(env);
+        var pub = {
+            review_released_to_rafa: settings.review_released_to_rafa === "1",
+            recovery_fund_contact_block: settings.recovery_fund_contact_block || null,
+            ch515_doc_version: settings.ch515_doc_version || null, ch515_doc_present: !!settings.ch515_doc_r2_key,
+            drowning_pub_version: settings.drowning_pub_version || null, drowning_pub_present: !!settings.drowning_pub_r2_key,
+            affidavit_written_declaration: settings.affidavit_written_declaration === "1"
+        };
+        var submissions = (await env.DB.prepare(
+            "SELECT * FROM contract_review_submissions WHERE version = ? ORDER BY submitted_at DESC LIMIT 20"
+        ).bind(version).all()).results || [];
+        lib.reviews = reviews;
+        lib.progress = { done: revRows.length, total: total };
+        lib.admin_settings = pub;
+        lib.submissions = contractIsDeveloper(user) ? submissions : submissions.filter(function(x) { return x.reviewer_email === user.email; });
+        lib.me = { email: user.email, role: user.role, name: actorName(user) };
+        return jsonOk(lib);
+    } catch (e) {
+        return jsonErr("Error loading the clause library: " + e.message, 500);
+    }
+}
+
+async function handlePostContractReview(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var gate = await contractReviewGate(user, env);
+        if (gate) { return gate; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var version = Math.round(gmNum(body.version) || 1);
+        var itemId = gmStr(body.item_id, 20);
+        if (!itemId || !/^(L\d(-[ABC])?|C\d\d-[A-D])$/.test(itemId)) { return jsonErr("item_id is required", 400); }
+        var decision = body.decision === "changes" ? "changes" : (body.decision === "ok" ? "ok" : null);
+        if (!decision) { return jsonErr("decision must be ok or changes", 400); }
+        var comment = gmStr(body.comment, 4000);
+        if (decision === "changes" && !comment) { return jsonErr("Escreva ou dite a mudança sugerida.", 400); }
+        // The item must exist in this version (a locked block or an Apex option).
+        var exists = await env.DB.prepare(
+            "SELECT 1 AS x FROM contract_locked_blocks WHERE id = ? AND version = ? UNION SELECT 1 FROM contract_clause_options WHERE id = ? AND version = ? AND scope = 'apex'"
+        ).bind(itemId, version, itemId, version).first();
+        if (!exists) { return jsonErr("Unknown item", 404); }
+        await env.DB.prepare(
+            "INSERT INTO contract_clause_reviews (id, version, item_id, reviewer_email, decision, comment) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT (version, item_id, reviewer_email) DO UPDATE SET decision = excluded.decision, comment = excluded.comment, updated_at = datetime('now')"
+        ).bind(crypto.randomUUID(), version, itemId, user.email, decision, decision === "changes" ? comment : null).run();
+        var n = await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_reviews WHERE version = ? AND reviewer_email = ?").bind(version, user.email).first();
+        return jsonOk({ saved: true, item_id: itemId, decision: decision, done: n ? n.c : 0 });
+    } catch (e) {
+        return jsonErr("Error saving the review: " + e.message, 500);
+    }
+}
+
+async function handlePostContractReviewSubmit(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var gate = await contractReviewGate(user, env);
+        if (gate) { return gate; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var version = Math.round(gmNum(body.version) || 1);
+        var lib = await contractLibraryLoad(env, version);
+        if (!lib) { return jsonErr("Library version not found", 404); }
+        var total = lib.locked_blocks.length + lib.clause_options.length;
+        var rows = (await env.DB.prepare(
+            "SELECT decision FROM contract_clause_reviews WHERE version = ? AND reviewer_email = ?"
+        ).bind(version, user.email).all()).results || [];
+        if (rows.length < total) { return jsonErr("Faltam " + (total - rows.length) + " itens para revisar.", 409); }
+        var okCount = rows.filter(function(r) { return r.decision === "ok"; }).length;
+        var chCount = rows.length - okCount;
+        var sid = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO contract_review_submissions (id, version, reviewer_email, reviewer_name, ok_count, changes_count) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(sid, version, user.email, actorName(user), okCount, chCount).run();
+        var newStatus = lib.version.status;
+        if (chCount === 0) {
+            // Every item OK: the version moves to in_review (guarded: only from draft).
+            var up = await env.DB.prepare(
+                "UPDATE contract_library_versions SET status = 'in_review', set_by = ?, set_at = datetime('now') WHERE version = ? AND status = 'draft'"
+            ).bind(actorName(user), version).run();
+            if (up.meta && up.meta.changes) { newStatus = "in_review"; }
+        }
+        // Notify Nicole: iOS push to the developer users (never a hard-coded email).
+        try {
+            var emails = await contractDeveloperEmails(env);
+            if (emails.length) {
+                await pushToUsers(env, emails, {
+                    title: "Revisão de cláusulas enviada",
+                    body: actorName(user) + ": " + okCount + " OK, " + chCount + " com mudanças (biblioteca v" + version + ")",
+                    url: "/contract-review.html?version=" + version
+                });
+            }
+        } catch (e3) { console.error("contract review push failed", e3 && e3.message); }
+        return jsonOk({ submitted: true, ok_count: okCount, changes_count: chCount, status: newStatus });
+    } catch (e) {
+        return jsonErr("Error submitting the review: " + e.message, 500);
+    }
+}
+
+// Dashboards (rafa + developer): is the review released, and unseen submissions.
+async function handleGetContractReviewStatus(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user)) { return jsonErr("Forbidden", 403); }
+        var st = await contractAdminSettings(env);
+        var v = await env.DB.prepare("SELECT version, status FROM contract_library_versions ORDER BY version DESC LIMIT 1").first();
+        var subs = [];
+        if (contractIsDeveloper(user)) {
+            subs = (await env.DB.prepare("SELECT * FROM contract_review_submissions WHERE seen_at IS NULL ORDER BY submitted_at DESC LIMIT 10").all()).results || [];
+        }
+        return jsonOk({ released: st.review_released_to_rafa === "1", latest_version: v ? v.version : null, latest_status: v ? v.status : null, unseen_submissions: subs });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+async function handlePostContractSubmissionSeen(subId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsDeveloper(user)) { return jsonErr("Forbidden", 403); }
+        await env.DB.prepare("UPDATE contract_review_submissions SET seen_by = ?, seen_at = datetime('now') WHERE id = ? AND seen_at IS NULL").bind(actorName(user), subId).run();
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+async function handlePutContractAdminSettings(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var key = gmStr(body.key, 60);
+        if (!key || CONTRACT_ADMIN_SETTING_KEYS.indexOf(key) === -1) { return jsonErr("Unknown setting", 400); }
+        // The release switch and the affidavit mode are the developer's alone.
+        if ((key === "review_released_to_rafa" || key === "affidavit_written_declaration") && !contractIsDeveloper(user)) { return jsonErr("Forbidden", 403); }
+        if (key === "ch515_doc_r2_key" || key === "drowning_pub_r2_key") { return jsonErr("Upload the document instead", 400); }
+        var value = body.value === null || body.value === undefined ? null : String(body.value).slice(0, 2000);
+        if (key === "review_released_to_rafa" || key === "affidavit_written_declaration") { value = value === "1" || value === "true" ? "1" : "0"; }
+        await env.DB.prepare(
+            "INSERT INTO contract_admin_settings (key, value, set_by, set_at) VALUES (?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (key) DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = datetime('now')"
+        ).bind(key, value, actorName(user)).run();
+        return jsonOk({ saved: true, key: key, value: value });
+    } catch (e) {
+        return jsonErr("Error saving setting: " + e.message, 500);
+    }
+}
+
+async function handlePutContractAttorneyReview(version, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsDeveloper(user)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var name = gmStr(body.attorney_name, 120), bar = gmStr(body.bar_number, 40), date = gmStr(body.review_date, 10);
+        if (!name || !bar || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { return jsonErr("Attorney name, Florida Bar number and review date are required", 400); }
+        var res = await env.DB.prepare(
+            "UPDATE contract_library_versions SET status = 'attorney_reviewed', attorney_name = ?, attorney_bar_number = ?, attorney_review_date = ?, set_by = ?, set_at = datetime('now') " +
+            "WHERE version = ? AND status IN ('draft','in_review')"
+        ).bind(name, bar, date, actorName(user), Math.round(gmNum(version) || 0)).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("This version is already recorded as reviewed, or does not exist", 409); }
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error recording the attorney review: " + e.message, 500);
+    }
+}
+
+var CONTRACT_ADMIN_DOC_KINDS = { ch515: ["ch515_doc_r2_key", "ch515_doc_version"], drowning: ["drowning_pub_r2_key", "drowning_pub_version"] };
+
+async function handlePostContractAdminDoc(kind, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user)) { return jsonErr("Forbidden", 403); }
+        var keys = CONTRACT_ADMIN_DOC_KINDS[kind];
+        if (!keys) { return jsonErr("Not found", 404); }
+        var form = await request.formData();
+        var file = form.get("file");
+        var versionLabel = gmStr(form.get("version"), 80);
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
+        if (file.type !== "application/pdf") { return jsonErr("Envie um PDF. / Upload a PDF.", 400); }
+        if (file.size > 15 * 1024 * 1024) { return jsonErr("PDF too large (15MB limit)", 400); }
+        if (!versionLabel) { return jsonErr("Informe a versão do documento (por exemplo a data da publicação).", 400); }
+        // Never overwritten: every upload is a new object keyed by time.
+        var key = "contracts/admin/" + kind + "-" + Date.now() + ".pdf";
+        await env.ASSETS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: "application/pdf" } });
+        var actor = actorName(user);
+        await env.DB.batch([
+            env.DB.prepare("INSERT INTO contract_admin_settings (key, value, set_by, set_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = datetime('now')").bind(keys[0], key, actor),
+            env.DB.prepare("INSERT INTO contract_admin_settings (key, value, set_by, set_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = datetime('now')").bind(keys[1], versionLabel, actor)
+        ]);
+        return jsonOk({ saved: true, kind: kind, version: versionLabel });
+    } catch (e) {
+        return jsonErr("Error uploading document: " + e.message, 500);
+    }
+}
+
+async function contractAdminDocResponse(env, kind) {
+    var keys = CONTRACT_ADMIN_DOC_KINDS[kind];
+    if (!keys) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var st = await contractAdminSettings(env);
+    var r2key = st[keys[0]];
+    if (!r2key || !/^contracts\/admin\/[a-z0-9]+-\d+\.pdf$/.test(r2key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var obj = await env.ASSETS.get(r2key);
+    if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/pdf", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=300",
+        "Content-Disposition": "inline; filename=\"" + kind + ".pdf\"" });
+    return new Response(obj.body, { status: 200, headers: headers });
+}
+
+async function handleGetContractAdminDoc(kind, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user) && !isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        return await contractAdminDocResponse(env, kind);
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// Transcript only, Deepgram Nova-3 through the same binding and call shape
+// as handlePostSessionsVoice; Portuguese (Brazil) for Rafael's dictation.
+// No OpenAI anywhere.
+async function handlePostContractTranscribe(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user) && !isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        if (!env.AI) { return jsonErr("Workers AI binding is not configured", 500); }
+        var form = await request.formData();
+        var audio = form.get("audio");
+        if (!audio || typeof audio.arrayBuffer !== "function") { return jsonErr("audio file is required", 400); }
+        var buf = await audio.arrayBuffer();
+        if (buf.byteLength === 0) { return jsonErr("audio file is empty", 400); }
+        if (buf.byteLength > VOICE_MAX_AUDIO_BYTES) { return jsonErr("Recording is too long. Keep it under a couple of minutes.", 413); }
+        var ctype = (audio.type && String(audio.type)) || "audio/webm";
+        var transcript = "";
+        async function run(lang) {
+            var asr = await env.AI.run("@cf/deepgram/nova-3", {
+                audio: { body: new Response(buf).body, contentType: ctype },
+                language: lang, smart_format: true, punctuate: true
+            });
+            var alt = asr && asr.results && asr.results.channels && asr.results.channels[0] &&
+                      asr.results.channels[0].alternatives && asr.results.channels[0].alternatives[0];
+            return (alt && alt.transcript ? String(alt.transcript) : "").trim();
+        }
+        try {
+            try { transcript = await run("pt-BR"); }
+            catch (e1) { transcript = await run("multi"); }
+        } catch (e) {
+            return jsonErr("Could not transcribe the recording: " + e.message, 502);
+        }
+        if (!transcript) { return jsonErr("Nothing was heard in the recording", 422); }
+        return jsonOk({ transcript: transcript });
+    } catch (e) {
+        return jsonErr("Error transcribing: " + e.message, 500);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SALESPERSON LOGIN REQUESTS (gm_seller_login_requests)
 //
@@ -35113,6 +35464,20 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/match-for-event" && method === "GET") { return handleGetSessionsMatchForEvent(request, env); }
         if (path === "/api/sessions/schedule"     && method === "POST") { return handlePostSessionsSchedule(request, env); }
         if (path === "/api/sessions/voice"        && method === "POST") { return handlePostSessionsVoice(request, env); }
+        // Client contract builder: clause library + Rafael's review (checkpoint A).
+        if (path === "/api/contracts/library"           && method === "GET")  { return handleGetContractLibrary(request, env); }
+        if (path === "/api/contracts/library/review"    && method === "POST") { return handlePostContractReview(request, env); }
+        if (path === "/api/contracts/library/submit"    && method === "POST") { return handlePostContractReviewSubmit(request, env); }
+        if (path === "/api/contracts/review-status"     && method === "GET")  { return handleGetContractReviewStatus(request, env); }
+        if (path === "/api/contracts/admin-settings"    && method === "PUT")  { return handlePutContractAdminSettings(request, env); }
+        if (path === "/api/contracts/transcribe"        && method === "POST") { return handlePostContractTranscribe(request, env); }
+        var cAttMatch = path.match(/^\/api\/contracts\/library\/(\d+)\/attorney-review$/);
+        if (cAttMatch && method === "PUT") { return handlePutContractAttorneyReview(cAttMatch[1], request, env); }
+        var cSeenMatch = path.match(/^\/api\/contracts\/review-submissions\/([^\/]+)\/seen$/);
+        if (cSeenMatch && method === "POST") { return handlePostContractSubmissionSeen(decodeURIComponent(cSeenMatch[1]), request, env); }
+        var cDocMatch = path.match(/^\/api\/contracts\/admin-docs\/(ch515|drowning)$/);
+        if (cDocMatch && method === "POST") { return handlePostContractAdminDoc(cDocMatch[1], request, env); }
+        if (cDocMatch && method === "GET")  { return handleGetContractAdminDoc(cDocMatch[1], request, env); }
         if (path === "/api/sessions/voice-flagged" && method === "GET") { return handleGetVoiceFlagged(request, env); }
         var gdMatch = path.match(/^\/api\/sessions\/([^\/]+)\/google-event$/);
         if (gdMatch && method === "DELETE") {

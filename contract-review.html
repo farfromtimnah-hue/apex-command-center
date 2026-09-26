@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js?v=1788495974, so it is installed before anything that can throw.
+
+       WHY: the log showed "⚡️ JS Eval error A JavaScript exception occurred"
+       with no detail, and every downstream symptom (no WIRE-INIT, no WIRE-POLL,
+       no replay block, hasListeners=false forever) is consistent with a script
+       dying early. Capacitor only prints that generic string, so the actual
+       message, file, line and stack have to be captured here.
+
+       Buffers into a cookie as well as the console, because the native log is
+       only reachable once the Capacitor plugin exists -- which is exactly what
+       may not have happened yet when the error fires. native-bridge.js?v=1788495974 replays
+       this buffer into the native log once the plugin appears. -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      // Same cookie the trace buffer uses, so one replay surfaces both.
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      // And straight to native if the plugin is already up.
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      // Resource load failures (img/script 404) surface here with no ev.error;
+      // they are worth seeing too, since a failed script tag would explain a
+      // missing function just as well as a thrown exception.
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1789585769"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex — Revisão do contrato" data-title-en="Apex &#8212; Contract review">Apex — Revisão do contrato</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface:  #f9f7f4;
+      --header:   #1a1a1d;
+      --gold:     #C9A43A;
+      --gold-dim: rgba(201,164,58,0.14);
+      --text:     #1a1a1d;
+      --muted:    #6b6660;
+      --border:   #e8e2d9;
+      --card:     #ffffff;
+      --radius:   10px;
+      --shadow:   0 2px 16px rgba(26,26,29,0.08);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    #appHeader {
+      background: var(--header);
+      height: 64px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge {
+      background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 10px;
+    }
+    .btn-header {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px;
+      font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn {
+      background: transparent; border: 1.5px solid var(--gold); color: var(--gold);
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s;
+    }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    /* ── Loading screen ─────────────────────────────────────────────────── */
+    #loadingScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; color: var(--muted); font-size: 14px;
+    }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── App main ───────────────────────────────────────────────────────── */
+    #appMain {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    .page-heading { font-size: 22px; font-weight: 700; color: var(--text); }
+
+    /* ── Content card ───────────────────────────────────────────────────── */
+    .content-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .content-card-header {
+      padding: 18px 24px 14px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .content-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .content-card-body  { padding: 20px 24px; }
+
+    /* ── Form ───────────────────────────────────────────────────────────── */
+    .form-row {
+      display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px; }
+    .form-input, .form-select {
+      height: 38px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text);
+      background: var(--surface); outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus { border-color: var(--gold); }
+    .form-select { cursor: pointer; padding-right: 8px; }
+
+    .btn-submit {
+      height: 38px; padding: 0 20px;
+      background: var(--gold); border: none; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      color: #1a1a1d; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Inline message ─────────────────────────────────────────────────── */
+    #addUserMsg {
+      font-size: 13px; font-weight: 500; padding: 10px 14px;
+      border-radius: 8px; display: none; margin-top: 14px;
+    }
+    #addUserMsg.msg-ok  { background: #ddfaec; color: #1a6640; display: block; }
+    #addUserMsg.msg-err { background: #fde8e8; color: #b44040; display: block; }
+
+    /* ── Users table ────────────────────────────────────────────────────── */
+    .users-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .users-table th {
+      text-align: left; padding: 10px 16px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      color: var(--muted); border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+    }
+    .users-table td {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle;
+    }
+    .users-table tr:last-child td { border-bottom: none; }
+    .users-table tr:hover td { background: rgba(201,164,58,0.04); }
+
+    .role-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+    }
+    .role-pill.alice     { background: #ddfaec; color: #1a6640; }
+    .role-pill.rafa      { background: #dce8fd; color: #1a4a8a; }
+    .role-pill.developer { background: var(--gold-dim); color: #7a5c2e; border: 1px solid rgba(201,164,58,0.3); }
+
+    .table-empty { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    /* ── Forbidden screen ───────────────────────────────────────────────── */
+    #forbiddenScreen {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px; color: var(--muted); font-size: 14px;
+    }
+    #forbiddenScreen[hidden] { display: none !important; }
+
+    @media (max-width: 768px) {
+      #appMain { padding: 16px; }
+      /* Single stacked column: label above input, everything full width.
+         align-items must be stretch here — the base row's flex-end would
+         otherwise push the stacked fields to the right edge. */
+      .form-row { flex-direction: column; align-items: stretch; }
+      .form-group { min-width: 0; width: 100%; max-width: none !important; }
+      .form-input, .form-select { min-height: 44px; }
+      .btn-submit { width: 100%; min-height: 44px; }
+    }
+
+    /* Review tool (contracts build, checkpoint A). Cards copy .content-card;
+       the two-column text/summary rail copies the client.html profile grid. */
+    .cr-progress { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin: 6px 0 14px; }
+    .cr-bar { flex:1; min-width:180px; height:10px; background:var(--border); border-radius:6px; overflow:hidden; }
+    .cr-bar > div { height:100%; background:var(--gold); width:0; transition: width .3s; }
+    .cr-item { border:1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+    .cr-item.done-ok { border-left: 4px solid #3f7d4e; }
+    .cr-item.done-changes { border-left: 4px solid #b44040; }
+    .cr-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+    .cr-num { display:inline-block; min-width:28px; text-align:center; font-weight:800; color:var(--gold); }
+    .cr-title { font-size:15px; font-weight:700; }
+    .cr-meta { font-size:12px; color:var(--muted); margin-top:2px; }
+    .cr-lock { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:2px 8px; border-radius:10px; background:rgba(26,26,29,0.08); color:var(--text); margin-left:6px; vertical-align:middle; }
+    .cr-cols { display:grid; grid-template-columns: 3fr 2fr; gap:16px; margin-top:12px; }
+    @media (max-width: 860px) { .cr-cols { grid-template-columns: 1fr; } }
+    .cr-text { font-size:13.5px; line-height:1.55; white-space:pre-wrap; border:1px solid var(--border); border-radius:8px; padding:12px; background:#fcfbf9; max-height:340px; overflow:auto; }
+    .cr-pt { font-size:13.5px; line-height:1.55; white-space:pre-wrap; background:var(--gold-dim); border-radius:8px; padding:12px; }
+    .cr-pt-label { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#8a6d1f; margin-bottom:6px; }
+    .cr-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+    .cr-btn { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; padding:10px 16px; border-radius:8px; cursor:pointer; border:1.5px solid var(--border); background:#fff; color:var(--text); min-height:44px; }
+    .cr-btn.ok { border-color:#3f7d4e; color:#3f7d4e; }
+    .cr-btn.ok.sel { background:#3f7d4e; color:#fff; }
+    .cr-btn.ch { border-color:#b44040; color:#b44040; }
+    .cr-btn.ch.sel { background:#b44040; color:#fff; }
+    .cr-btn.gold { background:var(--gold); border-color:var(--gold); color:#1a1a1d; }
+    .cr-btn[disabled] { opacity:.5; cursor:default; }
+    .cr-comment { margin-top:10px; }
+    .cr-comment textarea { width:100%; min-height:96px; font-family:'Inter',sans-serif; font-size:14px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; resize:vertical; }
+    .cr-saved { font-size:12px; color:#3f7d4e; font-weight:600; }
+    .cr-err { font-size:12px; color:#b44040; font-weight:600; }
+    .cr-mic.recording { background:#b44040; color:#fff; border-color:#b44040; }
+    .cr-admin-grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    @media (max-width: 860px) { .cr-admin-grid { grid-template-columns: 1fr; } }
+    .cr-field label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin:8px 0 4px; }
+    .cr-field input[type=text], .cr-field input[type=date], .cr-field textarea { width:100%; font-family:'Inter',sans-serif; font-size:14px; padding:9px 11px; border:1px solid var(--border); border-radius:8px; }
+    .cr-switch { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; min-height:44px; }
+    .cr-switch input { width:22px; height:22px; accent-color: var(--gold); }
+    .cr-banner { border-radius:8px; padding:12px 14px; font-size:14px; margin-bottom:12px; }
+    .cr-banner.info { background:var(--gold-dim); }
+    .cr-banner.ok { background:rgba(63,125,78,0.12); color:#2f6b3e; }
+    /* Print mode: the whole library as a plain document for the attorney. */
+    body.cr-print #appHeader, body.cr-print .apex-sidebar, body.cr-print #mobile-tab-bar, body.cr-print #mobile-more-menu, body.cr-print .cr-noprint { display:none !important; }
+    body.cr-print #appMain { padding: 0 !important; max-width: 7.5in; margin: 0 auto; }
+    .cr-doc { font-family: Georgia, "Times New Roman", serif; color:#111; }
+    .cr-doc h1 { font-size:26px; margin: 0 0 8px; }
+    .cr-doc h2 { font-size:18px; margin: 28px 0 8px; break-after: avoid; }
+    .cr-doc h3 { font-size:15px; margin: 18px 0 6px; break-after: avoid; }
+    .cr-doc .cr-doc-item { break-inside: avoid; }
+    .cr-doc p, .cr-doc .cr-doc-text { font-size:12.5px; line-height:1.5; white-space:pre-wrap; margin: 0 0 8px; }
+    .cr-doc .cr-doc-cover { min-height: 8in; display:flex; flex-direction:column; justify-content:center; break-after: page; }
+    .cr-doc .cr-doc-muted { color:#555; font-size:12px; }
+    @page { size: letter; margin: 0.75in; }
+    @media print { body { background:#fff; } .cr-doc { font-size:12px; } }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+      <div id="loadingScreen">
+        <div class="spinner"></div>
+        <span class="show-pt">Carregando...</span>
+        <span class="show-en">Loading...</span>
+      </div>
+
+      <div id="forbiddenScreen" hidden>
+        <span class="show-pt" id="forbiddenPt">Acesso restrito.</span>
+        <span class="show-en" id="forbiddenEn">Access denied.</span>
+      </div>
+
+      <main id="appMain" hidden>
+        <div class="cr-noprint">
+        <h1 class="page-heading">
+          <span class="show-pt">Revis&atilde;o do contrato modelo</span>
+          <span class="show-en">Contract template review</span>
+        </h1>
+        <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">
+          <span class="show-pt">Biblioteca de cl&aacute;usulas v<span class="cr-ver">1</span> &middot; rascunho, ainda n&atilde;o revisado por advogado. O texto em ingl&ecirc;s &eacute; o que vai no contrato; o resumo em portugu&ecirc;s &eacute; s&oacute; para esta revis&atilde;o.</span>
+          <span class="show-en">Clause library v<span class="cr-ver">1</span> &middot; draft, not yet reviewed by an attorney. The English text is what goes in the contract; the Portuguese summary is for this review only.</span>
+        </p>
+
+        <div id="crDevPanel" class="content-card" hidden>
+          <div class="content-card-header"><h2 class="content-card-title"><span class="show-pt">Controles (desenvolvedor)</span><span class="show-en">Controls (developer)</span></h2></div>
+          <div class="content-card-body">
+            <label class="cr-switch"><input type="checkbox" id="crRelease" onchange="crToggleRelease(this)"><span class="show-pt">Revis&atilde;o liberada para o Pr. Rafael</span><span class="show-en">Review released to Pr. Rafael</span></label>
+            <div id="crSubmissions" style="margin-top:10px;"></div>
+            <div class="cr-admin-grid" style="margin-top:12px;">
+              <div class="cr-field">
+                <label><span class="show-pt">Revis&atilde;o do advogado desta vers&atilde;o</span><span class="show-en">Attorney review of this version</span></label>
+                <input type="text" id="crAttName" placeholder="Nome do advogado / Attorney name">
+                <input type="text" id="crAttBar" placeholder="Florida Bar #" style="margin-top:6px;">
+                <input type="date" id="crAttDate" style="margin-top:6px;">
+                <div class="cr-actions"><button type="button" class="cr-btn gold" onclick="crSaveAttorney()"><span class="show-pt">Registrar revis&atilde;o do advogado</span><span class="show-en">Record attorney review</span></button><span id="crAttMsg" class="cr-err"></span></div>
+              </div>
+              <div class="cr-field">
+                <label><span class="show-pt">Status da vers&atilde;o</span><span class="show-en">Version status</span></label>
+                <div id="crVersionStatus" style="font-size:14px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="crAdminPanel" class="content-card" hidden>
+          <div class="content-card-header"><h2 class="content-card-title"><span class="show-pt">Dados de conformidade (Apex)</span><span class="show-en">Compliance data (Apex)</span></h2></div>
+          <div class="content-card-body">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:6px;"><span class="show-pt">Preenchidos uma vez pela Apex; nenhum cliente digita isto. Um contrato que precise do aviso do Recovery Fund (L2) n&atilde;o pode ser enviado enquanto o bloco de contato estiver vazio; um contrato de piscina (L6) n&atilde;o pode ser enviado sem os dois PDFs.</span><span class="show-en">Filled once by Apex; no client types this. A contract that needs the Recovery Fund notice (L2) cannot be sent while the contact block is empty; a pool contract (L6) cannot be sent without both PDFs.</span></p>
+            <div class="cr-admin-grid">
+              <div class="cr-field">
+                <label><span class="show-pt">Bloco de contato do Recovery Fund (L2): endere&ccedil;o e telefone do board</span><span class="show-en">Recovery Fund contact block (L2): board address and phone</span></label>
+                <textarea id="crRecovery" rows="4" placeholder="Construction Industry Licensing Board, 2601 Blair Stone Road, Tallahassee, FL 32399-____  (850) ___-____"></textarea>
+                <p class="cr-meta"><span class="show-pt">A biblioteca registra tr&ecirc;s CEPs conflitantes (32399-1039, -2215, -0791) e dois telefones; a pergunta 4 ao advogado decide. Fica vazio at&eacute; l&aacute;.</span><span class="show-en">The library records three conflicting ZIP codes (32399-1039, -2215, -0791) and two phones; attorney question 4 decides. Stays empty until then.</span></p>
+                <div class="cr-actions"><button type="button" class="cr-btn gold" onclick="crSaveRecovery()"><span class="show-pt">Salvar bloco</span><span class="show-en">Save block</span></button><span id="crRecoveryMsg" class="cr-saved"></span></div>
+              </div>
+              <div class="cr-field">
+                <label><span class="show-pt">Documentos de piscina (L6)</span><span class="show-en">Pool documents (L6)</span></label>
+                <div id="crDocs"></div>
+                <div style="margin-top:8px;"><span class="show-pt">Documento com os requisitos do Cap&iacute;tulo 515 (PDF)</span><span class="show-en">Chapter 515 requirements document (PDF)</span></div>
+                <input type="text" id="crCh515Ver" placeholder="Vers&atilde;o / version (ex.: 2026 Florida Statutes)">
+                <input type="file" id="crCh515File" accept="application/pdf" style="margin-top:6px;">
+                <div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadDoc('ch515')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_ch515" class="cr-saved"></span></div>
+                <div style="margin-top:12px;"><span class="show-pt">Publica&ccedil;&atilde;o estadual de preven&ccedil;&atilde;o de afogamento (PDF)</span><span class="show-en">State drowning-prevention publication (PDF)</span></div>
+                <input type="text" id="crDrownVer" placeholder="Vers&atilde;o / version">
+                <input type="file" id="crDrownFile" accept="application/pdf" style="margin-top:6px;">
+                <div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadDoc('drowning')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_drowning" class="cr-saved"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="crBanner"></div>
+        <div class="cr-progress">
+          <strong id="crProgressText">0 de 0 revisados</strong>
+          <div class="cr-bar"><div id="crProgressBar"></div></div>
+          <button type="button" class="cr-btn gold" id="crSubmitBtn" disabled onclick="crSubmit()"><span class="show-pt">Enviar revis&atilde;o</span><span class="show-en">Send review</span></button>
+          <button type="button" class="cr-btn" id="crAttorneyPdfBtn" hidden onclick="crOpenPrint()"><span class="show-pt">Enviar para o seu advogado (PDF)</span><span class="show-en">Send to your attorney (PDF)</span></button>
+        </div>
+        <div id="crList"><div class="table-empty"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div></div>
+        </div>
+        <div id="crDoc" class="cr-doc" hidden></div>
+      </main>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    var auth        = null;
+    var currentUser = null;
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+
+    function handleSignOut() {
+      auth.signOut().then(function () {
+        sessionStorage.removeItem("apex_role");
+        sessionStorage.removeItem("apex_email");
+        sessionStorage.removeItem("apex_display_name");
+        sessionStorage.removeItem("apex_avatar_url");
+        window.location.href = "index.html";
+      });
+    }
+
+    function escHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function populateHeaderUser(email, displayName, avatarUrl) {
+      var emailEl = document.getElementById("headerEmail");
+      if (!emailEl) { return; }
+      var firstName;
+      if (displayName && displayName.trim()) {
+        var dn = displayName.trim();
+        firstName = dn.indexOf(" ") > -1 ? dn.split(" ")[0] : dn;
+      } else {
+        var atIdx = email ? email.indexOf("@") : -1;
+        firstName = atIdx > -1 ? email.slice(0, atIdx) : (email || "");
+      }
+      var label = firstName || email;
+      var imgHtml = "";
+      if (avatarUrl) {
+        var src = WORKER_URL + "/api/users/" + encodeURIComponent(email) + "/avatar-image";
+        imgHtml = "<img src=\"" + src + "\" alt=\"\" style=\"width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;\">";
+      } else {
+        var initial = (label.charAt(0) || "?").toUpperCase();
+        imgHtml = "<span style=\"display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(201,164,58,0.25);color:#c9a43a;font-size:13px;font-weight:700;vertical-align:middle;margin-right:6px;\">" + escHtml(initial) + "</span>";
+      }
+      emailEl.innerHTML = imgHtml + "<span style=\"vertical-align:middle;\">" + escHtml(firstName) + "</span>";
+    }
+
+    // ── Load and render the users table ──────────────────────────────────────
+        function isEn() {
+      return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
+    }
+    function t(pt, en) { return isEn() ? en : pt; }
+
+
+    // ── Review tool ──────────────────────────────────────────────────────────
+    var crLib = null;
+    var crVersion = Number((window.location.search.match(/[?&]version=(\d+)/) || [])[1]) || 1;
+    var crPrint = /[?&]print=1/.test(window.location.search);
+    var crOpenComment = {};   // item_id -> true while the comment box is open
+
+    function apiFetch(path, opts) {
+      opts = opts || {};
+      return getToken().then(function(token) {
+        var headers = { "Authorization": "Bearer " + token };
+        var body = opts.body;
+        if (body && !(body instanceof FormData)) { headers["Content-Type"] = "application/json"; body = JSON.stringify(body); }
+        return fetch(WORKER_URL + path, { method: opts.method || "GET", headers: headers, body: body });
+      }).then(function(res) {
+        return res.json().then(function(d) { if (!res.ok || d.error) { throw new Error(d.error || ("HTTP " + res.status)); } return d; });
+      });
+    }
+
+    // **bold** and line breaks, after escaping. The library text is Markdown-
+    // light: bold markers and blank lines only.
+    function crRich(text) {
+      var h = escHtml(String(text || ""));
+      h = h.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      return h;
+    }
+
+    function crItems() {
+      var items = [];
+      (crLib.locked_blocks || []).forEach(function(b) {
+        items.push({ id: b.id, kind: "locked", title: b.title, text: b.text, extra: b.extra_blocks || [],
+          pt: [b.trigger_rule ? (t("Quando aparece: ", "When it appears: ") + b.trigger_rule) : "", b.format_rules ? (t("Formato: ", "Format: ") + b.format_rules) : "", b.builder_rule ? (t("Regra do app: ", "Builder rule: ") + b.builder_rule) : ""].filter(Boolean).join("\n\n"),
+          note: b.verification_note || "" });
+      });
+      var areaTitle = {};
+      (crLib.clause_areas || []).forEach(function(a) { areaTitle[a.id] = a.title; });
+      (crLib.clause_options || []).forEach(function(o) {
+        items.push({ id: o.id, kind: "option", title: o.title, area: areaTitle[o.area_id] || o.area_id, trades: o.trades,
+          text: o.clause_text || "", textNote: o.text_note || "", owner: o.owner_description || "", pt: o.pt_summary || "", fields: o.placeholders || "" });
+      });
+      return items;
+    }
+
+    function crRenderProgress() {
+      var items = crItems();
+      var done = 0;
+      items.forEach(function(it) { if (crLib.reviews && crLib.reviews[it.id]) { done++; } });
+      var txt = document.getElementById("crProgressText");
+      if (txt) { txt.textContent = done + t(" de ", " of ") + items.length + t(" revisados", " reviewed"); }
+      var bar = document.getElementById("crProgressBar");
+      if (bar) { bar.style.width = (items.length ? Math.round(done / items.length * 100) : 0) + "%"; }
+      var btn = document.getElementById("crSubmitBtn");
+      if (btn) { btn.disabled = !(items.length && done === items.length); }
+    }
+
+    function crItemHtml(it, n) {
+      var rv = (crLib.reviews && crLib.reviews[it.id]) || null;
+      var cls = "cr-item" + (rv ? (rv.decision === "ok" ? " done-ok" : " done-changes") : "");
+      var h = '<div class="' + cls + '" id="crItem_' + it.id + '">' +
+        '<div class="cr-head"><div><span class="cr-num">' + n + '.</span> <span class="cr-title">' + escHtml(it.id) + ' &middot; ' + escHtml(it.title) + '</span>' +
+        (it.kind === "locked" ? '<span class="cr-lock">' + t("texto de lei, não editável", "statutory text, not editable") + '</span>' : "") +
+        '<div class="cr-meta">' + (it.kind === "option" ? escHtml(it.area) + (it.trades ? ' &middot; ' + t("ofícios: ", "trades: ") + escHtml(it.trades) : "") : escHtml(it.note || "")) + '</div></div>' +
+        (rv ? '<div class="cr-saved">' + (rv.decision === "ok" ? t("OK como está", "OK as is") : t("Mudanças sugeridas", "Changes suggested")) + ' &middot; ' + escHtml(String(rv.updated_at || "").slice(0, 16)) + ' UTC</div>' : "") + '</div>';
+      h += '<div class="cr-cols"><div>' +
+        (it.kind === "option" && it.owner ? '<div class="cr-meta" style="margin-bottom:6px;"><strong>' + t("Para o dono: ", "For the owner: ") + '</strong>' + escHtml(it.owner) + '</div>' : "") +
+        '<div class="cr-text">' + (it.text ? crRich(it.text) : "") + (it.textNote ? (it.text ? "\n\n" : "") + '<em>' + escHtml(it.textNote) + '</em>' : "") +
+        (it.extra && it.extra.length ? it.extra.map(function(x) { return "\n\n" + crRich(x); }).join("") : "") + '</div>' +
+        (it.fields ? '<div class="cr-meta" style="margin-top:6px;">' + t("Campos: ", "Fields: ") + escHtml(it.fields) + '</div>' : "") +
+        '</div><div><div class="cr-pt-label">' + (it.kind === "locked" ? t("Regras do bloco", "Block rules") : t("Resumo em português (só para a revisão)", "Portuguese summary (review only)")) + '</div><div class="cr-pt">' + escHtml(it.pt || "") + '</div></div></div>';
+      var open = crOpenComment[it.id] || (rv && rv.decision === "changes");
+      h += '<div class="cr-actions">' +
+        '<button type="button" class="cr-btn ok' + (rv && rv.decision === "ok" ? " sel" : "") + '" onclick="crDecide(\'' + it.id + '\', \'ok\')">' + t("OK como está", "OK as is") + '</button>' +
+        '<button type="button" class="cr-btn ch' + (rv && rv.decision === "changes" ? " sel" : "") + '" onclick="crOpenChanges(\'' + it.id + '\')">' + t("Sugerir mudanças", "Suggest changes") + '</button>' +
+        '<span id="crMsg_' + it.id + '"></span></div>';
+      h += '<div class="cr-comment" id="crComment_' + it.id + '"' + (open ? "" : " hidden") + '>' +
+        '<textarea id="crText_' + it.id + '" placeholder="' + t("Escreva ou dite a mudança sugerida", "Type or dictate the suggested change") + '">' + escHtml(rv && rv.comment ? rv.comment : "") + '</textarea>' +
+        '<div class="cr-actions"><button type="button" class="cr-btn cr-mic" id="crMic_' + it.id + '" onclick="crToggleMic(\'' + it.id + '\')">&#127908; ' + t("Ditar", "Dictate") + '</button>' +
+        '<span class="cr-meta" id="crMicStatus_' + it.id + '"></span>' +
+        '<button type="button" class="cr-btn gold" onclick="crSaveChanges(\'' + it.id + '\')">' + t("Salvar mudanças", "Save changes") + '</button></div></div>';
+      return h + '</div>';
+    }
+
+    function crRenderList() {
+      var box = document.getElementById("crList");
+      if (!box || !crLib) { return; }
+      var items = crItems();
+      var h = "";
+      items.forEach(function(it, i) { h += crItemHtml(it, i + 1); });
+      box.innerHTML = h;
+      crRenderProgress();
+    }
+
+    function crRenderItem(id) {
+      var items = crItems();
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].id === id) {
+          var el = document.getElementById("crItem_" + id);
+          if (!el) { return; }
+          var tmp = document.createElement("div");
+          tmp.innerHTML = crItemHtml(items[i], i + 1);
+          el.parentNode.replaceChild(tmp.firstChild, el);
+          return;
+        }
+      }
+    }
+
+    function crSay(id, text, isErr) {
+      var el = document.getElementById("crMsg_" + id);
+      if (!el) { return; }
+      el.className = isErr ? "cr-err" : "cr-saved";
+      el.textContent = text;
+    }
+
+    // Every choice saves to D1 immediately (no Save button to forget).
+    function crDecide(id, decision) {
+      crSay(id, t("Salvando...", "Saving..."));
+      apiFetch("/api/contracts/library/review", { method: "POST", body: { version: crVersion, item_id: id, decision: decision, comment: null } })
+        .then(function(d) {
+          crLib.reviews[id] = { decision: "ok", comment: null, updated_at: new Date().toISOString().replace("T", " ") };
+          crOpenComment[id] = false;
+          crRenderItem(id); crRenderProgress();
+        })
+        .catch(function(e) { crSay(id, t("Não salvou: ", "Not saved: ") + e.message, true); console.error(e); });
+    }
+
+    function crOpenChanges(id) {
+      crOpenComment[id] = true;
+      var box = document.getElementById("crComment_" + id);
+      if (box) { box.hidden = false; }
+      var ta = document.getElementById("crText_" + id);
+      if (ta) { ta.focus(); }
+    }
+
+    function crSaveChanges(id) {
+      var ta = document.getElementById("crText_" + id);
+      var comment = ta ? ta.value.trim() : "";
+      if (!comment) { crSay(id, t("Escreva ou dite a mudança primeiro.", "Type or dictate the change first."), true); return; }
+      crSay(id, t("Salvando...", "Saving..."));
+      apiFetch("/api/contracts/library/review", { method: "POST", body: { version: crVersion, item_id: id, decision: "changes", comment: comment } })
+        .then(function() {
+          crLib.reviews[id] = { decision: "changes", comment: comment, updated_at: new Date().toISOString().replace("T", " ") };
+          crRenderItem(id); crRenderProgress();
+        })
+        .catch(function(e) { crSay(id, t("Não salvou: ", "Not saved: ") + e.message, true); console.error(e); });
+    }
+
+    // ── Dictation: MediaRecorder -> Deepgram Nova-3 (copied from dashboard.html's
+    //    voice modal; transcript-only route). The transcript lands in the box
+    //    for him to correct before saving.
+    var crRec = null, crRecChunks = [], crRecItem = null, crRecStartedAt = 0;
+    var CR_REC_MAX_MS = 120000, CR_REC_MIN_MS = 1500;
+    function crToggleMic(id) {
+      if (crRec && crRec.state === "recording") { crStopMic(); return; }
+      crStartMic(id);
+    }
+    function crStartMic(id) {
+      var st = document.getElementById("crMicStatus_" + id);
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        if (st) { st.textContent = t("Este navegador não consegue gravar áudio.", "This browser cannot record audio."); }
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+        crRecChunks = []; crRecItem = id;
+        crRec = new MediaRecorder(stream);
+        crRec.ondataavailable = function(e) { if (e.data && e.data.size) { crRecChunks.push(e.data); } };
+        crRec.onstop = function() {
+          for (var i = 0; i < stream.getTracks().length; i++) { stream.getTracks()[i].stop(); }
+          crSendMic();
+        };
+        crRec.start();
+        crRecStartedAt = Date.now();
+        var btn = document.getElementById("crMic_" + id);
+        if (btn) { btn.className = "cr-btn cr-mic recording"; btn.innerHTML = "&#9632; " + t("Parar", "Stop"); }
+        if (st) { st.textContent = t("Gravando... fale a mudança.", "Recording... say the change."); }
+        setTimeout(function() { if (crRec && crRec.state === "recording") { crStopMic(); } }, CR_REC_MAX_MS);
+      }).catch(function() {
+        if (st) { st.textContent = t("Permissão do microfone negada.", "Microphone permission denied."); }
+      });
+    }
+    function crStopMic() {
+      if (crRec && crRec.state === "recording") { crRec.stop(); }
+      var btn = document.getElementById("crMic_" + crRecItem);
+      if (btn) { btn.className = "cr-btn cr-mic"; btn.innerHTML = "&#127908; " + t("Ditar", "Dictate"); }
+    }
+    function crSendMic() {
+      var id = crRecItem;
+      var st = document.getElementById("crMicStatus_" + id);
+      if (!crRecChunks.length || (Date.now() - crRecStartedAt) < CR_REC_MIN_MS) {
+        if (st) { st.textContent = t("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
+        return;
+      }
+      var blob = new Blob(crRecChunks, { type: "audio/webm" });
+      var fd = new FormData();
+      fd.append("audio", blob, "note.webm");
+      if (st) { st.textContent = t("Transcrevendo...", "Transcribing..."); }
+      apiFetch("/api/contracts/transcribe", { method: "POST", body: fd })
+        .then(function(d) {
+          var ta = document.getElementById("crText_" + id);
+          if (ta) { ta.value = (ta.value ? ta.value.trim() + " " : "") + (d.transcript || ""); ta.focus(); }
+          if (st) { st.textContent = t("Transcrito. Corrija se precisar e salve.", "Transcribed. Correct it if needed and save."); }
+        })
+        .catch(function(e) { if (st) { st.textContent = t("Erro: ", "Error: ") + e.message; } console.error(e); });
+    }
+
+    function crSubmit() {
+      var btn = document.getElementById("crSubmitBtn");
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/contracts/library/submit", { method: "POST", body: { version: crVersion } })
+        .then(function(d) {
+          crLib.version.status = d.status;
+          crLib.submissions = crLib.submissions || [];
+          crLib.submissions.unshift({ reviewer_name: crLib.me.name, ok_count: d.ok_count, changes_count: d.changes_count, submitted_at: new Date().toISOString().replace("T", " ") });
+          crRenderBanner();
+        })
+        .catch(function(e) { if (btn) { btn.disabled = false; } window.alert(t("Não foi possível enviar: ", "Could not send: ") + e.message); console.error(e); });
+    }
+
+    function crRenderBanner() {
+      var b = document.getElementById("crBanner");
+      if (!b || !crLib) { return; }
+      var v = crLib.version || {};
+      var mine = (crLib.submissions || []).filter(function(s) { return s.reviewer_email === crLib.me.email || !s.reviewer_email; });
+      var h = "";
+      var pdfBtn = document.getElementById("crAttorneyPdfBtn");
+      if (v.status === "attorney_reviewed") {
+        h = '<div class="cr-banner ok">' + t("Modelo revisado por ", "Template reviewed by ") + escHtml(v.attorney_name || "") + ", Florida Bar #" + escHtml(v.attorney_bar_number || "") + t(", em ", ", on ") + escHtml(v.attorney_review_date || "") + '.</div>';
+        if (pdfBtn) { pdfBtn.hidden = false; }
+      } else if (v.status === "in_review") {
+        h = '<div class="cr-banner ok">' + t("Revisão enviada: todos os itens OK. Agora envie a biblioteca para o seu advogado (PDF).", "Review sent: every item OK. Now send the library to your attorney (PDF).") + '</div>';
+        if (pdfBtn) { pdfBtn.hidden = false; }
+      } else if (mine.length) {
+        h = '<div class="cr-banner info">' + t("Revisão enviada. Você será avisado quando a nova versão estiver pronta.", "Review sent. You will be notified when the new version is ready.") + '</div>';
+        if (pdfBtn) { pdfBtn.hidden = true; }
+      } else if (pdfBtn) { pdfBtn.hidden = true; }
+      b.innerHTML = h;
+      var vs = document.getElementById("crVersionStatus");
+      if (vs) { vs.textContent = "v" + v.version + " · " + v.status + (v.set_by ? " · " + v.set_by : "") + (v.attorney_name ? " · " + v.attorney_name + " (Bar #" + v.attorney_bar_number + ", " + v.attorney_review_date + ")" : ""); }
+    }
+
+    function crRenderAdmin() {
+      var st = crLib.admin_settings || {};
+      var isDev = crLib.me && crLib.me.role === "developer";
+      var dev = document.getElementById("crDevPanel");
+      if (dev) { dev.hidden = !isDev; }
+      var adm = document.getElementById("crAdminPanel");
+      if (adm) { adm.hidden = false; }
+      var rel = document.getElementById("crRelease");
+      if (rel) { rel.checked = !!st.review_released_to_rafa; }
+      var rec = document.getElementById("crRecovery");
+      if (rec) { rec.value = st.recovery_fund_contact_block || ""; }
+      var docs = document.getElementById("crDocs");
+      if (docs) {
+        docs.innerHTML = '<div class="cr-meta">' +
+          t("Cap. 515: ", "Ch. 515: ") + (st.ch515_doc_present ? '<a href="#" onclick="crOpenDoc(\'ch515\'); return false;">' + escHtml(st.ch515_doc_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') +
+          ' &middot; ' + t("Afogamento: ", "Drowning: ") + (st.drowning_pub_present ? '<a href="#" onclick="crOpenDoc(\'drowning\'); return false;">' + escHtml(st.drowning_pub_version || "PDF") + '</a>' : '<span class="cr-err">' + t("não enviado", "not uploaded") + '</span>') + '</div>';
+      }
+      var subs = document.getElementById("crSubmissions");
+      if (subs && isDev) {
+        var list = crLib.submissions || [];
+        subs.innerHTML = list.length ? '<div class="cr-meta"><strong>' + t("Revisões enviadas", "Submitted reviews") + '</strong></div>' + list.map(function(s) {
+          return '<div class="cr-meta">' + escHtml(s.reviewer_name || s.reviewer_email || "") + ' &middot; ' + s.ok_count + " OK, " + s.changes_count + t(" com mudanças", " with changes") + ' &middot; ' + escHtml(String(s.submitted_at || "").slice(0, 16)) + ' UTC</div>';
+        }).join("") : '<div class="cr-meta">' + t("Nenhuma revisão enviada ainda.", "No review submitted yet.") + '</div>';
+      }
+    }
+
+    function crToggleRelease(cb) {
+      apiFetch("/api/contracts/admin-settings", { method: "PUT", body: { key: "review_released_to_rafa", value: cb.checked ? "1" : "0" } })
+        .then(function() { sessionStorage.setItem("apex_contract_review_released", cb.checked ? "1" : "0"); })
+        .catch(function(e) { cb.checked = !cb.checked; window.alert("Erro: " + e.message); console.error(e); });
+    }
+    function crSaveRecovery() {
+      var ta = document.getElementById("crRecovery"), msg = document.getElementById("crRecoveryMsg");
+      apiFetch("/api/contracts/admin-settings", { method: "PUT", body: { key: "recovery_fund_contact_block", value: ta ? ta.value.trim() : "" } })
+        .then(function() { if (msg) { msg.textContent = t("Salvo.", "Saved."); } })
+        .catch(function(e) { if (msg) { msg.className = "cr-err"; msg.textContent = e.message; } console.error(e); });
+    }
+    function crSaveAttorney() {
+      var msg = document.getElementById("crAttMsg");
+      var name = document.getElementById("crAttName"), bar = document.getElementById("crAttBar"), date = document.getElementById("crAttDate");
+      apiFetch("/api/contracts/library/" + crVersion + "/attorney-review", { method: "PUT", body: { attorney_name: name ? name.value.trim() : "", bar_number: bar ? bar.value.trim() : "", review_date: date ? date.value : "" } })
+        .then(function() { return crLoad(); })
+        .catch(function(e) { if (msg) { msg.textContent = e.message; } console.error(e); });
+    }
+    function crUploadDoc(kind) {
+      var file = document.getElementById(kind === "ch515" ? "crCh515File" : "crDrownFile");
+      var ver = document.getElementById(kind === "ch515" ? "crCh515Ver" : "crDrownVer");
+      var msg = document.getElementById("crDocMsg_" + kind);
+      if (!file || !file.files || !file.files[0]) { if (msg) { msg.className = "cr-err"; msg.textContent = t("Escolha o PDF.", "Pick the PDF."); } return; }
+      var fd = new FormData();
+      fd.append("file", file.files[0]);
+      fd.append("version", ver ? ver.value.trim() : "");
+      if (msg) { msg.className = "cr-saved"; msg.textContent = t("Enviando...", "Uploading..."); }
+      apiFetch("/api/contracts/admin-docs/" + kind, { method: "POST", body: fd })
+        .then(function() { if (msg) { msg.textContent = t("Enviado.", "Uploaded."); } return crLoad(); })
+        .catch(function(e) { if (msg) { msg.className = "cr-err"; msg.textContent = e.message; } console.error(e); });
+    }
+    function crOpenDoc(kind) {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/contracts/admin-docs/" + kind, { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.blob(); })
+        .then(function(b) { var u = URL.createObjectURL(b); window.open(u, "_blank"); })
+        .catch(function(e) { window.alert("Erro: " + e.message); });
+    }
+
+    // ── Print mode: the whole library, English text, locked blocks and the 30
+    //    attorney questions; plain title page, no Apex branding beyond it.
+    function crOpenPrint() { window.open("contract-review.html?version=" + crVersion + "&print=1", "_blank"); }
+    function crRenderDoc() {
+      var box = document.getElementById("crDoc");
+      if (!box || !crLib) { return; }
+      var v = crLib.version || {};
+      var h = '<div class="cr-doc-cover"><h1>Contract Clause Library</h1><p>Florida home improvement, five trades. Library version ' + escHtml(String(v.version)) + '.</p>' +
+        '<p>' + escHtml(v.label || "") + '</p><p class="cr-doc-muted">Prepared for attorney review. Draft; not yet reviewed by an attorney. Locked blocks are statutory or regulatory text copied verbatim from the official sources cited; clause options are drafts. Portuguese summaries are omitted.</p>' +
+        '<p class="cr-doc-muted">Contents: locked blocks L1 to L7; clause areas C01 to C19 with every option; questions for the attorney.</p></div>';
+      h += '<h2>Part 1. Locked blocks (statutory text)</h2>';
+      (crLib.locked_blocks || []).forEach(function(b) {
+        h += '<div class="cr-doc-item"><h3>' + escHtml(b.id) + '. ' + escHtml(b.title) + '</h3>' +
+          (b.source_url ? '<p class="cr-doc-muted">Source: ' + escHtml(b.source_url) + '</p>' : "") +
+          (b.trigger_rule ? '<p class="cr-doc-muted">When it appears: ' + crRich(b.trigger_rule) + '</p>' : "") +
+          (b.format_rules ? '<p class="cr-doc-muted">Format: ' + crRich(b.format_rules) + '</p>' : "") +
+          (b.text ? '<div class="cr-doc-text">' + crRich(b.text) + '</div>' : "") +
+          (b.extra_blocks || []).map(function(x) { return '<div class="cr-doc-text">' + crRich(x) + '</div>'; }).join("") + '</div>';
+      });
+      h += '<h2>Part 2. Clause areas and options</h2>';
+      var areas = crLib.clause_areas || [];
+      areas.forEach(function(a) {
+        h += '<h3>' + escHtml(a.id) + '. ' + escHtml(a.title) + '</h3>';
+        if (a.intro_md) { h += '<p class="cr-doc-muted">' + crRich(a.intro_md) + '</p>'; }
+        (crLib.clause_options || []).filter(function(o) { return o.area_id === a.id; }).forEach(function(o) {
+          h += '<div class="cr-doc-item"><p><strong>' + escHtml(o.id) + ' ' + escHtml(o.title) + '</strong> (' + escHtml(o.trades || "") + ')</p>' +
+            (o.owner_description ? '<p class="cr-doc-muted">For the owner: ' + escHtml(o.owner_description) + '</p>' : "") +
+            (o.clause_text ? '<div class="cr-doc-text">' + crRich(o.clause_text) + '</div>' : "") +
+            (o.text_note ? '<p class="cr-doc-muted">' + escHtml(o.text_note) + '</p>' : "") +
+            (o.placeholders ? '<p class="cr-doc-muted">Fields: ' + escHtml(o.placeholders) + '</p>' : "") + '</div>';
+        });
+        if (a.notes_md) { h += '<p class="cr-doc-muted">' + crRich(a.notes_md) + '</p>'; }
+      });
+      h += '<h2>Part 3. Questions for the attorney</h2>';
+      var grp = null;
+      (crLib.attorney_questions || []).forEach(function(q) {
+        if (q.group_name !== grp) { grp = q.group_name; h += '<h3>' + escHtml(grp || "") + '</h3>'; }
+        h += '<p>' + q.n + '. ' + escHtml(q.text) + '</p>';
+      });
+      box.innerHTML = h;
+      box.hidden = false;
+      document.body.classList.add("cr-print");
+      setTimeout(function() { window.print(); }, 600);
+    }
+
+    function crLoad() {
+      return apiFetch("/api/contracts/library?version=" + crVersion)
+        .then(function(d) {
+          crLib = d;
+          crLib.reviews = crLib.reviews || {};
+          if (crPrint) { crRenderDoc(); return; }
+          crRenderAdmin(); crRenderBanner(); crRenderList();
+        })
+        .catch(function(e) {
+          var box = document.getElementById("crList");
+          if (box) { box.innerHTML = '<div class="table-empty" style="color:#b44040;">' + escHtml(e.message) + '</div>'; }
+          console.error(e);
+        });
+    }
+
+    // ── Page setup ───────────────────────────────────────────────────────────
+    function setupPage(role) {
+      var roleEl  = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      populateHeaderUser(email, sessionStorage.getItem("apex_display_name") || null, sessionStorage.getItem("apex_avatar_url") || null);
+      if (roleEl)  { roleEl.textContent  = role; }
+      document.getElementById("loadingScreen").hidden = true;
+      if (role !== "developer" && role !== "rafa") {
+        document.getElementById("forbiddenScreen").hidden = false;
+        window.initNav && window.initNav();
+        return;
+      }
+      document.getElementById("appMain").hidden = false;
+      window.initNav && window.initNav();
+      crLoad();
+    }
+
+    function fetchAndApplyRole() {
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/role", {
+          headers: { "Authorization": "Bearer " + token },
+          cache: "no-store"
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        sessionStorage.setItem("apex_role",         data.role);
+        sessionStorage.setItem("apex_email",        data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        return data;
+      });
+    }
+
+    // ── Bootstrap ────────────────────────────────────────────────────────────
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(function (user) {
+        if (!user) { window.location.href = "index.html"; return; }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) {
+          setupPage(cached);
+        }
+
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) {
+            setupPage(data.role);
+          }
+        }).catch(function () {
+          if (!cached) { window.location.href = "index.html"; }
+        });
+      });
+
+      window.addEventListener("pageshow", function(evt) {
+        if (evt.persisted && currentUser) {
+          fetchAndApplyRole().catch(function() {});
+        }
+      });
+    }
+
+    window.onload = function () { init(); };
+  </script>
+  <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
+       injected fixed-position nav broke the desktop flex layout, so these
+       must exist in the markup from page load. nav.js only fills them in;
+       mobile.css alone controls their visibility and positioning. -->
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+</body>
+</html>

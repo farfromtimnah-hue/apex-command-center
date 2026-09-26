@@ -937,7 +937,7 @@ meeting being prepared now, not a durable preference).
 
 Rafa is overloaded and the booking dialog's questions are exactly what he
 routes around. One button on the dashboard (both heroes): record, stop, done.
-Workers AI transcribes with @cf/openai/whisper ([ai] binding added to
+Workers AI transcribes with @cf/deepgram/nova-3 (was Whisper until 2026-09-26; Nicole's rule: nothing from OpenAI) ([ai] binding added to
 wrangler.toml), Claude extracts the fields with the EXISTING CLAUDE_API_KEY
 secret -- no new secret.
 

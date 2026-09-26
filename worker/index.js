@@ -4877,10 +4877,21 @@ async function handlePostSessionsVoice(request, env) {
 
         var transcript = "";
         try {
-            var asr = await env.AI.run("@cf/openai/whisper", {
-                audio: Array.from(new Uint8Array(buf))
+            // Deepgram Nova-3 on Workers AI (Nicole's rule: nothing from OpenAI
+            // anywhere, hosted or not). Input per the model schema: audio.body
+            // (the bytes) + audio.contentType; language "multi" = automatic
+            // detection across Deepgram's supported languages, which covers
+            // Rafa's Brazilian Portuguese and the occasional English note.
+            // Output: results.channels[0].alternatives[0].transcript.
+            var asr = await env.AI.run("@cf/deepgram/nova-3", {
+                audio: { body: new Uint8Array(buf), contentType: (audio.type && String(audio.type)) || "audio/webm" },
+                language: "multi",
+                smart_format: true,
+                punctuate: true
             });
-            transcript = (asr && asr.text ? String(asr.text) : "").trim();
+            var alt = asr && asr.results && asr.results.channels && asr.results.channels[0] &&
+                      asr.results.channels[0].alternatives && asr.results.channels[0].alternatives[0];
+            transcript = (alt && alt.transcript ? String(alt.transcript) : "").trim();
         } catch (e) {
             return jsonErr("Could not transcribe the recording: " + e.message, 502);
         }

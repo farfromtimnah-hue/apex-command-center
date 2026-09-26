@@ -27,7 +27,7 @@ crons = ["0 */4 * * *"]
 #   GOOGLE_CALENDAR_CLIENT_ID, GOOGLE_CALENDAR_CLIENT_SECRET,
 #   ZOHO_BOOKS_CLIENT_ID, ZOHO_BOOKS_CLIENT_SECRET,
 #   TELEGRAM_BOT_TOKEN, TELEGRAM_ALERT_CHAT_ID
-# Workers AI: voice booking transcribes with @cf/openai/whisper before Claude
+# Workers AI: voice booking transcribes with @cf/deepgram/nova-3 before Claude
 # extracts the fields. Rafa is overloaded and the booking dialog's questions
 # are what he routes around, so the microphone has to be the whole interface.
 [ai]

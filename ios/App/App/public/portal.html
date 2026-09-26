@@ -97,7 +97,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1790436602">
+  <link rel="stylesheet" href="gm.css?v=1790448751">
   <!-- The send-message editor on Estimates reuses template-edit.js's modal
        styling (estimates build, phase 2). -->
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
@@ -611,6 +611,9 @@
       text-align: center; color: #fff;
     }
     .m-tab-dot.m-tab-count { top: -6px; right: -10px; }
+    /* display:inline-block above used to beat the hidden attribute, so a
+       hidden dot (or a "0" count) still painted. */
+    .assigned-dot[hidden], .m-tab-dot[hidden] { display: none; }
     .mm-item .m-tab-dot.m-tab-count { position: static; display: inline-block; margin-left: 8px; box-shadow: none; }
 
     /* Developer preview banner */
@@ -2676,6 +2679,11 @@
         switchTab(xrayOpen() ? "xray" : firstSpa);
         return;
       }
+      // The monthly goals gates belong to Home (D4): a deep link into any
+      // other tab (?tab=gmestimates from "Mais", a shared Pipeline link)
+      // opens that tab, and the goals form waits for the next Home visit.
+      var bootTab = (location.search.match(/[?&]tab=([a-z0-9_-]+)/i) || [])[1] || "";
+      if (bootTab && bootTab !== "analytics") { proceedToEntries(); return; }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals) &&
           !goalHardSkipped()) {
         // Hard gate: no goals at all, or none set for the current month. Still
@@ -3169,11 +3177,11 @@
       var tmSetAt = gmConfig.config.target_margin_set_at;
       html += '<div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;">' +
         '<label class="field-label" for="gmTargetMargin">' +
-        (en ? "Minimum target margin (%)" : "Margem alvo mínima (%)") + '</label>' +
+        (en ? "Minimum margin (%) — optional" : "Margem mínima (%) — opcional") + '</label>' +
         '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
         (en
-          ? "Your floor: no proposal goes out below this number. Projects are measured against it on the Projects & margin tab."
-          : "O seu piso: nenhuma proposta sai abaixo desse número. Os projetos são comparados com ele na aba Projetos e margem.") +
+          ? "If set, the estimate builder warns when an estimate falls below it and projects are marked on or off target. Nothing is blocked. The same value appears in the document settings."
+          : "Se preenchida, o assistente avisa quando um estimate fica abaixo dela e os projetos são marcados como no alvo ou não. Nada é bloqueado. É o mesmo valor das configurações de documentos.") +
         '</p>' +
         '<input type="number" id="gmTargetMargin" min="0.1" max="99.9" step="0.1" ' +
           'style="width:100%;" placeholder="' + (en ? "Not set" : "Não definida") + '" ' +
@@ -3366,6 +3374,13 @@
           referralSettings.language            = r.data.language;
           referralSettings.referral_bg_color   = r.data.referral_bg_color;
           referralSettings.referral_text_color = r.data.referral_text_color;
+          // D3: the customer documents share these two colors (the Worker
+          // mirrored them); keep the loaded document settings in step.
+          if (typeof gmDocSettings !== "undefined" && gmDocSettings) {
+            gmDocSettings.brand_primary = r.data.referral_bg_color || null;
+            gmDocSettings.brand_accent  = r.data.referral_text_color || null;
+            if (typeof gmDocDraftFromSettings === "function") { gmDocDraftFromSettings(); }
+          }
         });
     }
 
@@ -6962,7 +6977,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790447518"></script>
+  <script src="gm.js?v=1790448752"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

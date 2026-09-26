@@ -845,7 +845,14 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-cost-line .gm-cost-amount { flex: 0 0 110px; }
 /* Cost TYPE (material / labor / other) on a cost line. Same input frame,
    narrow, so label + amount + type + remove still fit 375px. */
-.gm-cost-line .gm-cost-type   { flex: 0 0 96px; padding-left: 8px; padding-right: 8px; }
+.gm-cost-line .gm-cost-type   { flex: 0 0 110px; padding-left: 8px; padding-right: 8px; }
+/* Phone width: the cost row wraps so the type select keeps its full word
+   ("Material", not "Materia") instead of being squeezed (fix build, D7). */
+@media (max-width: 480px) {
+  .gm-cost-line { flex-wrap: wrap; }
+  .gm-cost-line .gm-cost-label { flex: 1 1 100%; }
+  .gm-cost-line .gm-cost-type  { flex: 1 1 120px; }
+}
 
 /* ── Document settings (Estimates tab) ────────────────────────────────── */
 .gm-doc-image-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }

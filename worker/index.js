@@ -13064,6 +13064,13 @@ async function handlePutReferralSettings(id, request, env) {
             if (body[key] && !hex) { return jsonErr("Invalid color: " + key, 400); }
             await env.DB.prepare("UPDATE clients SET " + key + " = ? WHERE id = ?")
                 .bind(hex, id).run();
+            // D3: the customer documents use the same two colors
+            // (gm_doc_settings.brand_primary / brand_accent). Mirrored when
+            // the settings row exists; before it exists the doc settings
+            // already prefill from these columns.
+            var docCol = key === "referral_bg_color" ? "brand_primary" : "brand_accent";
+            await env.DB.prepare("UPDATE gm_doc_settings SET " + docCol + " = ?, updated_at = datetime('now') WHERE client_id = ? AND " + docCol + " IS NOT ?")
+                .bind(hex, id, hex).run();
         }
 
         var row = await env.DB.prepare(
@@ -21990,12 +21997,16 @@ async function handleGetGmPricing(id, request, env) {
             if (sellerView) {
                 GM_PRICING_SELLER_FIELDS.forEach(function(k) { out[k] = r[k] === undefined ? null : r[k]; });
                 out.kind = gmPricingKind(r.kind);
+                out.needs_info = !r.category || !r.unit || !r.description;   // D8 badge, no costs involved
                 items.push(out);
                 return;
             }
             Object.keys(r).forEach(function(k) { out[k] = r[k]; });
             Object.keys(computed).forEach(function(k) { out[k] = computed[k]; });
             out.kind = gmPricingKind(r.kind);
+            // D8: imported without category, unit or customer description.
+            // A badge, never a block: estimates still build and send.
+            out.needs_info = !r.category || !r.unit || !r.description;
             if (out.cost_total !== null) { withCosts++; }
             items.push(out);
         });
@@ -22194,7 +22205,8 @@ var GM_PRICING_DESCRIPTION_HEADERS = ["customer description", "descricao para o 
 
 // Which header fills which role. An explicit map from the caller always wins
 // -- that is what the mapping UI sends back when the guess was wrong.
-function gmPricingResolveColumns(headers, map) {
+// explicitOnly (D8): the map IS the answer; nothing is guessed by header name.
+function gmPricingResolveColumns(headers, map, explicitOnly) {
     var res = { item: -1, unit: -1, price: -1, category: -1, kind: -1, description: -1 };
     var norm = headers.map(gmCsvNorm);
     function findBy(list) {
@@ -22203,12 +22215,14 @@ function gmPricingResolveColumns(headers, map) {
         }
         return -1;
     }
-    res.item  = findBy(GM_PRICING_ITEM_HEADERS);
-    res.unit  = findBy(GM_PRICING_UNIT_HEADERS);
-    res.price = findBy(GM_PRICING_PRICE_HEADERS);
-    res.category    = findBy(GM_PRICING_CATEGORY_HEADERS);
-    res.kind        = findBy(GM_PRICING_KIND_HEADERS);
-    res.description = findBy(GM_PRICING_DESCRIPTION_HEADERS);
+    if (!explicitOnly) {
+        res.item  = findBy(GM_PRICING_ITEM_HEADERS);
+        res.unit  = findBy(GM_PRICING_UNIT_HEADERS);
+        res.price = findBy(GM_PRICING_PRICE_HEADERS);
+        res.category    = findBy(GM_PRICING_CATEGORY_HEADERS);
+        res.kind        = findBy(GM_PRICING_KIND_HEADERS);
+        res.description = findBy(GM_PRICING_DESCRIPTION_HEADERS);
+    }
     if (map && typeof map === "object") {
         ["item", "unit", "price", "category", "kind", "description"].forEach(function(role) {
             if (map[role] === null) { res[role] = -1; return; }
@@ -22240,25 +22254,31 @@ async function handlePostGmPricingImport(id, request, env) {
         if (rows.length < 2) { return jsonErr("O arquivo precisa de um cabecalho e ao menos uma linha", 400); }
 
         var headers = rows[0].map(function(h) { return String(h).trim(); });
-        var cols = gmPricingResolveColumns(headers, body.column_map);
-        if (cols.item === -1) {
-            return jsonOk({
-                needs_mapping: true,
-                headers: headers,
-                columns: cols,
-                message: "Escolha qual coluna e o item"
-            });
+        // D8: column matching is EXPLICIT. The first call (mode "headers") only
+        // returns the headers with exact-match suggestions; the owner confirms
+        // every field and every cost column's type before any preview.
+        var explicit = body.column_map && typeof body.column_map === "object";
+        if (body.mode === "headers" || !explicit) {
+            var suggested = gmPricingResolveColumns(headers, null);
+            var sugg = {};
+            Object.keys(suggested).forEach(function(role) { sugg[role] = suggested[role] === -1 ? null : headers[suggested[role]]; });
+            return jsonOk({ needs_mapping: true, headers: headers, suggested: sugg });
         }
+        var cols = gmPricingResolveColumns(headers, body.column_map, true);
+        if (cols.item === -1) { return jsonErr("Pick the Item column", 400); }
+        if (cols.price === -1) { return jsonErr("Pick the Price column", 400); }
 
-        // Everything not claimed by item/unit/price is a cost line, and its
-        // header is the label. Empty header names are skipped: an unnamed cost
-        // line teaches nobody anything.
-        var costCols = [];
+        // Cost columns: only the ones the owner typed as material / labor /
+        // other; "ignore" (or an unlisted header) imports nothing.
+        var costTypes = body.cost_types && typeof body.cost_types === "object" ? body.cost_types : {};
+        var costCols = [], costTypeByCol = {};
         for (var h = 0; h < headers.length; h++) {
             if (h === cols.item || h === cols.unit || h === cols.price ||
                 h === cols.category || h === cols.kind || h === cols.description) { continue; }
             if (!headers[h]) { continue; }
-            costCols.push(h);
+            var ct = String(costTypes[headers[h]] || "").toLowerCase();
+            if (GM_COST_LINE_TYPES.indexOf(ct) === -1) { continue; }
+            costCols.push(h); costTypeByCol[h] = ct;
         }
 
         var existingRows = await env.DB.prepare(
@@ -22275,7 +22295,8 @@ async function handlePostGmPricingImport(id, request, env) {
         for (var r2 = 1; r2 < rows.length; r2++) {
             var cells = rows[r2];
             var itemName = gmStr(cells[cols.item], 200);
-            if (!itemName) { skipped.push({ line: r2 + 1, reason: "sem nome de item" }); continue; }
+            if (!itemName) { skipped.push({ line: r2 + 1, reason: "no item" }); continue; }
+            if (gmCsvNum(cells[cols.price]) === null) { skipped.push({ line: r2 + 1, item: itemName, reason: "no price" }); continue; }
             var key = gmCsvNorm(itemName);
             // A file that lists the same item twice would otherwise have the
             // second line silently overwrite the first inside one import.
@@ -22286,7 +22307,7 @@ async function handlePostGmPricingImport(id, request, env) {
             costCols.forEach(function(ci) {
                 var amt = gmCsvNum(cells[ci]);
                 if (amt === null) { return; }
-                breakdown.push({ label: String(headers[ci]).slice(0, 80), amount: amt });
+                breakdown.push({ label: String(headers[ci]).slice(0, 80), amount: amt, type: costTypeByCol[ci] });
             });
             var price = cols.price === -1 ? null : gmCsvNum(cells[cols.price]);
             var unit  = cols.unit  === -1 ? null : gmStr(cells[cols.unit], 40);
@@ -22317,7 +22338,7 @@ async function handlePostGmPricingImport(id, request, env) {
                 columns:      { item: headers[cols.item] || null,
                                 unit: cols.unit === -1 ? null : headers[cols.unit],
                                 price: cols.price === -1 ? null : headers[cols.price] },
-                cost_columns: costCols.map(function(ci) { return headers[ci]; }),
+                cost_columns: costCols.map(function(ci) { return headers[ci] + " (" + costTypeByCol[ci] + ")"; }),
                 rows:         planned,
                 create_count: planned.filter(function(p) { return p.action === "create"; }).length,
                 update_count: planned.filter(function(p) { return p.action === "update"; }).length,
@@ -22496,6 +22517,10 @@ function gmDocParseJsonObject(v, fallback) {
 async function gmDocSettingsRow(env, clientId) {
     var row = await env.DB.prepare("SELECT * FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
     var r = row || {};
+    // ONE minimum margin (fix build, D2): gm_config.target_margin is the
+    // value; gm_doc_settings.min_margin_pct is no longer read or written.
+    var cfg = await env.DB.prepare("SELECT target_margin FROM gm_config WHERE client_id = ?").bind(clientId).first();
+    var oneMargin = cfg && cfg.target_margin !== null && cfg.target_margin !== undefined ? cfg.target_margin : null;
     return {
         client_id:             clientId,
         exists:                !!row,
@@ -22510,7 +22535,7 @@ async function gmDocSettingsRow(env, clientId) {
         phone:                 r.phone || null,
         email:                 r.email || null,
         license_numbers:       gmDocParseLicenses(r.license_numbers || "[]"),
-        min_margin_pct:        (r.min_margin_pct === null || r.min_margin_pct === undefined) ? null : r.min_margin_pct,
+        min_margin_pct:        oneMargin,
         estimate_valid_days:   (r.estimate_valid_days === null || r.estimate_valid_days === undefined) ? 30 : r.estimate_valid_days,
         default_terms_days:    (r.default_terms_days === null || r.default_terms_days === undefined) ? 0 : r.default_terms_days,
         payment_methods:       gmDocParseJsonObject(r.payment_methods_json, {}),
@@ -22608,12 +22633,17 @@ async function handlePutGmDocSettings(id, request, env) {
         if (has("phone"))      { f.phone      = body.phone      === null ? null : gmStr(body.phone, 40); }
         if (has("email"))      { f.email      = body.email      === null ? null : gmStr(body.email, 120); }
         if (has("license_numbers")) { f.license_numbers = JSON.stringify(gmDocParseLicenses(body.license_numbers)); }
+        // D2: the minimum margin lives on gm_config.target_margin (with its
+        // set_by / set_at stamps), shared with Ajustes. Written here directly;
+        // the doc-settings column stays untouched.
+        var oneMarginWrite = null, oneMarginTouched = false;
         if (has("min_margin_pct")) {
             var mm = gmNum(body.min_margin_pct);
             if (body.min_margin_pct !== null && body.min_margin_pct !== "" && (mm === null || mm < 0 || mm > 100)) {
                 return jsonErr("min_margin_pct must be between 0 and 100", 400);
             }
-            f.min_margin_pct = (body.min_margin_pct === null || body.min_margin_pct === "") ? null : mm;
+            oneMarginTouched = true;
+            oneMarginWrite = (body.min_margin_pct === null || body.min_margin_pct === "" || mm <= 0) ? null : mm;
         }
         if (has("estimate_valid_days")) {
             var vd = gmNum(body.estimate_valid_days);
@@ -22687,6 +22717,27 @@ async function handlePutGmDocSettings(id, request, env) {
             if (completing) { sets.push("setup_completed_at = datetime('now')"); }
             ubinds.push(id);
             await gmRunUpdate(env, "UPDATE gm_doc_settings SET " + sets.join(", ") + " WHERE client_id = ?", ubinds);
+        }
+        // D2: the ONE minimum margin, on gm_config with its stamps.
+        if (oneMarginTouched) {
+            var cfgRow = await env.DB.prepare("SELECT target_margin FROM gm_config WHERE client_id = ?").bind(id).first();
+            var beforeM = cfgRow && cfgRow.target_margin !== null && cfgRow.target_margin !== undefined ? cfgRow.target_margin : null;
+            if (beforeM !== oneMarginWrite) {
+                if (cfgRow) {
+                    await gmRunUpdate(env, "UPDATE gm_config SET target_margin = ?, target_margin_set_by = ?, target_margin_set_at = datetime('now'), updated_at = datetime('now') WHERE client_id = ?", [oneMarginWrite, actor, id]);
+                } else {
+                    await env.DB.prepare("INSERT INTO gm_config (client_id, target_margin, target_margin_set_by, target_margin_set_at) VALUES (?, ?, ?, datetime('now'))").bind(id, oneMarginWrite, actor).run();
+                }
+                changes.push({ field: "min_margin_pct", old_value: beforeM === null ? null : String(beforeM), new_value: oneMarginWrite === null ? null : String(oneMarginWrite) });
+            }
+        }
+        // D3: brand colors and the referral page colors are one value.
+        if (f.brand_primary !== undefined || f.brand_accent !== undefined) {
+            var csets = [], cbinds = [];
+            if (f.brand_primary !== undefined) { csets.push("referral_bg_color = ?"); cbinds.push(f.brand_primary); }
+            if (f.brand_accent !== undefined) { csets.push("referral_text_color = ?"); cbinds.push(f.brand_accent); }
+            cbinds.push(id);
+            await gmRunUpdate(env, "UPDATE clients SET " + csets.join(", ") + " WHERE id = ?", cbinds);
         }
         if (changes.length) {
             await env.DB.batch(changes.map(function(c) {
@@ -22861,6 +22912,26 @@ function gmEstLineAmountCents(line) {
     return Math.round(qty * rate);
 }
 
+// Per-option discount (C1) with the estimate-level columns as the fallback
+// for estimates written before options carried their own.
+function gmEstOptDiscount(est, o) {
+    if (o && o.discount_type) { return { type: o.discount_type, value: o.discount_value }; }
+    return { type: est ? est.discount_type : null, value: est ? est.discount_value : null };
+}
+function gmEstOptTotals(est, o) {
+    var d = gmEstOptDiscount(est, o);
+    return gmEstOptionTotals(o.items, d.type, d.value);
+}
+function gmEstParseDiscount(type, value) {
+    if (type === "amount" || type === "pct") {
+        var dv = gmNum(value);
+        if (dv === null || dv < 0) { return { error: "discount_value must be a number" }; }
+        if (type === "pct" && dv > 100) { return { error: "a percentage discount cannot exceed 100" }; }
+        return { type: dv > 0 ? type : null, value: dv > 0 ? (type === "amount" ? Math.round(dv) : dv) : null };
+    }
+    return { type: null, value: null };
+}
+
 function gmEstDiscountCents(subtotalCents, discountType, discountValue) {
     if (!discountType || discountValue === null || discountValue === undefined) { return 0; }
     var v = gmNum(discountValue); if (v === null || v <= 0) { return 0; }
@@ -22905,7 +22976,8 @@ function gmEstScheduleAmounts(steps, totalCents) {
 
 // Florida §489.126: a deposit above 10% carries permit/start obligations.
 function gmEstDepositOverTen(steps) {
-    if (!steps || !steps.length) { return false; }
+    // One step "due on completion" is no deposit at all (C8).
+    if (!steps || steps.length < 2) { return false; }
     return (gmNum(steps[0].pct) || 0) > 10;
 }
 
@@ -23005,7 +23077,10 @@ async function gmEstParseOptions(env, clientId, body, trustBodyCosts) {
             line.amount_cents = gmEstLineAmountCents(line);
             items.push(line);
         }
-        out.push({ tier: tier, label: gmStr(o.label, 80) || (tier === "single" ? null : tier.charAt(0).toUpperCase() + tier.slice(1)), sort_order: i, items: items });
+        var disc = gmEstParseDiscount(o.discount_type, o.discount_value);
+        if (disc.error) { return { error: "option " + (o.label || tier) + ": " + disc.error }; }
+        out.push({ tier: tier, label: gmStr(o.label, 80) || (tier === "single" ? null : tier.charAt(0).toUpperCase() + tier.slice(1)), sort_order: i, items: items,
+                   discount_type: disc.type, discount_value: disc.value });
     }
     return { mode: mode, options: out };
 }
@@ -23049,7 +23124,8 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
         if (Object.prototype.hasOwnProperty.call(pm, k)) { methods.push({ key: k, detail: pm[k] || "" }); }
     });
     var options = est.options.map(function(o) {
-        var totals = gmEstOptionTotals(o.items, est.discount_type, est.discount_value);
+        var totals = gmEstOptTotals(est, o);
+        var disc = gmEstOptDiscount(est, o);
         var cats = {};
         var catOrder = [];
         o.items.forEach(function(it) {
@@ -23066,6 +23142,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
             id: o.id, tier: o.tier, label: o.label,
             sections: catOrder.map(function(c) { return cats[c]; }),
             subtotal_cents: totals.subtotal_cents, discount_cents: totals.discount_cents, total_cents: totals.total_cents,
+            discount_type: disc.type, discount_value: disc.value,
             schedule: gmEstScheduleAmounts(est.schedule, totals.total_cents)
         };
     });
@@ -23176,7 +23253,7 @@ async function gmEstApplyToLead(env, clientId, est, actor, opts) {
     if (!lead) { return; }
     var opt = gmEstValorOption(est);
     if (!opt) { return; }
-    var totals = gmEstOptionTotals(opt.items, est.discount_type, est.discount_value);
+    var totals = gmEstOptTotals(est, opt);
     var costs = gmEstOptionCosts(opt.items);
     // Change orders (fix build, C2): once a lead has ACCEPTED estimates, its
     // value and costs are the sum of every accepted, non-superseded, non-void
@@ -23246,7 +23323,7 @@ async function gmEstAcceptedSums(env, clientId, leadId) {
         var opt = await env.DB.prepare("SELECT * FROM gm_estimate_options WHERE estimate_id = ? AND (id = ? OR ? IS NULL) ORDER BY sort_order LIMIT 1").bind(e.id, e.accepted_option_id, e.accepted_option_id).first();
         if (!opt) { continue; }
         var items = (await env.DB.prepare("SELECT * FROM gm_estimate_items WHERE option_id = ? ORDER BY sort_order").bind(opt.id).all()).results || [];
-        var t = gmEstOptionTotals(items, e.discount_type, e.discount_value);
+        var t = gmEstOptTotals(e, { items: items, discount_type: opt.discount_type, discount_value: opt.discount_value });
         var c = gmEstOptionCosts(items);
         out.count += 1; out.total_cents += t.total_cents;
         out.material_cents += c.material_cents; out.labor_cents += c.labor_cents; out.other_cents += c.other_cents;
@@ -23371,10 +23448,10 @@ async function gmEstWriteOptions(env, est, options) {
     var stmts = [];
     options.forEach(function(o, i) {
         var oid = crypto.randomUUID();
-        var totals = gmEstOptionTotals(o.items, est.discount_type, est.discount_value);
+        var totals = gmEstOptTotals(est, o);
         stmts.push(env.DB.prepare(
-            "INSERT INTO gm_estimate_options (id, estimate_id, tier, label, sort_order, subtotal_cents, discount_cents, total_cents) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(oid, est.id, o.tier, o.label, i, totals.subtotal_cents, totals.discount_cents, totals.total_cents));
+            "INSERT INTO gm_estimate_options (id, estimate_id, tier, label, sort_order, subtotal_cents, discount_cents, total_cents, discount_type, discount_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(oid, est.id, o.tier, o.label, i, totals.subtotal_cents, totals.discount_cents, totals.total_cents, o.discount_type || null, o.discount_type ? o.discount_value : null));
         o.items.forEach(function(it, j) {
             stmts.push(env.DB.prepare(
                 "INSERT INTO gm_estimate_items (id, estimate_id, option_id, category, pricing_id, item_name, description, line_type, qty, unit, rate_cents, amount_cents, preset_rate_cents, rate_override_reason, material_cost_cents, labor_cost_cents, other_cost_cents, is_addon, sort_order) " +
@@ -23540,7 +23617,8 @@ async function handlePostGmEstimateRevise(id, estId, request, env) {
                est.valid_until, est.discount_type, est.discount_value, est.schedule_json, est.terms_included, est.terms_excluded, est.customer_notes, est.internal_notes, token, actor).run();
         var newEst = { id: newId, number: est.number, revision: rev, discount_type: est.discount_type, discount_value: est.discount_value };
         await gmEstWriteOptions(env, newEst, est.options.map(function(o) {
-            return { tier: o.tier, label: o.label, items: o.items.map(function(it) { var c = {}; Object.keys(it).forEach(function(k) { c[k] = it[k]; }); return c; }) };
+            return { tier: o.tier, label: o.label, discount_type: o.discount_type || null, discount_value: o.discount_type ? o.discount_value : null,
+                     items: o.items.map(function(it) { var c = {}; Object.keys(it).forEach(function(k) { c[k] = it[k]; }); return c; }) };
         }));
         await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_revised", field: "estimate", old_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), new_value: est.number + "-R" + rev }]);
         return jsonOk({ created: true, estimate: { id: newId, number: est.number, revision: rev, public_token: token } });
@@ -23789,6 +23867,25 @@ async function gmEstByToken(env, token) {
     return gmEstAttach(env, est);
 }
 
+// Signing facts for the customer's copy: name, time, method, device summary
+// (never the raw user agent or IP on a public page).
+function gmEstOverlaySigning(out, est) {
+    out.accepted_option_id = est.accepted_option_id;
+    out.accepted_at = est.accepted_at;
+    out.accepted_signer_name = est.accepted_signer_name;
+    out.accepted_signature_kind = est.accepted_signature_kind;
+    out.accepted_by_kind = est.accepted_by_kind;
+    out.accepted_device = gmEstSummarizeUa(est.accepted_user_agent);
+    return out;
+}
+function gmEstSummarizeUa(ua) {
+    if (!ua) { return null; }
+    var s = String(ua);
+    var dev = /iPhone/.test(s) ? "iPhone" : /iPad/.test(s) ? "iPad" : /Android/.test(s) ? "Android" : /Macintosh/.test(s) ? "Mac" : /Windows/.test(s) ? "Windows" : /Linux/.test(s) ? "Linux" : "Device";
+    var br = /Edg\//.test(s) ? "Edge" : /OPR\//.test(s) ? "Opera" : /Chrome\//.test(s) ? "Chrome" : /Firefox\//.test(s) ? "Firefox" : /Safari\//.test(s) ? "Safari" : "";
+    return dev + (br ? " - " + br : "");
+}
+
 async function handleGetPublicEstimate(token, request, env) {
     try {
         var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
@@ -23816,12 +23913,16 @@ async function handleGetPublicEstimate(token, request, env) {
             if (obj) {
                 var snap = JSON.parse(await obj.text());
                 snap.status = "accepted";
+                // The snapshot was frozen BEFORE the signature landed, so the
+                // signing facts come from the row (B3): who, when, how, on what.
+                gmEstOverlaySigning(snap, est);
                 snap.signature_url = est.accepted_signature_r2_key ? origin + "/api/public/estimates/" + token + "/signature-image" : null;
                 snap.content_hash = est.content_hash;
                 return jsonOk({ estimate: snap });
             }
         }
         var payload = gmEstimatePublicPayload(est, settings, client, origin);
+        if (est.status === "accepted") { gmEstOverlaySigning(payload, est); }
         payload.signature_url = est.accepted_signature_r2_key ? origin + "/api/public/estimates/" + token + "/signature-image" : null;
         payload.content_hash = est.status === "accepted" ? est.content_hash : null;
         return jsonOk({ estimate: payload });
@@ -24551,7 +24652,11 @@ async function gmInvPublicPayload(env, inv, origin) {
                 var opt = null;
                 (snap.options || []).forEach(function(o) { if (o.id === est.accepted_option_id) { opt = o; } });
                 if (!opt) { opt = (snap.options || [])[0]; }
-                scope = { estimate_number: snap.display_number, sections: opt ? opt.sections : [], total_cents: opt ? opt.total_cents : 0, schedule: opt ? opt.schedule : [] };
+                // B4: the customer reconciles the scope against the accepted
+                // estimate, so the subtotal, discount and total travel with it.
+                scope = { estimate_number: snap.display_number, sections: opt ? opt.sections : [], total_cents: opt ? opt.total_cents : 0, schedule: opt ? opt.schedule : [],
+                          subtotal_cents: opt ? (opt.subtotal_cents || 0) : 0, discount_cents: opt ? (opt.discount_cents || 0) : 0,
+                          discount_type: snap.discount_type || null, discount_value: snap.discount_value === undefined ? null : snap.discount_value };
             }
         }
     }

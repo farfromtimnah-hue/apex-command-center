@@ -24,22 +24,31 @@ const eq = (got, want, m) =>
        `\n        want ${JSON.stringify(want)}\n        got  ${JSON.stringify(got)}`));
 
 globalThis.isLead = () => false;
+globalThis.isSeller = () => false;
 globalThis.anyIncompleteAssigned = () => false;
+// The estimates & invoices tabs are gated per client (PORTAL_TAB_GATES);
+// the canonical-order checks below run as the test client, where both exist.
+globalThis.clientId = "test-client-temp-001";
 eval(slice("var PORTAL_TABS = [", "function populateMobileDock()") +
   "\n; Object.assign(globalThis, { PORTAL_TABS, PORTAL_DOCK_ORDER, PORTAL_DOCK_TABS," +
-  " PORTAL_MORE_TABS, ASSIGNED_DOCK_TAB, LEAD_DOCK_TABS, portalDockTabs, portalMoreTabs });");
+  " PORTAL_MORE_TABS, ASSIGNED_DOCK_TAB, LEAD_DOCK_TABS, portalDockTabs, portalMoreTabs," +
+  " PORTAL_TAB_GATES, portalTabEnabled, portalTabs, SELLER_TABS });");
 
 // The canonical order, spelled out independently of the file so a reorder has
 // to be deliberate in two places.
 // Golden Base and Partners are NOT here: they are sub-sections of Pipeline
 // (tab id "gmcrm") now, still addressable but out of the strip/dock/Mais.
-const CANONICAL = ["analytics", "goals", "gmcrm", "gmjobs", "gmfinance",
-                   "gmroadmap", "tasks", "documents", "invoices", "worksched"];
+// gmpricing/gmcalendar joined earlier; gmestimates/gminvoices are the
+// estimates & invoices build (2026-09-26). "invoices" (Apex's bills to the
+// client) is HIDDEN from the strip and gone from PORTAL_TABS since then.
+const CANONICAL = ["analytics", "goals", "gmcrm", "gmjobs", "gmpricing", "gmestimates",
+                   "gminvoices", "gmcalendar", "gmfinance", "gmroadmap", "tasks",
+                   "documents", "worksched"];
 
 // The Apex-owned group: the client's relationship with Apex rather than tools
 // for running their own business. The More menu draws a hairline before the
 // first of these.
-const APEX_OWNED = ["tasks", "documents", "invoices"];
+const APEX_OWNED = ["tasks", "documents"];
 
 eq(PORTAL_TABS.map(t => t.tab), CANONICAL, "PORTAL_TABS is in canonical order");
 ok(!PORTAL_TABS.some(t => t.tab === "assigned"),
@@ -58,7 +67,11 @@ const legacyEnd = stripRaw.indexOf("</div>", stripRaw.indexOf("tabBtnPilares"));
 const strip = legacyStart < 0 ? stripRaw
   : stripRaw.slice(0, legacyStart) + stripRaw.slice(legacyEnd);
 ok(legacyStart >= 0, "the legacy assessment buttons are still present in the DOM");
-const stripTabs = [...strip.matchAll(/data-tab="([a-z0-9]+)"/g)].map(m => m[1]);
+// A `hidden` button (the Apex invoices tab) is not part of the visible order.
+const stripTabs = [...strip.matchAll(/<button[^>]*data-tab="([a-z0-9]+)"[^>]*>/g)]
+  .filter(m => !/\shidden[\s>]/.test(m[0]) || m[1] === "assigned").map(m => m[1]);
+ok(/data-tab="invoices" hidden/.test(stripRaw), "the Apex invoices tab is still in the DOM but hidden");
+ok(!PORTAL_TABS.some(t => t.tab === "invoices"), "…and is not in PORTAL_TABS (out of the dock and Mais)");
 // Assigned leads the strip when shown; the rest must be canonical.
 eq(stripTabs[0], "assigned", "Assigned is still the FIRST button in the strip");
 eq(stripTabs.slice(1), CANONICAL, "the desktop strip markup is in canonical order");
@@ -82,12 +95,12 @@ eq(PORTAL_DOCK_TABS[1].labelPt, "Ritmo", "Ritmo is second in the dock (highest-f
 
 // ---- More ----
 eq(portalMoreTabs().map(t => t.tab),
-   ["gmjobs", "gmroadmap", "tasks", "documents", "invoices", "worksched"],
+   ["gmjobs", "gmpricing", "gmestimates", "gminvoices", "gmcalendar", "gmroadmap", "tasks", "documents", "worksched"],
    "More is everything undocked, in canonical order");
 
 // ---- the Apex-owned divider ----
 eq(PORTAL_TABS.filter(t => t.apexOwned).map(t => t.tab), APEX_OWNED,
-   "exactly Tasks / Documents / Invoices carry the apexOwned flag");
+   "exactly Tasks / Documents carry the apexOwned flag (Apex Invoices is hidden)");
 // The three must be CONTIGUOUS and last-but-Settings in the canonical order,
 // or a single divider could not express the grouping at all.
 const ownedIdx = APEX_OWNED.map(t => CANONICAL.indexOf(t));
@@ -103,10 +116,10 @@ eq(dockedNow, ["assigned", "analytics", "goals", "gmcrm"],
    "Assigned leads the dock and displaces the last fixed tab");
 const moreNow = portalMoreTabs().map(t => t.tab);
 ok(moreNow.includes("gmfinance"), "the displaced tab (Finances) is still reachable under More");
-eq(moreNow.indexOf("gmfinance"), 1,
+eq(moreNow.indexOf("gmfinance"), 5,
    "the displaced tab lands at its CANONICAL position, not appended after Settings");
-eq(moreNow, ["gmjobs", "gmfinance", "gmroadmap", "tasks",
-             "documents", "invoices", "worksched"],
+eq(moreNow, ["gmjobs", "gmpricing", "gmestimates", "gminvoices", "gmcalendar", "gmfinance", "gmroadmap", "tasks",
+             "documents", "worksched"],
    "More stays in canonical order once a tab is displaced");
 ok(moreNow[moreNow.length - 1] === "worksched", "Settings is still last in More");
 
@@ -138,3 +151,20 @@ ok(CANONICAL.every(t => reachable.has(t)),
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ PORTAL TAB ORDER CONSISTENT");
 process.exit(fail ? 1 : 0);
+
+// ---- estimates & invoices gates ----
+ok(portalTabEnabled({ tab: "x" }), "a tab with no gate is always enabled");
+globalThis.clientId = "some-real-client";
+ok(!portalTabs().some(t => t.tab === "gmestimates" || t.tab === "gminvoices"),
+   "a real client gets neither gated tab in phase 1");
+globalThis.clientId = "test-client-temp-001";
+ok(portalTabs().some(t => t.tab === "gmestimates") && portalTabs().some(t => t.tab === "gminvoices"),
+   "the test client gets both gated tabs");
+// ---- seller surface ----
+globalThis.isSeller = () => true;
+eq(portalTabs().map(t => t.tab), ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcalendar", "documents"],
+   "a seller's tabs: Pipeline, Projects, Pricing, Estimates, Calendar, Documents");
+eq(portalDockTabs().map(t => t.tab), ["gmcrm", "gmjobs", "gmpricing", "gmestimates"], "a seller's dock is the first four");
+eq(portalMoreTabs().map(t => t.tab), ["gmcalendar", "documents"], "…and the rest sit under Mais");
+ok(!portalTabs().some(t => t.tab === "gminvoices"), "a seller never sees the client's Invoices tab in phase 1");
+globalThis.isSeller = () => false;

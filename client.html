@@ -87,9 +87,9 @@
   <script src="datetime.js"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1787608442"></script>
-  <link rel="stylesheet" href="gm.css?v=1788904129">
+  <link rel="stylesheet" href="gm.css?v=1790434494">
   <script src="gm-labels.js?v=1788151190"></script>
-  <script src="gm.js?v=1789786681"></script>
+  <script src="gm.js?v=1790434494"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2431,6 +2431,28 @@
           </div>
         </div>
 
+        <!-- Estimates & invoices build: the client's document settings
+             (logo, hero, legal name, licenses, payment methods, terms,
+             schedule presets). Same gm.js screen the owner sees in the
+             portal's Estimates tab; here an admin edits it for any client. -->
+        <div class="content-card" id="sec-gmestimates" data-section-id="gmestimates">
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Estimates</span>
+              <span class="show-en">Estimates</span>
+            </h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="collapse-btn" onclick="toggleSection('gmestimates')" id="collapseGmestimates" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
+          </div>
+          <div class="card-body-collapsible" id="gmestimatesSecBody">
+            <div class="gm-host" id="gmEstimatesBody">
+              <div style="padding:20px;color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Payment method -->
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
@@ -3842,6 +3864,7 @@
       if (typeof gmLoadJobs    === "function") { gmLoadJobs();    }
       if (typeof gmLoadFinance === "function") { gmLoadFinance(); }
       if (typeof gmLoadPricing === "function") { gmLoadPricing(); }
+      if (typeof gmLoadEstimates === "function") { gmLoadEstimates(); }
     }
 
     // ── Utilities ──────────────────────────────────────────────────────────
@@ -3871,6 +3894,11 @@
           headers["Content-Type"] = "application/json";
           fetchOpts.body = JSON.stringify(opts.body);
         }
+        // Multipart uploads (gm.js lead files, job photos, the document hero):
+        // the browser sets the boundary content-type itself. This branch was
+        // missing here while portal.html had it, so every gm.js upload from
+        // this page posted an empty body.
+        if (opts && opts.formData) { fetchOpts.body = opts.formData; }
         return fetch(WORKER_URL + path, fetchOpts);
       });
     }
@@ -9619,6 +9647,7 @@
       { key: "gmjobs",         bodyId: "gmjobsSecBody",      btnId: "collapseGmjobs"         },
       { key: "gmfinance",      bodyId: "gmfinanceSecBody",   btnId: "collapseGmfinance"      },
       { key: "gmpricing",      bodyId: "gmpricingSecBody",   btnId: "collapseGmpricing"      },
+      { key: "gmestimates",    bodyId: "gmestimatesSecBody", btnId: "collapseGmestimates"    },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "vendors",        bodyId: "vendorsBody",        btnId: "collapseVendors"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
@@ -9668,7 +9697,7 @@
     var DEFAULT_SECTION_ORDER = [
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
       "contacts", "notes", "resources", "growth",
-      "gmcrm", "gmjobs", "gmfinance", "gmpricing",
+      "gmcrm", "gmjobs", "gmfinance", "gmpricing", "gmestimates",
       "payment", "vendors", "docs"
     ];
 

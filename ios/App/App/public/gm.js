@@ -25,6 +25,10 @@ var gmCurrentTab  = null;   // which gm tab is on screen (lang re-render)
 
 function gmT(pt, en) { return isEn() ? en : pt; }
 
+// A salesperson session. PRESENTATION ONLY -- every restriction it drives is
+// enforced again server-side (sellerRequestAllowed + row-level scoping).
+function gmIsSeller() { return window.PORTAL_IS_SELLER === true; }
+
 function gmApi(path, opts) {
   return apiFetch("/api/clients/" + clientId + "/gm/" + path, opts)
     .then(function(res) {
@@ -3405,17 +3409,23 @@ function gmRenderJobs() {
         '</button>';
     });
   }
-  html += '<button type="button" class="btn-gold gm-add-btn" data-tour="jobs-add" onclick="gmOpenJob(-1)">' +
-    gmT("+ Novo projeto", "+ New project") + '</button></div>';
+  // A salesperson reads their own projects (estimates build, phase 1) and
+  // creates none: there is no seller write route to gm/jobs.
+  if (!gmIsSeller()) {
+    html += '<button type="button" class="btn-gold gm-add-btn" data-tour="jobs-add" onclick="gmOpenJob(-1)">' +
+      gmT("+ Novo projeto", "+ New project") + '</button>';
+  }
+  html += '</div>';
   body.innerHTML = html;
 }
 
 function gmOpenJob(idx) {
   gmSheetRow = idx === -1 ? null : gmJobsData.jobs[idx];
+  if (!gmSheetRow && gmIsSeller()) { return; }
   gmRenderSimpleSheet("job");
   // A brand-new project has no id yet, so it has nothing to attach photos or
-  // notes to.
-  if (gmSheetRow && gmSheetRow.id) {
+  // notes to. A seller has no route to either, so neither is fetched.
+  if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
   }
@@ -3459,12 +3469,21 @@ function gmLoadPricing() {
 
 // Local mirror of the Worker's gmPricingComputed. Same three-state rule:
 // null, not 0, when the question cannot be answered.
+// A cost line's type: material | labor | other. Absent reads as material, so
+// rows written before the type existed keep meaning what they meant.
+var GM_COST_LINE_TYPES = ["material", "labor", "other"];
+function gmCostLineType(v) {
+  var t = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return GM_COST_LINE_TYPES.indexOf(t) === -1 ? "material" : t;
+}
+
 function gmPricingCompute(lines, price) {
   var total = 0, any = false;
+  var byType = { material: 0, labor: 0, other: 0 };
   (lines || []).forEach(function(l) {
     if (l && l.amount !== null && l.amount !== undefined && l.amount !== "") {
       var n = Number(l.amount);
-      if (isFinite(n)) { total += n; any = true; }
+      if (isFinite(n)) { total += n; any = true; byType[gmCostLineType(l.type)] += n; }
     }
   });
   var costTotal = any ? Math.round(total * 100) / 100 : null;
@@ -3473,7 +3492,23 @@ function gmPricingCompute(lines, price) {
   var margin = (p === null || costTotal === null) ? null : Math.round((p - costTotal) * 100) / 100;
   var marginPct = (p !== null && p > 0 && margin !== null)
     ? Math.round((margin / p) * 1000) / 10 : null;
-  return { cost_total: costTotal, margin: margin, margin_pct: marginPct };
+  return {
+    cost_total: costTotal,
+    material_cost: any ? Math.round(byType.material * 100) / 100 : null,
+    labor_cost:    any ? Math.round(byType.labor * 100) / 100 : null,
+    other_cost:    any ? Math.round(byType.other * 100) / 100 : null,
+    margin: margin, margin_pct: marginPct
+  };
+}
+
+// The client's own categories, from the loaded list, for the datalist.
+function gmPricingCategories() {
+  var out = [];
+  ((gmPricingData && gmPricingData.items) || []).forEach(function(it) {
+    var c = (it.category || "").trim();
+    if (c && out.indexOf(c) === -1) { out.push(c); }
+  });
+  return out.sort(function(a, b) { return a.localeCompare(b); });
 }
 
 // Margin in dollars and percent, side by side. Blank when unanswerable --
@@ -3501,6 +3536,11 @@ function gmRenderPricing() {
     escHtml(String(withCosts)) + " " + gmT("com custos preenchidos", "with costs filled in") +
     '</p>';
 
+  // A salesperson's list (estimates build, phase 1): the Worker already
+  // trimmed every row to item / category / kind / unit / price /
+  // description, so there is no cost or margin to render and no editor.
+  var ro = gmIsSeller() || !!(gmPricingData && gmPricingData.read_only);
+
   if (!items.length) {
     html += '<p class="muted">' + gmT("Nenhum item ainda.", "No items yet.") + '</p>';
   } else {
@@ -3509,27 +3549,51 @@ function gmRenderPricing() {
       var lineSummary = lines.map(function(l) {
         return (l.label || "") + " " + (l.amount === null || l.amount === undefined ? "" : fmtNum(l.amount, "currency"));
       }).join(" · ");
+      var kindWord = GmLabels.pricingKindLabel(it.kind || "product", isEn());
       html += '<button type="button" class="gm-row" onclick="gmOpenPricing(' + i + ')">' +
         '<span class="gm-lead-main">' +
         '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(it.item) + '</span>' +
         '<div class="gm-lead-sub">' +
-        [it.unit, it.cost_total !== null ? gmT("custo ", "cost ") + fmtNum(it.cost_total, "currency") : null,
+        [it.category || null, it.kind === "addon" ? kindWord : null, it.unit,
+         (!ro && it.cost_total !== null && it.cost_total !== undefined) ? gmT("custo ", "cost ") + fmtNum(it.cost_total, "currency") : null,
          it.price !== null && it.price !== undefined ? gmT("venda ", "price ") + fmtNum(it.price, "currency") : null]
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
-        (lineSummary ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
+        (lineSummary && !ro ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
         '</span>' +
-        '<span class="gm-lead-side">' + gmPricingMarginHtml(it.margin, it.margin_pct) +
-        '<div class="gm-lead-sub">' + gmT("margem", "margin") + '</div></span>' +
+        (ro ? '<span class="gm-lead-side">' +
+                (it.price !== null && it.price !== undefined ? escHtml(fmtNum(it.price, "currency")) : '<span class="muted">—</span>') +
+                '<div class="gm-lead-sub">' + gmT("preço", "price") + '</div></span>'
+            : '<span class="gm-lead-side">' + gmPricingMarginHtml(it.margin, it.margin_pct) +
+                '<div class="gm-lead-sub">' + gmT("margem", "margin") + '</div></span>') +
         '</button>';
     });
   }
 
-  html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
-    gmT("+ Novo item", "+ New item") + '</button>' +
-    '<button type="button" class="btn-gold gm-add-btn" onclick="gmPricingImportOpen()">' +
-    gmT("Importar CSV", "Import CSV") + '</button>' +
-    '</div>';
+  if (!ro) {
+    html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
+      gmT("+ Novo item", "+ New item") + '</button>' +
+      '<button type="button" class="btn-gold gm-add-btn" onclick="gmPricingImportOpen()">' +
+      gmT("Importar CSV", "Import CSV") + '</button>';
+  }
+  html += '</div>';
   body.innerHTML = html;
+}
+
+// Read-only item sheet for a salesperson: the same rows the owner edits,
+// rendered static. No cost, no margin -- the Worker never sent them.
+function gmRenderPricingReadOnlySheet(it) {
+  var body = gmSheetSection(gmT("Item", "Item"),
+    gmSheetRowHtml("tag", gmT("Item", "Item"), escHtml(it.item || "")) +
+    gmSheetRowHtml("tag", gmT("Categoria", "Category"), escHtml(it.category || "")) +
+    gmSheetRowHtml("tag", gmT("Tipo", "Type"), escHtml(GmLabels.pricingKindLabel(it.kind || "product", isEn()))) +
+    gmSheetRowHtml("tag", gmT("Unidade", "Unit"), escHtml(it.unit || "")) +
+    gmSheetRowHtml("dollar", gmT("Preço de venda ($)", "Sale price ($)"),
+      it.price === null || it.price === undefined ? "" : escHtml(fmtNum(it.price, "currency"))));
+  body += gmSheetSection(gmT("Descrição para o cliente", "Customer description"),
+    '<div class="gm-sheet-row" style="cursor:default;"><span class="gm-sheet-row-body"><span class="gm-sheet-row-value' +
+    (it.description ? "" : " gm-empty") + '" style="white-space:pre-wrap;">' +
+    (it.description ? escHtml(it.description) : "—") + '</span></span></div>');
+  gmSheetOpen(escHtml(it.item || gmT("Item", "Item")), body);
 }
 
 // ── The item sheet ───────────────────────────────────────────────────────
@@ -3539,16 +3603,24 @@ function gmRenderPricing() {
 
 function gmOpenPricing(idx) {
   var src = idx === -1 ? null : gmPricingData.items[idx];
+  if (gmIsSeller() || (gmPricingData && gmPricingData.read_only)) {
+    if (src) { gmRenderPricingReadOnlySheet(src); }
+    return;
+  }
   gmPricingDraft = src ? {
     id:    src.id,
     item:  src.item || "",
+    category:    src.category || "",
+    kind:        src.kind === "addon" ? "addon" : "product",
+    description: src.description || "",
     unit:  src.unit || "",
     price: (src.price === null || src.price === undefined) ? "" : String(src.price),
     notes: src.notes || "",
     lines: (src.cost_breakdown || []).map(function(l) {
-      return { label: l.label || "", amount: (l.amount === null || l.amount === undefined) ? "" : String(l.amount) };
+      return { label: l.label || "", amount: (l.amount === null || l.amount === undefined) ? "" : String(l.amount),
+               type: gmCostLineType(l.type) };
     })
-  } : { id: null, item: "", unit: "", price: "", notes: "", lines: [] };
+  } : { id: null, item: "", category: "", kind: "product", description: "", unit: "", price: "", notes: "", lines: [] };
   gmRenderPricingSheet();
 }
 
@@ -3561,10 +3633,28 @@ function gmRenderPricingSheet() {
     '<label class="gm-field-label" for="gmPricingItem">' + gmT("Item", "Item") + '</label>' +
     '<input type="text" id="gmPricingItem" class="gm-input" value="' + escHtml(d.item) + '" ' +
       'oninput="gmPricingDraftSet(\'item\', this.value)">' +
+    '<label class="gm-field-label" for="gmPricingCategory">' + gmT("Categoria", "Category") + '</label>' +
+    '<input type="text" id="gmPricingCategory" class="gm-input" list="gmPricingCategoryList" value="' + escHtml(d.category) + '" ' +
+      'placeholder="' + gmT("Pool, Deck, Equipment", "Pool, Deck, Equipment") + '" ' +
+      'oninput="gmPricingDraftSet(\'category\', this.value)">' +
+    '<datalist id="gmPricingCategoryList">' +
+      gmPricingCategories().map(function(c) { return '<option value="' + escHtml(c) + '"></option>'; }).join("") +
+    '</datalist>' +
+    '<label class="gm-field-label" for="gmPricingKind">' + gmT("Tipo", "Type") + '</label>' +
+    '<select id="gmPricingKind" class="gm-input" onchange="gmPricingDraftSet(\'kind\', this.value)">' +
+      GmLabels.PRICING_KINDS.map(function(k) {
+        return '<option value="' + k.key + '"' + (d.kind === k.key ? " selected" : "") + '>' +
+          escHtml(isEn() ? k.en : k.pt) + '</option>';
+      }).join("") +
+    '</select>' +
     '<label class="gm-field-label" for="gmPricingUnit">' + gmT("Unidade", "Unit") + '</label>' +
     '<input type="text" id="gmPricingUnit" class="gm-input" value="' + escHtml(d.unit) + '" ' +
       'placeholder="' + gmT("un, kg, m2, hora", "un, kg, m2, hour") + '" ' +
       'oninput="gmPricingDraftSet(\'unit\', this.value)">' +
+    '<label class="gm-field-label" for="gmPricingDescription">' + gmT("Descrição para o cliente", "Customer description") + '</label>' +
+    '<textarea id="gmPricingDescription" class="gm-input" rows="3" ' +
+      'placeholder="' + gmT("Impresso abaixo da linha no estimate do cliente", "Printed under the line on the customer's estimate") + '" ' +
+      'oninput="gmPricingDraftSet(\'description\', this.value)">' + escHtml(d.description) + '</textarea>' +
     '</div>';
 
   body += '<div class="gm-sheet-section">' +
@@ -3613,6 +3703,13 @@ function gmPricingLinesHtml() {
       '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(l.amount) + '" ' +
         'aria-label="' + gmT("Valor", "Amount") + '" placeholder="0.00" ' +
         'oninput="gmPricingLineSet(' + i + ', \'amount\', this.value)">' +
+      '<select class="gm-input gm-cost-type" aria-label="' + gmT("Tipo de custo", "Cost type") + '" ' +
+        'onchange="gmPricingLineSet(' + i + ', \'type\', this.value)">' +
+        GmLabels.COST_LINE_TYPES.map(function(t) {
+          return '<option value="' + t.key + '"' + (gmCostLineType(l.type) === t.key ? " selected" : "") + '>' +
+            escHtml(isEn() ? t.en : t.pt) + '</option>';
+        }).join("") +
+      '</select>' +
       '<button type="button" class="gm-cost-del" aria-label="' +
         gmT("Remover custo", "Remove cost") + '" onclick="gmPricingRemoveLine(' + i + ')">&times;</button>' +
       '</div>';
@@ -3626,6 +3723,15 @@ function gmPricingTotalsHtml() {
   var d = gmPricingDraft;
   var c = gmPricingCompute(d.lines, d.price);
   return '<div class="gm-pricing-totals">' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Material", "Materials") + '</span><span class="gm-pricing-total-value">' +
+      (c.material_cost === null ? "—" : escHtml(fmtNum(c.material_cost, "currency"))) + '</span></div>' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Mão de obra", "Labor") + '</span><span class="gm-pricing-total-value">' +
+      (c.labor_cost === null ? "—" : escHtml(fmtNum(c.labor_cost, "currency"))) + '</span></div>' +
+    '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
+      gmT("Outros", "Other") + '</span><span class="gm-pricing-total-value">' +
+      (c.other_cost === null ? "—" : escHtml(fmtNum(c.other_cost, "currency"))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Custo total", "Total cost") + '</span><span class="gm-pricing-total-value">' +
       (c.cost_total === null ? "—" : escHtml(fmtNum(c.cost_total, "currency"))) + '</span></div>' +
@@ -3659,7 +3765,7 @@ function gmPricingLineSet(i, key, value) {
 
 function gmPricingAddLine() {
   if (!gmPricingDraft) { return; }
-  gmPricingDraft.lines.push({ label: "", amount: "" });
+  gmPricingDraft.lines.push({ label: "", amount: "", type: "material" });
   var box = document.getElementById("gmPricingLines");
   if (box) { box.innerHTML = gmPricingLinesHtml(); }
   gmPricingRepaintTotals();
@@ -3686,10 +3792,13 @@ function gmPricingSave() {
     var amount = (l.amount === "" || l.amount === null || l.amount === undefined) ? null : Number(l.amount);
     if (amount !== null && !isFinite(amount)) { amount = null; }
     if (!label && amount === null) { return; }
-    lines.push({ label: label || null, amount: amount });
+    lines.push({ label: label || null, amount: amount, type: gmCostLineType(l.type) });
   });
   var payload = {
     item:  d.item.trim(),
+    category:    d.category && d.category.trim() ? d.category.trim() : null,
+    kind:        d.kind === "addon" ? "addon" : "product",
+    description: d.description && d.description.trim() ? d.description.trim() : null,
     unit:  d.unit && d.unit.trim() ? d.unit.trim() : null,
     price: (d.price === "" || d.price === null || d.price === undefined) ? null : Number(d.price),
     notes: d.notes && d.notes.trim() ? d.notes.trim() : null,
@@ -4276,31 +4385,34 @@ function gmJobSheetBody(row, spec) {
   var byKey = {};
   spec.fields.forEach(function(def, i) { byKey[def.key] = { def: def, i: i }; });
   var val  = function(key) { return gmSimpleFieldDisplay(row, byKey[key].def); };
-  var edit = function(key) { return "gmEditSimpleField(" + byKey[key].i + ")"; };
+  // A salesperson VIEWS their own projects (estimates build, phase 1): every
+  // row renders as a static row with no editor. The Worker has no seller
+  // write route to gm/jobs, so this is presentation matching the contract.
+  var ro = gmIsSeller();
+  var edit = function(key) { return ro ? null : "gmEditSimpleField(" + byKey[key].i + ")"; };
 
   // ── Hero: the job and its status ──────────────────────────────────────
   var obra = val("obra");
+  var heroTag = ro ? "div" : "button";
   var body = '<div class="gm-sheet-hero">' +
-    '<button type="button" class="gm-sheet-hero-half" ' +
-      'aria-label="' + gmT("Mudar cliente / projeto", "Change client / project") + '" ' +
-      'onclick="' + edit("obra") + '">' +
+    '<' + heroTag + (ro ? "" : ' type="button"') + ' class="gm-sheet-hero-half" ' +
+      (ro ? "" : 'aria-label="' + gmT("Mudar cliente / projeto", "Change client / project") + '" onclick="' + edit("obra") + '"') + '>' +
       '<span class="gm-sheet-hero-body">' +
         '<span class="gm-sheet-hero-label">' + gmT("Cliente / projeto", "Client / project") + '</span>' +
         '<span class="gm-sheet-hero-value' + (obra ? "" : " gm-empty") + '">' +
         (obra || gmT("A definir", "Not set")) + '</span>' +
       '</span>' +
-      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
-    '</button>' +
-    '<button type="button" class="gm-sheet-hero-half" ' +
-      'aria-label="' + gmT("Mudar status", "Change status") + '" ' +
-      'onclick="' + edit("status") + '">' +
+      (ro ? "" : '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>') +
+    '</' + heroTag + '>' +
+    '<' + heroTag + (ro ? "" : ' type="button"') + ' class="gm-sheet-hero-half" ' +
+      (ro ? "" : 'aria-label="' + gmT("Mudar status", "Change status") + '" onclick="' + edit("status") + '"') + '>' +
       '<span class="gm-sheet-hero-body">' +
         '<span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span>' +
         '<span class="gm-sheet-hero-pill">' + val("status") + '</span>' +
-        '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>' +
+        (ro ? "" : '<span class="gm-sheet-hero-hint">' + gmT("Toque para mudar", "Tap to change") + '</span>') +
       '</span>' +
-      '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
-    '</button></div>';
+      (ro ? "" : '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>') +
+    '</' + heroTag + '></div>';
 
   // ── Costs ─────────────────────────────────────────────────────────────
   body += gmSheetSection(gmT("Valores", "Costs"),
@@ -4445,11 +4557,13 @@ function gmRenderSimpleSheet(kind) {
     // Without a valor there is nothing to take a percentage OF, so the rate is
     // not editable yet and the sub-line says why rather than opening an editor
     // whose save could only ever be discarded.
-    var comissaoEditable = !!(row.valor && row.valor > 0);
+    var comissaoEditable = !!(row.valor && row.valor > 0) && !gmIsSeller();
     var comissaoSub = comissaoEditable
       ? gmT("de " + fmtNum(row.valor, "currency") + " (valor bruto) — toque para mudar",
             "of " + fmtNum(row.valor, "currency") + " (gross sale) — tap to change")
-      : gmT("defina o Valor ($) primeiro", "set the Value ($) first");
+      : (gmIsSeller() && row.valor && row.valor > 0
+          ? gmT("de " + fmtNum(row.valor, "currency") + " (valor bruto)", "of " + fmtNum(row.valor, "currency") + " (gross sale)")
+          : gmT("defina o Valor ($) primeiro", "set the Value ($) first"));
 
     body += gmSheetSection(gmT("Resultado", "Result"),
       gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
@@ -4464,12 +4578,14 @@ function gmRenderSimpleSheet(kind) {
 
     // ── Progress photos ─────────────────────────────────────────────────
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
-    // sheet opens immediately instead of waiting on the network.
-    body += '<div id="gmJobPhotosSection"></div>';
+    // sheet opens immediately instead of waiting on the network. A seller
+    // has no route to photos or notes, so neither placeholder is drawn.
+    if (!gmIsSeller()) { body += '<div id="gmJobPhotosSection"></div>'; }
 
     // ── Notes ───────────────────────────────────────────────────────────
     // Same dated thread as the lead sheet, same server-set author and time.
-    body += '<div id="gmNotesSection"></div>';
+    // A seller has no route to job notes, so the placeholder is not drawn.
+    if (!gmIsSeller()) { body += '<div id="gmNotesSection"></div>'; }
   }
   if (kind === "base") {
     if (row.reactivated_lead_id) {
@@ -5078,6 +5194,10 @@ function gmOnLangChange() {
   if (gmCurrentTab === "gmfinance" && gmFinanceData) { gmRenderFinance(); }
   if (gmCurrentTab === "gmjobs" && gmJobsData) { gmRenderJobs(); }
   if (gmCurrentTab === "gmpricing" && gmPricingData) { gmRenderPricing(); }
+  // Estimates & invoices build: the Estimates tab (list + Settings) and the
+  // Faturas placeholder build all their text in JS.
+  if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); }
+  if (gmCurrentTab === "gminvoices") { gmRenderInvoicesTab(); }
   // The calendar carries THREE kinds of translated text — event-type labels,
   // titles recomposed per language, and the derived "Início / Prazo / Entrega"
   // job labels — so it has to repaint like every other tab. It was missing
@@ -5759,4 +5879,545 @@ function gmCalOpenClub(ev) {
       gmT("Evento do Apex Club — organizado pela Apex.",
           "An Apex Club event — hosted by Apex.") + '</p>';
   gmSheetOpen(escHtml(ev.title || "Apex Club"), body, "gm-club-invite");
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════
+// TAB 8 — ESTIMATES (the client's own estimates to THEIR customers)
+// ═════════════════════════════════════════════════════════════════════════
+//
+// Phase 1 of the estimates & invoices build: the tab shell, the pill sub-nav
+// (Estimates | Configurações / Settings, copied from the Pipeline sub-nav)
+// and the Settings screen. The list itself arrives in phase 2.
+//
+// Settings is OWNER-ONLY. A salesperson never sees the pill: their tab is
+// the list alone. Admins reach the same screen through client.html, where
+// gm.js is loaded at owner level for any client.
+//
+// The FIRST time an owner opens the tab, if setup was never completed
+// (gm_doc_settings.setup_completed_at is null), Settings opens instead of
+// the list -- a document with no license number must never be producible.
+
+var gmDocSettings = null;      // GET gm/doc-settings payload (.settings)
+var gmDocDraft = null;         // the settings form being edited
+var gmDocHistory = null;       // GET gm/doc-settings/history payload
+var gmEstimatesSection = "list";   // "list" | "settings"
+var gmDocSaveMsg = null;       // last inline save/validation message
+
+// Fixed statutory texts. Shown verbatim; not editable.
+var GM_DOC_LICENSE_HELP_PT = "A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.";
+var GM_DOC_LICENSE_HELP_EN = "Florida law (§489.119) requires your license number on every bid and contract.";
+var GM_DOC_LATE_FEE_CAP_PT = "A lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).";
+var GM_DOC_LATE_FEE_CAP_EN = "Florida law (§687.03) caps interest at 18% per year (1.5% per month).";
+var GM_DOC_TAX_NOTICE_PT = "O imposto sobre vendas (sales tax) não aparece nos seus estimates nem nas suas faturas. Pela Florida Administrative Code Rule 12A-1.051(4), em contratos de valor global (lump-sum) e de tempo e materiais para melhoria de imóvel, o empreiteiro paga o sales tax sobre os materiais ao comprá-los e não cobra nenhum do cliente. Uma proposta itemizada com preços unitários continua sendo um contrato de valor global.";
+var GM_DOC_TAX_NOTICE_EN = "Sales tax does not appear on your estimates or invoices. Under Florida Administrative Code Rule 12A-1.051(4), on lump-sum and time-and-materials contracts to improve real property, the contractor pays sales tax on materials when buying them and charges the customer none. An itemized proposal with unit prices is still a lump-sum contract.";
+
+function gmEstimatesSections() {
+  return gmIsSeller() ? ["list"] : ["list", "settings"];
+}
+
+function gmLoadEstimates() {
+  gmCurrentTab = "gmestimates";
+  var body = document.getElementById("gmEstimatesBody");
+  if (!body) { return; }
+  body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
+  if (gmIsSeller()) {
+    gmEstimatesSection = "list";
+    gmRenderEstimatesTab();
+    return;
+  }
+  gmApi("doc-settings")
+    .then(function(d) {
+      gmDocSettings = d.settings || null;
+      // First open with setup incomplete: land on Settings, not the list.
+      if (gmDocSettings && !gmDocSettings.setup_completed_at) { gmEstimatesSection = "settings"; }
+      if (gmEstimatesSection === "settings") { gmDocDraftFromSettings(); }
+      gmRenderEstimatesTab();
+    })
+    .catch(function(e) {
+      console.error("doc-settings load failed", e);
+      body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>';
+    });
+}
+
+function gmEstimatesGo(section) {
+  if (gmEstimatesSections().indexOf(section) === -1) { section = "list"; }
+  gmEstimatesSection = section;
+  if (section === "settings" && !gmDocDraft) { gmDocDraftFromSettings(); }
+  gmRenderEstimatesTab();
+}
+
+// Same one-row pill sub-nav as the Pipeline (gmRenderPipelineSubnav).
+function gmEstimatesSubnavHtml() {
+  var sections = gmEstimatesSections();
+  if (sections.length < 2) { return ""; }
+  var labels = { list: gmT("Estimates", "Estimates"), settings: gmT("Configurações", "Settings") };
+  var html = '<div class="gm-subnav" role="tablist">';
+  sections.forEach(function(sec) {
+    var active = sec === gmEstimatesSection;
+    html += '<button type="button" role="tab" aria-selected="' + (active ? "true" : "false") +
+      '" class="gm-stage-chip' + (active ? " gm-chip-active" : "") +
+      '" onclick="gmEstimatesGo(\'' + sec + '\')">' + escHtml(labels[sec]) + '</button>';
+  });
+  return html + '</div>';
+}
+
+function gmRenderEstimatesTab() {
+  var body = document.getElementById("gmEstimatesBody");
+  if (!body) { return; }
+  var html = gmEstimatesSubnavHtml();
+  if (gmEstimatesSection === "settings") {
+    html += gmDocSettingsFormHtml();
+  } else {
+    html += gmEstimatesListHtml();
+  }
+  body.innerHTML = html;
+}
+
+// Phase 2 fills this. Phase 1 shows the shell with the same empty-state
+// language the Pipeline uses.
+function gmEstimatesListHtml() {
+  var html = '<div class="content-card">' +
+    '<div class="card-title">' + gmT("Estimates", "Estimates") + '</div>' +
+    '<p class="muted">' +
+    gmT("A lista de estimates e o assistente de criação chegam na próxima etapa desta construção.",
+        "The estimates list and the estimate builder arrive in the next phase of this build.") + '</p>';
+  if (!gmIsSeller() && gmDocSettings && !gmDocSettings.setup_completed_at) {
+    html += '<p class="gm-warn">' +
+      gmT("Complete as Configurações antes de criar o primeiro estimate.",
+          "Complete Settings before creating your first estimate.") + '</p>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// ── Settings form ─────────────────────────────────────────────────────────
+// Field entries copy the price-list item sheet exactly: .gm-field-label +
+// .gm-input inside .gm-sheet-section, one .gm-btn-primary to save.
+
+function gmDocDraftFromSettings() {
+  var st = gmDocSettings || {};
+  var pre = st.prefill || {};
+  var pm = st.payment_methods || {};
+  gmDocDraft = {
+    legal_name: st.legal_name || pre.legal_name || pre.business_name || "",
+    address:    st.address || pre.address || "",
+    phone:      st.phone || pre.phone || "",
+    email:      st.email || pre.email || "",
+    licenses:   (st.license_numbers && st.license_numbers.length) ? st.license_numbers.slice() : [""],
+    min_margin_pct: (st.min_margin_pct === null || st.min_margin_pct === undefined) ? "" : String(st.min_margin_pct),
+    estimate_valid_days: String(st.estimate_valid_days === undefined ? 30 : st.estimate_valid_days),
+    default_terms_days: String(st.default_terms_days === undefined ? 0 : st.default_terms_days),
+    terms_mode: [0, 7, 15, 30].indexOf(Number(st.default_terms_days || 0)) === -1 ? "custom" : String(st.default_terms_days || 0),
+    payment_methods: GmLabels.DOC_PAYMENT_METHODS.map(function(m) {
+      return { key: m.key, on: Object.prototype.hasOwnProperty.call(pm, m.key), detail: pm[m.key] || "" };
+    }),
+    late_fee_annual_pct: (st.late_fee_annual_pct === null || st.late_fee_annual_pct === undefined) ? "" : String(st.late_fee_annual_pct),
+    late_fee_grace_days: (st.late_fee_grace_days === null || st.late_fee_grace_days === undefined) ? "" : String(st.late_fee_grace_days),
+    presets: (st.schedule_presets || []).map(function(p) {
+      return { name: p.name || "", steps: (p.steps || []).map(function(x) { return { label: x.label || "", pct: x.pct === null || x.pct === undefined ? "" : String(x.pct) }; }) };
+    })
+  };
+  gmDocSaveMsg = null;
+}
+
+function gmDocField(id, labelPt, labelEn, inputHtml) {
+  return '<label class="gm-field-label" for="' + id + '">' + gmT(labelPt, labelEn) + '</label>' + inputHtml;
+}
+
+function gmDocTextInput(id, key, value, extra) {
+  return '<input type="text" id="' + id + '" class="gm-input" value="' + escHtml(value || "") + '" ' +
+    (extra || "") + ' oninput="gmDocDraftSet(\'' + key + '\', this.value)">';
+}
+
+// Running total of a preset's steps, to two decimals.
+function gmDocStepsTotal(steps) {
+  var t = 0;
+  (steps || []).forEach(function(st) { var n = Number(st.pct); if (isFinite(n)) { t += n; } });
+  return Math.round(t * 100) / 100;
+}
+
+// Same rule as the Worker's gmDocScheduleStepsError: empty = Custom (ok),
+// otherwise every step > 0 and the total exactly 100.
+function gmDocStepsOk(steps) {
+  if (!steps || !steps.length) { return true; }
+  for (var i = 0; i < steps.length; i++) {
+    var n = Number(steps[i].pct);
+    if (!isFinite(n) || n <= 0) { return false; }
+  }
+  return gmDocStepsTotal(steps) === 100;
+}
+
+function gmDocSettingsFormHtml() {
+  var d = gmDocDraft;
+  if (!d) { gmDocDraftFromSettings(); d = gmDocDraft; }
+  var st = gmDocSettings || {};
+  var html = '<div class="content-card">' +
+    '<div class="card-title">' + gmT("Configurações dos documentos", "Document settings") + '</div>' +
+    '<p class="muted" style="margin-bottom:12px;">' +
+    gmT("O que aparece nos seus estimates, faturas e recibos para os seus clientes.",
+        "What appears on your estimates, invoices and receipts to your customers.") + '</p>';
+
+  // ── Images ──
+  html += '<div class="gm-sheet-section">' +
+    '<div class="gm-field-label">' + gmT("Logo", "Logo") + '</div>' +
+    '<div class="gm-doc-image-row">' +
+      (st.has_logo ? '<img class="gm-doc-image-preview" alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/logo-image?ts=" + Date.now()) + '">' : '') +
+      '<input type="file" id="gmDocLogoInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="gmDocUploadImage(this, \'logo\')">' +
+      '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocLogoInput\').click()">' +
+        gmT(st.has_logo ? "Trocar logo" : "Enviar logo", st.has_logo ? "Replace logo" : "Upload logo") + '</button>' +
+    '</div>' +
+    '<div class="gm-field-label">' + gmT("Imagem de capa (hero)", "Hero image") + '</div>' +
+    '<p class="muted" style="margin:2px 0 8px;">' + gmT("Aparece no topo dos documentos que o seu cliente abre. JPG, PNG ou WebP, até 5MB.",
+        "Shown across the top of the documents your customer opens. JPG, PNG or WebP, up to 5MB.") + '</p>' +
+    '<div class="gm-doc-image-row">' +
+      (st.has_hero ? '<img class="gm-doc-image-preview gm-doc-hero-preview" alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/doc-hero-image?ts=" + Date.now()) + '">' : '') +
+      '<input type="file" id="gmDocHeroInput" accept="image/png,image/jpeg,image/webp" hidden onchange="gmDocUploadImage(this, \'hero\')">' +
+      '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocHeroInput\').click()">' +
+        gmT(st.has_hero ? "Trocar imagem" : "Enviar imagem", st.has_hero ? "Replace image" : "Upload image") + '</button>' +
+    '</div>' +
+    '</div>';
+
+  // ── Business ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Empresa", "Business") + '</p>' +
+    gmDocField("gmDocLegalName", "Razão social (nome legal)", "Legal business name", gmDocTextInput("gmDocLegalName", "legal_name", d.legal_name)) +
+    gmDocField("gmDocAddress", "Endereço", "Address",
+      '<textarea id="gmDocAddress" class="gm-input" rows="2" oninput="gmDocDraftSet(\'address\', this.value)">' + escHtml(d.address) + '</textarea>') +
+    gmDocField("gmDocPhone", "Telefone", "Phone", gmDocTextInput("gmDocPhone", "phone", d.phone, 'inputmode="tel"')) +
+    gmDocField("gmDocEmail", "Email", "Email", gmDocTextInput("gmDocEmail", "email", d.email, 'inputmode="email"')) +
+    '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn">*</span></div>' +
+    '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
+    '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
+    '</div>';
+
+  // ── Payment methods ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Formas de pagamento aceitas", "Accepted payment methods") +
+    ' <span class="gm-sheet-section-note">' + gmT("só as marcadas aparecem nos documentos", "only ticked ones print on documents") + '</span></p>';
+  d.payment_methods.forEach(function(m, i) {
+    var def = GmLabels.DOC_PAYMENT_METHODS[i];
+    var hint = isEn() ? def.hintEn : def.hintPt;
+    html += '<label class="gm-doc-check-line"><input type="checkbox"' + (m.on ? " checked" : "") +
+      ' onchange="gmDocPmToggle(' + i + ', this.checked)"> <span>' + escHtml(isEn() ? def.en : def.pt) + '</span></label>';
+    if (m.on && hint) {
+      html += '<input type="text" class="gm-input" value="' + escHtml(m.detail) + '" placeholder="' + escHtml(hint) + '" ' +
+        'aria-label="' + escHtml(hint) + '" oninput="gmDocPmDetail(' + i + ', this.value)">';
+    }
+  });
+  html += '</div>';
+
+  // ── Terms ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Prazos", "Terms") + '</p>' +
+    gmDocField("gmDocValidDays", "Validade do estimate (dias)", "Estimate valid for (days)",
+      gmDocTextInput("gmDocValidDays", "estimate_valid_days", d.estimate_valid_days, 'inputmode="numeric"')) +
+    '<label class="gm-field-label" for="gmDocTerms">' + gmT("Prazo de pagamento padrão", "Default payment terms") + '</label>' +
+    '<select id="gmDocTerms" class="gm-input" onchange="gmDocTermsMode(this.value)">' +
+      GmLabels.DOC_TERMS_PRESETS.map(function(t) {
+        return '<option value="' + t.days + '"' + (d.terms_mode === String(t.days) ? " selected" : "") + '>' +
+          escHtml(isEn() ? t.en : t.pt) + '</option>';
+      }).join("") +
+      '<option value="custom"' + (d.terms_mode === "custom" ? " selected" : "") + '>' + gmT("Outro (dias)", "Custom (days)") + '</option>' +
+    '</select>' +
+    (d.terms_mode === "custom"
+      ? gmDocField("gmDocTermsDays", "Dias", "Days", gmDocTextInput("gmDocTermsDays", "default_terms_days", d.default_terms_days, 'inputmode="numeric"'))
+      : "") +
+    '</div>';
+
+  // ── Schedule presets ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Modelos de parcelamento", "Payment schedule presets") +
+    ' <span class="gm-sheet-section-note">' + gmT("as etapas precisam somar exatamente 100%", "steps must total exactly 100%") + '</span></p>' +
+    '<div id="gmDocPresets">' + gmDocPresetsHtml() + '</div>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDocAddPreset()">' + gmT("+ Novo modelo", "+ New preset") + '</button>' +
+    '</div>';
+
+  // ── Margin and late fee ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Margem e atraso", "Margin and late payment") + '</p>' +
+    gmDocField("gmDocMinMargin", "Margem mínima (%) — opcional", "Minimum margin (%) — optional",
+      gmDocTextInput("gmDocMinMargin", "min_margin_pct", d.min_margin_pct, 'inputmode="decimal"')) +
+    '<p class="muted" style="margin:-4px 0 10px;">' + gmT("Se preenchida, o assistente avisa quando um estimate fica abaixo dela. Nada depende dela.",
+        "If set, the builder warns when an estimate falls below it. Nothing depends on it.") + '</p>' +
+    gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
+      gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"')) +
+    '<p class="muted" id="gmDocLateFeeNote" style="margin:-4px 0 10px;">' +
+      (Number(d.late_fee_annual_pct) > 18 ? '<span class="gm-warn">' + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) + '</span>'
+                                          : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN)) + '</p>' +
+    gmDocField("gmDocGrace", "Dias de carência", "Grace days",
+      gmDocTextInput("gmDocGrace", "late_fee_grace_days", d.late_fee_grace_days, 'inputmode="numeric"')) +
+    '</div>';
+
+  // ── Sales tax notice (fixed) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Sales tax", "Sales tax") + '</p>' +
+    '<p class="gm-derived-note">' + gmT(GM_DOC_TAX_NOTICE_PT, GM_DOC_TAX_NOTICE_EN) + '</p>' +
+    '</div>';
+
+  // ── Message templates (edited from the Send button in phase 2) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Mensagens de envio", "Send messages") + '</p>' +
+    '<p class="muted">' + gmT("Os textos de envio de estimate, fatura e recibo são editados pelo lápis ao lado do botão Enviar (próxima etapa). Cada edição fica registrada no histórico.",
+        "The estimate, invoice and receipt send messages are edited from the pencil next to the Send button (next phase). Every edit is recorded in the history.") + '</p>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDocHistoryOpen()">' + gmT("Ver histórico de alterações", "View change history") + '</button>' +
+    '</div>';
+
+  html += '<div id="gmDocSaveMsg">' + gmDocSaveMsgHtml() + '</div>' +
+    '<button type="button" class="gm-btn-primary" id="gmDocSaveBtn" onclick="gmDocSettingsSave()">' +
+      gmT("Salvar configurações", "Save settings") + '</button>' +
+    (st.setup_completed_at
+      ? '<p class="muted" style="margin-top:8px;">' + gmT("Configuração concluída em ", "Setup completed on ") + escHtml(formatDateTimeUTC(st.setup_completed_at)) + '</p>'
+      : '') +
+    '</div>';
+  return html;
+}
+
+function gmDocSaveMsgHtml() {
+  if (!gmDocSaveMsg) { return ""; }
+  return '<p class="' + (gmDocSaveMsg.ok ? "gm-ok" : "gm-warn") + '" style="margin:0 0 10px;">' + escHtml(gmDocSaveMsg.text) + '</p>';
+}
+
+function gmDocLicensesHtml() {
+  var d = gmDocDraft;
+  var h = "";
+  d.licenses.forEach(function(v, i) {
+    h += '<div class="gm-cost-line">' +
+      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="CPC1234567" ' +
+        'aria-label="' + gmT("Número de licença", "License number") + '" oninput="gmDocLicenseSet(' + i + ', this.value)">' +
+      (d.licenses.length > 1
+        ? '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDocRemoveLicense(' + i + ')">&times;</button>'
+        : "") +
+      '</div>';
+  });
+  return h;
+}
+
+function gmDocPresetsHtml() {
+  var d = gmDocDraft;
+  if (!d.presets.length) {
+    return '<p class="muted" style="padding:4px 0;">' + gmT("Nenhum modelo.", "No presets.") + '</p>';
+  }
+  var h = "";
+  d.presets.forEach(function(p, pi) {
+    var total = gmDocStepsTotal(p.steps);
+    var ok = gmDocStepsOk(p.steps);
+    h += '<div class="gm-doc-preset">' +
+      '<div class="gm-cost-line">' +
+      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(p.name) + '" placeholder="' + gmT("Nome do modelo", "Preset name") + '" ' +
+        'aria-label="' + gmT("Nome do modelo", "Preset name") + '" oninput="gmDocPresetSet(' + pi + ', this.value)">' +
+      '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover modelo", "Remove preset") + '" onclick="gmDocRemovePreset(' + pi + ')">&times;</button>' +
+      '</div>';
+    p.steps.forEach(function(st, si) {
+      h += '<div class="gm-cost-line gm-doc-step">' +
+        '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(st.label) + '" placeholder="' + gmT("Etapa (ex.: Deposit)", "Step (e.g. Deposit)") + '" ' +
+          'aria-label="' + gmT("Etapa", "Step") + '" oninput="gmDocStepSet(' + pi + ', ' + si + ', \'label\', this.value)">' +
+        '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(st.pct) + '" placeholder="%" ' +
+          'aria-label="%" oninput="gmDocStepSet(' + pi + ', ' + si + ', \'pct\', this.value)">' +
+        '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover etapa", "Remove step") + '" onclick="gmDocRemoveStep(' + pi + ', ' + si + ')">&times;</button>' +
+        '</div>';
+    });
+    h += '<div class="gm-doc-preset-foot">' +
+      '<button type="button" class="gm-btn-secondary" style="margin:0;" onclick="gmDocAddStep(' + pi + ')">' + gmT("+ Etapa", "+ Step") + '</button>' +
+      '<span class="' + (ok ? "gm-ok" : "gm-warn") + '">' +
+        (p.steps.length ? gmT("Total: ", "Total: ") + escHtml(fmtNum(total, "percent")) + (ok ? " ✓" : " — " + gmT("precisa ser 100%", "must be 100%"))
+                        : gmT("Sem etapas: definidas em cada estimate", "No steps: set on each estimate")) +
+      '</span></div>' +
+      '</div>';
+  });
+  return h;
+}
+
+function gmDocRepaintPresets() {
+  var el = document.getElementById("gmDocPresets");
+  if (el) { el.innerHTML = gmDocPresetsHtml(); }
+}
+function gmDocRepaintLicenses() {
+  var el = document.getElementById("gmDocLicenses");
+  if (el) { el.innerHTML = gmDocLicensesHtml(); }
+}
+
+function gmDocDraftSet(key, value) {
+  if (!gmDocDraft) { return; }
+  gmDocDraft[key] = value;
+  if (key === "late_fee_annual_pct") {
+    var note = document.getElementById("gmDocLateFeeNote");
+    if (note) {
+      note.innerHTML = Number(value) > 18
+        ? '<span class="gm-warn">' + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) + '</span>'
+        : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN);
+    }
+  }
+}
+function gmDocTermsMode(v) {
+  if (!gmDocDraft) { return; }
+  gmDocDraft.terms_mode = v;
+  if (v !== "custom") { gmDocDraft.default_terms_days = v; }
+  gmRenderEstimatesTab();
+}
+function gmDocLicenseSet(i, v) { if (gmDocDraft && gmDocDraft.licenses[i] !== undefined) { gmDocDraft.licenses[i] = v; } }
+function gmDocAddLicense() { if (gmDocDraft) { gmDocDraft.licenses.push(""); gmDocRepaintLicenses(); } }
+function gmDocRemoveLicense(i) { if (gmDocDraft && gmDocDraft.licenses.length > 1) { gmDocDraft.licenses.splice(i, 1); gmDocRepaintLicenses(); } }
+function gmDocPmToggle(i, on) {
+  if (!gmDocDraft || !gmDocDraft.payment_methods[i]) { return; }
+  gmDocDraft.payment_methods[i].on = !!on;
+  gmRenderEstimatesTab();
+}
+function gmDocPmDetail(i, v) { if (gmDocDraft && gmDocDraft.payment_methods[i]) { gmDocDraft.payment_methods[i].detail = v; } }
+function gmDocPresetSet(pi, v) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].name = v; } }
+function gmDocAddPreset() { if (gmDocDraft) { gmDocDraft.presets.push({ name: "", steps: [] }); gmDocRepaintPresets(); } }
+function gmDocRemovePreset(pi) { if (gmDocDraft) { gmDocDraft.presets.splice(pi, 1); gmDocRepaintPresets(); } }
+function gmDocAddStep(pi) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].steps.push({ label: "", pct: "" }); gmDocRepaintPresets(); } }
+function gmDocRemoveStep(pi, si) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].steps.splice(si, 1); gmDocRepaintPresets(); } }
+function gmDocStepSet(pi, si, key, v) {
+  if (!gmDocDraft || !gmDocDraft.presets[pi] || !gmDocDraft.presets[pi].steps[si]) { return; }
+  gmDocDraft.presets[pi].steps[si][key] = v;
+  // Only the footer totals repaint as they type; re-rendering the inputs
+  // would move the caret (same rule as the price-list cost lines).
+  var box = document.getElementById("gmDocPresets");
+  if (!box) { return; }
+  var foots = box.querySelectorAll(".gm-doc-preset-foot span");
+  var p = gmDocDraft.presets[pi];
+  if (foots[pi]) {
+    var ok = gmDocStepsOk(p.steps);
+    foots[pi].className = ok ? "gm-ok" : "gm-warn";
+    foots[pi].textContent = p.steps.length
+      ? gmT("Total: ", "Total: ") + fmtNum(gmDocStepsTotal(p.steps), "percent") + (ok ? " ✓" : " — " + gmT("precisa ser 100%", "must be 100%"))
+      : gmT("Sem etapas: definidas em cada estimate", "No steps: set on each estimate");
+  }
+}
+
+function gmDocShowMsg(ok, text) {
+  gmDocSaveMsg = { ok: ok, text: text };
+  var el = document.getElementById("gmDocSaveMsg");
+  if (el) { el.innerHTML = gmDocSaveMsgHtml(); }
+  if (!ok) { console.error("doc-settings: " + text); }
+}
+
+function gmDocSettingsSave() {
+  var d = gmDocDraft;
+  if (!d) { return; }
+  var licenses = d.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
+  if (!licenses.length) {
+    gmDocShowMsg(false, gmT("Informe ao menos um número de licença. ", "Enter at least one license number. ") + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN));
+    return;
+  }
+  if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
+    gmDocShowMsg(false, gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN));
+    return;
+  }
+  for (var i = 0; i < d.presets.length; i++) {
+    if (!String(d.presets[i].name || "").trim()) {
+      gmDocShowMsg(false, gmT("Todo modelo de parcelamento precisa de um nome.", "Every schedule preset needs a name."));
+      return;
+    }
+    if (!gmDocStepsOk(d.presets[i].steps)) {
+      gmDocShowMsg(false, gmT("As etapas de \"" + d.presets[i].name + "\" precisam somar exatamente 100%.",
+                              "The steps of \"" + d.presets[i].name + "\" must total exactly 100%."));
+      return;
+    }
+  }
+  var pm = {};
+  d.payment_methods.forEach(function(m) { if (m.on) { pm[m.key] = (m.detail || "").trim(); } });
+  var payload = {
+    legal_name: d.legal_name.trim() || null,
+    address: d.address.trim() || null,
+    phone: d.phone.trim() || null,
+    email: d.email.trim() || null,
+    license_numbers: licenses,
+    min_margin_pct: d.min_margin_pct === "" ? null : Number(d.min_margin_pct),
+    estimate_valid_days: Number(d.estimate_valid_days) || 30,
+    default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode),
+    payment_methods: pm,
+    late_fee_annual_pct: d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct),
+    late_fee_grace_days: d.late_fee_grace_days === "" ? null : Number(d.late_fee_grace_days),
+    schedule_presets: d.presets.map(function(p) {
+      return { name: p.name.trim(), steps: p.steps.map(function(st) { return { label: st.label.trim(), pct: Number(st.pct) }; }) };
+    })
+  };
+  var btn = document.getElementById("gmDocSaveBtn");
+  if (btn) { btn.disabled = true; }
+  gmApi("doc-settings", { method: "PUT", body: payload })
+    .then(function(r) {
+      gmDocSettings = r.settings || gmDocSettings;
+      gmDocDraftFromSettings();
+      gmDocSaveMsg = { ok: true, text: gmT("Configurações salvas.", "Settings saved.") };
+      gmRenderEstimatesTab();
+      gmToast(gmT("Configurações salvas", "Settings saved"));
+    })
+    .catch(function(e) {
+      if (btn) { btn.disabled = false; }
+      gmDocShowMsg(false, e.message);
+    });
+}
+
+// Logo goes through the EXISTING /logo route; the hero through the new
+// /gm/doc-hero one. Both are multipart (formData, never body).
+function gmDocUploadImage(input, kind) {
+  var file = input && input.files && input.files[0];
+  if (!file) { return; }
+  var fd = new FormData();
+  fd.append(kind === "logo" ? "logo" : "hero", file);
+  var req = kind === "logo"
+    ? apiFetch("/api/clients/" + clientId + "/logo", { method: "POST", formData: fd }).then(function(res) {
+        return res.json().then(function(dd) { if (!res.ok) { throw new Error(dd.error || ("HTTP " + res.status)); } return dd; });
+      })
+    : gmApi("doc-hero", { method: "POST", formData: fd });
+  req.then(function() {
+      input.value = "";
+      if (kind === "logo") { gmDocSettings.has_logo = true; if (typeof loadPortalLogo === "function") { loadPortalLogo(); } }
+      else { gmDocSettings.has_hero = true; }
+      gmRenderEstimatesTab();
+      gmToast(gmT("Imagem enviada", "Image uploaded"));
+    })
+    .catch(function(e) { gmDocShowMsg(false, e.message); });
+}
+
+// The audit trail, in the same bottom sheet + .gm-hist rows the lead
+// history uses.
+function gmDocHistoryOpen() {
+  gmSheetOpen(gmT("Histórico de alterações", "Change history"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("doc-settings/history")
+    .then(function(d) {
+      gmDocHistory = d.history || [];
+      var h = "";
+      if (!gmDocHistory.length) {
+        h = '<p class="muted">' + gmT("Nenhuma alteração ainda.", "No changes yet.") + '</p>';
+      } else {
+        gmDocHistory.forEach(function(r) {
+          h += '<div class="gm-hist"><div class="gm-hist-line"><strong>' + escHtml(r.field) + '</strong>: ' +
+            escHtml(r.old_value === null || r.old_value === undefined ? "—" : String(r.old_value).slice(0, 200)) + ' → ' +
+            escHtml(r.new_value === null || r.new_value === undefined ? "—" : String(r.new_value).slice(0, 200)) + '</div>' +
+            '<div class="gm-hist-meta">' + escHtml(r.actor || "") + ' · ' + escHtml(formatDateTimeUTC(r.created_at)) + '</div></div>';
+        });
+      }
+      var body = document.querySelector(".gm-sheet-body");
+      if (body) { body.innerHTML = h; }
+    })
+    .catch(function(e) {
+      var body = document.querySelector(".gm-sheet-body");
+      if (body) { body.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
+    });
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// TAB 9 — FATURAS / INVOICES (the client's own invoices to THEIR customers)
+// ═════════════════════════════════════════════════════════════════════════
+// Phase 3 of the build fills this. Phase 1 shows the shell only, and the
+// tab itself is visible only to owners on the test client (portal.html).
+
+function gmLoadInvoices() {
+  gmCurrentTab = "gminvoices";
+  gmRenderInvoicesTab();
+}
+
+function gmRenderInvoicesTab() {
+  var body = document.getElementById("gmInvoicesBody");
+  if (!body) { return; }
+  body.innerHTML = '<div class="content-card">' +
+    '<div class="card-title">' + gmT("Faturas", "Invoices") + '</div>' +
+    '<p class="muted">' + gmT("As suas faturas e recebimentos chegam nesta construção, na etapa 3.",
+        "Your invoices and payments arrive in this build, in phase 3.") + '</p>' +
+    '</div>';
 }

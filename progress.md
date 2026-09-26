@@ -24,6 +24,25 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 93 - 2026-09-26 - **Client portal estimates & invoices, PHASE 1 (foundation): settings, price-list additions, permissions, tabs.**
+
+  Current phase: 1 of 3 shipped; phase 2 (estimates wizard, customer page, PDF template) next.
+  Last session summary: gm_doc_settings + history tables, gm_pricing category/kind/description + cost-line types, gm_lead_events.reason; Estimates tab (Settings screen) and Faturas placeholder gated to test-client-temp-001; sellers get read-only Precos (no costs) and read-only Projects (own leads only); Apex's Zoho "Faturas" tab renamed "Faturas Apex" and hidden.
+  Completed: [x] 1a migration - [x] 1b Settings screen - [x] 1c Precos additions - [x] 1d permissions - [x] 1e tabs - 2026-09-26
+  Up Next: [ ] Phase 2 (2a-2j) - [ ] Phase 3 (3a-3g)
+  Decisions made this session (not specified by the prompt):
+  - "Custom" schedule preset = a preset with NO steps (steps defined on each estimate); a preset with steps must total exactly 100.00.
+  - Payment methods stored as {method: detailText} for ticked methods only; cash carries an empty detail.
+  - Hero image key: doc-heroes/<clientId>.<ext>; public route GET /api/clients/:id/doc-hero-image (auth-free like logo-image).
+  - Seller GET gm/pricing returns only id/item/category/kind/unit/price/description/sort_order (trimmed in the handler) and never seeds. Seller GET gm/jobs joins gm_leads on vendedor/vendedor_secundario = session seller_name; a job with no lead_id is owner-only.
+  - Seller navigation grew to Pipeline, Projects, Pricing, Estimates, Calendar, Documents; seller dock = first four, rest under "Mais".
+  - Per-client rollout gate PORTAL_TAB_GATES in portal.html (estimates + invoices tabs on test-client-temp-001 only in phase 1).
+  - client.html apiFetch gained formData support (gm.js uploads from the admin page posted an empty body before).
+  - Test logins for the test client are held by Nicole; verification sessions are minted by inserting a short-lived row into client_auth_tokens for the test client's own logins (the app purges expired rows itself).
+  - PDF/print templates (phases 2 and 3) follow Nicole's 2026-09-26 correction: fixed 8.5in x 11in <section class="slide"> pages, JS paginator, footer as ::after inside each slide, no position:fixed, page numbers written by the paginator; on-screen customer pages stay one seamless scroll.
+  Known issues: 15 pre-existing test scripts fail at HEAD before this session (stale slices, playwright missing, toISOString seeds in client.html/finance-new.html); none caused here. Real-browser check of Settings, Precos and the seller views still owed to Nicole.
+  Files: migrations/client_estimates_invoices_p1.sql, worker/index.js (doc-settings handlers, pricing/jobs seller scoping, allowlists, routes), gm.js (TAB 7 additions, seller read-only jobs/pricing, TAB 8 Estimates/Settings, TAB 9 placeholder), gm-labels.js (document vocabulary), gm.css, portal.html (tabs, gates, seller dock), client.html (Estimates section, apiFetch formData), scripts/test-estimates-settings.mjs, scripts/test-portal-tab-order.mjs, scripts/test-portal-mobile-dock.mjs, iOS twins.
+
 - [x] Session 92 - 2026-08-30 - **Preparacao da Reuniao: a pagina que o Rafa abre antes da reuniao de resultados do Raio-X.** Pagina nova (`meeting-prep.html`), endpoint novo (`GET /api/clients/:id/meeting-prep`) e os links nas duas telas de entrada.
 
   **Tudo numa resposta so.** Um segundo round trip no meio da reuniao e uma pausa que ele nao consegue explicar para um prospect, entao cliente, notas, as 62 perguntas, a carga do dono, o gargalo e as 16 historias chegam juntos.

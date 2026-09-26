@@ -13408,7 +13408,7 @@ function clientRequestAllowed(path, method, clientId) {
         var rest = path.slice(base.length + 1);
         if (method === "GET") {
             if (rest === "tasks" || rest === "invoices" || rest === "documents" ||
-                rest === "documents/latest" || rest === "logo-image" ||
+                rest === "documents/latest" || rest === "logo-image" || rest === "doc-hero-image" ||
                 rest === "field-config" || rest === "entry-state" ||
                 rest === "entry-suggestions" ||
                 rest === "entries" || rest === "entries-summary" ||
@@ -13463,6 +13463,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "config" || gmRest === "leads" || gmRest === "roadmap" ||
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs" || gmRest === "pricing") { return true; }
+                // Estimates & invoices build: the business's own document
+                // settings and their audit trail. Owner only -- the seller
+                // list below deliberately never names these.
+                if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Attachments on their own lead, and the file itself. Same
                 // reasoning as the project photos below: the client's own
@@ -13492,6 +13496,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
                 if (gmRest === "events") { return true; }
+                // The hero banner for the client's own customer documents.
+                if (gmRest === "doc-hero") { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Promoting their OWN won lead into their own project. Same
@@ -13517,6 +13523,8 @@ function clientRequestAllowed(path, method, clientId) {
             }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
+                // Document settings for the client's own estimates/invoices.
+                if (gmRest === "doc-settings") { return true; }
                 // The client's own referral/sheet lists. Their own record only —
                 // requireClientAccess in the handler enforces it, and the handler
                 // ignores the admin-only keys.
@@ -13586,6 +13594,18 @@ function sellerRequestAllowed(path, method, clientId) {
         // The lead list itself. Row-level filtering to this seller's own rows
         // happens in handleGetGmLeads off the session's seller_name.
         if (rest === "gm/leads") { return true; }
+        // Estimates & invoices build (phase 1). READ-ONLY price list: the
+        // estimate builder needs the items and prices, so handleGetGmPricing
+        // trims a seller's rows to item/category/kind/unit/price/description
+        // -- no cost, no breakdown, no margin, no notes. Every pricing WRITE
+        // (POST, PUT, DELETE, import) stays absent from this list.
+        if (rest === "gm/pricing") { return true; }
+        // READ-ONLY projects, and only the ones whose lead is this seller's:
+        // handleGetGmJobs joins gm_leads and filters on vendedor /
+        // vendedor_secundario = the session's seller_name, in SQL. There is
+        // no seller write route to gm/jobs, and the photo/note routes on a
+        // job are still absent here.
+        if (rest === "gm/jobs") { return true; }
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
@@ -20240,9 +20260,21 @@ async function handleGetGmJobs(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var config = await gmGetConfig(env, id);
-        var rows = await env.DB.prepare(
-            "SELECT * FROM gm_jobs WHERE client_id = ? ORDER BY created_at DESC"
-        ).bind(id).all();
+        // A salesperson (estimates build, phase 1) reads ONLY the projects
+        // whose lead is theirs -- primary or opt-in secondary, the same
+        // predicate handleGetGmLeads applies -- matched in SQL off the
+        // session's seller_name. A project with no lead_id belongs to the
+        // owner and is invisible to every seller. Read-only: no seller write
+        // route to gm/jobs exists, and the UI hides the editors.
+        var sellerName = sessionSellerName(user);
+        var rows = sellerName
+            ? await env.DB.prepare(
+                "SELECT j.* FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "WHERE j.client_id = ? AND (l.vendedor = ? OR l.vendedor_secundario = ?) ORDER BY j.created_at DESC"
+              ).bind(id, sellerName, sellerName).all()
+            : await env.DB.prepare(
+                "SELECT * FROM gm_jobs WHERE client_id = ? ORDER BY created_at DESC"
+              ).bind(id).all();
         var jobs = [];
         (rows.results || []).forEach(function(r) {
             var computed = gmJobComputed(r, config.target_margin);
@@ -20251,7 +20283,7 @@ async function handleGetGmJobs(id, request, env) {
             Object.keys(computed).forEach(function(k) { out[k] = computed[k]; });
             jobs.push(out);
         });
-        return jsonOk({ jobs: jobs, target_margin: config.target_margin });
+        return jsonOk({ jobs: jobs, target_margin: config.target_margin, read_only: !!sellerName });
     } catch (e) {
         return jsonErr("Error fetching jobs: " + e.message, 500);
     }
@@ -21714,9 +21746,18 @@ function gmPricingParseBreakdown(v) {
         var amount = gmNum(r.amount);
         // A line with neither a name nor a number is not a cost line.
         if (label === null && amount === null) { continue; }
-        out.push({ label: label, amount: amount === null ? null : amount });
+        // Cost TYPE (estimates build, phase 1): material | labor | other.
+        // Absent or unknown reads as material, so every row written before
+        // the type existed keeps meaning exactly what it meant.
+        out.push({ label: label, amount: amount === null ? null : amount, type: gmCostLineType(r.type) });
     }
     return out;
+}
+
+var GM_COST_LINE_TYPES = ["material", "labor", "other"];
+function gmCostLineType(v) {
+    var t = typeof v === "string" ? v.trim().toLowerCase() : "";
+    return GM_COST_LINE_TYPES.indexOf(t) === -1 ? "material" : t;
 }
 
 // The whole computed side of a pricing row. margin_pct is null -- not 0 --
@@ -21726,10 +21767,19 @@ function gmPricingComputed(row) {
     var breakdown = gmPricingParseBreakdown(row.cost_breakdown);
     var total = 0;
     var any = false;
+    // Per-type sums feed the estimate builder's cost prefill on the lead
+    // (material -> material, labor -> mao_de_obra, other -> outros).
+    var byType = { material: 0, labor: 0, other: 0 };
     breakdown.forEach(function(l) {
-        if (l.amount !== null && l.amount !== undefined) { total += l.amount; any = true; }
+        if (l.amount !== null && l.amount !== undefined) {
+            total += l.amount; any = true;
+            byType[gmCostLineType(l.type)] += l.amount;
+        }
     });
     var costTotal = any ? Math.round(total * 100) / 100 : null;
+    var materialCost = any ? Math.round(byType.material * 100) / 100 : null;
+    var laborCost    = any ? Math.round(byType.labor * 100) / 100 : null;
+    var otherCost    = any ? Math.round(byType.other * 100) / 100 : null;
     var price = (row.price === null || row.price === undefined) ? null : row.price;
     var margin = (price === null || costTotal === null) ? null : Math.round((price - costTotal) * 100) / 100;
     var marginPct = (price !== null && price > 0 && margin !== null)
@@ -21737,6 +21787,9 @@ function gmPricingComputed(row) {
     return {
         cost_breakdown: breakdown,
         cost_total:     costTotal,
+        material_cost:  materialCost,
+        labor_cost:     laborCost,
+        other_cost:     otherCost,
         margin:         margin,
         margin_pct:     marginPct
     };
@@ -21757,6 +21810,12 @@ function gmPricingFields(body, isUpdate) {
     if (has("unit"))  { out.unit  = body.unit  === null ? null : gmStr(body.unit, 40); }
     if (has("notes")) { out.notes = body.notes === null ? null : gmStr(body.notes, 1000); }
     if (has("price")) { out.price = gmNum(body.price); }
+    // Estimates build (phase 1). category is the client's own free text and
+    // is never translated; kind is a fixed key; description is what prints
+    // under the line on the customer's document.
+    if (has("category"))    { out.category    = body.category === null ? null : gmStr(body.category, 80); }
+    if (has("kind"))        { out.kind        = gmPricingKind(body.kind); }
+    if (has("description")) { out.description = body.description === null ? null : gmStr(body.description, 2000); }
     if (has("sort_order")) {
         var so = gmNum(body.sort_order);
         out.sort_order = so === null ? 0 : Math.round(so);
@@ -21769,6 +21828,12 @@ function gmPricingFields(body, isUpdate) {
     return { fields: out };
 }
 
+var GM_PRICING_KINDS = ["product", "addon"];
+function gmPricingKind(v) {
+    var k = typeof v === "string" ? v.trim().toLowerCase() : "";
+    return GM_PRICING_KINDS.indexOf(k) === -1 ? "product" : k;
+}
+
 // The sum that gets cached into the cost_total column on write. Reads never
 // trust it -- gmPricingComputed recomputes -- but keeping it correct means a
 // future report can ORDER BY it without parsing JSON.
@@ -21776,6 +21841,10 @@ function gmPricingCachedTotal(breakdownJson) {
     var c = gmPricingComputed({ cost_breakdown: breakdownJson, price: null });
     return c.cost_total;
 }
+
+// What a SALESPERSON gets back from GET gm/pricing: no cost, no breakdown,
+// no margin, no internal notes. Everything else on the row stays owner-only.
+var GM_PRICING_SELLER_FIELDS = ["id", "item", "category", "kind", "unit", "price", "description", "sort_order"];
 
 // GET /api/clients/:id/gm/pricing
 //
@@ -21790,12 +21859,19 @@ async function handleGetGmPricing(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
 
+        // A salesperson reads the list too (estimates build, phase 1) but
+        // never its costs: the rows are trimmed below to item, category, kind,
+        // unit, price and description. Trimmed HERE, in the handler, not in
+        // the UI -- a hidden column is not a protected column. A seller GET
+        // also never seeds: seeding is a write, and it is the owner's list.
+        var sellerView = !!sessionSellerName(user);
+
         var existing = await env.DB.prepare(
             "SELECT COUNT(*) AS c FROM gm_pricing WHERE client_id = ?"
         ).bind(id).first();
 
         var seeded = 0;
-        if (!existing || !existing.c) {
+        if ((!existing || !existing.c) && !sellerView) {
             var config = await gmGetConfig(env, id);
             var servicos = (config && config.servicos) || [];
             for (var i = 0; i < servicos.length; i++) {
@@ -21823,8 +21899,15 @@ async function handleGetGmPricing(id, request, env) {
         (rows.results || []).forEach(function(r) {
             var computed = gmPricingComputed(r);
             var out = {};
+            if (sellerView) {
+                GM_PRICING_SELLER_FIELDS.forEach(function(k) { out[k] = r[k] === undefined ? null : r[k]; });
+                out.kind = gmPricingKind(r.kind);
+                items.push(out);
+                return;
+            }
             Object.keys(r).forEach(function(k) { out[k] = r[k]; });
             Object.keys(computed).forEach(function(k) { out[k] = computed[k]; });
+            out.kind = gmPricingKind(r.kind);
             if (out.cost_total !== null) { withCosts++; }
             items.push(out);
         });
@@ -21832,8 +21915,9 @@ async function handleGetGmPricing(id, request, env) {
         return jsonOk({
             items: items,
             total_count: items.length,
-            with_costs_count: withCosts,
-            seeded: seeded
+            with_costs_count: sellerView ? null : withCosts,
+            seeded: seeded,
+            read_only: sellerView
         });
     } catch (e) {
         return jsonErr("Error fetching pricing: " + e.message, 500);
@@ -21854,8 +21938,8 @@ async function handlePostGmPricing(id, request, env) {
         var rowId = crypto.randomUUID();
         try {
             await env.DB.prepare(
-                "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, notes, sort_order, created_by, updated_by) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, notes, sort_order, category, kind, description, created_by, updated_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).bind(rowId, id, f.item,
                 f.unit !== undefined ? f.unit : null,
                 breakdown,
@@ -21863,6 +21947,9 @@ async function handlePostGmPricing(id, request, env) {
                 f.price !== undefined ? f.price : null,
                 f.notes !== undefined ? f.notes : null,
                 f.sort_order !== undefined ? f.sort_order : 0,
+                f.category !== undefined ? f.category : null,
+                f.kind !== undefined ? f.kind : "product",
+                f.description !== undefined ? f.description : null,
                 actorName(user), actorName(user)).run();
         } catch (insErr) {
             // The unique index is what makes import idempotent; a hand-typed
@@ -21995,6 +22082,13 @@ function gmCsvNum(v) {
     return isFinite(n) ? n : null;
 }
 
+// "add-on" / "adicional" / "addon" / "extra" -> addon; anything else product.
+function gmPricingKindFromCsv(v) {
+    var n = gmCsvNorm(v).replace(/[^a-z]/g, "");
+    if (n === "addon" || n === "adicional" || n === "extra" || n === "opcional" || n === "optional") { return "addon"; }
+    return "product";
+}
+
 function gmCsvNorm(s) {
     return String(s === null || s === undefined ? "" : s)
         .trim().toLowerCase()
@@ -22004,11 +22098,16 @@ function gmCsvNorm(s) {
 var GM_PRICING_ITEM_HEADERS  = ["item", "produto", "servico", "nome", "descricao", "product", "service", "name", "description"];
 var GM_PRICING_UNIT_HEADERS  = ["unit", "unidade", "un", "medida"];
 var GM_PRICING_PRICE_HEADERS = ["price", "preco", "venda", "valor", "preco de venda", "sale price", "selling price"];
+// Optional columns added by the estimates build. Matched by name only; a
+// spreadsheet without them imports exactly as before.
+var GM_PRICING_CATEGORY_HEADERS    = ["category", "categoria"];
+var GM_PRICING_KIND_HEADERS        = ["kind", "type", "tipo"];
+var GM_PRICING_DESCRIPTION_HEADERS = ["customer description", "descricao para o cliente", "descricao do cliente", "spec", "especificacao"];
 
 // Which header fills which role. An explicit map from the caller always wins
 // -- that is what the mapping UI sends back when the guess was wrong.
 function gmPricingResolveColumns(headers, map) {
-    var res = { item: -1, unit: -1, price: -1 };
+    var res = { item: -1, unit: -1, price: -1, category: -1, kind: -1, description: -1 };
     var norm = headers.map(gmCsvNorm);
     function findBy(list) {
         for (var i = 0; i < norm.length; i++) {
@@ -22019,8 +22118,11 @@ function gmPricingResolveColumns(headers, map) {
     res.item  = findBy(GM_PRICING_ITEM_HEADERS);
     res.unit  = findBy(GM_PRICING_UNIT_HEADERS);
     res.price = findBy(GM_PRICING_PRICE_HEADERS);
+    res.category    = findBy(GM_PRICING_CATEGORY_HEADERS);
+    res.kind        = findBy(GM_PRICING_KIND_HEADERS);
+    res.description = findBy(GM_PRICING_DESCRIPTION_HEADERS);
     if (map && typeof map === "object") {
-        ["item", "unit", "price"].forEach(function(role) {
+        ["item", "unit", "price", "category", "kind", "description"].forEach(function(role) {
             if (map[role] === null) { res[role] = -1; return; }
             if (map[role] === undefined || map[role] === "") { return; }
             var want = gmCsvNorm(map[role]);
@@ -22065,7 +22167,8 @@ async function handlePostGmPricingImport(id, request, env) {
         // line teaches nobody anything.
         var costCols = [];
         for (var h = 0; h < headers.length; h++) {
-            if (h === cols.item || h === cols.unit || h === cols.price) { continue; }
+            if (h === cols.item || h === cols.unit || h === cols.price ||
+                h === cols.category || h === cols.kind || h === cols.description) { continue; }
             if (!headers[h]) { continue; }
             costCols.push(h);
         }
@@ -22099,11 +22202,17 @@ async function handlePostGmPricingImport(id, request, env) {
             });
             var price = cols.price === -1 ? null : gmCsvNum(cells[cols.price]);
             var unit  = cols.unit  === -1 ? null : gmStr(cells[cols.unit], 40);
+            var category    = cols.category    === -1 ? undefined : gmStr(cells[cols.category], 80);
+            var kind        = cols.kind        === -1 ? undefined : gmPricingKindFromCsv(cells[cols.kind]);
+            var description = cols.description === -1 ? undefined : gmStr(cells[cols.description], 2000);
             var computed = gmPricingComputed({ cost_breakdown: breakdown, price: price });
             planned.push({
                 item:           itemName,
                 unit:           unit,
                 price:          price,
+                category:       category,
+                kind:           kind,
+                description:    description,
                 cost_breakdown: breakdown,
                 cost_total:     computed.cost_total,
                 margin:         computed.margin,
@@ -22133,24 +22242,416 @@ async function handlePostGmPricingImport(id, request, env) {
         for (var p2 = 0; p2 < planned.length; p2++) {
             var row = planned[p2];
             var bjson = JSON.stringify(row.cost_breakdown);
+            // The three optional columns only touch the row when the file
+            // carries them (undefined = column absent), so a re-import of an
+            // older spreadsheet never blanks a category typed in the app.
+            var optSets = "", optBinds = [];
+            if (row.category !== undefined)    { optSets += ", category = ?";    optBinds.push(row.category); }
+            if (row.kind !== undefined)        { optSets += ", kind = ?";        optBinds.push(row.kind); }
+            if (row.description !== undefined) { optSets += ", description = ?"; optBinds.push(row.description); }
             if (row.existing_id) {
-                await env.DB.prepare(
-                    "UPDATE gm_pricing SET unit = ?, cost_breakdown = ?, cost_total = ?, price = ?, " +
-                    "updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ?"
-                ).bind(row.unit, bjson, row.cost_total, row.price, actor, row.existing_id, id).run();
+                await gmRunUpdate(env,
+                    "UPDATE gm_pricing SET unit = ?, cost_breakdown = ?, cost_total = ?, price = ?" + optSets + ", " +
+                    "updated_at = datetime('now'), updated_by = ? WHERE id = ? AND client_id = ?",
+                    [row.unit, bjson, row.cost_total, row.price].concat(optBinds, [actor, row.existing_id, id]));
                 updated++;
             } else {
                 await env.DB.prepare(
-                    "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, sort_order, created_by, updated_by) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO gm_pricing (id, client_id, item, unit, cost_breakdown, cost_total, price, sort_order, category, kind, description, created_by, updated_by) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 ).bind(crypto.randomUUID(), id, row.item, row.unit, bjson, row.cost_total, row.price,
-                       0, actor, actor).run();
+                       0,
+                       row.category === undefined ? null : row.category,
+                       row.kind === undefined ? "product" : row.kind,
+                       row.description === undefined ? null : row.description,
+                       actor, actor).run();
                 created++;
             }
         }
         return jsonOk({ imported: true, created: created, updated: updated, skipped: skipped });
     } catch (e) {
         return jsonErr("Error importing pricing: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CLIENT DOCUMENT SETTINGS (gm_doc_settings) — estimates & invoices build.
+//
+// The client business's identity and terms as printed on THEIR OWN estimates,
+// invoices and receipts to THEIR customers. One row per client. Owner and
+// admin only: sellers never read or write these (phase 2 grants sellers a
+// narrower read of the send-message templates only).
+//
+// Every changed field is appended to gm_doc_settings_history with the actor
+// from the SESSION, so a message template or a payment detail can always be
+// traced to who changed it and when. Nothing here is ever deleted.
+//
+// Route: GET  /api/clients/:id/gm/doc-settings          — row + prefill hints
+// Route: PUT  /api/clients/:id/gm/doc-settings          — validate, upsert, log
+// Route: GET  /api/clients/:id/gm/doc-settings/history  — the audit trail
+// Route: POST /api/clients/:id/gm/doc-hero              — hero image upload (R2)
+// Route: GET  /api/clients/:id/doc-hero-image           — PUBLIC, serves the hero
+// ---------------------------------------------------------------------------
+
+var GM_DOC_PAYMENT_METHODS = ["zelle", "check", "cash", "money_order", "bank_transfer", "card_link", "other"];
+
+// Florida §687.03: the legal ceiling on interest for these contracts.
+var GM_DOC_LATE_FEE_MAX_PCT = 18;
+var GM_DOC_LATE_FEE_CAP_MESSAGE = "Florida law (§687.03) caps interest at 18% per year (1.5% per month).";
+
+// The three generic presets a new client starts with. Editable and deletable
+// by the owner; "Custom" has no steps and means "define the steps on each
+// estimate". Labels are English because they print on customer documents.
+var GM_DOC_DEFAULT_SCHEDULE_PRESETS = [
+    { name: "Deposit 50% / Completion 50%", steps: [{ label: "Deposit", pct: 50 }, { label: "Completion", pct: 50 }] },
+    { name: "Thirds: 33.34 / 33.33 / 33.33", steps: [{ label: "Deposit", pct: 33.34 }, { label: "Mid-project", pct: 33.33 }, { label: "Completion", pct: 33.33 }] },
+    { name: "Custom", steps: [] }
+];
+
+// Steps must total EXACTLY 100 (to the cent of a percent). An empty list is
+// allowed only as the "Custom" placeholder. Returns a plain message or null.
+function gmDocScheduleStepsError(steps) {
+    if (!Array.isArray(steps)) { return "steps must be a list"; }
+    if (!steps.length) { return null; }
+    var total = 0;
+    for (var i = 0; i < steps.length; i++) {
+        var st = steps[i];
+        if (!st || typeof st !== "object") { return "invalid step"; }
+        var pct = gmNum(st.pct);
+        if (pct === null || pct <= 0) { return "every step needs a percentage above 0"; }
+        total += pct;
+    }
+    if (Math.round(total * 100) !== 10000) { return "steps must total exactly 100% (now " + (Math.round(total * 100) / 100) + "%)"; }
+    return null;
+}
+
+// The list as stored: trimmed names, numeric percentages, no junk.
+function gmDocParseSchedulePresets(v) {
+    var arr = v;
+    if (typeof v === "string") { try { arr = JSON.parse(v); } catch (e) { return { error: "schedule_presets is not valid JSON" }; } }
+    if (!Array.isArray(arr)) { return { error: "schedule_presets must be a list" }; }
+    var out = [];
+    for (var i = 0; i < arr.length && out.length < 20; i++) {
+        var p = arr[i];
+        if (!p || typeof p !== "object") { continue; }
+        var name = gmStr(p.name, 80);
+        if (!name) { return { error: "every preset needs a name" }; }
+        var steps = Array.isArray(p.steps) ? p.steps : [];
+        var stepsOut = [];
+        for (var j = 0; j < steps.length && stepsOut.length < 12; j++) {
+            var st = steps[j] || {};
+            var label = gmStr(st.label, 60);
+            var pct = gmNum(st.pct);
+            if (label === null && pct === null) { continue; }
+            stepsOut.push({ label: label || ("Step " + (stepsOut.length + 1)), pct: pct === null ? 0 : Math.round(pct * 100) / 100 });
+        }
+        var err = gmDocScheduleStepsError(stepsOut);
+        if (err) { return { error: "\"" + name + "\": " + err }; }
+        out.push({ name: name, steps: stepsOut });
+    }
+    return { presets: out };
+}
+
+// Late-fee rate: NULL means no penalty; anything above 18 is refused with the
+// statute in the message. Returns { value } or { error }.
+function gmDocParseLateFeePct(v) {
+    if (v === null || v === undefined || v === "") { return { value: null }; }
+    var n = gmNum(v);
+    if (n === null || n < 0) { return { error: "late_fee_annual_pct must be a number of 0 or more" }; }
+    if (n > GM_DOC_LATE_FEE_MAX_PCT) { return { error: GM_DOC_LATE_FEE_CAP_MESSAGE }; }
+    return { value: Math.round(n * 100) / 100 };
+}
+
+// Only ticked methods are stored: {method: detailText}. Unknown keys dropped.
+function gmDocParsePaymentMethods(v) {
+    var obj = v;
+    if (typeof v === "string") { try { obj = JSON.parse(v); } catch (e) { return { error: "payment_methods is not valid JSON" }; } }
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) { return { error: "payment_methods must be an object" }; }
+    var out = {};
+    GM_DOC_PAYMENT_METHODS.forEach(function(m) {
+        if (!Object.prototype.hasOwnProperty.call(obj, m)) { return; }
+        var d = obj[m];
+        if (d === false || d === null || d === undefined) { return; }
+        out[m] = typeof d === "string" ? d.trim().slice(0, 500) : "";
+    });
+    return { methods: out };
+}
+
+function gmDocParseLicenses(v) {
+    var arr = v;
+    if (typeof v === "string") { try { arr = JSON.parse(v); } catch (e) { arr = [v]; } }
+    if (!Array.isArray(arr)) { return []; }
+    var out = [];
+    arr.forEach(function(x) {
+        var s = gmStr(String(x === null || x === undefined ? "" : x), 60);
+        if (s && out.indexOf(s) === -1 && out.length < 10) { out.push(s); }
+    });
+    return out;
+}
+
+function gmDocParseJsonObject(v, fallback) {
+    if (v === null || v === undefined) { return fallback; }
+    if (typeof v !== "string") { return v; }
+    try { var o = JSON.parse(v); return (o && typeof o === "object") ? o : fallback; } catch (e) { return fallback; }
+}
+
+// The row as the app reads it, with JSON columns parsed and defaults applied
+// for a client who has never saved. Shared with phase 2's public document
+// routes, which is why it takes env + clientId rather than a request.
+async function gmDocSettingsRow(env, clientId) {
+    var row = await env.DB.prepare("SELECT * FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+    var r = row || {};
+    return {
+        client_id:             clientId,
+        exists:                !!row,
+        hero_r2_key:           r.hero_r2_key || null,
+        legal_name:            r.legal_name || null,
+        address:               r.address || null,
+        phone:                 r.phone || null,
+        email:                 r.email || null,
+        license_numbers:       gmDocParseLicenses(r.license_numbers || "[]"),
+        min_margin_pct:        (r.min_margin_pct === null || r.min_margin_pct === undefined) ? null : r.min_margin_pct,
+        estimate_valid_days:   (r.estimate_valid_days === null || r.estimate_valid_days === undefined) ? 30 : r.estimate_valid_days,
+        default_terms_days:    (r.default_terms_days === null || r.default_terms_days === undefined) ? 0 : r.default_terms_days,
+        payment_methods:       gmDocParseJsonObject(r.payment_methods_json, {}),
+        late_fee_annual_pct:   (r.late_fee_annual_pct === null || r.late_fee_annual_pct === undefined) ? null : r.late_fee_annual_pct,
+        late_fee_grace_days:   (r.late_fee_grace_days === null || r.late_fee_grace_days === undefined) ? null : r.late_fee_grace_days,
+        schedule_presets:      row ? (gmDocParseJsonObject(r.schedule_presets_json, []) || []) : GM_DOC_DEFAULT_SCHEDULE_PRESETS,
+        estimate_message:      r.estimate_message || null,
+        invoice_message:       r.invoice_message || null,
+        receipt_message:       r.receipt_message || null,
+        setup_completed_at:    r.setup_completed_at || null,
+        updated_at:            r.updated_at || null,
+        updated_by:            r.updated_by || null
+    };
+}
+
+// Sellers are refused HERE as well as by the allowlist: this data carries the
+// business's bank and payment details.
+function gmDocSettingsOwnerOnly(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
+async function handleGetGmDocSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var settings = await gmDocSettingsRow(env, id);
+        // Pre-fill hints from the state registry and the client record. The
+        // owner confirms or edits; nothing is copied into gm_doc_settings
+        // until they save.
+        var client = await env.DB.prepare(
+            "SELECT name, legal_entity_name, legal_entity_address, phone, email, logo_url FROM clients WHERE id = ?"
+        ).bind(id).first();
+        settings.prefill = {
+            business_name: (client && client.name) || null,
+            legal_name:    (client && client.legal_entity_name) || null,
+            address:       (client && client.legal_entity_address) || null,
+            phone:         (client && client.phone) || null,
+            email:         (client && client.email) || null
+        };
+        settings.has_logo = !!(client && client.logo_url);
+        settings.has_hero = !!settings.hero_r2_key;
+        settings.late_fee_max_pct = GM_DOC_LATE_FEE_MAX_PCT;
+        settings.payment_method_keys = GM_DOC_PAYMENT_METHODS;
+        return jsonOk({ settings: settings });
+    } catch (e) {
+        return jsonErr("Error fetching document settings: " + e.message, 500);
+    }
+}
+
+// Fields that are compared old/new and logged. JSON fields compare on their
+// canonical string. hero_r2_key is logged by the upload route instead.
+var GM_DOC_SETTINGS_FIELDS = [
+    "legal_name", "address", "phone", "email", "license_numbers", "min_margin_pct",
+    "estimate_valid_days", "default_terms_days", "payment_methods_json",
+    "late_fee_annual_pct", "late_fee_grace_days", "schedule_presets_json",
+    "estimate_message", "invoice_message", "receipt_message"
+];
+
+async function handlePutGmDocSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+
+        var existing = await env.DB.prepare("SELECT * FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var cur = existing || {};
+        var f = {};
+
+        if (has("legal_name")) { f.legal_name = body.legal_name === null ? null : gmStr(body.legal_name, 200); }
+        if (has("address"))    { f.address    = body.address    === null ? null : gmStr(body.address, 400); }
+        if (has("phone"))      { f.phone      = body.phone      === null ? null : gmStr(body.phone, 40); }
+        if (has("email"))      { f.email      = body.email      === null ? null : gmStr(body.email, 120); }
+        if (has("license_numbers")) { f.license_numbers = JSON.stringify(gmDocParseLicenses(body.license_numbers)); }
+        if (has("min_margin_pct")) {
+            var mm = gmNum(body.min_margin_pct);
+            if (body.min_margin_pct !== null && body.min_margin_pct !== "" && (mm === null || mm < 0 || mm > 100)) {
+                return jsonErr("min_margin_pct must be between 0 and 100", 400);
+            }
+            f.min_margin_pct = (body.min_margin_pct === null || body.min_margin_pct === "") ? null : mm;
+        }
+        if (has("estimate_valid_days")) {
+            var vd = gmNum(body.estimate_valid_days);
+            if (vd === null || vd < 1 || vd > 365) { return jsonErr("estimate_valid_days must be between 1 and 365", 400); }
+            f.estimate_valid_days = Math.round(vd);
+        }
+        if (has("default_terms_days")) {
+            var td = gmNum(body.default_terms_days);
+            if (td === null || td < 0 || td > 365) { return jsonErr("default_terms_days must be between 0 and 365", 400); }
+            f.default_terms_days = Math.round(td);
+        }
+        if (has("payment_methods")) {
+            var pm = gmDocParsePaymentMethods(body.payment_methods);
+            if (pm.error) { return jsonErr(pm.error, 400); }
+            f.payment_methods_json = JSON.stringify(pm.methods);
+        }
+        if (has("late_fee_annual_pct")) {
+            var lf = gmDocParseLateFeePct(body.late_fee_annual_pct);
+            if (lf.error) { return jsonErr(lf.error, 400); }
+            f.late_fee_annual_pct = lf.value;
+        }
+        if (has("late_fee_grace_days")) {
+            if (body.late_fee_grace_days === null || body.late_fee_grace_days === "") { f.late_fee_grace_days = null; }
+            else {
+                var gd = gmNum(body.late_fee_grace_days);
+                if (gd === null || gd < 0 || gd > 365) { return jsonErr("late_fee_grace_days must be between 0 and 365", 400); }
+                f.late_fee_grace_days = Math.round(gd);
+            }
+        }
+        if (has("schedule_presets")) {
+            var sp = gmDocParseSchedulePresets(body.schedule_presets);
+            if (sp.error) { return jsonErr(sp.error, 400); }
+            f.schedule_presets_json = JSON.stringify(sp.presets);
+        }
+        ["estimate_message", "invoice_message", "receipt_message"].forEach(function(k) {
+            if (has(k)) { f[k] = body[k] === null ? null : gmStr(body[k], 1000); }
+        });
+
+        // Setup is complete only once at least one license number is on file:
+        // Florida §489.119 requires it on every bid and contract, so a document
+        // without one must never be producible.
+        var licensesAfter = gmDocParseLicenses(f.license_numbers !== undefined ? f.license_numbers : (cur.license_numbers || "[]"));
+        var completing = !cur.setup_completed_at && licensesAfter.length > 0;
+        if (!cur.setup_completed_at && !licensesAfter.length && has("license_numbers")) {
+            return jsonErr("At least one license number is required. Florida law (§489.119) requires your license number on every bid and contract.", 400);
+        }
+
+        var actor = actorName(user);
+        var changes = [];
+        GM_DOC_SETTINGS_FIELDS.forEach(function(k) {
+            if (f[k] === undefined) { return; }
+            var before = cur[k] === undefined || cur[k] === null ? null : String(cur[k]);
+            var after  = f[k] === null ? null : String(f[k]);
+            if (before === after) { delete f[k]; return; }
+            changes.push({ field: k, old_value: before, new_value: after });
+        });
+
+        var cols = Object.keys(f);
+        if (!existing) {
+            var insertCols = ["client_id"].concat(cols, ["updated_by", "updated_at"]);
+            var binds = [id].concat(cols.map(function(k) { return f[k]; }), [actor]);
+            var marks = insertCols.map(function(c) { return c === "updated_at" ? "datetime('now')" : "?"; });
+            if (completing) { insertCols.push("setup_completed_at"); marks.push("datetime('now')"); }
+            var stmt = env.DB.prepare("INSERT INTO gm_doc_settings (" + insertCols.join(", ") + ") VALUES (" + marks.join(", ") + ")");
+            await stmt.bind.apply(stmt, binds).run();
+        } else if (cols.length || completing) {
+            var sets = cols.map(function(k) { return k + " = ?"; });
+            var ubinds = cols.map(function(k) { return f[k]; });
+            sets.push("updated_at = datetime('now')");
+            sets.push("updated_by = ?"); ubinds.push(actor);
+            if (completing) { sets.push("setup_completed_at = datetime('now')"); }
+            ubinds.push(id);
+            await gmRunUpdate(env, "UPDATE gm_doc_settings SET " + sets.join(", ") + " WHERE client_id = ?", ubinds);
+        }
+        if (changes.length) {
+            await env.DB.batch(changes.map(function(c) {
+                return env.DB.prepare(
+                    "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), id, c.field, c.old_value, c.new_value, actor);
+            }));
+        }
+        var settings = await gmDocSettingsRow(env, id);
+        return jsonOk({ saved: true, changed: changes.length, setup_completed: completing, settings: settings });
+    } catch (e) {
+        return jsonErr("Error saving document settings: " + e.message, 500);
+    }
+}
+
+async function handleGetGmDocSettingsHistory(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var rows = await env.DB.prepare(
+            "SELECT id, field, old_value, new_value, actor, created_at FROM gm_doc_settings_history " +
+            "WHERE client_id = ? ORDER BY created_at DESC LIMIT 200"
+        ).bind(id).all();
+        return jsonOk({ history: rows.results || [] });
+    } catch (e) {
+        return jsonErr("Error fetching document settings history: " + e.message, 500);
+    }
+}
+
+// Hero image: the banner across the top of the customer-facing pages. Same
+// shape as apex_partners.hero_url (POST + a public GET), keyed doc-heroes/.
+// Replacing it overwrites the same R2 key; nothing is deleted.
+async function handlePostGmDocHero(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var form = await request.formData();
+        var file = form.get("hero");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("hero file is required", 400); }
+        if (APEX_HERO_TYPES.indexOf(file.type) === -1) { return jsonErr("Envie uma imagem JPG, PNG ou WebP. / Upload a JPG, PNG or WebP image.", 400); }
+        if (file.size > 5 * 1024 * 1024) { return jsonErr("Imagem muito grande. O limite é 5MB. / Image too large. The limit is 5MB.", 400); }
+        var key = "doc-heroes/" + id + "." + apexHeroExt(file.type);
+        await env.ASSETS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+        var cur = await env.DB.prepare("SELECT hero_r2_key FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var actor = actorName(user);
+        await env.DB.prepare(
+            "INSERT INTO gm_doc_settings (client_id, hero_r2_key, updated_by, updated_at) VALUES (?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET hero_r2_key = excluded.hero_r2_key, updated_by = excluded.updated_by, updated_at = datetime('now')"
+        ).bind(id, key, actor).run();
+        await env.DB.prepare(
+            "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, 'hero_r2_key', ?, ?, ?)"
+        ).bind(crypto.randomUUID(), id, (cur && cur.hero_r2_key) || null, key, actor).run();
+        return jsonOk({ hero_key: key });
+    } catch (e) {
+        return jsonErr("Error uploading hero: " + e.message, 500);
+    }
+}
+
+// PUBLIC, auth-free like /logo-image: the hero is a non-sensitive banner
+// referenced by client UUID and shown on pages the client's customers open.
+async function handleGetGmDocHeroImage(id, request, env) {
+    try {
+        var row = await env.DB.prepare("SELECT hero_r2_key FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        if (!row || !row.hero_r2_key) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (!/^doc-heroes\/[A-Za-z0-9_-]+\.(png|jpe?g|webp)$/.test(row.hero_r2_key)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+        var obj = await env.ASSETS.get(row.hero_r2_key);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var allowed = { "image/jpeg": 1, "image/png": 1, "image/webp": 1 };
+        var stored = obj.httpMetadata && obj.httpMetadata.contentType;
+        var ctype = allowed[stored] ? stored : "image/jpeg";
+        var headers = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": ctype,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "public, max-age=300"
+        });
+        return new Response(obj.body, { status: 200, headers: headers });
+    } catch (e) {
+        return jsonErr("Error fetching hero: " + e.message, 500);
     }
 }
 
@@ -32783,6 +33284,11 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "logo-image" && method === "GET") {
                 return handleGetClientLogoImage(cid, request, env);
             }
+            // The hero banner on the client's own customer documents. Public,
+            // auth-free, same reasoning as logo-image.
+            if (segs.length === 4 && segs[3] === "doc-hero-image" && method === "GET") {
+                return handleGetGmDocHeroImage(cid, request, env);
+            }
             if (segs.length === 5 && segs[3] === "documents" && segs[4] === "latest" && method === "GET") {
                 return handleGetClientLatestDocument(cid, request, env);
             }
@@ -32971,6 +33477,17 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 6 && gmCol === "pricing" && method === "PUT") {
                     return handlePutGmPricing(cid, segs[5], request, env);
+                }
+                // Estimates & invoices build: the business's document settings.
+                if (segs.length === 5 && gmCol === "doc-settings") {
+                    if (method === "GET") { return handleGetGmDocSettings(cid, request, env); }
+                    if (method === "PUT") { return handlePutGmDocSettings(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "doc-settings" && segs[5] === "history" && method === "GET") {
+                    return handleGetGmDocSettingsHistory(cid, request, env);
+                }
+                if (segs.length === 5 && gmCol === "doc-hero" && method === "POST") {
+                    return handlePostGmDocHero(cid, request, env);
                 }
                 if (segs.length === 5 && gmCol === "config" && method === "PUT") {
                     return handlePutGmConfig(cid, request, env);   // admin only

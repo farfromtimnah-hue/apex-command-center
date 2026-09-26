@@ -293,7 +293,78 @@
     return STATUS_EN[v] || String(v);
   }
 
+  // ── Estimates & invoices build: fixed document vocabulary ─────────────
+  //
+  // Stored as language-neutral KEYS (gm_doc_settings.payment_methods_json
+  // keys, gm_pricing.kind, cost_breakdown[].type) and labelled here. The
+  // customer-facing documents are English only, so the EN label is also
+  // what prints; the PT label is for the portal UI.
+  var DOC_PAYMENT_METHODS = [
+    { key: "zelle",         pt: "Zelle",                    en: "Zelle",               hintPt: "Chave ou telefone do Zelle",     hintEn: "Zelle handle or phone" },
+    { key: "check",         pt: "Cheque",                   en: "Check",               hintPt: "Nominal a",                      hintEn: "Payable to" },
+    { key: "cash",          pt: "Dinheiro",                 en: "Cash",                hintPt: "",                               hintEn: "" },
+    { key: "money_order",   pt: "Money order",              en: "Money order",         hintPt: "Nominal a",                      hintEn: "Payable to" },
+    { key: "bank_transfer", pt: "Transferência / ACH",      en: "Bank transfer / ACH", hintPt: "Instruções",                     hintEn: "Instructions" },
+    { key: "card_link",     pt: "Cartão / Stripe",          en: "Card / Stripe",       hintPt: "Cole o seu próprio link de pagamento. A Apex não processa pagamentos.", hintEn: "Paste your own payment link. Apex does not process payments." },
+    { key: "other",         pt: "Outro",                    en: "Other",               hintPt: "Texto livre",                    hintEn: "Free text" }
+  ];
+  var DOC_PAYMENT_METHOD_BY_KEY = {};
+  DOC_PAYMENT_METHODS.forEach(function (m) { DOC_PAYMENT_METHOD_BY_KEY[m.key] = m; });
+  function paymentMethodLabel(key, en) {
+    var m = DOC_PAYMENT_METHOD_BY_KEY[key];
+    if (!m) { return key === null || key === undefined ? "" : String(key); }
+    return en ? m.en : m.pt;
+  }
+
+  // gm_pricing.kind
+  var PRICING_KINDS = [
+    { key: "product", pt: "Produto", en: "Product" },
+    { key: "addon",   pt: "Adicional", en: "Add-on" }
+  ];
+  function pricingKindLabel(key, en) {
+    for (var i = 0; i < PRICING_KINDS.length; i++) {
+      if (PRICING_KINDS[i].key === key) { return en ? PRICING_KINDS[i].en : PRICING_KINDS[i].pt; }
+    }
+    return en ? "Product" : "Produto";
+  }
+
+  // cost_breakdown[].type — absent reads as material.
+  var COST_LINE_TYPES = [
+    { key: "material", pt: "Material",    en: "Material" },
+    { key: "labor",    pt: "Mão de obra", en: "Labor" },
+    { key: "other",    pt: "Outro",       en: "Other" }
+  ];
+  function costLineTypeLabel(key, en) {
+    for (var i = 0; i < COST_LINE_TYPES.length; i++) {
+      if (COST_LINE_TYPES[i].key === key) { return en ? COST_LINE_TYPES[i].en : COST_LINE_TYPES[i].pt; }
+    }
+    return en ? "Material" : "Material";
+  }
+
+  // Payment terms: stored as a number of days (0 = due on receipt).
+  var DOC_TERMS_PRESETS = [
+    { days: 0,  pt: "Na entrega (due on receipt)", en: "Due on receipt" },
+    { days: 7,  pt: "Net 7",  en: "Net 7" },
+    { days: 15, pt: "Net 15", en: "Net 15" },
+    { days: 30, pt: "Net 30", en: "Net 30" }
+  ];
+  function termsLabel(days, en) {
+    var d = Number(days) || 0;
+    for (var i = 0; i < DOC_TERMS_PRESETS.length; i++) {
+      if (DOC_TERMS_PRESETS[i].days === d) { return en ? DOC_TERMS_PRESETS[i].en : DOC_TERMS_PRESETS[i].pt; }
+    }
+    return "Net " + d;
+  }
+
   global.GmLabels = {
+    DOC_PAYMENT_METHODS: DOC_PAYMENT_METHODS,
+    paymentMethodLabel: paymentMethodLabel,
+    PRICING_KINDS: PRICING_KINDS,
+    pricingKindLabel: pricingKindLabel,
+    COST_LINE_TYPES: COST_LINE_TYPES,
+    costLineTypeLabel: costLineTypeLabel,
+    DOC_TERMS_PRESETS: DOC_TERMS_PRESETS,
+    termsLabel: termsLabel,
     STATUS_EN: STATUS_EN,
     statusLabel: statusLabel,
     STAGES: STAGES,

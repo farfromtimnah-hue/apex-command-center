@@ -37,9 +37,11 @@ eval(slice("var SINGLE_PAGE_ASSESSMENTS = [", "function loadAssigned()") +
 eval(slice("var LOCKED_PREVIEWS = [", "function lockedPreviewBanner(") +
   "\n; Object.assign(globalThis, { LOCKED_PREVIEWS, lockedPreviewMeta });");
 globalThis.updateMobileDockActive = () => {};
+globalThis.isSeller = () => false;
+globalThis.clientId = "test-client-temp-001";   // both gated tabs exist here
 eval(slice("var PORTAL_TABS = [", "function portalMoreToggle()") +
   "\n; Object.assign(globalThis, { PORTAL_TABS, PORTAL_DOCK_TABS, PORTAL_MORE_TABS, LEAD_DOCK_TABS," +
-  " ASSIGNED_DOCK_TAB, portalDockTabs, portalMoreTabs, populateMobileDock });");
+  " ASSIGNED_DOCK_TAB, portalDockTabs, portalMoreTabs, populateMobileDock, portalTabs, portalTabEnabled });");
 
 globalThis.currentTab = "analytics";
 globalThis.entryState = null;
@@ -108,7 +110,9 @@ const beforeDivider = menu.slice(0, menu.indexOf("mm-divider"));
 const afterDivider = menu.slice(menu.indexOf("mm-divider"));
 ok(!/portalMoreGo\('tasks'/.test(beforeDivider), "Tarefas is below the divider");
 ok(!/portalMoreGo\('documents'/.test(beforeDivider), "Documentos is below the divider");
-ok(!/portalMoreGo\('invoices'/.test(beforeDivider), "Faturas is below the divider");
+ok(!/portalMoreGo\('invoices'/.test(menu), "Apex's Faturas is not in Mais at all (hidden since the estimates build)");
+ok(/portalMoreGo\('gminvoices'/.test(beforeDivider) && /portalMoreGo\('gmestimates'/.test(beforeDivider),
+   "the client's own Estimates and Faturas sit above the divider (their tools, not Apex's)");
 ok(/portalMoreGo\('gmjobs'/.test(beforeDivider), "Obras is above the divider");
 ok(/portalMoreGo\('gmroadmap'/.test(beforeDivider), "Execucao is above the divider");
 ok(/portalMoreGo\('tasks'/.test(afterDivider), "…and Tarefas is the first item after it");
@@ -128,6 +132,20 @@ const before2 = menu2.slice(0, menu2.indexOf("mm-divider"));
 ok(/portalMoreGo\('gmfinance'/.test(before2),
    "the displaced tab (Financeiro) sits ABOVE the divider, at the true group boundary");
 ok(!/portalMoreGo\('tasks'/.test(before2), "Tarefas is still below the divider");
+
+// ---------- 5. seller dock: four docked + Mais for the rest ----------
+globalThis.isSeller = () => true;
+globalThis.isLead = () => false;
+globalThis.xrayAssigned = false;
+populateMobileDock();
+const sellerBar = els["mobile-tab-bar"].innerHTML;
+ok(/data-dock-tab="gmcrm"/.test(sellerBar) && /data-dock-tab="gmjobs"/.test(sellerBar) &&
+   /data-dock-tab="gmpricing"/.test(sellerBar) && /data-dock-tab="gmestimates"/.test(sellerBar),
+   "seller dock holds Pipeline, Projects, Pricing, Estimates");
+ok(/data-dock-tab="mais"/.test(sellerBar), "seller dock shows Mais (Calendar and Documents overflow)");
+ok(!/data-dock-tab="gminvoices"/.test(sellerBar) && !/portalMoreGo\('gminvoices'/.test(els["mobile-more-menu"].innerHTML),
+   "a seller never reaches the client's Invoices tab");
+globalThis.isSeller = () => false;
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");
 process.exit(fail ? 1 : 0);

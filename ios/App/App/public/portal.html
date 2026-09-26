@@ -97,7 +97,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile.css">
-  <link rel="stylesheet" href="gm.css?v=1788904129">
+  <link rel="stylesheet" href="gm.css?v=1790434494">
   <link rel="stylesheet" href="calendar-grid.css?v=1788551586">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1331,6 +1331,16 @@
         <button class="portal-tab" data-tab="gmpricing" onclick="switchTab('gmpricing')">
           <span class="show-pt">Pre&ccedil;os</span><span class="show-en">Pricing</span>
         </button>
+        <!-- Estimates & invoices build: the client's OWN estimates and
+             invoices to THEIR customers. Both labels of Estimates are the
+             English word on purpose (that is what the contractors call it).
+             Gated per client by PORTAL_TAB_GATES until each phase ships. -->
+        <button class="portal-tab" data-tab="gmestimates" onclick="switchTab('gmestimates')">
+          <span class="show-pt">Estimates</span><span class="show-en">Estimates</span>
+        </button>
+        <button class="portal-tab" data-tab="gminvoices" onclick="switchTab('gminvoices')">
+          <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
+        </button>
         <button class="portal-tab" data-tab="gmcalendar" onclick="switchTab('gmcalendar')">
           <span class="show-pt">Agenda</span><span class="show-en">Calendar</span>
         </button>
@@ -1346,8 +1356,14 @@
         <button class="portal-tab" data-tab="documents" onclick="switchTab('documents')">
           <span class="show-pt">Documentos</span><span class="show-en">Documents</span>
         </button>
-        <button class="portal-tab" data-tab="invoices" onclick="switchTab('invoices')">
-          <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
+        <!-- APEX's invoices to the client (Zoho-backed). Renamed "Faturas
+             Apex" and HIDDEN from clients and sellers since the estimates &
+             invoices build (2026-09-26): "Faturas" now means the client's own
+             invoices. It stays in the DOM, addressable by switchTab, for the
+             separate work that turns it back on. Not in PORTAL_TABS, so it is
+             out of the dock and "Mais" too. -->
+        <button class="portal-tab" data-tab="invoices" hidden onclick="switchTab('invoices')">
+          <span class="show-pt">Faturas Apex</span><span class="show-en">Apex Invoices</span>
         </button>
         <!-- Per-assessment tab buttons. These are NEVER shown in the strip
              (or the More menu) any more, for leads or clients: seven of them
@@ -1562,6 +1578,8 @@
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
       <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
       <div id="tabGmpricing" hidden><div id="gmPricingBody"></div></div>
+      <div id="tabGmestimates" hidden><div id="gmEstimatesBody"></div></div>
+      <div id="tabGminvoices" hidden><div id="gmInvoicesBody"></div></div>
       <div id="tabGmcalendar" hidden><div id="gmCalendarBody"></div></div>
 
       <!-- Ajustes. The support card is STATIC markup outside #workschedBody on
@@ -3907,6 +3925,14 @@
       //
       // The "Mais" overflow trigger and the assessment buttons inside it go
       // too: every one of those surfaces is denied to a seller.
+      // Gated tabs (estimates & invoices build) that are not open to this
+      // client are REMOVED from the strip the same way a seller's denied
+      // tabs are: the honest shape of the session is "that tab does not
+      // exist", for every role.
+      document.querySelectorAll(".portal-tab").forEach(function(b) {
+        var meta = portalTabByKey(b.getAttribute("data-tab"));
+        if (meta && !portalTabEnabled(meta) && b.parentNode) { b.parentNode.removeChild(b); }
+      });
       if (isSeller()) {
         document.querySelectorAll(".portal-tab").forEach(function(b) {
           var t = b.getAttribute("data-tab");
@@ -4443,6 +4469,11 @@
       { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Projetos",               labelEn: "Projects" },
       { tab: "gmpricing",  icon: "finance",      labelPt: "Pre\u00e7os",              labelEn: "Pricing" },
+      // Estimates & invoices build. `gate` names a PORTAL_TAB_GATES entry:
+      // the tab exists only for the clients listed there until its phase
+      // ships for everyone (then the gate is removed).
+      { tab: "gmestimates", icon: "file",        labelPt: "Estimates",              labelEn: "Estimates", gate: "estimates" },
+      { tab: "gminvoices",  icon: "finance",     labelPt: "Faturas",                labelEn: "Invoices",  gate: "invoices" },
       { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
@@ -4455,9 +4486,25 @@
       // living at a hardcoded index that a future reorder could strand.
       { tab: "tasks",      icon: "check-square", labelPt: "Tarefas",                labelEn: "Tasks",      apexOwned: true },
       { tab: "documents",  icon: "file",         labelPt: "Documentos",             labelEn: "Documents",  apexOwned: true },
-      { tab: "invoices",   icon: "finance",      labelPt: "Faturas",                labelEn: "Invoices",   apexOwned: true },
+      // "invoices" (Apex's bills to the client) left this list 2026-09-26 --
+      // see the hidden strip button. It comes back in separate work.
       { tab: "worksched",  icon: "settings",     labelPt: "Ajustes",                labelEn: "Settings" }
     ];
+
+    // Per-client rollout gates for the estimates & invoices build. A tab
+    // whose `gate` names a list here exists only for those client ids;
+    // everyone else's strip, dock and "Mais" never mention it. null = open
+    // to all. Phase 1: both only on the test client.
+    var PORTAL_TAB_GATES = {
+      estimates: ["test-client-temp-001"],
+      invoices:  ["test-client-temp-001"]
+    };
+    function portalTabEnabled(t) {
+      if (!t || !t.gate) { return true; }
+      var list = PORTAL_TAB_GATES[t.gate];
+      if (list === null || list === undefined) { return true; }
+      return list.indexOf(clientId) !== -1;
+    }
 
     // The bar holds 4 + "Mais" (MD3 / Apple HIG; Portuguese labels run ~30%
     // longer than English). Ritmo is second: it is the highest-frequency action
@@ -4487,11 +4534,17 @@
     // service, value and lead_id before it ever reaches the browser
     // (gmRedactEventsForSeller). The pipeline wall itself is unchanged: leads
     // are still filtered to their own rows by vendedor.
-    var SELLER_TABS = ["gmcrm", "gmcalendar", "documents"];
+    // "gmjobs", "gmpricing" and "gmestimates" added 2026-09-26 (estimates &
+    // invoices build, phase 1): a seller reads their OWN projects, the price
+    // list without costs or margins, and builds estimates on their own leads.
+    // Read-only where the Worker says so: no seller write route exists for
+    // gm/jobs or gm/pricing, and the handlers trim what a seller is sent.
+    var SELLER_TABS = ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcalendar", "documents"];
 
     function portalTabs() {
-      if (!isSeller()) { return PORTAL_TABS; }
-      return PORTAL_TABS.filter(function(t) { return SELLER_TABS.indexOf(t.tab) !== -1; });
+      var tabs = PORTAL_TABS.filter(portalTabEnabled);
+      if (!isSeller()) { return tabs; }
+      return tabs.filter(function(t) { return SELLER_TABS.indexOf(t.tab) !== -1; });
     }
 
     function portalTabByKey(tab) {
@@ -4723,9 +4776,10 @@
     };
 
     function portalDockTabs() {
-      // Seller: one tab, so the dock is that one tab. No "Mais", no Assigned,
-      // no lead teasers — none of those surfaces exist for this session.
-      if (isSeller()) { return portalTabs(); }
+      // Seller: the first four of their tabs; the rest sit under "Mais"
+      // (portalMoreTabs). No Assigned, no lead teasers — neither surface
+      // exists for this session.
+      if (isSeller()) { return portalTabs().slice(0, 4); }
       if (isLead()) { return LEAD_DOCK_TABS; }
       // Client: Assigned leads the dock whenever something is waiting, and is
       // absent entirely when there is nothing to do — same rule as the desktop
@@ -4737,9 +4791,9 @@
     }
 
     function portalMoreTabs() {
-      // Seller: everything they can reach is already in the dock, so the
-      // overflow is empty and populateMobileDock() omits the "Mais" button.
-      if (isSeller()) { return []; }
+      // Seller: whatever did not fit the four dock slots. Empty when their
+      // tab set is four or fewer, and populateMobileDock() then omits "Mais".
+      if (isSeller()) { return portalTabs().slice(4); }
       // Lead: the More menu is entirely locked teasers. Invoices and Tasks are
       // absent by design — not locked, not listed.
       if (isLead()) {
@@ -4761,7 +4815,7 @@
       // regardless of how important it was. Filtering the canonical array puts
       // it back where it belongs with no special case at all.
       var docked = portalDockTabs();
-      return PORTAL_TABS.filter(function(t) {
+      return portalTabs().filter(function(t) {
         return !docked.some(function(d) { return d.tab === t.tab; });
       });
     }
@@ -4874,6 +4928,11 @@
       // back to the Pipeline instead of firing that tab's loader and painting
       // a screen of 403s.
       if (isSeller() && SELLER_TABS.indexOf(tab) === -1) { tab = "gmcrm"; }
+      // A gated tab this client does not have (or the hidden Apex invoices
+      // tab) falls back the same way a stale deep link does.
+      var gatedMeta = portalTabByKey(tab);
+      if (gatedMeta && !portalTabEnabled(gatedMeta)) { tab = isSeller() ? "gmcrm" : "analytics"; }
+      if (tab === "invoices" && !isLead()) { tab = "analytics"; }
       // Lead safety net: even if a stale deep-link or an old cached dock aims
       // at a client-only tab, a lead can never land on real client data. The
       // teaser tabs go to their preview; anything else falls back to Assigned.
@@ -4899,6 +4958,7 @@
       // GM_PIPELINE_ALIASES above.
       ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs", "Gmpricing", "Gmcalendar",
+       "Gmestimates", "Gminvoices",
        "Assigned", "LockedPreview"]
         .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
           return t.key.charAt(0).toUpperCase() + t.key.slice(1);
@@ -4939,6 +4999,9 @@
           }
         }
         if (tab === "gmcalendar") { gmLoadCalendar(); }
+        // Estimates & invoices build (gm.js TAB 8 / TAB 9).
+        if (tab === "gmestimates") { gmLoadEstimates(); }
+        if (tab === "gminvoices") { gmLoadInvoices(); }
       }
     }
 
@@ -6843,7 +6906,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1789786681"></script>
+  <script src="gm.js?v=1790434494"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

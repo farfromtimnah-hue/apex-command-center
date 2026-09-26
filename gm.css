@@ -835,6 +835,29 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
 .gm-cost-line { display: flex; gap: 8px; align-items: flex-start; }
 .gm-cost-line .gm-cost-label  { flex: 1 1 auto; }
 .gm-cost-line .gm-cost-amount { flex: 0 0 110px; }
+/* Cost TYPE (material / labor / other) on a cost line. Same input frame,
+   narrow, so label + amount + type + remove still fit 375px. */
+.gm-cost-line .gm-cost-type   { flex: 0 0 96px; padding-left: 8px; padding-right: 8px; }
+
+/* ── Document settings (Estimates tab) ────────────────────────────────── */
+.gm-doc-image-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.gm-doc-image-preview {
+  max-height: 64px; max-width: 160px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--card); object-fit: contain;
+}
+.gm-doc-image-preview.gm-doc-hero-preview { max-width: 100%; max-height: 120px; width: auto; }
+.gm-doc-check-line {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 48px; font-size: 15px; color: var(--text); cursor: pointer;
+}
+.gm-doc-check-line input { width: 22px; height: 22px; accent-color: var(--gold); flex: 0 0 auto; }
+.gm-doc-preset { padding: 10px 0 4px; border-top: 1px solid var(--border); }
+.gm-doc-preset:first-child { border-top: none; padding-top: 0; }
+.gm-doc-preset .gm-doc-step { padding-left: 14px; }
+.gm-doc-preset-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px;
+}
 .gm-cost-del {
   flex: 0 0 auto; min-width: 48px; min-height: 48px;
   border: 1.5px solid var(--border); border-radius: 10px;

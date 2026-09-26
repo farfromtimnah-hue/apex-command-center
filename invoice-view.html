@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Invoice</title>
+  <style>
+    /* Public, no-login page for a client's CUSTOMER: an INVOICE (estimates build, 3f).
+       Modelled on referral.html: self-contained, no app JS/CSS, the CLIENT's
+       brand only. No Apex name, logo, colours or URL anywhere on this page.
+       --brand-bg / --brand-accent are overridden from the client's settings;
+       the defaults are a neutral dark gray and white, never Apex's palette.
+       Text on a brand colour is chosen at runtime for 4.5:1 (textOn). */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .hero { background: var(--brand-bg); color: var(--on-brand-bg); }
+    .hero-img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
+    .hero-inner { max-width: 720px; margin: 0 auto; padding: 18px 16px 20px; }
+    .logo { max-height: 64px; max-width: 200px; display: none; margin-bottom: 10px; background: #fff; border-radius: 8px; padding: 6px; }
+    .logo.on { display: block; }
+    .biz-name { font-size: 22px; font-weight: 800; }
+    .biz-meta { font-size: 13px; opacity: 0.85; margin-top: 4px; line-height: 1.6; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 14px; }
+    .meta-grid .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .section { margin-top: 14px; }
+    .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .line .math { font-size: 13px; color: var(--muted); }
+    .line .amt { font-weight: 700; white-space: nowrap; text-align: right; }
+    .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 20px; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
+    .option.picked { border-color: var(--brand-accent); }
+    .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .option-head .tier { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 900; }
+    .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
+    .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
+    .sched .line { padding: 8px 0; }
+    .pm { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .pm b { display: block; }
+    .pm span { color: var(--muted); font-size: 14px; white-space: pre-wrap; }
+    .terms p { white-space: pre-wrap; margin-bottom: 10px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand-accent); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; }
+    .chips button { flex: 1; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); }
+    .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
+    .hidden { display: none !important; }
+    @media (max-width: 400px) { .meta-grid { grid-template-columns: 1fr; } .option-head { flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <div class="hero" id="hero">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="hero-inner">
+      <img class="logo" id="bizLogo" alt="">
+      <div class="biz-name" id="bizName">&nbsp;</div>
+      <div class="biz-meta" id="bizMeta"></div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="card" id="cardLoading"><div class="state"><p>Loading…</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Invoice not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+    <div id="doc" class="hidden">
+      <div class="card"><h2>Invoice</h2><div class="meta-grid" id="metaGrid"></div><a class="toplink" href="#totals" id="viewTotal">View balance</a></div>
+      <div class="card hidden" id="cardStateBanner"></div>
+      <div class="card" id="cardLines"><h2>This invoice</h2><div id="lines"></div></div>
+      <div class="card" id="totals"><h2>Balance</h2><div class="totals" id="balance"></div></div>
+      <div class="card hidden" id="cardPayments"><h2>Payments received</h2><div id="payments"></div></div>
+      <div class="card hidden" id="cardScope"><h2>Contract scope</h2><p class="muted small" id="scopeNote"></p><div id="scope"></div></div>
+      <div class="card hidden" id="cardPay"><h2>How to pay</h2><div id="payMethods"></div></div>
+      <div class="card" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button></div>
+    </div>
+  </div>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var inv = null;
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/; var root = document.documentElement.style;
+      if (hex.test(b.brand_primary || "")) { root.setProperty("--brand-bg", b.brand_primary); root.setProperty("--on-brand-bg", textOn(b.brand_primary)); }
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : (hex.test(b.brand_primary || "") ? b.brand_primary : null);
+      if (accent) { root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent)); }
+      if (b.logo_url) { var img = document.getElementById("bizLogo"); img.onload = function() { img.className = "logo on"; }; img.onerror = function() { img.className = "logo"; }; img.src = b.logo_url; }
+      if (b.hero_url) { var h = document.getElementById("heroImg"); h.onload = function() { h.hidden = false; }; h.src = b.hero_url; }
+      document.getElementById("bizName").textContent = b.name || "";
+      var meta = []; (b.license_numbers || []).forEach(function(l) { meta.push("License " + l); });
+      if (b.phone) { meta.push(b.phone); } if (b.email) { meta.push(b.email); } if (b.address) { meta.push(b.address); }
+      document.getElementById("bizMeta").innerHTML = meta.map(escHtml).join(" · ");
+    }
+    var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", other: "Other" };
+    var STATUS_TEXT = { unpaid: "Unpaid", partially_paid: "Partially paid", paid: "Paid", overdue: "Overdue" };
+    function render() {
+      var b = inv.business;
+      applyBranding(b);
+      document.title = "Invoice " + inv.number + (b.name ? " · " + b.name : "");
+      document.getElementById("metaGrid").innerHTML =
+        '<div><div class="k">Invoice #</div>' + escHtml(inv.number) + (inv.step_label ? '<br><span class="muted small">' + escHtml(inv.step_label) + (inv.step_pct ? " · " + inv.step_pct + "% of contract" : "") + '</span>' : "") + '</div>' +
+        '<div><div class="k">Job</div>' + escHtml(inv.job_name || "") + '</div>' +
+        '<div><div class="k">Bill to</div>' + escHtml(inv.customer_name || "") + (inv.customer_address ? '<br><span class="muted small">' + escHtml(inv.customer_address) + '</span>' : "") + '</div>' +
+        '<div><div class="k">Dates</div>Issued ' + escHtml(fmtDate(inv.issue_date)) + '<br><span class="muted small">Due ' + escHtml(fmtDate(inv.due_date)) + '</span></div>';
+      var banner = document.getElementById("cardStateBanner");
+      if (inv.status === "paid") { banner.innerHTML = '<div class="state"><h3 class="ok">Paid ✓</h3><p>Thank you for your payment.</p></div>'; banner.classList.remove("hidden"); }
+      else if (inv.awaiting_verification) { banner.innerHTML = '<div class="state"><h3>Payment reported</h3><p>A payment was reported and is awaiting confirmation.</p></div>'; banner.classList.remove("hidden"); }
+      else if (inv.status === "overdue") { banner.innerHTML = '<div class="state"><h3 style="color:var(--red);">Past due</h3><p>This invoice was due on ' + escHtml(fmtDate(inv.due_date)) + '.</p></div>'; banner.classList.remove("hidden"); }
+      document.getElementById("lines").innerHTML = (inv.items || []).map(function(it) {
+        return '<div class="line"><div><div class="name">' + escHtml(it.description) + '</div>' + (it.qty !== 1 ? '<div class="math">' + escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + ' × ' + money(it.rate_cents) + '</div>' : "") + '</div><div class="amt">' + money(it.amount_cents) + '</div></div>';
+      }).join("");
+      var c = inv.contract || {};
+      document.getElementById("balance").innerHTML =
+        '<div class="row"><span>Contract total</span><span>' + money(c.total_cents) + '</span></div>' +
+        '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
+        ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
+        '<div class="row"><span>This invoice</span><span>' + money(inv.amount_cents) + '</span></div>' +
+        (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>− ' + money(inv.paid_cents) + '</span></div>' : "") +
+        (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>− ' + money(inv.credit_cents) + '</span></div>' : "") +
+        '<div class="row grand"><span>Balance due now</span><span>' + money(inv.balance_cents) + '</span></div>' +
+        '<div class="row"><span>Remaining contract balance</span><span>' + money(c.remaining_cents) + '</span></div>';
+      if ((inv.payments || []).length || (inv.credits || []).length) {
+        document.getElementById("payments").innerHTML = (inv.payments || []).map(function(p) {
+          return '<div class="line"><div><div class="name">' + escHtml(fmtDate(p.paid_date)) + ' · ' + escHtml(PM_LABEL[p.method] || p.method) + (p.reference ? " " + escHtml(p.reference) : "") + '</div>' + (p.receipt_number ? '<div class="math">Receipt ' + escHtml(p.receipt_number) + '</div>' : "") + '</div><div class="amt">' + money(p.amount_cents) + '</div></div>';
+        }).join("") + (inv.credits || []).map(function(cr) {
+          return '<div class="line"><div><div class="name">' + escHtml(cr.number) + ' · ' + (cr.kind === "refund" ? "Refund" : "Credit") + '</div><div class="math">' + escHtml(cr.reason) + '</div></div><div class="amt">' + (cr.kind === "refund" ? "+ " : "− ") + money(cr.amount_cents) + '</div></div>';
+        }).join("");
+        document.getElementById("cardPayments").classList.remove("hidden");
+      }
+      if (inv.scope && inv.scope.sections && inv.scope.sections.length) {
+        document.getElementById("scopeNote").textContent = "From accepted estimate " + inv.scope.estimate_number + " (contract total " + money(inv.scope.total_cents) + "). For reference; the amount due is above.";
+        document.getElementById("scope").innerHTML = inv.scope.sections.map(function(sec) {
+          return '<div class="section"><div class="section-title">' + escHtml(sec.category || "Scope") + '</div>' + sec.lines.map(function(l) {
+            var amt = l.line_type === "included" ? "Included" : (l.line_type === "allowance" ? "Allowance " + money(l.amount_cents) : money(l.amount_cents));
+            return '<div class="line"><div><div class="name">' + escHtml(l.item_name) + '</div>' + (l.description ? '<div class="desc">' + escHtml(l.description) + '</div>' : "") + '</div><div class="amt">' + escHtml(amt) + '</div></div>';
+          }).join("") + '</div>';
+        }).join("");
+        document.getElementById("cardScope").classList.remove("hidden");
+      }
+      var pm = b.payment_methods || [];
+      if (pm.length) {
+        document.getElementById("payMethods").innerHTML = pm.map(function(m) {
+          var detail = m.detail ? (m.key === "card_link" && /^https?:\/\//.test(m.detail) ? '<a href="' + escHtml(m.detail) + '" target="_blank" rel="noopener">' + escHtml(m.detail) + '</a>' : escHtml(m.detail)) : "";
+          return '<div class="pm"><b>' + escHtml(PM_LABEL[m.key] || m.key) + '</b>' + (detail ? '<span>' + detail + '</span>' : "") + '</div>';
+        }).join("");
+        document.getElementById("cardPay").classList.remove("hidden");
+      }
+      var t = '<b>Payment terms</b><p>' + (b.terms_days ? "Net " + b.terms_days + " days" : "Due on receipt") + '. Please reference ' + escHtml(inv.number) + ' with your payment.</p>';
+      if (b.late_fee_annual_pct) { t += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year.</p>'; }
+      document.getElementById("terms").innerHTML = t;
+      document.getElementById("btnPdf").onclick = function() { window.open("templates/client-invoice-template.html?t=" + token, "_blank"); };
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { document.getElementById(c).classList.toggle("hidden", c !== id); }); }
+    function load() {
+      if (!token) { show("cardNotFound"); return; }
+      fetch(WORKER_URL + "/api/public/invoices/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) { inv = d.invoice; render(); show("doc"); })
+        .catch(function(e) { console.error(e); show("cardNotFound"); });
+    }
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

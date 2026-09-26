@@ -13470,6 +13470,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // Estimates (phase 2): list, detail, and the send-message templates.
                 if (gmRest === "estimates" || gmRest === "doc-messages") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
+                // Invoices (phase 3): list and detail.
+                if (gmRest === "invoices") { return true; }
+                if (/^invoices\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Attachments on their own lead, and the file itself. Same
                 // reasoning as the project photos below: the client's own
@@ -13506,6 +13509,12 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "estimates") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|void|revise)$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/commission-review\/dismiss$/.test(gmRest)) { return true; }
+                // Invoices (phase 3): create from the accepted estimate, send,
+                // record a payment, void, credit/refund, late fee; verify /
+                // reject / reverse a payment; receipt message.
+                if (/^jobs\/[A-Za-z0-9-]+\/invoices-from-estimate$/.test(gmRest)) { return true; }
+                if (/^invoices\/[A-Za-z0-9-]+\/(send|payments|void|credits|late-fee)$/.test(gmRest)) { return true; }
+                if (/^payments\/[A-Za-z0-9-]+\/(verify|reject|reverse|receipt-message)$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Promoting their OWN won lead into their own project. Same
@@ -13623,6 +13632,10 @@ function sellerRequestAllowed(path, method, clientId) {
         // reads (and edits, with every edit logged).
         if (rest === "gm/estimates" || rest === "gm/doc-messages") { return true; }
         if (/^gm\/estimates\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        // Invoices on their own projects (phase 3): the list is filtered by
+        // vendedor in SQL; the detail re-checks the job's lead.
+        if (rest === "gm/invoices") { return true; }
+        if (/^gm\/invoices\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
@@ -13679,6 +13692,13 @@ function sellerRequestAllowed(path, method, clientId) {
         // Void stays owner-only (absent here AND refused in the handler).
         if (rest === "gm/estimates") { return true; }
         if (/^gm\/estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|revise)$/.test(rest)) { return true; }
+        // Invoices on their own projects: create from the accepted estimate,
+        // send, report a payment (pending until the owner verifies), receipt
+        // message. Verify / reject / reverse / void / credits / late fee are
+        // owner-only: absent here AND refused in the handlers.
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/invoices-from-estimate$/.test(rest)) { return true; }
+        if (/^gm\/invoices\/[A-Za-z0-9-]+\/(send|payments)$/.test(rest)) { return true; }
+        if (/^gm\/payments\/[A-Za-z0-9-]+\/receipt-message$/.test(rest)) { return true; }
         return false;
     }
     // Same pending-contact PATCH the owner needs (see clientRequestAllowed):
@@ -23817,6 +23837,589 @@ async function handleGetPublicEstimateSignature(token, request, env) {
         return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" }) });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CLIENT INVOICES, PAYMENTS, RECEIPTS (gm_invoices ...) — phase 3.
+//
+// One invoice per payment-schedule step of an ACCEPTED estimate, created on
+// the project (gm_jobs). Lines are a copy; the estimate is never changed.
+// Status is DERIVED on every read (gmInvDerive): unpaid / partially paid /
+// paid / overdue, plus "payment reported, awaiting owner verification" while
+// a pending payment exists. A pending payment never counts as paid. A
+// settlement tolerance of $2.00 or 0.5% of the invoice (whichever is
+// smaller) counts as paid. Every state transition is guarded in SQL.
+// ---------------------------------------------------------------------------
+
+var GM_INV_PAYMENT_METHODS = ["zelle", "check", "cash", "money_order", "bank_transfer", "card", "other"];
+
+function gmInvTolerance(amountCents) {
+    return Math.min(200, Math.round((amountCents || 0) * 0.005));
+}
+
+// The money picture for one invoice, given its payments and credits.
+function gmInvDerive(inv, payments, credits, today) {
+    var verified = 0, pending = 0, pendingRows = [];
+    payments.forEach(function(p) {
+        if (p.state === "verified") { verified += p.amount_cents; }
+        if (p.state === "pending_verification") { pending += p.amount_cents; pendingRows.push(p); }
+    });
+    var creditTotal = 0, refundTotal = 0;
+    credits.forEach(function(c) { if (c.kind === "credit") { creditTotal += c.amount_cents; } if (c.kind === "refund") { refundTotal += c.amount_cents; } });
+    // A refund returns money the customer had paid, so it comes back off paid.
+    var paidNet = verified - refundTotal;
+    var balance = (inv.amount_cents || 0) - paidNet - creditTotal;
+    var tolerance = gmInvTolerance(inv.amount_cents);
+    var status;
+    if (inv.status === "void") { status = "void"; }
+    else if (inv.status === "draft") { status = "draft"; }
+    else if (balance <= tolerance) { status = "paid"; }
+    else if (inv.due_date && inv.due_date < today) { status = "overdue"; }
+    else if (paidNet > 0 || creditTotal > 0) { status = "partially_paid"; }
+    else { status = "unpaid"; }
+    return {
+        paid_cents: paidNet, verified_cents: verified, refund_cents: refundTotal, credit_cents: creditTotal,
+        pending_cents: pending, pending_count: pendingRows.length,
+        balance_cents: Math.max(0, balance), settled: balance <= tolerance, tolerance_cents: tolerance,
+        derived_status: status, awaiting_verification: pendingRows.length > 0 && status !== "paid" && inv.status !== "void"
+    };
+}
+
+// Simple interest on the balance from (due + grace) to today at the annual
+// rate. Never applied automatically; the owner adds it as a line with a reason.
+function gmInvLateFeeCents(balanceCents, annualPct, dueDate, graceDays, today) {
+    if (!balanceCents || !annualPct || !dueDate) { return { cents: 0, days: 0 }; }
+    var start = gmDateAddDays(dueDate, graceDays || 0);
+    var ms = Date.parse(today + "T00:00:00Z") - Date.parse(start + "T00:00:00Z");
+    var days = Math.floor(ms / 86400000);
+    if (!(days > 0)) { return { cents: 0, days: 0 }; }
+    return { cents: Math.round(balanceCents * (annualPct / 100) * days / 365), days: days };
+}
+
+async function gmInvLoad(env, clientId, invId) {
+    var inv = await env.DB.prepare("SELECT * FROM gm_invoices WHERE id = ? AND client_id = ?").bind(invId, clientId).first();
+    if (!inv) { return null; }
+    var items = await env.DB.prepare("SELECT * FROM gm_invoice_items WHERE invoice_id = ? ORDER BY sort_order").bind(invId).all();
+    var pays = await env.DB.prepare("SELECT * FROM gm_invoice_payments WHERE invoice_id = ? ORDER BY recorded_at").bind(invId).all();
+    var creds = await env.DB.prepare("SELECT * FROM gm_invoice_credits WHERE invoice_id = ? ORDER BY created_at").bind(invId).all();
+    inv.items = items.results || []; inv.payments = pays.results || []; inv.credits = creds.results || [];
+    return inv;
+}
+
+// Contract-level numbers across every invoice of the job (3c): contract
+// total, paid to date, credits/refunds, remaining contract balance.
+async function gmInvContract(env, clientId, jobId, estimateId, today) {
+    var invs = await env.DB.prepare("SELECT * FROM gm_invoices WHERE client_id = ? AND job_id = ? AND status <> 'void' ORDER BY created_at").bind(clientId, jobId).all();
+    var pays = await env.DB.prepare("SELECT p.* FROM gm_invoice_payments p JOIN gm_invoices i ON i.id = p.invoice_id WHERE i.client_id = ? AND i.job_id = ? AND i.status <> 'void'").bind(clientId, jobId).all();
+    var creds = await env.DB.prepare("SELECT c.* FROM gm_invoice_credits c JOIN gm_invoices i ON i.id = c.invoice_id WHERE i.client_id = ? AND i.job_id = ? AND i.status <> 'void'").bind(clientId, jobId).all();
+    var contractTotal = 0;
+    if (estimateId) {
+        var est = await env.DB.prepare("SELECT accepted_option_id FROM gm_estimates WHERE id = ? AND client_id = ?").bind(estimateId, clientId).first();
+        if (est && est.accepted_option_id) {
+            var opt = await env.DB.prepare("SELECT total_cents FROM gm_estimate_options WHERE id = ?").bind(est.accepted_option_id).first();
+            contractTotal = opt ? opt.total_cents : 0;
+        }
+    }
+    var invoiced = 0, paid = 0, refunds = 0, credits = 0, pending = 0;
+    (invs.results || []).forEach(function(i) { invoiced += i.amount_cents || 0; });
+    (pays.results || []).forEach(function(p) { if (p.state === "verified") { paid += p.amount_cents; } if (p.state === "pending_verification") { pending += p.amount_cents; } });
+    (creds.results || []).forEach(function(c) { if (c.kind === "refund") { refunds += c.amount_cents; } else { credits += c.amount_cents; } });
+    var contract = contractTotal || invoiced;
+    return {
+        contract_total_cents: contract, invoiced_cents: invoiced, paid_cents: paid - refunds, verified_cents: paid,
+        refund_cents: refunds, credit_cents: credits, pending_cents: pending,
+        remaining_contract_cents: Math.max(0, contract - (paid - refunds) - credits)
+    };
+}
+
+function gmInvOut(inv, derived, contract) {
+    var out = {};
+    Object.keys(inv).forEach(function(k) { out[k] = inv[k]; });
+    Object.keys(derived).forEach(function(k) { out[k] = derived[k]; });
+    out.contract = contract || null;
+    out.link = DEFAULT_ORIGIN + "/invoice-view?t=" + inv.public_token;
+    out.pdf_link = DEFAULT_ORIGIN + "/templates/client-invoice-template.html?t=" + inv.public_token;
+    out.payments = (inv.payments || []).map(function(p) {
+        var q = {}; Object.keys(p).forEach(function(k) { q[k] = p[k]; });
+        q.receipt_link = p.receipt_token ? DEFAULT_ORIGIN + "/receipt-view?t=" + p.receipt_token : null;
+        q.receipt_pdf_link = p.receipt_token ? DEFAULT_ORIGIN + "/templates/client-receipt-template.html?t=" + p.receipt_token : null;
+        return q;
+    });
+    return out;
+}
+
+// Seller row-level rule for a job: the job's lead must be theirs.
+async function gmInvSellerGuardJob(env, user, clientId, jobId) {
+    var seller = sessionSellerName(user);
+    if (!seller) { return null; }
+    var job = await env.DB.prepare("SELECT lead_id FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+    if (!job) { return jsonErr("Project not found", 404); }
+    if (!job.lead_id) { return jsonErr("Forbidden", 403); }
+    return gmSellerLeadGuard(env, user, clientId, job.lead_id);
+}
+
+// ── Create invoices from the accepted estimate (3b) ──────────────────────
+async function handlePostGmJobInvoicesFromEstimate(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        if (!job) { return jsonErr("Project not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, jobId);
+        if (guard) { return guard; }
+        if (!job.lead_id) { return jsonErr("This project is not linked to a lead, so it has no accepted estimate", 400); }
+        var estRow = await env.DB.prepare(
+            "SELECT * FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at DESC LIMIT 1"
+        ).bind(id, job.lead_id).first();
+        if (!estRow) { return jsonErr("No accepted estimate on this project's lead", 400); }
+        var existing = await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_invoices WHERE client_id = ? AND job_id = ? AND estimate_id = ? AND status <> 'void'").bind(id, jobId, estRow.id).first();
+        if (existing && existing.c) { return jsonErr("Invoices were already created from this estimate", 409); }
+        var est = await gmEstAttach(env, estRow);
+        var opt = null;
+        est.options.forEach(function(o) { if (o.id === est.accepted_option_id) { opt = o; } });
+        if (!opt) { opt = est.options[0]; }
+        var steps = gmEstScheduleAmounts(est.schedule, opt.total_cents);
+        if (!steps.length) { return jsonErr("The accepted estimate has no payment schedule", 400); }
+        var settings = await gmDocSettingsRow(env, id);
+        var actor = actorName(user);
+        var today = gmEasternToday();
+        var created = [];
+        for (var i = 0; i < steps.length; i++) {
+            var st = steps[i];
+            var num = await gmDocAllocateNumber(env, id, "INV");
+            var invId = crypto.randomUUID();
+            var token = gmEstNewToken();
+            await env.DB.prepare(
+                "INSERT INTO gm_invoices (id, client_id, job_id, lead_id, estimate_id, number, step_label, step_pct, status, issue_date, due_date, amount_cents, public_token, created_by) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)"
+            ).bind(invId, id, jobId, job.lead_id, est.id, num.number, st.label, st.pct, today, gmDateAddDays(today, settings.default_terms_days || 0), st.amount_cents, token, actor).run();
+            await env.DB.prepare(
+                "INSERT INTO gm_invoice_items (id, invoice_id, description, qty, unit, rate_cents, amount_cents, sort_order) VALUES (?, ?, ?, 1, NULL, ?, ?, 0)"
+            ).bind(crypto.randomUUID(), invId, st.label + " — " + st.pct + "% of contract total (" + est.number + (est.revision > 1 ? "-R" + est.revision : "") + ")", st.amount_cents, st.amount_cents).run();
+            created.push({ id: invId, number: num.number, step_label: st.label, amount_cents: st.amount_cents });
+        }
+        await gmLogLeadEvents(env, id, job.lead_id, actor, [{ action: "invoices_created", field: "invoices", old_value: null, new_value: created.map(function(c) { return c.number; }).join(", "), reason: "from " + est.number }]);
+        return jsonOk({ created: created });
+    } catch (e) {
+        return jsonErr("Error creating invoices: " + e.message, 500);
+    }
+}
+
+// ── List and detail ──────────────────────────────────────────────────────
+async function handleGetGmInvoices(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var sellerName = effectiveSellerName(user, request);
+        var url = new URL(request.url);
+        var jobFilter = gmStr(url.searchParams.get("job_id"), 80);
+        var sql = "SELECT i.*, j.obra AS job_name, l.vendedor, l.cliente AS customer_name FROM gm_invoices i JOIN gm_jobs j ON j.id = i.job_id AND j.client_id = i.client_id " +
+                  "LEFT JOIN gm_leads l ON l.id = i.lead_id WHERE i.client_id = ?";
+        var binds = [id];
+        if (sellerName) { sql += " AND (l.vendedor = ? OR l.vendedor_secundario = ?)"; binds.push(sellerName, sellerName); }
+        if (jobFilter) { sql += " AND i.job_id = ?"; binds.push(jobFilter); }
+        sql += " ORDER BY i.created_at DESC LIMIT 500";
+        var stmt = env.DB.prepare(sql);
+        var rows = (await stmt.bind.apply(stmt, binds).all()).results || [];
+        var pays = (await env.DB.prepare("SELECT * FROM gm_invoice_payments WHERE client_id = ? ORDER BY recorded_at").bind(id).all()).results || [];
+        var creds = (await env.DB.prepare("SELECT c.* FROM gm_invoice_credits c WHERE c.client_id = ? ORDER BY created_at").bind(id).all()).results || [];
+        var today = gmEasternToday();
+        var byInv = {}, cByInv = {};
+        pays.forEach(function(p) { (byInv[p.invoice_id] = byInv[p.invoice_id] || []).push(p); });
+        creds.forEach(function(c) { (cByInv[c.invoice_id] = cByInv[c.invoice_id] || []).push(c); });
+        var out = [];
+        var summary = { invoiced_cents: 0, paid_cents: 0, balance_cents: 0, overdue_cents: 0, pending_count: 0, pending_cents: 0 };
+        var pendingAlerts = [];
+        rows.forEach(function(inv) {
+            inv.payments = byInv[inv.id] || []; inv.credits = cByInv[inv.id] || [];
+            var d = gmInvDerive(inv, inv.payments, inv.credits, today);
+            if (inv.status !== "void" && inv.status !== "draft") {
+                summary.invoiced_cents += inv.amount_cents || 0; summary.paid_cents += d.paid_cents; summary.balance_cents += d.balance_cents;
+                if (d.derived_status === "overdue") { summary.overdue_cents += d.balance_cents; }
+            }
+            summary.pending_count += d.pending_count; summary.pending_cents += d.pending_cents;
+            inv.payments.forEach(function(p) {
+                if (p.state === "pending_verification") { pendingAlerts.push({ invoice_id: inv.id, invoice_number: inv.number, payment_id: p.id, amount_cents: p.amount_cents, method: p.method, reference: p.reference, paid_date: p.paid_date, recorded_by: p.recorded_by, recorded_at: p.recorded_at }); }
+            });
+            out.push(gmInvOut(inv, d, null));
+        });
+        return jsonOk({ invoices: out, summary: summary, pending_alerts: sessionSellerName(user) ? [] : pendingAlerts, today: today, read_only: !!sessionSellerName(user) });
+    } catch (e) {
+        return jsonErr("Error fetching invoices: " + e.message, 500);
+    }
+}
+
+async function handleGetGmInvoice(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
+        if (guard) { return guard; }
+        var today = gmEasternToday();
+        var d = gmInvDerive(inv, inv.payments, inv.credits, today);
+        var contract = await gmInvContract(env, id, inv.job_id, inv.estimate_id, today);
+        var settings = await gmDocSettingsRow(env, id);
+        var out = gmInvOut(inv, d, contract);
+        var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
+        out.job_name = job ? job.obra : null;
+        out.late_fee_available = !sessionSellerName(user) && !!settings.late_fee_annual_pct && d.derived_status === "overdue";
+        if (out.late_fee_available) {
+            var lf = gmInvLateFeeCents(d.balance_cents, settings.late_fee_annual_pct, inv.due_date, settings.late_fee_grace_days, today);
+            out.late_fee_preview = { cents: lf.cents, days: lf.days, annual_pct: settings.late_fee_annual_pct, grace_days: settings.late_fee_grace_days || 0 };
+        }
+        return jsonOk({ invoice: out });
+    } catch (e) {
+        return jsonErr("Error fetching invoice: " + e.message, 500);
+    }
+}
+
+// ── Send ─────────────────────────────────────────────────────────────────
+async function handlePostGmInvoiceSend(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
+        if (guard) { return guard; }
+        var res = await env.DB.prepare(
+            "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
+        ).bind(invId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("A void invoice cannot be sent", 409); }
+        var settings = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
+        var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
+        var link = DEFAULT_ORIGIN + "/invoice-view?t=" + inv.public_token;
+        var msg = gmDocFillMessage(settings.invoice_message || GM_DOC_DEFAULT_INVOICE_MESSAGE, {
+            customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
+            job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
+            seller_name: sessionSellerName(user) || (lead && lead.vendedor) || settings.legal_name || (client && client.name) || "", link: link
+        });
+        if (inv.status === "draft" && inv.lead_id) {
+            await gmLogLeadEvents(env, id, inv.lead_id, actorName(user), [{ action: "invoice_sent", field: "invoice", old_value: null, new_value: inv.number }]);
+        }
+        return jsonOk({ sent: true, message: msg, link: link, phone: (lead && lead.telefone) || null });
+    } catch (e) {
+        return jsonErr("Error sending invoice: " + e.message, 500);
+    }
+}
+
+// ── Payments (3d) ────────────────────────────────────────────────────────
+async function gmInvIssueReceipt(env, clientId, paymentId) {
+    var num = await gmDocAllocateNumber(env, clientId, "RCT");
+    var tok = gmEstNewToken();
+    await env.DB.prepare("UPDATE gm_invoice_payments SET receipt_number = ?, receipt_token = ? WHERE id = ? AND receipt_number IS NULL").bind(num.number, tok, paymentId).run();
+    return num.number;
+}
+
+async function handlePostGmInvoicePayment(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
+        if (guard) { return guard; }
+        if (inv.status === "void") { return jsonErr("This invoice is void", 409); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var amount = gmCents(body.amount_cents);
+        if (amount === null || amount <= 0) { return jsonErr("amount_cents must be above 0", 400); }
+        var method = GM_INV_PAYMENT_METHODS.indexOf(body.method) === -1 ? null : body.method;
+        if (!method) { return jsonErr("A payment method is required", 400); }
+        var paidDate = gmStr(body.paid_date, 10);
+        if (!paidDate || !/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) { return jsonErr("paid_date must be YYYY-MM-DD", 400); }
+        var reference = gmStr(body.reference, 120);
+        var note = gmStr(body.note, 500);
+        var isSeller = !!sessionSellerName(user);
+        var role = isSeller ? "seller" : (isAdminRole(user) ? "admin" : "owner");
+        var state = isSeller ? "pending_verification" : "verified";
+        var actor = actorName(user);
+        var pid = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_invoice_payments (id, invoice_id, client_id, amount_cents, paid_date, method, reference, note, state, recorded_by, recorded_by_role, verified_by, verified_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(pid, invId, id, amount, paidDate, method, reference, note, state, actor, role, state === "verified" ? actor : null, state === "verified" ? new Date().toISOString().slice(0, 19).replace("T", " ") : null).run();
+        var receipt = null;
+        if (state === "verified") { receipt = await gmInvIssueReceipt(env, id, pid); }
+        if (inv.lead_id) {
+            await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: state === "verified" ? "payment_recorded" : "payment_reported", field: inv.number, old_value: null, new_value: (amount / 100).toFixed(2), reason: method + (reference ? " " + reference : "") }]);
+        }
+        return jsonOk({ recorded: true, payment_id: pid, state: state, receipt_number: receipt });
+    } catch (e) {
+        return jsonErr("Error recording payment: " + e.message, 500);
+    }
+}
+
+async function gmInvPaymentOwned(env, clientId, paymentId) {
+    return env.DB.prepare("SELECT p.*, i.number AS invoice_number, i.lead_id FROM gm_invoice_payments p JOIN gm_invoices i ON i.id = p.invoice_id WHERE p.id = ? AND p.client_id = ?").bind(paymentId, clientId).first();
+}
+
+// verify | reject | reverse -- owner/admin only, each guarded in SQL.
+async function handlePostGmPaymentAction(id, paymentId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var p = await gmInvPaymentOwned(env, id, paymentId);
+        if (!p) { return jsonErr("Payment not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var reason = gmStr(body.reason, 500);
+        var actor = actorName(user);
+        var res, evt;
+        if (action === "verify") {
+            res = await env.DB.prepare(
+                "UPDATE gm_invoice_payments SET state = 'verified', verified_by = ?, verified_at = datetime('now') WHERE id = ? AND client_id = ? AND state = 'pending_verification'"
+            ).bind(actor, paymentId, id).run();
+            if (!res.meta || !res.meta.changes) { return jsonErr("This payment is not awaiting verification", 409); }
+            var rc = await gmInvIssueReceipt(env, id, paymentId);
+            evt = { action: "payment_verified", field: p.invoice_number, old_value: "pending_verification", new_value: (p.amount_cents / 100).toFixed(2), reason: "receipt " + rc };
+        } else if (action === "reject") {
+            if (!reason) { return jsonErr("A reason is required to reject a payment", 400); }
+            res = await env.DB.prepare(
+                "UPDATE gm_invoice_payments SET state = 'rejected', reject_reason = ?, verified_by = ?, verified_at = datetime('now') WHERE id = ? AND client_id = ? AND state = 'pending_verification'"
+            ).bind(reason, actor, paymentId, id).run();
+            if (!res.meta || !res.meta.changes) { return jsonErr("This payment is not awaiting verification", 409); }
+            evt = { action: "payment_rejected", field: p.invoice_number, old_value: "pending_verification", new_value: (p.amount_cents / 100).toFixed(2), reason: reason };
+        } else if (action === "reverse") {
+            if (!reason) { return jsonErr("A reason is required to reverse a payment", 400); }
+            res = await env.DB.prepare(
+                "UPDATE gm_invoice_payments SET state = 'reversed', reversed_by = ?, reversed_at = datetime('now'), reverse_reason = ? WHERE id = ? AND client_id = ? AND state = 'verified'"
+            ).bind(actor, reason, paymentId, id).run();
+            if (!res.meta || !res.meta.changes) { return jsonErr("Only a verified payment can be reversed", 409); }
+            evt = { action: "payment_reversed", field: p.invoice_number, old_value: "verified", new_value: (p.amount_cents / 100).toFixed(2), reason: reason };
+        } else { return jsonErr("Not found", 404); }
+        if (p.lead_id) { await gmLogLeadEvents(env, id, p.lead_id, actor, [evt]); }
+        return jsonOk({ ok: true, action: action });
+    } catch (e) {
+        return jsonErr("Error on payment: " + e.message, 500);
+    }
+}
+
+// ── Void, credits, refunds, late fee ────────────────────────────────────
+async function handlePostGmInvoiceVoid(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var reason = gmStr(body.reason, 500);
+        if (!reason) { return jsonErr("A reason is required to void an invoice", 400); }
+        var hasVerified = inv.payments.some(function(p) { return p.state === "verified"; });
+        if (hasVerified) { return jsonErr("This invoice has verified payments. Reverse them first.", 409); }
+        var actor = actorName(user);
+        var res = await env.DB.prepare(
+            "UPDATE gm_invoices SET status = 'void', void_reason = ?, voided_by = ?, voided_at = datetime('now'), updated_at = datetime('now') " +
+            "WHERE id = ? AND client_id = ? AND status <> 'void' AND NOT EXISTS (SELECT 1 FROM gm_invoice_payments p WHERE p.invoice_id = gm_invoices.id AND p.state = 'verified')"
+        ).bind(reason, actor, invId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("Could not void: already void or paid", 409); }
+        if (inv.lead_id) { await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: "invoice_voided", field: "invoice", old_value: inv.status, new_value: inv.number, reason: reason }]); }
+        return jsonOk({ voided: true });
+    } catch (e) {
+        return jsonErr("Error voiding invoice: " + e.message, 500);
+    }
+}
+
+async function handlePostGmInvoiceCredit(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status === "void") { return jsonErr("This invoice is void", 409); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var kind = body.kind === "refund" ? "refund" : (body.kind === "credit" ? "credit" : null);
+        if (!kind) { return jsonErr("kind must be credit or refund", 400); }
+        var amount = gmCents(body.amount_cents);
+        if (amount === null || amount <= 0) { return jsonErr("amount_cents must be above 0", 400); }
+        var reason = gmStr(body.reason, 500);
+        if (!reason) { return jsonErr("A reason is required", 400); }
+        var paymentId = null;
+        if (kind === "refund") {
+            paymentId = gmStr(body.payment_id, 80);
+            var pay = paymentId ? inv.payments.filter(function(p) { return p.id === paymentId && p.state === "verified"; })[0] : null;
+            if (!pay) { return jsonErr("A refund needs the verified payment it returns money against", 400); }
+            if (amount > pay.amount_cents) { return jsonErr("A refund cannot exceed the payment", 400); }
+        }
+        var num = await gmDocAllocateNumber(env, id, kind === "refund" ? "REF" : "CR");
+        var actor = actorName(user);
+        var cid = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO gm_invoice_credits (id, invoice_id, client_id, kind, number, amount_cents, reason, payment_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(cid, invId, id, kind, num.number, amount, reason, paymentId, actor).run();
+        if (inv.lead_id) { await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: kind === "refund" ? "refund_recorded" : "credit_recorded", field: inv.number, old_value: null, new_value: num.number + " " + (amount / 100).toFixed(2), reason: reason }]); }
+        return jsonOk({ created: true, number: num.number });
+    } catch (e) {
+        return jsonErr("Error recording " + (e && e.message) , 500);
+    }
+}
+
+async function handlePostGmInvoiceLateFee(id, invId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var inv = await gmInvLoad(env, id, invId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        var settings = await gmDocSettingsRow(env, id);
+        if (!settings.late_fee_annual_pct) { return jsonErr("No late fee is set in Settings", 400); }
+        var today = gmEasternToday();
+        var d = gmInvDerive(inv, inv.payments, inv.credits, today);
+        if (d.derived_status !== "overdue") { return jsonErr("This invoice is not overdue", 409); }
+        var lf = gmInvLateFeeCents(d.balance_cents, settings.late_fee_annual_pct, inv.due_date, settings.late_fee_grace_days, today);
+        if (lf.cents <= 0) { return jsonErr("Still inside the grace period", 409); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var reason = gmStr(body.reason, 500) || ("Late fee: " + settings.late_fee_annual_pct + "% per year, " + lf.days + " days past due" + (settings.late_fee_grace_days ? " + " + settings.late_fee_grace_days + " grace days" : ""));
+        var actor = actorName(user);
+        var maxSort = await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM gm_invoice_items WHERE invoice_id = ?").bind(invId).first();
+        await env.DB.prepare(
+            "INSERT INTO gm_invoice_items (id, invoice_id, description, qty, unit, rate_cents, amount_cents, reason, sort_order) VALUES (?, ?, ?, 1, NULL, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), invId, "Late payment interest (" + settings.late_fee_annual_pct + "% per year, " + lf.days + " days)", lf.cents, lf.cents, reason, (maxSort.m || 0) + 1).run();
+        await env.DB.prepare("UPDATE gm_invoices SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'sent'").bind(lf.cents, invId, id).run();
+        if (inv.lead_id) { await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: "late_fee_added", field: inv.number, old_value: null, new_value: (lf.cents / 100).toFixed(2), reason: reason }]); }
+        return jsonOk({ added: true, cents: lf.cents, days: lf.days });
+    } catch (e) {
+        return jsonErr("Error adding late fee: " + e.message, 500);
+    }
+}
+
+// ── Receipt send message ─────────────────────────────────────────────────
+async function handlePostGmPaymentReceiptMessage(id, paymentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var p = await gmInvPaymentOwned(env, id, paymentId);
+        if (!p) { return jsonErr("Payment not found", 404); }
+        var inv = await gmInvLoad(env, id, p.invoice_id);
+        var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
+        if (guard) { return guard; }
+        if (!p.receipt_token) { return jsonErr("No receipt yet: the payment is not verified", 409); }
+        var settings = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
+        var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
+        var link = DEFAULT_ORIGIN + "/receipt-view?t=" + p.receipt_token;
+        var msg = gmDocFillMessage(settings.receipt_message || GM_DOC_DEFAULT_RECEIPT_MESSAGE, {
+            customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
+            job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
+            seller_name: sessionSellerName(user) || (lead && lead.vendedor) || settings.legal_name || (client && client.name) || "", link: link
+        });
+        return jsonOk({ message: msg, link: link, phone: (lead && lead.telefone) || null });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ── PUBLIC: invoice and receipt pages (3e, 3f) ───────────────────────────
+async function gmInvPublicPayload(env, inv, origin) {
+    var settings = await gmDocSettingsRow(env, inv.client_id);
+    var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(inv.client_id).first();
+    var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
+    var today = gmEasternToday();
+    var d = gmInvDerive(inv, inv.payments, inv.credits, today);
+    var contract = await gmInvContract(env, inv.client_id, inv.job_id, inv.estimate_id, today);
+    var pm = settings.payment_methods || {};
+    var methods = [];
+    GM_DOC_PAYMENT_METHODS.forEach(function(k) { if (Object.prototype.hasOwnProperty.call(pm, k)) { methods.push({ key: k, detail: pm[k] || "" }); } });
+    // Scope reference: the accepted estimate's frozen snapshot (a copy, never live).
+    var scope = null;
+    if (inv.estimate_id) {
+        var est = await env.DB.prepare("SELECT snapshot_r2_key, accepted_option_id, number, revision FROM gm_estimates WHERE id = ?").bind(inv.estimate_id).first();
+        if (est && est.snapshot_r2_key) {
+            var obj = await env.ASSETS.get(est.snapshot_r2_key);
+            if (obj) {
+                var snap = JSON.parse(await obj.text());
+                var opt = null;
+                (snap.options || []).forEach(function(o) { if (o.id === est.accepted_option_id) { opt = o; } });
+                if (!opt) { opt = (snap.options || [])[0]; }
+                scope = { estimate_number: snap.display_number, sections: opt ? opt.sections : [], total_cents: opt ? opt.total_cents : 0, schedule: opt ? opt.schedule : [] };
+            }
+        }
+    }
+    var customer = inv.lead_id ? await env.DB.prepare("SELECT cliente, address, city, telefone, email FROM gm_leads WHERE id = ?").bind(inv.lead_id).first() : null;
+    return {
+        number: inv.number, status: d.derived_status, awaiting_verification: d.awaiting_verification,
+        step_label: inv.step_label, step_pct: inv.step_pct, job_name: job ? job.obra : null,
+        customer_name: customer ? customer.cliente : null, customer_address: customer ? [customer.address, customer.city].filter(Boolean).join(", ") : null,
+        issue_date: inv.issue_date, due_date: inv.due_date, sent_at: inv.sent_at,
+        items: inv.items.map(function(it) { return { description: it.description, qty: it.qty, unit: it.unit, rate_cents: it.rate_cents, amount_cents: it.amount_cents }; }),
+        amount_cents: inv.amount_cents,
+        paid_cents: d.paid_cents, credit_cents: d.credit_cents, refund_cents: d.refund_cents, balance_cents: d.balance_cents,
+        payments: inv.payments.filter(function(p) { return p.state === "verified"; }).map(function(p) { return { paid_date: p.paid_date, method: p.method, reference: p.reference, amount_cents: p.amount_cents, receipt_number: p.receipt_number }; }),
+        credits: inv.credits.map(function(c) { return { kind: c.kind, number: c.number, amount_cents: c.amount_cents, reason: c.reason, created_at: c.created_at }; }),
+        contract: { total_cents: contract.contract_total_cents, paid_cents: contract.paid_cents, credit_cents: contract.credit_cents, refund_cents: contract.refund_cents, remaining_cents: contract.remaining_contract_cents },
+        scope: scope,
+        business: {
+            name: settings.legal_name || (client && client.name) || "", address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
+            license_numbers: settings.license_numbers || [],
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + inv.client_id + "/logo-image" : null,
+            hero_url: settings.hero_r2_key ? origin + "/api/clients/" + inv.client_id + "/doc-hero-image" : null,
+            brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
+            payment_methods: methods, late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days,
+            terms_days: settings.default_terms_days
+        }
+    };
+}
+
+async function handleGetPublicInvoice(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return limited; }
+        if (!/^[a-f0-9]{48}$/.test(token)) { return jsonErr("Not found", 404); }
+        var row = await env.DB.prepare("SELECT * FROM gm_invoices WHERE public_token = ?").bind(token).first();
+        if (!row || row.status === "void" || row.status === "draft") { return jsonErr("Not found", 404); }
+        var inv = await gmInvLoad(env, row.client_id, row.id);
+        await env.DB.prepare("UPDATE gm_invoices SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')) WHERE id = ?").bind(inv.id).run();
+        return jsonOk({ invoice: await gmInvPublicPayload(env, inv, new URL(request.url).origin) });
+    } catch (e) {
+        return jsonErr("Error loading invoice: " + e.message, 500);
+    }
+}
+
+async function handleGetPublicReceipt(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return limited; }
+        if (!/^[a-f0-9]{48}$/.test(token)) { return jsonErr("Not found", 404); }
+        var p = await env.DB.prepare("SELECT * FROM gm_invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL").bind(token).first();
+        if (!p) { return jsonErr("Not found", 404); }
+        var inv = await gmInvLoad(env, p.client_id, p.invoice_id);
+        if (!inv) { return jsonErr("Not found", 404); }
+        var today = gmEasternToday();
+        // Balance before/after THIS payment: derive with and without it.
+        var after = gmInvDerive(inv, inv.payments, inv.credits, today);
+        var before = gmInvDerive(inv, inv.payments.filter(function(x) { return x.id !== p.id; }), inv.credits, today);
+        var pub = await gmInvPublicPayload(env, inv, new URL(request.url).origin);
+        return jsonOk({ receipt: {
+            receipt_number: p.receipt_number, invoice_number: inv.number, job_name: pub.job_name, customer_name: pub.customer_name,
+            amount_cents: p.amount_cents, method: p.method, reference: p.reference, paid_date: p.paid_date, verified_at: p.verified_at,
+            reversed: p.state === "reversed", reverse_reason: p.state === "reversed" ? p.reverse_reason : null,
+            balance_before_cents: before.balance_cents, balance_after_cents: after.balance_cents,
+            contract: pub.contract, business: pub.business
+        } });
+    } catch (e) {
+        return jsonErr("Error loading receipt: " + e.message, 500);
     }
 }
 
@@ -34087,6 +34690,13 @@ async function handleFetch(request, env, ctx) {
             }
         }
 
+        // PUBLIC customer-facing invoice and receipt (phase 3).
+        var pubInvMatch = path.match(/^\/api\/public\/(invoices|receipts)\/([a-f0-9]{48})$/);
+        if (pubInvMatch && method === "GET") {
+            if (pubInvMatch[1] === "invoices") { return handleGetPublicInvoice(pubInvMatch[2], request, env); }
+            return handleGetPublicReceipt(pubInvMatch[2], request, env);
+        }
+
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -34688,6 +35298,23 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 8 && gmCol === "leads" && segs[6] === "commission-review" && segs[7] === "dismiss" && method === "POST") {
                     return handlePostGmLeadCommissionReviewDismiss(cid, segs[5], request, env);
+                }
+                // Invoices (phase 3).
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "invoices-from-estimate" && method === "POST") {
+                    return handlePostGmJobInvoicesFromEstimate(cid, segs[5], request, env);
+                }
+                if (segs.length === 5 && gmCol === "invoices" && method === "GET") { return handleGetGmInvoices(cid, request, env); }
+                if (segs.length === 6 && gmCol === "invoices" && method === "GET") { return handleGetGmInvoice(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "invoices" && method === "POST") {
+                    if (segs[6] === "send")     { return handlePostGmInvoiceSend(cid, segs[5], request, env); }
+                    if (segs[6] === "payments") { return handlePostGmInvoicePayment(cid, segs[5], request, env); }
+                    if (segs[6] === "void")     { return handlePostGmInvoiceVoid(cid, segs[5], request, env); }
+                    if (segs[6] === "credits")  { return handlePostGmInvoiceCredit(cid, segs[5], request, env); }
+                    if (segs[6] === "late-fee") { return handlePostGmInvoiceLateFee(cid, segs[5], request, env); }
+                }
+                if (segs.length === 7 && gmCol === "payments" && method === "POST") {
+                    if (segs[6] === "receipt-message") { return handlePostGmPaymentReceiptMessage(cid, segs[5], request, env); }
+                    if (segs[6] === "verify" || segs[6] === "reject" || segs[6] === "reverse") { return handlePostGmPaymentAction(cid, segs[5], segs[6], request, env); }
                 }
                 if (segs.length === 5 && gmCol === "config" && method === "PUT") {
                     return handlePutGmConfig(cid, request, env);   // admin only

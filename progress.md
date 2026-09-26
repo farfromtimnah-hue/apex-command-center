@@ -24,6 +24,12 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 93c - 2026-09-26 - **Client portal estimates & invoices, PHASE 3 (invoices, payments, receipts). All three phases shipped; Estimates and Faturas tabs open to every client.**
+
+  Last session summary: gm_invoices / gm_invoice_items / gm_invoice_payments / gm_invoice_credits; "Create invoices from estimate" on a project makes one invoice per schedule step (INV-0001 per client); status derived at read time (unpaid / partially paid / paid / overdue + awaiting verification) with the $2.00-or-0.5% tolerance; owner payments verified at once with RCT-0001, seller payments pending until the owner verifies or rejects; reverse / void / credit / refund with reasons; owner-only late fee (simple interest from due + grace); invoice-view.html, receipt-view.html and their fixed-slide print templates; send via text/WhatsApp with the invoice and receipt message templates; Faturas tab with balance summary, filters and pending-verification alerts; invoices/payments/receipts/credits on the project sheet (sellers on their own projects).
+  Decisions: gm_invoice_payments gained receipt_token (public receipt link) and gm_invoice_items gained reason (late fee line); invoice lines = one line per schedule step (+ late-fee lines), the contract scope is shown from the accepted estimate's frozen snapshot; contract total = accepted option total (falls back to the invoiced sum); refunds come off "paid to date"; a paid invoice cannot be voided (SQL NOT EXISTS on verified payments); sellers can create invoices from the estimate, send them and report payments (pending), nothing else; PORTAL_TAB_GATES set to null for both tabs.
+  Files: migrations/client_estimates_invoices_p3.sql, worker/index.js, gm.js, gm-labels.js, portal.html, invoice-view.html, receipt-view.html, templates/client-invoice-template.html, templates/client-receipt-template.html, scripts/test-invoices-math.mjs, scripts/test-portal-tab-order.mjs, iOS twins.
+
 - [x] Session 93b - 2026-09-26 - **Client portal estimates & invoices, PHASE 2 (estimates): wizard, customer page, PDF template, revisions, acceptance, reminders.**
 
   Current phase: 2 of 3 shipped; phase 3 (invoices, payments, receipts) next.

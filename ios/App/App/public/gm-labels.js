@@ -386,7 +386,40 @@
     return en ? "Standard" : "Normal";
   }
 
+  // Invoice status is DERIVED by the Worker (never stored except draft /
+  // sent / void); these are the labels for what it reports.
+  var INVOICE_STATUSES = [
+    { key: "draft",          pt: "Rascunho",         en: "Draft" },
+    { key: "unpaid",         pt: "Em aberto",        en: "Unpaid" },
+    { key: "partially_paid", pt: "Parcialmente paga", en: "Partially paid" },
+    { key: "paid",           pt: "Paga",             en: "Paid" },
+    { key: "overdue",        pt: "Vencida",          en: "Overdue" },
+    { key: "void",           pt: "Anulada",          en: "Void" }
+  ];
+  function invoiceStatusLabel(key, en) {
+    for (var i = 0; i < INVOICE_STATUSES.length; i++) {
+      if (INVOICE_STATUSES[i].key === key) { return en ? INVOICE_STATUSES[i].en : INVOICE_STATUSES[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+  // gm_invoice_payments.method
+  var INVOICE_PAYMENT_METHODS = [
+    { key: "zelle", pt: "Zelle", en: "Zelle" }, { key: "check", pt: "Cheque", en: "Check" }, { key: "cash", pt: "Dinheiro", en: "Cash" },
+    { key: "money_order", pt: "Money order", en: "Money order" }, { key: "bank_transfer", pt: "Transferência / ACH", en: "Bank transfer / ACH" },
+    { key: "card", pt: "Cartão", en: "Card" }, { key: "other", pt: "Outro", en: "Other" }
+  ];
+  function invoicePaymentMethodLabel(key, en) {
+    for (var i = 0; i < INVOICE_PAYMENT_METHODS.length; i++) {
+      if (INVOICE_PAYMENT_METHODS[i].key === key) { return en ? INVOICE_PAYMENT_METHODS[i].en : INVOICE_PAYMENT_METHODS[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
   global.GmLabels = {
+    INVOICE_STATUSES: INVOICE_STATUSES,
+    invoiceStatusLabel: invoiceStatusLabel,
+    INVOICE_PAYMENT_METHODS: INVOICE_PAYMENT_METHODS,
+    invoicePaymentMethodLabel: invoicePaymentMethodLabel,
     ESTIMATE_STATUSES: ESTIMATE_STATUSES,
     estimateStatusLabel: estimateStatusLabel,
     ESTIMATE_LINE_TYPES: ESTIMATE_LINE_TYPES,

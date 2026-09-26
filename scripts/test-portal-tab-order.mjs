@@ -149,17 +149,17 @@ const reachable = new Set([...dockedNow, ...moreNow]);
 ok(CANONICAL.every(t => reachable.has(t)),
    "every canonical tab is reachable from the dock or More, even with Assigned shown");
 
-console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ PORTAL TAB ORDER CONSISTENT");
-process.exit(fail ? 1 : 0);
-
 // ---- estimates & invoices gates ----
 ok(portalTabEnabled({ tab: "x" }), "a tab with no gate is always enabled");
+// Phases 1-3 shipped: both gates are null (open to every client). A list of
+// ids narrows a tab again.
 globalThis.clientId = "some-real-client";
-ok(!portalTabs().some(t => t.tab === "gmestimates" || t.tab === "gminvoices"),
-   "a real client gets neither gated tab in phase 1");
-globalThis.clientId = "test-client-temp-001";
 ok(portalTabs().some(t => t.tab === "gmestimates") && portalTabs().some(t => t.tab === "gminvoices"),
-   "the test client gets both gated tabs");
+   "every client gets Estimates and Invoices now that all three phases shipped");
+PORTAL_TAB_GATES.estimates = ["test-client-temp-001"];
+ok(!portalTabs().some(t => t.tab === "gmestimates"), "…and a gate list narrows the tab to the listed clients");
+PORTAL_TAB_GATES.estimates = null;
+globalThis.clientId = "test-client-temp-001";
 // ---- seller surface ----
 globalThis.isSeller = () => true;
 eq(portalTabs().map(t => t.tab), ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcalendar", "documents"],
@@ -168,3 +168,6 @@ eq(portalDockTabs().map(t => t.tab), ["gmcrm", "gmjobs", "gmpricing", "gmestimat
 eq(portalMoreTabs().map(t => t.tab), ["gmcalendar", "documents"], "…and the rest sit under Mais");
 ok(!portalTabs().some(t => t.tab === "gminvoices"), "a seller never sees the client's Invoices tab in phase 1");
 globalThis.isSeller = () => false;
+
+console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ PORTAL TAB ORDER CONSISTENT");
+process.exit(fail ? 1 : 0);

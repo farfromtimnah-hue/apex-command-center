@@ -3529,6 +3529,7 @@ function gmOpenJob(idx) {
   gmRenderSimpleSheet("job");
   // A brand-new project has no id yet, so it has nothing to attach photos or
   // notes to. A seller has no route to either, so neither is fetched.
+  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); }
   if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
@@ -4679,6 +4680,11 @@ function gmRenderSimpleSheet(kind) {
       gmSheetRowHtml("compass", gmT("Margem", "Margin"), marginHtml, null, null, marginSub) +
       gmSheetRowHtml("clock", gmT("No prazo?", "On time?"), onTimeHtml),
       gmT("calculado automaticamente", "calculated automatically"));
+
+    // ── Invoices, payments, receipts, credits (estimates build, phase 3) ─
+    // Sellers see these on their own projects (their commission depends on
+    // them); filled by gmLoadJobInvoices().
+    if (row.id) { body += '<div id="gmJobInvoicesSection"></div>'; }
 
     // ── Progress photos ─────────────────────────────────────────────────
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
@@ -6570,27 +6576,6 @@ function gmDocHistoryOpen() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// TAB 9 — FATURAS / INVOICES (the client's own invoices to THEIR customers)
-// ═════════════════════════════════════════════════════════════════════════
-// Phase 3 of the build fills this. Phase 1 shows the shell only, and the
-// tab itself is visible only to owners on the test client (portal.html).
-
-function gmLoadInvoices() {
-  gmCurrentTab = "gminvoices";
-  gmRenderInvoicesTab();
-}
-
-function gmRenderInvoicesTab() {
-  var body = document.getElementById("gmInvoicesBody");
-  if (!body) { return; }
-  body.innerHTML = '<div class="content-card">' +
-    '<div class="card-title">' + gmT("Faturas", "Invoices") + '</div>' +
-    '<p class="muted">' + gmT("As suas faturas e recebimentos chegam nesta construção, na etapa 3.",
-        "Your invoices and payments arrive in this build, in phase 3.") + '</p>' +
-    '</div>';
-}
-
-// ═════════════════════════════════════════════════════════════════════════
 // ESTIMATES — list, detail sheet, wizard, send (estimates build, phase 2)
 // ═════════════════════════════════════════════════════════════════════════
 //
@@ -7571,4 +7556,385 @@ function gmEstWizSave(andSend) {
       if (b1) { b1.disabled = false; } if (b2) { b2.disabled = false; }
       w.msg = e.message; gmEstWizRender(); console.error(e);
     });
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// INVOICES, PAYMENTS, RECEIPTS (estimates build, phase 3)
+// ═════════════════════════════════════════════════════════════════════════
+// Screens copied: the list is the Projects list + the Estimates chip rail;
+// the invoice sheet is the Lead sheet; every form (record payment, verify /
+// reject / reverse / void reason, credit, refund) is the Precos item sheet's
+// field entries or the one-field editor (gmOpenFieldEditor); send = the
+// estimate send sheet.
+
+var gmInvList = null;      // GET gm/invoices payload
+var gmInvFilter = "all";
+var gmInvDetail = null;    // GET gm/invoices/:id payload (.invoice)
+var GM_INV_STATUS_FILTERS = ["all", "unpaid", "partially_paid", "overdue", "paid", "draft", "other"];
+var GM_INV_METHODS = ["zelle", "check", "cash", "money_order", "bank_transfer", "card", "other"];
+
+function gmInvStatusLabel(st) { return GmLabels.invoiceStatusLabel(st, isEn()); }
+function gmInvMethodLabel(m) { return GmLabels.invoicePaymentMethodLabel(m, isEn()); }
+
+var GM_INV_STATUS_PILL = {
+  draft: { band: "gm-muted", glyph: "○" }, unpaid: { band: "gm-gold", glyph: "◆" }, partially_paid: { band: "gm-gold", glyph: "◆" },
+  overdue: { band: "gm-red", glyph: "!" }, paid: { band: "gm-green", glyph: "✓" }, void: { band: "gm-muted", glyph: "✕" }
+};
+function gmInvPillHtml(inv) {
+  var h = gmPillHtml(gmInvStatusLabel(inv.derived_status), GM_INV_STATUS_PILL[inv.derived_status]);
+  if (inv.awaiting_verification) { h += ' <span class="gm-pill gm-gold">● ' + escHtml(gmT("aguardando verificação", "awaiting verification")) + '</span>'; }
+  return h;
+}
+
+function gmLoadInvoices() {
+  gmCurrentTab = "gminvoices";
+  var body = document.getElementById("gmInvoicesBody");
+  if (!body) { return; }
+  body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
+  gmApi("invoices")
+    .then(function(d) { gmInvList = d; gmRenderInvoicesTab(); })
+    .catch(function(e) { console.error("invoices load failed", e); body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>'; });
+}
+
+function gmInvMatchesFilter(inv) {
+  if (gmInvFilter === "all") { return inv.derived_status !== "void"; }
+  if (gmInvFilter === "other") { return inv.derived_status === "void"; }
+  return inv.derived_status === gmInvFilter;
+}
+
+function gmRenderInvoicesTab() {
+  var body = document.getElementById("gmInvoicesBody");
+  if (!body || !gmInvList) { return; }
+  var list = gmInvList.invoices || [];
+  var s = gmInvList.summary || {};
+  var html = "";
+  // Owner alerts: seller-reported payments awaiting verification (3d).
+  var alerts = gmInvList.pending_alerts || [];
+  if (alerts.length) {
+    html += '<div class="content-card"><div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + '</div>';
+    alerts.forEach(function(a) {
+      html += '<button type="button" class="gm-row" onclick="gmOpenInvoice(\'' + escHtml(a.invoice_id) + '\')"><span class="gm-lead-main">' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(a.recorded_by || "") + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") + gmMoney(a.amount_cents) + '</span>' +
+        '<div class="gm-lead-sub">' + escHtml(a.invoice_number) + ' · ' + escHtml(gmInvMethodLabel(a.method)) + (a.reference ? " " + escHtml(a.reference) : "") + ' · ' + escHtml(formatDate(a.paid_date)) + '</div>' +
+        '</span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("verificar", "verify")) + '</span></span></button>';
+    });
+    html += '</div>';
+  }
+  html += '<div class="content-card"><div class="card-title">' + gmT("Faturas", "Invoices") + '</div>' +
+    '<div class="gm-summary-grid">' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Faturado", "Invoiced") + '</div><div class="gm-metric-value">' + gmMoney(s.invoiced_cents) + '</div></div>' +
+    '<div class="gm-metric gm-metric-good"><div class="gm-metric-name">' + gmT("Recebido", "Paid") + '</div><div class="gm-metric-value">' + gmMoney(s.paid_cents) + '</div></div>' +
+    '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Em aberto", "Balance") + '</div><div class="gm-metric-value">' + gmMoney(s.balance_cents) + '</div></div>' +
+    '<div class="gm-metric' + (s.overdue_cents ? " gm-metric-bad" : "") + '"><div class="gm-metric-name">' + gmT("Vencido", "Overdue") + '</div><div class="gm-metric-value">' + gmMoney(s.overdue_cents) + '</div></div>' +
+    '</div>';
+  html += '<div class="gm-subnav" role="tablist" style="margin-top:12px;">';
+  GM_INV_STATUS_FILTERS.forEach(function(f) {
+    var n = f === "all" ? list.filter(function(i) { return i.derived_status !== "void"; }).length : list.filter(function(i) { return f === "other" ? i.derived_status === "void" : i.derived_status === f; }).length;
+    if (f !== "all" && !n) { return; }
+    html += '<button type="button" role="tab" aria-selected="' + (gmInvFilter === f ? "true" : "false") + '" class="gm-stage-chip' + (gmInvFilter === f ? " gm-chip-active" : "") +
+      '" onclick="gmInvSetFilter(\'' + f + '\')">' + escHtml(f === "all" ? gmT("Todas", "All") : (f === "other" ? gmT("Anuladas", "Void") : gmInvStatusLabel(f))) + ' <span class="gm-chip-count">' + n + '</span></button>';
+  });
+  html += '</div>';
+  var shown = list.filter(gmInvMatchesFilter);
+  if (!list.length) {
+    html += '<p class="muted">' + gmT("Nenhuma fatura ainda. Crie as faturas a partir do estimate aceito, na tela do projeto.", "No invoices yet. Create them from the accepted estimate, on the project screen.") + '</p>';
+  } else if (!shown.length) {
+    html += '<p class="muted">' + gmT("Nenhuma fatura com esse status.", "No invoices with this status.") + '</p>';
+  } else { shown.forEach(function(inv) { html += gmInvRowHtml(inv); }); }
+  html += '</div>';
+  body.innerHTML = html;
+}
+function gmInvSetFilter(f) { gmInvFilter = f; gmRenderInvoicesTab(); }
+
+function gmInvRowHtml(inv) {
+  return '<button type="button" class="gm-row" onclick="gmOpenInvoice(\'' + escHtml(inv.id) + '\')">' +
+    '<span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(inv.number) + ' · ' + escHtml(inv.job_name || "") + (inv.step_label ? ' · ' + escHtml(inv.step_label) : "") + '</span>' +
+    '<div class="gm-lead-sub">' + [inv.customer_name, inv.vendedor, gmMoney(inv.amount_cents)].filter(Boolean).map(escHtml).join(" · ") + '</div>' +
+    '<div class="gm-lead-sub">' + (inv.due_date ? gmT("vence ", "due ") + escHtml(formatDate(inv.due_date)) : "") + (inv.balance_cents ? ' · ' + gmT("saldo ", "balance ") + gmMoney(inv.balance_cents) : "") + '</div></span>' +
+    '<span class="gm-lead-side">' + gmInvPillHtml(inv) + '</span></button>';
+}
+
+// ── Invoice sheet ────────────────────────────────────────────────────────
+function gmOpenInvoice(id) {
+  gmSheetOpen(gmT("Fatura", "Invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("invoices/" + encodeURIComponent(id))
+    .then(function(d) { gmInvDetail = d.invoice; gmRenderInvoiceSheet(); })
+    .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+
+function gmRenderInvoiceSheet() {
+  var inv = gmInvDetail;
+  if (!inv) { return; }
+  var ro = gmIsSeller();
+  var c = inv.contract || {};
+  var body = '<div class="gm-sheet-hero">' +
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span><span class="gm-sheet-hero-pill">' + gmInvPillHtml(inv) + '</span></span></div>' +
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Saldo desta fatura", "Balance due now") + '</span><span class="gm-sheet-hero-value">' + gmMoney(inv.balance_cents) + '</span></span></div></div>';
+
+  // Actions
+  body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
+  if (inv.status !== "void") {
+    body += '<button type="button" class="gm-btn-primary" id="gmInvSendBtn" onclick="gmInvSendOpen()">' + gmT("Enviar fatura", "Send invoice") + '</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + gmT("Registrar pagamento", "Record payment") + '</button>';
+  }
+  body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
+    '<a class="gm-btn-secondary" href="' + escHtml(inv.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
+  if (!ro && inv.status !== "void") {
+    if (inv.late_fee_available) { body += '<button type="button" class="gm-btn-secondary" onclick="gmInvLateFee()">' + gmT("Adicionar juros de atraso", "Add late fee") + (inv.late_fee_preview ? " (" + gmMoney(inv.late_fee_preview.cents) + ")" : "") + '</button>'; }
+    body += '<button type="button" class="gm-btn-secondary" onclick="gmInvCreditOpen(\'credit\')">' + gmT("Crédito", "Credit") + '</button>';
+    if ((inv.payments || []).some(function(p) { return p.state === "verified"; })) { body += '<button type="button" class="gm-btn-secondary" onclick="gmInvCreditOpen(\'refund\')">' + gmT("Reembolso", "Refund") + '</button>'; }
+    body += '<button type="button" class="gm-btn-secondary" onclick="gmInvVoid()">' + gmT("Anular fatura", "Void invoice") + '</button>';
+  }
+  body += '</div></div>';
+
+  // Money lines (3c): separate labelled lines, so a big job never reads as overdue.
+  body += gmSheetSection(gmT("Valores", "Amounts"),
+    gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), gmMoney(c.total_cents)) +
+    gmSheetRowHtml("check", gmT("Recebido até agora (verificado)", "Paid to date (verified)"), gmMoney(c.paid_cents)) +
+    ((c.credit_cents || c.refund_cents) ? gmSheetRowHtml("tag", gmT("Créditos e reembolsos", "Credits and refunds"), gmT("créditos ", "credits ") + gmMoney(c.credit_cents) + " · " + gmT("reembolsos ", "refunds ") + gmMoney(c.refund_cents)) : "") +
+    gmSheetRowHtml("dollar", gmT("Esta fatura", "This invoice"), gmMoney(inv.amount_cents) + (inv.step_label ? ' <span class="muted">' + escHtml(inv.step_label) + (inv.step_pct ? " " + inv.step_pct + "%" : "") + '</span>' : "")) +
+    gmSheetRowHtml("dollar", gmT("Saldo desta fatura", "Balance due now for this invoice"), "<strong>" + gmMoney(inv.balance_cents) + "</strong>", null, null,
+      inv.pending_cents ? gmT("mais ", "plus ") + gmMoney(inv.pending_cents) + gmT(" informados, aguardando verificação", " reported, awaiting verification") : "") +
+    gmSheetRowHtml("compass", gmT("Saldo restante do contrato", "Remaining contract balance"), gmMoney(c.remaining_cents)),
+    gmT("calculado automaticamente", "calculated automatically"));
+
+  body += gmSheetSection(gmT("Dados", "Details"),
+    gmSheetRowHtml("tag", gmT("Número", "Number"), escHtml(inv.number)) +
+    gmSheetRowHtml("briefcase", gmT("Projeto", "Project"), escHtml(inv.job_name || "")) +
+    gmSheetRowHtml("calendar", gmT("Emitida", "Issued"), escHtml(formatDate(inv.issue_date))) +
+    gmSheetRowHtml("clock", gmT("Vencimento", "Due"), escHtml(formatDate(inv.due_date))) +
+    (inv.sent_at ? gmSheetRowHtml("clock", gmT("Enviada", "Sent"), escHtml(formatDateTimeUTC(inv.sent_at))) : "") +
+    (inv.first_viewed_at ? gmSheetRowHtml("eye", gmT("Aberta pelo cliente", "Opened by customer"), escHtml(formatDateTimeUTC(inv.first_viewed_at))) : "") +
+    (inv.void_reason ? gmSheetRowHtml("sms", gmT("Motivo da anulação", "Void reason"), escHtml(inv.void_reason) + ' <span class="muted">' + escHtml(inv.voided_by || "") + '</span>') : ""));
+
+  var lines = (inv.items || []).map(function(it) { return gmSheetRowHtml("tag", escHtml(it.description), gmMoney(it.amount_cents), null, null, it.reason ? escHtml(it.reason) : ""); }).join("");
+  body += gmSheetSection(gmT("Linhas", "Lines"), lines);
+
+  // Payments
+  var pays = inv.payments || [];
+  var ph = pays.length ? pays.map(function(p) {
+    var st = { pending_verification: ["gm-gold", "●", gmT("aguardando", "pending")], verified: ["gm-green", "✓", gmT("verificado", "verified")], rejected: ["gm-muted", "✕", gmT("rejeitado", "rejected")], reversed: ["gm-red", "↩", gmT("estornado", "reversed")] }[p.state] || ["gm-muted", "○", p.state];
+    var sub = [escHtml(gmInvMethodLabel(p.method)) + (p.reference ? " " + escHtml(p.reference) : ""), escHtml(formatDate(p.paid_date)), gmT("por ", "by ") + escHtml(p.recorded_by || "")].join(" · ") +
+      (p.receipt_number ? '<br>' + gmT("Recibo ", "Receipt ") + escHtml(p.receipt_number) : "") +
+      (p.reject_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reject_reason) : "") + (p.reverse_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reverse_reason) : "");
+    var actions = "";
+    if (!ro && p.state === "pending_verification") {
+      actions = '<div class="gm-est-actions" style="margin:6px 0 10px;"><button type="button" class="gm-btn-primary" onclick="gmInvPaymentAction(\'' + escHtml(p.id) + '\', \'verify\')">' + gmT("Verificar", "Verify") + '</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentAction(\'' + escHtml(p.id) + '\', \'reject\')">' + gmT("Rejeitar", "Reject") + '</button></div>';
+    }
+    if (p.state === "verified") {
+      actions = '<div class="gm-est-actions" style="margin:6px 0 10px;">' +
+        (p.receipt_link ? '<a class="gm-btn-secondary" href="' + escHtml(p.receipt_link) + '" target="_blank" rel="noopener">' + gmT("Ver recibo", "View receipt") + '</a>' +
+          '<button type="button" class="gm-btn-secondary" id="gmRcptSend_' + escHtml(p.id) + '" onclick="gmInvReceiptSendOpen(\'' + escHtml(p.id) + '\')">' + gmT("Enviar recibo", "Send receipt") + '</button>' : "") +
+        (!ro ? '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentAction(\'' + escHtml(p.id) + '\', \'reverse\')">' + gmT("Estornar", "Reverse") + '</button>' : "") + '</div>';
+    }
+    return gmSheetRowHtml("dollar", gmMoney(p.amount_cents) + ' <span class="gm-pill ' + st[0] + '">' + st[1] + ' ' + escHtml(st[2]) + '</span>', "", null, null, sub) + actions;
+  }).join("") : '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum pagamento.", "No payments.") + '</p>';
+  body += gmSheetSection(gmT("Pagamentos", "Payments"), ph);
+
+  var creds = inv.credits || [];
+  if (creds.length) {
+    body += gmSheetSection(gmT("Créditos e reembolsos", "Credits and refunds"), creds.map(function(cr) {
+      return gmSheetRowHtml("tag", escHtml(cr.number) + ' · ' + (cr.kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")), gmMoney(cr.amount_cents), null, null, escHtml(cr.reason) + ' · ' + escHtml(cr.created_by || ""));
+    }).join(""));
+  }
+  gmSheetOpen(escHtml(inv.number) + (inv.step_label ? " · " + escHtml(inv.step_label) : ""), body, "gm-invoice-detail");
+  var sendBtn = document.getElementById("gmInvSendBtn");
+  if (sendBtn) { gmDocMsgAttach(sendBtn, "invoice_message"); }
+  pays.forEach(function(p) { var b = document.getElementById("gmRcptSend_" + p.id); if (b) { gmDocMsgAttach(b, "receipt_message"); } });
+}
+
+// Record payment (3d): amount with Full, date, method, reference, note.
+function gmInvPaymentOpen() {
+  var inv = gmInvDetail;
+  if (!inv) { return; }
+  var body = '<div class="gm-sheet-section">' +
+    (gmIsSeller() ? '<p class="muted">' + gmT("Você informa o pagamento; o dono verifica antes de contar como recebido.", "You report the payment; the owner verifies it before it counts as paid.") + '</p>' : "") +
+    '<label class="gm-field-label" for="gmPayAmt">' + gmT("Valor ($)", "Amount ($)") + '</label>' +
+    '<div class="gm-cost-line"><input type="text" inputmode="decimal" id="gmPayAmt" class="gm-input gm-cost-label" value="">' +
+    '<button type="button" class="gm-btn-secondary" style="margin:0;flex:0 0 auto;" onclick="document.getElementById(\'gmPayAmt\').value=\'' + (inv.balance_cents / 100).toFixed(2) + '\'">' + gmT("Total", "Full") + '</button></div>' +
+    '<label class="gm-field-label" for="gmPayDate">' + gmT("Data", "Date") + '</label><input type="date" id="gmPayDate" class="gm-input" value="' + escHtml(localDateStr()) + '">' +
+    '<label class="gm-field-label" for="gmPayMethod">' + gmT("Forma de pagamento *", "Method *") + '</label>' +
+    '<select id="gmPayMethod" class="gm-input"><option value="">—</option>' + GM_INV_METHODS.map(function(m) { return '<option value="' + m + '">' + escHtml(gmInvMethodLabel(m)) + '</option>'; }).join("") + '</select>' +
+    '<label class="gm-field-label" for="gmPayRef">' + gmT("Referência (nº do cheque, confirmação Zelle)", "Reference (check number, Zelle confirmation)") + '</label><input type="text" id="gmPayRef" class="gm-input">' +
+    '<label class="gm-field-label" for="gmPayNote">' + gmT("Observação", "Note") + '</label><textarea id="gmPayNote" class="gm-input" rows="2"></textarea>' +
+    '<p class="gm-warn" id="gmPayMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" id="gmPaySave" onclick="gmInvPaymentSave()">' + gmT("Salvar pagamento", "Save payment") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmRenderInvoiceSheet()">' + gmT("Cancelar", "Cancel") + '</button></div>';
+  gmSheetOpen(gmT("Registrar pagamento", "Record payment") + " · " + escHtml(inv.number), body);
+}
+
+function gmInvPaymentSave() {
+  var inv = gmInvDetail;
+  var amt = gmParseMoney(document.getElementById("gmPayAmt").value);
+  var msg = document.getElementById("gmPayMsg");
+  function say(t) { msg.textContent = t; msg.hidden = false; }
+  if (amt === null || amt <= 0) { say(gmT("Informe o valor.", "Enter the amount.")); return; }
+  var method = document.getElementById("gmPayMethod").value;
+  if (!method) { say(gmT("Escolha a forma de pagamento.", "Pick the payment method.")); return; }
+  var btn = document.getElementById("gmPaySave"); btn.disabled = true;
+  gmApi("invoices/" + encodeURIComponent(inv.id) + "/payments", { method: "POST", body: {
+    amount_cents: Math.round(amt * 100), paid_date: document.getElementById("gmPayDate").value, method: method,
+    reference: document.getElementById("gmPayRef").value.trim() || null, note: document.getElementById("gmPayNote").value.trim() || null } })
+    .then(function(d) {
+      gmToast(d.state === "verified" ? gmT("Pagamento registrado. Recibo ", "Payment recorded. Receipt ") + (d.receipt_number || "") : gmT("Pagamento informado; aguarda verificação do dono.", "Payment reported; awaiting owner verification."));
+      gmOpenInvoice(inv.id); gmLoadInvoicesSilent();
+    })
+    .catch(function(e) { btn.disabled = false; say(e.message); console.error(e); });
+}
+
+function gmLoadInvoicesSilent() { gmApi("invoices").then(function(d) { gmInvList = d; if (gmCurrentTab === "gminvoices") { gmRenderInvoicesTab(); } }).catch(function(e) { console.error(e); }); }
+
+function gmInvPaymentAction(pid, action) {
+  var inv = gmInvDetail;
+  function run(reason) {
+    gmApi("payments/" + encodeURIComponent(pid) + "/" + action, { method: "POST", body: { reason: reason || null } })
+      .then(function() { gmToast(gmT("Feito.", "Done.")); gmOpenInvoice(inv.id); gmLoadInvoicesSilent(); })
+      .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
+  }
+  if (action === "verify") { run(null); return; }
+  gmOpenFieldEditor(action === "reject" ? gmT("Motivo da rejeição", "Reject reason") : gmT("Motivo do estorno", "Reverse reason"), "textarea", "", [], function(reason) {
+    if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderInvoiceSheet(); return; }
+    run(reason);
+  });
+}
+
+function gmInvVoid() {
+  var inv = gmInvDetail;
+  gmOpenFieldEditor(gmT("Motivo da anulação", "Void reason"), "textarea", "", [], function(reason) {
+    if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderInvoiceSheet(); return; }
+    gmApi("invoices/" + encodeURIComponent(inv.id) + "/void", { method: "POST", body: { reason: reason } })
+      .then(function() { gmToast(gmT("Fatura anulada", "Invoice voided")); gmSheetClose(); gmLoadInvoices(); })
+      .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
+  }, '<div class="gm-derived-note">' + gmT("Uma fatura paga só pode ser anulada depois de estornar os pagamentos.", "A paid invoice can only be voided after its payments are reversed.") + '</div>');
+}
+
+function gmInvLateFee() {
+  var inv = gmInvDetail;
+  if (!inv || !inv.late_fee_preview) { return; }
+  var p = inv.late_fee_preview;
+  gmOpenFieldEditor(gmT("Motivo (registrado na fatura)", "Reason (recorded on the invoice)"), "text",
+    gmT("Juros de atraso: " + p.annual_pct + "% ao ano, " + p.days + " dias após o vencimento" + (p.grace_days ? " + " + p.grace_days + " dias de carência" : ""),
+        "Late fee: " + p.annual_pct + "% per year, " + p.days + " days past due" + (p.grace_days ? " + " + p.grace_days + " grace days" : "")), [],
+    function(reason) {
+      gmApi("invoices/" + encodeURIComponent(inv.id) + "/late-fee", { method: "POST", body: { reason: reason || null } })
+        .then(function(d) { gmToast(gmT("Juros adicionados: ", "Late fee added: ") + gmMoney(d.cents)); gmOpenInvoice(inv.id); gmLoadInvoicesSilent(); })
+        .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
+    }, '<div class="gm-derived-note">' + gmT("Juros simples de ", "Simple interest of ") + gmMoney(p.cents) + gmT(" sobre o saldo. Nunca aplicado automaticamente.", " on the balance. Never applied automatically.") + '</div>');
+}
+
+function gmInvCreditOpen(kind) {
+  var inv = gmInvDetail;
+  var verified = (inv.payments || []).filter(function(p) { return p.state === "verified"; });
+  var body = '<div class="gm-sheet-section">' +
+    '<p class="muted">' + (kind === "refund" ? gmT("Registra dinheiro devolvido ao cliente contra um pagamento verificado.", "Records money returned to the customer against a verified payment.")
+                                             : gmT("Reduz o que é devido (por exemplo, um allowance que custou menos).", "Reduces what is owed (for example, an allowance that came in under budget).")) + '</p>' +
+    '<label class="gm-field-label" for="gmCrAmt">' + gmT("Valor ($)", "Amount ($)") + '</label><input type="text" inputmode="decimal" id="gmCrAmt" class="gm-input">' +
+    (kind === "refund" ? '<label class="gm-field-label" for="gmCrPay">' + gmT("Pagamento", "Payment") + '</label><select id="gmCrPay" class="gm-input">' +
+      verified.map(function(p) { return '<option value="' + escHtml(p.id) + '">' + gmMoney(p.amount_cents) + ' · ' + escHtml(formatDate(p.paid_date)) + ' · ' + escHtml(gmInvMethodLabel(p.method)) + '</option>'; }).join("") + '</select>' : "") +
+    '<label class="gm-field-label" for="gmCrReason">' + gmT("Motivo *", "Reason *") + '</label><textarea id="gmCrReason" class="gm-input" rows="2"></textarea>' +
+    '<p class="gm-warn" id="gmCrMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" id="gmCrSave" onclick="gmInvCreditSave(\'' + kind + '\')">' + gmT("Salvar", "Save") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmRenderInvoiceSheet()">' + gmT("Cancelar", "Cancel") + '</button></div>';
+  gmSheetOpen((kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")) + " · " + escHtml(inv.number), body);
+}
+
+function gmInvCreditSave(kind) {
+  var inv = gmInvDetail;
+  var msg = document.getElementById("gmCrMsg");
+  function say(t) { msg.textContent = t; msg.hidden = false; }
+  var amt = gmParseMoney(document.getElementById("gmCrAmt").value);
+  if (amt === null || amt <= 0) { say(gmT("Informe o valor.", "Enter the amount.")); return; }
+  var reason = document.getElementById("gmCrReason").value.trim();
+  if (!reason) { say(gmT("Informe o motivo.", "A reason is required.")); return; }
+  var pay = document.getElementById("gmCrPay");
+  var btn = document.getElementById("gmCrSave"); btn.disabled = true;
+  gmApi("invoices/" + encodeURIComponent(inv.id) + "/credits", { method: "POST", body: { kind: kind, amount_cents: Math.round(amt * 100), reason: reason, payment_id: pay ? pay.value : null } })
+    .then(function(d) { gmToast((kind === "refund" ? gmT("Reembolso ", "Refund ") : gmT("Crédito ", "Credit ")) + d.number); gmOpenInvoice(inv.id); gmLoadInvoicesSilent(); })
+    .catch(function(e) { btn.disabled = false; say(e.message); console.error(e); });
+}
+
+// Send invoice / receipt: the estimate send sheet, with the invoice or
+// receipt template.
+function gmInvSendOpen() {
+  var inv = gmInvDetail;
+  if (!inv) { return; }
+  gmSheetOpen(gmT("Enviar fatura", "Send invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmDocMsgLoad().then(function() {
+    var tpl = gmDocMessages.messages.invoice_message || "";
+    var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: inv.vendedor || (gmDocSettings && gmDocSettings.legal_name) || "", link: inv.link });
+    gmDocSendSheetRender(gmT("Enviar fatura", "Send invoice") + " · " + escHtml(inv.number), inv.customer_phone || "", text, "invoice_message",
+      function() { gmApi("invoices/" + encodeURIComponent(inv.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Fatura marcada como enviada", "Invoice marked as sent")); gmLoadInvoicesSilent(); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
+      function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); });
+  }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+
+function gmInvReceiptSendOpen(pid) {
+  var inv = gmInvDetail;
+  gmSheetOpen(gmT("Enviar recibo", "Send receipt"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("payments/" + encodeURIComponent(pid) + "/receipt-message", { method: "POST" })
+    .then(function(d) {
+      gmDocSendSheetRender(gmT("Enviar recibo", "Send receipt"), d.phone || inv.customer_phone || "", d.message, "receipt_message", null, function() { gmRenderInvoiceSheet(); }, function() { gmInvReceiptSendOpen(pid); });
+    })
+    .catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+
+// One send sheet for invoices and receipts (the estimate one is its twin).
+var gmDocSendMark = null;
+function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender) {
+  var digits = gmWaDigits(phone);
+  gmDocSendMark = onSend;
+  var body = '<div class="gm-sheet-section">' +
+    '<div class="gm-contact-row">' +
+      '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
+      '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("wa") + 'WhatsApp</a>' +
+    '</div>' +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : "") +
+    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
+    '<p class="gm-derived-note" id="gmDocSendPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
+    (onSend ? '<button type="button" class="gm-btn-secondary" onclick="if (gmDocSendMark) { gmDocSendMark(); } gmSheetClose();">' + gmT("Marcar como enviada sem abrir mensagem", "Mark as sent without opening a message") + '</button>' : "") +
+    '<button type="button" class="gm-btn-secondary" id="gmDocSendBack">' + gmT("Voltar", "Back") + '</button></div>';
+  gmSheetOpen(title, body);
+  var pencil = document.getElementById("gmDocSendPencil");
+  if (pencil) { pencil.onclick = function(ev) { ev.preventDefault(); gmDocMsgEditorOpen(key, onRerender); }; }
+  var prev = document.getElementById("gmDocSendPreview");
+  if (prev) { prev.addEventListener("contextmenu", function(ev) { ev.preventDefault(); gmDocMsgEditorOpen(key, onRerender); }); }
+  var back = document.getElementById("gmDocSendBack");
+  if (back) { back.onclick = onBack; }
+}
+
+// ── Project sheet: invoices, payments, receipts, credits (3g) ─────────────
+var gmJobInvoices = {};
+function gmLoadJobInvoices(jobId) {
+  gmApi("invoices?job_id=" + encodeURIComponent(jobId))
+    .then(function(d) { gmJobInvoices[jobId] = d.invoices || []; gmRenderJobInvoices(jobId); })
+    .catch(function(e) { gmJobInvoices[jobId] = []; gmRenderJobInvoices(jobId, e.message); });
+}
+
+function gmRenderJobInvoices(jobId, failedMsg) {
+  var box = document.getElementById("gmJobInvoicesSection");
+  if (!box) { return; }
+  var list = gmJobInvoices[jobId] || [];
+  var inner = "";
+  if (failedMsg) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(failedMsg) + '</p>'; }
+  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhuma fatura ainda.", "No invoices yet.") + '</p>'; }
+  else {
+    list.forEach(function(inv) {
+      var pays = (inv.payments || []).filter(function(p) { return p.state === "verified" || p.state === "pending_verification"; });
+      inner += gmSheetRowHtml("dollar", escHtml(inv.number) + (inv.step_label ? ' · ' + escHtml(inv.step_label) : ""), gmInvPillHtml(inv) + ' ' + gmMoney(inv.amount_cents),
+        "gmOpenInvoice('" + escHtml(inv.id) + "')", null,
+        (inv.balance_cents ? gmT("saldo ", "balance ") + gmMoney(inv.balance_cents) + " · " : "") + (inv.due_date ? gmT("vence ", "due ") + escHtml(formatDate(inv.due_date)) : "") +
+        (pays.length ? "<br>" + pays.map(function(p) { return gmMoney(p.amount_cents) + " " + escHtml(gmInvMethodLabel(p.method)) + (p.receipt_number ? " · " + escHtml(p.receipt_number) : "") + (p.state === "pending_verification" ? " · " + gmT("aguardando", "pending") : ""); }).join("<br>") : "") +
+        ((inv.credits || []).length ? "<br>" + inv.credits.map(function(c) { return escHtml(c.number) + " " + gmMoney(c.amount_cents); }).join(", ") : ""));
+    });
+  }
+  var canCreate = !list.length;
+  box.innerHTML = gmSheetSection(gmT("Faturas", "Invoices"), inner) +
+    (canCreate ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateInvoices(\'' + escHtml(jobId) + '\')">' + gmT("Criar faturas a partir do estimate", "Create invoices from estimate") + '</button>' : "");
+}
+
+function gmJobCreateInvoices(jobId) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/invoices-from-estimate", { method: "POST" })
+    .then(function(d) { gmToast(gmT("Faturas criadas: ", "Invoices created: ") + d.created.map(function(c) { return c.number; }).join(", ")); gmLoadJobInvoices(jobId); gmLoadInvoicesSilent(); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }

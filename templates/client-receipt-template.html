@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Receipt</title>
+  <style>
+    /* PRINT TEMPLATE for a client's receipt (estimates build, 3e), following
+       Nicole's 2026-09-26 rule: content NEVER flows between pages. Every page
+       is a fixed 8.5in x 11in <section class="slide">; a JavaScript
+       paginator measures each block and opens a new slide when the next block
+       would not fit. The footer is ::after INSIDE the slide -- never
+       position:fixed, never @bottom-center. The PDF is made by this window's
+       own print dialog (window.print() below). No Apex branding anywhere. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; }
+    html, body { background: #e9ebee; }
+    body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.4; padding: 24px 0; }
+    .toolbar { max-width: 8.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+    .toolbar button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #c8ccd2; background: #fff; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: 0.8in 0.75in 1in; overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
+    .slide::before { content: ""; position: absolute; left: .75in; right: .75in; bottom: .68in; height: 1px; background: #E3E7EC; }
+    .slide::after { content: attr(data-footer); position: absolute; left: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
+    .pg { position: absolute; right: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
+    /* Blocks. Each is measured whole; a table row is its own block so a
+       long table splits across slides with its header repeated. */
+    .blk { margin-bottom: 8pt; }
+    .head { display: flex; justify-content: space-between; gap: 18pt; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 10pt; margin-bottom: 12pt; }
+    .head .logo { max-height: 60pt; max-width: 180pt; display: none; }
+    .head .logo.on { display: block; margin-bottom: 6pt; }
+    .head .biz { font-size: 15pt; font-weight: 800; }
+    .head .biz-meta { font-size: 8.5pt; color: var(--muted); line-height: 1.5; }
+    .head .doc { text-align: right; }
+    .head .doc .title { font-size: 20pt; font-weight: 900; letter-spacing: 0.04em; color: var(--brand); }
+    .head .doc .num { font-size: 11pt; font-weight: 700; }
+    .head .doc .small { font-size: 8.5pt; color: var(--muted); }
+    .hero-band { height: 0.9in; background-size: cover; background-position: center; border-radius: 4pt; margin-bottom: 10pt; }
+    .meta { display: flex; gap: 18pt; font-size: 9.5pt; }
+    .meta > div { flex: 1; }
+    .meta .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sec-title { font-size: 11pt; font-weight: 800; padding: 6pt 0 3pt; border-bottom: 1.5px solid var(--accent); margin-top: 6pt; }
+    .tier-title { font-size: 13pt; font-weight: 900; color: var(--brand); padding: 8pt 0 2pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    thead th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4pt 4pt; border-bottom: 1px solid var(--rule); }
+    td { padding: 5pt 4pt; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    td.q, th.q { width: 0.9in; white-space: nowrap; }
+    td.r, th.r { width: 1in; text-align: right; white-space: nowrap; }
+    td.a, th.a { width: 1.1in; text-align: right; white-space: nowrap; font-weight: 700; }
+    td .desc { font-size: 8.5pt; color: var(--muted); white-space: pre-wrap; }
+    tr.sub td { font-weight: 700; color: var(--muted); border-bottom: none; }
+    .totals { margin-left: auto; width: 3.2in; font-size: 10pt; }
+    .totals .row { display: flex; justify-content: space-between; padding: 3pt 0; }
+    .totals .grand { font-size: 13pt; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
+    .terms p { white-space: pre-wrap; font-size: 9.5pt; margin-bottom: 6pt; }
+    .terms b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4pt; }
+    .pm { font-size: 9.5pt; padding: 3pt 0; }
+    .pm b { display: inline; }
+    .sigblock { border: 1px solid var(--rule); border-radius: 6pt; padding: 12pt; }
+    .sigblock .t { font-weight: 800; margin-bottom: 6pt; }
+    .sigblock .grid { display: flex; gap: 18pt; font-size: 9.5pt; }
+    .sigblock .grid > div { flex: 1; }
+    .sigblock .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sigblock img { max-height: 70pt; max-width: 240pt; display: block; margin: 4pt 0; }
+    .sigblock .line { border-bottom: 1px solid var(--ink); height: 34pt; }
+    .sigblock .hash { font-family: ui-monospace, Menlo, monospace; font-size: 7pt; color: var(--muted); overflow-wrap: anywhere; }
+    .muted { color: var(--muted); }
+    #stage { position: absolute; left: -10000px; top: 0; width: 7in; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      .slide { margin: 0; box-shadow: none; break-after: page; }
+      .slide:last-child { break-after: auto; }
+      @page { size: Letter portrait; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+  <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading…</p></section></div>
+  <!-- Off-screen measuring stage, the same width as a slide's content box. -->
+  <div id="stage"></div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var CONTENT_H = 11 * 96 - (0.8 + 1) * 96;   // slide height minus vertical padding, in CSS px
+    var est = null;
+
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    function tierLabel(o) { return o.label || (o.tier === "single" ? "" : o.tier.charAt(0).toUpperCase() + o.tier.slice(1)); }
+
+    // ── Blocks (receipt) ────────────────────────────────────────────────
+    var PM = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card: "Card", other: "Other" };
+    function buildBlocks() {
+      var b = est.business, r = est;
+      var blocks = [];
+      var meta = [];
+      (b.license_numbers || []).forEach(function(l) { meta.push("License " + l); });
+      if (b.address) { meta.push(b.address); } if (b.phone) { meta.push(b.phone); } if (b.email) { meta.push(b.email); }
+      blocks.push({ html: '<div class="blk head"><div>' + (b.logo_url ? '<img class="logo on" src="' + escHtml(b.logo_url) + '" alt="">' : "") +
+        '<div class="biz">' + escHtml(b.name || "") + '</div><div class="biz-meta">' + meta.map(escHtml).join("<br>") + '</div></div>' +
+        '<div class="doc"><div class="title">RECEIPT</div><div class="num">' + escHtml(r.receipt_number) + '</div><div class="small">' + escHtml(fmtDate(r.paid_date)) + '<br>Invoice ' + escHtml(r.invoice_number) + '</div>' +
+        (r.reversed ? '<div class="small" style="color:#a63d3d;font-weight:700;">REVERSED</div>' : "") + '</div></div>', kind: "block", keepWithNext: true });
+      blocks.push({ html: '<div class="blk meta"><div><div class="k">Received from</div>' + escHtml(r.customer_name || "") + '</div><div><div class="k">Job</div>' + escHtml(r.job_name || "") + '</div></div>', kind: "block", keepWithNext: true });
+      var thead = '<thead><tr><th>Description</th><th class="q">Method</th><th class="r">Reference</th><th class="a">Amount</th></tr></thead>';
+      blocks.push({ html: '<div class="blk sec-title">Payment</div>', kind: "block", keepWithNext: true });
+      blocks.push({ html: '<tr><td>Payment on invoice ' + escHtml(r.invoice_number) + '</td><td class="q">' + escHtml(PM[r.method] || r.method) + '</td><td class="r">' + escHtml(r.reference || "") + '</td><td class="a">' + money(r.amount_cents) + '</td></tr>', kind: "row", thead: thead });
+      blocks.push({ html: '<div class="blk totals">' +
+        '<div class="row"><span>Invoice balance before</span><span>' + money(r.balance_before_cents) + '</span></div>' +
+        '<div class="row"><span>This payment</span><span>− ' + money(r.amount_cents) + '</span></div>' +
+        '<div class="row grand"><span>Invoice balance after</span><span>' + money(r.balance_after_cents) + '</span></div>' +
+        '<div class="row"><span>Remaining contract balance</span><span>' + money(r.contract.remaining_cents) + '</span></div></div>', kind: "block" });
+      if (r.reversed) { blocks.push({ html: '<div class="blk terms"><b>Reversed</b><p>' + escHtml(r.reverse_reason || "") + '</p></div>', kind: "block" }); }
+      blocks.push({ html: '<div class="blk terms"><p class="muted">Thank you for your payment.</p></div>', kind: "block" });
+      return blocks;
+    }
+
+    // ── Paginator ───────────────────────────────────────────────────────
+    // Measures each block on the off-screen stage (same width as a slide's
+    // content box) and fills slides: a new slide opens when the next block
+    // would not fit; a block flagged keepWithNext (a section header, the
+    // page header) is moved along with what follows it; a table row keeps
+    // its thead, repeated at the top of every continued table.
+    // Heights INCLUDE vertical margins (getBoundingClientRect does not), plus
+    // 1px of slack per block: an under-measured block is exactly how content
+    // ends up under the footer line.
+    function measure(html, asRow, thead) {
+      var stage = document.getElementById("stage");
+      stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
+      var el = stage.firstElementChild;
+      var h = 0;
+      if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : 0; }
+      else if (el) {
+        var cs = window.getComputedStyle(el);
+        h = el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+      }
+      stage.innerHTML = "";
+      return h + 1;
+    }
+    function measureThead(thead) {
+      var stage = document.getElementById("stage");
+      stage.innerHTML = '<table>' + thead + '<tbody></tbody></table>';
+      var th = stage.querySelector("thead");
+      var h = th ? th.getBoundingClientRect().height : 0;
+      stage.innerHTML = "";
+      return h + 1;
+    }
+
+    function paginate(blocks) {
+      var slides = [];       // each: { parts: [html...], used: px }
+      var cur = null, openTable = null;
+      function newSlide() { if (cur && openTable) { cur.parts.push("</tbody></table>"); } openTable = null; cur = { parts: [], used: 0 }; slides.push(cur); }
+      function closeTable() { if (openTable) { cur.parts.push("</tbody></table>"); openTable = null; } }
+      newSlide();
+      var pending = [];   // keepWithNext blocks waiting to be placed with the next one
+      function place(b) {
+        var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html);
+        var extra = 0;
+        if (b.kind === "row" && openTable !== b.thead) { extra = measureThead(b.thead); }
+        var pendingH = 0;
+        pending.forEach(function(p) { pendingH += p.h; });
+        if (cur.used + pendingH + extra + h > CONTENT_H && (cur.used > 0 || pendingH > 0)) {
+          if (cur.used === 0 && pendingH > 0) {
+            // Nothing else on the slide: the pending headers alone go here only if the block itself is taller than a page.
+          }
+          newSlide();
+        }
+        pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; });
+        pending = [];
+        if (b.kind === "row") {
+          if (openTable !== b.thead) { closeTable(); cur.parts.push('<table>' + b.thead + '<tbody>'); cur.used += extra; openTable = b.thead; }
+          cur.parts.push(b.html); cur.used += h;
+        } else { closeTable(); cur.parts.push(b.html); cur.used += h; }
+      }
+      blocks.forEach(function(b) {
+        if (b.keepWithNext) { var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
+        place(b);
+      });
+      if (pending.length) { pending.forEach(function(p) { if (cur.used + p.h > CONTENT_H) { newSlide(); } closeTable(); cur.parts.push(p.html); cur.used += p.h; }); }
+      closeTable();
+      return slides;
+    }
+
+    function render() {
+      var blocks = buildBlocks();
+      // Belt and braces: if a slide still overflows after measuring, shrink
+      // the usable height and paginate again. overflow:hidden must never be
+      // what decides where a page ends.
+      var slides, tries = 0, budget = CONTENT_H;
+      while (tries < 6) {
+        CONTENT_H = budget;
+        slides = paginate(blocks);
+        var worst = maxOverflow(slides, blocks);
+        if (worst <= 0) { break; }
+        budget -= worst + 8;
+        tries++;
+      }
+      var footer = (est.business.name || "") + " · " + est.receipt_number;
+      var html = "";
+      slides.forEach(function(s, i) {
+        html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + '<div class="pg">' + (i + 1) + " of " + slides.length + '</div></section>';
+      });
+      document.getElementById("pages").innerHTML = html;
+      document.title = "Receipt " + est.receipt_number + (est.business.name ? " - " + est.business.name : "");
+      // Final overflow check (nothing may be cut by overflow:hidden).
+      var sections = document.querySelectorAll("#pages .slide");
+      for (var i = 0; i < sections.length; i++) {
+        var inner = sections[i].scrollHeight;
+        if (inner > sections[i].clientHeight + 1) { console.error("[estimate-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
+      }
+      window.__estimatePages = slides.length;
+    }
+
+    // Renders candidate slides off-screen and reports the worst overflow in
+    // px (0 = every page fits above the footer line).
+    function maxOverflow(slides, blocks) {
+      var host = document.getElementById("pages");
+      var probe = document.createElement("div");
+      probe.style.cssText = "position:absolute;left:-20000px;top:0;";
+      probe.innerHTML = slides.map(function(s) { return '<section class="slide" data-footer="">' + s.parts.join("") + '</section>'; }).join("");
+      document.body.appendChild(probe);
+      var worst = 0;
+      var secs = probe.querySelectorAll(".slide");
+      for (var i = 0; i < secs.length; i++) {
+        var kids = secs[i].children;
+        var last = kids[kids.length - 1];
+        if (!last) { continue; }
+        var bottom = last.getBoundingClientRect().bottom - secs[i].getBoundingClientRect().top;
+        var limit = 11 * 96 - 1 * 96;   // the slide's bottom padding edge, above the footer rule
+        if (bottom - limit > worst) { worst = bottom - limit; }
+      }
+      document.body.removeChild(probe);
+      return Math.ceil(worst);
+    }
+
+    function applyBrand(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/; var root = document.documentElement.style;
+      if (hex.test(b.brand_primary || "")) { root.setProperty("--brand", b.brand_primary); root.setProperty("--on-brand", textOn(b.brand_primary)); }
+      if (hex.test(b.brand_accent || "")) { root.setProperty("--accent", b.brand_accent); } else if (hex.test(b.brand_primary || "")) { root.setProperty("--accent", b.brand_primary); }
+    }
+
+    function load() {
+      if (!token) { document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Receipt not found.</p></section>'; return; }
+      fetch(WORKER_URL + "/api/public/receipts/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) {
+          est = d.receipt;
+          applyBrand(est.business);
+          // Images must be loaded before measuring, or the header block is
+          // measured without its logo and the first slide overflows.
+          var urls = [est.business.logo_url].filter(Boolean);
+          var waits = urls.map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); });
+          return Promise.all(waits).then(function() {
+            render();
+            // Re-measure once fonts are in, then print from THIS window.
+            if (document.fonts && document.fonts.ready) { return document.fonts.ready.then(function() { render(); }); }
+          });
+        })
+        .then(function() {
+          if (est && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { window.print(); }, 300); }
+        })
+        .catch(function(e) { console.error(e); document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Receipt not found.</p></section>'; });
+    }
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

@@ -88,7 +88,7 @@
        calendar does not reimplement (and re-break) it. See calendar-grid.js. -->
   <script src="calendar-grid.js?v=1786493218"></script>
   <!-- Stored keys -> displayed labels. Must load BEFORE gm.js, which uses it. -->
-  <script src="gm-labels.js?v=1790436092"></script>
+  <script src="gm-labels.js?v=1790437233"></script>
   <!-- The single implementation of the Analytics view, shared with the admin
        per-client analytics page so the two can never drift apart. -->
   <script src="analytics-view.js"></script>
@@ -4497,10 +4497,11 @@
     // Per-client rollout gates for the estimates & invoices build. A tab
     // whose `gate` names a list here exists only for those client ids;
     // everyone else's strip, dock and "Mais" never mention it. null = open
-    // to all. Phase 1: both only on the test client.
+    // to all. Phases 1-3 shipped 2026-09-26: both open to every client. Put a
+    // list of client ids back here to narrow a tab again.
     var PORTAL_TAB_GATES = {
-      estimates: ["test-client-temp-001"],
-      invoices:  ["test-client-temp-001"]
+      estimates: null,
+      invoices:  null
     };
     function portalTabEnabled(t) {
       if (!t || !t.gate) { return true; }
@@ -6909,7 +6910,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790436092"></script>
+  <script src="gm.js?v=1790437232"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

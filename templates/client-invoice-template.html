@@ -6,40 +6,65 @@
   <meta name="robots" content="noindex">
   <title>Invoice</title>
   <style>
-    /* PRINT TEMPLATE for a client's invoice (estimates build, 3f), following
-       Nicole's 2026-09-26 rule: content NEVER flows between pages. Every page
-       is a fixed 8.5in x 11in <section class="slide">; a JavaScript
-       paginator measures each block and opens a new slide when the next block
-       would not fit. The footer is ::after INSIDE the slide -- never
-       position:fixed, never @bottom-center. The PDF is made by this window's
-       own print dialog (window.print() below). No Apex branding anywhere. */
+    /* PRINT TEMPLATE for a client's invoice (estimates build, 3f; header,
+       print sizing and contract scope reworked in the 2026-09-26 fix build).
+       Same shell as client-estimate-template.html: fixed slides, a measuring
+       paginator, the footer inside the slide, print sized to the page box.
+       No Apex branding anywhere. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; --on-accent: #fff;
+      /* Slide geometry. --pad-x / --pad-top are shared by the slide padding
+         and the hero band's negative margins, so the photo is full-bleed. */
+      --pad-x: 0.75in; --pad-top: 0.45in; --pad-bottom: 0.8in;
+    }
     html, body { background: #e9ebee; }
     body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.4; padding: 24px 0; }
     .toolbar { max-width: 8.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
     .toolbar button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #c8ccd2; background: #fff; font-weight: 700; cursor: pointer; font-size: 13px; }
-    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: 0.8in 0.75in 1in; overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
-    .slide::before { content: ""; position: absolute; left: .75in; right: .75in; bottom: .68in; height: 1px; background: #E3E7EC; }
-    .slide::after { content: attr(data-footer); position: absolute; left: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
-    .pg { position: absolute; right: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
-    /* Blocks. Each is measured whole; a table row is its own block so a
-       long table splits across slides with its header repeated. */
+    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: var(--pad-top) var(--pad-x) var(--pad-bottom); overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
+    .slide::before { content: ""; position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: .56in; height: 1px; background: #E3E7EC; }
+    .slide::after { content: attr(data-footer); position: absolute; left: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
+    .pg { position: absolute; right: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
     .blk { margin-bottom: 8pt; }
-    .head { display: flex; justify-content: space-between; gap: 18pt; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 10pt; margin-bottom: 12pt; }
-    .head .logo { max-height: 60pt; max-width: 180pt; display: none; }
-    .head .logo.on { display: block; margin-bottom: 6pt; }
-    .head .biz { font-size: 15pt; font-weight: 800; }
-    .head .biz-meta { font-size: 8.5pt; color: var(--muted); line-height: 1.5; }
-    .head .doc { text-align: right; }
-    .head .doc .title { font-size: 20pt; font-weight: 900; letter-spacing: 0.04em; color: var(--brand); }
-    .head .doc .num { font-size: 11pt; font-weight: 700; }
-    .head .doc .small { font-size: 8.5pt; color: var(--muted); }
-    .hero-band { height: 0.9in; background-size: cover; background-position: center; border-radius: 4pt; margin-bottom: 10pt; }
-    .meta { display: flex; gap: 18pt; font-size: 9.5pt; }
-    .meta > div { flex: 1; }
-    .meta .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* ---- HERO BAND (copied from apex-invoice-template-DRAFT: .hero-band,
+       .header-tile-row, .client-logo-tile, .client-name-mark, .gold-bar-label
+       -> .brand-pill in the client's accent colour). Full-bleed photo; with
+       no photo a solid band in the client's primary colour. ---- */
+    .hero-band { position: relative; height: 1.75in; overflow: hidden; background: var(--brand); margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 12pt; }
+    .hero-band img.hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+    .header-tile-row { display: flex; align-items: center; position: absolute; bottom: 12px; left: var(--pad-x); right: var(--pad-x); gap: 0; z-index: 10; }
+    .client-logo-tile { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 18px; display: flex; align-items: center; justify-content: center; width: 220px; min-width: 220px; height: 90px; box-shadow: 0 4px 20px rgba(0,0,0,0.55); flex-shrink: 0; }
+    .client-logo-tile img { max-height: 64px; max-width: 190px; object-fit: contain; display: block; }
+    .client-logo-tile .client-name-mark { font-size: 15px; font-weight: 700; line-height: 1.25; color: #fff; letter-spacing: 0.3px; text-align: center; max-width: 190px; display: inline-block; word-break: break-word; }
+    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
+    .brand-pill { margin-left: 22px; display: inline-block; background: rgba(20, 20, 20, 0.82); border-radius: 20px; padding: 5px 18px; color: var(--accent-on-dark, #fff); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.18); }
+
+    /* ---- META AREA (DRAFT .invoice-meta-area): customer + business on the
+       left, document number / dates / terms on the right, the amount tile
+       under them. License, phone, email, address live HERE, never in a band. */
+    .meta-area { display: flex; justify-content: space-between; align-items: flex-start; gap: 24pt; }
+    .meta-left { flex: 1; min-width: 0; font-size: 9.5pt; }
+    .meta-left .k, .meta-right .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2pt; }
+    .meta-left .who { font-size: 12pt; font-weight: 700; }
+    .meta-left .from { margin-top: 8pt; font-size: 8.5pt; color: #444; line-height: 1.5; }
+    .meta-right { min-width: 2.9in; max-width: 3.2in; text-align: right; }
+    .meta-right .title { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase; color: var(--brand); line-height: 1.1; }
+    .meta-right .num { font-size: 12pt; font-weight: 700; color: var(--accent); margin-bottom: 4pt; }
+    .meta-right table { width: 100%; border-collapse: collapse; }
+    .meta-right td { padding: 2pt 6pt; font-size: 9pt; vertical-align: top; border: none; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: nowrap; text-align: left; }
+    .meta-right td.fv { color: #111; text-align: right; }
+    .stamp { display: inline-block; margin-top: 4pt; font-size: 8.5pt; font-weight: 800; letter-spacing: 0.06em; }
+    .stamp.ok { color: #2f6b3e; } .stamp.bad { color: #a63d3d; }
+    /* DRAFT .amount-due-tile, in the client's accent colour instead of gold. */
+    .amount-due-tile { background-color: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 10px 24px; text-align: center; margin-top: 8pt; }
+    .amount-due-tile .adt-label { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2pt; }
+    .amount-due-tile .adt-value { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; }
+
     .sec-title { font-size: 11pt; font-weight: 800; padding: 6pt 0 3pt; border-bottom: 1.5px solid var(--accent); margin-top: 6pt; }
+    .cat-title { font-size: 9.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 6pt 0 2pt; }
     .tier-title { font-size: 13pt; font-weight: 900; color: var(--brand); padding: 8pt 0 2pt; }
     table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
     thead th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4pt 4pt; border-bottom: 1px solid var(--rule); }
@@ -54,37 +79,62 @@
     .totals .grand { font-size: 13pt; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
     .terms p { white-space: pre-wrap; font-size: 9.5pt; margin-bottom: 6pt; }
     .terms b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4pt; }
-    .pm { font-size: 9.5pt; padding: 3pt 0; }
-    .pm b { display: inline; }
-    .sigblock { border: 1px solid var(--rule); border-radius: 6pt; padding: 12pt; }
+    /* DRAFT .payment-tiles / .payment-tile: one tile per accepted method,
+       the detail as plain text (Zelle: the handle, never a button). */
+    .payment-tiles { display: flex; gap: 8pt; margin-top: 4pt; flex-wrap: wrap; break-inside: avoid; page-break-inside: avoid; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 6pt 10pt; display: flex; flex-direction: column; align-items: flex-start; gap: 2pt; min-width: 1.3in; max-width: 3.3in; }
+    .payment-tile .pt-label { font-size: 8pt; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 9pt; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .sigblock { border: 1px solid var(--rule); border-radius: 6pt; padding: 12pt; break-inside: avoid; page-break-inside: avoid; }
     .sigblock .t { font-weight: 800; margin-bottom: 6pt; }
     .sigblock .grid { display: flex; gap: 18pt; font-size: 9.5pt; }
-    .sigblock .grid > div { flex: 1; }
-    .sigblock .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sigblock .grid > div { flex: 1; min-width: 0; }
+    .sigblock .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6pt; }
+    .sigblock .k:first-child { margin-top: 0; }
     .sigblock img { max-height: 70pt; max-width: 240pt; display: block; margin: 4pt 0; }
+    .sigblock .typed { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 18pt; padding: 4pt 0; }
     .sigblock .line { border-bottom: 1px solid var(--ink); height: 34pt; }
     .sigblock .hash { font-family: ui-monospace, Menlo, monospace; font-size: 7pt; color: var(--muted); overflow-wrap: anywhere; }
+    .banner { border-radius: 6pt; padding: 8pt 12pt; font-size: 9.5pt; break-inside: avoid; page-break-inside: avoid; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .banner.ok { background: #eaf4ec; border: 1px solid #b9d7c0; color: #23532f; }
+    .banner b { display: block; font-size: 10.5pt; margin-bottom: 2pt; }
     .muted { color: var(--muted); }
     #stage { position: absolute; left: -10000px; top: 0; width: 7in; }
     @media print {
       body { background: #fff; padding: 0; }
       .toolbar { display: none; }
-      .slide { margin: 0; box-shadow: none; break-after: page; }
-      .slide:last-child { break-after: auto; }
+      /* The page box, whatever margins and header/footer strips the browser
+         adds: each slide is exactly one printable area. The horizontal
+         padding keeps the 7in content column centred; the hero's negative
+         margins follow it and stay full-bleed. */
+      :root { --pad-x: max(0.25in, calc((100vw - 7in) / 2)); }
+      .slide { width: 100vw; height: calc(100vh - 1px); margin: 0; box-shadow: none; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .slide:last-child { break-after: auto; page-break-after: auto; }
+      .hero-band { width: 100vw; }
       @page { size: Letter portrait; margin: 0; }
     }
   </style>
 </head>
 <body>
   <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
-  <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading…</p></section></div>
+  <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading...</p></section></div>
   <!-- Off-screen measuring stage, the same width as a slide's content box. -->
   <div id="stage"></div>
 
   <script>
+    var NOT_FOUND = "Invoice not found.";
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
-    var CONTENT_H = 11 * 96 - (0.8 + 1) * 96;   // slide height minus vertical padding, in CSS px
+    // Content budget per slide, in CSS px. Deliberately SHORTER than the
+    // 11in page: 0.45in top padding + 8.7in content + 0.8in footer zone =
+    // 9.95in, so a printable area as small as 9.95in (browser margins plus
+    // its URL/date strips) still holds a whole slide. Overflow:hidden must
+    // never be what decides where a page ends. If a phone still spills,
+    // lower CONTENT_BUDGET here (one constant, the same in all three).
+    var PAD_TOP_PX = 0.45 * 96;
+    var CONTENT_BUDGET = 8.7 * 96;
+    var CONTENT_H = CONTENT_BUDGET;
     var est = null;
 
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
@@ -97,24 +147,64 @@
       try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
         return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
     }
+    // (401) 651-4117 whatever was typed; anything that is not a US number prints as typed.
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
     function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     function tierLabel(o) { return o.label || (o.tier === "single" ? "" : o.tier.charAt(0).toUpperCase() + o.tier.slice(1)); }
+    var PM = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+
+    // ── Shared header blocks (the DRAFT's hero + tile row + meta area) ────
+    // Hero band: the client's photo, or a solid band in the primary colour.
+    // Inside it the frosted tile with the logo (or the name as a wordmark)
+    // and the business name pill in the accent colour. One block, never split.
+    function heroBlockHtml(b) {
+      var name = b.name || "";
+      var tile = b.logo_url ? '<img src="' + escHtml(b.logo_url) + '" alt="">' : '<span class="client-name-mark' + (name.length > 22 ? " is-long" : "") + '">' + escHtml(name) + '</span>';
+      return '<div class="blk hero-band">' + (b.hero_url ? '<img class="hero-img" src="' + escHtml(b.hero_url) + '" alt="">' : "") +
+        '<div class="header-tile-row"><div class="client-logo-tile">' + tile + '</div>' + (name ? '<span class="brand-pill">' + escHtml(name) + '</span>' : "") + '</div></div>';
+    }
+    // Business contact lines for the meta area (license, phone, email, address).
+    function fromHtml(b) {
+      var lines = [];
+      if (b.name) { lines.push('<strong>' + escHtml(b.name) + '</strong>'); }
+      (b.license_numbers || []).forEach(function(l) { lines.push("License " + escHtml(l)); });
+      if (b.address) { lines.push(escHtml(b.address)); }
+      if (b.phone) { lines.push(escHtml(fmtPhone(b.phone))); }
+      if (b.email) { lines.push(escHtml(b.email)); }
+      return '<div class="from"><div class="k">From</div>' + lines.join("<br>") + '</div>';
+    }
+    // rows: [[label, value]...]; tile: { label, value } or null; stamp: html or "".
+    function metaBlockHtml(leftLabel, who, whoLines, b, title, num, rows, stamp, tile) {
+      var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
+      return '<div class="blk meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
+        (whoLines.length ? '<div>' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
+        '<div class="meta-right"><div class="title">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") +
+        (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "") + '</div></div>';
+    }
+    function paymentTilesHtml(methods) {
+      return '<div class="blk"><div class="payment-tiles">' + methods.map(function(m) {
+        return '<div class="payment-tile"><div class="pt-label">' + escHtml(PM[m.key] || m.key) + '</div>' + (m.detail ? '<div class="pt-detail">' + escHtml(m.detail) + '</div>' : "") + '</div>';
+      }).join("") + '</div></div>';
+    }
 
     // ── Blocks (invoice) ────────────────────────────────────────────────
-    var PM = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+    function footerText() { return (est.business.name || "") + " - " + est.number; }
+    function docTitle() { return "Invoice " + est.number + (est.business.name ? " - " + est.business.name : ""); }
+    var STATUS_TEXT = { unpaid: "Unpaid", partially_paid: "Partially paid", paid: "Paid", overdue: "Past due" };
+
     function buildBlocks() {
       var b = est.business, inv = est, c = inv.contract || {};
       var blocks = [];
-      var meta = [];
-      (b.license_numbers || []).forEach(function(l) { meta.push("License " + l); });
-      if (b.address) { meta.push(b.address); } if (b.phone) { meta.push(b.phone); } if (b.email) { meta.push(b.email); }
-      blocks.push({ html: '<div class="blk head"><div>' + (b.logo_url ? '<img class="logo on" src="' + escHtml(b.logo_url) + '" alt="">' : "") +
-        '<div class="biz">' + escHtml(b.name || "") + '</div><div class="biz-meta">' + meta.map(escHtml).join("<br>") + '</div></div>' +
-        '<div class="doc"><div class="title">INVOICE</div><div class="num">' + escHtml(inv.number) + '</div><div class="small">Issued ' + escHtml(fmtDate(inv.issue_date)) + '<br>Due ' + escHtml(fmtDate(inv.due_date)) + '</div>' +
-        (inv.status === "paid" ? '<div class="small" style="color:#2f6b3e;font-weight:700;">PAID</div>' : (inv.status === "overdue" ? '<div class="small" style="color:#a63d3d;font-weight:700;">PAST DUE</div>' : "")) + '</div></div>', kind: "block", keepWithNext: true });
-      if (b.hero_url) { blocks.push({ html: '<div class="blk hero-band" style="background-image:url(' + escHtml(b.hero_url) + ')"></div>', kind: "block", keepWithNext: true }); }
-      blocks.push({ html: '<div class="blk meta"><div><div class="k">Bill to</div>' + escHtml(inv.customer_name || "") + (inv.customer_address ? "<br>" + escHtml(inv.customer_address) : "") + '</div><div><div class="k">Job</div>' + escHtml(inv.job_name || "") + (inv.step_label ? '<br><span class="muted">' + escHtml(inv.step_label) + (inv.step_pct ? " · " + inv.step_pct + "% of contract" : "") + '</span>' : "") + '</div></div>', kind: "block", keepWithNext: true });
+      blocks.push({ html: heroBlockHtml(b), kind: "block", keepWithNext: true });
+      var whoLines = [];
+      if (inv.customer_address) { whoLines.push(inv.customer_address); }
+      var rows = [["Issued", escHtml(fmtDate(inv.issue_date))], ["Due", escHtml(fmtDate(inv.due_date))], ["Terms", b.terms_days ? "Net " + escHtml(String(b.terms_days)) + " days" : "Due on receipt"], ["Job", escHtml(inv.job_name || "")]];
+      if (inv.step_label) { rows.push(["Step", escHtml(inv.step_label) + (inv.step_pct ? " (" + escHtml(String(inv.step_pct)) + "% of contract)" : "")]); }
+      var stamp = inv.status === "paid" ? '<span class="stamp ok">PAID</span>' : (inv.status === "overdue" ? '<span class="stamp bad">PAST DUE</span>' : (inv.awaiting_verification ? '<span class="stamp">PAYMENT REPORTED - AWAITING CONFIRMATION</span>' : ""));
+      var tile = { label: inv.status === "paid" ? "Paid in full" : "Balance due now", value: money(inv.balance_cents) };
+      blocks.push({ html: metaBlockHtml("Bill to", inv.customer_name, whoLines, b, "Invoice", inv.number, rows, stamp, tile), kind: "block", keepWithNext: true });
+
       var thead = '<thead><tr><th>Description</th><th class="q">Qty</th><th class="r">Rate</th><th class="a">Amount</th></tr></thead>';
       blocks.push({ html: '<div class="blk sec-title">This invoice</div>', kind: "block", keepWithNext: true });
       (inv.items || []).forEach(function(it) {
@@ -125,36 +215,54 @@
         '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
         ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
         '<div class="row"><span>This invoice</span><span>' + money(inv.amount_cents) + '</span></div>' +
-        (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>− ' + money(inv.paid_cents) + '</span></div>' : "") +
-        (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>− ' + money(inv.credit_cents) + '</span></div>' : "") +
+        (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>- ' + money(inv.paid_cents) + '</span></div>' : "") +
+        (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>- ' + money(inv.credit_cents) + '</span></div>' : "") +
         '<div class="row grand"><span>Balance due now</span><span>' + money(inv.balance_cents) + '</span></div>' +
         '<div class="row"><span>Remaining contract balance</span><span>' + money(c.remaining_cents) + '</span></div></div>', kind: "block" });
       if ((inv.payments || []).length || (inv.credits || []).length) {
         blocks.push({ html: '<div class="blk sec-title">Payments received</div>', kind: "block", keepWithNext: true });
         var pthead = '<thead><tr><th>Date</th><th>Method</th><th class="q">Receipt</th><th class="a">Amount</th></tr></thead>';
         (inv.payments || []).forEach(function(p) { blocks.push({ html: '<tr><td>' + escHtml(fmtDate(p.paid_date)) + '</td><td>' + escHtml(PM[p.method] || p.method) + (p.reference ? " " + escHtml(p.reference) : "") + '</td><td class="q">' + escHtml(p.receipt_number || "") + '</td><td class="a">' + money(p.amount_cents) + '</td></tr>', kind: "row", thead: pthead }); });
-        (inv.credits || []).forEach(function(cr) { blocks.push({ html: '<tr><td>' + escHtml(fmtDate(cr.created_at)) + '</td><td>' + (cr.kind === "refund" ? "Refund" : "Credit") + ' · ' + escHtml(cr.reason) + '</td><td class="q">' + escHtml(cr.number) + '</td><td class="a">' + (cr.kind === "refund" ? "+ " : "− ") + money(cr.amount_cents) + '</td></tr>', kind: "row", thead: pthead }); });
+        (inv.credits || []).forEach(function(cr) { blocks.push({ html: '<tr><td>' + escHtml(fmtDate(cr.created_at)) + '</td><td>' + (cr.kind === "refund" ? "Refund" : "Credit") + ' - ' + escHtml(cr.reason) + '</td><td class="q">' + escHtml(cr.number) + '</td><td class="a">' + (cr.kind === "refund" ? "+ " : "- ") + money(cr.amount_cents) + '</td></tr>', kind: "row", thead: pthead }); });
       }
-      if (inv.scope && inv.scope.sections && inv.scope.sections.length) {
-        blocks.push({ html: '<div class="blk sec-title">Contract scope (from accepted estimate ' + escHtml(inv.scope.estimate_number) + ')</div>', kind: "block", keepWithNext: true });
+      // Contract scope (B4): the accepted estimate's lines exactly as on the
+      // estimate -- category subtotals (only with more than one category),
+      // the discount line, the total. Subtotal / discount fall back to the
+      // section sums when the snapshot predates the explicit fields.
+      var sc = inv.scope;
+      if (sc && sc.sections && sc.sections.length) {
+        blocks.push({ html: '<div class="blk sec-title">Contract scope <span class="muted" style="font-weight:400;font-size:9pt;">from accepted estimate ' + escHtml(sc.estimate_number) + ' - for reference; the amount due is above</span></div>', kind: "block", keepWithNext: true });
         var sthead = '<thead><tr><th>Description</th><th class="q">Qty</th><th class="r">Rate</th><th class="a">Amount</th></tr></thead>';
-        inv.scope.sections.forEach(function(sec) {
-          blocks.push({ html: '<tr class="sub"><td colspan="4">' + escHtml(sec.category || "Scope") + '</td></tr>', kind: "row", thead: sthead });
+        var groups = sc.sections.filter(function(s) { return s.lines && s.lines.length; });
+        var multi = groups.length > 1;
+        var sum = 0;
+        groups.forEach(function(sec) {
+          if (sec.category) { blocks.push({ html: '<div class="blk cat-title">' + escHtml(sec.category) + '</div>', kind: "block", keepWithNext: true }); }
+          var sub = 0;
           sec.lines.forEach(function(l) {
-            var amt = l.line_type === "included" ? "Included" : (l.line_type === "allowance" ? "Allowance " + money(l.amount_cents) : money(l.amount_cents));
-            blocks.push({ html: '<tr><td>' + escHtml(l.item_name) + '</td><td class="q">' + (l.line_type === "included" ? "" : escHtml(String(l.qty)) + (l.unit ? " " + escHtml(l.unit) : "")) + '</td><td class="r">' + (l.line_type === "included" ? "" : money(l.rate_cents)) + '</td><td class="a">' + escHtml(amt) + '</td></tr>', kind: "row", thead: sthead });
+            sub += l.amount_cents || 0;
+            var inc = l.line_type === "included";
+            var amt = inc ? "Included" : (l.line_type === "allowance" ? "Allowance " + money(l.amount_cents) : money(l.amount_cents));
+            blocks.push({ html: '<tr><td>' + escHtml(l.item_name) + (l.description ? '<div class="desc">' + escHtml(l.description) + '</div>' : "") + '</td><td class="q">' + (inc ? "" : escHtml(String(l.qty)) + (l.unit ? " " + escHtml(l.unit) : "")) + '</td><td class="r">' + (inc ? "" : money(l.rate_cents)) + '</td><td class="a">' + escHtml(amt) + '</td></tr>', kind: "row", thead: sthead });
           });
+          sum += sub;
+          if (multi) { blocks.push({ html: '<tr class="sub"><td colspan="3">Subtotal' + (sec.category ? " " + escHtml(sec.category) : "") + '</td><td class="a">' + money(sub) + '</td></tr>', kind: "row", thead: sthead }); }
         });
+        var subtotal = (sc.subtotal_cents !== null && sc.subtotal_cents !== undefined) ? sc.subtotal_cents : sum;
+        var discount = (sc.discount_cents !== null && sc.discount_cents !== undefined) ? sc.discount_cents : Math.max(0, subtotal - (sc.total_cents || 0));
+        blocks.push({ html: '<div class="blk totals">' + ((multi || discount) ? '<div class="row"><span>Subtotal</span><span>' + money(subtotal) + '</span></div>' : "") +
+          (discount ? '<div class="row"><span>Discount' + (sc.discount_type === "pct" && sc.discount_value ? " (" + escHtml(String(sc.discount_value)) + "%)" : "") + '</span><span>- ' + money(discount) + '</span></div>' : "") +
+          '<div class="row grand"><span>Contract total</span><span>' + money(sc.total_cents) + '</span></div></div>', kind: "block" });
       }
       if (b.payment_methods && b.payment_methods.length) {
-        blocks.push({ html: '<div class="blk sec-title">How to pay</div>', kind: "block", keepWithNext: true });
-        b.payment_methods.forEach(function(m) { blocks.push({ html: '<div class="blk pm"><b>' + escHtml(PM[m.key] || m.key) + '</b>' + (m.detail ? ': ' + escHtml(m.detail) : "") + '</div>', kind: "block" }); });
+        blocks.push({ html: '<div class="blk"><div class="sec-title" style="margin-bottom:6pt;">How to pay</div>' + paymentTilesHtml(b.payment_methods) + '</div>', kind: "block" });
       }
       var terms = '<b>Payment terms</b><p>' + (b.terms_days ? "Net " + b.terms_days + " days" : "Due on receipt") + '. Please reference ' + escHtml(inv.number) + ' with your payment.</p>';
-      if (b.late_fee_annual_pct) { terms += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year.</p>'; }
+      if (b.late_fee_annual_pct) { terms += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year on the unpaid balance, counted from the due date.</p>'; }
       blocks.push({ html: '<div class="blk terms">' + terms + '</div>', kind: "block" });
       return blocks;
     }
+
 
     // ── Paginator ───────────────────────────────────────────────────────
     // Measures each block on the off-screen stage (same width as a slide's
@@ -167,6 +275,7 @@
     // ends up under the footer line.
     function measure(html, asRow, thead) {
       var stage = document.getElementById("stage");
+      if (!stage) { return 0; }
       stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
       var el = stage.firstElementChild;
       var h = 0;
@@ -180,6 +289,7 @@
     }
     function measureThead(thead) {
       var stage = document.getElementById("stage");
+      if (!stage) { return 0; }
       stage.innerHTML = '<table>' + thead + '<tbody></tbody></table>';
       var th = stage.querySelector("thead");
       var h = th ? th.getBoundingClientRect().height : 0;
@@ -197,13 +307,12 @@
       function place(b) {
         var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html);
         var extra = 0;
-        if (b.kind === "row" && openTable !== b.thead) { extra = measureThead(b.thead); }
+        // A pending heading closes the open table, so the row reopens one:
+        // its thead must be counted then too, not only on a thead change.
+        if (b.kind === "row" && (openTable !== b.thead || pending.length)) { extra = measureThead(b.thead); }
         var pendingH = 0;
         pending.forEach(function(p) { pendingH += p.h; });
         if (cur.used + pendingH + extra + h > CONTENT_H && (cur.used > 0 || pendingH > 0)) {
-          if (cur.used === 0 && pendingH > 0) {
-            // Nothing else on the slide: the pending headers alone go here only if the block itself is taller than a page.
-          }
           newSlide();
         }
         pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; });
@@ -214,7 +323,9 @@
         } else { closeTable(); cur.parts.push(b.html); cur.used += h; }
       }
       blocks.forEach(function(b) {
-        if (b.keepWithNext) { var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
+        // keepWithNext is only honoured for block kinds: a pending table row
+        // would be emitted outside its table.
+        if (b.keepWithNext && b.kind !== "row") { var h = measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
         place(b);
       });
       if (pending.length) { pending.forEach(function(p) { if (cur.used + p.h > CONTENT_H) { newSlide(); } closeTable(); cur.parts.push(p.html); cur.used += p.h; }); }
@@ -225,37 +336,35 @@
     function render() {
       var blocks = buildBlocks();
       // Belt and braces: if a slide still overflows after measuring, shrink
-      // the usable height and paginate again. overflow:hidden must never be
-      // what decides where a page ends.
-      var slides, tries = 0, budget = CONTENT_H;
+      // the usable height and paginate again.
+      var slides, tries = 0, budget = CONTENT_BUDGET;
       while (tries < 6) {
         CONTENT_H = budget;
         slides = paginate(blocks);
-        var worst = maxOverflow(slides, blocks);
+        var worst = maxOverflow(slides);
         if (worst <= 0) { break; }
         budget -= worst + 8;
         tries++;
       }
-      var footer = (est.business.name || "") + " · " + est.number;
+      var footer = footerText();
       var html = "";
       slides.forEach(function(s, i) {
         html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + '<div class="pg">' + (i + 1) + " of " + slides.length + '</div></section>';
       });
-      document.getElementById("pages").innerHTML = html;
-      document.title = "Invoice " + est.number + (est.business.name ? " - " + est.business.name : "");
-      // Final overflow check (nothing may be cut by overflow:hidden).
+      var pages = document.getElementById("pages");
+      if (pages) { pages.innerHTML = html; }
+      document.title = docTitle();
       var sections = document.querySelectorAll("#pages .slide");
       for (var i = 0; i < sections.length; i++) {
         var inner = sections[i].scrollHeight;
-        if (inner > sections[i].clientHeight + 1) { console.error("[estimate-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
+        if (inner > sections[i].clientHeight + 1) { console.error("[print-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
       }
       window.__estimatePages = slides.length;
     }
 
     // Renders candidate slides off-screen and reports the worst overflow in
-    // px (0 = every page fits above the footer line).
-    function maxOverflow(slides, blocks) {
-      var host = document.getElementById("pages");
+    // px past the content budget (0 = every page fits above the footer zone).
+    function maxOverflow(slides) {
       var probe = document.createElement("div");
       probe.style.cssText = "position:absolute;left:-20000px;top:0;";
       probe.innerHTML = slides.map(function(s) { return '<section class="slide" data-footer="">' + s.parts.join("") + '</section>'; }).join("");
@@ -267,7 +376,7 @@
         var last = kids[kids.length - 1];
         if (!last) { continue; }
         var bottom = last.getBoundingClientRect().bottom - secs[i].getBoundingClientRect().top;
-        var limit = 11 * 96 - 1 * 96;   // the slide's bottom padding edge, above the footer rule
+        var limit = PAD_TOP_PX + CONTENT_BUDGET;
         if (bottom - limit > worst) { worst = bottom - limit; }
       }
       document.body.removeChild(probe);
@@ -276,32 +385,42 @@
 
     function applyBrand(b) {
       var hex = /^#[0-9a-fA-F]{6}$/; var root = document.documentElement.style;
-      if (hex.test(b.brand_primary || "")) { root.setProperty("--brand", b.brand_primary); root.setProperty("--on-brand", textOn(b.brand_primary)); }
-      if (hex.test(b.brand_accent || "")) { root.setProperty("--accent", b.brand_accent); } else if (hex.test(b.brand_primary || "")) { root.setProperty("--accent", b.brand_primary); }
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand", primary); root.setProperty("--on-brand", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--accent", accent); root.setProperty("--on-accent", textOn(accent));
+        // The pill sits on a near-black tile: a dark accent would vanish, so
+        // it keeps the accent only when the accent itself is light enough.
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
     }
 
+    function preload(urls) {
+      // Images must be loaded before measuring, or the header block is
+      // measured without them and the first slide overflows.
+      return Promise.all(urls.filter(Boolean).map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); }));
+    }
+    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } }
+
     function load() {
-      if (!token) { document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Invoice not found.</p></section>'; return; }
+      if (!token) { notFound(); return; }
       fetch(WORKER_URL + "/api/public/invoices/" + token)
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
         .then(function(d) {
           est = d.invoice;
           applyBrand(est.business);
-          // Images must be loaded before measuring, or the header block is
-          // measured without its logo and the first slide overflows.
-          var urls = [est.business.logo_url].filter(Boolean);
-          var waits = urls.map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); });
-          return Promise.all(waits).then(function() {
+          return preload([est.business.logo_url, est.business.hero_url]).then(function() {
             render();
-            // Re-measure once fonts are in, then print from THIS window.
             if (document.fonts && document.fonts.ready) { return document.fonts.ready.then(function() { render(); }); }
           });
         })
         .then(function() {
           if (est && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { window.print(); }, 300); }
         })
-        .catch(function(e) { console.error(e); document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Invoice not found.</p></section>'; });
+        .catch(function(e) { console.error(e); notFound(); });
     }
+
     window.onload = function() { load(); };
   </script>
 </body>

@@ -3743,7 +3743,7 @@ function gmRenderPricing() {
       if (gmPricingNeedsOnly && !it.needs_info) { return; }
       var lines = it.cost_breakdown || [];
       var lineSummary = lines.map(function(l) {
-        return (l.label || "") + " " + (l.amount === null || l.amount === undefined ? "" : fmtNum(l.amount, "currency"));
+        return (l.label || "") + " " + (l.amount === null || l.amount === undefined ? "" : gmMoney(Math.round(l.amount * 100)));
       }).join(" · ");
       var kindWord = GmLabels.pricingKindLabel(it.kind || "product", isEn());
       html += '<button type="button" class="gm-row" onclick="gmOpenPricing(' + i + ')">' +
@@ -3751,13 +3751,13 @@ function gmRenderPricing() {
         '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(it.item) + (it.needs_info ? ' <span class="gm-pill gm-gold">● ' + gmT("Faltam dados", "Needs info") + '</span>' : "") + '</span>' +
         '<div class="gm-lead-sub">' +
         [it.category || null, it.kind === "addon" ? kindWord : null, it.unit,
-         (!ro && it.cost_total !== null && it.cost_total !== undefined) ? gmT("custo ", "cost ") + fmtNum(it.cost_total, "currency") : null,
-         it.price !== null && it.price !== undefined ? gmT("venda ", "price ") + fmtNum(it.price, "currency") : null]
+         (!ro && it.cost_total !== null && it.cost_total !== undefined) ? gmT("custo ", "cost ") + gmMoney(Math.round(it.cost_total * 100)) : null,
+         it.price !== null && it.price !== undefined ? gmT("venda ", "price ") + gmMoney(Math.round(it.price * 100)) : null]
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         (lineSummary && !ro ? '<div class="gm-lead-sub">' + escHtml(lineSummary) + '</div>' : "") +
         '</span>' +
         (ro ? '<span class="gm-lead-side">' +
-                (it.price !== null && it.price !== undefined ? escHtml(fmtNum(it.price, "currency")) : '<span class="muted">—</span>') +
+                (it.price !== null && it.price !== undefined ? gmMoney(Math.round(it.price * 100)) : '<span class="muted">—</span>') +
                 '<div class="gm-lead-sub">' + gmT("preço", "price") + '</div></span>'
             : '<span class="gm-lead-side">' + gmPricingMarginHtml(it.margin, it.margin_pct) +
                 '<div class="gm-lead-sub">' + gmT("margem", "margin") + '</div></span>') +
@@ -3921,19 +3921,19 @@ function gmPricingTotalsHtml() {
   return '<div class="gm-pricing-totals">' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Material", "Materials") + '</span><span class="gm-pricing-total-value">' +
-      (c.material_cost === null ? "—" : escHtml(fmtNum(c.material_cost, "currency"))) + '</span></div>' +
+      (c.material_cost === null ? "—" : escHtml(gmMoney(Math.round(c.material_cost * 100)))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Mão de obra", "Labor") + '</span><span class="gm-pricing-total-value">' +
-      (c.labor_cost === null ? "—" : escHtml(fmtNum(c.labor_cost, "currency"))) + '</span></div>' +
+      (c.labor_cost === null ? "—" : escHtml(gmMoney(Math.round(c.labor_cost * 100)))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Outros", "Other") + '</span><span class="gm-pricing-total-value">' +
-      (c.other_cost === null ? "—" : escHtml(fmtNum(c.other_cost, "currency"))) + '</span></div>' +
+      (c.other_cost === null ? "—" : escHtml(gmMoney(Math.round(c.other_cost * 100)))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Custo total", "Total cost") + '</span><span class="gm-pricing-total-value">' +
-      (c.cost_total === null ? "—" : escHtml(fmtNum(c.cost_total, "currency"))) + '</span></div>' +
+      (c.cost_total === null ? "—" : escHtml(gmMoney(Math.round(c.cost_total * 100)))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Margem", "Margin") + '</span><span class="gm-pricing-total-value">' +
-      (c.margin === null ? "—" : escHtml(fmtNum(c.margin, "currency"))) + '</span></div>' +
+      (c.margin === null ? "—" : escHtml(gmMoney(Math.round(c.margin * 100)))) + '</span></div>' +
     '<div class="gm-pricing-total"><span class="gm-pricing-total-label">' +
       gmT("Margem (%)", "Margin (%)") + '</span><span class="gm-pricing-total-value">' +
       (c.margin_pct === null ? "—" : escHtml(fmtNum(c.margin_pct, "percent"))) + '</span></div>' +

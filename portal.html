@@ -603,6 +603,15 @@
       width: 8px; height: 8px; border-radius: 50%;
       background: #c9a43a; box-shadow: 0 0 0 2px #fff;
     }
+    /* The same dot, grown to hold a count (Faturas: payments awaiting
+       verification). One component, two sizes. */
+    .assigned-dot.assigned-count, .m-tab-dot.m-tab-count {
+      width: auto; min-width: 16px; height: 16px; border-radius: 8px;
+      padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 16px;
+      text-align: center; color: #fff;
+    }
+    .m-tab-dot.m-tab-count { top: -6px; right: -10px; }
+    .mm-item .m-tab-dot.m-tab-count { position: static; display: inline-block; margin-left: 8px; box-shadow: none; }
 
     /* Developer preview banner */
     #previewBanner {
@@ -1343,6 +1352,9 @@
         </button>
         <button class="portal-tab" data-tab="gminvoices" onclick="switchTab('gminvoices')">
           <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
+          <!-- Same dot component as Assigned / Ritmo, carrying a count: seller-
+               reported payments awaiting the owner's verification (A9). -->
+          <span class="assigned-dot assigned-count" id="invoicesTabBadge" hidden aria-hidden="true"></span>
         </button>
         <button class="portal-tab" data-tab="gmcalendar" onclick="switchTab('gmcalendar')">
           <span class="show-pt">Agenda</span><span class="show-en">Calendar</span>
@@ -1429,6 +1441,10 @@
                nothing issued/booked  -> hidden entirely, no dead button
              The banner clients already recognise is the one that survived; the
              scheduling states folded into it. -->
+        <!-- Owner attention (A9 / A2): seller-reported payments awaiting
+             verification and estimates signed online. Filled by
+             gmAttentionChanged() from gm.js's gmAttention. -->
+        <div class="content-card" id="gmAttentionCard" hidden></div>
         <div class="content-card" id="meetingsCard" hidden>
           <div class="card-title" id="meetingsCardTitle">
             <span class="show-pt">Pr&oacute;ximas reuni&otilde;es</span>
@@ -3974,6 +3990,27 @@
     // a day-off, a schedule or blocked-range edit) — it replaces the three
     // hand-rolled #pendingBanner assignments that existed before, which each
     // knew about the banner and nothing about the dots.
+    // Faturas badge count (A9): payments awaiting the owner's verification.
+    // 0 for sellers, leads and clients without the Faturas tab.
+    function gmAttentionBadgeCount() {
+      if (window.gmAttentionEnabled !== true || typeof gmAttentionCount !== "function") { return 0; }
+      return gmAttentionCount();
+    }
+    // Called by gm.js whenever gmAttention changes: strip badge, dock / Mais
+    // counts and the Home card.
+    function gmAttentionChanged() {
+      var n = gmAttentionBadgeCount();
+      var badge = document.getElementById("invoicesTabBadge");
+      if (badge) { badge.textContent = String(n); badge.hidden = !n; }
+      populateMobileDock();
+      var card = document.getElementById("gmAttentionCard");
+      if (card && typeof gmAttentionCardHtml === "function") {
+        var html = gmAttentionCardHtml();
+        card.innerHTML = html;
+        card.hidden = !html;
+      }
+    }
+
     function refreshPendingAffordances() {
       var banner = document.getElementById("pendingBanner");
       if (banner) { banner.hidden = !anyPendingEntries(); }
@@ -4011,6 +4048,11 @@
         loadMeetings();
       }
       applyPortalShape();
+      // Owner attention (A9 / A2) exists only where the Faturas tab does.
+      var invTab = null;
+      PORTAL_TABS.forEach(function(t) { if (t.tab === "gminvoices") { invTab = t; } });
+      window.gmAttentionEnabled = !isSeller() && !isLead() && !!invTab && portalTabEnabled(invTab);
+      if (window.gmAttentionEnabled && typeof gmLoadAttention === "function") { gmLoadAttention(); }
       populateMobileDock();
       // ?tab=<id> lands straight on a tab. PORTAL_TABS has always called these
       // "valid tab ids for deep links" but nothing read the URL, so a link
@@ -4828,14 +4870,17 @@
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar || !window.apexNavSvg) { return; }
       var html = "";
+      // Faturas count (A9); 0 wherever the attention loader is absent.
+      var attnCount = typeof gmAttentionBadgeCount === "function" ? gmAttentionBadgeCount() : 0;
       portalDockTabs().forEach(function(t) {
         html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
         // Dots are state-derived, same rule as the desktop strip: Assigned dots
         // on an incomplete assessment, Ritmo dots on a pending daily backlog.
         var dot = (t.tab === "assigned" && anyIncompleteAssigned()) ||
                   (t.tab === "goals" && anyPendingEntries());
+        var count = t.tab === "gminvoices" ? attnCount : 0;
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) +
-          (dot ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '') + '</span>';
+          (count ? '<span class="m-tab-dot m-tab-count" aria-hidden="true">' + count + '</span>' : (dot ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '')) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
         html += '</button>';
       });
@@ -4843,8 +4888,11 @@
       // overflow is empty (their one tab is docked), and an empty full-screen
       // menu is worse than no button.
       if (portalMoreTabs().length) {
+        // The count follows the tab: when Faturas sits behind "Mais", Mais wears it.
+        var moreCount = portalMoreTabs().some(function(t) { return t.tab === "gminvoices"; }) ? attnCount : 0;
         html += '<button type="button" class="m-tab" data-dock-tab="mais" data-tour="portal-more-menu" onclick="portalMoreToggle()">';
-        html += '<span class="m-tab-ico">' + window.apexNavSvg("more") + '</span>';
+        html += '<span class="m-tab-ico">' + window.apexNavSvg("more") +
+          (moreCount ? '<span class="m-tab-dot m-tab-count" aria-hidden="true">' + moreCount + '</span>' : '') + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
         html += '</button>';
       }
@@ -4874,7 +4922,8 @@
             ' onclick="portalMoreGo(\'' + t.tab + '\',' + (t.locked ? "true" : "false") + ')">';
           menuHtml += '<span class="mm-item-ico">' + window.apexNavSvg(t.icon) + '</span>';
           menuHtml += '<span><span class="show-pt">' + t.labelPt + (t.locked ? ' &#128274;' : '') + '</span>' +
-            '<span class="show-en">' + t.labelEn + (t.locked ? ' &#128274;' : '') + '</span></span>';
+            '<span class="show-en">' + t.labelEn + (t.locked ? ' &#128274;' : '') + '</span>' +
+            (t.tab === "gminvoices" && attnCount ? '<span class="m-tab-dot m-tab-count" aria-hidden="true">' + attnCount + '</span>' : '') + '</span>';
           if (t.locked) {
             menuHtml += '<span class="mm-item-chevron"><span class="show-pt">Pr&eacute;via</span>' +
               '<span class="show-en">Preview</span></span>';
@@ -6800,6 +6849,9 @@
           isSellerSession = (role.login_role === "seller") ||
                             (!!PREVIEW_SELLER && !!PREVIEW_AS);
           window.PORTAL_IS_SELLER = isSellerSession;
+          // The seller's own name (from the session, never a header) for the
+          // {seller_name} fallback on send sheets.
+          window.PORTAL_SELLER_NAME = isSellerSession ? (role.seller_name || role.display_name || "") : "";
           if (role.role === "client" && role.must_change_password) {
             document.getElementById("loadingScreen").hidden = true;
             document.getElementById("appMain").hidden = false;
@@ -6910,7 +6962,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790437232"></script>
+  <script src="gm.js?v=1790447518"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

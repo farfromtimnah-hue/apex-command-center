@@ -28,6 +28,7 @@ function gmT(pt, en) { return isEn() ? en : pt; }
 // A salesperson session. PRESENTATION ONLY -- every restriction it drives is
 // enforced again server-side (sellerRequestAllowed + row-level scoping).
 function gmIsSeller() { return window.PORTAL_IS_SELLER === true; }
+function gmSellerDisplayName() { return gmIsSeller() ? (window.PORTAL_SELLER_NAME || "") : ""; }
 
 function gmApi(path, opts) {
   return apiFetch("/api/clients/" + clientId + "/gm/" + path, opts)
@@ -189,7 +190,14 @@ function gmPillHtml(word, def) {
 var gmSheetEl = null;
 var gmSheetHistoryArmed = false;
 
+// Optional hook run when the CURRENT sheet is dismissed by the user (Cancel,
+// the X, the overlay, Escape or the Back gesture) rather than replaced or
+// committed. gmOpenFieldEditor sets it from its onCancel argument so a
+// prompt opened from inside another sheet can hand control back to it.
+var gmSheetOnUserClose = null;
+
 function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
+  gmSheetOnUserClose = null;
   gmSheetCloseNow();
   var overlay = document.createElement("div");
   overlay.className = "gm-sheet-overlay";
@@ -208,8 +216,14 @@ function gmSheetOpen(titleHtml, bodyHtml, tourKey) {
   document.body.appendChild(overlay);
   gmSheetEl = overlay;
   if (!gmSheetHistoryArmed) {
-    history.pushState({ gmSheet: true }, "");
     gmSheetHistoryArmed = true;
+    // A sheet opened while an earlier close's history.back() is still in
+    // flight must NOT push its own entry: the delayed popstate would arrive
+    // with the sheet armed and close it (the "reason prompt closes itself"
+    // bug). The popstate handler pushes the entry once the back has landed.
+    if (gmSheetBackPending === 0) {
+      history.pushState({ gmSheet: true }, "");
+    }
   }
 }
 
@@ -218,18 +232,55 @@ function gmSheetCloseNow() {
   gmSheetEl = null;
 }
 
+// history.back() is asynchronous: its popstate lands on a later task. While
+// one is in flight (gmSheetBackPending > 0) the popstate handler must treat
+// the event as the consumption of an OLD entry, never as the user dismissing
+// whatever sheet a save callback opened in the meantime.
+var gmSheetBackPending = 0;
+var gmSheetBackTimer = null;
+
 function gmSheetClose() {
+  var onClose = gmSheetOnUserClose;
+  gmSheetOnUserClose = null;
   gmSheetCloseNow();
   if (gmSheetHistoryArmed) {
     gmSheetHistoryArmed = false;
+    gmSheetBackPending += 1;
+    if (gmSheetBackTimer) { clearTimeout(gmSheetBackTimer); }
+    // Safety net: if the popstate never arrives (no entry to go back to),
+    // forget the pending back so later sheets arm their own entry again.
+    gmSheetBackTimer = setTimeout(gmSheetBackSettle, 1500);
     history.back();   // consume the sheet's history entry
+  }
+  if (onClose) { onClose(); }
+}
+
+function gmSheetBackSettle() {
+  gmSheetBackTimer = null;
+  gmSheetBackPending = 0;
+  if (gmSheetEl && gmSheetHistoryArmed) {
+    history.pushState({ gmSheet: true }, "");
   }
 }
 
 window.addEventListener("popstate", function() {
+  if (gmSheetBackPending > 0) {
+    gmSheetBackPending -= 1;
+    if (gmSheetBackPending === 0) {
+      if (gmSheetBackTimer) { clearTimeout(gmSheetBackTimer); gmSheetBackTimer = null; }
+      // A sheet opened during the round-trip now gets the entry it skipped.
+      if (gmSheetEl && gmSheetHistoryArmed) {
+        history.pushState({ gmSheet: true }, "");
+      }
+    }
+    return;
+  }
   if (gmSheetHistoryArmed) {
     gmSheetHistoryArmed = false;
+    var onClose = gmSheetOnUserClose;
+    gmSheetOnUserClose = null;
     gmSheetCloseNow();
+    if (onClose) { onClose(); }
   }
 });
 
@@ -279,13 +330,20 @@ function gmToast(msg, actionLabel, actionFn) {
   var el = document.createElement("div");
   el.className = "gm-toast";
   el.innerHTML = '<span>' + escHtml(msg) + '</span>' +
-    (actionLabel ? '<button type="button" onclick="gmToastRunAction()">' + escHtml(actionLabel) + '</button>' : '');
+    (actionLabel ? '<button type="button" onclick="gmToastRunAction()">' + escHtml(actionLabel) + '</button>' +
+      '<button type="button" aria-label="' + gmT("Fechar", "Close") + '" onclick="gmToastDismiss()">&#10005;</button>' : '');
   document.body.appendChild(el);
   gmToastEl = el;
-  gmToastTimer = setTimeout(function() {
-    if (gmToastEl && gmToastEl.parentNode) { gmToastEl.parentNode.removeChild(gmToastEl); }
-    gmToastEl = null;
-  }, 5000);
+  // A toast carrying an action (C4) stays long enough to be tapped: 10s, or
+  // until tapped / dismissed. A plain toast keeps the 5s.
+  gmToastTimer = setTimeout(gmToastDismiss, actionLabel ? 10000 : 5000);
+}
+
+function gmToastDismiss() {
+  if (gmToastTimer) { clearTimeout(gmToastTimer); gmToastTimer = null; }
+  if (gmToastEl && gmToastEl.parentNode) { gmToastEl.parentNode.removeChild(gmToastEl); }
+  gmToastEl = null;
+  gmToastAction = null;
 }
 
 function gmToastRunAction() {
@@ -317,7 +375,7 @@ function gmServicoList(v) {
   return out;
 }
 
-function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml) {
+function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, onCancel) {
   gmEditorSave = onSave;
   var inner = "";
   if (type === "multichoice") {
@@ -371,6 +429,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml) {
     '<button type="button" class="btn-gold" onclick="gmEditorCommit(\'' + type + '\')">' + gmT("Salvar", "Save") + '</button>' +
     '</div>';
   gmSheetOpen(escHtml(label), body, "gm-field-editor");
+  gmSheetOnUserClose = onCancel || null;
   var input = document.getElementById("gmEditorInput");
   if (input && type !== "date" && type !== "datetime" && input.tagName !== "SELECT") {
     input.focus();
@@ -428,6 +487,7 @@ function gmEditorCommit(type) {
   }
   var fn = gmEditorSave;
   gmEditorSave = null;
+  gmSheetOnUserClose = null;   // a commit is not a dismissal
   gmSheetClose();
   if (fn) { fn(value); }
 }
@@ -2872,7 +2932,8 @@ function gmEditLeadField(defIdx) {
         if (!reason) { gmToast(gmT("Alteração cancelada: informe o motivo.", "Change cancelled: a reason is required.")); gmRenderLeadSheet(); return; }
         gmSaveLeadField(def.key, value, function() { gmRenderLeadSheet(); }, reason);
       }, '<div class="gm-derived-note">' + gmT("Este valor veio do estimate " + lead.est_number + ". O motivo fica no histórico do lead.",
-          "This value came from estimate " + lead.est_number + ". The reason is kept in the lead's history.") + '</div>');
+          "This value came from estimate " + lead.est_number + ". The reason is kept in the lead's history.") + '</div>',
+      function() { gmToast(gmT("Alteração cancelada: informe o motivo.", "Change cancelled: a reason is required.")); gmRenderLeadSheet(); });
       return;
     }
     gmSaveLeadField(def.key, value, function() { gmRenderLeadSheet(); });
@@ -6683,7 +6744,7 @@ function gmEstRowHtml(e) {
 function gmEstSetFilter(f) { gmEstFilter = f; gmRenderEstimatesTab(); }
 
 function gmLoadEstimatesList() {
-  return gmApi("estimates").then(function(d) { gmEstList = d; return d; });
+  return gmApi("estimates").then(function(d) { gmEstList = d; gmAttentionRecompute(); return d; });
 }
 
 // ── Detail sheet ────────────────────────────────────────────────────────
@@ -6724,10 +6785,14 @@ function gmEstOptionSummaryHtml(o, est) {
   if (o.discount_cents) { h += gmSheetRowHtml("tag", gmT("Desconto", "Discount"), "− " + gmMoney(o.discount_cents)); }
   h += gmSheetRowHtml("dollar", gmT("Total", "Total"), "<strong>" + gmMoney(o.total_cents) + "</strong>");
   h += '</div></div>';
-  // Internal panel: never on the customer's document.
+  // Internal panel: never on the customer's document, and not for a seller
+  // (C13): a seller never receives costs, so its $0 / 100% would be false.
+  if (gmIsSeller()) { return h; }
   var i = o.internal || {};
   var c = i.costs || {};
+  var unknown = i.cost_unknown_lines || [];
   h += gmSheetSection(gmT("Interno (não impresso)", "Internal (never printed)"),
+    (unknown.length ? '<p class="gm-warn" style="margin:0;padding:8px 12px;">⚠ ' + gmT("Linhas avulsas sem custo (contam como $0.00 na margem): ", "Custom lines without a cost (counted as $0.00 in the margin): ") + escHtml(unknown.join(", ")) + '</p>' : "") +
     gmSheetRowHtml("tag", gmT("Custo", "Cost"), gmMoney(c.total_cents) + ' <span class="muted">(' + gmT("mat. ", "mat. ") + gmMoney(c.material_cents) + ' · ' + gmT("m.o. ", "labor ") + gmMoney(c.labor_cents) + ' · ' + gmT("outros ", "other ") + gmMoney(c.other_cents) + ')</span>') +
     gmSheetRowHtml("users", gmT("Comissão", "Commission"), i.commission_cents === null || i.commission_cents === undefined ? "" : gmMoney(i.commission_cents)) +
     gmSheetRowHtml("compass", gmT("Margem", "Margin"),
@@ -6741,6 +6806,15 @@ function gmEstOptionSummaryHtml(o, est) {
 }
 
 function gmEstCanEdit(est) { return ["draft", "sent", "viewed", "changes_requested"].indexOf(est.stored_status) !== -1; }
+
+// The newest revision of the same number in the loaded list (C3).
+function gmEstCurrentRevision(est) {
+  var best = null;
+  ((gmEstList && gmEstList.estimates) || []).forEach(function(e) {
+    if (e.number === est.number && e.id !== est.id && e.stored_status !== "superseded" && e.stored_status !== "void" && (!best || e.revision > best.revision)) { best = e; }
+  });
+  return best;
+}
 
 function gmRenderEstimateSheet() {
   var est = gmEstDetail;
@@ -6760,7 +6834,15 @@ function gmRenderEstimateSheet() {
 
   // Actions
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
-  if (est.stored_status !== "void") {
+  // C3: a superseded revision is read-only (no Send / Edit / Void) and points
+  // at the current revision; an accepted estimate is not sent again.
+  var superseded = est.stored_status === "superseded";
+  var current = superseded ? gmEstCurrentRevision(est) : null;
+  if (superseded) {
+    body += '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Substituído por ", "Replaced by ") +
+      (current ? '<a href="#" onclick="gmOpenEstimate(\'' + escHtml(current.id) + '\'); return false;">' + escHtml(current.display_number) + '</a>' : gmT("uma revisão mais recente", "a newer revision")) + '</p>';
+  }
+  if (est.stored_status !== "void" && est.stored_status !== "accepted" && !superseded) {
     body += '<button type="button" class="gm-btn-primary" id="gmEstSendBtn" onclick="gmEstSendOpen()">' + gmT("Enviar", "Send") + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(est.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
@@ -6771,7 +6853,7 @@ function gmRenderEstimateSheet() {
   } else if (["accepted", "declined", "expired"].indexOf(est.stored_status) !== -1 || est.status === "expired") {
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstRevise()">' + gmT("Criar revisão", "Create revision") + '</button>';
   }
-  if (!gmIsSeller() && est.stored_status !== "void") {
+  if (!gmIsSeller() && est.stored_status !== "void" && !superseded) {
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstVoidOpen()">' + gmT("Anular", "Void") + '</button>';
   }
   body += '</div></div>';
@@ -6868,7 +6950,7 @@ function gmEstMarkAccepted() {
 // After acceptance (2i): prompt, never auto-change.
 function gmEstAfterAccept(est) {
   var body = '<div class="gm-sheet-section"><p>' +
-    gmT("Estimate aceito. Mover este lead para Fechado e criar o projeto?", "Estimate accepted. Move this lead to Fechado and create the project?") + '</p>' +
+    gmT("Estimate aceito. Mover este lead para " + gmStageLabel("fechado") + " e criar o projeto?", "Estimate accepted. Move this lead to " + gmStageLabel("fechado") + " and create the project?") + '</p>' +
     '<button type="button" class="gm-btn-primary" onclick="gmEstCloseAndPromote(\'' + escHtml(est.lead_id) + '\')">' + gmT("Sim, fechar e criar projeto", "Yes, close and create the project") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmOpenEstimate(\'' + escHtml(est.id) + '\')">' + gmT("Agora não", "Not now") + '</button></div>';
   gmSheetOpen(gmT("Estimate aceito", "Estimate accepted"), body);
@@ -6880,7 +6962,14 @@ function gmEstCloseAndPromote(leadId) {
     .then(function() { return gmApi("leads/" + encodeURIComponent(leadId) + "/promote", { method: "POST" }); })
     .then(function(res) {
       gmSheetClose();
-      gmToast(gmT("Lead fechado e projeto criado.", "Lead closed and project created."), gmT("Ver projeto", "View project"), function() { switchTab("gmjobs"); });
+      // C2: a second accepted estimate on a won lead is a change order on
+      // the SAME project -- never announce a project that was not created.
+      var job = res && res.job;
+      if (res && res.already) {
+        gmToast(gmT("Adicionado ao projeto ", "Added to project ") + ((job && job.obra) || ""), gmT("Ver projeto", "View project"), function() { switchTab("gmjobs"); });
+      } else {
+        gmToast(gmT("Lead fechado e projeto criado.", "Lead closed and project created."), gmT("Ver projeto", "View project"), function() { switchTab("gmjobs"); });
+      }
       gmLoadCrmSilent();
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
@@ -6917,9 +7006,29 @@ function gmDocFillMessage(tpl, vars) {
   return out;
 }
 
+// {seller_name} when the owner sends and the lead has no vendedor: the
+// owner's first name (C14), which the server sends as sender_name on the
+// document and as settings_lite.owner_first_name; the business name only
+// when the client record has no owner at all.
+function gmDocSenderFallback() {
+  var lite = gmDocMessages && gmDocMessages.settings_lite;
+  return (lite && lite.owner_first_name) || (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : "") || "";
+}
+// "Opens WhatsApp to (401) 651-4117" under the send buttons (A4).
+function gmDocSendPhoneNote(phone) {
+  if (!phone) { return ""; }
+  return '<p class="gm-derived-note">' + gmT("Abre o WhatsApp para ", "Opens WhatsApp to ") + '<strong>' + escHtml(gmFmtPhone(phone)) + '</strong></p>';
+}
+function gmFmtPhone(tel) {
+  var d = String(tel || "").replace(/\D/g, "");
+  if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }
+  if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); }
+  return String(tel || "");
+}
+
 function gmEstMessageVars(est) {
   var biz = (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : "") || "";
-  var seller = gmIsSeller() ? (est.vendedor || "") : (est.vendedor || biz);
+  var seller = gmIsSeller() ? (est.vendedor || gmSellerDisplayName() || "") : (est.sender_name || est.vendedor || gmDocSenderFallback());
   return {
     customer_first_name: String(est.customer_name || "").trim().split(/\s+/)[0] || "",
     job_name: est.job_name, business_name: biz, seller_name: seller, link: est.link
@@ -6939,7 +7048,8 @@ function gmEstRenderSendSheet() {
   var est = gmEstDetail;
   var tpl = (gmDocMessages && gmDocMessages.messages && gmDocMessages.messages.estimate_message) || "";
   var text = gmDocFillMessage(tpl, gmEstMessageVars(est));
-  var phone = est.customer_phone || "";
+  // The lead's CURRENT phone first (A4); the estimate's frozen one as fallback.
+  var phone = est.send_phone || est.customer_phone || "";
   var digits = gmWaDigits(phone);
   var body = '<div class="gm-sheet-section">' +
     '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O estimate fica como enviado.",
@@ -6948,7 +7058,7 @@ function gmEstRenderSendSheet() {
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmEstSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    (!phone ? '<p class="gm-warn">' + gmT("Este estimate não tem telefone do cliente; edite-o para adicionar.", "This estimate has no customer phone; edit it to add one.") + '</p>' : "") +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no estimate; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
@@ -7339,7 +7449,14 @@ function gmEstWizRateChange(i, v) {
     gmOpenFieldEditor(gmT("Por que o preço mudou?", "Why did the rate change?"), "text", it.rate_override_reason || "", [], function(reason) {
       if (!reason) { gmToast(gmT("O preço volta ao da tabela sem um motivo.", "Without a reason the rate goes back to the price list.")); it.rate_cents = it.preset_rate_cents; it.rate_override_reason = ""; gmEstWizRender(); return; }
       it.rate_cents = cents; it.rate_override_reason = reason; gmEstWizRender();
-    }, '<div class="gm-derived-note">' + gmT("Tabela: ", "Price list: ") + gmMoney(it.preset_rate_cents) + ' → ' + gmMoney(cents) + '. ' + gmT("O motivo fica registrado no histórico do lead.", "The reason is recorded in the lead's history.") + '</div>');
+    }, '<div class="gm-derived-note">' + gmT("Tabela: ", "Price list: ") + gmMoney(it.preset_rate_cents) + ' → ' + gmMoney(cents) + '. ' + gmT("O motivo fica registrado no histórico do lead.", "The reason is recorded in the lead's history.") + '</div>',
+    function() {
+      // Cancel / X / Back: the rate goes back to the price list and the
+      // wizard comes back on the same step with every tier and line intact.
+      it.rate_cents = it.preset_rate_cents; it.rate_override_reason = "";
+      gmToast(gmT("O preço voltou ao da tabela.", "The rate went back to the price list."));
+      gmEstWizRender();
+    });
     return;
   }
   it.rate_cents = cents;
@@ -7649,7 +7766,8 @@ function gmInvSetFilter(f) { gmInvFilter = f; gmRenderInvoicesTab(); }
 function gmInvRowHtml(inv) {
   return '<button type="button" class="gm-row" onclick="gmOpenInvoice(\'' + escHtml(inv.id) + '\')">' +
     '<span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(inv.number) + ' · ' + escHtml(inv.job_name || "") + (inv.step_label ? ' · ' + escHtml(inv.step_label) : "") + '</span>' +
-    '<div class="gm-lead-sub">' + [inv.customer_name, inv.vendedor, gmMoney(inv.amount_cents)].filter(Boolean).map(escHtml).join(" · ") + '</div>' +
+    // The project is usually named after the customer (C10): print the name once.
+    '<div class="gm-lead-sub">' + [(inv.customer_name && inv.customer_name !== inv.job_name) ? inv.customer_name : null, inv.vendedor, gmMoney(inv.amount_cents)].filter(Boolean).map(escHtml).join(" · ") + '</div>' +
     '<div class="gm-lead-sub">' + (inv.due_date ? gmT("vence ", "due ") + escHtml(formatDate(inv.due_date)) : "") + (inv.balance_cents ? ' · ' + gmT("saldo ", "balance ") + gmMoney(inv.balance_cents) : "") + '</div></span>' +
     '<span class="gm-lead-side">' + gmInvPillHtml(inv) + '</span></button>';
 }
@@ -7675,7 +7793,7 @@ function gmRenderInvoiceSheet() {
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (inv.status !== "void") {
     body += '<button type="button" class="gm-btn-primary" id="gmInvSendBtn" onclick="gmInvSendOpen()">' + gmT("Enviar fatura", "Send invoice") + '</button>' +
-      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + gmT("Registrar pagamento", "Record payment") + '</button>';
+      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(inv.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
@@ -7716,7 +7834,7 @@ function gmRenderInvoiceSheet() {
     var st = { pending_verification: ["gm-gold", "●", gmT("aguardando", "pending")], verified: ["gm-green", "✓", gmT("verificado", "verified")], rejected: ["gm-muted", "✕", gmT("rejeitado", "rejected")], reversed: ["gm-red", "↩", gmT("estornado", "reversed")] }[p.state] || ["gm-muted", "○", p.state];
     var sub = [escHtml(gmInvMethodLabel(p.method)) + (p.reference ? " " + escHtml(p.reference) : ""), escHtml(formatDate(p.paid_date)), gmT("por ", "by ") + escHtml(p.recorded_by || "")].join(" · ") +
       (p.receipt_number ? '<br>' + gmT("Recibo ", "Receipt ") + escHtml(p.receipt_number) : "") +
-      (p.reject_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reject_reason) : "") + (p.reverse_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reverse_reason) : "");
+      (p.reject_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reject_reason) : "") + (p.reverse_reason ? '<br>' + gmT("Estornado ", "Reversed ") + (p.reversed_at ? escHtml(formatDateTimeUTC(p.reversed_at)) + " · " : "") + gmT("motivo (visível ao cliente): ", "reason (visible to the customer): ") + escHtml(p.reverse_reason) : "");
     var actions = "";
     if (!ro && p.state === "pending_verification") {
       actions = '<div class="gm-est-actions" style="margin:6px 0 10px;"><button type="button" class="gm-btn-primary" onclick="gmInvPaymentAction(\'' + escHtml(p.id) + '\', \'verify\')">' + gmT("Verificar", "Verify") + '</button>' +
@@ -7751,17 +7869,17 @@ function gmInvPaymentOpen() {
   var body = '<div class="gm-sheet-section">' +
     (gmIsSeller() ? '<p class="muted">' + gmT("Você informa o pagamento; o dono verifica antes de contar como recebido.", "You report the payment; the owner verifies it before it counts as paid.") + '</p>' : "") +
     '<label class="gm-field-label" for="gmPayAmt">' + gmT("Valor ($)", "Amount ($)") + '</label>' +
-    '<div class="gm-cost-line"><input type="text" inputmode="decimal" id="gmPayAmt" class="gm-input gm-cost-label" value="">' +
-    '<button type="button" class="gm-btn-secondary" style="margin:0;flex:0 0 auto;" onclick="document.getElementById(\'gmPayAmt\').value=\'' + (inv.balance_cents / 100).toFixed(2) + '\'">' + gmT("Total", "Full") + '</button></div>' +
+    '<input type="text" inputmode="decimal" id="gmPayAmt" class="gm-input" value="" placeholder="0.00">' +
+    '<button type="button" class="gm-choice-chip" style="margin:6px 0 10px;" onclick="var a = document.getElementById(\'gmPayAmt\'); if (a) { a.value = \'' + (inv.balance_cents / 100).toFixed(2) + '\'; }">' + gmT("Valor total", "Full amount") + ' · ' + gmMoney(inv.balance_cents) + '</button>' +
     '<label class="gm-field-label" for="gmPayDate">' + gmT("Data", "Date") + '</label><input type="date" id="gmPayDate" class="gm-input" value="' + escHtml(localDateStr()) + '">' +
     '<label class="gm-field-label" for="gmPayMethod">' + gmT("Forma de pagamento *", "Method *") + '</label>' +
     '<select id="gmPayMethod" class="gm-input"><option value="">—</option>' + GM_INV_METHODS.map(function(m) { return '<option value="' + m + '">' + escHtml(gmInvMethodLabel(m)) + '</option>'; }).join("") + '</select>' +
     '<label class="gm-field-label" for="gmPayRef">' + gmT("Referência (nº do cheque, confirmação Zelle)", "Reference (check number, Zelle confirmation)") + '</label><input type="text" id="gmPayRef" class="gm-input">' +
     '<label class="gm-field-label" for="gmPayNote">' + gmT("Observação", "Note") + '</label><textarea id="gmPayNote" class="gm-input" rows="2"></textarea>' +
     '<p class="gm-warn" id="gmPayMsg" hidden></p>' +
-    '<button type="button" class="gm-btn-primary" id="gmPaySave" onclick="gmInvPaymentSave()">' + gmT("Salvar pagamento", "Save payment") + '</button>' +
+    '<button type="button" class="gm-btn-primary" id="gmPaySave" onclick="gmInvPaymentSave()">' + (gmIsSeller() ? gmT("Informar pagamento", "Report payment") : gmT("Salvar pagamento", "Save payment")) + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmRenderInvoiceSheet()">' + gmT("Cancelar", "Cancel") + '</button></div>';
-  gmSheetOpen(gmT("Registrar pagamento", "Record payment") + " · " + escHtml(inv.number), body);
+  gmSheetOpen((gmIsSeller() ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + " · " + escHtml(inv.number), body);
 }
 
 function gmInvPaymentSave() {
@@ -7783,7 +7901,60 @@ function gmInvPaymentSave() {
     .catch(function(e) { btn.disabled = false; say(e.message); console.error(e); });
 }
 
-function gmLoadInvoicesSilent() { gmApi("invoices").then(function(d) { gmInvList = d; if (gmCurrentTab === "gminvoices") { gmRenderInvoicesTab(); } }).catch(function(e) { console.error(e); }); }
+function gmLoadInvoicesSilent() { gmApi("invoices").then(function(d) { gmInvList = d; if (gmCurrentTab === "gminvoices") { gmRenderInvoicesTab(); } gmAttentionRecompute(); }).catch(function(e) { console.error(e); }); }
+
+// ── Owner attention (A9 / A2) ────────────────────────────────────────────
+// What the owner must not miss: seller-reported payments awaiting
+// verification, and estimates the customer signed online (last 7 days).
+// Rendered as a count badge on Faturas (strip, dock, Mais) and a card on
+// Home. portal.html owns the badge and card containers and calls
+// gmLoadAttention() at boot; gmAttentionChanged() (portal.html) repaints.
+var gmAttention = { pending_alerts: [], online_acceptances: [] };
+function gmLoadAttention() {
+  if (gmIsSeller() || window.gmAttentionEnabled !== true) { return Promise.resolve(gmAttention); }
+  var loads = [];
+  if (!gmInvList) { loads.push(gmApi("invoices").then(function(d) { gmInvList = d; })); }
+  if (!gmEstList) { loads.push(gmLoadEstimatesList()); }
+  return Promise.all(loads).then(function() { gmAttentionRecompute(); return gmAttention; })
+    .catch(function(e) { console.error("attention load failed", e); return gmAttention; });
+}
+function gmAttentionRecompute() {
+  if (gmIsSeller()) { return; }
+  var pend = (gmInvList && gmInvList.pending_alerts) || [];
+  var cutoff = Date.now() - 7 * 86400000;
+  var signed = ((gmEstList && gmEstList.estimates) || []).filter(function(e) {
+    return e.accepted_by_kind === "customer" && e.accepted_at && Date.parse(e.accepted_at.replace(" ", "T") + "Z") >= cutoff;
+  }).sort(function(a, b) { return a.accepted_at < b.accepted_at ? 1 : -1; });
+  gmAttention = { pending_alerts: pend, online_acceptances: signed };
+  if (typeof gmAttentionChanged === "function") { gmAttentionChanged(gmAttention); }
+}
+function gmAttentionCount() { return (gmAttention.pending_alerts || []).length; }
+function gmAttentionCardHtml() {
+  var a = gmAttention;
+  if (!a.pending_alerts.length && !a.online_acceptances.length) { return ""; }
+  var h = "";
+  if (a.pending_alerts.length) {
+    h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
+    a.pending_alerts.forEach(function(x) {
+      h += '<button type="button" class="gm-row" onclick="gmAttentionOpenInvoice(\'' + escHtml(x.invoice_id) + '\')"><span class="gm-lead-main">' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(x.recorded_by || "") + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") + gmMoney(x.amount_cents) + '</span>' +
+        '<div class="gm-lead-sub">' + escHtml(x.invoice_number) + ' · ' + escHtml(gmInvMethodLabel(x.method)) + (x.reference ? " " + escHtml(x.reference) : "") + ' · ' + escHtml(formatDate(x.paid_date)) + '</div>' +
+        '</span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("verificar", "verify")) + '</span></span></button>';
+    });
+  }
+  if (a.online_acceptances.length) {
+    h += '<div class="card-title"' + (a.pending_alerts.length ? ' style="margin-top:12px;"' : '') + '>' + gmT("Assinados online pelo cliente", "Signed online by the customer") + '</div>';
+    a.online_acceptances.forEach(function(e) {
+      h += '<button type="button" class="gm-row" onclick="gmAttentionOpenEstimate(\'' + escHtml(e.id) + '\')"><span class="gm-lead-main">' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(e.accepted_signer_name || e.customer_name || "") + ' ' + gmT("assinou ", "signed ") + escHtml(e.display_number) + ' · ' + gmMoney(e.total_cents) + '</span>' +
+        '<div class="gm-lead-sub">' + escHtml(e.job_name || "") + ' · ' + escHtml(formatDateTimeUTC(e.accepted_at)) + ' · ' + gmT("lead fechado e projeto criado", "lead closed and project created") + '</div>' +
+        '</span><span class="gm-lead-side"><span class="gm-pill gm-green">✓ ' + escHtml(gmT("aceito", "accepted")) + '</span></span></button>';
+    });
+  }
+  return h;
+}
+function gmAttentionOpenInvoice(id) { if (typeof switchTab === "function") { switchTab("gminvoices"); } gmOpenInvoice(id); }
+function gmAttentionOpenEstimate(id) { if (typeof switchTab === "function") { switchTab("gmestimates"); } gmOpenEstimate(id); }
 
 function gmInvPaymentAction(pid, action) {
   var inv = gmInvDetail;
@@ -7793,14 +7964,21 @@ function gmInvPaymentAction(pid, action) {
       .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
   }
   if (action === "verify") { run(null); return; }
-  gmOpenFieldEditor(action === "reject" ? gmT("Motivo da rejeição", "Reject reason") : gmT("Motivo do estorno", "Reverse reason"), "textarea", "", [], function(reason) {
+  gmOpenFieldEditor(action === "reject" ? gmT("Motivo da rejeição", "Reject reason") : gmT("Motivo do estorno (visível ao cliente)", "Reverse reason (visible to the customer)"), "textarea", "", [], function(reason) {
     if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderInvoiceSheet(); return; }
     run(reason);
-  });
+  }, action === "reverse" ? '<div class="gm-derived-note">' + gmT("Este motivo é impresso no recibo do cliente, junto com a data do estorno. O recibo mantém os números originais.",
+      "This reason is printed on the customer's receipt with the reversal date. The receipt keeps its original numbers.") + '</div>' : "",
+  function() { gmRenderInvoiceSheet(); });
 }
 
 function gmInvVoid() {
   var inv = gmInvDetail;
+  // C7: a verified payment blocks the void; say so before asking for a reason.
+  if ((inv.payments || []).some(function(p) { return p.state === "verified"; })) {
+    gmToast(gmT("Estorne os pagamentos primeiro.", "Reverse the payments first."));
+    return;
+  }
   gmOpenFieldEditor(gmT("Motivo da anulação", "Void reason"), "textarea", "", [], function(reason) {
     if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderInvoiceSheet(); return; }
     gmApi("invoices/" + encodeURIComponent(inv.id) + "/void", { method: "POST", body: { reason: reason } })
@@ -7813,14 +7991,16 @@ function gmInvLateFee() {
   var inv = gmInvDetail;
   if (!inv || !inv.late_fee_preview) { return; }
   var p = inv.late_fee_preview;
+  var range = formatDate(p.from) + " - " + formatDate(p.to);
   gmOpenFieldEditor(gmT("Motivo (registrado na fatura)", "Reason (recorded on the invoice)"), "text",
-    gmT("Juros de atraso: " + p.annual_pct + "% ao ano, " + p.days + " dias após o vencimento" + (p.grace_days ? " + " + p.grace_days + " dias de carência" : ""),
-        "Late fee: " + p.annual_pct + "% per year, " + p.days + " days past due" + (p.grace_days ? " + " + p.grace_days + " grace days" : "")), [],
+    gmT("Juros de atraso: " + p.annual_pct + "% ao ano sobre o principal em aberto, " + p.days + " dias (" + range + ")",
+        "Late fee: " + p.annual_pct + "% per year on the unpaid principal, " + p.days + " days (" + range + ")"), [],
     function(reason) {
       gmApi("invoices/" + encodeURIComponent(inv.id) + "/late-fee", { method: "POST", body: { reason: reason || null } })
         .then(function(d) { gmToast(gmT("Juros adicionados: ", "Late fee added: ") + gmMoney(d.cents)); gmOpenInvoice(inv.id); gmLoadInvoicesSilent(); })
         .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
-    }, '<div class="gm-derived-note">' + gmT("Juros simples de ", "Simple interest of ") + gmMoney(p.cents) + gmT(" sobre o saldo. Nunca aplicado automaticamente.", " on the balance. Never applied automatically.") + '</div>');
+    }, '<div class="gm-derived-note">' + gmT("Juros simples de ", "Simple interest of ") + gmMoney(p.cents) + gmT(" sobre o principal em aberto, contados a partir do vencimento (a carência só dispara a cobrança). Só dias ainda não cobrados: ", " on the unpaid principal, counted from the due date (the grace period only triggers the charge). Only days not yet charged: ") + escHtml(range) + '. ' + gmT("Nunca aplicado automaticamente.", "Never applied automatically.") + '</div>',
+    function() { gmRenderInvoiceSheet(); });
 }
 
 function gmInvCreditOpen(kind) {
@@ -7862,7 +8042,7 @@ function gmInvSendOpen() {
   gmSheetOpen(gmT("Enviar fatura", "Send invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmDocMsgLoad().then(function() {
     var tpl = gmDocMessages.messages.invoice_message || "";
-    var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: inv.vendedor || (gmDocSettings && gmDocSettings.legal_name) || "", link: inv.link });
+    var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (inv.vendedor || gmSellerDisplayName() || "") : (inv.sender_name || inv.vendedor || gmDocSenderFallback()), link: inv.link });
     gmDocSendSheetRender(gmT("Enviar fatura", "Send invoice") + " · " + escHtml(inv.number), inv.customer_phone || "", text, "invoice_message",
       function() { gmApi("invoices/" + encodeURIComponent(inv.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Fatura marcada como enviada", "Invoice marked as sent")); gmLoadInvoicesSilent(); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
       function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); });
@@ -7889,7 +8069,7 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : "") +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
     '<p class="gm-derived-note" id="gmDocSendPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
     (onSend ? '<button type="button" class="gm-btn-secondary" onclick="if (gmDocSendMark) { gmDocSendMark(); } gmSheetClose();">' + gmT("Marcar como enviada sem abrir mensagem", "Mark as sent without opening a message") + '</button>' : "") +

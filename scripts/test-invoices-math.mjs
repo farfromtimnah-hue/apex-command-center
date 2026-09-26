@@ -35,11 +35,27 @@ d = F.gmInvDerive(inv(100000), [pay(100000)], [{ kind: "refund", amount_cents: 3
 ok(d.paid_cents === 70000 && d.balance_cents === 30000 && d.derived_status === "partially_paid", "a refund comes back off paid");
 ok(F.gmInvDerive(inv(100000, "draft"), [], [], today).derived_status === "draft" && F.gmInvDerive(inv(100000, "void"), [pay(100000)], [], today).derived_status === "void", "draft and void are stored statuses");
 // late fee: simple interest from due + grace
-let lf = F.gmInvLateFeeCents(100000, 18, "2026-08-01", 10, "2026-09-26");
-// due 08-01 + 10 grace = 08-11; to 09-26 = 46 days; 1000 * 0.18 * 46/365 = 22.68
-ok(lf.days === 46 && lf.cents === 2268, "18%/yr on $1,000, 46 days past due+grace = $22.68 simple interest");
-ok(F.gmInvLateFeeCents(100000, 18, "2026-09-20", 10, "2026-09-26").cents === 0, "inside the grace period: no fee");
-ok(F.gmInvLateFeeCents(0, 18, "2026-01-01", 0, "2026-09-26").cents === 0, "no balance: no fee");
+// Fix build (A7): once the grace period has passed, interest runs from the
+// DUE DATE on the unpaid PRINCIPAL, and only for days not already charged.
+const od = (due, through) => ({ due_date: due, late_fee_through: through || null });
+const dv = (principal, status) => ({ derived_status: status || "overdue", principal_balance_cents: principal });
+let lf = F.gmInvLateFeeCents(od("2026-08-01"), dv(100000), 18, 10, "2026-09-26");
+// due 08-01 -> 09-26 = 56 days (grace only triggers); 1000 * 0.18 * 56/365 = 27.62
+ok(lf.days === 56 && lf.cents === 2762 && lf.from === "2026-08-02" && lf.to === "2026-09-26", "18%/yr on $1,000, 56 days from the due date = $27.62 simple interest, range 08-02..09-26");
+// Nicole's live example: due 09/01, grace 10, today 09/26 -> 25 days
+ok(F.gmInvLateFeeCents(od("2026-09-01"), dv(330897), 18, 10, "2026-09-26").days === 25, "due 09/01 grace 10 today 09/26 = 25 days, not 15");
+ok(F.gmInvLateFeeCents(od("2026-09-20"), dv(100000), 18, 10, "2026-09-26").cents === 0, "inside the grace period: no fee");
+ok(F.gmInvLateFeeCents(od("2026-09-01", "2026-09-26"), dv(100000), 18, 10, "2026-09-26").cents === 0, "already charged through today: no new days");
+lf = F.gmInvLateFeeCents(od("2026-09-01", "2026-09-20"), dv(100000), 18, 10, "2026-09-26");
+ok(lf.days === 6 && lf.from === "2026-09-21", "a second fee covers only the day after the last end date to today");
+ok(F.gmInvLateFeeCents(od("2026-01-01"), dv(0), 18, 0, "2026-09-26").cents === 0, "no principal balance: no fee");
+// interest on the principal only: the derive strips late fees out of the balance
+let dd = F.gmInvDerive({ status: "sent", amount_cents: 102430, late_fee_cents: 2430, due_date: "2026-09-01" }, [], [], "2026-09-26");
+ok(dd.principal_balance_cents === 100000 && dd.balance_cents === 102430, "principal balance excludes earlier late fees");
+// A10: a verified payment moves a never-sent invoice out of draft
+ok(F.gmInvDerive({ status: "draft", amount_cents: 360000 }, [{ state: "verified", amount_cents: 50000 }], [], "2026-09-26").derived_status === "partially_paid", "a verified payment on a draft reads partially paid");
+// A5: paid to date never below $0
+ok(F.gmInvDerive({ status: "sent", amount_cents: 100000 }, [], [{ kind: "refund", amount_cents: 10000 }], "2026-09-26").paid_cents === 0, "paid to date is never negative");
 // SQL guards
 ok(/state = 'verified'[^;]*WHERE id = \? AND client_id = \? AND state = 'pending_verification'/.test(worker), "verify is guarded in SQL on state = pending_verification");
 ok(/state = 'rejected'[^;]*state = 'pending_verification'/.test(worker), "reject is guarded in SQL");

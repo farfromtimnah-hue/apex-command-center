@@ -13467,6 +13467,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // settings and their audit trail. Owner only -- the seller
                 // list below deliberately never names these.
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
+                // Estimates (phase 2): list, detail, and the send-message templates.
+                if (gmRest === "estimates" || gmRest === "doc-messages") { return true; }
+                if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Attachments on their own lead, and the file itself. Same
                 // reasoning as the project photos below: the client's own
@@ -13498,6 +13501,11 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "events") { return true; }
                 // The hero banner for the client's own customer documents.
                 if (gmRest === "doc-hero") { return true; }
+                // Estimates (phase 2): create, send, mark accepted, void,
+                // revise; dismiss a commission review on their own lead.
+                if (gmRest === "estimates") { return true; }
+                if (/^estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|void|revise)$/.test(gmRest)) { return true; }
+                if (/^leads\/[A-Za-z0-9-]+\/commission-review\/dismiss$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/contacts$/.test(gmRest)) { return true; }
                 // Promoting their OWN won lead into their own project. Same
@@ -13525,6 +13533,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "config/view-mode") { return true; }
                 // Document settings for the client's own estimates/invoices.
                 if (gmRest === "doc-settings") { return true; }
+                if (gmRest === "doc-messages") { return true; }
+                if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // The client's own referral/sheet lists. Their own record only —
                 // requireClientAccess in the handler enforces it, and the handler
                 // ignores the admin-only keys.
@@ -13606,6 +13616,13 @@ function sellerRequestAllowed(path, method, clientId) {
         // no seller write route to gm/jobs, and the photo/note routes on a
         // job are still absent here.
         if (rest === "gm/jobs") { return true; }
+        // Estimates (phase 2): their own leads' estimates -- the list is
+        // filtered by vendedor in SQL (handleGetGmEstimates) and every
+        // detail/write re-checks the lead with gmSellerLeadGuard. The
+        // send-message templates are the ONE slice of doc settings a seller
+        // reads (and edits, with every edit logged).
+        if (rest === "gm/estimates" || rest === "gm/doc-messages") { return true; }
+        if (/^gm\/estimates\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         // The outreach log of a lead. handleGetGmLeadContacts re-checks that
         // the lead is this seller's before returning anything.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
@@ -13658,6 +13675,10 @@ function sellerRequestAllowed(path, method, clientId) {
         // pictures, and Alice and the owner review what they attach.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/files$/.test(rest)) { return true; }
+        // Estimates on their own leads: create, send, mark accepted, revise.
+        // Void stays owner-only (absent here AND refused in the handler).
+        if (rest === "gm/estimates") { return true; }
+        if (/^gm\/estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|revise)$/.test(rest)) { return true; }
         return false;
     }
     // Same pending-contact PATCH the owner needs (see clientRequestAllowed):
@@ -13672,6 +13693,10 @@ function sellerRequestAllowed(path, method, clientId) {
         // Edit a note. The handler additionally limits this to the caller's
         // OWN note, on the same actor string the insert stamped.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/notes\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        // Edit their own draft estimate (or revise a sent one) and the
+        // send-message templates.
+        if (/^gm\/estimates\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
+        if (rest === "gm/doc-messages") { return true; }
         return false;
     }
     if (method === "DELETE") {
@@ -17960,10 +17985,23 @@ async function handleGetGmLeads(id, request, env) {
         // their rows do not show, which is the bug the comment above warns of.
         var sellerFilter = sellerName ? " AND (l.vendedor = ? OR l.vendedor_secundario = ?)" : "";
         var leadBinds = sellerName ? [id, sellerName, sellerName] : [id];
+        // est_*: the latest live (non-void, non-superseded, non-draft-hidden)
+        // estimate on the lead, for the response-state colour and the eye
+        // icon on the row (estimates build, 2i). One correlated subquery per
+        // field off the same MAX(created_at) row.
+        var estPick = "(SELECT e.id FROM gm_estimates e WHERE e.lead_id = l.id AND e.status NOT IN ('void','superseded') ORDER BY e.created_at DESC LIMIT 1)";
         var rows = await env.DB.prepare(
             "SELECT l.*, p.name AS parceiro_name, " +
             "(SELECT COUNT(*) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS contatos_count, " +
-            "(SELECT MIN(c.logged_at) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS primeiro_contato " +
+            "(SELECT MIN(c.logged_at) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS primeiro_contato, " +
+            "(SELECT e.status FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_status, " +
+            "(SELECT e.number || CASE WHEN e.revision > 1 THEN '-R' || e.revision ELSE '' END FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_number, " +
+            "(SELECT e.sent_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_sent_at, " +
+            "(SELECT e.first_viewed_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_first_viewed_at, " +
+            "(SELECT e.responded_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_responded_at, " +
+            "(SELECT e.valid_until FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_valid_until, " +
+            "(SELECT e.accepted_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_accepted_at, " +
+            "(SELECT COUNT(*) FROM gm_estimates e WHERE e.lead_id = l.id AND e.status = 'accepted') AS est_accepted_count " +
             "FROM gm_leads l " +
             "LEFT JOIN gm_partners p ON p.id = l.parceiro_id " +
             "WHERE l.client_id = ?" + sellerFilter + " " +
@@ -18159,14 +18197,17 @@ async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
     try {
         var stmts = events.map(function(e) {
             return env.DB.prepare(
-                "INSERT INTO gm_lead_events (id, lead_id, client_id, action, field, old_value, new_value, actor) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO gm_lead_events (id, lead_id, client_id, action, field, old_value, new_value, actor, reason) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).bind(
                 crypto.randomUUID(), leadId, clientId, e.action,
                 e.field || null,
                 e.old_value === undefined || e.old_value === null ? null : String(e.old_value),
                 e.new_value === undefined || e.new_value === null ? null : String(e.new_value),
-                actor || null
+                actor || null,
+                // Why, when the app asked (estimates build): a rate override,
+                // a prefilled cost edited on the lead, a void.
+                e.reason === undefined || e.reason === null ? null : String(e.reason).slice(0, 500)
             );
         });
         await env.DB.batch(stmts);
@@ -18316,6 +18357,10 @@ async function handlePutGmLead(id, leadId, request, env) {
             events.push({ action: "stage_changed", field: "estagio",
                           old_value: existing.estagio, new_value: f.estagio });
         }
+        // Estimates build (2c): a reason travels with a cost edit made after
+        // an estimate prefilled it; it is stored on the event, never on the
+        // lead. Editing comissao clears the pending commission review.
+        var editReason = gmStr(body._reason, 500);
         GM_LEAD_LOGGED_FIELDS.forEach(function(k) {
             if (f[k] === undefined) { return; }
             var before = existing[k] === undefined ? null : existing[k];
@@ -18325,9 +18370,13 @@ async function handlePutGmLead(id, leadId, request, env) {
             var b = (before === null || before === undefined) ? "" : String(before);
             var a = (after  === null || after  === undefined) ? "" : String(after);
             if (a === b) { return; }
-            events.push({ action: "updated", field: k, old_value: before, new_value: after });
+            events.push({ action: "updated", field: k, old_value: before, new_value: after,
+                          reason: GM_LEAD_COST_FIELDS.indexOf(k) !== -1 ? editReason : null });
         });
         await gmLogLeadEvents(env, id, leadId, actor, events);
+        if (f.comissao !== undefined && existing.commission_review_json) {
+            await env.DB.prepare("UPDATE gm_leads SET commission_review_json = NULL WHERE id = ? AND client_id = ?").bind(leadId, id).run();
+        }
 
         var row = await gmOwnedRow(env, "gm_leads", leadId, id);
         return jsonOk({ saved: true, lead: row });
@@ -22681,6 +22730,1093 @@ async function handleGetGmDocHeroImage(id, request, env) {
         return new Response(obj.body, { status: 200, headers: headers });
     } catch (e) {
         return jsonErr("Error fetching hero: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CLIENT ESTIMATES (gm_estimates) — estimates & invoices build, phase 2.
+//
+// The client business's OWN estimates to THEIR customers, built from a lead
+// and the client's price list. Numbers are per client (EST-0001), revisions
+// share the number (EST-0001-R2). Money is integer cents throughout.
+//
+// Internal fields (cost, margin, commission, overrides, reasons, internal
+// notes) NEVER leave through the public routes: gmEstimatePublicPayload is
+// the one function that builds what a customer sees.
+//
+// Nothing is deleted. A correction is a void (reason kept) or a new revision
+// that supersedes the old row. Every status transition is guarded in SQL.
+// ---------------------------------------------------------------------------
+
+var GM_EST_STATUSES = ["draft", "sent", "viewed", "changes_requested", "accepted", "declined", "expired", "superseded", "void"];
+var GM_EST_TIERS = ["best", "better", "good"];
+var GM_EST_LINE_TYPES = ["standard", "included", "allowance"];
+var GM_DOC_KINDS = { EST: 1, INV: 1, RCT: 1, CR: 1, REF: 1 };
+
+function gmDocFormatNumber(kind, n) {
+    return kind + "-" + String(n).padStart(4, "0");
+}
+
+// Compare-and-set counter, same pattern as allocateInvoiceNumber: read the
+// next number, UPDATE it only if nobody moved it meanwhile, retry otherwise.
+// A number is consumed even if the caller's insert later fails -- never
+// re-used, which is the point.
+async function gmDocAllocateNumber(env, clientId, kind) {
+    if (!GM_DOC_KINDS[kind]) { throw new Error("unknown document kind " + kind); }
+    await env.DB.prepare(
+        "INSERT INTO gm_doc_counters (client_id, kind, next_number) VALUES (?, ?, 1) ON CONFLICT (client_id, kind) DO NOTHING"
+    ).bind(clientId, kind).run();
+    for (var attempt = 0; attempt < 6; attempt++) {
+        var row = await env.DB.prepare(
+            "SELECT next_number FROM gm_doc_counters WHERE client_id = ? AND kind = ?"
+        ).bind(clientId, kind).first();
+        var n = (row && row.next_number) || 1;
+        var res = await env.DB.prepare(
+            "UPDATE gm_doc_counters SET next_number = next_number + 1 WHERE client_id = ? AND kind = ? AND next_number = ?"
+        ).bind(clientId, kind, n).run();
+        if (res && res.meta && res.meta.changes === 1) { return { n: n, number: gmDocFormatNumber(kind, n) }; }
+    }
+    throw new Error("could not allocate a " + kind + " number");
+}
+
+function gmEstNewToken() {
+    var bytes = crypto.getRandomValues(new Uint8Array(24));
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).padStart(2, "0"); }
+    return out;
+}
+
+function gmCents(v) {
+    var n = gmNum(v);
+    if (n === null) { return null; }
+    return Math.round(n);
+}
+
+// Today on the business's clock (Florida = America/New_York) as YYYY-MM-DD.
+// Used for valid_until comparisons; never toISOString().slice.
+function gmEasternToday() {
+    try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    } catch (e) {
+        var d = new Date();
+        return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+    }
+}
+
+function gmDateAddDays(ymd, days) {
+    var p = String(ymd || "").split("-").map(Number);
+    var d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+}
+
+// ── Math: one rule set, used on create, update and every read ───────────
+//
+// A line: amount = round(qty x rate). "included" lines print "Included" and
+// carry 0. "allowance" lines carry their allowance amount (reconciled on the
+// invoice). ONE discount on the WHOLE option total, never on a line. No floor.
+function gmEstLineAmountCents(line) {
+    if (line.line_type === "included") { return 0; }
+    var qty = gmNum(line.qty); if (qty === null || qty < 0) { qty = 0; }
+    var rate = gmCents(line.rate_cents) || 0;
+    return Math.round(qty * rate);
+}
+
+function gmEstDiscountCents(subtotalCents, discountType, discountValue) {
+    if (!discountType || discountValue === null || discountValue === undefined) { return 0; }
+    var v = gmNum(discountValue); if (v === null || v <= 0) { return 0; }
+    var d = discountType === "pct" ? Math.round(subtotalCents * v / 100) : Math.round(v);
+    if (d > subtotalCents) { d = subtotalCents; }
+    return d;
+}
+
+function gmEstOptionTotals(items, discountType, discountValue) {
+    var subtotal = 0;
+    var byCategory = {};
+    var order = [];
+    items.forEach(function(it) {
+        var amt = gmEstLineAmountCents(it);
+        subtotal += amt;
+        var cat = it.category || "";
+        if (!Object.prototype.hasOwnProperty.call(byCategory, cat)) { byCategory[cat] = 0; order.push(cat); }
+        byCategory[cat] += amt;
+    });
+    var discount = gmEstDiscountCents(subtotal, discountType, discountValue);
+    return {
+        subtotal_cents: subtotal,
+        discount_cents: discount,
+        total_cents: subtotal - discount,
+        categories: order.map(function(c) { return { category: c, subtotal_cents: byCategory[c] }; })
+    };
+}
+
+// Schedule steps with amounts for a given total. Percentages must total 100
+// (gmDocScheduleStepsError); the last step absorbs the rounding so the
+// amounts add up to the total exactly.
+function gmEstScheduleAmounts(steps, totalCents) {
+    var out = [];
+    var acc = 0;
+    steps.forEach(function(st, i) {
+        var amt = i === steps.length - 1 ? totalCents - acc : Math.round(totalCents * (gmNum(st.pct) || 0) / 100);
+        acc += amt;
+        out.push({ label: st.label, pct: st.pct, amount_cents: amt });
+    });
+    return out;
+}
+
+// Florida §489.126: a deposit above 10% carries permit/start obligations.
+function gmEstDepositOverTen(steps) {
+    if (!steps || !steps.length) { return false; }
+    return (gmNum(steps[0].pct) || 0) > 10;
+}
+
+// Internal cost view of an option: sums of the tagged costs x qty.
+function gmEstOptionCosts(items) {
+    var m = 0, l = 0, o = 0;
+    items.forEach(function(it) {
+        var qty = gmNum(it.qty) || 0;
+        m += Math.round((gmCents(it.material_cost_cents) || 0) * qty);
+        l += Math.round((gmCents(it.labor_cost_cents) || 0) * qty);
+        o += Math.round((gmCents(it.other_cost_cents) || 0) * qty);
+    });
+    return { material_cents: m, labor_cents: l, other_cents: o, total_cents: m + l + o };
+}
+
+// ── Body parsing ───────────────────────────────────────────────────────
+
+function gmEstParseSchedule(v) {
+    var arr = v;
+    if (typeof v === "string") { try { arr = JSON.parse(v); } catch (e) { return { error: "schedule is not valid JSON" }; } }
+    if (!Array.isArray(arr)) { return { error: "schedule must be a list" }; }
+    var steps = [];
+    arr.forEach(function(st) {
+        if (!st || typeof st !== "object") { return; }
+        var label = gmStr(st.label, 60);
+        var pct = gmNum(st.pct);
+        if (label === null && pct === null) { return; }
+        steps.push({ label: label || ("Step " + (steps.length + 1)), pct: pct === null ? 0 : Math.round(pct * 100) / 100 });
+    });
+    if (!steps.length) { return { error: "the payment schedule needs at least one step" }; }
+    var err = gmDocScheduleStepsError(steps);
+    if (err) { return { error: err }; }
+    return { steps: steps };
+}
+
+// Options + items from the request. Amounts and totals are recomputed here;
+// the caller's numbers are never trusted. pricing_id, when present, refreshes
+// the per-unit costs from the client's own price list so the internal panel
+// cannot be fed invented costs.
+async function gmEstParseOptions(env, clientId, body) {
+    var mode = body.mode === "tiered" ? "tiered" : "single";
+    var opts = Array.isArray(body.options) ? body.options : [];
+    if (mode === "single" && opts.length !== 1) { return { error: "a single estimate has exactly one option" }; }
+    if (mode === "tiered" && opts.length !== 3) { return { error: "a tiered estimate has exactly three options (Best, Better, Good)" }; }
+
+    var pricingRows = await env.DB.prepare("SELECT * FROM gm_pricing WHERE client_id = ?").bind(clientId).all();
+    var pricing = {};
+    (pricingRows.results || []).forEach(function(r) { pricing[r.id] = r; });
+
+    var out = [];
+    for (var i = 0; i < opts.length; i++) {
+        var o = opts[i] || {};
+        var tier = mode === "single" ? "single" : GM_EST_TIERS[i];
+        if (mode === "tiered" && o.tier && o.tier !== tier) {
+            return { error: "tiered options must be sent in the order Best, Better, Good" };
+        }
+        var rawItems = Array.isArray(o.items) ? o.items : [];
+        if (!rawItems.length) { return { error: "option " + (o.label || tier) + " has no lines" }; }
+        var items = [];
+        for (var j = 0; j < rawItems.length && items.length < 200; j++) {
+            var r = rawItems[j] || {};
+            var name = gmStr(r.item_name, 200);
+            if (!name) { return { error: "every line needs a name" }; }
+            var lineType = GM_EST_LINE_TYPES.indexOf(r.line_type) === -1 ? "standard" : r.line_type;
+            var qty = gmNum(r.qty); if (qty === null || qty < 0) { qty = 1; }
+            var rate = gmCents(r.rate_cents); if (rate === null || rate < 0) { rate = 0; }
+            var pricingId = gmStr(r.pricing_id, 80);
+            var pr = pricingId ? pricing[pricingId] : null;
+            if (pricingId && !pr) { pricingId = null; }
+            var presetRate = pr && pr.price !== null && pr.price !== undefined ? Math.round(pr.price * 100) : null;
+            var overrideReason = gmStr(r.rate_override_reason, 300);
+            // A price-list rate changed on the estimate needs a reason (2b).
+            if (presetRate !== null && lineType !== "included" && rate !== presetRate && !overrideReason) {
+                return { error: "\"" + name + "\": changing a price-list rate needs a reason" };
+            }
+            var costs = pr ? gmPricingComputed(pr) : null;
+            var line = {
+                category:       gmStr(r.category, 80) || (pr ? (pr.category || null) : null),
+                pricing_id:     pricingId,
+                item_name:      name,
+                description:    gmStr(r.description, 2000),
+                line_type:      lineType,
+                qty:            qty,
+                unit:           gmStr(r.unit, 40) || (pr ? pr.unit || null : null),
+                rate_cents:     rate,
+                preset_rate_cents: (presetRate !== null && rate !== presetRate) ? presetRate : null,
+                rate_override_reason: (presetRate !== null && rate !== presetRate) ? overrideReason : null,
+                material_cost_cents: costs ? Math.round((costs.material_cost || 0) * 100) : (gmCents(r.material_cost_cents) || 0),
+                labor_cost_cents:    costs ? Math.round((costs.labor_cost || 0) * 100)    : (gmCents(r.labor_cost_cents) || 0),
+                other_cost_cents:    costs ? Math.round((costs.other_cost || 0) * 100)    : (gmCents(r.other_cost_cents) || 0),
+                is_addon:       (pr ? gmPricingKind(pr.kind) === "addon" : !!r.is_addon) ? 1 : 0,
+                sort_order:     items.length
+            };
+            line.amount_cents = gmEstLineAmountCents(line);
+            items.push(line);
+        }
+        out.push({ tier: tier, label: gmStr(o.label, 80) || (tier === "single" ? null : tier.charAt(0).toUpperCase() + tier.slice(1)), sort_order: i, items: items });
+    }
+    return { mode: mode, options: out };
+}
+
+// ── Reads ──────────────────────────────────────────────────────────────
+
+async function gmEstLoad(env, clientId, estId) {
+    var est = await env.DB.prepare("SELECT * FROM gm_estimates WHERE id = ? AND client_id = ?").bind(estId, clientId).first();
+    if (!est) { return null; }
+    return gmEstAttach(env, est);
+}
+
+async function gmEstAttach(env, est) {
+    var opts = await env.DB.prepare("SELECT * FROM gm_estimate_options WHERE estimate_id = ? ORDER BY sort_order").bind(est.id).all();
+    var items = await env.DB.prepare("SELECT * FROM gm_estimate_items WHERE estimate_id = ? ORDER BY sort_order").bind(est.id).all();
+    est.options = (opts.results || []).map(function(o) {
+        o.items = (items.results || []).filter(function(it) { return it.option_id === o.id; });
+        return o;
+    });
+    est.schedule = gmDocParseJsonObject(est.schedule_json, []) || [];
+    est.derived_status = gmEstDerivedStatus(est);
+    return est;
+}
+
+// "expired" is derived: a live estimate past valid_until. Stored status is
+// never rewritten for it, so the row keeps saying what actually happened.
+function gmEstDerivedStatus(est) {
+    if (["sent", "viewed", "changes_requested"].indexOf(est.status) !== -1 && est.valid_until && est.valid_until < gmEasternToday()) {
+        return "expired";
+    }
+    return est.status;
+}
+
+// The customer-facing payload. THE ONLY place a public route reads from.
+// Nothing internal: no cost, margin, commission, override, reason, internal
+// notes, lead id, seller, actor names.
+function gmEstimatePublicPayload(est, settings, client, origin) {
+    var pm = settings.payment_methods || {};
+    var methods = [];
+    GM_DOC_PAYMENT_METHODS.forEach(function(k) {
+        if (Object.prototype.hasOwnProperty.call(pm, k)) { methods.push({ key: k, detail: pm[k] || "" }); }
+    });
+    var options = est.options.map(function(o) {
+        var totals = gmEstOptionTotals(o.items, est.discount_type, est.discount_value);
+        var cats = {};
+        var catOrder = [];
+        o.items.forEach(function(it) {
+            var c = it.category || "";
+            if (!cats[c]) { cats[c] = { category: c, lines: [], subtotal_cents: 0 }; catOrder.push(c); }
+            cats[c].lines.push({
+                item_name: it.item_name, description: it.description || null, line_type: it.line_type,
+                qty: it.qty, unit: it.unit || null, rate_cents: it.rate_cents, amount_cents: gmEstLineAmountCents(it),
+                is_addon: !!it.is_addon
+            });
+            cats[c].subtotal_cents += gmEstLineAmountCents(it);
+        });
+        return {
+            id: o.id, tier: o.tier, label: o.label,
+            sections: catOrder.map(function(c) { return cats[c]; }),
+            subtotal_cents: totals.subtotal_cents, discount_cents: totals.discount_cents, total_cents: totals.total_cents,
+            schedule: gmEstScheduleAmounts(est.schedule, totals.total_cents)
+        };
+    });
+    var derived = gmEstDerivedStatus(est);
+    return {
+        number: est.number, revision: est.revision, display_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""),
+        status: derived, mode: est.mode, job_name: est.job_name,
+        customer_name: est.customer_name, customer_email: est.customer_email, customer_phone: est.customer_phone, customer_address: est.customer_address,
+        issued_on: est.sent_at ? est.sent_at.slice(0, 10) : est.created_at.slice(0, 10),
+        valid_until: est.valid_until,
+        discount_type: est.discount_type, discount_value: est.discount_value,
+        options: options,
+        terms_included: est.terms_included, terms_excluded: est.terms_excluded, customer_notes: est.customer_notes,
+        accepted_option_id: est.accepted_option_id, accepted_at: est.accepted_at, accepted_signer_name: est.accepted_signer_name,
+        accepted_signature_kind: est.accepted_signature_kind, accepted_by_kind: est.accepted_by_kind,
+        change_request_text: est.change_request_text, decline_reason: est.decline_reason,
+        business: {
+            name: settings.legal_name || (client && client.name) || "",
+            address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
+            license_numbers: settings.license_numbers || [],
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + est.client_id + "/logo-image" : null,
+            hero_url: settings.hero_r2_key ? origin + "/api/clients/" + est.client_id + "/doc-hero-image" : null,
+            brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
+            payment_methods: methods,
+            late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days
+        }
+    };
+}
+
+// The internal detail: everything above plus the costs, margin, commission
+// and override markers, for the portal's preview and the contractor's sheet.
+async function gmEstimateInternalPayload(env, est, settings, client, lead, origin) {
+    var pub = gmEstimatePublicPayload(est, settings, client, origin);
+    pub.id = est.id; pub.lead_id = est.lead_id; pub.job_id = est.job_id; pub.public_token = est.public_token;
+    pub.stored_status = est.status; pub.internal_notes = est.internal_notes;
+    pub.created_by = est.created_by; pub.created_at = est.created_at; pub.updated_at = est.updated_at;
+    pub.sent_at = est.sent_at; pub.first_viewed_at = est.first_viewed_at; pub.last_viewed_at = est.last_viewed_at; pub.responded_at = est.responded_at;
+    pub.accepted_by_actor = est.accepted_by_actor; pub.accepted_ip = est.accepted_ip; pub.accepted_user_agent = est.accepted_user_agent;
+    pub.content_hash = est.content_hash; pub.snapshot_r2_key = est.snapshot_r2_key ? true : false;
+    pub.void_reason = est.void_reason; pub.voided_by = est.voided_by; pub.voided_at = est.voided_at;
+    pub.vendedor = lead ? lead.vendedor : null;
+    pub.min_margin_pct = settings.min_margin_pct;
+    pub.deposit_over_ten = gmEstDepositOverTen(est.schedule);
+    pub.link = DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token;
+    pub.pdf_link = DEFAULT_ORIGIN + "/templates/client-estimate-template.html?t=" + est.public_token;
+    pub.options.forEach(function(o, i) {
+        var src = est.options[i];
+        var costs = gmEstOptionCosts(src.items);
+        var commission = lead && lead.comissao !== null && lead.comissao !== undefined ? Math.round(lead.comissao * 100) : null;
+        var margin = o.total_cents - costs.total_cents - (commission || 0);
+        o.internal = {
+            costs: costs, commission_cents: commission,
+            margin_cents: margin,
+            margin_pct: o.total_cents > 0 ? Math.round((margin / o.total_cents) * 1000) / 10 : null,
+            below_min_margin: (settings.min_margin_pct !== null && settings.min_margin_pct !== undefined && o.total_cents > 0)
+                ? (Math.round((margin / o.total_cents) * 1000) / 10) < settings.min_margin_pct : false,
+            overrides: src.items.filter(function(it) { return it.preset_rate_cents !== null && it.preset_rate_cents !== undefined; })
+                .map(function(it) { return { item_name: it.item_name, preset_rate_cents: it.preset_rate_cents, rate_cents: it.rate_cents, reason: it.rate_override_reason }; })
+        };
+        // Same grouping walk gmEstimatePublicPayload does (by category, in
+        // order of first appearance), so line k of a section maps back to
+        // exactly the source item it was built from.
+        var cursor = {};
+        src.items.forEach(function(it) {
+            var c = it.category || "";
+            var sec = null;
+            for (var s = 0; s < o.sections.length; s++) { if (o.sections[s].category === c) { sec = o.sections[s]; break; } }
+            if (!sec) { return; }
+            var k = cursor[c] || 0; cursor[c] = k + 1;
+            var ln = sec.lines[k];
+            if (!ln) { return; }
+            ln.id = it.id;
+            ln.pricing_id = it.pricing_id;
+            ln.preset_rate_cents = it.preset_rate_cents;
+            ln.rate_override_reason = it.rate_override_reason;
+            ln.material_cost_cents = it.material_cost_cents;
+            ln.labor_cost_cents = it.labor_cost_cents;
+            ln.other_cost_cents = it.other_cost_cents;
+        });
+    });
+    return pub;
+}
+
+// Which option's total drives the lead's valor (2c): the accepted option
+// after acceptance; before it, Better on a tiered estimate.
+function gmEstValorOption(est) {
+    if (est.accepted_option_id) {
+        for (var i = 0; i < est.options.length; i++) { if (est.options[i].id === est.accepted_option_id) { return est.options[i]; } }
+    }
+    if (est.mode === "tiered") {
+        for (var j = 0; j < est.options.length; j++) { if (est.options[j].tier === "better") { return est.options[j]; } }
+    }
+    return est.options[0] || null;
+}
+
+// ── Lead side effects (2c) ─────────────────────────────────────────────
+// valor, cost prefill and the commission review flag. Every write logged to
+// gm_lead_events with the session actor. Never touches comissao, never
+// touches data_estimate.
+async function gmEstApplyToLead(env, clientId, est, actor, opts) {
+    var lead = await gmOwnedRow(env, "gm_leads", est.lead_id, clientId);
+    if (!lead) { return; }
+    var opt = gmEstValorOption(est);
+    if (!opt) { return; }
+    var totals = gmEstOptionTotals(opt.items, est.discount_type, est.discount_value);
+    var newValor = Math.round(totals.total_cents) / 100;
+    var costs = gmEstOptionCosts(opt.items);
+    var sets = [], binds = [], events = [];
+    var oldValor = lead.valor === null || lead.valor === undefined ? null : lead.valor;
+    if (oldValor !== newValor) {
+        sets.push("valor = ?"); binds.push(newValor);
+        events.push({ action: "updated", field: "valor", old_value: oldValor, new_value: newValor, reason: "estimate " + est.number + (est.revision > 1 ? "-R" + est.revision : "") });
+        // Commission set and the value moved because of an estimate: flag a
+        // review, never rewrite comissao.
+        if (lead.comissao !== null && lead.comissao !== undefined) {
+            sets.push("commission_review_json = ?");
+            binds.push(JSON.stringify({ from_cents: Math.round((oldValor || 0) * 100), to_cents: totals.total_cents, at: new Date().toISOString() }));
+        }
+    }
+    var prefill = { material: costs.material_cents / 100, mao_de_obra: costs.labor_cents / 100, outros: costs.other_cents / 100 };
+    Object.keys(prefill).forEach(function(k) {
+        var before = lead[k] === null || lead[k] === undefined ? null : lead[k];
+        if (before !== prefill[k]) {
+            sets.push(k + " = ?"); binds.push(prefill[k]);
+            events.push({ action: "updated", field: k, old_value: before, new_value: prefill[k], reason: "estimate " + est.number + " costs" });
+        }
+    });
+    if (opts && opts.sending) {
+        if (!lead.estimate_sent_at) { sets.push("estimate_sent_at = datetime('now')"); }
+        // Forward only: novo_lead / contato_feito / visita_agendada -> estimate_enviado.
+        if (["novo_lead", "contato_feito", "visita_agendada"].indexOf(lead.estagio) !== -1) {
+            sets.push("estagio = 'estimate_enviado'"); sets.push("stage_changed_at = datetime('now')");
+            events.push({ action: "stage_changed", field: "estagio", old_value: lead.estagio, new_value: "estimate_enviado", reason: "estimate " + est.number + " sent" });
+        }
+    }
+    if (!sets.length) { return; }
+    sets.push("updated_by = ?"); binds.push(actor);
+    sets.push("updated_at = datetime('now')");
+    binds.push(est.lead_id); binds.push(clientId);
+    await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+    await gmLogLeadEvents(env, clientId, est.lead_id, actor, events);
+}
+
+// ── Handlers: contractor side ──────────────────────────────────────────
+
+// Seller row-level rule for estimates: the lead must be theirs.
+async function gmEstSellerGuard(env, user, clientId, leadId) {
+    return gmSellerLeadGuard(env, user, clientId, leadId);
+}
+
+async function handleGetGmEstimates(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var sellerName = effectiveSellerName(user, request);
+        var url = new URL(request.url);
+        var leadFilter = gmStr(url.searchParams.get("lead_id"), 80);
+        var sql = "SELECT e.*, l.vendedor, l.cliente AS lead_cliente FROM gm_estimates e JOIN gm_leads l ON l.id = e.lead_id AND l.client_id = e.client_id WHERE e.client_id = ?";
+        var binds = [id];
+        if (sellerName) { sql += " AND (l.vendedor = ? OR l.vendedor_secundario = ?)"; binds.push(sellerName, sellerName); }
+        if (leadFilter) { sql += " AND e.lead_id = ?"; binds.push(leadFilter); }
+        sql += " ORDER BY e.created_at DESC LIMIT 500";
+        var stmt = env.DB.prepare(sql);
+        var rows = await stmt.bind.apply(stmt, binds).all();
+        var ests = rows.results || [];
+        var optRows = ests.length ? await env.DB.prepare(
+            "SELECT o.* FROM gm_estimate_options o JOIN gm_estimates e ON e.id = o.estimate_id WHERE e.client_id = ? ORDER BY o.sort_order"
+        ).bind(id).all() : { results: [] };
+        var optsBy = {};
+        (optRows.results || []).forEach(function(o) { (optsBy[o.estimate_id] = optsBy[o.estimate_id] || []).push(o); });
+        var out = ests.map(function(e) {
+            var opts = optsBy[e.id] || [];
+            var headline = null;
+            if (e.accepted_option_id) { opts.forEach(function(o) { if (o.id === e.accepted_option_id) { headline = o; } }); }
+            if (!headline && e.mode === "tiered") { opts.forEach(function(o) { if (o.tier === "better") { headline = o; } }); }
+            if (!headline) { headline = opts[0] || null; }
+            return {
+                id: e.id, lead_id: e.lead_id, job_id: e.job_id, number: e.number, revision: e.revision,
+                display_number: e.number + (e.revision > 1 ? "-R" + e.revision : ""),
+                status: gmEstDerivedStatus(e), stored_status: e.status, mode: e.mode, job_name: e.job_name,
+                customer_name: e.customer_name, vendedor: e.vendedor, lead_cliente: e.lead_cliente,
+                total_cents: headline ? headline.total_cents : 0,
+                options: opts.map(function(o) { return { id: o.id, tier: o.tier, label: o.label, total_cents: o.total_cents }; }),
+                valid_until: e.valid_until, sent_at: e.sent_at, first_viewed_at: e.first_viewed_at, last_viewed_at: e.last_viewed_at,
+                responded_at: e.responded_at, accepted_at: e.accepted_at, accepted_by_kind: e.accepted_by_kind,
+                accepted_signer_name: e.accepted_signer_name, created_at: e.created_at, created_by: e.created_by,
+                public_token: e.public_token, link: DEFAULT_ORIGIN + "/estimate-view?t=" + e.public_token,
+                pdf_link: DEFAULT_ORIGIN + "/templates/client-estimate-template.html?t=" + e.public_token,
+                content_hash: e.content_hash, accepted_ip: e.accepted_ip, accepted_user_agent: e.accepted_user_agent,
+                accepted_signature_kind: e.accepted_signature_kind, change_request_text: e.change_request_text, decline_reason: e.decline_reason,
+                void_reason: e.void_reason
+            };
+        });
+        return jsonOk({ estimates: out, today: gmEasternToday() });
+    } catch (e) {
+        return jsonErr("Error fetching estimates: " + e.message, 500);
+    }
+}
+
+async function handleGetGmEstimate(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, est.lead_id);
+        if (guard) { return guard; }
+        var settings = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(id).first();
+        var lead = await gmOwnedRow(env, "gm_leads", est.lead_id, id);
+        var payload = await gmEstimateInternalPayload(env, est, settings, client, lead, new URL(request.url).origin);
+        return jsonOk({ estimate: payload });
+    } catch (e) {
+        return jsonErr("Error fetching estimate: " + e.message, 500);
+    }
+}
+
+// Shared field parsing for create / update.
+async function gmEstParseBody(env, id, body, settings) {
+    var f = {};
+    var jobName = gmStr(body.job_name, 200);
+    if (!jobName) { return { error: "Job name is required" }; }
+    f.job_name = jobName;
+    f.customer_name = gmStr(body.customer_name, 200);
+    f.customer_email = gmStr(body.customer_email, 120);
+    f.customer_phone = gmStr(body.customer_phone, 40);
+    f.customer_address = gmStr(body.customer_address, 400);
+    var vu = gmStr(body.valid_until, 10);
+    if (vu && !/^\d{4}-\d{2}-\d{2}$/.test(vu)) { return { error: "valid_until must be YYYY-MM-DD" }; }
+    f.valid_until = vu || gmDateAddDays(gmEasternToday(), settings.estimate_valid_days || 30);
+    if (body.discount_type === "amount" || body.discount_type === "pct") {
+        var dv = gmNum(body.discount_value);
+        if (dv === null || dv < 0) { return { error: "discount_value must be a number of 0 or more" }; }
+        if (body.discount_type === "pct" && dv > 100) { return { error: "a percentage discount cannot exceed 100" }; }
+        f.discount_type = dv > 0 ? body.discount_type : null;
+        f.discount_value = dv > 0 ? (body.discount_type === "amount" ? Math.round(dv) : dv) : null;
+    } else { f.discount_type = null; f.discount_value = null; }
+    var sched = gmEstParseSchedule(body.schedule);
+    if (sched.error) { return { error: sched.error }; }
+    f.schedule_json = JSON.stringify(sched.steps);
+    f.terms_included = gmStr(body.terms_included, 4000);
+    f.terms_excluded = gmStr(body.terms_excluded, 4000);
+    f.customer_notes = gmStr(body.customer_notes, 4000);
+    f.internal_notes = gmStr(body.internal_notes, 4000);
+    var parsed = await gmEstParseOptions(env, id, body);
+    if (parsed.error) { return { error: parsed.error }; }
+    f.mode = parsed.mode;
+    return { fields: f, options: parsed.options };
+}
+
+async function gmEstWriteOptions(env, est, options) {
+    var stmts = [];
+    options.forEach(function(o, i) {
+        var oid = crypto.randomUUID();
+        var totals = gmEstOptionTotals(o.items, est.discount_type, est.discount_value);
+        stmts.push(env.DB.prepare(
+            "INSERT INTO gm_estimate_options (id, estimate_id, tier, label, sort_order, subtotal_cents, discount_cents, total_cents) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(oid, est.id, o.tier, o.label, i, totals.subtotal_cents, totals.discount_cents, totals.total_cents));
+        o.items.forEach(function(it, j) {
+            stmts.push(env.DB.prepare(
+                "INSERT INTO gm_estimate_items (id, estimate_id, option_id, category, pricing_id, item_name, description, line_type, qty, unit, rate_cents, amount_cents, preset_rate_cents, rate_override_reason, material_cost_cents, labor_cost_cents, other_cost_cents, is_addon, sort_order) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), est.id, oid, it.category, it.pricing_id, it.item_name, it.description, it.line_type, it.qty, it.unit,
+                   it.rate_cents, it.amount_cents, it.preset_rate_cents, it.rate_override_reason, it.material_cost_cents, it.labor_cost_cents, it.other_cost_cents, it.is_addon, j));
+        });
+    });
+    for (var k = 0; k < stmts.length; k += 40) { await env.DB.batch(stmts.slice(k, k + 40)); }
+}
+
+// Overrides are logged on the lead so an owner can always see who changed a
+// price-list rate and why (2b).
+function gmEstOverrideEvents(est, options) {
+    var events = [];
+    options.forEach(function(o) {
+        o.items.forEach(function(it) {
+            if (it.preset_rate_cents === null || it.preset_rate_cents === undefined) { return; }
+            events.push({ action: "estimate_rate_override", field: it.item_name,
+                          old_value: (it.preset_rate_cents / 100).toFixed(2), new_value: (it.rate_cents / 100).toFixed(2),
+                          reason: it.rate_override_reason + " (" + est.number + (est.revision > 1 ? "-R" + est.revision : "") + ")" });
+        });
+    });
+    return events;
+}
+
+async function handlePostGmEstimate(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var leadId = gmStr(body.lead_id, 80);
+        if (!leadId) { return jsonErr("lead_id is required", 400); }
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, leadId);
+        if (guard) { return guard; }
+        var settings = await gmDocSettingsRow(env, id);
+        if (!settings.setup_completed_at || !settings.license_numbers.length) {
+            return jsonErr("Complete the document settings (license number) before creating an estimate", 400);
+        }
+        var parsed = await gmEstParseBody(env, id, body, settings);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var actor = actorName(user);
+        var num = await gmDocAllocateNumber(env, id, "EST");
+        var estId = crypto.randomUUID();
+        var token = gmEstNewToken();
+        await env.DB.prepare(
+            "INSERT INTO gm_estimates (id, client_id, lead_id, number, revision, status, mode, job_name, customer_name, customer_email, customer_phone, customer_address, " +
+            "valid_until, discount_type, discount_value, schedule_json, terms_included, terms_excluded, customer_notes, internal_notes, public_token, created_by) " +
+            "VALUES (?, ?, ?, ?, 1, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(estId, id, leadId, num.number, f.mode, f.job_name, f.customer_name, f.customer_email, f.customer_phone, f.customer_address,
+               f.valid_until, f.discount_type, f.discount_value, f.schedule_json, f.terms_included, f.terms_excluded, f.customer_notes, f.internal_notes, token, actor).run();
+        var est = { id: estId, number: num.number, revision: 1, discount_type: f.discount_type, discount_value: f.discount_value };
+        await gmEstWriteOptions(env, est, parsed.options);
+        await gmLogLeadEvents(env, id, leadId, actor, [{ action: "estimate_created", field: "estimate", old_value: null, new_value: num.number }].concat(gmEstOverrideEvents(est, parsed.options)));
+        var full = await gmEstLoad(env, id, estId);
+        await gmEstApplyToLead(env, id, full, actor, { sending: false });
+        return jsonOk({ created: true, estimate: { id: estId, number: num.number, revision: 1, public_token: token } });
+    } catch (e) {
+        return jsonErr("Error creating estimate: " + e.message, 500);
+    }
+}
+
+// Edit. A draft is edited in place. A sent / viewed / changes_requested
+// estimate becomes revision N+1 (same number) and the old row is superseded
+// -- guarded in SQL. An accepted, declined, void or superseded estimate is
+// never edited: 409, and the client offers "Create revision" (POST /revise).
+async function handlePutGmEstimate(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, est.lead_id);
+        if (guard) { return guard; }
+        if (["draft", "sent", "viewed", "changes_requested"].indexOf(est.status) === -1) {
+            return jsonErr("This estimate is " + est.status + " and cannot be edited. Create a revision instead.", 409);
+        }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var settings = await gmDocSettingsRow(env, id);
+        var parsed = await gmEstParseBody(env, id, body, settings);
+        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        var f = parsed.fields;
+        var actor = actorName(user);
+        var cols = ["mode", "job_name", "customer_name", "customer_email", "customer_phone", "customer_address", "valid_until", "discount_type", "discount_value", "schedule_json", "terms_included", "terms_excluded", "customer_notes", "internal_notes"];
+        if (est.status === "draft") {
+            var sets = cols.map(function(c) { return c + " = ?"; });
+            var binds = cols.map(function(c) { return f[c]; });
+            sets.push("updated_at = datetime('now')");
+            binds.push(estId, id);
+            await gmRunUpdate(env, "UPDATE gm_estimates SET " + sets.join(", ") + " WHERE id = ? AND client_id = ? AND status = 'draft'", binds);
+            // Lines are replaced whole: the old rows are kept nowhere else,
+            // but a draft is by definition unsent, so nothing signed is lost.
+            // (The only DELETE-free way to replace them is to insert fresh rows
+            // under new ids and repoint; a draft's stale lines are re-linked to
+            // a dead option id so reads never see them.)
+            await env.DB.prepare("UPDATE gm_estimate_items SET option_id = 'replaced:' || option_id WHERE estimate_id = ? AND option_id NOT LIKE 'replaced:%'").bind(estId).run();
+            await env.DB.prepare("UPDATE gm_estimate_options SET sort_order = sort_order + 1000, tier = 'replaced:' || tier WHERE estimate_id = ? AND tier NOT LIKE 'replaced:%'").bind(estId).run();
+            var draftEst = { id: estId, number: est.number, revision: est.revision, discount_type: f.discount_type, discount_value: f.discount_value };
+            await gmEstWriteOptions(env, draftEst, parsed.options);
+            await gmLogLeadEvents(env, id, est.lead_id, actor, gmEstOverrideEvents(draftEst, parsed.options));
+            var full = await gmEstLoad(env, id, estId);
+            await gmEstApplyToLead(env, id, full, actor, { sending: false });
+            return jsonOk({ saved: true, estimate: { id: estId, number: est.number, revision: est.revision, public_token: est.public_token } });
+        }
+        // Sent-ish: new revision, old one superseded (guarded).
+        var newId = crypto.randomUUID();
+        var token = gmEstNewToken();
+        var rev = est.revision + 1;
+        await env.DB.prepare(
+            "INSERT INTO gm_estimates (id, client_id, lead_id, job_id, number, revision, status, mode, job_name, customer_name, customer_email, customer_phone, customer_address, " +
+            "valid_until, discount_type, discount_value, schedule_json, terms_included, terms_excluded, customer_notes, internal_notes, public_token, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(newId, id, est.lead_id, est.job_id, est.number, rev, f.mode, f.job_name, f.customer_name, f.customer_email, f.customer_phone, f.customer_address,
+               f.valid_until, f.discount_type, f.discount_value, f.schedule_json, f.terms_included, f.terms_excluded, f.customer_notes, f.internal_notes, token, actor).run();
+        var newEst = { id: newId, number: est.number, revision: rev, discount_type: f.discount_type, discount_value: f.discount_value };
+        await gmEstWriteOptions(env, newEst, parsed.options);
+        await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('sent','viewed','changes_requested')"
+        ).bind(estId, id).run();
+        await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_revised", field: "estimate", old_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), new_value: est.number + "-R" + rev }].concat(gmEstOverrideEvents(newEst, parsed.options)));
+        var fullNew = await gmEstLoad(env, id, newId);
+        await gmEstApplyToLead(env, id, fullNew, actor, { sending: false });
+        return jsonOk({ saved: true, revised: true, estimate: { id: newId, number: est.number, revision: rev, public_token: token } });
+    } catch (e) {
+        return jsonErr("Error updating estimate: " + e.message, 500);
+    }
+}
+
+// "Create revision" on an accepted / declined / expired estimate: a fresh
+// draft copy under the same number. The signed row is never touched here; it
+// is marked superseded only when the new revision is SENT.
+async function handlePostGmEstimateRevise(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, est.lead_id);
+        if (guard) { return guard; }
+        if (est.status === "void" || est.status === "superseded" || est.status === "draft") {
+            return jsonErr("A " + est.status + " estimate cannot be revised from here", 409);
+        }
+        var latest = await env.DB.prepare("SELECT MAX(revision) AS r FROM gm_estimates WHERE client_id = ? AND number = ?").bind(id, est.number).first();
+        var rev = ((latest && latest.r) || est.revision) + 1;
+        var actor = actorName(user);
+        var newId = crypto.randomUUID();
+        var token = gmEstNewToken();
+        await env.DB.prepare(
+            "INSERT INTO gm_estimates (id, client_id, lead_id, job_id, number, revision, status, mode, job_name, customer_name, customer_email, customer_phone, customer_address, " +
+            "valid_until, discount_type, discount_value, schedule_json, terms_included, terms_excluded, customer_notes, internal_notes, public_token, created_by) " +
+            "VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(newId, id, est.lead_id, est.job_id, est.number, rev, est.mode, est.job_name, est.customer_name, est.customer_email, est.customer_phone, est.customer_address,
+               est.valid_until, est.discount_type, est.discount_value, est.schedule_json, est.terms_included, est.terms_excluded, est.customer_notes, est.internal_notes, token, actor).run();
+        var newEst = { id: newId, number: est.number, revision: rev, discount_type: est.discount_type, discount_value: est.discount_value };
+        await gmEstWriteOptions(env, newEst, est.options.map(function(o) {
+            return { tier: o.tier, label: o.label, items: o.items.map(function(it) { var c = {}; Object.keys(it).forEach(function(k) { c[k] = it[k]; }); return c; }) };
+        }));
+        await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_revised", field: "estimate", old_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), new_value: est.number + "-R" + rev }]);
+        return jsonOk({ created: true, estimate: { id: newId, number: est.number, revision: rev, public_token: token } });
+    } catch (e) {
+        return jsonErr("Error creating revision: " + e.message, 500);
+    }
+}
+
+// Send: draft (or re-send) -> sent. First send stamps sent_at and moves the
+// lead forward (gmEstApplyToLead with sending). An older live revision of the
+// same number is superseded. Returns the message text for sms:/wa.me.
+async function handlePostGmEstimateSend(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, est.lead_id);
+        if (guard) { return guard; }
+        if (["draft", "sent", "viewed", "changes_requested"].indexOf(est.status) === -1) {
+            return jsonErr("A " + est.status + " estimate cannot be sent", 409);
+        }
+        var actor = actorName(user);
+        var res = await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') " +
+            "WHERE id = ? AND client_id = ? AND status IN ('draft','sent','viewed','changes_requested')"
+        ).bind(estId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("The estimate changed while sending. Reload and try again.", 409); }
+        await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'superseded', updated_at = datetime('now') WHERE client_id = ? AND number = ? AND id <> ? AND revision < ? AND status IN ('sent','viewed','changes_requested','accepted','declined')"
+        ).bind(id, est.number, estId, est.revision).run();
+        if (est.status === "draft") {
+            await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_sent", field: "estimate", old_value: null, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : "") }]);
+        }
+        var full = await gmEstLoad(env, id, estId);
+        await gmEstApplyToLead(env, id, full, actor, { sending: true });
+        var settings = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        var lead = await gmOwnedRow(env, "gm_leads", est.lead_id, id);
+        var msg = gmDocFillMessage(settings.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE, {
+            customer_first_name: String(est.customer_name || (lead && lead.cliente) || "").trim().split(/\s+/)[0] || "",
+            job_name: est.job_name, business_name: settings.legal_name || (client && client.name) || "",
+            seller_name: sessionSellerName(user) || (lead && lead.vendedor) || settings.legal_name || (client && client.name) || "",
+            link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token
+        });
+        return jsonOk({ sent: true, message: msg, link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token, phone: est.customer_phone || (lead && lead.telefone) || null });
+    } catch (e) {
+        return jsonErr("Error sending estimate: " + e.message, 500);
+    }
+}
+
+var GM_DOC_DEFAULT_ESTIMATE_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your estimate for {job_name}: {link}";
+var GM_DOC_DEFAULT_INVOICE_MESSAGE  = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your invoice for {job_name}: {link}";
+var GM_DOC_DEFAULT_RECEIPT_MESSAGE  = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Thank you for your payment. Here is your receipt for {job_name}: {link}";
+
+function gmDocFillMessage(tpl, vars) {
+    var out = String(tpl || "");
+    Object.keys(vars).forEach(function(k) { out = out.split("{" + k + "}").join(vars[k] === null || vars[k] === undefined ? "" : String(vars[k])); });
+    return out;
+}
+
+// Contractor-side acceptance (2h): in person or by phone.
+async function handlePostGmEstimateMarkAccepted(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var guard = await gmEstSellerGuard(env, user, id, est.lead_id);
+        if (guard) { return guard; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var optionId = gmStr(body.option_id, 80);
+        if (est.mode === "tiered") {
+            if (!optionId || !est.options.some(function(o) { return o.id === optionId; })) { return jsonErr("Pick which option the customer accepted", 400); }
+        } else { optionId = est.options[0] ? est.options[0].id : null; }
+        var signer = gmStr(body.signer_name, 120) || est.customer_name || null;
+        var actor = actorName(user);
+        var snap = await gmEstStoreSnapshot(env, id, est, request);
+        var res = await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'accepted', accepted_option_id = ?, accepted_signer_name = ?, accepted_by_kind = 'contractor', accepted_by_actor = ?, " +
+            "accepted_at = datetime('now'), responded_at = datetime('now'), content_hash = ?, snapshot_r2_key = ?, updated_at = datetime('now') " +
+            "WHERE id = ? AND client_id = ? AND status IN ('draft','sent','viewed','changes_requested')"
+        ).bind(optionId, signer, actor, snap.hash, snap.key, estId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("This estimate can no longer be accepted (status " + est.status + ")", 409); }
+        await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_accepted", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "marked accepted by contractor" + (signer ? " for " + signer : "") }]);
+        var full = await gmEstLoad(env, id, estId);
+        await gmEstApplyToLead(env, id, full, actor, { sending: false });
+        return jsonOk({ accepted: true });
+    } catch (e) {
+        return jsonErr("Error marking accepted: " + e.message, 500);
+    }
+}
+
+async function handlePostGmEstimateVoid(id, estId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var est = await gmEstLoad(env, id, estId);
+        if (!est) { return jsonErr("Estimate not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var reason = gmStr(body.reason, 500);
+        if (!reason) { return jsonErr("A reason is required to void an estimate", 400); }
+        var actor = actorName(user);
+        var res = await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'void', void_reason = ?, voided_by = ?, voided_at = datetime('now'), updated_at = datetime('now') " +
+            "WHERE id = ? AND client_id = ? AND status <> 'void'"
+        ).bind(reason, actor, estId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("Already void", 409); }
+        await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_voided", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: reason }]);
+        return jsonOk({ voided: true });
+    } catch (e) {
+        return jsonErr("Error voiding estimate: " + e.message, 500);
+    }
+}
+
+// The exact JSON the customer saw, hashed and stored (2f). Used by both
+// acceptance paths so the two are byte-identical in what they record.
+async function gmEstStoreSnapshot(env, clientId, est, request) {
+    var settings = await gmDocSettingsRow(env, clientId);
+    var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(clientId).first();
+    var payload = gmEstimatePublicPayload(est, settings, client, new URL(request.url).origin);
+    var json = JSON.stringify(payload);
+    var hash = await sha256Hex(json);
+    var key = "estimates/" + est.id + "/snapshot-r" + est.revision + ".json";
+    await env.ASSETS.put(key, json, { httpMetadata: { contentType: "application/json" } });
+    return { hash: hash, key: key, json: json };
+}
+
+// Dismiss the commission review flag on a lead (2c). Owner only.
+async function handlePostGmLeadCommissionReviewDismiss(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        await env.DB.prepare("UPDATE gm_leads SET commission_review_json = NULL, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(leadId, id).run();
+        await gmLogLeadEvents(env, id, leadId, actorName(user), [{ action: "commission_review_dismissed", field: "comissao", old_value: lead.commission_review_json, new_value: null }]);
+        return jsonOk({ dismissed: true });
+    } catch (e) {
+        return jsonErr("Error dismissing review: " + e.message, 500);
+    }
+}
+
+// Send-message templates: the narrow read/write sellers get (2e). Owners
+// and sellers edit; every edit is logged with the actor.
+async function handleGetGmDocMessages(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var s = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        return jsonOk({
+        // The non-sensitive slice a seller's estimate wizard needs. No
+        // payment details, no license, no late-fee terms.
+        settings_lite: {
+            legal_name: s.legal_name || (client && client.name) || null,
+            estimate_valid_days: s.estimate_valid_days, schedule_presets: s.schedule_presets,
+            min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at
+        },
+        messages: {
+            estimate_message: s.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE,
+            invoice_message:  s.invoice_message  || GM_DOC_DEFAULT_INVOICE_MESSAGE,
+            receipt_message:  s.receipt_message  || GM_DOC_DEFAULT_RECEIPT_MESSAGE
+        }, defaults: { estimate_message: GM_DOC_DEFAULT_ESTIMATE_MESSAGE, invoice_message: GM_DOC_DEFAULT_INVOICE_MESSAGE, receipt_message: GM_DOC_DEFAULT_RECEIPT_MESSAGE },
+        updated_by: s.updated_by || null });
+    } catch (e) {
+        return jsonErr("Error fetching messages: " + e.message, 500);
+    }
+}
+
+async function handlePutGmDocMessages(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var key = ["estimate_message", "invoice_message", "receipt_message"].indexOf(body.key) === -1 ? null : body.key;
+        if (!key) { return jsonErr("key must be estimate_message, invoice_message or receipt_message", 400); }
+        var text = gmStr(body.text, 1000);
+        if (!text) { return jsonErr("The message cannot be empty", 400); }
+        var cur = await env.DB.prepare("SELECT " + key + " AS v FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var actor = actorName(user);
+        var before = cur ? cur.v : null;
+        if (before === text) { return jsonOk({ saved: true, changed: 0 }); }
+        await env.DB.prepare(
+            "INSERT INTO gm_doc_settings (client_id, " + key + ", updated_by, updated_at) VALUES (?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET " + key + " = excluded." + key + ", updated_by = excluded.updated_by, updated_at = datetime('now')"
+        ).bind(id, text, actor).run();
+        await env.DB.prepare(
+            "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), id, key, before, text, actor).run();
+        return jsonOk({ saved: true, changed: 1, text: text, updated_by: actor });
+    } catch (e) {
+        return jsonErr("Error saving message: " + e.message, 500);
+    }
+}
+
+// ── PUBLIC: the customer's view (2f) ───────────────────────────────────
+// The token IS the credential (same contract as /api/scheduling/link). Rate
+// limited like the referral intake, in gm_referral_hits, keyed by token.
+async function gmEstPublicRateLimit(env, request, token, perTokenLimit, perIpLimit) {
+    var ip = request.headers.get("CF-Connecting-IP") || "";
+    var key = "est:" + token.slice(0, 16);
+    var tHits = await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')").bind(key).first();
+    var ipHits = ip ? await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_referral_hits WHERE ip = ? AND slug LIKE 'est:%' AND created_at > datetime('now', '-1 hour')").bind(ip).first() : { c: 0 };
+    if ((tHits && tHits.c >= perTokenLimit) || (ipHits && ipHits.c >= perIpLimit)) {
+        return jsonErr("Too many requests. Try again later.", 429);
+    }
+    await env.DB.prepare("INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, ?)").bind(crypto.randomUUID(), key, ip || null).run();
+    return null;
+}
+
+async function gmEstByToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    var est = await env.DB.prepare("SELECT * FROM gm_estimates WHERE public_token = ?").bind(token).first();
+    if (!est || est.status === "void") { return null; }
+    return gmEstAttach(env, est);
+}
+
+async function handleGetPublicEstimate(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return limited; }
+        var est = await gmEstByToken(env, token);
+        if (!est) { return jsonErr("Not found", 404); }
+        if (est.status === "draft") { return jsonErr("Not found", 404); }
+        // First load = viewed. Guarded: only a 'sent' row becomes 'viewed'.
+        await env.DB.prepare(
+            "UPDATE gm_estimates SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now'), " +
+            "status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END, updated_at = datetime('now') WHERE id = ?"
+        ).bind(est.id).run();
+        if (est.status === "sent") { est.status = "viewed"; }
+        if (est.status === "superseded") {
+            // A superseded revision's link keeps working but points to the current one.
+            var cur = await env.DB.prepare("SELECT public_token FROM gm_estimates WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft') ORDER BY revision DESC LIMIT 1").bind(est.client_id, est.number).first();
+            return jsonOk({ superseded: true, current_token: cur ? cur.public_token : null });
+        }
+        var settings = await gmDocSettingsRow(env, est.client_id);
+        var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(est.client_id).first();
+        var origin = new URL(request.url).origin;
+        // Accepted: serve the frozen snapshot, exactly as signed.
+        if (est.status === "accepted" && est.snapshot_r2_key) {
+            var obj = await env.ASSETS.get(est.snapshot_r2_key);
+            if (obj) {
+                var snap = JSON.parse(await obj.text());
+                snap.status = "accepted";
+                snap.signature_url = est.accepted_signature_r2_key ? origin + "/api/public/estimates/" + token + "/signature-image" : null;
+                snap.content_hash = est.content_hash;
+                return jsonOk({ estimate: snap });
+            }
+        }
+        var payload = gmEstimatePublicPayload(est, settings, client, origin);
+        payload.signature_url = est.accepted_signature_r2_key ? origin + "/api/public/estimates/" + token + "/signature-image" : null;
+        payload.content_hash = est.status === "accepted" ? est.content_hash : null;
+        return jsonOk({ estimate: payload });
+    } catch (e) {
+        return jsonErr("Error loading estimate: " + e.message, 500);
+    }
+}
+
+async function handlePostPublicEstimateAccept(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        var est = await gmEstByToken(env, token);
+        if (!est) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        var signer = gmStr(body.signer_name, 120);
+        if (!signer) { return jsonErr("Please type your name", 400); }
+        var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
+        var optionId = gmStr(body.option_id, 80);
+        if (est.mode === "tiered") {
+            if (!optionId || !est.options.some(function(o) { return o.id === optionId; })) { return jsonErr("Please choose an option", 400); }
+        } else { optionId = est.options[0] ? est.options[0].id : null; }
+        var sigKey = null;
+        if (kind === "drawn") {
+            var dataUrl = typeof body.signature_png === "string" ? body.signature_png : "";
+            var m = dataUrl.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+            if (!m) { return jsonErr("Please draw your signature", 400); }
+            var bin = atob(m[1]);
+            if (bin.length > 400000) { return jsonErr("Signature image too large", 400); }
+            var bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+            sigKey = "estimates/" + est.id + "/signature-r" + est.revision + ".png";
+            await env.ASSETS.put(sigKey, bytes, { httpMetadata: { contentType: "image/png" } });
+        }
+        if (gmEstDerivedStatus(est) === "expired") { return jsonErr("This estimate has expired. Request an updated estimate.", 409); }
+        var snap = await gmEstStoreSnapshot(env, est.client_id, est, request);
+        var ip = request.headers.get("CF-Connecting-IP") || null;
+        var ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        var res = await env.DB.prepare(
+            "UPDATE gm_estimates SET status = 'accepted', accepted_option_id = ?, accepted_signer_name = ?, accepted_signature_kind = ?, accepted_signature_r2_key = ?, " +
+            "accepted_ip = ?, accepted_user_agent = ?, accepted_at = datetime('now'), responded_at = datetime('now'), accepted_by_kind = 'customer', accepted_by_actor = NULL, " +
+            "content_hash = ?, snapshot_r2_key = ?, updated_at = datetime('now') " +
+            "WHERE id = ? AND status IN ('sent','viewed','changes_requested') AND valid_until >= ?"
+        ).bind(optionId, signer, kind, sigKey, ip, ua, snap.hash, snap.key, est.id, gmEasternToday()).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("This estimate can no longer be accepted.", 409); }
+        await gmLogLeadEvents(env, est.client_id, est.lead_id, signer, [{ action: "estimate_accepted", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "signed online (" + kind + ")" }]);
+        var full = await gmEstLoad(env, est.client_id, est.id);
+        await gmEstApplyToLead(env, est.client_id, full, signer, { sending: false });
+        return jsonOk({ accepted: true, content_hash: snap.hash });
+    } catch (e) {
+        return jsonErr("Error accepting estimate: " + e.message, 500);
+    }
+}
+
+async function handlePostPublicEstimateRespond(token, kind, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        var est = await gmEstByToken(env, token);
+        if (!est) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var text = gmStr(body.text, 2000);
+        var res, action;
+        if (kind === "changes") {
+            if (!text) { return jsonErr("Please describe the changes you would like", 400); }
+            res = await env.DB.prepare(
+                "UPDATE gm_estimates SET status = 'changes_requested', change_request_text = ?, responded_at = datetime('now'), updated_at = datetime('now') " +
+                "WHERE id = ? AND status IN ('sent','viewed','changes_requested')"
+            ).bind(text, est.id).run();
+            action = "estimate_changes_requested";
+        } else if (kind === "decline") {
+            res = await env.DB.prepare(
+                "UPDATE gm_estimates SET status = 'declined', decline_reason = ?, responded_at = datetime('now'), updated_at = datetime('now') " +
+                "WHERE id = ? AND status IN ('sent','viewed','changes_requested')"
+            ).bind(text, est.id).run();
+            action = "estimate_declined";
+        } else if (kind === "renew") {
+            // Expired: the customer asks for an updated estimate. Recorded on
+            // the lead; the status stays as it was.
+            if (gmEstDerivedStatus(est) !== "expired") { return jsonErr("This estimate has not expired", 409); }
+            res = await env.DB.prepare(
+                "UPDATE gm_estimates SET change_request_text = 'Customer requested an updated estimate after expiry', responded_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+            ).bind(est.id).run();
+            action = "estimate_update_requested";
+        } else { return jsonErr("Not found", 404); }
+        if (!res.meta || !res.meta.changes) { return jsonErr("This estimate can no longer be responded to.", 409); }
+        await gmLogLeadEvents(env, est.client_id, est.lead_id, est.customer_name || "customer", [{ action: action, field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: text }]);
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error responding: " + e.message, 500);
+    }
+}
+
+async function handleGetPublicEstimateSignature(token, request, env) {
+    try {
+        var est = await env.DB.prepare("SELECT accepted_signature_r2_key FROM gm_estimates WHERE public_token = ?").bind(token).first();
+        if (!est || !est.accepted_signature_r2_key || !/^estimates\/[A-Za-z0-9-]+\/signature-r\d+\.png$/.test(est.accepted_signature_r2_key)) {
+            return new Response(null, { status: 404, headers: CORS_HEADERS });
+        }
+        var obj = await env.ASSETS.get(est.accepted_signature_r2_key);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" }) });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
     }
 }
 
@@ -32938,6 +34074,19 @@ async function handleFetch(request, env, ctx) {
         var schedNone = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/none$/);
         if (schedNone && method === "POST") { return handlePostSchedulingNone(schedNone[1], request, env); }
 
+        // PUBLIC customer-facing estimate (estimates build, 2f). The token is
+        // the credential; rate limited in the handlers; 404 for unknown.
+        var pubEstMatch = path.match(/^\/api\/public\/estimates\/([a-f0-9]{48})(?:\/(accept|changes|decline|renew|signature-image))?$/);
+        if (pubEstMatch) {
+            var pubTok = pubEstMatch[1], pubAct = pubEstMatch[2] || null;
+            if (!pubAct && method === "GET") { return handleGetPublicEstimate(pubTok, request, env); }
+            if (pubAct === "signature-image" && method === "GET") { return handleGetPublicEstimateSignature(pubTok, request, env); }
+            if (pubAct === "accept" && method === "POST") { return handlePostPublicEstimateAccept(pubTok, request, env); }
+            if ((pubAct === "changes" || pubAct === "decline" || pubAct === "renew") && method === "POST") {
+                return handlePostPublicEstimateRespond(pubTok, pubAct, request, env);
+            }
+        }
+
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -33517,6 +34666,28 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 5 && gmCol === "doc-hero" && method === "POST") {
                     return handlePostGmDocHero(cid, request, env);
+                }
+                // Estimates (phase 2).
+                if (segs.length === 5 && gmCol === "estimates") {
+                    if (method === "GET")  { return handleGetGmEstimates(cid, request, env); }
+                    if (method === "POST") { return handlePostGmEstimate(cid, request, env); }
+                }
+                if (segs.length === 6 && gmCol === "estimates") {
+                    if (method === "GET") { return handleGetGmEstimate(cid, segs[5], request, env); }
+                    if (method === "PUT") { return handlePutGmEstimate(cid, segs[5], request, env); }
+                }
+                if (segs.length === 7 && gmCol === "estimates" && method === "POST") {
+                    if (segs[6] === "send")          { return handlePostGmEstimateSend(cid, segs[5], request, env); }
+                    if (segs[6] === "mark-accepted") { return handlePostGmEstimateMarkAccepted(cid, segs[5], request, env); }
+                    if (segs[6] === "void")          { return handlePostGmEstimateVoid(cid, segs[5], request, env); }
+                    if (segs[6] === "revise")        { return handlePostGmEstimateRevise(cid, segs[5], request, env); }
+                }
+                if (segs.length === 5 && gmCol === "doc-messages") {
+                    if (method === "GET") { return handleGetGmDocMessages(cid, request, env); }
+                    if (method === "PUT") { return handlePutGmDocMessages(cid, request, env); }
+                }
+                if (segs.length === 8 && gmCol === "leads" && segs[6] === "commission-review" && segs[7] === "dismiss" && method === "POST") {
+                    return handlePostGmLeadCommissionReviewDismiss(cid, segs[5], request, env);
                 }
                 if (segs.length === 5 && gmCol === "config" && method === "PUT") {
                     return handlePutGmConfig(cid, request, env);   // admin only

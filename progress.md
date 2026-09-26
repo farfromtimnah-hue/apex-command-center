@@ -24,6 +24,22 @@
 > The other test row, `test-client-rh-0001` ("TEST CLIENT RH - DO NOT USE"), is genuinely dead
 > and stays archived.
 
+- [x] Session 93b - 2026-09-26 - **Client portal estimates & invoices, PHASE 2 (estimates): wizard, customer page, PDF template, revisions, acceptance, reminders.**
+
+  Current phase: 2 of 3 shipped; phase 3 (invoices, payments, receipts) next.
+  Last session summary: gm_doc_counters + gm_estimates/_options/_items; EST-0001 numbers per client (compare-and-set); 8-step wizard from a lead (owners + sellers on their own leads); estimate-view.html (public, token = credential, brand colours, sign typed or drawn, request changes, decline, expired -> request update); templates/client-estimate-template.html (fixed 8.5x11 slides + JS paginator, prints from its own window); send via sms:/wa.me with the client-owned message template (pencil + right-click editor, history logged); lead valor / cost prefill / stage-forward / commission review; response-state colours and reminders on lead rows and the Estimates list; signed-document rows on the lead; "Mark accepted" by the contractor; "Move to Fechado and create project" prompt after acceptance.
+  Decisions made this session (not specified by the prompt):
+  - Draft edits replace the lines in place (old option/item rows are re-linked under a "replaced:" prefix, never deleted). A sent estimate edited = revision N+1 draft; the old revision is superseded when the NEW revision is sent (so a signed row keeps its signature data even when superseded).
+  - "expired" is DERIVED at read time from valid_until (Eastern date); the stored status is never rewritten for it.
+  - A superseded revision's public link redirects to the current revision's token.
+  - Public rate limit reuses gm_referral_hits keyed "est:<token prefix>": 120 views/hour per token, 20 actions/hour per token; no pruning DELETE in the new code.
+  - Sellers get GET/PUT gm/doc-messages (send templates + a non-sensitive settings_lite: legal name, validity days, presets, min margin). Void stays owner-only.
+  - Contractor "Mark accepted" also stores a snapshot + hash, with accepted_by_kind = contractor and no IP/UA.
+  - Orange (24h) band is color-mix(--gold 55%, --red); no new hex value.
+  - The customer page and the print template are English only; the print template auto-calls window.print() after render (add ?noprint=1 to inspect).
+  - In-app reminders only ("Not opened after 2 days", "Expires in 48 hours"); no seller push path exists in the portal, so no push.
+  Files: migrations/client_estimates_invoices_p2.sql, worker/index.js (estimates module, public routes, lead hooks), gm.js (estimates list/detail/wizard/send, lead sheet + row integration), gm-labels.js, gm.css, portal.html (template-edit.css), estimate-view.html [web-only], templates/client-estimate-template.html [web-only], scripts/test-estimates-math.mjs, iOS twins.
+
 - [x] Session 93 - 2026-09-26 - **Client portal estimates & invoices, PHASE 1 (foundation): settings, price-list additions, permissions, tabs.**
 
   Current phase: 1 of 3 shipped; phase 2 (estimates wizard, customer page, PDF template) next.

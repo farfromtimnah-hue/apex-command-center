@@ -35,6 +35,14 @@
 .gm-pill.gm-green  { background: rgba(63,125,78,0.14);  color: #2f6b3e; }
 .gm-pill.gm-red    { background: rgba(180,64,64,0.13);  color: #a03636; }
 .gm-pill.gm-muted  { background: rgba(107,102,96,0.13); color: #575249; }
+/* Estimate response state after 24h with no answer (estimates build, 2i):
+   between the gold "sent" and the red "48h" bands, mixed from those two
+   tokens rather than a new hex value. */
+.gm-pill.gm-orange { background: color-mix(in srgb, var(--gold) 55%, var(--red)); color: #fff; }
+.gm-est-eye { display: inline-block; vertical-align: middle; margin-left: 4px; color: var(--muted); }
+.gm-est-eye svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gm-lead-est { margin-top: 4px; }
+.gm-est-override { color: var(--red); font-weight: 700; font-size: 11px; }
 
 /* "Nobody owns this lead yet." Deliberately quiet -- amber, not the red used
    for a blown SLA. An unassigned lead is a routing gap for the owner to close,
@@ -954,3 +962,24 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   opacity: 0.85;
 }
 .cgrid-chip.is-redacted:hover { filter: none; }
+
+/* ── Estimates (estimates build, phase 2) ─────────────────────────────── */
+.gm-est-actions { display: flex; flex-direction: column; gap: 8px; }
+.gm-est-actions .gm-btn-secondary, .gm-est-actions .gm-btn-primary { margin: 0; text-align: center; text-decoration: none; display: block; box-sizing: border-box; }
+.gm-est-line { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.gm-est-line:last-child { border-bottom: none; }
+.gm-est-line .gm-input { margin-bottom: 8px; }
+.gm-est-x { align-self: center; color: var(--muted); font-weight: 700; padding: 0 2px; }
+.gm-est-pick .gm-cost-label { align-self: center; font-size: 14px; }
+.gm-est-signed summary { cursor: pointer; list-style: none; }
+.gm-est-signed summary::-webkit-details-marker { display: none; }
+.gm-est-signed summary::before { content: "▸ "; color: var(--muted); }
+.gm-est-signed[open] summary::before { content: "▾ "; }
+/* The step-8 preview: a plain, print-like block in the sheet. */
+.gm-est-preview { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 12px; font-size: 13px; }
+.gm-est-preview-head { margin-bottom: 10px; line-height: 1.5; }
+.gm-est-preview-tier { font-weight: 800; margin: 10px 0 4px; font-size: 14px; }
+.gm-est-preview-cat { font-weight: 700; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin: 10px 0 4px; }
+.gm-est-preview-line { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.gm-est-preview-line span:last-child, .gm-est-preview-line strong:last-child { text-align: right; white-space: nowrap; }
+.gm-est-preview-opt { margin-bottom: 8px; }

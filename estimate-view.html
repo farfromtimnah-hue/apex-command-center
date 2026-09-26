@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Estimate</title>
+  <style>
+    /* Public, no-login page for a client's CUSTOMER (estimates build, 2f).
+       Modelled on referral.html: self-contained, no app JS/CSS, the CLIENT's
+       brand only. No Apex name, logo, colours or URL anywhere on this page.
+       --brand-bg / --brand-accent are overridden from the client's settings;
+       the defaults are a neutral dark gray and white, never Apex's palette.
+       Text on a brand colour is chosen at runtime for 4.5:1 (textOn). */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .hero { background: var(--brand-bg); color: var(--on-brand-bg); }
+    .hero-img { width: 100%; max-height: 220px; object-fit: cover; display: block; }
+    .hero-inner { max-width: 720px; margin: 0 auto; padding: 18px 16px 20px; }
+    .logo { max-height: 64px; max-width: 200px; display: none; margin-bottom: 10px; background: #fff; border-radius: 8px; padding: 6px; }
+    .logo.on { display: block; }
+    .biz-name { font-size: 22px; font-weight: 800; }
+    .biz-meta { font-size: 13px; opacity: 0.85; margin-top: 4px; line-height: 1.6; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 14px; }
+    .meta-grid .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
+    .section { margin-top: 14px; }
+    .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+    .line .math { font-size: 13px; color: var(--muted); }
+    .line .amt { font-weight: 700; white-space: nowrap; text-align: right; }
+    .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 20px; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
+    .option.picked { border-color: var(--brand-accent); }
+    .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .option-head .tier { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 900; }
+    .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
+    .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
+    .sched .line { padding: 8px 0; }
+    .pm { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .pm b { display: block; }
+    .pm span { color: var(--muted); font-size: 14px; white-space: pre-wrap; }
+    .terms p { white-space: pre-wrap; margin-bottom: 10px; font-size: 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--brand-accent); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; }
+    .chips button { flex: 1; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); }
+    .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
+    .hidden { display: none !important; }
+    @media (max-width: 400px) { .meta-grid { grid-template-columns: 1fr; } .option-head { flex-wrap: wrap; } }
+  </style>
+</head>
+<body>
+  <div class="hero" id="hero">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="hero-inner">
+      <img class="logo" id="bizLogo" alt="">
+      <div class="biz-name" id="bizName">&nbsp;</div>
+      <div class="biz-meta" id="bizMeta"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="cardLoading"><div class="state"><p>Loading…</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Estimate not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+
+    <div id="doc" class="hidden">
+      <div class="card" id="cardMeta">
+        <h2>Estimate</h2>
+        <div class="meta-grid" id="metaGrid"></div>
+        <a class="toplink" href="#totals" id="viewTotal">View total</a>
+      </div>
+      <div class="card hidden" id="cardStateBanner"></div>
+      <div id="scope"></div>
+      <div class="card" id="cardSchedule"><h2>Payment schedule</h2><div class="sched" id="schedule"></div></div>
+      <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
+      <div class="card hidden" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
+      <div class="card" id="cardActions"></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button></div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var est = null;
+    var pickedOption = null;
+    var sigKind = "typed";
+    var drawing = false, drew = false, ctx = null;
+
+    function escHtml(s) {
+      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function money(c) {
+      var n = (Number(c) || 0) / 100;
+      var neg = n < 0; n = Math.abs(n);
+      var s = n.toFixed(2); var parts = s.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return (neg ? "-" : "") + "$" + parts.join(".");
+    }
+    function fmtDate(ymd) {
+      if (!ymd) { return ""; }
+      var p = String(ymd).slice(0, 10).split("-");
+      return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd;
+    }
+    // WCAG contrast: white text where it reaches 4.5:1 on the colour, else black.
+    function lum(hex) {
+      var h = hex.replace("#", "");
+      var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+      return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    }
+    function textOn(hex) {
+      var l = lum(hex); var white = (1.05) / (l + 0.05); return white >= 4.5 ? "#ffffff" : "#111111";
+    }
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      if (hex.test(b.brand_primary || "")) { root.setProperty("--brand-bg", b.brand_primary); root.setProperty("--on-brand-bg", textOn(b.brand_primary)); }
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : (hex.test(b.brand_primary || "") ? b.brand_primary : null);
+      if (accent) {
+        // An accent too light to carry white text stays usable: the button
+        // text flips to black and the underline colour is used as-is.
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+      }
+      if (b.logo_url) {
+        var img = document.getElementById("bizLogo");
+        img.onload = function() { img.className = "logo on"; };
+        img.onerror = function() { img.className = "logo"; };
+        img.src = b.logo_url;
+      }
+      if (b.hero_url) {
+        var h = document.getElementById("heroImg");
+        h.onload = function() { h.hidden = false; };
+        h.src = b.hero_url;
+      }
+      document.getElementById("bizName").textContent = b.name || "";
+      var meta = [];
+      (b.license_numbers || []).forEach(function(l) { meta.push("License " + l); });
+      if (b.phone) { meta.push(b.phone); }
+      if (b.email) { meta.push(b.email); }
+      if (b.address) { meta.push(b.address); }
+      document.getElementById("bizMeta").innerHTML = meta.map(escHtml).join(" · ");
+      document.title = "Estimate " + (est ? est.display_number : "") + (b.name ? " · " + b.name : "");
+    }
+
+    function lineHtml(ln) {
+      var amt = ln.line_type === "included" ? "Included" : (ln.line_type === "allowance" ? "Allowance: " + money(ln.amount_cents) : money(ln.amount_cents));
+      var math = ln.line_type === "included" ? "" : (String(ln.qty) + (ln.unit ? " " + ln.unit : "") + " × " + money(ln.rate_cents) + " = " + money(ln.amount_cents));
+      return '<div class="line"><div><div class="name">' + escHtml(ln.item_name) + '</div>' +
+        (ln.description ? '<div class="desc">' + escHtml(ln.description) + '</div>' : "") +
+        (math ? '<div class="math">' + escHtml(math) + '</div>' : "") +
+        (ln.line_type === "allowance" ? '<div class="math">Final amount reconciled on the invoice</div>' : "") +
+        '</div><div class="amt">' + escHtml(amt) + '</div></div>';
+    }
+
+    function optionBodyHtml(o) {
+      var h = "";
+      var products = o.sections.map(function(sec) { return { category: sec.category, lines: sec.lines.filter(function(l) { return !l.is_addon; }), subtotal: sec.subtotal_cents }; });
+      var addons = [];
+      o.sections.forEach(function(sec) { sec.lines.forEach(function(l) { if (l.is_addon) { addons.push(l); } }); });
+      products.forEach(function(sec) {
+        if (!sec.lines.length) { return; }
+        h += '<div class="section"><div class="section-title">' + escHtml(sec.category || "Scope") + '</div>';
+        sec.lines.forEach(function(l) { h += lineHtml(l); });
+        var sub = 0; sec.lines.forEach(function(l) { sub += l.amount_cents; });
+        h += '<div class="subtotal"><span>Subtotal</span><span>' + money(sub) + '</span></div></div>';
+      });
+      if (addons.length) {
+        h += '<div class="section"><div class="section-title">Add-ons</div>';
+        addons.forEach(function(l) { h += lineHtml(l); });
+        var asub = 0; addons.forEach(function(l) { asub += l.amount_cents; });
+        h += '<div class="subtotal"><span>Subtotal</span><span>' + money(asub) + '</span></div></div>';
+      }
+      h += '<div class="totals"><div class="row"><span>Subtotal</span><span>' + money(o.subtotal_cents) + '</span></div>' +
+        (o.discount_cents ? '<div class="row"><span>Discount' + (est.discount_type === "pct" ? " (" + est.discount_value + "%)" : "") + '</span><span>− ' + money(o.discount_cents) + '</span></div>' : "") +
+        '<div class="row grand"><span>Total</span><span>' + money(o.total_cents) + '</span></div></div>';
+      return h;
+    }
+
+    function tierLabel(o) { return o.label || (o.tier === "single" ? "" : o.tier.charAt(0).toUpperCase() + o.tier.slice(1)); }
+
+    function renderScope() {
+      var scope = document.getElementById("scope");
+      var h = "";
+      if (est.mode === "tiered") {
+        h += '<div class="card" id="totals"><h2>Choose your option</h2><p class="muted small">Three options, highest first. Pick one to accept.</p>';
+        est.options.forEach(function(o) {
+          var picked = pickedOption === o.id;
+          h += '<div class="option' + (picked ? " picked" : "") + '" id="opt_' + escHtml(o.id) + '">' +
+            '<div class="option-head"><span class="tier">' + escHtml(tierLabel(o)) + '</span><span class="price">' + money(o.total_cents) + '</span>' +
+            (canRespond() ? '<button type="button" class="pick" onclick="pickOption(\'' + escHtml(o.id) + '\')">' + (picked ? "Selected ✓" : "Select") + '</button>' :
+              (est.accepted_option_id === o.id ? '<span class="ok">Accepted ✓</span>' : "")) + '</div>' +
+            optionBodyHtml(o) + '</div>';
+        });
+        h += '</div>';
+      } else {
+        var o = est.options[0];
+        h += '<div class="card" id="totals"><h2>Scope of work</h2>' + optionBodyHtml(o) + '</div>';
+      }
+      scope.innerHTML = h;
+    }
+
+    function currentOption() {
+      if (est.mode !== "tiered") { return est.options[0]; }
+      var id = pickedOption || est.accepted_option_id || (est.options[1] ? est.options[1].id : est.options[0].id);
+      for (var i = 0; i < est.options.length; i++) { if (est.options[i].id === id) { return est.options[i]; } }
+      return est.options[0];
+    }
+
+    function renderSchedule() {
+      var o = currentOption();
+      var h = "";
+      (o.schedule || []).forEach(function(s) {
+        h += '<div class="line"><div><div class="name">' + escHtml(s.label) + '</div><div class="math">' + escHtml(String(s.pct)) + '%</div></div><div class="amt">' + money(s.amount_cents) + '</div></div>';
+      });
+      if (est.mode === "tiered") { h += '<p class="muted small" style="margin-top:8px;">Amounts shown for the ' + escHtml(tierLabel(o)) + ' option.</p>'; }
+      document.getElementById("schedule").innerHTML = h;
+    }
+
+    var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", other: "Other" };
+    function renderPayAndTerms() {
+      var b = est.business;
+      var pm = b.payment_methods || [];
+      if (pm.length) {
+        document.getElementById("payMethods").innerHTML = pm.map(function(m) {
+          var detail = m.detail ? (m.key === "card_link" && /^https?:\/\//.test(m.detail) ? '<a href="' + escHtml(m.detail) + '" target="_blank" rel="noopener">' + escHtml(m.detail) + '</a>' : escHtml(m.detail)) : "";
+          return '<div class="pm"><b>' + escHtml(PM_LABEL[m.key] || m.key) + '</b>' + (detail ? '<span>' + detail + '</span>' : "") + '</div>';
+        }).join("");
+        document.getElementById("cardPay").classList.remove("hidden");
+      }
+      var t = "";
+      if (est.terms_included) { t += '<b>Included</b><p>' + escHtml(est.terms_included) + '</p>'; }
+      if (est.terms_excluded) { t += '<b>Not included</b><p>' + escHtml(est.terms_excluded) + '</p>'; }
+      if (est.customer_notes) { t += '<b>Notes</b><p>' + escHtml(est.customer_notes) + '</p>'; }
+      t += '<b>Validity</b><p>This estimate is valid until ' + escHtml(fmtDate(est.valid_until)) + '.</p>';
+      if (b.late_fee_annual_pct) {
+        t += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year.</p>';
+      }
+      document.getElementById("terms").innerHTML = t;
+      document.getElementById("cardTerms").classList.remove("hidden");
+    }
+
+    function canRespond() { return ["sent", "viewed", "changes_requested"].indexOf(est.status) !== -1; }
+
+    function renderActions() {
+      var card = document.getElementById("cardActions");
+      var banner = document.getElementById("cardStateBanner");
+      banner.classList.add("hidden");
+      if (est.status === "accepted") {
+        banner.innerHTML = '<div class="state"><h3 class="ok">Accepted ✓</h3><p>Signed by ' + escHtml(est.accepted_signer_name || "") + ' on ' + escHtml(fmtDateTime(est.accepted_at)) + '.</p>' +
+          (est.signature_url ? '<img class="sigimg" src="' + escHtml(est.signature_url) + '" alt="Signature">' : "") +
+          (est.content_hash ? '<p class="hash">Document hash (SHA-256): ' + escHtml(est.content_hash) + '</p>' : "") + '</div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = '<p class="muted">You can download a copy of this signed estimate at any time.</p>';
+        return;
+      }
+      if (est.status === "expired") {
+        banner.innerHTML = '<div class="state"><h3>This estimate has expired.</h3><p>Request an updated estimate.</p><button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated estimate</button><div class="err" id="renewErr"></div></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = "";
+        return;
+      }
+      if (est.status === "declined") {
+        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined this estimate' + (est.decline_reason ? ": " + escHtml(est.decline_reason) : "") + '.</p></div>';
+        banner.classList.remove("hidden");
+        card.innerHTML = "";
+        return;
+      }
+      if (est.status === "changes_requested") {
+        banner.innerHTML = '<div class="state"><h3>Changes requested</h3><p>' + escHtml(est.change_request_text || "") + '</p><p class="muted small">You can still accept this version below.</p></div>';
+        banner.classList.remove("hidden");
+      }
+      card.innerHTML =
+        '<h2>Accept this estimate</h2>' +
+        (est.mode === "tiered" ? '<p class="muted small" id="pickHint">' + (pickedOption ? "Option selected: " + escHtml(tierLabel(currentOption())) : "Select an option above first.") + '</p>' : "") +
+        '<label for="signer">Your full name</label><input type="text" id="signer" autocomplete="name" value="' + escHtml(est.customer_name || "") + '">' +
+        '<label>Signature</label>' +
+        '<div class="chips"><button type="button" id="chipTyped" class="sel" onclick="setSig(\'typed\')">Type my name</button><button type="button" id="chipDrawn" onclick="setSig(\'drawn\')">Draw</button></div>' +
+        '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
+        '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearSig()">Clear</button></div>' +
+        '<label class="consent"><input type="checkbox" id="consent"><span>I agree to sign electronically and to receive this document electronically. I can download a copy at any time.</span></label>' +
+        '<div class="err" id="acceptErr"></div>' +
+        '<button type="button" class="btn" id="btnAccept" onclick="accept()">Accept and sign</button>' +
+        '<h2 style="margin-top:22px;">Or</h2>' +
+        '<label for="changes">Request changes</label><textarea id="changes" placeholder="Tell us what you would like changed"></textarea>' +
+        '<button type="button" class="btn secondary" id="btnChanges" onclick="respond(\'changes\')">Send change request</button>' +
+        '<label for="declineReason">Decline (optional reason)</label><input type="text" id="declineReason">' +
+        '<button type="button" class="btn secondary" id="btnDecline" onclick="respond(\'decline\')">Decline this estimate</button>' +
+        '<div class="err" id="respondErr"></div>';
+      setupCanvas();
+    }
+
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try {
+        var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d)
+          .reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET";
+      } catch (e) { return iso; }
+    }
+
+    function pickOption(id) {
+      pickedOption = id;
+      renderScope(); renderSchedule();
+      var hint = document.getElementById("pickHint");
+      if (hint) { hint.textContent = "Option selected: " + tierLabel(currentOption()); }
+      var a = document.getElementById("cardActions"); if (a) { a.scrollIntoView({ behavior: "smooth" }); }
+    }
+
+    function setSig(kind) {
+      sigKind = kind;
+      document.getElementById("chipTyped").className = kind === "typed" ? "sel" : "";
+      document.getElementById("chipDrawn").className = kind === "drawn" ? "sel" : "";
+      document.getElementById("sigTyped").classList.toggle("hidden", kind !== "typed");
+      document.getElementById("sigDrawn").classList.toggle("hidden", kind !== "drawn");
+      if (kind === "drawn") { setupCanvas(); }
+    }
+
+    function setupCanvas() {
+      var c = document.getElementById("sigCanvas");
+      if (!c) { return; }
+      var ratio = window.devicePixelRatio || 1;
+      var w = c.clientWidth || 300, h = 160;
+      if (c.width !== Math.round(w * ratio)) { c.width = Math.round(w * ratio); c.height = Math.round(h * ratio); }
+      ctx = c.getContext("2d");
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#111";
+      function pos(ev) { var r = c.getBoundingClientRect(); var t = ev.touches ? ev.touches[0] : ev; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+      c.onpointerdown = function(ev) { drawing = true; drew = true; var p = pos(ev); ctx.beginPath(); ctx.moveTo(p.x, p.y); ev.preventDefault(); };
+      c.onpointermove = function(ev) { if (!drawing) { return; } var p = pos(ev); ctx.lineTo(p.x, p.y); ctx.stroke(); ev.preventDefault(); };
+      c.onpointerup = c.onpointerleave = function() { drawing = false; };
+    }
+    function clearSig() { var c = document.getElementById("sigCanvas"); if (c && ctx) { ctx.clearRect(0, 0, c.width, c.height); drew = false; } }
+
+    function accept() {
+      var err = document.getElementById("acceptErr"); err.textContent = "";
+      var signer = document.getElementById("signer").value.trim();
+      if (!signer) { err.textContent = "Please type your full name."; return; }
+      if (est.mode === "tiered" && !pickedOption) { err.textContent = "Please select an option above."; return; }
+      if (!document.getElementById("consent").checked) { err.textContent = "Please tick the box to agree to sign electronically."; return; }
+      var body = { signer_name: signer, signature_kind: sigKind, option_id: pickedOption || null, consent: true };
+      if (sigKind === "drawn") {
+        if (!drew) { err.textContent = "Please draw your signature."; return; }
+        body.signature_png = document.getElementById("sigCanvas").toDataURL("image/png");
+      }
+      var btn = document.getElementById("btnAccept"); btn.disabled = true;
+      fetch(WORKER_URL + "/api/public/estimates/" + token + "/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.data.error || "Could not accept"); }
+          return load();
+        })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { btn.disabled = false; err.textContent = e.message; console.error(e); });
+    }
+
+    function respond(kind) {
+      var err = document.getElementById("respondErr"); err.textContent = "";
+      var text = kind === "changes" ? document.getElementById("changes").value.trim() : document.getElementById("declineReason").value.trim();
+      if (kind === "changes" && !text) { err.textContent = "Please describe the changes you would like."; return; }
+      var btn = document.getElementById(kind === "changes" ? "btnChanges" : "btnDecline"); btn.disabled = true;
+      fetch(WORKER_URL + "/api/public/estimates/" + token + "/" + kind, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text || null }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { btn.disabled = false; err.textContent = e.message; console.error(e); });
+    }
+
+    function renew() {
+      var err = document.getElementById("renewErr"); err.textContent = "";
+      var btn = document.getElementById("btnRenew"); btn.disabled = true;
+      fetch(WORKER_URL + "/api/public/estimates/" + token + "/renew", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } btn.textContent = "Request sent ✓"; })
+        .catch(function(e) { btn.disabled = false; err.textContent = e.message; console.error(e); });
+    }
+
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { document.getElementById(c).classList.toggle("hidden", c !== id); }); }
+
+    function load() {
+      if (!token) { show("cardNotFound"); return Promise.resolve(); }
+      return fetch(WORKER_URL + "/api/public/estimates/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) {
+          if (d.superseded) {
+            if (d.current_token) { window.location.replace("estimate-view?t=" + d.current_token); return; }
+            show("cardNotFound"); return;
+          }
+          est = d.estimate;
+          applyBranding(est.business);
+          document.getElementById("metaGrid").innerHTML =
+            '<div><div class="k">Job</div>' + escHtml(est.job_name) + '</div>' +
+            '<div><div class="k">Estimate #</div>' + escHtml(est.display_number) + '</div>' +
+            '<div><div class="k">Prepared for</div>' + escHtml(est.customer_name || "") + (est.customer_address ? '<br><span class="muted small">' + escHtml(est.customer_address) + '</span>' : "") + '</div>' +
+            '<div><div class="k">Date</div>' + escHtml(fmtDate(est.issued_on)) + '<br><span class="muted small">Valid until ' + escHtml(fmtDate(est.valid_until)) + '</span></div>';
+          if (est.mode === "tiered" && est.accepted_option_id) { pickedOption = est.accepted_option_id; }
+          renderScope(); renderSchedule(); renderPayAndTerms(); renderActions();
+          document.getElementById("btnPdf").onclick = function() { window.open("templates/client-estimate-template.html?t=" + token, "_blank"); };
+          show("doc");
+        })
+        .catch(function(e) { console.error(e); show("cardNotFound"); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

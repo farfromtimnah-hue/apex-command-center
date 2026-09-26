@@ -356,7 +356,41 @@
     return "Net " + d;
   }
 
+  // gm_estimates.status (stored) plus the derived "expired".
+  var ESTIMATE_STATUSES = [
+    { key: "draft",             pt: "Rascunho",           en: "Draft" },
+    { key: "sent",              pt: "Enviado",            en: "Sent" },
+    { key: "viewed",            pt: "Aberto",             en: "Viewed" },
+    { key: "changes_requested", pt: "Mudanças pedidas",   en: "Changes requested" },
+    { key: "accepted",          pt: "Aceito",             en: "Accepted" },
+    { key: "declined",          pt: "Recusado",           en: "Declined" },
+    { key: "expired",           pt: "Expirado",           en: "Expired" },
+    { key: "superseded",        pt: "Substituído",        en: "Superseded" },
+    { key: "void",              pt: "Anulado",            en: "Void" }
+  ];
+  function estimateStatusLabel(key, en) {
+    for (var i = 0; i < ESTIMATE_STATUSES.length; i++) {
+      if (ESTIMATE_STATUSES[i].key === key) { return en ? ESTIMATE_STATUSES[i].en : ESTIMATE_STATUSES[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+  var ESTIMATE_LINE_TYPES = [
+    { key: "standard",  pt: "Normal",    en: "Standard" },
+    { key: "included",  pt: "Incluído",  en: "Included" },
+    { key: "allowance", pt: "Allowance", en: "Allowance" }
+  ];
+  function estimateLineTypeLabel(key, en) {
+    for (var i = 0; i < ESTIMATE_LINE_TYPES.length; i++) {
+      if (ESTIMATE_LINE_TYPES[i].key === key) { return en ? ESTIMATE_LINE_TYPES[i].en : ESTIMATE_LINE_TYPES[i].pt; }
+    }
+    return en ? "Standard" : "Normal";
+  }
+
   global.GmLabels = {
+    ESTIMATE_STATUSES: ESTIMATE_STATUSES,
+    estimateStatusLabel: estimateStatusLabel,
+    ESTIMATE_LINE_TYPES: ESTIMATE_LINE_TYPES,
+    estimateLineTypeLabel: estimateLineTypeLabel,
     DOC_PAYMENT_METHODS: DOC_PAYMENT_METHODS,
     paymentMethodLabel: paymentMethodLabel,
     PRICING_KINDS: PRICING_KINDS,

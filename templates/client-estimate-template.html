@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Estimate</title>
+  <style>
+    /* PRINT TEMPLATE for a client's estimate (estimates build, 2g), following
+       Nicole's 2026-09-26 rule: content NEVER flows between pages. Every page
+       is a fixed 8.5in x 11in <section class="slide">; a JavaScript
+       paginator measures each block and opens a new slide when the next block
+       would not fit. The footer is ::after INSIDE the slide -- never
+       position:fixed, never @bottom-center. The PDF is made by this window's
+       own print dialog (window.print() below). No Apex branding anywhere. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; }
+    html, body { background: #e9ebee; }
+    body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.4; padding: 24px 0; }
+    .toolbar { max-width: 8.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+    .toolbar button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #c8ccd2; background: #fff; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: 0.8in 0.75in 1in; overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
+    .slide::before { content: ""; position: absolute; left: .75in; right: .75in; bottom: .68in; height: 1px; background: #E3E7EC; }
+    .slide::after { content: attr(data-footer); position: absolute; left: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
+    .pg { position: absolute; right: .75in; bottom: .42in; font-size: 8pt; color: #5A6470; }
+    /* Blocks. Each is measured whole; a table row is its own block so a
+       long table splits across slides with its header repeated. */
+    .blk { margin-bottom: 8pt; }
+    .head { display: flex; justify-content: space-between; gap: 18pt; align-items: flex-start; border-bottom: 3px solid var(--accent); padding-bottom: 10pt; margin-bottom: 12pt; }
+    .head .logo { max-height: 60pt; max-width: 180pt; display: none; }
+    .head .logo.on { display: block; margin-bottom: 6pt; }
+    .head .biz { font-size: 15pt; font-weight: 800; }
+    .head .biz-meta { font-size: 8.5pt; color: var(--muted); line-height: 1.5; }
+    .head .doc { text-align: right; }
+    .head .doc .title { font-size: 20pt; font-weight: 900; letter-spacing: 0.04em; color: var(--brand); }
+    .head .doc .num { font-size: 11pt; font-weight: 700; }
+    .head .doc .small { font-size: 8.5pt; color: var(--muted); }
+    .hero-band { height: 0.9in; background-size: cover; background-position: center; border-radius: 4pt; margin-bottom: 10pt; }
+    .meta { display: flex; gap: 18pt; font-size: 9.5pt; }
+    .meta > div { flex: 1; }
+    .meta .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sec-title { font-size: 11pt; font-weight: 800; padding: 6pt 0 3pt; border-bottom: 1.5px solid var(--accent); margin-top: 6pt; }
+    .tier-title { font-size: 13pt; font-weight: 900; color: var(--brand); padding: 8pt 0 2pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    thead th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4pt 4pt; border-bottom: 1px solid var(--rule); }
+    td { padding: 5pt 4pt; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    td.q, th.q { width: 0.9in; white-space: nowrap; }
+    td.r, th.r { width: 1in; text-align: right; white-space: nowrap; }
+    td.a, th.a { width: 1.1in; text-align: right; white-space: nowrap; font-weight: 700; }
+    td .desc { font-size: 8.5pt; color: var(--muted); white-space: pre-wrap; }
+    tr.sub td { font-weight: 700; color: var(--muted); border-bottom: none; }
+    .totals { margin-left: auto; width: 3.2in; font-size: 10pt; }
+    .totals .row { display: flex; justify-content: space-between; padding: 3pt 0; }
+    .totals .grand { font-size: 13pt; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
+    .terms p { white-space: pre-wrap; font-size: 9.5pt; margin-bottom: 6pt; }
+    .terms b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4pt; }
+    .pm { font-size: 9.5pt; padding: 3pt 0; }
+    .pm b { display: inline; }
+    .sigblock { border: 1px solid var(--rule); border-radius: 6pt; padding: 12pt; }
+    .sigblock .t { font-weight: 800; margin-bottom: 6pt; }
+    .sigblock .grid { display: flex; gap: 18pt; font-size: 9.5pt; }
+    .sigblock .grid > div { flex: 1; }
+    .sigblock .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sigblock img { max-height: 70pt; max-width: 240pt; display: block; margin: 4pt 0; }
+    .sigblock .line { border-bottom: 1px solid var(--ink); height: 34pt; }
+    .sigblock .hash { font-family: ui-monospace, Menlo, monospace; font-size: 7pt; color: var(--muted); overflow-wrap: anywhere; }
+    .muted { color: var(--muted); }
+    #stage { position: absolute; left: -10000px; top: 0; width: 7in; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      .slide { margin: 0; box-shadow: none; break-after: page; }
+      .slide:last-child { break-after: auto; }
+      @page { size: Letter portrait; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+  <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading…</p></section></div>
+  <!-- Off-screen measuring stage, the same width as a slide's content box. -->
+  <div id="stage"></div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var CONTENT_H = 11 * 96 - (0.8 + 1) * 96;   // slide height minus vertical padding, in CSS px
+    var est = null;
+
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    function tierLabel(o) { return o.label || (o.tier === "single" ? "" : o.tier.charAt(0).toUpperCase() + o.tier.slice(1)); }
+
+    // ── Blocks ──────────────────────────────────────────────────────────
+    // Each block: { html, kind, keepWithNext }. Table rows are emitted as
+    // blocks of kind "row" carrying the header html so a split table gets
+    // its header repeated on the next slide.
+    function buildBlocks() {
+      var b = est.business;
+      var blocks = [];
+      var meta = [];
+      (b.license_numbers || []).forEach(function(l) { meta.push("License " + l); });
+      if (b.address) { meta.push(b.address); }
+      if (b.phone) { meta.push(b.phone); }
+      if (b.email) { meta.push(b.email); }
+      var head = '<div class="blk head">' +
+        '<div>' + (b.logo_url ? '<img class="logo on" src="' + escHtml(b.logo_url) + '" alt="">' : "") +
+          '<div class="biz">' + escHtml(b.name || "") + '</div><div class="biz-meta">' + meta.map(escHtml).join("<br>") + '</div></div>' +
+        '<div class="doc"><div class="title">ESTIMATE</div><div class="num">' + escHtml(est.display_number) + '</div>' +
+          '<div class="small">Date ' + escHtml(fmtDate(est.issued_on)) + '<br>Valid until ' + escHtml(fmtDate(est.valid_until)) + '</div>' +
+          (est.status === "accepted" ? '<div class="small" style="color:#2f6b3e;font-weight:700;">ACCEPTED ' + escHtml(fmtDate(est.accepted_at)) + '</div>' : "") + '</div></div>';
+      blocks.push({ html: head, kind: "block", keepWithNext: true });
+      if (b.hero_url) { blocks.push({ html: '<div class="blk hero-band" style="background-image:url(' + escHtml(b.hero_url) + ')"></div>', kind: "block", keepWithNext: true }); }
+      blocks.push({ html: '<div class="blk meta"><div><div class="k">Prepared for</div>' + escHtml(est.customer_name || "") + (est.customer_address ? "<br>" + escHtml(est.customer_address) : "") + (est.customer_phone ? "<br>" + escHtml(est.customer_phone) : "") + '</div>' +
+        '<div><div class="k">Job</div>' + escHtml(est.job_name) + '</div></div>', kind: "block", keepWithNext: true });
+
+      var thead = '<thead><tr><th>Description</th><th class="q">Qty</th><th class="r">Rate</th><th class="a">Amount</th></tr></thead>';
+      est.options.forEach(function(o) {
+        if (o.tier !== "single") { blocks.push({ html: '<div class="blk tier-title">' + escHtml(tierLabel(o)) + ' — ' + money(o.total_cents) + (est.accepted_option_id === o.id ? ' <span style="color:#2f6b3e;font-size:9pt;">ACCEPTED</span>' : "") + '</div>', kind: "block", keepWithNext: true }); }
+        var groups = o.sections.map(function(sec) { return { title: sec.category || "Scope", lines: sec.lines.filter(function(l) { return !l.is_addon; }) }; }).filter(function(g) { return g.lines.length; });
+        var addons = []; o.sections.forEach(function(sec) { sec.lines.forEach(function(l) { if (l.is_addon) { addons.push(l); } }); });
+        if (addons.length) { groups.push({ title: "Add-ons", lines: addons }); }
+        groups.forEach(function(g) {
+          blocks.push({ html: '<div class="blk sec-title">' + escHtml(g.title) + '</div>', kind: "block", keepWithNext: true });
+          var sub = 0;
+          g.lines.forEach(function(l) {
+            sub += l.amount_cents;
+            var amt = l.line_type === "included" ? "Included" : (l.line_type === "allowance" ? "Allowance " + money(l.amount_cents) : money(l.amount_cents));
+            var row = '<tr><td>' + escHtml(l.item_name) + (l.description ? '<div class="desc">' + escHtml(l.description) + '</div>' : "") + (l.line_type === "allowance" ? '<div class="desc">Final amount reconciled on the invoice</div>' : "") + '</td>' +
+              '<td class="q">' + (l.line_type === "included" ? "" : escHtml(String(l.qty)) + (l.unit ? " " + escHtml(l.unit) : "")) + '</td>' +
+              '<td class="r">' + (l.line_type === "included" ? "" : money(l.rate_cents)) + '</td><td class="a">' + escHtml(amt) + '</td></tr>';
+            blocks.push({ html: row, kind: "row", thead: thead });
+          });
+          blocks.push({ html: '<tr class="sub"><td colspan="3">Subtotal ' + escHtml(g.title) + '</td><td class="a">' + money(sub) + '</td></tr>', kind: "row", thead: thead });
+        });
+        blocks.push({ html: '<div class="blk totals"><div class="row"><span>Subtotal</span><span>' + money(o.subtotal_cents) + '</span></div>' +
+          (o.discount_cents ? '<div class="row"><span>Discount</span><span>− ' + money(o.discount_cents) + '</span></div>' : "") +
+          '<div class="row grand"><span>Total</span><span>' + money(o.total_cents) + '</span></div></div>', kind: "block" });
+      });
+
+      // Schedule (for the accepted / Better / single option)
+      var opt = null;
+      est.options.forEach(function(o) { if (o.id === est.accepted_option_id) { opt = o; } });
+      if (!opt) { est.options.forEach(function(o) { if (o.tier === "better") { opt = o; } }); }
+      if (!opt) { opt = est.options[0]; }
+      blocks.push({ html: '<div class="blk sec-title">Payment schedule' + (est.mode === "tiered" ? ' (' + escHtml(tierLabel(opt)) + ' option)' : "") + '</div>', kind: "block", keepWithNext: true });
+      var sthead = '<thead><tr><th>Step</th><th class="q">%</th><th class="a">Amount</th></tr></thead>';
+      (opt.schedule || []).forEach(function(s) {
+        blocks.push({ html: '<tr><td>' + escHtml(s.label) + '</td><td class="q">' + escHtml(String(s.pct)) + '%</td><td class="a">' + money(s.amount_cents) + '</td></tr>', kind: "row", thead: sthead });
+      });
+      if (b.payment_methods && b.payment_methods.length) {
+        var PM = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", other: "Other" };
+        blocks.push({ html: '<div class="blk sec-title">Accepted payment methods</div>', kind: "block", keepWithNext: true });
+        b.payment_methods.forEach(function(m) { blocks.push({ html: '<div class="blk pm"><b>' + escHtml(PM[m.key] || m.key) + '</b>' + (m.detail ? ': ' + escHtml(m.detail) : "") + '</div>', kind: "block" }); });
+      }
+      var terms = "";
+      if (est.terms_included) { terms += '<b>Included</b><p>' + escHtml(est.terms_included) + '</p>'; }
+      if (est.terms_excluded) { terms += '<b>Not included</b><p>' + escHtml(est.terms_excluded) + '</p>'; }
+      if (est.customer_notes) { terms += '<b>Notes</b><p>' + escHtml(est.customer_notes) + '</p>'; }
+      terms += '<b>Validity</b><p>This estimate is valid until ' + escHtml(fmtDate(est.valid_until)) + '.</p>';
+      if (b.late_fee_annual_pct) { terms += '<b>Late payment</b><p>Payments more than ' + escHtml(String(b.late_fee_grace_days || 0)) + ' days late accrue interest at ' + escHtml(String(b.late_fee_annual_pct)) + '% per year.</p>'; }
+      blocks.push({ html: '<div class="blk sec-title">Terms</div>', kind: "block", keepWithNext: true });
+      // Terms paragraphs are split so a long terms text can cross slides.
+      terms.split("</p>").forEach(function(chunk) { if (chunk.trim()) { blocks.push({ html: '<div class="blk terms">' + chunk + '</p></div>', kind: "block" }); } });
+
+      // Signature block: one block, never split (rule 5).
+      var sig;
+      if (est.status === "accepted") {
+        sig = '<div class="blk sigblock"><div class="t">Accepted and signed</div><div class="grid">' +
+          '<div><div class="k">Signature</div>' + (est.signature_url ? '<img src="' + escHtml(est.signature_url) + '" alt="Signature">' : '<div style="font-family:cursive;font-size:16pt;padding:6pt 0;">' + escHtml(est.accepted_signer_name || "") + '</div>') +
+            '<div>' + escHtml(est.accepted_signer_name || "") + '</div></div>' +
+          '<div><div class="k">Date and time</div><div>' + escHtml(fmtDateTime(est.accepted_at)) + '</div>' +
+            '<div class="k" style="margin-top:6pt;">Method</div><div>' + (est.accepted_by_kind === "contractor" ? "Accepted in person / by phone" : "Signed electronically (" + escHtml(est.accepted_signature_kind || "typed") + ")") + '</div>' +
+            (est.mode === "tiered" && opt ? '<div class="k" style="margin-top:6pt;">Option</div><div>' + escHtml(tierLabel(opt)) + '</div>' : "") + '</div></div>' +
+          (est.content_hash ? '<div class="hash" style="margin-top:8pt;">Document hash (SHA-256): ' + escHtml(est.content_hash) + '</div>' : "") + '</div>';
+      } else {
+        sig = '<div class="blk sigblock"><div class="t">Acceptance</div><div class="grid">' +
+          '<div><div class="k">Customer signature</div><div class="line"></div><div class="muted" style="font-size:8pt;">' + escHtml(est.customer_name || "") + '</div></div>' +
+          '<div><div class="k">Date</div><div class="line"></div></div></div>' +
+          '<p class="muted" style="font-size:8pt;margin-top:8pt;">By signing, the customer accepts this estimate' + (est.mode === "tiered" ? " and the option marked" : "") + ' and the terms above.</p></div>';
+      }
+      blocks.push({ html: sig, kind: "block" });
+      return blocks;
+    }
+
+    // ── Paginator ───────────────────────────────────────────────────────
+    // Measures each block on the off-screen stage (same width as a slide's
+    // content box) and fills slides: a new slide opens when the next block
+    // would not fit; a block flagged keepWithNext (a section header, the
+    // page header) is moved along with what follows it; a table row keeps
+    // its thead, repeated at the top of every continued table.
+    function measure(html, asRow, thead) {
+      var stage = document.getElementById("stage");
+      stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
+      var h = stage.firstElementChild ? stage.firstElementChild.getBoundingClientRect().height : 0;
+      if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : h; }
+      stage.innerHTML = "";
+      return h;
+    }
+    function measureThead(thead) { return measure("", true, thead); }
+
+    function paginate(blocks) {
+      var slides = [];       // each: { parts: [html...], used: px }
+      var cur = null, openTable = null;
+      function newSlide() { if (cur && openTable) { cur.parts.push("</tbody></table>"); } openTable = null; cur = { parts: [], used: 0 }; slides.push(cur); }
+      function closeTable() { if (openTable) { cur.parts.push("</tbody></table>"); openTable = null; } }
+      newSlide();
+      var pending = [];   // keepWithNext blocks waiting to be placed with the next one
+      function place(b) {
+        var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html);
+        var extra = 0;
+        if (b.kind === "row" && openTable !== b.thead) { extra = measureThead(b.thead); }
+        var pendingH = 0;
+        pending.forEach(function(p) { pendingH += p.h; });
+        if (cur.used + pendingH + extra + h > CONTENT_H && (cur.used > 0 || pendingH > 0)) {
+          if (cur.used === 0 && pendingH > 0) {
+            // Nothing else on the slide: the pending headers alone go here only if the block itself is taller than a page.
+          }
+          newSlide();
+        }
+        pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; });
+        pending = [];
+        if (b.kind === "row") {
+          if (openTable !== b.thead) { closeTable(); cur.parts.push('<table>' + b.thead + '<tbody>'); cur.used += extra; openTable = b.thead; }
+          cur.parts.push(b.html); cur.used += h;
+        } else { closeTable(); cur.parts.push(b.html); cur.used += h; }
+      }
+      blocks.forEach(function(b) {
+        if (b.keepWithNext) { var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
+        place(b);
+      });
+      if (pending.length) { pending.forEach(function(p) { if (cur.used + p.h > CONTENT_H) { newSlide(); } closeTable(); cur.parts.push(p.html); cur.used += p.h; }); }
+      closeTable();
+      return slides;
+    }
+
+    function render() {
+      var blocks = buildBlocks();
+      var slides = paginate(blocks);
+      var footer = (est.business.name || "") + " · " + est.display_number;
+      var html = "";
+      slides.forEach(function(s, i) {
+        html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + '<div class="pg">' + (i + 1) + " of " + slides.length + '</div></section>';
+      });
+      document.getElementById("pages").innerHTML = html;
+      document.title = "Estimate " + est.display_number + (est.business.name ? " - " + est.business.name : "");
+      // Overflow check (nothing may be cut by overflow:hidden): log and mark.
+      var sections = document.querySelectorAll("#pages .slide");
+      for (var i = 0; i < sections.length; i++) {
+        var inner = sections[i].scrollHeight;
+        if (inner > sections[i].clientHeight + 1) { console.error("[estimate-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
+      }
+      window.__estimatePages = slides.length;
+    }
+
+    function applyBrand(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/; var root = document.documentElement.style;
+      if (hex.test(b.brand_primary || "")) { root.setProperty("--brand", b.brand_primary); root.setProperty("--on-brand", textOn(b.brand_primary)); }
+      if (hex.test(b.brand_accent || "")) { root.setProperty("--accent", b.brand_accent); } else if (hex.test(b.brand_primary || "")) { root.setProperty("--accent", b.brand_primary); }
+    }
+
+    function load() {
+      if (!token) { document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Estimate not found.</p></section>'; return; }
+      fetch(WORKER_URL + "/api/public/estimates/" + token)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) {
+          if (d.superseded && d.current_token) { window.location.replace("client-estimate-template.html?t=" + d.current_token); return; }
+          est = d.estimate;
+          applyBrand(est.business);
+          // Images must be loaded before measuring, or the header block is
+          // measured without its logo and the first slide overflows.
+          var urls = [est.business.logo_url, est.signature_url].filter(Boolean);
+          var waits = urls.map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); });
+          return Promise.all(waits).then(function() {
+            render();
+            // Re-measure once fonts are in, then print from THIS window.
+            if (document.fonts && document.fonts.ready) { return document.fonts.ready.then(function() { render(); }); }
+          });
+        })
+        .then(function() {
+          if (est && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { window.print(); }, 300); }
+        })
+        .catch(function(e) { console.error(e); document.getElementById("pages").innerHTML = '<section class="slide" data-footer=""><p>Estimate not found.</p></section>'; });
+    }
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

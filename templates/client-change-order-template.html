@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Change Order</title>
+  <style>
+    /* PRINT TEMPLATE for a client's CONTRACT (contracts build, checkpoint B).
+       Copied from client-estimate-template.html (fix-build header, paginator,
+       print sizing, signature block); only the block builder differs.
+       Nicole's rule: content NEVER flows between pages. Every page is a
+       <section class="slide">; a JavaScript paginator measures each block and
+       opens a new slide when the next block would not fit. The footer is
+       ::after INSIDE the slide -- never position:fixed, never @bottom-center.
+       On screen a slide is 8.5in x 11in; in print it is sized to the PAGE BOX
+       (100vw x 100vh) so a browser that adds its own margins and URL/date
+       strips (iPhone Safari) still fits one slide per sheet, and the content
+       budget is deliberately shorter than the page (CONTENT_H) so nothing
+       ever spills. No Apex branding anywhere: the client's photo, logo and
+       colours only. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; --on-accent: #fff;
+      /* Slide geometry. --pad-x / --pad-top are shared by the slide padding
+         and the hero band's negative margins, so the photo is full-bleed. */
+      --pad-x: 0.75in; --pad-top: 0.45in; --pad-bottom: 0.8in;
+    }
+    html, body { background: #e9ebee; }
+    body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.4; padding: 24px 0; }
+    .toolbar { max-width: 8.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+    .toolbar button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #c8ccd2; background: #fff; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: var(--pad-top) var(--pad-x) var(--pad-bottom); overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
+    .slide::before { content: ""; position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: .56in; height: 1px; background: #E3E7EC; }
+    .slide::after { content: attr(data-footer); position: absolute; left: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
+    .pg { position: absolute; right: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
+    .blk { margin-bottom: 8pt; }
+
+    /* ---- HERO BAND (copied from apex-invoice-template-DRAFT: .hero-band,
+       .header-tile-row, .client-logo-tile, .client-name-mark, .gold-bar-label
+       -> .brand-pill in the client's accent colour). Full-bleed photo; with
+       no photo a solid band in the client's primary colour. ---- */
+    .hero-band { position: relative; height: 1.75in; overflow: hidden; background: var(--brand); margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 12pt; }
+    .hero-band img.hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+    .header-tile-row { display: flex; align-items: center; position: absolute; bottom: 12px; left: var(--pad-x); right: var(--pad-x); gap: 0; z-index: 10; }
+    .client-logo-tile { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 18px; display: flex; align-items: center; justify-content: center; width: 220px; min-width: 220px; height: 90px; box-shadow: 0 4px 20px rgba(0,0,0,0.55); flex-shrink: 0; }
+    .client-logo-tile img { max-height: 64px; max-width: 190px; object-fit: contain; display: block; }
+    .client-logo-tile .client-name-mark { font-size: 15px; font-weight: 700; line-height: 1.25; color: #fff; letter-spacing: 0.3px; text-align: center; max-width: 190px; display: inline-block; word-break: break-word; }
+    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
+    .brand-pill { margin-left: 22px; display: inline-block; background: rgba(20, 20, 20, 0.82); border-radius: 20px; padding: 5px 18px; color: var(--accent-on-dark, #fff); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.18); }
+
+    /* ---- META AREA (DRAFT .invoice-meta-area): customer + business on the
+       left, document number / dates / terms on the right, the amount tile
+       under them. License, phone, email, address live HERE, never in a band. */
+    .meta-area { display: flex; justify-content: space-between; align-items: flex-start; gap: 24pt; }
+    .meta-left { flex: 1; min-width: 0; font-size: 9.5pt; }
+    .meta-left .k, .meta-right .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2pt; }
+    .meta-left .who { font-size: 12pt; font-weight: 700; }
+    .meta-left .from { margin-top: 8pt; font-size: 8.5pt; color: #444; line-height: 1.5; }
+    .meta-right { min-width: 2.9in; max-width: 3.2in; text-align: right; }
+    .meta-right .title { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase; color: var(--brand); line-height: 1.1; }
+    .meta-right .num { font-size: 12pt; font-weight: 700; color: var(--accent); margin-bottom: 4pt; }
+    .meta-right table { width: 100%; border-collapse: collapse; }
+    .meta-right td { padding: 2pt 6pt; font-size: 9pt; vertical-align: top; border: none; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: nowrap; text-align: left; }
+    .meta-right td.fv { color: #111; text-align: right; }
+    .stamp { display: inline-block; margin-top: 4pt; font-size: 8.5pt; font-weight: 800; letter-spacing: 0.06em; }
+    .stamp.ok { color: #2f6b3e; } .stamp.bad { color: #a63d3d; }
+    /* DRAFT .amount-due-tile, in the client's accent colour instead of gold. */
+    .amount-due-tile { background-color: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 10px 24px; text-align: center; margin-top: 8pt; }
+    .amount-due-tile .adt-label { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2pt; }
+    .amount-due-tile .adt-value { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; }
+
+    .sec-title { font-size: 11pt; font-weight: 800; padding: 6pt 0 3pt; border-bottom: 1.5px solid var(--accent); margin-top: 6pt; }
+    .cat-title { font-size: 9.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 6pt 0 2pt; }
+    .tier-title { font-size: 13pt; font-weight: 900; color: var(--brand); padding: 8pt 0 2pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    thead th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4pt 4pt; border-bottom: 1px solid var(--rule); }
+    td { padding: 5pt 4pt; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    td.q, th.q { width: 0.9in; white-space: nowrap; }
+    td.r, th.r { width: 1in; text-align: right; white-space: nowrap; }
+    td.a, th.a { width: 1.1in; text-align: right; white-space: nowrap; font-weight: 700; }
+    td .desc { font-size: 8.5pt; color: var(--muted); white-space: pre-wrap; }
+    tr.sub td { font-weight: 700; color: var(--muted); border-bottom: none; }
+    .totals { margin-left: auto; width: 3.2in; font-size: 10pt; }
+    .totals .row { display: flex; justify-content: space-between; padding: 3pt 0; }
+    .totals .grand { font-size: 13pt; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
+    .terms p { white-space: pre-wrap; font-size: 9.5pt; margin-bottom: 6pt; }
+    .terms b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4pt; }
+    /* DRAFT .payment-tiles / .payment-tile: one tile per accepted method,
+       the detail as plain text (Zelle: the handle, never a button). */
+    .payment-tiles { display: flex; gap: 8pt; margin-top: 4pt; flex-wrap: wrap; break-inside: avoid; page-break-inside: avoid; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 6pt 10pt; display: flex; flex-direction: column; align-items: flex-start; gap: 2pt; min-width: 1.3in; max-width: 3.3in; }
+    .payment-tile .pt-label { font-size: 8pt; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 9pt; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .sigblock { border: 1px solid var(--rule); border-radius: 6pt; padding: 12pt; break-inside: avoid; page-break-inside: avoid; }
+    .sigblock .t { font-weight: 800; margin-bottom: 6pt; }
+    .sigblock .grid { display: flex; gap: 18pt; font-size: 9.5pt; }
+    .sigblock .grid > div { flex: 1; min-width: 0; }
+    .sigblock .k { font-size: 7.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6pt; }
+    .sigblock .k:first-child { margin-top: 0; }
+    .sigblock img { max-height: 70pt; max-width: 240pt; display: block; margin: 4pt 0; }
+    .sigblock .typed { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 18pt; padding: 4pt 0; }
+    .sigblock .line { border-bottom: 1px solid var(--ink); height: 34pt; }
+    .sigblock .hash { font-family: ui-monospace, Menlo, monospace; font-size: 7pt; color: var(--muted); overflow-wrap: anywhere; }
+    .banner { border-radius: 6pt; padding: 8pt 12pt; font-size: 9.5pt; break-inside: avoid; page-break-inside: avoid; }
+    .banner.bad { background: #fbeaea; border: 1px solid #e3b4b4; color: #7a2a2a; }
+    .banner.ok { background: #eaf4ec; border: 1px solid #b9d7c0; color: #23532f; }
+    .banner b { display: block; font-size: 10.5pt; margin-bottom: 2pt; }
+    .muted { color: var(--muted); }
+    /* ---- Contract blocks ---- */
+    .clause { break-inside: avoid; page-break-inside: avoid; }
+    .clause p { font-size: 9.5pt; margin-bottom: 5pt; white-space: pre-wrap; }
+    .clause .h { font-size: 10.5pt; font-weight: 800; }
+    .locked { break-inside: avoid; page-break-inside: avoid; }
+    .locked p { font-size: 9.5pt; font-weight: 700; margin-bottom: 5pt; white-space: pre-wrap; }
+    .lien { padding-top: 0.4in; }
+    .lien p { font-size: 12pt; font-weight: 700; text-transform: uppercase; line-height: 1.45; margin-bottom: 8pt; white-space: pre-wrap; }
+    .lien .sigrow { display: flex; gap: 24pt; margin-top: 14pt; font-size: 10pt; font-weight: 700; text-transform: uppercase; }
+    .lien .sigrow > div { flex: 1; }
+    .lien .sigrow .line { border-bottom: 1.5px solid var(--ink); height: 40pt; }
+    .lien .sigrow img { max-height: 40pt; max-width: 220pt; display: block; }
+    .noc { padding-top: 0.2in; }
+    .noc p { font-size: 10pt; font-weight: 700; margin-bottom: 7pt; white-space: pre-wrap; }
+    .noc .copy { font-size: 8pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8pt; }
+    .l5a { font-size: 10pt; font-weight: 700; margin: 6pt 0; white-space: pre-wrap; }
+    .disclaimer { font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 6pt; margin-top: 8pt; }
+    #stage { position: absolute; left: -10000px; top: 0; width: 7in; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      /* The page box, whatever margins and header/footer strips the browser
+         adds: each slide is exactly one printable area. The horizontal
+         padding keeps the 7in content column centred; the hero's negative
+         margins follow it and stay full-bleed. */
+      :root { --pad-x: max(0.25in, calc((100vw - 7in) / 2)); }
+      .slide { width: 100vw; height: calc(100vh - 1px); margin: 0; box-shadow: none; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .slide:last-child { break-after: auto; page-break-after: auto; }
+      .hero-band { width: 100vw; }
+      @page { size: Letter portrait; margin: 0; }
+    }
+    /* Change order items table (one-page addendum). */
+    .co-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4pt; }
+    .co-table th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 3pt 0; border-bottom: 1.5pt solid var(--accent); }
+    .co-table td { padding: 2.5pt 0; border-bottom: 0.5pt solid #ddd; vertical-align: top; }
+    .co-table .n { text-align: right; white-space: nowrap; }
+    .co-totals { margin-top: 8pt; font-size: 10pt; }
+    .co-totals div { display: flex; justify-content: space-between; padding: 1.5pt 0; }
+    .co-totals .grand { font-size: 13pt; font-weight: 800; border-top: 1.5pt solid #111; margin-top: 3pt; padding-top: 6pt; }
+    /* One-page addendum: a shorter hero, a tighter meta area and a compact
+       signature block so up to eight lines still fit one page. */
+    .hero-band { height: 0.65in !important; min-height: 0 !important; }
+    .hero-band .client-logo-tile { width: 1.4in !important; height: 0.45in !important; padding: 4px 12px !important; }
+    .hero-band .client-logo-tile img { max-height: 0.4in !important; }
+    .hero-band .client-name-mark { font-size: 9pt !important; }
+    .meta-area { padding-top: 8pt !important; padding-bottom: 6pt !important; }
+    .meta-area .from { margin-top: 4pt !important; font-size: 8pt !important; }
+    .meta-area .who { font-size: 12pt !important; }
+    .meta-area .title { font-size: 16pt !important; }
+    .sigblock { padding-top: 8pt !important; margin-top: 8pt !important; }
+    .sigblock .line { height: 22pt !important; }
+    .sigblock .typed { font-size: 16pt !important; line-height: 1.1 !important; }
+    .sigblock .k { margin-top: 3pt !important; }
+    .sigblock .disclaimer { margin-top: 6pt !important; font-size: 7.5pt !important; }
+    .sigblock { padding: 6pt 10pt 8pt !important; }
+    .sigblock .t { font-size: 8pt !important; margin-bottom: 4pt !important; }
+    .sigblock .grid { font-size: 8.5pt !important; gap: 12pt !important; }
+    .sigblock .line { height: 14pt !important; }
+    .sigblock .typed { font-size: 14pt !important; padding: 2pt 0 !important; }
+    .sigblock .hash { font-size: 6.5pt !important; margin-top: 4pt !important; }
+    .meta-area .from { line-height: 1.25 !important; }
+    .meta-area table td { padding: 1pt 4pt 1pt 0 !important; font-size: 9pt !important; }
+    .clause p { margin: 0 0 3pt !important; }
+    .co-table { font-size: 9pt !important; }
+    .co-table td { padding: 1.5pt 0 !important; }
+    .co-totals { margin-top: 5pt !important; font-size: 9.5pt !important; }
+    .co-totals .grand { font-size: 12pt !important; padding-top: 4pt !important; }
+    .hero-band { height: 0.55in !important; }
+    .sigblock .grid { font-size: 8pt !important; line-height: 1.25 !important; }
+    .sigblock .k { font-size: 6.5pt !important; margin-top: 2pt !important; }
+    .sigblock .typed { font-size: 13pt !important; padding: 1pt 0 !important; }
+    .sigblock .line { height: 12pt !important; margin-bottom: 2pt !important; }
+    .meta-area { gap: 14pt !important; }
+    .meta-area .who { margin-bottom: 0 !important; }
+    .clause .co-table + .co-totals { margin-top: 4pt !important; }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+  <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading...</p></section></div>
+  <!-- Off-screen measuring stage, the same width as a slide's content box. -->
+  <div id="stage"></div>
+
+  <script>
+    var NOT_FOUND = "Change order not found.";
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // Portal preview (owner session) and a local mock for offline checks only.
+    var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
+    var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
+    // Content budget per slide, in CSS px. Deliberately SHORTER than the
+    // 11in page: 0.45in top padding + 8.7in content + 0.8in footer zone =
+    // 9.95in, so a printable area as small as 9.95in (browser margins plus
+    // its URL/date strips) still holds a whole slide. Overflow:hidden must
+    // never be what decides where a page ends. If a phone still spills,
+    // lower CONTENT_BUDGET here (one constant, the same in all three).
+    var PAD_TOP_PX = 0.45 * 96;
+    var CONTENT_BUDGET = 8.7 * 96;
+    var CONTENT_H = CONTENT_BUDGET;
+    var con = null;
+
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    function fmtDateTime(iso) {
+      if (!iso) { return ""; }
+      var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return iso; }
+      try { var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " ET"; } catch (e) { return iso; }
+    }
+    // (401) 651-4117 whatever was typed; anything that is not a US number prints as typed.
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    function tierLabel(o) { return o.label || (o.tier === "single" ? "" : o.tier.charAt(0).toUpperCase() + o.tier.slice(1)); }
+    var PM = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
+
+    // ── Shared header blocks (the DRAFT's hero + tile row + meta area) ────
+    // Hero band: the client's photo, or a solid band in the primary colour.
+    // Inside it the frosted tile with the logo (or the name as a wordmark)
+    // and the business name pill in the accent colour. One block, never split.
+    function heroBlockHtml(b) {
+      var name = b.name || "";
+      var tile = b.logo_url ? '<img src="' + escHtml(b.logo_url) + '" alt="">' : '<span class="client-name-mark' + (name.length > 22 ? " is-long" : "") + '">' + escHtml(name) + '</span>';
+      return '<div class="blk hero-band">' + (b.hero_url ? '<img class="hero-img" src="' + escHtml(b.hero_url) + '" alt="">' : "") +
+        '<div class="header-tile-row"><div class="client-logo-tile">' + tile + '</div>' + (name ? '<span class="brand-pill">' + escHtml(name) + '</span>' : "") + '</div></div>';
+    }
+    // Business contact lines for the meta area (license, phone, email, address).
+    function fromHtml(b) {
+      var lines = [];
+      if (b.name) { lines.push('<strong>' + escHtml(b.name) + '</strong>'); }
+      (b.license_numbers || []).forEach(function(l) { lines.push("License " + escHtml(l)); });
+      if (b.address) { lines.push(escHtml(b.address)); }
+      if (b.phone) { lines.push(escHtml(fmtPhone(b.phone))); }
+      if (b.email) { lines.push(escHtml(b.email)); }
+      return '<div class="from"><div class="k">From</div>' + lines.join("<br>") + '</div>';
+    }
+    // rows: [[label, value]...]; tile: { label, value } or null; stamp: html or "".
+    function metaBlockHtml(leftLabel, who, whoLines, b, title, num, rows, stamp, tile) {
+      var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
+      return '<div class="blk meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
+        (whoLines.length ? '<div>' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
+        '<div class="meta-right"><div class="title">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") +
+        (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "") + '</div></div>';
+    }
+    function paymentTilesHtml(methods) {
+      return '<div class="blk"><div class="payment-tiles">' + methods.map(function(m) {
+        return '<div class="payment-tile"><div class="pt-label">' + escHtml(PM[m.key] || m.key) + '</div>' + (m.detail ? '<div class="pt-detail">' + escHtml(m.detail) + '</div>' : "") + '</div>';
+      }).join("") + '</div></div>';
+    }
+
+    // ── Blocks (change order) ────────────────────────────────────────────
+    // Rafael's one-page addendum: what changed, price before, the change,
+    // the new price, the schedule effect, the payment schedule change, the
+    // "everything else stays the same" sentence, both signatures, disclaimer.
+    function footerText() { return (con.business.name || "") + " - " + con.number; }
+    function docTitle() { return "Change Order " + con.number + (con.business.name ? " - " + con.business.name : ""); }
+    function richHtml(text) {
+      return String(text || "").split(/\n\s*\n/).map(function(p) {
+        var h = escHtml(p).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+        return h.trim() ? "<p>" + h + "</p>" : "";
+      }).join("");
+    }
+    function sigVisual(sig) {
+      if (!sig) { return '<div class="line"></div>'; }
+      if (sig.kind === "drawn" && sig.image_url) { return '<img src="' + escHtml(sig.image_url) + '" alt="Signature">'; }
+      return '<div class="typed">' + escHtml(sig.signer_name || "") + '</div>';
+    }
+    function sigCell(label, sig, fallbackName) {
+      var h = '<div><div class="k">' + label + '</div>' + sigVisual(sig);
+      if (sig) {
+        h += '<div class="k">Signer</div><div>' + escHtml(sig.signer_name || "") + '</div>' +
+          '<div class="k">Date and time</div><div>' + escHtml(fmtDateTime(sig.signed_at)) + '</div>' +
+          '<div class="k">Method</div><div>' + (sig.kind === "drawn" ? "Signed electronically - drawn signature" : "Signed electronically - typed name") + '</div>' +
+          (sig.device ? '<div class="k">Device</div><div>' + escHtml(sig.device) + '</div>' : "");
+      } else {
+        h += '<div class="muted" style="font-size:8pt;">' + escHtml(fallbackName || "") + ' - date and time are recorded at signing</div>';
+      }
+      return h + '</div>';
+    }
+    function isCredit(cents) { return (Number(cents) || 0) < 0; }
+    function signedMoney(cents) { var n = Number(cents) || 0; return (n < 0 ? "- " : (n > 0 ? "+ " : "")) + money(Math.abs(n)); }
+    function refText() { return con.contract_display_number ? "Contract " + con.contract_display_number + (con.contract_date ? " dated " + fmtDate(con.contract_date) : "") : "the accepted estimate"; }
+
+    function buildBlocks() {
+      var b = con.business;
+      var blocks = [];
+      blocks.push({ html: heroBlockHtml(b), kind: "block", keepWithNext: true });
+      var whoLines = [];
+      if (con.property_address) { whoLines.push(con.property_address); }
+      var rows = [["Date", escHtml(fmtDate(con.created_at))], ["To", escHtml(refText())], ["Job", escHtml(con.job_name || "")], [isCredit(con.amount_cents) ? "Credit" : "Change", '<strong>' + signedMoney(con.amount_cents) + '</strong>']];
+      var stamp = "";
+      if (con.homeowner_signature) { stamp = '<span class="stamp ok">SIGNED ' + escHtml(fmtDate(con.homeowner_signature.signed_at)) + '</span>'; }
+      else if (con.status === "declined") { stamp = '<span class="stamp bad">DECLINED</span>'; }
+      else if (con.status === "void") { stamp = '<span class="stamp bad">VOID</span>'; }
+      else if (previewId) { stamp = '<span class="stamp bad">PREVIEW - NOT SENT</span>'; }
+      blocks.push({ html: metaBlockHtml("Owner", con.customer_name, whoLines, b, "Change order", con.number, rows, stamp, null), kind: "block", keepWithNext: true });
+
+      var h = '<div class="blk clause"><p><strong>Change Order ' + escHtml(con.number) + ' to ' + escHtml(refText()) + '.</strong>' + (con.description ? ' ' + escHtml(con.description) : "") + '</p>';
+      h += '<table class="co-table"><thead><tr><th>Added or removed</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>';
+      (con.items || []).forEach(function(it) {
+        var credit = it.kind === "remove" || isCredit(it.amount_cents);
+        h += '<tr><td>' + (credit ? "Removed: " : "Added: ") + escHtml(it.item_name) + '</td><td class="n">' + escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + '</td><td class="n">' + money(it.rate_cents) + '</td><td class="n">' + signedMoney(it.amount_cents) + (credit ? " (credit)" : "") + '</td></tr>';
+      });
+      h += '</tbody></table>';
+      h += '<div class="co-totals"><div><span>Contract Price before this Change Order</span><span>' + money(con.price_before_cents) + '</span></div>' +
+        '<div><span>' + (isCredit(con.amount_cents) ? "Credit" : "Change") + '</span><span>' + signedMoney(con.amount_cents) + '</span></div>' +
+        '<div class="grand"><span>New Contract Price</span><span>' + money(con.price_after_cents) + '</span></div></div>';
+      var d = Number(con.schedule_days) || 0;
+      h += '<p style="margin-top:8pt;"><strong>Effect on the schedule:</strong> ' + (d === 0 ? "no change to the schedule." : (Math.abs(d) + " working day" + (Math.abs(d) === 1 ? "" : "s") + (d > 0 ? " added to" : " removed from") + " the schedule.")) + '</p>';
+      h += '<p><strong>Payment schedule:</strong> ' + (con.payment_change === "new_step" ? "A new invoice step is added for this amount." : "The remaining unpaid invoices are adjusted by this amount.") + (con.payment_note ? " " + escHtml(con.payment_note) : "") + '</p>';
+      h += '<p>Everything in the Contract not changed by this Change Order stays the same.</p></div>';
+      blocks.push({ html: h, kind: "block" });
+
+      var sig = '<div class="blk sigblock"><div class="t">Signatures</div>';
+      sig += '<div class="grid">' + sigCell("Contractor", con.company_signature, b.name) + sigCell("Owner", con.homeowner_signature, con.customer_name) + '</div>';
+      if (con.content_hash) { sig += '<div class="hash" style="margin-top:8pt;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</div>'; }
+      if (con.disclaimer_line) { sig += '<div class="disclaimer">' + escHtml(con.disclaimer_line) + '</div>'; }
+      sig += '</div>';
+      blocks.push({ html: sig, kind: "block" });
+      return blocks;
+    }
+
+    // ── Paginator ───────────────────────────────────────────────────────
+    // Measures each block on the off-screen stage (same width as a slide's
+    // content box) and fills slides: a new slide opens when the next block
+    // would not fit; a block flagged keepWithNext (a section header, the
+    // page header) is moved along with what follows it; a table row keeps
+    // its thead, repeated at the top of every continued table.
+    // Heights INCLUDE vertical margins (getBoundingClientRect does not), plus
+    // 1px of slack per block: an under-measured block is exactly how content
+    // ends up under the footer line.
+    function measure(html, asRow, thead) {
+      var stage = document.getElementById("stage");
+      if (!stage) { return 0; }
+      stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
+      var el = stage.firstElementChild;
+      var h = 0;
+      if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : 0; }
+      else if (el) {
+        var cs = window.getComputedStyle(el);
+        h = el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+      }
+      stage.innerHTML = "";
+      return h + 1;
+    }
+    function measureThead(thead) {
+      var stage = document.getElementById("stage");
+      if (!stage) { return 0; }
+      stage.innerHTML = '<table>' + thead + '<tbody></tbody></table>';
+      var th = stage.querySelector("thead");
+      var h = th ? th.getBoundingClientRect().height : 0;
+      stage.innerHTML = "";
+      return h + 1;
+    }
+
+    function paginate(blocks) {
+      var slides = [];       // each: { parts: [html...], used: px }
+      var cur = null, openTable = null;
+      function newSlide() { if (cur && openTable) { cur.parts.push("</tbody></table>"); } openTable = null; cur = { parts: [], used: 0 }; slides.push(cur); }
+      function closeTable() { if (openTable) { cur.parts.push("</tbody></table>"); openTable = null; } }
+      newSlide();
+      var pending = [];   // keepWithNext blocks waiting to be placed with the next one
+      function place(b) {
+        var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html);
+        var extra = 0;
+        // A pending heading closes the open table, so the row reopens one:
+        // its thead must be counted then too, not only on a thead change.
+        if (b.kind === "row" && (openTable !== b.thead || pending.length)) { extra = measureThead(b.thead); }
+        var pendingH = 0;
+        pending.forEach(function(p) { pendingH += p.h; });
+        if (cur.used + pendingH + extra + h > CONTENT_H && (cur.used > 0 || pendingH > 0)) {
+          newSlide();
+        }
+        pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; });
+        pending = [];
+        if (b.kind === "row") {
+          if (openTable !== b.thead) { closeTable(); cur.parts.push('<table>' + b.thead + '<tbody>'); cur.used += extra; openTable = b.thead; }
+          cur.parts.push(b.html); cur.used += h;
+        } else { closeTable(); cur.parts.push(b.html); cur.used += h; }
+      }
+      var lastOwn = false;
+      blocks.forEach(function(b) {
+        // ownPage: the block starts a fresh slide and nothing follows it there
+        // (the lien notice, each cancellation copy).
+        if (b.ownPage) { if (cur.used > 0 || pending.length) { pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; }); pending = []; newSlide(); } place(b); lastOwn = true; return; }
+        if (lastOwn) { newSlide(); lastOwn = false; }
+        // keepWithNext is only honoured for block kinds: a pending table row
+        // would be emitted outside its table.
+        if (b.keepWithNext && b.kind !== "row") { var h = measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
+        place(b);
+      });
+      if (pending.length) { pending.forEach(function(p) { if (cur.used + p.h > CONTENT_H) { newSlide(); } closeTable(); cur.parts.push(p.html); cur.used += p.h; }); }
+      closeTable();
+      return slides;
+    }
+
+    function render() {
+      var blocks = buildBlocks();
+      // Belt and braces: if a slide still overflows after measuring, shrink
+      // the usable height and paginate again.
+      var slides, tries = 0, budget = CONTENT_BUDGET;
+      while (tries < 6) {
+        CONTENT_H = budget;
+        slides = paginate(blocks);
+        var worst = maxOverflow(slides);
+        if (worst <= 0) { break; }
+        budget -= worst + 8;
+        tries++;
+      }
+      var footer = footerText();
+      var html = "";
+      slides.forEach(function(s, i) {
+        html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + '<div class="pg">Page ' + (i + 1) + " of " + slides.length + '</div></section>';
+      });
+      var pages = document.getElementById("pages");
+      if (pages) { pages.innerHTML = html; }
+      document.title = docTitle();
+      var sections = document.querySelectorAll("#pages .slide");
+      for (var i = 0; i < sections.length; i++) {
+        var inner = sections[i].scrollHeight;
+        if (inner > sections[i].clientHeight + 1) { console.error("[print-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
+      }
+      window.__changeOrderPages = slides.length;
+    }
+
+    // Renders candidate slides off-screen and reports the worst overflow in
+    // px past the content budget (0 = every page fits above the footer zone).
+    function maxOverflow(slides) {
+      var probe = document.createElement("div");
+      probe.style.cssText = "position:absolute;left:-20000px;top:0;";
+      probe.innerHTML = slides.map(function(s) { return '<section class="slide" data-footer="">' + s.parts.join("") + '</section>'; }).join("");
+      document.body.appendChild(probe);
+      var worst = 0;
+      var secs = probe.querySelectorAll(".slide");
+      for (var i = 0; i < secs.length; i++) {
+        var kids = secs[i].children;
+        var last = kids[kids.length - 1];
+        if (!last) { continue; }
+        var bottom = last.getBoundingClientRect().bottom - secs[i].getBoundingClientRect().top;
+        var limit = PAD_TOP_PX + CONTENT_BUDGET;
+        if (bottom - limit > worst) { worst = bottom - limit; }
+      }
+      document.body.removeChild(probe);
+      return Math.ceil(worst);
+    }
+
+    function applyBrand(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/; var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand", primary); root.setProperty("--on-brand", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--accent", accent); root.setProperty("--on-accent", textOn(accent));
+        // The pill sits on a near-black tile: a dark accent would vanish, so
+        // it keeps the accent only when the accent itself is light enough.
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+    }
+
+    function preload(urls) {
+      // Images must be loaded before measuring, or the header block is
+      // measured without them and the first slide overflows.
+      return Promise.all(urls.filter(Boolean).map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); }));
+    }
+    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } }
+
+    function fetchChangeOrder() {
+      if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
+      if (previewId) {
+        var cid = null, tok = null;
+        try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+        if (!cid || !tok) { return Promise.reject(new Error("nf")); }
+        return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/change-orders/" + encodeURIComponent(previewId), { headers: { "Authorization": "Bearer " + tok } })
+          .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+      }
+      return fetch(WORKER_URL + "/api/public/change-orders/" + token).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
+    }
+
+    function load() {
+      if (!token && !previewId && !mockUrl) { notFound(); return; }
+      fetchChangeOrder()
+        .then(function(d) {
+          con = d.change_order;
+          applyBrand(con.business);
+          var imgs = [con.business.logo_url, con.business.hero_url];
+          [con.company_signature, con.homeowner_signature].forEach(function(s) { if (s && s.kind === "drawn") { imgs.push(s.image_url); } });
+          return preload(imgs).then(function() {
+            render();
+            if (document.fonts && document.fonts.ready) { return document.fonts.ready.then(function() { render(); }); }
+          });
+        })
+        .then(function() {
+          if (con && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { window.print(); }, 300); }
+        })
+        .catch(function(e) { console.error(e); notFound(); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

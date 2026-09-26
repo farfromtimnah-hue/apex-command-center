@@ -24063,7 +24063,11 @@ async function handleGetGmInvoice(id, invId, request, env) {
         if (guard) { return guard; }
         var today = gmEasternToday();
         var d = gmInvDerive(inv, inv.payments, inv.credits, today);
-        var contract = await gmInvContract(env, id, inv.job_id, inv.estimate_id, today);
+        var contractRaw = await gmInvContract(env, id, inv.job_id, inv.estimate_id, today);
+        // Same shape the public payload uses, so gm.js reads one contract object.
+        var contract = { total_cents: contractRaw.contract_total_cents, invoiced_cents: contractRaw.invoiced_cents, paid_cents: contractRaw.paid_cents,
+                         credit_cents: contractRaw.credit_cents, refund_cents: contractRaw.refund_cents, pending_cents: contractRaw.pending_cents,
+                         remaining_cents: contractRaw.remaining_contract_cents };
         var settings = await gmDocSettingsRow(env, id);
         var out = gmInvOut(inv, d, contract);
         var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();

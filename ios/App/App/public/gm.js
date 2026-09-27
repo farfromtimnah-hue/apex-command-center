@@ -483,7 +483,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
     inner = '<textarea id="gmEditorInput">' + escHtml(value === null || value === undefined ? "" : String(value)) + '</textarea>';
   } else {
     var inputType = "text", inputMode = "";
-    if (type === "tel") { inputType = "tel"; }
+    if (type === "tel") { inputType = "tel"; inputMode = ' inputmode="tel" autocomplete="tel"'; }
     if (type === "date") { inputType = "date"; }               // native OS picker
     if (type === "datetime") { inputType = "datetime-local"; } // native OS picker
     if (type === "currency") { inputMode = ' inputmode="decimal"'; }   // NOT type=number: surfaces the locale decimal comma
@@ -555,6 +555,11 @@ function gmEditorCommit(type) {
       if (raw !== "" && !isFinite(value)) { gmToast(gmT("Número inválido", "Invalid number")); return; }
     } else {
       value = raw.trim() === "" ? null : raw.trim();
+      if (type === "tel" && !gmLooksLikePhone(value)) {
+        var tmsg = document.getElementById("gmEditorMsg");
+        if (tmsg) { tmsg.textContent = gmT(GM_PHONE_INVALID[0], GM_PHONE_INVALID[1]); tmsg.hidden = false; }
+        return;
+      }
     }
   }
   if (gmEditorRequired && (value === null || value === undefined || String(value).trim() === "")) {
@@ -1514,7 +1519,7 @@ function gmQuickAddOpen() {
     '<label class="field-label">' + gmT("Nome", "Name") + ' *</label>' +
     '<div class="gm-editor-input"><input type="text" id="gmQaNome" value="' + escHtml(draft.nome || "") + '" oninput="gmQuickDraftSave()"></div>' +
     '<label class="field-label" style="margin-top:12px;">' + gmT("Telefone", "Phone") + '</label>' +
-    '<div class="gm-editor-input"><input type="tel" id="gmQaTel" value="' + escHtml(draft.telefone || "") + '" oninput="gmQuickDraftSave()"></div>' +
+    '<div class="gm-editor-input"><input type="tel" inputmode="tel" autocomplete="tel" id="gmQaTel" value="' + escHtml(draft.telefone || "") + '" oninput="gmQuickDraftSave()"></div>' +
     // Job site. Optional like every other quick-add field except the name —
     // most leads arrive as a name and a number long before anyone knows where
     // the pool goes, so a blank here is normal and saves without complaint.
@@ -1577,6 +1582,11 @@ function gmQuickAddSave() {
   var city = cityEl ? (cityEl.value || "").trim() : "";
   if (!nome) {
     gmToast(gmT("O nome é obrigatório.", "Name is required."));
+    return;
+  }
+  if (!gmLooksLikePhone(tel)) {
+    gmToast(gmT(GM_PHONE_INVALID[0], GM_PHONE_INVALID[1]));
+    var telEl = document.getElementById("gmQaTel"); if (telEl && telEl.focus) { telEl.focus(); }
     return;
   }
   var payload = {
@@ -2084,7 +2094,7 @@ function gmOpenLead(idx) {
 function gmLeadFieldDefs() {
   var cfg = gmConfig.config, method = gmConfig.method;
   return [
-    { key: "valor",          type: "currency", pt: "Valor estimate ($)",      en: "Estimate value ($)" },
+    { key: "valor",          type: "currency", pt: "Valor do orçamento ($)",      en: "Estimate value ($)" },
     // The five cost inputs, same names/labels/order as the project sheet.
     // JM's owner asked for these on the pipeline because pricing happens on a
     // LEAD — by the time a project row exists the price is already agreed.
@@ -2101,7 +2111,7 @@ function gmLeadFieldDefs() {
     // gm_lead_contacts log (contatos_count / primeiro_contato) and rendered
     // as read-only rows. Leaving them editable would let a typed number
     // silently disagree with the log it is supposed to summarize.
-    { key: "data_estimate",  type: "datetime", pt: "Data/hora estimate",      en: "Estimate date/time" },
+    { key: "data_estimate",  type: "datetime", pt: "Data/hora do orçamento",      en: "Estimate date/time" },
     { key: "servico",        type: "multichoice", pt: "Serviço(s)",           en: "Service(s)", options: cfg.servicos },
     { key: "vendedor",       type: "choice",   pt: "Vendedor",                en: "Salesperson", options: cfg.vendedores },
     // Opt-in second seller for a shared visit (Rafa, 2026-09-18). Blank on
@@ -2139,6 +2149,7 @@ function gmLeadFieldDisplay(lead, def) {
   if (v === null || v === undefined || v === "") { return ""; }
   if (def.type === "currency") { return escHtml(fmtNum(v, "currency")); }
   if (def.type === "datetime") { return escHtml(formatDateTime(v)); }
+  if (def.type === "tel") { return escHtml(gmFmtPhone(v)); }   // N11: (407) 555-0142, never raw digits
   if (def.key === "parceiro_id") { return escHtml(lead.parceiro_name || ""); }
   if (def.type === "multichoice") { return escHtml(gmServicoList(v).join(", ")); }
   // origem is a fixed system list, so it translates. servico/servico_desc and
@@ -4426,7 +4437,21 @@ function gmConSettingsSave() {
   if (btn) { btn.disabled = true; }
   gmApi("contract-settings", { method: "PUT", body: { trades: d.trades, builds_pools: d.builds_pools, defaults: d.defaults, signers: d.signers.filter(function(s) { return s.name.trim(); }), owner_signer_name: d.owner_signer_name.trim() || null, owner_signer_phone: d.owner_signer_phone.trim() || null, source: d.source, values: vals } })
     .then(function(r) { gmConSettings.settings = r.settings; gmConDraftFromSettings(); gmToast(gmT("Configurações do contrato salvas", "Contract settings saved")); gmRenderEstimatesTab(); })
-    .catch(function(e) { if (btn) { btn.disabled = false; } say(e.message); console.error(e); });
+    .catch(function(e) {
+      console.error(e);
+      // N18: a refused save leaves nothing switched on screen. The source chip
+      // goes back to what is saved (the other unsaved edits stay in the draft),
+      // and the message is shown on the redrawn card.
+      var savedSource = ((gmConSettings && gmConSettings.settings) || {}).source || "apex";
+      if (d.source !== savedSource) {
+        d.source = savedSource;
+        gmRenderEstimatesTab();
+        var msg2 = document.getElementById("gmConMsg"); if (msg2) { msg2.textContent = e.message; msg2.hidden = false; if (msg2.scrollIntoView) { msg2.scrollIntoView({ block: "center" }); } }
+        return;
+      }
+      if (btn) { btn.disabled = false; }
+      say(e.message);
+    });
 }
 
 // ── Project sheet: the Contract section ─────────────────────────────────
@@ -4881,7 +4906,12 @@ function gmConSignSave() {
   var isCo = !!gmConDetail._co;
   if (gmConSignConfirmRecompute) { body.confirm_recompute = true; }
   gmApi((isCo ? "change-orders/" : "contracts/") + encodeURIComponent(gmConDetail.id) + "/company-sign", { method: "POST", body: body })
-    .then(function() { gmToast(gmT("Assinado pela empresa. Agora envie ao cliente.", "Signed by the company. Now send it to the homeowner.")); if (isCo) { gmLoadJobChangeOrders(gmConDetail.job_id); gmOpenChangeOrder(gmConDetail.id); } else { gmLoadJobContracts(gmConDetail.job_id); gmOpenContract(gmConDetail.id); } })
+    .then(function() {
+      gmToast(gmT("Assinado pela empresa. Agora envie ao cliente.", "Signed by the company. Now send it to the homeowner."));
+      // N24: the salesperson's "awaiting your signature" card (Pipeline and
+      // Projects) drops the contract now, not after a reload (F13's class).
+      gmSellerAwaitingRender();
+      if (isCo) { gmLoadJobChangeOrders(gmConDetail.job_id); gmOpenChangeOrder(gmConDetail.id); } else { gmLoadJobContracts(gmConDetail.job_id); gmOpenContract(gmConDetail.id); } })
     .catch(function(e) {
       if (btn) { btn.disabled = false; }
       console.error(e);
@@ -5982,6 +6012,7 @@ function gmSimpleFieldDisplay(row, def) {
   if (def.type === "currency") { return escHtml(fmtNum(v, "currency")); }
   if (def.type === "date") { return escHtml(formatDate(v)); }
   if (def.type === "jobref") { return escHtml(row.obra_name || ""); }
+  if (def.type === "tel") { return escHtml(gmFmtPhone(v)); }
   if (def.pills) { return gmPillHtml(gmStatusLabel(v), def.pills[v]); }
   if (def.key === "mes" || def.key === "mes_entrega") { return escHtml(gmStatusLabel(v)); }
   return escHtml(String(v));
@@ -8663,6 +8694,18 @@ function gmDocSendPhoneNote(phone) {
   if (!phone) { return ""; }
   return '<p class="gm-derived-note">' + gmT("Abre o WhatsApp para ", "Opens WhatsApp to ") + '<strong>' + escHtml(gmFmtPhone(phone)) + '</strong></p>';
 }
+// N11: a phone field accepts a phone number and nothing else: digits with
+// the usual separators ( ) - . + and spaces, 7 to 15 digits. "125 Test Lane"
+// is refused. Empty is allowed (the field is optional).
+function gmLooksLikePhone(v) {
+  var s = String(v || "").trim();
+  if (!s) { return true; }
+  if (!/^[0-9+().\-\s]+$/.test(s)) { return false; }
+  var d = s.replace(/\D/g, "");
+  return d.length >= 7 && d.length <= 15;
+}
+var GM_PHONE_INVALID = ["Isso não parece um telefone. Use só números, ex.: (407) 555-0142.", "That does not look like a phone number. Use numbers only, e.g. (407) 555-0142."];
+
 function gmFmtPhone(tel) {
   var d = String(tel || "").replace(/\D/g, "");
   if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }

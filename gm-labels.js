@@ -627,8 +627,8 @@
     "C19-A": "Termos gerais padrão", "C19-B": "Termos padrão mais tradução de cortesia em português"
   };
   var CONTRACT_TRADE_PT = {
-    pools: "Piscinas e spas", tile: "Cerâmica e pisos", remodeling: "Reforma (cozinhas, banheiros, interiores)",
-    hardscape: "Hardscape e área externa (pavers, decks, pérgolas, cozinhas externas)", general: "Serviços gerais (pintura, pequenos reparos)"
+    pools: "Piscinas e spas", tile: "Cerâmica e pisos", remodeling: "Reforma",
+    hardscape: "Hardscape e área externa", general: "Serviços gerais"
   };
   // Why each Florida notice (L1-L7) is on or off, as the server sends it.
   var CONTRACT_NOTICE_WHY_PT = {

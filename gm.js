@@ -4549,7 +4549,7 @@ function gmOpenContract(id) {
     .then(function(d) { gmConDetail = d.contract; gmRenderContractSheet(); })
     .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
-function gmConEditable(c) { return ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at); }
+function gmConEditable(c) { return !c.routed_only && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at); }
 var GM_CON_PROPERTY_TYPES = [["single_family", "Casa unifamiliar", "Single-family home"], ["townhouse", "Townhouse", "Townhouse"], ["duplex", "Duplex", "Duplex"], ["triplex", "Triplex", "Triplex"], ["fourplex", "Fourplex", "Fourplex"], ["condo", "Condomínio (apartamento)", "Condominium unit"], ["commercial", "Comercial", "Commercial"]];
 
 // N2: the owner reads clause areas, options, trades and notice reasons in
@@ -4602,15 +4602,17 @@ function gmRenderContractSheet() {
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (!companySigned && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1) {
     if (c.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmConSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
-    body += '<button type="button" class="gm-btn-secondary" onclick="gmConRouteOpen()">' + (c.can_sign_as_company ? gmT("Pedir a assinatura de outra pessoa", "Ask another signer") : gmT("Enviar para quem assina", "Route to an authorized signer")) + '</button>';
+    // N26: routed here only to sign; routing, sending and revising stay with
+    // the people who own the deal (the Worker refuses them too).
+    if (!c.routed_only) body += '<button type="button" class="gm-btn-secondary" onclick="gmConRouteOpen()">' + (c.can_sign_as_company ? gmT("Pedir a assinatura de outra pessoa", "Ask another signer") : gmT("Enviar para quem assina", "Route to an authorized signer")) + '</button>';
   }
-  if (companySigned && ["company_signed", "sent", "viewed"].indexOf(c.status) !== -1) {
+  if (!c.routed_only && companySigned && ["company_signed", "sent", "viewed"].indexOf(c.status) !== -1) {
     body += '<button type="button" class="gm-btn-primary" id="gmConSendBtn" onclick="gmConSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(c.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
-  if (c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
-  if (["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
+  if (!c.routed_only && c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
+  if (!c.routed_only && ["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed", "superseded"].indexOf(c.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConVoid()">' + gmT("Anular", "Void") + '</button>'; }
   body += '</div></div>';
   // F3: a contract that cannot change says so and shows values, not controls.

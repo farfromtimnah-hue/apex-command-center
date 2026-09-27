@@ -26177,7 +26177,18 @@ async function gmContractEvent(env, clientId, contractId, actor, action, detail)
     } catch (e) { console.error("contract event failed", e && e.message); }
 }
 
-async function contractSellerGuard(env, user, clientId, c) {
+// allowRouted (hero follow-up, N26): the seller a contract was ROUTED to for
+// company signing may also pass, but only where the caller asks for it: view
+// (GET, preview) and company-sign. Edit, void, send, revise and every other
+// contract keep the lead-owner rule. The seller comes from the SERVER session
+// (sessionSellerName), matched against the stored routed_to_name exactly the
+// way gm/contracts/awaiting marks a row "mine".
+function contractRoutedToSeller(user, c) {
+    var seller = sessionSellerName(user);
+    return !!(seller && c && c.routed_to_name && String(c.routed_to_name).trim().toLowerCase() === seller.trim().toLowerCase());
+}
+async function contractSellerGuard(env, user, clientId, c, allowRouted) {
+    if (allowRouted && contractRoutedToSeller(user, c)) { return null; }
     if (!c.lead_id) { return sessionSellerName(user) ? jsonErr("Forbidden", 403) : null; }
     return gmSellerLeadGuard(env, user, clientId, c.lead_id);
 }
@@ -26384,6 +26395,13 @@ async function contractInternalOut(env, id, c, user, request) {
     var currentAmount = signedAmount ? (c.contract_amount_cents || 0) : comp.amount_cents;
     var originalAmount = signedAmount ? currentAmount - ((coSum && coSum.s) || 0) : comp.amount_cents;
     var editable = ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at);
+    // N26: a seller who is here only because the contract was routed to them
+    // (not their lead) views and company-signs; nothing else.
+    var routedOnly = false;
+    if (sessionSellerName(user) && contractRoutedToSeller(user, c)) {
+        routedOnly = !c.lead_id || !!(await gmSellerLeadGuard(env, user, id, c.lead_id));
+    }
+    if (routedOnly) { editable = false; }
     var signer = contractSignerAllowed(user, ctx.settings, ctx.client);
     var areaOptions = {};
     ctx.lib.optionsForClient.forEach(function(o) {
@@ -26394,7 +26412,7 @@ async function contractInternalOut(env, id, c, user, request) {
         selections: c.selections, answers: c.answers, flags: c.flags, estimate_ids: c.estimate_ids,
         areas: ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
         missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line,
-        fields: comp.fields, editable: editable, current_amount_cents: currentAmount, original_amount_cents: originalAmount, copied_from: (c.flags && c.flags.copied_from) || null,
+        fields: comp.fields, editable: editable, routed_only: routedOnly, current_amount_cents: currentAmount, original_amount_cents: originalAmount, copied_from: (c.flags && c.flags.copied_from) || null,
         pool_setting: ctx.settings.builds_pools, builds_pools: ctx.settings.builds_pools,
         safety_features: ["(a) Isolated from the home by an enclosure that meets s. 515.29", "(b) Approved safety pool cover", "(c) Exit alarms on all doors and windows with direct access (85 dB A at 10 feet)", "(d) Self-closing, self-latching devices on all doors with direct access (release no lower than 54 inches)", "(e) Swimming pool alarm certified to ASTM F2208"],
         exclusion_checklist: (ctx.lib.exclusion_checklists || []).filter(function(e) { return /All trades/i.test(e.trade) || ctx.settings.trades.some(function(k) { return CONTRACT_TRADE_WORDS[k].test(e.trade); }); }),
@@ -26442,7 +26460,7 @@ async function handleGetGmContract(id, cid, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var c = await gmContractLoad(env, id, cid);
         if (!c) { return jsonErr("Contract not found", 404); }
-        var guard = await contractSellerGuard(env, user, id, c);
+        var guard = await contractSellerGuard(env, user, id, c, true);
         if (guard) { return guard; }
         return jsonOk({ contract: await contractInternalOut(env, id, c, user, request) });
     } catch (e) {
@@ -26457,7 +26475,7 @@ async function handleGetGmContractPreview(id, cid, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var c = await gmContractLoad(env, id, cid);
         if (!c) { return jsonErr("Contract not found", 404); }
-        var guard = await contractSellerGuard(env, user, id, c);
+        var guard = await contractSellerGuard(env, user, id, c, true);
         if (guard) { return guard; }
         // F6: the preview is exactly what the homeowner's link shows; only an
         // unsent draft carries the PREVIEW banner (preview_draft).
@@ -26555,7 +26573,9 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var c = await gmContractLoad(env, id, cid);
         if (!c) { return jsonErr("Contract not found", 404); }
-        var guard = await contractSellerGuard(env, user, id, c);
+        // N26: the routed seller signs only while it is still waiting on the
+        // company; the UPDATE below also refuses any other status.
+        var guard = await contractSellerGuard(env, user, id, c, c.status === "awaiting_company");
         if (guard) { return guard; }
         var ctx = await contractContext(env, id, c);
         var signer = contractSignerAllowed(user, ctx.settings, ctx.client);

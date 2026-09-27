@@ -706,6 +706,13 @@
       flex-direction: column;
       gap: 16px;
       min-width: 0;
+      /* Hero follow-up D3: the last card (Portal do Cliente, with the switch
+         captions) always scrolls clear of the floating "+" (.gm-fab: 58px,
+         20px up; 78px up over the phone dock). */
+      padding-bottom: calc(58px + 20px + 16px + env(safe-area-inset-bottom));
+    }
+    @media (max-width: 767px) {
+      .col-side { padding-bottom: calc(58px + 78px + 16px + env(safe-area-inset-bottom)); }
     }
 
     /* ─── Content cards (left column) ───────────────────────────────────── */
@@ -1880,7 +1887,8 @@
       background: #fff; transition: left 0.15s;
       box-shadow: 0 1px 4px rgba(0,0,0,0.25);
     }
-    .toggle-switch.on { background: #3f7d4e; }
+    /* Hero follow-up D2: ON follows the page's gold, not green. */
+    .toggle-switch.on { background: var(--gold); }
     .toggle-switch.on::after { left: 25px; }
     .toggle-switch[disabled] { opacity: 0.6; cursor: default; }
     .toggle-state { font-size: 14px; font-weight: 700; }

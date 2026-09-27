@@ -53,6 +53,12 @@
     .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
     .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
     @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    /* Hero follow-up (D1): a long label ("Current contract price after change
+       orders") no longer forces its own width (it wraps), so it cannot crush
+       the FROM column at laptop width; on a phone the table sits under
+       Prepared for / From, full width. */
+    .meta-right td.fl { white-space: normal; }
+    @media (max-width: 480px) { .meta-area { align-items: stretch; } .meta-left, .meta-right { width: 100%; } }
     .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
     .section { margin-top: 14px; }
     .section-title { font-weight: 800; font-size: 15px; padding: 8px 0 6px; border-bottom: 2px solid var(--brand-accent); }

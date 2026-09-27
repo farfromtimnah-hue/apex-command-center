@@ -18509,12 +18509,34 @@ async function handlePutGmLead(id, leadId, request, env) {
         }
         // Stamped from the SESSION on every update, never from the body.
         var actor = actorName(user);
-        sets.push("updated_by = ?");
-        binds.push(actor);
-        sets.push("updated_at = datetime('now')");
-        binds.push(leadId);
-        binds.push(id);
-        await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        // Hero follow-up D4d / F1 / G6d / G6h: the value and the six cost
+        // columns go through gmValueWriteStmts (a history row per changed
+        // field, same batch). The value is guarded in SQL: once a contract is
+        // signed it stays the contract's final total whatever was typed. The
+        // same numbers carry to the lead's project, so the two never disagree.
+        var valueCols = ["valor"].concat(GM_LEAD_COST_FIELDS);
+        var leadValueFields = [], plainSets = [], plainBinds = [];
+        Object.keys(f).forEach(function(k, i) {
+            if (valueCols.indexOf(k) !== -1) {
+                leadValueFields.push({ col: k, expr: k === "valor" ? gmGuardedValorExpr("gm_leads", "?") : "?", binds: [f[k]] });
+            } else { plainSets.push(k + " = ?"); plainBinds.push(f[k]); }
+        });
+        if (stageMoved) { plainSets.push("stage_changed_at = datetime('now')"); }
+        plainSets.push("updated_by = ?"); plainBinds.push(actor);
+        var leadBatch = gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [leadId, id],
+            fields: leadValueFields, extraSets: plainSets, extraBinds: plainBinds, source: "manual", sourceRef: null, actor: actor });
+        if (leadValueFields.length) {
+            leadBatch = leadBatch.concat(gmValueWriteStmts(env, { table: "gm_jobs", where: "client_id = ? AND lead_id = ?", whereBinds: [id, leadId],
+                fields: leadValueFields.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : "?", binds: v.binds }; }),
+                source: "manual", sourceRef: null, actor: actor }));
+        }
+        await env.DB.batch(leadBatch);
+        // A value typed on a lead with a signed contract did not change it:
+        // the event must not say it did.
+        if (f.valor !== undefined) {
+            var leadFinal = await gmDealFinalCents(env, id, leadId, null);
+            if (leadFinal !== null) { f.valor = leadFinal / 100; }
+        }
 
         // Build the history from the SAME comparison the handler already makes
         // against the existing row: one event per genuinely changed field, and
@@ -21927,12 +21949,28 @@ async function handlePutGmJob(id, rowId, request, env) {
         var parsed = gmJobFields(body, true);
         if (parsed.error) { return jsonErr(parsed.error, 400); }
         var f = parsed.fields;
-        var sets = [], binds = [];
-        Object.keys(f).forEach(function(k) { sets.push(k + " = ?"); binds.push(f[k]); });
-        if (!sets.length) { return jsonErr("Nothing to update", 400); }
-        sets.push("updated_at = datetime('now')");
-        binds.push(rowId); binds.push(id);
-        await gmRunUpdate(env, "UPDATE gm_jobs SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        if (!Object.keys(f).length) { return jsonErr("Nothing to update", 400); }
+        // Hero follow-up D4d / F1 / G6d / G6h: value, costs and dates are
+        // logged (history row per changed field, same batch). The value is
+        // guarded in SQL: with a signed contract it stays the contract's final
+        // total (the screen shows it read-only). Value and costs carry to the
+        // project's lead so the two never disagree.
+        var jobLogged = ["valor", "material", "mao_de_obra", "outros", "custo_administrativo", "comissao", "imposto", "inicio", "prazo_previsto"];
+        var jobFields = [], jobSets = [], jobBinds = [];
+        Object.keys(f).forEach(function(k) {
+            if (jobLogged.indexOf(k) !== -1) { jobFields.push({ col: k, expr: k === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : "?", binds: [f[k]] }); }
+            else { jobSets.push(k + " = ?"); jobBinds.push(f[k]); }
+        });
+        var jobActor = actorName(user);
+        var jobBatch = gmValueWriteStmts(env, { table: "gm_jobs", where: "id = ? AND client_id = ?", whereBinds: [rowId, id],
+            fields: jobFields, extraSets: jobSets, extraBinds: jobBinds, source: "manual", sourceRef: null, actor: jobActor });
+        var toLead = jobFields.filter(function(v) { return ["inicio", "prazo_previsto"].indexOf(v.col) === -1; });
+        if (existing.lead_id && toLead.length) {
+            jobBatch = jobBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [existing.lead_id, id],
+                fields: toLead.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_leads", "?") : "?", binds: v.binds }; }),
+                source: "manual", sourceRef: null, actor: jobActor }));
+        }
+        await env.DB.batch(jobBatch);
         // F54: a finished project closes its no-contract warning in the same request.
         if (f.status === "Concluída" && existing.status !== "Concluída") {
             await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'job_concluded', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(actorName(user), id, rowId).run();
@@ -23593,6 +23631,74 @@ function gmEstValorOption(est) {
     return est.options[0] || null;
 }
 
+// ── Deal value: ONE source (hero follow-up D4d / F1 / F2) ─────────────────
+// Nicole 2026-09-27: a signed price never changes; the project and the lead
+// always show the real total after every change order. The FINAL TOTAL of a
+// deal with a signed contract is that contract's contract_amount_cents
+// (latest signed = status 'completed'): the price as signed, plus every change
+// order coApply added to it. NULL while no contract is signed.
+//
+// These are SQL expressions, used INSIDE every UPDATE that writes
+// gm_jobs.valor or gm_leads.valor: "a signed contract exists" is decided in the
+// same statement as the write, never by a read at the top of a handler (a read
+// at entry cannot see a concurrent signing).
+var GM_FINAL_CENTS_JOB_SQL = "(SELECT fc.contract_amount_cents FROM gm_contracts fc WHERE fc.client_id = gm_jobs.client_id AND fc.status = 'completed' AND (fc.job_id = gm_jobs.id OR (gm_jobs.lead_id IS NOT NULL AND fc.lead_id = gm_jobs.lead_id)) ORDER BY fc.homeowner_signed_at DESC LIMIT 1)";
+var GM_FINAL_CENTS_LEAD_SQL = "(SELECT fc.contract_amount_cents FROM gm_contracts fc WHERE fc.client_id = gm_leads.client_id AND fc.status = 'completed' AND fc.lead_id = gm_leads.id ORDER BY fc.homeowner_signed_at DESC LIMIT 1)";
+
+// The same number read back (for display, a lead event's wording, invoices).
+// null when the lead/job has no signed contract.
+async function gmDealFinalCents(env, clientId, leadId, jobId) {
+    var row = await env.DB.prepare(
+        "SELECT contract_amount_cents FROM gm_contracts WHERE client_id = ? AND status = 'completed' AND ((? IS NOT NULL AND lead_id = ?) OR (? IS NOT NULL AND job_id = ?)) ORDER BY homeowner_signed_at DESC LIMIT 1"
+    ).bind(clientId, leadId || null, leadId || null, jobId || null, jobId || null).first();
+    return row && row.contract_amount_cents !== null && row.contract_amount_cents !== undefined ? Number(row.contract_amount_cents) : null;
+}
+
+// F1: the statements for one guarded, history-logged write. For every field
+// that ACTUALLY changes, an INSERT ... SELECT copies the row's old value and
+// the new one (same expression the UPDATE uses) into gm_job_value_history;
+// then ONE UPDATE writes them. Run the returned list with env.DB.batch() so
+// both land together. spec:
+//   table: "gm_jobs" | "gm_leads"; where / whereBinds: which row(s)
+//   fields: [{ col, expr, binds }]   expr is SQL evaluated on the row
+//   extraSets / extraBinds: other columns for the same UPDATE (not logged)
+//   source, sourceRef, actor
+function gmValueWriteStmts(env, spec) {
+    var isJob = spec.table === "gm_jobs";
+    var stmts = [];
+    var fields = spec.fields || [];
+    fields.forEach(function(f) {
+        var ins = env.DB.prepare(
+            "INSERT INTO gm_job_value_history (id, client_id, job_id, lead_id, entity, field, old_value, new_value, source, source_ref, actor) " +
+            "SELECT lower(hex(randomblob(16))), client_id, " +
+            (isJob ? "id, lead_id, 'job'" : "(SELECT hj.id FROM gm_jobs hj WHERE hj.client_id = gm_leads.client_id AND hj.lead_id = gm_leads.id LIMIT 1), id, 'lead'") +
+            ", ?, " + f.col + ", (" + f.expr + "), ?, ?, ? FROM " + spec.table +
+            " WHERE " + spec.where + " AND " + f.col + " IS NOT (" + f.expr + ")");
+        stmts.push(ins.bind.apply(ins, [f.col].concat(f.binds || [], [spec.source, spec.sourceRef || null, spec.actor || null], spec.whereBinds, f.binds || [])));
+    });
+    var sets = fields.map(function(f) { return f.col + " = (" + f.expr + ")"; }).concat(spec.extraSets || []);
+    if (!sets.length) { return stmts; }
+    var binds = [];
+    fields.forEach(function(f) { binds = binds.concat(f.binds || []); });
+    binds = binds.concat(spec.extraBinds || [], spec.whereBinds);
+    var where = spec.where;
+    // Only fields: skip rows where nothing changes, so updated_at is not
+    // bumped by a no-op (extraSets always write).
+    if (!(spec.extraSets && spec.extraSets.length) && fields.length) {
+        where += " AND (" + fields.map(function(f) { return f.col + " IS NOT (" + f.expr + ")"; }).join(" OR ") + ")";
+        fields.forEach(function(f) { binds = binds.concat(f.binds || []); });
+    }
+    var up = env.DB.prepare("UPDATE " + spec.table + " SET " + sets.concat(["updated_at = datetime('now')"]).join(", ") + " WHERE " + where);
+    stmts.push(up.bind.apply(up, binds));
+    return stmts;
+}
+
+// The guarded value expression: the signed contract's final total when one
+// exists, otherwise the value this writer computed (SQL `fallbackSql`).
+function gmGuardedValorExpr(table, fallbackSql) {
+    return "COALESCE(" + (table === "gm_jobs" ? GM_FINAL_CENTS_JOB_SQL : GM_FINAL_CENTS_LEAD_SQL) + " / 100.0, " + fallbackSql + ")";
+}
+
 // ── Lead side effects (2c) ─────────────────────────────────────────────
 // valor, cost prefill and the commission review flag. Every write logged to
 // gm_lead_events with the session actor. Never touches comissao, never
@@ -23614,23 +23720,30 @@ async function gmEstApplyToLead(env, clientId, est, actor, opts) {
         costs = { material_cents: accepted.material_cents, labor_cents: accepted.labor_cents, other_cents: accepted.other_cents };
     }
     var newValor = Math.round(totals.total_cents) / 100;
+    var estRef = est.number + (est.revision > 1 ? "-R" + est.revision : "");
+    // D4d: with a signed contract the value stays the contract's final total.
+    // The WRITE decides that in SQL (gmGuardedValorExpr); this read only words
+    // the lead event and the commission flag.
+    var signedFinal = await gmDealFinalCents(env, clientId, est.lead_id, null);
+    var effValor = signedFinal !== null ? signedFinal / 100 : newValor;
     var sets = [], binds = [], events = [];
+    var valueFields = [];
     var oldValor = lead.valor === null || lead.valor === undefined ? null : lead.valor;
-    if (oldValor !== newValor) {
-        sets.push("valor = ?"); binds.push(newValor);
-        events.push({ action: "updated", field: "valor", old_value: oldValor, new_value: newValor, reason: "estimate " + est.number + (est.revision > 1 ? "-R" + est.revision : "") });
+    valueFields.push({ col: "valor", expr: gmGuardedValorExpr("gm_leads", "?"), binds: [newValor] });
+    if (oldValor !== effValor) {
+        events.push({ action: "updated", field: "valor", old_value: oldValor, new_value: effValor, reason: "estimate " + estRef });
         // Commission set and the value moved because of an estimate: flag a
         // review, never rewrite comissao.
         if (lead.comissao !== null && lead.comissao !== undefined) {
             sets.push("commission_review_json = ?");
-            binds.push(JSON.stringify({ from_cents: Math.round((oldValor || 0) * 100), to_cents: totals.total_cents, at: new Date().toISOString() }));
+            binds.push(JSON.stringify({ from_cents: Math.round((oldValor || 0) * 100), to_cents: Math.round(effValor * 100), at: new Date().toISOString() }));
         }
     }
     var prefill = { material: costs.material_cents / 100, mao_de_obra: costs.labor_cents / 100, outros: costs.other_cents / 100 };
     Object.keys(prefill).forEach(function(k) {
         var before = lead[k] === null || lead[k] === undefined ? null : lead[k];
+        valueFields.push({ col: k, expr: "?", binds: [prefill[k]] });
         if (before !== prefill[k]) {
-            sets.push(k + " = ?"); binds.push(prefill[k]);
             events.push({ action: "updated", field: k, old_value: before, new_value: prefill[k], reason: "estimate " + est.number + " costs" });
         }
     });
@@ -23642,21 +23755,25 @@ async function gmEstApplyToLead(env, clientId, est, actor, opts) {
             events.push({ action: "stage_changed", field: "estagio", old_value: lead.estagio, new_value: "estimate_enviado", reason: "estimate " + est.number + " sent" });
         }
     }
-    if (sets.length) {
-        sets.push("updated_by = ?"); binds.push(actor);
-        sets.push("updated_at = datetime('now')");
-        binds.push(est.lead_id); binds.push(clientId);
-        await gmRunUpdate(env, "UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
-        await gmLogLeadEvents(env, clientId, est.lead_id, actor, events);
-    }
+    // F1: value and costs go through gmValueWriteStmts (history row per
+    // changed field, same batch); the rest of the lead's sets ride along.
+    var leadChanged = events.length > 0 || sets.length > 0;
+    if (leadChanged) { sets.push("updated_by = ?"); binds.push(actor); }
+    var batch = gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [est.lead_id, clientId],
+        fields: valueFields, extraSets: sets, extraBinds: binds, source: "estimate", sourceRef: estRef, actor: actor });
     // The project mirrors the accepted sum (C2): when the lead already became
     // a project, a change order updates the project's value and costs too.
+    // D4d: never its value once a contract is signed (same guard, in SQL).
     if (accepted.count > 0) {
-        await env.DB.prepare(
-            "UPDATE gm_jobs SET valor = ?, material = ?, mao_de_obra = ?, outros = ?, updated_at = datetime('now') " +
-            "WHERE client_id = ? AND lead_id = ? AND (valor IS NOT ? OR material IS NOT ? OR mao_de_obra IS NOT ? OR outros IS NOT ?)"
-        ).bind(newValor, prefill.material, prefill.mao_de_obra, prefill.outros, clientId, est.lead_id, newValor, prefill.material, prefill.mao_de_obra, prefill.outros).run();
+        batch = batch.concat(gmValueWriteStmts(env, { table: "gm_jobs", where: "client_id = ? AND lead_id = ?", whereBinds: [clientId, est.lead_id],
+            fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_jobs", "?"), binds: [newValor] },
+                     { col: "material", expr: "?", binds: [prefill.material] },
+                     { col: "mao_de_obra", expr: "?", binds: [prefill.mao_de_obra] },
+                     { col: "outros", expr: "?", binds: [prefill.outros] }],
+            source: "estimate", sourceRef: estRef, actor: actor }));
     }
+    if (batch.length) { await env.DB.batch(batch); }
+    if (events.length) { await gmLogLeadEvents(env, clientId, est.lead_id, actor, events); }
 }
 
 // Sum of the accepted option of every accepted, non-superseded, non-void
@@ -26051,6 +26168,10 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         transaction_date: c.transaction_date || null,
         // F2: the price as signed, and the current price after signed change orders.
         current_contract_amount_cents: (c.company_signed_at && !c.company_signature_voided_at) || c.homeowner_signed_at ? (c.contract_amount_cents || comp.amount_cents) : comp.amount_cents,
+        // Hero follow-up D4b: the change orders on this contract, each linked to
+        // the homeowner's own change-order page. Drafts (never shown to the
+        // homeowner) and voided ones are left out.
+        change_orders: await contractChangeOrdersPublic(env, c),
         disclaimer_line: c.disclaimer_line || comp.disclaimer_line,
         content_hash: c.content_hash || null,
         signed_render_hash: c.signed_render_hash || null,
@@ -26187,6 +26308,18 @@ function contractRoutedToSeller(user, c) {
     var seller = sessionSellerName(user);
     return !!(seller && c && c.routed_to_name && String(c.routed_to_name).trim().toLowerCase() === seller.trim().toLowerCase());
 }
+// D4b: { number, state: "signed" | "pending", amount_cents, link } per change
+// order on a contract (not draft, not void), oldest first.
+async function contractChangeOrdersPublic(env, c) {
+    var rows = (await env.DB.prepare(
+        "SELECT number, status, amount_cents, public_token FROM gm_change_orders WHERE client_id = ? AND contract_id = ? AND status NOT IN ('draft','void') ORDER BY created_at"
+    ).bind(c.client_id, c.id).all()).results || [];
+    return rows.map(function(co) {
+        return { number: co.number, state: co.status === "completed" ? "signed" : "pending", amount_cents: co.amount_cents || 0,
+            link: co.public_token ? DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token : null };
+    });
+}
+
 async function contractSellerGuard(env, user, clientId, c, allowRouted) {
     if (allowRouted && contractRoutedToSeller(user, c)) { return null; }
     if (!c.lead_id) { return sessionSellerName(user) ? jsonErr("Forbidden", 403) : null; }
@@ -27006,6 +27139,17 @@ async function handlePostPublicContractSign(token, request, env) {
             await contractBuildSignedRender(env, c, ctx);
         } catch (eR) { console.error("signed render at signing failed (built on next read)", eR && eR.message); }
         await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'contract_signed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(signer, c.client_id, c.job_id).run();
+        // D4d: the signed contract now drives the project and lead value (its
+        // final total), logged in F1 history. The expression reads the contract
+        // row just written, in the same statements.
+        var conRef = contractDisplayNumber(c);
+        var valBatch = gmValueWriteStmts(env, { table: "gm_jobs", where: "id = ? AND client_id = ?", whereBinds: [c.job_id, c.client_id],
+            fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_jobs", "valor"), binds: [] }], source: "contract", sourceRef: conRef, actor: signer });
+        if (c.lead_id) {
+            valBatch = valBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [c.lead_id, c.client_id],
+                fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_leads", "valor"), binds: [] }], source: "contract", sourceRef: conRef, actor: signer }));
+        }
+        await env.DB.batch(valBatch);
         await gmContractEvent(env, c.client_id, c.id, signer, "homeowner_signed", { kind: kind, ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash, lien: comp.requires.lien_signature, pool_ack: comp.requires.pool_ack, cancellation_deadline: deadline });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
         docPdfAfterFinal(request, env, "contract", token);
@@ -27397,12 +27541,23 @@ async function coApply(env, co, request) {
         // project whose material cost was 0 made it -$107). Clamped at 0 and
         // recorded in the lead event.
         [["material", parsed.m], ["mao_de_obra", parsed.l], ["outros", parsed.o]].forEach(function(f) { if ((Number(job[f[0]]) || 0) + f[1] / 100 < 0) { clamped.push(f[0]); } });
-        await env.DB.prepare("UPDATE gm_jobs SET valor = COALESCE(valor, 0) + ?, material = MAX(0, COALESCE(material, 0) + ?), mao_de_obra = MAX(0, COALESCE(mao_de_obra, 0) + ?), outros = MAX(0, COALESCE(outros, 0) + ?), updated_at = datetime('now') WHERE id = ? AND client_id = ?")
-            .bind(delta, parsed.m / 100, parsed.l / 100, parsed.o / 100, co.job_id, clientId).run();
-        if (job.lead_id) {
-            await env.DB.prepare("UPDATE gm_leads SET valor = COALESCE(valor, 0) + ?, material = MAX(0, COALESCE(material, 0) + ?), mao_de_obra = MAX(0, COALESCE(mao_de_obra, 0) + ?), outros = MAX(0, COALESCE(outros, 0) + ?), updated_at = datetime('now') WHERE id = ? AND client_id = ?")
-                .bind(delta, parsed.m / 100, parsed.l / 100, parsed.o / 100, job.lead_id, clientId).run();
+        // D4d: with a signed contract the value IS the contract's final total
+        // (the contract row was just raised by this change order above); a
+        // change order on a project without a signed contract adds its delta.
+        // F1: every changed field logged in the same batch.
+        function coFields(table) {
+            return [{ col: "valor", expr: gmGuardedValorExpr(table, "COALESCE(valor, 0) + ?"), binds: [delta] },
+                    { col: "material", expr: "MAX(0, COALESCE(material, 0) + ?)", binds: [parsed.m / 100] },
+                    { col: "mao_de_obra", expr: "MAX(0, COALESCE(mao_de_obra, 0) + ?)", binds: [parsed.l / 100] },
+                    { col: "outros", expr: "MAX(0, COALESCE(outros, 0) + ?)", binds: [parsed.o / 100] }];
         }
+        var coBatch = gmValueWriteStmts(env, { table: "gm_jobs", where: "id = ? AND client_id = ?", whereBinds: [co.job_id, clientId],
+            fields: coFields("gm_jobs"), source: "change_order", sourceRef: co.number, actor: co.homeowner_signer_name || null });
+        if (job.lead_id) {
+            coBatch = coBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [job.lead_id, clientId],
+                fields: coFields("gm_leads"), source: "change_order", sourceRef: co.number, actor: co.homeowner_signer_name || null }));
+        }
+        await env.DB.batch(coBatch);
         applied.job = { valor_delta: delta, material_delta: parsed.m / 100, labor_delta: parsed.l / 100, other_delta: parsed.o / 100, clamped_at_zero: clamped };
     }
     var today = gmEasternToday();

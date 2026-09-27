@@ -46,9 +46,12 @@
     .meta-right td.fv { text-align: right; }
     .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; }
     .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); }
-    .amount-due-tile { background-color: var(--brand-accent); color: var(--on-brand-accent); border-radius: 10px; padding: 12px 24px; text-align: center; margin-top: 12px; }
-    .amount-due-tile .adt-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3px; }
-    .amount-due-tile .adt-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+    /* SOFT PRICES (hero build, D, Nicole 2026-09-27): a light weight reads as more
+       affordable than bold, presence comes from a contained charcoal pill, not size;
+       every other amount is weight 400 so nothing screams. Comma and cents kept. */
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--brand-accent); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
     @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
     .toplink { display: inline-block; margin-top: 10px; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
     .section { margin-top: 14px; }
@@ -58,16 +61,18 @@
     .line .name { font-weight: 600; }
     .line .desc { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
     .line .math { font-size: 13px; color: var(--muted); }
-    .line .amt { font-weight: 700; white-space: nowrap; text-align: right; }
+    .line .amt { font-weight: 400; white-space: nowrap; text-align: right; }
     .subtotal { display: flex; justify-content: space-between; padding: 8px 0; font-weight: 700; color: var(--muted); }
+    .subtotal span:last-child { font-weight: 400; }
     .totals { margin-top: 10px; }
     .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
-    .totals .grand { font-size: 20px; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand span:last-child { font-weight: 300; }
     .option { border: 2px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 12px; }
     .option.picked { border-color: var(--brand-accent); }
     .option-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .option-head .tier { font-size: 18px; font-weight: 900; }
-    .option-head .price { font-size: 18px; font-weight: 900; }
+    .option-head .price { font-size: 18px; font-weight: 400; }
     .pick { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 2px solid var(--brand-accent); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; }
     .option.picked .pick { background: var(--brand-accent); color: var(--on-brand-accent); }
     .sched .line { padding: 8px 0; }

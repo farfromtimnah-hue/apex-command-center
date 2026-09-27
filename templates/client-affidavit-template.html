@@ -62,9 +62,12 @@
     .stamp { display: inline-block; margin-top: 4pt; font-size: 8.5pt; font-weight: 800; letter-spacing: 0.06em; }
     .stamp.ok { color: #2f6b3e; } .stamp.bad { color: #a63d3d; }
     /* DRAFT .amount-due-tile, in the client's accent colour instead of gold. */
-    .amount-due-tile { background-color: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 10px 24px; text-align: center; margin-top: 8pt; }
-    .amount-due-tile .adt-label { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2pt; }
-    .amount-due-tile .adt-value { font-size: 20pt; font-weight: 800; letter-spacing: -0.01em; }
+    /* SOFT PRICES (hero build, D, Nicole 2026-09-27): a light weight reads as more
+       affordable than bold, presence comes from a contained charcoal pill, not size;
+       every other amount is weight 400 so nothing screams. Comma and cents kept. */
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--accent); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 8pt auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2pt; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
 
     .sec-title { font-size: 11pt; font-weight: 800; padding: 6pt 0 3pt; border-bottom: 1.5px solid var(--accent); margin-top: 6pt; }
     .cat-title { font-size: 9.5pt; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 6pt 0 2pt; }
@@ -74,12 +77,15 @@
     td { padding: 5pt 4pt; border-bottom: 1px solid var(--rule); vertical-align: top; }
     td.q, th.q { width: 0.9in; white-space: nowrap; }
     td.r, th.r { width: 1in; text-align: right; white-space: nowrap; }
-    td.a, th.a { width: 1.1in; text-align: right; white-space: nowrap; font-weight: 700; }
+    td.a, th.a { width: 1.1in; text-align: right; white-space: nowrap; font-weight: 400; }
     td .desc { font-size: 8.5pt; color: var(--muted); white-space: pre-wrap; }
     tr.sub td { font-weight: 700; color: var(--muted); border-bottom: none; }
+    tr.sub td.a { font-weight: 400; }
     .totals { margin-left: auto; width: 3.2in; font-size: 10pt; }
     .totals .row { display: flex; justify-content: space-between; padding: 3pt 0; }
-    .totals .grand { font-size: 13pt; font-weight: 900; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 5pt; margin-top: 3pt; }
+    .totals .grand span:last-child { font-weight: 300; }
+    .tier-price { font-weight: 400; }
     .terms p { white-space: pre-wrap; font-size: 9.5pt; margin-bottom: 6pt; }
     .terms b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4pt; }
     /* DRAFT .payment-tiles / .payment-tile: one tile per accepted method,
@@ -359,9 +365,9 @@
         '<tr><td>Contract</td><td class="r">' + (c.display_number ? escHtml(c.display_number) + (c.contract_date ? ' dated ' + escHtml(fmtDate(c.contract_date)) : "") : "accepted estimate (no signed contract)") + '</td></tr>' +
         '<tr><td>Original contract amount</td><td class="r">' + money(c.original_amount_cents) + '</td></tr>';
       (c.change_orders || []).forEach(function(co) { s += '<tr><td>Change order ' + escHtml(co.number || "") + (co.signed_at ? ' <span class="muted">(signed ' + escHtml(fmtDate(co.signed_at)) + ')</span>' : "") + '</td><td class="r">' + ((Number(co.amount_cents) || 0) < 0 ? "-" : "+") + money(Math.abs(Number(co.amount_cents) || 0)) + '</td></tr>'; });
-      s += '<tr><td><strong>Current contract amount</strong></td><td class="r"><strong>' + money(c.current_amount_cents) + '</strong></td></tr>' +
+      s += '<tr><td><strong>Current contract amount</strong></td><td class="r">' + money(c.current_amount_cents) + '</td></tr>' +
         '<tr><td>Paid to date</td><td class="r">' + money(aff.paid_to_date_cents) + '</td></tr>' +
-        '<tr><td><strong>Final payment due</strong></td><td class="r"><strong>' + money(aff.final_payment_due_cents) + '</strong></td></tr>' +
+        '<tr><td><strong>Final payment due</strong></td><td class="r">' + money(aff.final_payment_due_cents) + '</td></tr>' +
         '</tbody></table>';
       var ls = aff.lienors || [];
       s += '<h2 style="font-size:11pt;margin-top:6pt;">Lienors who served a Notice to Owner</h2>';

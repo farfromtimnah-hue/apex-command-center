@@ -5046,9 +5046,9 @@
       // "assigned" always re-renders too: the assignment set can change between
       // visits, and rendering it is cheap (no fetch — it reads xrayAssigned).
       // F13: the Home attention cards (contract notices, awaiting signatures,
-      // subcontractor documents, alerts) refresh every time Home is shown,
-      // not only on the first visit.
-      if (tab === "analytics" && tabsLoaded[tab] && window.gmAttentionEnabled === true && typeof gmLoadAttention === "function") { gmLoadAttention(true); }
+      // subcontractor documents, alerts) refresh every time Home is shown
+      // (the boot call is forced and already loaded them in showPortal).
+      if (tab === "analytics" && !force && window.gmAttentionEnabled === true && typeof gmLoadAttention === "function") { gmLoadAttention(true); }
       if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0 || tab === "assigned") {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadPace(); loadAnalytics(); loadHistory(); }

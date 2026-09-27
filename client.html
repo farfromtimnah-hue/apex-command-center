@@ -89,7 +89,7 @@
   <script src="template-edit.js?v=1787608442"></script>
   <link rel="stylesheet" href="gm.css?v=1790541645">
   <script src="gm-labels.js?v=1790550443"></script>
-  <script src="gm.js?v=1790550443"></script>
+  <script src="gm.js?v=1790551833"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3871,7 +3871,13 @@
       if (v === null || v === undefined) { return "--"; }
       var n = Number(v);
       if (isNaN(n)) { return "--"; }
-      if (type === "currency") { return "$" + fmtNumAmerican(n); }
+      // Rule 5 (same as portal.html's N10 fix, found in the hero follow-up):
+      // money is always two decimals, minus sign before the dollar sign.
+      if (type === "currency") {
+        var cents = Math.round(Math.abs(n) * 100);
+        var whole = String(Math.floor(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return (n < 0 && cents > 0 ? "-" : "") + "$" + whole + "." + String(cents % 100).padStart(2, "0");
+      }
       if (type === "percent")  { return fmtNumAmerican(n) + "%"; }
       return fmtNumAmerican(n);
     }

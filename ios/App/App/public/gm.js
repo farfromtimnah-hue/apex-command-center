@@ -4358,10 +4358,16 @@ function gmConDraftFromSettings() {
   var s = (gmConSettings && gmConSettings.settings) || {};
   gmConDraft = {
     trades: (s.trades || []).slice(), builds_pools: !!s.builds_pools, defaults: JSON.parse(JSON.stringify(s.defaults || {})),
-    signers: (s.signers || []).map(function(x) { return { name: x.name || "", phone: x.phone || "" }; }),
+    signers: (s.signers || []).map(function(x) { return { name: x.name || "", phone: x.phone || "", username: x.username || null }; }),
     owner_signer_name: s.owner_signer_name || (gmConSettings && gmConSettings.owner_name_default) || "", owner_signer_phone: s.owner_signer_phone || "",
     source: s.source || "apex", values: JSON.parse(JSON.stringify(s.values || {}))
   };
+  // G2g / G3a / G3c / G3d: what the business already told us fills an empty
+  // field (DBA, the owner signer's phone = the document phone, qualifier =
+  // the owner signer, entity type read from the legal name). Editable.
+  var sug = (gmConSettings && gmConSettings.suggested) || {};
+  if (!gmConDraft.owner_signer_phone && sug.owner_signer_phone) { gmConDraft.owner_signer_phone = sug.owner_signer_phone; }
+  ["business_dba", "qualifier_name", "business_entity_type"].forEach(function(k) { if (!gmConDraft.values[k] && sug[k]) { gmConDraft.values[k] = sug[k]; } });
 }
 
 // Settings card, rendered under the document settings form.
@@ -4411,7 +4417,7 @@ function gmConSettingsHtml() {
     '<button type="button" class="gm-choice-chip' + (d.source === "client" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'client\'; gmRenderEstimatesTab();">' + gmT("Meu próprio contrato", "My own contract") + '</button></div>' +
     '<p class="muted" style="font-size:13px;">' + gmT("O seu próprio contrato é convertido uma vez pela Apex em um modelo limpo; o texto nunca é editado aqui.", "Your own contract is converted once by Apex into a clean template; the text is never edited here.") + '</p></div>';
   // Settings-source values (short list of the most used)
-  var vals = [["business_entity_type", "Tipo de empresa (ex.: limited liability company)", "Entity type (e.g. limited liability company)"], ["license_type", "Tipo de licença (ex.: Certified Pool Contractor)", "License type (e.g. Certified Pool Contractor)"], ["qualifier_name", "Qualificador (qualifying agent)", "Qualifying agent"],
+  var vals = [["business_dba", "Nome fantasia (DBA)", "Doing business as (DBA)"], ["business_entity_type", "Tipo de empresa (ex.: limited liability company)", "Entity type (e.g. limited liability company)"], ["license_type", "Tipo de licença (ex.: Certified Pool Contractor)", "License type (e.g. Certified Pool Contractor)"], ["qualifier_name", "Qualificador (qualifying agent)", "Qualifying agent"],
     ["work_hours_start", "Início do expediente (ex.: 8:00 AM)", "Work hours start (e.g. 8:00 AM)"], ["work_hours_end", "Fim do expediente (ex.: 5:00 PM)", "Work hours end (e.g. 5:00 PM)"], ["work_days", "Dias de trabalho (ex.: Monday through Friday)", "Work days (e.g. Monday through Friday)"],
     ["owner_response_days", "Dias úteis para o cliente responder", "Business days for the owner to answer"], ["delay_notice_days", "Dias úteis para avisar atraso", "Business days to notify a delay"], ["concealed_notice_days", "Dias úteis para avisar condição oculta", "Business days to notify a concealed condition"],
     ["backorder_days", "Dias de backorder antes de substituir", "Backorder days before a substitute"], ["warranty_notice_days", "Dias para o cliente avisar garantia", "Days for the owner to report a warranty issue"], ["warranty_inspect_days", "Dias úteis para inspecionar garantia", "Business days to inspect a warranty claim"],
@@ -4424,9 +4430,31 @@ function gmConSettingsHtml() {
   h += '<p class="gm-warn" id="gmConMsg" hidden></p><button type="button" class="gm-btn-primary" id="gmConSaveBtn" onclick="gmConSettingsSave()">' + gmT("Salvar contrato", "Save contract settings") + '</button></div>';
   return h;
 }
+// G3b: authorized signers are picked from the salesperson list (linked by
+// their login, so a rename never stops them signing). A signer typed before
+// this build shows as typed until someone picks the salesperson.
+function gmConSignerSelectHtml(s, i) {
+  var people = (gmConSettings && gmConSettings.salespeople) || [];
+  var cur = s.username ? "u:" + s.username : (s.name ? "n:" + s.name : "");
+  var opts = '<option value="">' + gmT("— escolher vendedor —", "— pick a salesperson —") + '</option>' + people.map(function(p) {
+    var v = p.username ? "u:" + p.username : "n:" + p.name;
+    return '<option value="' + escHtml(v) + '"' + (v === cur ? " selected" : "") + '>' + escHtml(p.name) + (p.username ? "" : " · " + gmT("sem login", "no login")) + '</option>';
+  }).join("");
+  if (cur && !people.some(function(p) { return (p.username ? "u:" + p.username : "n:" + p.name) === cur; })) {
+    opts += '<option value="' + escHtml(cur) + '" selected>' + escHtml(s.name) + ' · ' + gmT("digitado", "typed") + '</option>';
+  }
+  return '<select class="gm-input gm-cost-label" onchange="gmConPickSigner(' + i + ', this.value)">' + opts + '</select>';
+}
+function gmConPickSigner(i, v) {
+  var s = gmConDraft.signers[i];
+  if (!s) { return; }
+  var people = (gmConSettings && gmConSettings.salespeople) || [];
+  var p = people.filter(function(x) { return (x.username ? "u:" + x.username : "n:" + x.name) === v; })[0];
+  if (p) { s.name = p.name; s.username = p.username || null; } else if (!v) { s.name = ""; s.username = null; }
+}
 function gmConSignersHtml() {
   return gmConDraft.signers.map(function(s, i) {
-    return '<div class="gm-cost-line"><input type="text" class="gm-input gm-cost-label" placeholder="' + gmT("Nome", "Name") + '" value="' + escHtml(s.name) + '" oninput="gmConDraft.signers[' + i + '].name = this.value">' +
+    return '<div class="gm-cost-line">' + gmConSignerSelectHtml(s, i) +
       '<input type="text" inputmode="tel" class="gm-input gm-cost-amount" style="flex:0 0 11em;" placeholder="' + gmT("Telefone *", "Phone *") + '" value="' + escHtml(gmFmtPhone(s.phone)) + '" oninput="gmConDraft.signers[' + i + '].phone = this.value" onblur="this.value = gmFmtPhone(this.value)">' +
       '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmConDraft.signers.splice(' + i + ', 1); var b = document.getElementById(\'gmConSigners\'); if (b) { b.innerHTML = gmConSignersHtml(); }">&times;</button></div>';
   }).join("");
@@ -4570,6 +4598,20 @@ function gmConFieldType(k) { return (window.GmLabels && GmLabels.contractFieldTy
 function gmConUsToIso(v) { var m = String(v || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
 function gmConIsoToUs(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + "/" + m[3] + "/" + m[1] : String(v || ""); }
 var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do orçamento", "from the estimate"], settings: ["das configurações", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"] };
+// G2h: contract fields that belong to the customer, and the lead column each
+// one is saved to.
+var GM_CON_TO_LEAD = { owner_full_name: "cliente", owner_phone: "telefone", owner_email: "email", property_address: "address", property_county: "property_county" };
+function gmConSaveToLead(field) {
+  var c = gmConDetail;
+  if (!c || !c.lead_id || !GM_CON_TO_LEAD[field]) { return; }
+  var fd = (c.fields || []).filter(function(x) { return x.field === field; })[0];
+  if (!fd || !fd.value) { return; }
+  var body = {}; body[GM_CON_TO_LEAD[field]] = fd.value;
+  gmApi("leads/" + encodeURIComponent(c.lead_id), { method: "PUT", body: body })
+    .then(function() { gmToast(gmT("Salvo no cliente", "Saved to the customer")); gmLoadCrmSilent(); })
+    .catch(function(e) { gmToast(e.message); console.error("save to lead: " + e.message); });
+}
+
 function gmConSourceLabel(f) {
   var s = GM_CON_SOURCE[f.overridden ? "contract" : f.source] || [f.source, f.source];
   var t = gmT(s[0], s[1]);
@@ -4704,6 +4746,15 @@ function gmRenderContractSheet() {
       return gmSheetRowHtml("edit", escHtml(gmConFieldLabel(fd.field)), val, canEdit ? "gmConEditField('" + escHtml(fd.field) + "')" : null, null,
         escHtml(gmConSourceLabel(fd)) + ' · <span class="muted">' + escHtml(fd.used_in.join(", ")) + '</span>');
     }).join(""), ro ? gmT("só leitura", "read only") : gmT("toque para mudar só neste contrato", "tap to change for this contract only"));
+    // G2h: a customer value changed on this contract can be copied to the
+    // lead with one tap, so the next estimate or contract starts from it.
+    var toLead = c.lead_id ? fields.filter(function(fd) { return fd.overridden && fd.value && GM_CON_TO_LEAD[fd.field]; }) : [];
+    if (toLead.length) {
+      body += '<div class="gm-sheet-section">' + toLead.map(function(fd) {
+        return '<button type="button" class="gm-btn-secondary" style="margin:0 8px 8px 0;" onclick="gmConSaveToLead(\'' + escHtml(fd.field) + '\')">' +
+          gmT("Salvar no cliente: ", "Save to the customer: ") + escHtml(gmConFieldLabel(fd.field)) + '</button>';
+      }).join("") + '</div>';
+    }
   }
 
   // Clause areas: default option, switchable per contract; custom clause
@@ -5520,20 +5571,55 @@ function gmRenderJobChangeOrders(jobId, failedMsg) {
 
 var gmCOWiz = null;
 function gmCOWizardOpen(jobId) {
-  gmCOWiz = { jobId: jobId, items: [], description: "", schedule_days: "0", payment_change: "adjust_remaining", payment_note: "" };
-  var go = function() { gmCOWizardRender(); };
-  if (gmPricingData) { go(); } else { gmApi("pricing").then(function(d) { gmPricingData = d; go(); }).catch(function(e) { gmToast(e.message); console.error(e); }); }
+  gmCOWiz = { jobId: jobId, items: [], description: "", schedule_days: "0", payment_change: "adjust_remaining", payment_note: "", q: "", estLines: [] };
+  var pr = gmPricingData ? Promise.resolve(gmPricingData) : gmApi("pricing").then(function(d) { gmPricingData = d; return d; });
+  // G4a: the accepted estimates' own lines, to remove at the rate charged.
+  var ae = gmApi("jobs/" + encodeURIComponent(jobId) + "/accepted-estimates").then(function(d) {
+    var out = [];
+    (d.estimates || []).forEach(function(e) { (e.lines || []).forEach(function(l) { if (l.line_type !== "included") { out.push({ est: e.display_number, line: l }); } }); });
+    return out;
+  }).catch(function(e) { console.error("accepted estimate lines: " + e.message); return []; });
+  Promise.all([pr, ae]).then(function(res) { gmCOWiz.estLines = res[1]; gmCOWizardRender(); }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmCORemoveEstLine(itemId) {
+  var hit = (gmCOWiz.estLines || []).filter(function(x) { return x.line.id === itemId; })[0];
+  if (!hit) { return; }
+  gmCOWiz.items.push({ pricing_id: null, estimate_item_id: itemId, item_name: hit.line.item_name, qty: String(hit.line.qty || 1), unit: hit.line.unit || "", rate_cents: hit.line.rate_cents || 0, kind: "remove" });
+  gmCOWizardRender();
+}
+// G4c: the search box repaints only the list, so typing keeps its focus.
+function gmCOSearch(v) {
+  gmCOWiz.q = v;
+  var box = document.getElementById("gmCOPriceList");
+  if (box) { box.innerHTML = gmCOPriceListHtml(); }
+}
+function gmCOPriceListHtml() {
+  var q = String(gmCOWiz.q || "").trim().toLowerCase();
+  var items = ((gmPricingData && gmPricingData.items) || []).filter(function(p) {
+    return !q || String(p.item || "").toLowerCase().indexOf(q) !== -1 || String(p.category || "").toLowerCase().indexOf(q) !== -1;
+  });
+  if (!items.length) { return '<p class="muted">' + gmT("Nenhum item encontrado.", "No items found.") + '</p>'; }
+  return items.map(function(p) {
+    return '<div class="gm-cost-line gm-est-pick"><span class="gm-cost-label"><strong>' + escHtml(p.item) + '</strong> <span class="muted">' + gmMoney(Math.round((Number(p.price) || 0) * 100)) + (p.unit ? " / " + escHtml(p.unit) : "") + '</span></span>' +
+      '<button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'add\')">+</button><button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'remove\')">−</button></div>';
+  }).join("");
 }
 function gmCOWizardRender() {
   var w = gmCOWiz;
   var items = (gmPricingData && gmPricingData.items) || [];
   var total = 0; w.items.forEach(function(it) { total += Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents) * (it.kind === "remove" ? -1 : 1); });
   var h = '<div class="gm-sheet-section"><label class="gm-field-label" for="gmCODesc">' + gmT("O que muda (uma frase)", "What changes (one sentence)") + '</label><input type="text" id="gmCODesc" class="gm-input" value="' + escHtml(w.description) + '" oninput="gmCOWiz.description = this.value"></div>';
+  // G4a: remove what the customer actually bought, credited at that rate.
+  if ((w.estLines || []).length) {
+    h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Remover do orçamento aceito", "Remove from the accepted estimate") + ' <span class="gm-sheet-section-note">' + gmT("crédito pelo valor cobrado", "credited at the rate charged") + '</span></p>' +
+      w.estLines.map(function(x) {
+        return '<div class="gm-cost-line gm-est-pick"><span class="gm-cost-label"><strong>' + escHtml(x.line.item_name) + '</strong> <span class="muted">' + escHtml(x.est) + ' · ' + escHtml(String(x.line.qty)) + ' × ' + gmMoney(x.line.rate_cents) + '</span></span>' +
+          '<button type="button" class="gm-choice-chip" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmCORemoveEstLine(\'' + escHtml(x.line.id) + '\')">−</button></div>';
+      }).join("") + '</div>';
+  }
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Itens da tabela de preços", "Items from the price list") + '</p>' +
-    items.slice(0, 60).map(function(p) {
-      return '<div class="gm-cost-line gm-est-pick"><span class="gm-cost-label"><strong>' + escHtml(p.item) + '</strong> <span class="muted">' + gmMoney(Math.round((Number(p.price) || 0) * 100)) + (p.unit ? " / " + escHtml(p.unit) : "") + '</span></span>' +
-        '<button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'add\')">+</button><button type="button" class="gm-choice-chip" onclick="gmCOAdd(\'' + escHtml(p.id) + '\', \'remove\')">−</button></div>';
-    }).join("") +
+    '<input type="search" class="gm-input" placeholder="' + gmT("Buscar item", "Search items") + '" value="' + escHtml(w.q || "") + '" oninput="gmCOSearch(this.value)">' +
+    '<div id="gmCOPriceList">' + gmCOPriceListHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmCOWiz.items.push({ pricing_id: null, item_name: \'\', qty: \'1\', unit: \'\', rate_cents: 0, kind: \'add\' }); gmCOWizardRender();">' + gmT("+ Linha avulsa", "+ Custom line") + '</button></div>';
   if (w.items.length) {
     h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Linhas do aditivo", "Change order lines") + ' <span class="gm-sheet-section-note">' + gmT("remoção vira crédito", "a removal is a credit") + '</span></p>' +
@@ -5543,6 +5629,13 @@ function gmCOWizardRender() {
           '<div class="gm-cost-line"><input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(it.qty) + '" onchange="gmCOWiz.items[' + i + '].qty = this.value; gmCOWizardRender();"><span class="gm-est-x">×</span>' +
           '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml((it.rate_cents / 100).toFixed(2)) + '" onchange="var n = gmParseMoney(this.value); if (n !== null) { gmCOWiz.items[' + i + '].rate_cents = Math.round(n * 100); } gmCOWizardRender();">' +
           '<select class="gm-input gm-cost-type" onchange="gmCOWiz.items[' + i + '].kind = this.value; gmCOWizardRender();"><option value="add"' + (it.kind === "add" ? " selected" : "") + '>' + gmT("Adicionar", "Add") + '</option><option value="remove"' + (it.kind === "remove" ? " selected" : "") + '>' + gmT("Remover", "Remove") + '</option></select></div>' +
+          // G4b: a custom line carries its costs (owner only), so the
+          // project's costs are not typed again later.
+          (!it.pricing_id && !it.estimate_item_id && !gmIsSeller() ? '<div class="gm-cost-line">' +
+            [["material_cost_cents", "Material", "Materials"], ["labor_cost_cents", "Mão de obra", "Labor"], ["other_cost_cents", "Outros", "Other"]].map(function(cf) {
+              return '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" placeholder="' + gmT(cf[1], cf[2]) + '" aria-label="' + gmT("Custo: ", "Cost: ") + gmT(cf[1], cf[2]) + '" value="' + (it[cf[0]] ? escHtml((it[cf[0]] / 100).toFixed(2)) : "") + '" onchange="var n = gmParseMoney(this.value); gmCOWiz.items[' + i + '].' + cf[0] + ' = n === null ? 0 : Math.round(n * 100);">';
+            }).join("") + '</div>' : "") +
+          (it.estimate_item_id ? '<div class="gm-lead-sub muted">' + gmT("do orçamento aceito, pelo valor cobrado", "from the accepted estimate, at the rate charged") + '</div>' : "") +
           '<div class="gm-lead-sub">' + gmSignedMoney(Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents) * (it.kind === "remove" ? -1 : 1)) + '</div></div>';
       }).join("") + '</div>';
   }
@@ -5568,7 +5661,8 @@ function gmCOWizardSave() {
   if (!w.items.length) { say(gmT("Adicione ao menos uma linha.", "Add at least one line.")); return; }
   for (var i = 0; i < w.items.length; i++) { if (!String(w.items[i].item_name || "").trim()) { say(gmT("Toda linha precisa de um nome.", "Every line needs a name.")); return; } }
   gmApi("jobs/" + encodeURIComponent(w.jobId) + "/change-orders", { method: "POST", body: { description: w.description.trim() || null, schedule_days: Number(w.schedule_days) || 0, payment_change: w.payment_change,
-    items: w.items.map(function(it) { return { pricing_id: it.pricing_id, item_name: it.item_name.trim(), qty: Number(String(it.qty).replace(",", ".")) || 1, unit: it.unit || null, rate_cents: it.rate_cents, kind: it.kind }; }) } })
+    items: w.items.map(function(it) { return { pricing_id: it.pricing_id, estimate_item_id: it.estimate_item_id || null, item_name: it.item_name.trim(), qty: Number(String(it.qty).replace(",", ".")) || 1, unit: it.unit || null, rate_cents: it.rate_cents, kind: it.kind,
+      material_cost_cents: it.material_cost_cents || 0, labor_cost_cents: it.labor_cost_cents || 0, other_cost_cents: it.other_cost_cents || 0 }; }) } })
     .then(function(d) { gmToast(gmT("Aditivo criado: ", "Change order created: ") + d.number); gmLoadJobChangeOrders(w.jobId); gmOpenChangeOrder(d.change_order_id); })
     .catch(function(e) { say(e.message); console.error(e); });
 }
@@ -6042,6 +6136,7 @@ function gmSimpleSpec(kind) {
     titleNew: gmT("Novo projeto", "New project"), nameKey: "obra",
     fields: [
       { key: "obra",           type: "text",     pt: "Cliente / projeto", en: "Client / project", required: true },
+      { key: "job_name",       type: "text",     pt: "Trabalho",          en: "Job" },
       { key: "valor",          type: "currency", pt: "Valor ($)",          en: "Value ($)" },
       { key: "material",       type: "currency", pt: "Material ($)",       en: "Materials ($)" },
       { key: "mao_de_obra",    type: "currency", pt: "Mão de obra ($)",    en: "Labor ($)" },
@@ -6056,6 +6151,17 @@ function gmSimpleSpec(kind) {
       { key: "entrega_real",   type: "date",     pt: "Entrega real",       en: "Actual delivery" }
     ]
   };
+}
+
+function gmJobMakeLead(jobId) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/make-lead", { method: "POST", body: {} })
+    .then(function(d) {
+      gmToast(gmT("Lead criado para este projeto", "Lead created for this project"));
+      gmLoadCrmSilent();
+      var idx = -1; ((gmJobsData && gmJobsData.jobs) || []).forEach(function(j, i) { if (j.id === jobId) { idx = i; } });
+      if (idx !== -1 && d.job) { Object.keys(d.job).forEach(function(k) { gmJobsData.jobs[idx][k] = d.job[k]; }); gmOpenJob(idx); }
+    })
+    .catch(function(e) { gmToast(e.message); console.error("make lead: " + e.message); });
 }
 
 function gmSimpleFieldDisplay(row, def) {
@@ -6189,9 +6295,23 @@ function gmJobSheetBody(row, spec) {
       (ro ? "" : '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>') +
     '</' + heroTag + '></div>';
 
+  // G6b: the job name, apart from the customer's name.
+  // G5e: a project made by hand becomes a lead in one step.
+  if (row && row.id) {
+    body += gmSheetSection(gmT("Trabalho", "Job"),
+      gmSheetRowHtml("file", gmT("Nome do trabalho", "Job name"), val("job_name"), edit("job_name")) +
+      (!row.lead_id && !ro ? '<div style="padding:8px 12px;"><button type="button" class="gm-btn-secondary" onclick="gmJobMakeLead(\'' + escHtml(row.id) + '\')">' +
+        gmT("Criar lead deste projeto", "Make this project a lead") + '</button><p class="muted" style="font-size:13px;margin:4px 0 0;">' +
+        gmT("Para fazer orçamento, contrato e fatura sem digitar o cliente de novo.", "So it can get an estimate, a contract and invoices without typing the customer again.") + '</p></div>' : ""));
+  }
+
   // ── Costs ─────────────────────────────────────────────────────────────
+  // G6h: once a contract is signed the value IS the contract + its change
+  // orders (the Worker keeps it so); it shows read-only, with where it comes from.
+  var signedFinal = row && row.signed_final_cents !== null && row.signed_final_cents !== undefined;
   body += gmSheetSection(gmT("Valores", "Costs"),
-    gmSheetRowHtml("dollar", gmT("Valor ($)", "Value ($)"), val("valor"), edit("valor")) +
+    (signedFinal ? gmSheetRowHtml("dollar", gmT("Valor ($)", "Value ($)"), val("valor"), null, null, gmT("Valor do contrato + aditivos", "Contract + change orders"))
+                 : gmSheetRowHtml("dollar", gmT("Valor ($)", "Value ($)"), val("valor"), edit("valor"))) +
     gmSheetRowHtml("tag", gmT("Material ($)", "Materials ($)"), val("material"), edit("material")) +
     gmSheetRowHtml("users", gmT("Mão de obra ($)", "Labor ($)"), val("mao_de_obra"), edit("mao_de_obra")) +
     gmSheetRowHtml("tag", gmT("Outros ($)", "Other ($)"), val("outros"), edit("outros")) +
@@ -7972,10 +8092,13 @@ function gmDocSettingsFormHtml() {
   // ── Margin and late fee ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Margem e atraso", "Margin and late payment") + '</p>' +
-    gmDocField("gmDocMinMargin", "Margem mínima (%) — opcional", "Minimum margin (%) — optional",
-      gmDocTextInput("gmDocMinMargin", "min_margin_pct", d.min_margin_pct, 'inputmode="decimal"')) +
-    '<p class="muted" style="margin:-4px 0 10px;">' + gmT("Se preenchida, o assistente avisa quando um orçamento fica abaixo dela. Nada depende dela.",
-        "If set, the builder warns when an estimate falls below it. Nothing depends on it.") + '</p>' +
+    // G6g: ONE minimum margin. It is typed on Projects (target margin); here
+    // it is shown, not asked again.
+    '<p class="muted" style="margin:0 0 10px;">' + (d.min_margin_pct !== "" ?
+      gmT("Margem mínima: " + d.min_margin_pct + "% (a mesma dos Projetos; o assistente avisa quando um orçamento fica abaixo dela). Mude em Projetos.",
+          "Minimum margin: " + d.min_margin_pct + "% (the same as on Projects; the builder warns when an estimate falls below it). Change it on Projects.") :
+      gmT("Margem mínima: defina em Projetos (margem alvo); o assistente avisa quando um orçamento fica abaixo dela.",
+          "Minimum margin: set it on Projects (target margin); the builder warns when an estimate falls below it.")) + '</p>' +
     gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
       gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"')) +
     '<p class="muted" id="gmDocLateFeeNote" style="margin:-4px 0 10px;">' +
@@ -8228,7 +8351,6 @@ function gmDocSettingsSave() {
     phone: d.phone.trim() || null,
     email: d.email.trim() || null,
     license_numbers: licenses,
-    min_margin_pct: d.min_margin_pct === "" ? null : Number(d.min_margin_pct),
     estimate_valid_days: Number(d.estimate_valid_days) || 30,
     default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode),
     payment_methods: pm,
@@ -9218,6 +9340,25 @@ function gmDocMsgEditorOpen(key, onSaved) {
 
 // ── Wizard (2b) ─────────────────────────────────────────────────────────
 
+// The lead's address as one line; a lead whose address already ends with the
+// city (saved back from an estimate or contract) is not given it twice.
+function gmLeadAddressLine(lead) {
+  var a = String((lead && lead.address) || "").trim(), c = String((lead && lead.city) || "").trim();
+  if (a && c && a.toLowerCase().indexOf(c.toLowerCase()) !== -1) { return a; }
+  return [a, c].filter(function(x) { return !!x; }).join(", ");
+}
+
+// G1a: does a price-list item belong to one of the lead's services? Its
+// category or its name equals, or contains, the service (case-insensitive).
+function gmEstPricingMatchesServices(p, servicos) {
+  if (!servicos || !servicos.length) { return false; }
+  var cat = String(p.category || "").trim().toLowerCase(), name = String(p.item || "").trim().toLowerCase();
+  return servicos.some(function(s) {
+    var v = String(s || "").trim().toLowerCase();
+    return !!v && ((cat && (cat === v || cat.indexOf(v) !== -1 || v.indexOf(cat) !== -1)) || (name && name.indexOf(v) !== -1));
+  });
+}
+
 function gmEstWizNewState(lead) {
   var validDays = (gmDocSettings && gmDocSettings.estimate_valid_days) || 30;
   var d = new Date(); d.setDate(d.getDate() + validDays);
@@ -9227,8 +9368,13 @@ function gmEstWizNewState(lead) {
     id: null, leadId: lead.id, step: 1, mode: "single", activeOpt: 0,
     job_name: [gmServicoList(lead.servico).join(", "), lead.city].filter(function(x) { return !!x; }).join(" - ") || "",
     customer_name: lead.cliente || "", customer_phone: lead.telefone || "", customer_email: lead.email || "",
-    customer_address: [lead.address, lead.city].filter(function(x) { return !!x; }).join(", "),
+    customer_address: gmLeadAddressLine(lead),
     vendedor: lead.vendedor || null,
+    // G1a: the lead's service(s), so step 3 lists and pre-selects the
+    // matching price-list items first.
+    servicos: gmServicoList(lead.servico),
+    // G1c: which customer fields were edited here (saved back to the lead).
+    customer_edited: {},
     options: [{ tier: "single", label: null, items: [], discount_type: null, discount_value: "" }],
     schedule: first ? first.steps.map(function(s) { return { label: s.label, pct: String(s.pct) }; }) : [{ label: "Deposit", pct: "50" }, { label: "Completion", pct: "50" }],
     schedule_preset: first ? first.name : "",
@@ -9281,7 +9427,7 @@ function gmEstWizStart(lead) {
     return;
   }
   gmEstWiz = gmEstWizNewState(lead);
-  var pr = gmApi("pricing").then(function(d) { gmPricingData = d; });
+  var pr = gmApi("pricing").then(function(d) { gmPricingData = d; gmEstWizPreselectService(); });
   // A seller has no doc-settings route; the send-message route carries the
   // non-sensitive slice the wizard needs (validity days, presets, min margin).
   var ms = gmIsSeller() ? gmDocMsgLoad().then(function(d) { gmDocSettings = d.settings_lite || gmDocSettings; }) : Promise.resolve(null);
@@ -9291,12 +9437,47 @@ function gmEstWizStart(lead) {
 function gmEstEditOpen() {
   var est = gmEstDetail;
   if (!est) { return; }
-  gmApi("pricing").then(function(d) { gmPricingData = d; gmEstWiz = gmEstWizFromDetail(est); gmEstWizRender(); })
-    .catch(function(e) { gmToast(e.message); console.error(e); });
+  // G1b: the lead as it is NOW, to offer its details when they differ from
+  // the ones this estimate carried.
+  var leadNow = null;
+  ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) { if (l.id === est.lead_id) { leadNow = l; } });
+  var ld = leadNow ? Promise.resolve(leadNow) : gmApi("leads").then(function(d) {
+    var hit = null; (d.leads || []).forEach(function(l) { if (l.id === est.lead_id) { hit = l; } }); return hit;
+  }).catch(function(e) { console.error("lead for revision: " + e.message); return null; });
+  Promise.all([gmApi("pricing"), ld]).then(function(res) {
+    gmPricingData = res[0];
+    gmEstWiz = gmEstWizFromDetail(est);
+    var l = res[1];
+    if (l) {
+      gmEstWiz.servicos = gmServicoList(l.servico);
+      gmEstWiz.leadNow = { customer_name: l.cliente || "", customer_phone: l.telefone || "", customer_email: l.email || "", customer_address: gmLeadAddressLine(l) };
+    }
+    gmEstWizRender();
+  }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+// G1b: the lead's current details differ from the estimate's (a lead fixed
+// after the first estimate) -> one tap copies them in.
+function gmEstWizLeadDiffers() {
+  var w = gmEstWiz, n = w && w.leadNow;
+  if (!n) { return false; }
+  return ["customer_name", "customer_phone", "customer_email", "customer_address"].some(function(k) {
+    return !!n[k] && String(n[k]).trim() !== String(w[k] || "").trim();
+  });
+}
+function gmEstWizUseLead() {
+  var w = gmEstWiz, n = w && w.leadNow;
+  if (!n) { return; }
+  ["customer_name", "customer_phone", "customer_email", "customer_address"].forEach(function(k) { if (n[k]) { w[k] = n[k]; } });
+  gmEstWizRender();
 }
 
 function gmEstWizGo(step) { if (!gmEstWiz) { return; } gmEstWiz.step = step; gmEstWizRender(); }
-function gmEstWizSet(key, v) { if (gmEstWiz) { gmEstWiz[key] = v; } }
+function gmEstWizSet(key, v) {
+  if (!gmEstWiz) { return; }
+  gmEstWiz[key] = v;
+  if (/^customer_/.test(key)) { gmEstWiz.customer_edited = gmEstWiz.customer_edited || {}; gmEstWiz.customer_edited[key] = true; }
+}
 
 var GM_EST_WIZ_TITLES = [
   ["Cliente", "Customer"], ["Único ou em opções", "Single or tiered"], ["Produtos", "Products"], ["Adicionais", "Add-ons"],
@@ -9338,6 +9519,9 @@ function gmEstWizStep1() {
     gmEstWizField("gmEwPhone", "customer_phone", "Telefone", "Phone", w.customer_phone, 'inputmode="tel"') +
     gmEstWizField("gmEwEmail", "customer_email", "Email", "Email", w.customer_email, 'inputmode="email"') +
     gmEstWizField("gmEwAddr", "customer_address", "Endereço da obra", "Job address", w.customer_address) +
+    (gmEstWizLeadDiffers() ? '<p class="gm-derived-note">' + gmT("O lead tem dados mais recentes: ", "The lead has newer details: ") +
+      escHtml([w.leadNow.customer_name, w.leadNow.customer_phone, w.leadNow.customer_email, w.leadNow.customer_address].filter(function(x) { return !!x; }).join(" · ")) + '</p>' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmEstWizUseLead()">' + gmT("Usar os dados atuais do lead", "Use the lead's current details") + '</button>' : "") +
     (w.vendedor ? '<p class="muted">' + gmT("Vendedor: ", "Salesperson: ") + escHtml(w.vendedor) + '</p>' : "") +
     '</div>';
 }
@@ -9400,6 +9584,16 @@ function gmEstWizLineFromPricing(p) {
   };
 }
 
+// G1a: a NEW estimate starts with the lead's service already picked (qty 1
+// of every matching product); the owner removes what does not apply.
+function gmEstWizPreselectService() {
+  var w = gmEstWiz;
+  if (!w || w.id || !w.options[0] || w.options[0].items.length) { return; }
+  ((gmPricingData && gmPricingData.items) || []).forEach(function(p) {
+    if (p.kind !== "addon" && gmEstPricingMatchesServices(p, w.servicos)) { w.options[0].items.push(gmEstWizLineFromPricing(p)); }
+  });
+}
+
 // Step 3 (products) and step 4 (add-ons): the price list grouped by
 // category, a qty per item; picked lines are edited underneath.
 function gmEstWizStepPick(addons) {
@@ -9413,6 +9607,16 @@ function gmEstWizStepPick(addons) {
   items.forEach(function(p) { var c = p.category || ""; if (!byCat[c]) { byCat[c] = []; order.push(c); } byCat[c].push(p); });
   // "Uncategorized" goes last (C9).
   if (order.indexOf("") !== -1) { order.splice(order.indexOf(""), 1); order.push(""); }
+  // G1a: the categories holding the lead's service come first, and inside
+  // each category the matching items lead.
+  var svc = w.servicos || [];
+  var catHits = function(c) { return (byCat[c] || []).some(function(p) { return gmEstPricingMatchesServices(p, svc); }) ? 0 : 1; };
+  order = order.map(function(c, i) { return { c: c, i: i }; }).sort(function(a, b) { return (catHits(a.c) - catHits(b.c)) || (a.i - b.i); }).map(function(x) { return x.c; });
+  order.forEach(function(c) {
+    byCat[c] = byCat[c].map(function(p, i) { return { p: p, i: i }; })
+      .sort(function(a, b) { return ((gmEstPricingMatchesServices(a.p, svc) ? 0 : 1) - (gmEstPricingMatchesServices(b.p, svc) ? 0 : 1)) || (a.i - b.i); })
+      .map(function(x) { return x.p; });
+  });
   var h = '<div id="gmEstWizTabs">' + gmEstWizOptTabs() + '</div>';
   h += '<div class="gm-sheet-section">';
   if (!items.length) {
@@ -9790,6 +9994,7 @@ function gmEstWizPayload() {
   var w = gmEstWiz;
   return {
     lead_id: w.leadId, mode: w.mode, job_name: w.job_name.trim(), customer_name: w.customer_name.trim(), customer_phone: w.customer_phone.trim() || null,
+    customer_edited: w.customer_edited || {},
     customer_email: w.customer_email.trim() || null, customer_address: w.customer_address.trim() || null, valid_until: w.valid_until || null,
     discount_type: null, discount_value: null,
     schedule: w.schedule.map(function(s) { return { label: s.label.trim(), pct: Number(String(s.pct).replace(",", ".")) || 0 }; }),
@@ -9845,6 +10050,13 @@ var gmInvFilter = "all";
 var gmInvDetail = null;    // GET gm/invoices/:id payload (.invoice)
 var GM_INV_STATUS_FILTERS = ["all", "unpaid", "partially_paid", "overdue", "paid", "draft", "other"];
 var GM_INV_METHODS = ["zelle", "check", "cash", "money_order", "bank_transfer", "card", "other"];
+// G5c: only the methods the business accepts (its document settings); all of
+// them while none are configured, so a payment can always be recorded.
+function gmInvAcceptedMethods(inv) {
+  var acc = (inv && inv.accepted_methods) || [];
+  var list = GM_INV_METHODS.filter(function(m) { return acc.indexOf(m) !== -1; });
+  return list.length ? list : GM_INV_METHODS;
+}
 
 function gmInvStatusLabel(st) { return GmLabels.invoiceStatusLabel(st, isEn()); }
 function gmInvMethodLabel(m) { return GmLabels.invoicePaymentMethodLabel(m, isEn()); }
@@ -10034,7 +10246,7 @@ function gmInvPaymentOpen() {
     '<button type="button" class="gm-choice-chip" style="margin:6px 0 10px;" onclick="var a = document.getElementById(\'gmPayAmt\'); if (a) { a.value = \'' + (inv.balance_cents / 100).toFixed(2) + '\'; }">' + gmT("Valor total", "Full amount") + ' · ' + gmMoney(inv.balance_cents) + '</button>' +
     '<label class="gm-field-label" for="gmPayDate">' + gmT("Data", "Date") + '</label><input type="date" id="gmPayDate" class="gm-input" value="' + escHtml(localDateStr()) + '">' +
     '<label class="gm-field-label" for="gmPayMethod">' + gmT("Forma de pagamento *", "Method *") + '</label>' +
-    '<select id="gmPayMethod" class="gm-input"><option value="">—</option>' + GM_INV_METHODS.map(function(m) { return '<option value="' + m + '">' + escHtml(gmInvMethodLabel(m)) + '</option>'; }).join("") + '</select>' +
+    '<select id="gmPayMethod" class="gm-input"><option value="">—</option>' + gmInvAcceptedMethods(inv).map(function(m) { return '<option value="' + m + '">' + escHtml(gmInvMethodLabel(m)) + '</option>'; }).join("") + '</select>' +
     '<label class="gm-field-label" for="gmPayRef">' + gmT("Referência (nº do cheque, confirmação Zelle)", "Reference (check number, Zelle confirmation)") + '</label><input type="text" id="gmPayRef" class="gm-input">' +
     '<label class="gm-field-label" for="gmPayNote">' + gmT("Observação", "Note") + '</label><textarea id="gmPayNote" class="gm-input" rows="2"></textarea>' +
     '<p class="gm-warn" id="gmPayMsg" hidden></p>' +
@@ -10176,6 +10388,9 @@ function gmInvCreditOpen(kind) {
   var body = '<div class="gm-sheet-section">' +
     '<p class="muted">' + (kind === "refund" ? gmT("Registra dinheiro devolvido ao cliente contra um pagamento verificado.", "Records money returned to the customer against a verified payment.")
                                              : gmT("Reduz o que é devido (por exemplo, um allowance que custou menos).", "Reduces what is owed (for example, an allowance that came in under budget).")) + '</p>' +
+    // G5b: a credit can take an allowance line of the accepted estimate
+    // (amount and reason filled in); a free amount stays possible.
+    (kind === "refund" ? "" : '<div id="gmCrAllow"></div>') +
     '<label class="gm-field-label" for="gmCrAmt">' + gmT("Valor ($)", "Amount ($)") + '</label><input type="text" inputmode="decimal" id="gmCrAmt" class="gm-input">' +
     (kind === "refund" ? '<label class="gm-field-label" for="gmCrPay">' + gmT("Pagamento", "Payment") + '</label><select id="gmCrPay" class="gm-input">' +
       verified.map(function(p) { return '<option value="' + escHtml(p.id) + '">' + gmMoney(p.amount_cents) + ' · ' + escHtml(formatDate(p.paid_date)) + ' · ' + escHtml(gmInvMethodLabel(p.method)) + '</option>'; }).join("") + '</select>' : "") +
@@ -10184,6 +10399,26 @@ function gmInvCreditOpen(kind) {
     '<button type="button" class="gm-btn-primary" id="gmCrSave" onclick="gmInvCreditSave(\'' + kind + '\')">' + gmT("Salvar", "Save") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmRenderInvoiceSheet()">' + gmT("Cancelar", "Cancel") + '</button></div>';
   gmSheetOpen((kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")) + " · " + escHtml(inv.number), body);
+  if (kind !== "refund" && inv.job_id) {
+    gmApi("jobs/" + encodeURIComponent(inv.job_id) + "/accepted-estimates").then(function(d) {
+      var box = document.getElementById("gmCrAllow");
+      if (!box) { return; }
+      var allow = [];
+      (d.estimates || []).forEach(function(e) { (e.lines || []).forEach(function(l) { if (l.line_type === "allowance") { allow.push({ est: e.display_number, line: l }); } }); });
+      gmInvAllowLines = allow;
+      if (!allow.length) { return; }
+      box.innerHTML = '<p class="gm-field-label">' + gmT("Allowances do orçamento aceito", "Allowances on the accepted estimate") + '</p><div class="gm-chip-set">' +
+        allow.map(function(a, i) { return '<button type="button" class="gm-choice-chip" onclick="gmInvPickAllowance(' + i + ')">' + escHtml(a.line.item_name) + ' · ' + gmMoney(a.line.amount_cents) + '</button>'; }).join("") + '</div>';
+    }).catch(function(e) { console.error("allowance lines: " + e.message); });
+  }
+}
+var gmInvAllowLines = [];
+function gmInvPickAllowance(i) {
+  var a = gmInvAllowLines[i];
+  if (!a) { return; }
+  var amt = document.getElementById("gmCrAmt"), rs = document.getElementById("gmCrReason");
+  if (amt) { amt.value = (a.line.amount_cents / 100).toFixed(2); }
+  if (rs && !rs.value.trim()) { rs.value = gmT("Allowance: ", "Allowance: ") + a.line.item_name + " (" + a.est + ")"; }
 }
 
 function gmInvCreditSave(kind) {

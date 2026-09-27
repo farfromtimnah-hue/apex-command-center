@@ -419,6 +419,22 @@
         <div id="crDoc" class="cr-doc" hidden></div>
       </main>
 
+    </div><!-- /contentArea -->
+  </div><!-- /pageWrapper -->
+
+  <!-- F52: the page never loaded (hung on "Carregando..." with "firebase is
+       not defined") because these three includes were missing. Copied exactly
+       from add-user.html, its model page. -->
+  <script src="nav.js"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
 

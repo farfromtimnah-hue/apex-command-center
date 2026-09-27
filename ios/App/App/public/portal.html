@@ -1591,6 +1591,8 @@
            is deliberately not copied here. This is one plain row of three
            pills in normal flow — nothing is reserved above the fold. -->
       <div id="tabGmcrm" hidden>
+        <!-- F49: a salesperson's "contracts awaiting your signature" (they have no Home tab). -->
+        <div class="content-card" id="gmSellerAwaitingCrm" hidden></div>
         <div class="gm-subnav" id="gmPipelineSubnav" role="tablist"></div>
         <div id="gmCrmBody"></div>
         <div id="gmPartnersBody" hidden></div>
@@ -1598,7 +1600,7 @@
       </div>
       <div id="tabGmroadmap" hidden><div id="gmRoadmapBody"></div></div>
       <div id="tabGmfinance" hidden><div id="gmFinanceBody"></div></div>
-      <div id="tabGmjobs" hidden><div id="gmJobsBody"></div></div>
+      <div id="tabGmjobs" hidden><div class="content-card" id="gmSellerAwaitingJobs" hidden></div><div id="gmJobsBody"></div></div>
       <div id="tabGmpricing" hidden><div id="gmPricingBody"></div></div>
       <div id="tabGmestimates" hidden><div id="gmEstimatesBody"></div></div>
       <div id="tabGminvoices" hidden><div id="gmInvoicesBody"></div></div>
@@ -6986,7 +6988,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790485328"></script>
+  <script src="gm.js?v=1790485764"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

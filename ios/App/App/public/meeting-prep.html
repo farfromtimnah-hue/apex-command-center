@@ -786,6 +786,8 @@
       });
     }
 
+    // showMsg ESCAPES its text, so callers pass plain accented Portuguese,
+    // never HTML entities (they printed literally: "n&#227;o", F51).
     function showMsg(pt, en) {
       var el = document.getElementById("stateMsg");
       if (!el) { return; }
@@ -3314,9 +3316,9 @@
         .catch(function(err) {
           if (quiet) { return; }
           if (err && err.message === "forbidden") {
-            showMsg("Esta p&#225;gina &#233; apenas para a equipe.", "This page is staff only.");
+            showMsg("Esta página é apenas para a equipe.", "This page is staff only.");
           } else {
-            showMsg("N&#227;o foi poss&#237;vel carregar a prepara&#231;&#227;o.", "Could not load the meeting prep.");
+            showMsg("Não foi possível carregar a preparação.", "Could not load the meeting prep.");
           }
         });
       });
@@ -3324,7 +3326,7 @@
 
     function init() {
       if (!CLIENT_ID && !SESSION_ID) {
-        showMsg("Cliente n&#227;o informado.", "No client specified.");
+        showMsg("Cliente não informado.", "No client specified.");
         return;
       }
       firebase.initializeApp(FIREBASE_CONFIG);

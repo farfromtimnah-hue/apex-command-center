@@ -710,6 +710,7 @@ function gmRenderPipelineSubnav() {
 // hides the other two, and loads that section's data.
 function gmLoadPipeline() {
   gmCurrentTab = "gmcrm";
+  gmSellerAwaitingRender();
   gmPipelineRestore();
   gmRenderPipelineSubnav();
 
@@ -3411,6 +3412,7 @@ function gmOpenFinance(idx) {
 // ═════════════════════════════════════════════════════════════════════════
 
 function gmLoadJobs() {
+  gmSellerAwaitingRender();
   gmCurrentTab = "gmjobs";
   var body = document.getElementById("gmJobsBody");
   body.innerHTML = '<div class="content-card"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
@@ -4854,6 +4856,16 @@ function gmConSendOpen() {
       function() { gmApi("contracts/" + encodeURIComponent(c.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Contrato marcado como enviado", "Contract marked as sent")); gmLoadJobContracts(c.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
       function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); });
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+
+// F49: a salesperson has no Home tab, so the same "awaiting your signature"
+// card sits at the top of Pipeline (their landing tab) and Projetos.
+function gmSellerAwaitingRender() {
+  if (!gmIsSeller() || !gmContractsEnabled()) { return; }
+  gmConLoadAwaiting().then(function() {
+    var html = gmConAwaitingCardHtml().replace('style="margin-top:12px;"', "");
+    ["gmSellerAwaitingCrm", "gmSellerAwaitingJobs"].forEach(function(id) { var el = document.getElementById(id); if (el) { el.innerHTML = html; el.hidden = !html; } });
+  });
 }
 
 // F44: the homeowner's signed copy, through the same send sheet (text or

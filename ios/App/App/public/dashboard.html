@@ -444,6 +444,10 @@
       flex-direction: column;
       gap: 24px;
     }
+    /* F50: the queue cards are .below-section with display:flex, which beat
+       the [hidden] attribute, so an empty card still showed as an empty box
+       with a blank badge. Same fix as .voice-modal-overlay[hidden] below. */
+    .below-section[hidden] { display: none !important; }
 
     /* ─── Content card ───────────────────────────────────────────────────── */
     .content-card {
@@ -2505,7 +2509,7 @@
             return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(n.client_name || "") + ' &middot; ' + escHtml(n.job_name || "") + ' &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Open for ' + days + ' days' : 'Aberto h\u00e1 ' + days + ' dias') + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) + ' (' + escHtml(n.opened_role || "") + ')' : '') + '</div></div>' +
-              '<a href="meeting-prep.html?client_id=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a></div>';
+              '<a href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a></div>';
           }).join("");
           section.hidden = false;
         })

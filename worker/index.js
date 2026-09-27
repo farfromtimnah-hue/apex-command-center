@@ -24105,6 +24105,12 @@ async function handleGetPublicEstimate(token, request, env) {
                 gmEstOverlaySigning(snap, est);
                 snap.signature_url = est.accepted_signature_r2_key ? origin + "/api/public/estimates/" + token + "/signature-image" : null;
                 snap.content_hash = est.content_hash;
+                // The header photo is the business's CURRENT hero (hero build):
+                // the snapshot's hero_url always pointed at the live upload, so
+                // a gallery pick or new framing must reach the page too. Only
+                // the header; the signed terms stay exactly as frozen, and a
+                // stored PDF is never re-rendered.
+                if (snap.business) { var ch = gmDocHero(origin, est.client_id, settings); snap.business.hero_url = ch.url; snap.business.hero = ch.hero; }
                 return jsonOk({ estimate: snap });
             }
         }

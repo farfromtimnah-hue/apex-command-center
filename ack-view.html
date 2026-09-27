@@ -173,6 +173,9 @@
     .punch .when { font-size: 12px; color: var(--muted); }
     .punch img { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 6px; display: block; }
     .statement { font-size: 17px; font-weight: 800; border: 2px solid var(--ink); border-radius: 10px; padding: 12px 14px; margin-top: 14px; }
+    /* Docs PDF build: this page is what Chrome prints for the acknowledgment
+       PDF, so the on-screen download controls stay off the paper. */
+    @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
@@ -194,7 +197,7 @@
       <div class="card hidden" id="cardStateBanner"></div>
       <div class="card" id="cardBody"></div>
       <div class="card" id="cardActions"></div>
-      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download (PDF)</button><div class="err" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary no-print" id="btnPdf">Download (PDF)</button><div class="err no-print" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
   </div>
 
@@ -453,7 +456,7 @@
       if (ack.status === "signed") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = '<p class="muted">You can download a copy of this signed acknowledgment at any time.</p>' + disc;
+        card.innerHTML = '<p class="muted no-print">You can download a copy of this signed acknowledgment at any time.</p>' + disc;
         return;
       }
       if (ack.status === "declined") {

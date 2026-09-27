@@ -4401,6 +4401,7 @@ function gmRenderJobContracts(jobId, failedMsg) {
       var sub = (c.company_signed_at ? gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at)) + " · " : "") +
         (c.homeowner_signed_at ? gmT("cliente ", "homeowner ") + escHtml(formatDateTimeUTC(c.homeowner_signed_at)) : (c.status === "awaiting_company" && c.routed_to_name ? gmT("aguardando ", "awaiting ") + escHtml(c.routed_to_name) : ""));
       // F28: the homeowner's own words on the row.
+      sub = sub.replace(/ · $/, "");
       if (c.status === "declined" && c.decline_reason) { sub += (sub ? " · " : "") + gmT("motivo: ", "reason: ") + '"' + escHtml(c.decline_reason) + '"'; }
       if (c.status === "changes_requested" && c.change_request_text) { sub += (sub ? " · " : "") + gmT("pediu: ", "asked: ") + '"' + escHtml(c.change_request_text) + '"'; }
       inner += gmSheetRowHtml("file", escHtml(c.display_number), gmConPill(c.status) + ' ' + gmMoney(c.contract_amount_cents), "gmOpenContract('" + escHtml(c.id) + "')", null, sub.replace(/ · $/, ""));
@@ -4952,7 +4953,7 @@ function gmDRenderConditions(jobId) {
   var canSend = d && !d.error && (d.photos || []).length && !(d.acks || []).some(function(a) { return a.kind === "before_photos" && a.status === "signed"; });
   box.innerHTML = gmSheetSection(gmT("Fotos de antes (condições existentes)", "Before-work photos (existing conditions)"), inner) +
     '<div class="gm-est-actions">' +
-    '<label class="gm-btn-secondary gm-photo-add">' + gmT("Adicionar foto", "Add photo") + '<input type="file" accept="image/*" hidden onchange="gmDUploadCondition(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)"></label>' +
+    '<label class="gm-btn-secondary gm-photo-add">' + gmT("Adicionar fotos", "Add photos") + '<input type="file" accept="image/*" multiple hidden onchange="gmDUploadCondition(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', this)"></label>' +
     (canSend ? '<button type="button" class="gm-btn-primary" onclick="gmDSendAck(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', \'before_photos\')">' + gmT("Enviar para o cliente reconhecer", "Send for acknowledgment") + '</button>' : "") +
     '</div>';
   (d && d.photos || []).forEach(function(p) { gmDLoadImg("gmCondImg_" + p.id, p.url); });
@@ -4966,18 +4967,34 @@ function gmDLoadImg(elId, url) {
     var el = document.getElementById(elId); if (el) { el.src = u; el.classList.remove("gm-photo-loading"); }
   }).catch(function(e) { console.error(e); });
 }
+// Several photos at once, one shared (optional) note, uploaded one after the
+// other; the project sheet comes back scrolled to the photos afterwards.
 function gmDUploadCondition(jobId, input) {
-  if (!input.files || !input.files[0]) { return; }
-  var file = input.files[0];
-  if (file.size > 15 * 1024 * 1024) { gmToast(gmT("Arquivo muito grande. Máximo 15 MB.", "File too large. Maximum 15 MB.")); input.value = ""; return; }
-  gmOpenFieldEditor(gmT("O que esta foto mostra? (opcional)", "What does this photo show? (optional)"), "text", "", null, function(note) {
-    var fd = new FormData(); fd.append("photo", file); fd.append("note", note || "");
-    gmToast(gmT("Enviando foto...", "Uploading photo..."));
-    gmApi("jobs/" + encodeURIComponent(jobId) + "/condition-photos", { method: "POST", formData: fd })
-      .then(function() { gmToast(gmT("Foto adicionada.", "Photo added.")); gmDLoadJobTools(jobId); })
-      .catch(function(e) { gmToast(e.message); console.error(e); });
-    input.value = "";
-  }, null, function() { input.value = ""; });
+  if (!input.files || !input.files.length) { return; }
+  var files = [].slice.call(input.files);
+  input.value = "";
+  var tooBig = files.filter(function(f) { return f.size > 15 * 1024 * 1024; });
+  files = files.filter(function(f) { return f.size <= 15 * 1024 * 1024; });
+  if (tooBig.length) { gmToast(gmT("Arquivo muito grande (máximo 15 MB): ", "File too large (15 MB max): ") + tooBig.map(function(f) { return f.name; }).join(", ")); }
+  if (!files.length) { return; }
+  var label = files.length === 1 ? gmT("O que esta foto mostra? (opcional)", "What does this photo show? (optional)") : gmT("O que estas " + files.length + " fotos mostram? (opcional, vale para todas)", "What do these " + files.length + " photos show? (optional, applies to all)");
+  gmOpenFieldEditor(label, "text", "", null, function(note) {
+    var done = 0, failed = 0, i = 0;
+    gmDBackToJob(jobId, "gmJobConditionSection");
+    function next() {
+      if (i >= files.length) {
+        gmToast(failed ? gmT(done + " foto(s) adicionada(s); " + failed + " falhou/falharam.", done + " photo(s) added; " + failed + " failed.") : gmT(done + " foto(s) adicionada(s).", done + " photo(s) added."));
+        gmDLoadJobTools(jobId);
+        return;
+      }
+      var fd = new FormData(); fd.append("photo", files[i]); fd.append("note", note || "");
+      gmToast(gmT("Enviando foto " + (i + 1) + " de " + files.length + "...", "Uploading photo " + (i + 1) + " of " + files.length + "..."));
+      gmApi("jobs/" + encodeURIComponent(jobId) + "/condition-photos", { method: "POST", formData: fd })
+        .then(function() { done++; i++; next(); })
+        .catch(function(e) { failed++; i++; console.error(e); gmToast(e.message); next(); });
+    }
+    next();
+  }, null, function() { gmDBackToJob(jobId, "gmJobConditionSection"); });
 }
 function gmDSendAck(jobId, kind) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/acks", { method: "POST", body: { kind: kind } })
@@ -5002,13 +5019,24 @@ function gmDRenderPunch(jobId) {
     var items = d.items || [];
     if (!items.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Ande pela obra com o cliente e anote cada pendência. Quando tudo estiver feito, envie o aceite de conclusão.", "Walk the job with the homeowner and note each item. When everything is done, send the completion sign-off.") + '</p>'; }
     items.forEach(function(it) {
+      // F30: the whole row (44px) toggles done / not done, not a 12px box.
+      // F29: remove asks for a reason, sits apart from the checkbox, and can be undone.
       inner += '<div class="gm-sheet-row" style="align-items:center;gap:10px;">' +
-        '<input type="checkbox" ' + (it.done ? "checked" : "") + ' aria-label="' + gmT("Feito", "Done") + '" onchange="gmDPunchToggle(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ', this.checked)">' +
+        '<label style="display:flex;align-items:center;gap:12px;flex:1;min-height:44px;cursor:pointer;"><input type="checkbox" style="width:22px;height:22px;flex:0 0 auto;" ' + (it.done ? "checked" : "") + ' aria-label="' + gmT("Feito", "Done") + '" onchange="gmDPunchToggle(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ', this.checked)">' +
         '<span class="gm-lead-main" style="flex:1;"><span class="gm-lead-name" style="white-space:normal;' + (it.done ? "text-decoration:line-through;opacity:.7;" : "") + '">' + escHtml(it.text) + '</span>' +
-        (it.done_at ? '<div class="gm-lead-sub">' + gmT("feito ", "done ") + escHtml(formatDateTimeUTC(it.done_at)) + (it.done_by ? " · " + escHtml(it.done_by) : "") + '</div>' : "") + '</span>' +
+        (it.done_at ? '<div class="gm-lead-sub">' + gmT("feito ", "done ") + escHtml(formatDateTimeUTC(it.done_at)) + (it.done_by ? " · " + escHtml(it.done_by) : "") + '</div>' : "") + '</span></label>' +
         (it.photo_url ? '<button type="button" class="gm-btn-secondary" style="padding:4px 8px;" onclick="gmDOpenPunchPhoto(' + JSON.stringify(it.photo_url).replace(/"/g, "&quot;") + ')">' + gmT("Foto", "Photo") + '</button>' : "") +
-        '<button type="button" class="gm-photo-del" style="position:static;" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">&times;</button></div>';
+        '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;margin-left:8px;" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Remover", "Remove") + '</button></div>';
     });
+    var removedItems = d.removed || [];
+    if (removedItems.length) {
+      inner += '<details style="padding:4px 12px 8px;"><summary class="muted" style="min-height:44px;line-height:44px;cursor:pointer;">' + gmT("Removidos", "Removed") + ' (' + removedItems.length + ')</summary>' +
+        removedItems.map(function(it) {
+          return '<div class="gm-sheet-row" style="align-items:center;gap:10px;"><span class="gm-lead-main" style="flex:1;"><span class="gm-lead-name" style="white-space:normal;text-decoration:line-through;opacity:.7;">' + escHtml(it.text) + '</span>' +
+            '<div class="gm-lead-sub">' + gmT("removido ", "removed ") + escHtml(formatDateTimeUTC(it.removed_at)) + (it.removed_by ? " · " + escHtml(it.removed_by) : "") + (it.removed_reason ? ' · "' + escHtml(it.removed_reason) + '"' : "") + '</div></span>' +
+            '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;" onclick="gmDPunchRestore(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Restaurar", "Restore") + '</button></div>';
+        }).join("") + '</details>';
+    }
     if (d.completion) { inner += '<p class="gm-derived-note" style="padding:0 12px 10px;">✓ ' + gmT("Conclusão aceita por ", "Completion signed by ") + escHtml(d.completion.signer_name) + ' · ' + escHtml(formatDateTimeUTC(d.completion.signed_at)) + '</p>'; }
     // The completion sign-offs sent for this project, with a decline reason (F28).
     ((gmDTools[jobId].cond && gmDTools[jobId].cond.acks) || []).filter(function(a) { return a.kind === "completion" && a.status !== "signed"; }).forEach(function(a) {
@@ -5024,17 +5052,32 @@ function gmDRenderPunch(jobId) {
     (allDone && !(d && d.completion) ? '<button type="button" class="gm-btn-primary" onclick="gmDSendAck(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', \'completion\')">' + (pending ? gmT("Reenviar aceite de conclusão", "Resend completion sign-off") : gmT("Enviar aceite de conclusão", "Send completion sign-off")) + '</button>' : "") +
     '</div>';
 }
+// F31: a change to the punch list voids a completion sign-off the homeowner
+// has not signed yet; the owner is told so.
+function gmDPunchVoidNote(d) { if (d && d.completion_voided) { gmToast(gmT("A lista mudou: o aceite de conclusão enviado foi anulado. Envie de novo quando tudo estiver feito.", "The list changed: the completion sign-off you sent was voided. Send it again when everything is done.")); } }
+// After a prompt the project sheet is back, scrolled to the punch list.
+function gmDBackToJob(jobId, sectionId) {
+  var idx = -1; ((gmJobsData && gmJobsData.jobs) || []).forEach(function(j, i) { if (j.id === jobId) { idx = i; } });
+  if (idx !== -1) { gmOpenJob(idx); setTimeout(function() { var el = document.getElementById(sectionId); if (el) { el.scrollIntoView({ block: "start" }); } }, 700); }
+  else { gmDLoadJobTools(jobId); }
+}
 function gmDPunchAdd(jobId) {
   gmOpenFieldEditor(gmT("Pendência", "Punch list item"), "text", "", null, function(text) {
-    if (!String(text || "").trim()) { return; }
-    gmApi("jobs/" + encodeURIComponent(jobId) + "/punch", { method: "POST", body: { text: text } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
-  });
+    if (!String(text || "").trim()) { gmDBackToJob(jobId, "gmJobPunchSection"); return; }
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/punch", { method: "POST", body: { text: text } }).then(function(d) { gmDPunchVoidNote(d); gmDBackToJob(jobId, "gmJobPunchSection"); }).catch(function(e) { gmToast(e.message); console.error(e); gmDBackToJob(jobId, "gmJobPunchSection"); });
+  }, null, function() { gmDBackToJob(jobId, "gmJobPunchSection"); });
 }
 function gmDPunchToggle(jobId, itemId, done) {
-  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { done: !!done } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); gmDLoadJobTools(jobId); });
+  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { done: !!done } }).then(function(d) { gmDPunchVoidNote(d); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); gmDLoadJobTools(jobId); });
 }
 function gmDPunchRemove(jobId, itemId) {
-  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: true } }).then(function() { gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  gmOpenFieldEditor(gmT("Motivo da remoção", "Reason for removing"), "text", "", null, function(reason) {
+    if (!String(reason || "").trim()) { gmToast(gmT("Escreva o motivo.", "Write the reason.")); gmDBackToJob(jobId, "gmJobPunchSection"); return; }
+    gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: true, removed_reason: reason } }).then(function(d) { gmToast(gmT("Pendência removida", "Item removed")); gmDPunchVoidNote(d); gmDBackToJob(jobId, "gmJobPunchSection"); }).catch(function(e) { gmToast(e.message); console.error(e); gmDBackToJob(jobId, "gmJobPunchSection"); });
+  }, null, function() { gmDBackToJob(jobId, "gmJobPunchSection"); });
+}
+function gmDPunchRestore(jobId, itemId) {
+  gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: false } }).then(function(d) { gmToast(gmT("Pendência restaurada", "Item restored")); gmDPunchVoidNote(d); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDOpenPunchPhoto(url) {
   apiFetch(url).then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); }).then(function(blob) { var u = URL.createObjectURL(blob); gmPhotoObjectUrls["file-" + Date.now()] = u; window.open(u, "_blank"); }).catch(function(e) { gmToast(e.message); });
@@ -5052,11 +5095,12 @@ function gmDRenderLienors(jobId) {
     var rows = d.lienors || [];
     if (!rows.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Quando um fornecedor ou subempreiteiro mandar um Notice to Owner, registre aqui. Antes do pagamento final, peça a liberação (release) de cada um.", "When a supplier or subcontractor serves a Notice to Owner, record it here. Before the final payment, get a release from each one.") + '</p>'; }
     rows.forEach(function(l) {
-      var pill = l.release_status === "unconditional" ? '<span class="gm-pill gm-green">✓ ' + gmT("Liberação final", "Final release") + '</span>' : (l.release_status === "conditional" ? '<span class="gm-pill gm-gold">● ' + gmT("Liberação condicional", "Conditional release") + '</span>' : '<span class="gm-pill gm-red">! ' + gmT("Sem liberação", "No release") + '</span>');
+      var pill = l.release_status === "unconditional" ? '<span class="gm-pill gm-green">✓ ' + gmT("Liberação final", "Final release") + '</span>' : (l.release_status === "conditional" ? '<span class="gm-pill gm-gold">● ' + gmT("Condicional: aguardando liberação final", "Conditional: waiting for the final release") + '</span>' : '<span class="gm-pill gm-red">! ' + gmT("Sem liberação", "No release") + '</span>');
       inner += gmSheetRowHtml("file", escHtml(l.name), pill + (l.amount_claimed_cents ? " " + gmMoney(l.amount_claimed_cents) : ""), "gmDLienorOpen(" + JSON.stringify(jobId).replace(/"/g, "&quot;") + "," + JSON.stringify(l.id).replace(/"/g, "&quot;") + ")", null,
         (l.notice_date ? gmT("Notice to Owner ", "Notice to Owner ") + escHtml(formatDate(l.notice_date)) : "") + (l.note ? " · " + escHtml(l.note) : ""));
     });
-    if (d.open_count) { inner += '<p class="gm-warn" style="margin:0 12px 10px;">' + d.open_count + " " + gmT("sem liberação. Não faça o pagamento final antes de receber a liberação de cada um.", "without a release. Do not make the final payment before you have a release from each one.") + '</p>'; }
+    // A conditional release keeps the warning until the final release is on file.
+    if (d.open_count) { inner += '<p class="gm-warn" style="margin:0 12px 10px;">' + d.open_count + " " + gmT("sem liberação final" + (d.conditional_count ? " (" + d.conditional_count + " só com a condicional)" : "") + ". Não faça o pagamento final antes de receber a liberação final de cada um.", "without a final release" + (d.conditional_count ? " (" + d.conditional_count + " with the conditional one only)" : "") + ". Do not make the final payment before you have a final release from each one.") + '</p>'; }
   }
   box.innerHTML = gmSheetSection(gmT("Notices to Owner e liberações", "Notices to Owner and lien releases"), inner, d && !d.error ? '<span class="muted">' + gmT("Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real.", "Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute.") + '</span>' : null) +
     '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDLienorAdd(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Registrar Notice to Owner", "Record a Notice to Owner") + '</button>' +
@@ -5092,8 +5136,10 @@ function gmDLienorUpload(jobId, lienorId, kind, input) {
   if (!input.files || !input.files[0]) { return; }
   var fd = new FormData(); fd.append("file", input.files[0]); fd.append("kind", kind);
   gmToast(gmT("Enviando...", "Uploading..."));
+  input.value = "";
   gmApi("lienors/" + encodeURIComponent(lienorId), { method: "PUT", formData: fd })
-    .then(function() { gmToast(gmT("Liberação registrada", "Release recorded")); gmSheetClose(); gmDLoadJobTools(jobId); })
+    .then(function() { return gmApi("jobs/" + encodeURIComponent(jobId) + "/lienors"); })
+    .then(function(d) { gmDTools[jobId] = gmDTools[jobId] || {}; gmDTools[jobId].lienors = d; gmToast(gmT("Arquivo salvo", "File saved")); gmDLienorOpen(jobId, lienorId); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDLienorRemove(jobId, lienorId) {
@@ -5111,10 +5157,11 @@ function gmDAffidavitOpen(jobId) {
     var body = '<div class="gm-sheet-section">' +
       '<p>' + gmT("Antes de receber o pagamento final, o cliente pode pedir esta declaração juramentada dizendo quem já foi pago e quem ainda falta.", "Before the final payment, the homeowner can ask for this sworn statement listing who has been paid and who is still owed.") + '</p>' +
       '<p class="muted">' + gmT("Valor do contrato ", "Contract amount ") + gmMoney(a.contract.current_amount_cents) + ' · ' + gmT("pago até hoje ", "paid to date ") + gmMoney(a.paid_to_date_cents) + ' · ' + gmT("pagamento final ", "final payment ") + gmMoney(a.final_payment_due_cents) + '</p>' +
-      (a.warning_lienors || []).map(function(w) { return '<p class="gm-warn">' + escHtml(w.name) + (w.notice_date ? gmT(" mandou um Notice to Owner em ", " served a Notice to Owner on ") + escHtml(formatDate(w.notice_date)) : gmT(" mandou um Notice to Owner", " served a Notice to Owner")) + gmT(" e não tem liberação arquivada.", " and has no release on file.") + '</p>'; }).join("") +
+      (a.warning_lienors || []).map(function(w) { return '<p class="gm-warn">' + escHtml(w.name) + (w.notice_date ? gmT(" mandou um Notice to Owner em ", " served a Notice to Owner on ") + escHtml(formatDate(w.notice_date)) : gmT(" mandou um Notice to Owner", " served a Notice to Owner")) +
+        (w.release_status === "conditional" ? gmT(". Condicional: aguardando liberação final.", ". Conditional: waiting for the final release.") : gmT(" e não tem liberação arquivada.", " and has no release on file.")) + '</p>'; }).join("") +
       (a.mode === "declaration" ? '<p class="gm-derived-note">' + gmT("Modo: declaração escrita sob pena de perjúrio (sem cartório).", "Mode: written declaration under penalty of perjury (no notary).") + '</p>' : "") +
       '</div><div class="gm-est-actions">' +
-      '<a class="gm-btn-primary" href="' + escHtml(a.print_link) + '" target="_blank" rel="noopener">' + gmT("Abrir para imprimir / PDF", "Open to print / PDF") + '</a></div>';
+      '<button type="button" class="gm-btn-primary" onclick="gmDAffidavitPrint(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', ' + JSON.stringify(a.print_link).replace(/"/g, "&quot;") + ')">' + gmT("Abrir para imprimir / PDF", "Open to print / PDF") + '</button></div>';
     if (a.mode !== "declaration") {
       body += gmSheetSection(gmT("Onde reconhecer firma (notarize)", "Get it notarized"),
         '<div style="padding:6px 12px;">' +
@@ -5130,12 +5177,22 @@ function gmDAffidavitOpen(jobId) {
     var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = body; }
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } console.error(e); });
 }
+// F43: a generation is logged only when the owner opens it to print. The tab
+// opens at the tap (so it is not blocked as a pop-up) and loads the print page
+// once the generation is recorded.
+function gmDAffidavitPrint(jobId, link) {
+  var w = window.open("", "_blank");
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit/generate", { method: "POST" })
+    .then(function() { if (w) { w.location.href = link; } else { window.location.href = link; } })
+    .catch(function(e) { if (w) { w.close(); } gmToast(e.message); console.error(e); });
+}
 function gmDAffidavitUpload(jobId, input) {
   if (!input.files || !input.files[0]) { return; }
   var fd = new FormData(); fd.append("file", input.files[0]);
+  input.value = "";
   gmToast(gmT("Enviando...", "Uploading..."));
   gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit/notarized", { method: "POST", formData: fd })
-    .then(function() { gmToast(gmT("Cópia arquivada", "Copy filed")); gmDAffidavitOpen(jobId); })
+    .then(function() { gmToast(gmT("Arquivo salvo", "File saved")); gmDAffidavitOpen(jobId); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
@@ -5197,11 +5254,18 @@ function gmDSubOpen(sid) {
     '</div>';
   gmSheetOpen(escHtml(s.name), body);
 }
+// F34: the editor is titled with the same label as the list, never the column name.
+var GM_DSUB_FIELD_LABELS = { name: ["Nome", "Name"], trade: ["Ofício", "Trade"], license_number: ["Número da licença", "License number"], coi_expires: ["Seguro (COI) vence em", "Insurance certificate (COI) expires"],
+  wc_kind: ["Workers' comp", "Workers' comp"], wc_expires: ["Workers' comp vence em", "Workers' comp expires"], notes: ["Observações", "Notes"] };
 function gmDSubEdit(sid, field, type) {
   var s = (gmDSubs && gmDSubs.subcontractors || []).filter(function(x) { return x.id === sid; })[0] || {};
-  var opts = field === "wc_kind" ? ["policy", "exemption"] : null;
+  var wcLabels = [gmT("Apólice", "Policy"), gmT("Isenção", "Exemption")];
+  var opts = field === "wc_kind" ? wcLabels : null;
   if (field === "wc_kind") { type = "choice"; }
-  gmOpenFieldEditor(field, type, s[field] || "", opts, function(v) {
+  var lab = GM_DSUB_FIELD_LABELS[field] ? gmT(GM_DSUB_FIELD_LABELS[field][0], GM_DSUB_FIELD_LABELS[field][1]) : field;
+  var cur = field === "wc_kind" ? (s.wc_kind === "policy" ? wcLabels[0] : (s.wc_kind === "exemption" ? wcLabels[1] : "")) : (s[field] || "");
+  gmOpenFieldEditor(lab, type, cur, opts, function(v) {
+    if (field === "wc_kind") { v = v === wcLabels[0] ? "policy" : (v === wcLabels[1] ? "exemption" : null); }
     var body = {}; body[field] = v;
     gmApi("subcontractors/" + encodeURIComponent(sid), { method: "PUT", body: body }).then(function() { return gmDSubsReload(); }).then(function() { gmDSubOpen(sid); if (gmSheetRow && gmSheetRow.id) { gmDRenderJobSubs(gmSheetRow.id); } }).catch(function(e) { gmToast(e.message); console.error(e); });
   }, null, function() { gmDSubOpen(sid); });
@@ -5211,7 +5275,7 @@ function gmDSubUpload(sid, kind, input) {
   var fd = new FormData(); fd.append("file", input.files[0]); fd.append("kind", kind);
   gmToast(gmT("Enviando...", "Uploading..."));
   gmApi("subcontractors/" + encodeURIComponent(sid), { method: "PUT", formData: fd })
-    .then(function() { return gmDSubsReload(); }).then(function() { gmToast(gmT("Arquivo salvo", "File saved")); gmDSubOpen(sid); })
+    .then(function() { return gmDSubsReload(); }).then(function() { gmToast(gmT("Arquivo salvo", "File saved")); gmDSubOpen(sid); if (gmSheetRow && gmSheetRow.id) { gmDRenderJobSubs(gmSheetRow.id); } })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDSubMsg(code) {
@@ -5233,12 +5297,20 @@ function gmDSubsSettingsHtml() {
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmDSubNew()">' + gmT("Cadastrar subempreiteiro", "Add subcontractor") + '</button></div>';
 }
 // Home card: documents expiring within 30 days.
+// F35: an already EXPIRED certificate of a subcontractor on an active project
+// comes first, in red; then the ones expiring within 30 days.
 function gmDSubsCardHtml() {
   if (!gmDSubs || gmIsSeller()) { return ""; }
-  var exp = (gmDSubs.subcontractors || []).filter(function(s) { return s.expiring && s.expiring.length; });
-  if (!exp.length) { return ""; }
-  return '<div class="card-title" style="margin-top:12px;">' + gmT("Documentos de subempreiteiros vencendo", "Subcontractor documents expiring") + ' <span class="goal-pending-badge">' + exp.length + '</span></div>' +
-    exp.map(function(s) { return '<button type="button" class="gm-row" onclick="gmDSubOpen(\'' + escHtml(s.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(s.name) + '</span><div class="gm-lead-sub">' + escHtml(gmDSubMsgs(s.expiring_codes).join("; ")) + '</div></span></button>'; }).join("");
+  var active = {};
+  (gmDSubs.assignments || []).forEach(function(a) { if (a.job_status !== "Concluída") { active[a.subcontractor_id] = true; } });
+  var subs = gmDSubs.subcontractors || [];
+  var expired = subs.filter(function(s) { return active[s.id] && (s.warning_codes || []).some(function(c) { return /^(coi|wc)_expired:/.test(c); }); });
+  var soon = subs.filter(function(s) { return s.expiring && s.expiring.length && expired.indexOf(s) === -1; });
+  if (!expired.length && !soon.length) { return ""; }
+  function row(s, codes, red) { return '<button type="button" class="gm-row" onclick="gmDSubOpen(\'' + escHtml(s.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(s.name) + '</span><div class="gm-lead-sub"' + (red ? ' style="color:var(--red, #a63d3d);font-weight:600;"' : "") + '>' + escHtml(gmDSubMsgs(codes).join("; ")) + '</div></span>' + (red ? '<span class="gm-lead-side"><span class="gm-pill gm-red">! ' + escHtml(gmT("vencido", "expired")) + '</span></span>' : "") + '</button>'; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Documentos de subempreiteiros vencendo", "Subcontractor documents expiring") + ' <span class="goal-pending-badge">' + (expired.length + soon.length) + '</span></div>' +
+    expired.map(function(s) { return row(s, (s.warning_codes || []).filter(function(c) { return /^(coi|wc)_expired:/.test(c); }), true); }).join("") +
+    soon.map(function(s) { return row(s, s.expiring_codes, false); }).join("");
 }
 
 // ═════════════════════════════════════════════════════════════════════════

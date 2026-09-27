@@ -27373,7 +27373,7 @@ async function handlePostGmJobAck(id, jobId, request, env) {
             payload = { punch_items: items.map(function(it) { return { id: it.id, text: it.text, done_at: it.done_at, has_photo: !!it.photo_r2_key }; }) };
         }
         var open = await env.DB.prepare("SELECT id FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = ? AND status IN ('sent','viewed') LIMIT 1").bind(id, jobId, kind).first();
-        if (open) { await env.DB.prepare("UPDATE gm_job_acks SET status = 'void' WHERE id = ?").bind(open.id).run(); }
+        if (open) { await env.DB.prepare("UPDATE gm_job_acks SET status = 'void', void_reason = 'replaced' WHERE id = ? AND status IN ('sent','viewed')").bind(open.id).run(); }
         var aid = crypto.randomUUID();
         var json = JSON.stringify({ kind: kind, statement: D_ACK_STATEMENTS[kind], payload: payload, job: job ? job.obra : null });
         var hash = await sha256Hex(json);
@@ -27435,7 +27435,15 @@ async function handleGetPublicAck(token, request, env) {
         var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
         if (limited) { return limited; }
         var a = await dAckByToken(env, token);
-        if (!a || a.status === "void") { return jsonErr("Not found", 404); }
+        if (!a) { return jsonErr("Not found", 404); }
+        if (a.status === "void") {
+            // F31: the homeowner is told the list changed (or was replaced), with no controls.
+            var vdoc = await gmDocSettingsRow(env, a.client_id);
+            var vcl = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(a.client_id).first();
+            var vo = new URL(request.url).origin;
+            return jsonOk({ ack: { kind: a.kind, status: "void", void_reason: a.void_reason || "replaced",
+                business: { name: vdoc.legal_name || (vcl && vcl.name) || "", logo_url: (vcl && vcl.logo_url) ? vo + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: vdoc.hero_r2_key ? vo + "/api/clients/" + a.client_id + "/doc-hero-image" : null, brand_primary: vdoc.brand_primary || null, brand_accent: vdoc.brand_accent || null } } });
+        }
         await env.DB.prepare("UPDATE gm_job_acks SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(a.id).run();
         if (a.status === "sent") { a.status = "viewed"; }
         return jsonOk({ ack: await dAckPayload(env, a, new URL(request.url).origin) });
@@ -27456,8 +27464,15 @@ async function handlePostPublicAckSign(token, request, env) {
         var sigKey = null;
         if (kind === "drawn") { var st = await contractStoreSignature(env, { id: "ack-" + a.id, revision: 1 }, "homeowner", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
-        var res = await env.DB.prepare("UPDATE gm_job_acks SET status = 'signed', signer_name = ?, signed_at = datetime('now'), signature_kind = ?, signature_r2_key = ?, signed_ip = ?, signed_ua = ? WHERE id = ? AND status IN ('sent','viewed')").bind(signer, kind, sigKey, ip, ua, a.id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This acknowledgment can no longer be signed.", 409); }
+        // F31 / rule 23: a completion sign-off is refused, in the write itself,
+        // while any punch item on the project is not done.
+        var res = await env.DB.prepare("UPDATE gm_job_acks SET status = 'signed', signer_name = ?, signed_at = datetime('now'), signature_kind = ?, signature_r2_key = ?, signed_ip = ?, signed_ua = ? WHERE id = ? AND status IN ('sent','viewed') " +
+            "AND (kind <> 'completion' OR NOT EXISTS (SELECT 1 FROM gm_job_punch_items p WHERE p.client_id = gm_job_acks.client_id AND p.job_id = gm_job_acks.job_id AND p.removed_at IS NULL AND p.done = 0))").bind(signer, kind, sigKey, ip, ua, a.id).run();
+        if (!res.meta || !res.meta.changes) {
+            var fa = await env.DB.prepare("SELECT status FROM gm_job_acks WHERE id = ?").bind(a.id).first();
+            if (a.kind === "completion" && fa && (fa.status === "sent" || fa.status === "viewed")) { return jsonErr("The punch list has an open item, so the work cannot be accepted as complete yet. The company will send an updated list.", 409); }
+            return jsonErr("This acknowledgment can no longer be signed.", 409);
+        }
         if (a.lead_id) { await gmLogLeadEvents(env, a.client_id, a.lead_id, signer, [{ action: a.kind === "before_photos" ? "conditions_acknowledged" : "completion_signed", field: "acknowledgment", old_value: null, new_value: a.kind, reason: "signed online (" + kind + ")" }]); }
         return jsonOk({ signed: true });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
@@ -27495,6 +27510,14 @@ async function handleGetPublicAckFile(token, which, itemId, request, env) {
 }
 
 // ── D3: punch list ───────────────────────────────────────────────────────
+// F31: the completion sign-off lists the punch items as they were when it was
+// sent. A change to the list (item added, un-ticked, removed or restored)
+// voids any sign-off not yet signed; the homeowner's link then says the list
+// changed and a new one must be sent.
+async function dVoidOpenCompletionAcks(env, clientId, jobId) {
+    var r = await env.DB.prepare("UPDATE gm_job_acks SET status = 'void', void_reason = 'list_changed' WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status IN ('sent','viewed')").bind(clientId, jobId).run();
+    return (r.meta && r.meta.changes) || 0;
+}
 async function handleGetGmPunch(id, jobId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -27502,10 +27525,10 @@ async function handleGetGmPunch(id, jobId, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
         var origin = new URL(request.url).origin;
-        var rows = (await env.DB.prepare("SELECT * FROM gm_job_punch_items WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY sort_order, created_at").bind(id, jobId).all()).results || [];
-        rows.forEach(function(r) { r.photo_url = r.photo_r2_key ? dFileOut(env, origin, id, "punch/" + r.id + "/photo") : null; delete r.photo_r2_key; });
+        var all = (await env.DB.prepare("SELECT * FROM gm_job_punch_items WHERE client_id = ? AND job_id = ? ORDER BY sort_order, created_at").bind(id, jobId).all()).results || [];
+        all.forEach(function(r) { r.photo_url = r.photo_r2_key ? dFileOut(env, origin, id, "punch/" + r.id + "/photo") : null; delete r.photo_r2_key; });
         var signed = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(id, jobId).first();
-        return jsonOk({ items: rows, completion: signed || null });
+        return jsonOk({ items: all.filter(function(r) { return !r.removed_at; }), removed: all.filter(function(r) { return !!r.removed_at; }), completion: signed || null });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 async function handlePostGmPunch(id, jobId, request, env) {
@@ -27528,7 +27551,8 @@ async function handlePostGmPunch(id, jobId, request, env) {
         var pid = crypto.randomUUID();
         var maxSort = await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM gm_job_punch_items WHERE job_id = ?").bind(jobId).first();
         await env.DB.prepare("INSERT INTO gm_job_punch_items (id, client_id, job_id, text, photo_r2_key, photo_content_type, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(pid, id, jobId, text, photo ? photo.key : null, photo ? photo.content_type : null, (maxSort.m || 0) + 1, actorName(user)).run();
-        return jsonOk({ item_id: pid });
+        var voided = await dVoidOpenCompletionAcks(env, id, jobId);
+        return jsonOk({ item_id: pid, completion_voided: voided });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 async function handlePutGmPunch(id, itemId, request, env) {
@@ -27543,11 +27567,20 @@ async function handlePutGmPunch(id, itemId, request, env) {
         var sets = [], binds = [];
         if (body.done !== undefined) { sets.push("done = ?"); binds.push(body.done ? 1 : 0); sets.push("done_at = ?"); binds.push(body.done ? new Date().toISOString().slice(0, 19).replace("T", " ") : null); sets.push("done_by = ?"); binds.push(body.done ? actorName(user) : null); }
         if (body.text !== undefined) { var t = gmStr(body.text, 300); if (!t) { return jsonErr2("Descreva a pendência.", "Describe the item", 400); } sets.push("text = ?"); binds.push(t); }
-        if (body.removed === true) { sets.push("removed_at = datetime('now')"); }
+        // F29: removed with a reason, kept, and restorable.
+        if (body.removed === true) {
+            var rr = gmStr(body.removed_reason, 300);
+            if (!rr) { return jsonErr2("Informe o motivo para remover.", "A reason is required to remove an item", 400); }
+            sets.push("removed_at = datetime('now')"); sets.push("removed_reason = ?"); binds.push(rr); sets.push("removed_by = ?"); binds.push(actorName(user));
+        }
+        if (body.removed === false) { sets.push("removed_at = NULL"); sets.push("removed_reason = NULL"); sets.push("removed_by = NULL"); }
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
         sets.push("updated_at = datetime('now')"); binds.push(itemId, id);
         await gmRunUpdate(env, "UPDATE gm_job_punch_items SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
-        return jsonOk({ saved: true });
+        // Un-ticking, removing, restoring or rewording changes the list the homeowner would accept.
+        var voided = 0;
+        if (body.done === false || body.removed === true || body.removed === false || body.text !== undefined) { voided = await dVoidOpenCompletionAcks(env, id, it.job_id); }
+        return jsonOk({ saved: true, completion_voided: voided });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 async function handleGetGmPunchPhoto(id, itemId, request, env) {
@@ -27576,7 +27609,9 @@ async function handleGetGmLienors(id, jobId, request, env) {
             r.unconditional_release_url = r.unconditional_release_r2_key ? dFileOut(env, origin, id, "lienors/" + r.id + "/file/unconditional") : null;
             delete r.conditional_release_r2_key; delete r.unconditional_release_r2_key;
         });
-        return jsonOk({ lienors: rows, open_count: rows.filter(function(r) { return r.release_status === "none"; }).length, info_45_days: D_45_DAY_INFO });
+        // A conditional release is not the all-clear: counted until the final one is on file.
+        return jsonOk({ lienors: rows, open_count: rows.filter(function(r) { return r.release_status !== "unconditional"; }).length,
+            none_count: rows.filter(function(r) { return r.release_status === "none"; }).length, conditional_count: rows.filter(function(r) { return r.release_status === "conditional"; }).length, info_45_days: D_45_DAY_INFO });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 async function handlePostGmLienor(id, jobId, request, env) {
@@ -27764,7 +27799,7 @@ async function handleGetGmSubcontractors(id, request, env) {
             s.wc_url = s.wc_r2_key && !seller ? dFileOut(env, origin, id, "subcontractors/" + s.id + "/file/wc") : null;
             delete s.coi_r2_key; delete s.wc_r2_key;
         });
-        var assigns = (await env.DB.prepare("SELECT js.*, j.obra AS job_name FROM gm_job_subcontractors js JOIN gm_jobs j ON j.id = js.job_id WHERE js.client_id = ? AND js.removed_at IS NULL").bind(id).all()).results || [];
+        var assigns = (await env.DB.prepare("SELECT js.*, j.obra AS job_name, j.status AS job_status FROM gm_job_subcontractors js JOIN gm_jobs j ON j.id = js.job_id WHERE js.client_id = ? AND js.removed_at IS NULL").bind(id).all()).results || [];
         return jsonOk({ subcontractors: rows, assignments: assigns, expiring_count: rows.filter(function(s) { return s.expiring.length; }).length });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }

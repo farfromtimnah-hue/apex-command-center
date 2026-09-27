@@ -3170,6 +3170,8 @@
             '<input type="text" maxlength="80" value="' + escHtml(v) + '" ' +
               'oninput="gmListSet(\'' + d.key + '\', ' + i + ', this.value)" style="flex:1;">' +
             (d.key === "vendedores" ? gmSellerRequestBtnHtml(v) : '') +
+            // Part I2: the salesperson's card (phone, email, title, photo).
+            (d.key === "vendedores" && v ? '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;" onclick="gmSellerProfileOpen(' + escHtml(JSON.stringify(v)).replace(/'/g, "&#39;") + ')">' + (en ? "Card" : "Cartão") + '</button>' : '') +
             '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 12px;" ' +
               'aria-label="' + (en ? "Remove" : "Remover") + '" ' +
               'onclick="gmListRemove(\'' + d.key + '\', ' + i + ')">&times;</button>' +
@@ -7046,7 +7048,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790552764"></script>
+  <script src="gm.js?v=1790553455"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

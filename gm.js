@@ -674,6 +674,146 @@ function gmContactMoreHtml(tel, email) {
     '</div></div>';
 }
 
+// ── Customer referrals + contact card (hero follow-up, Part I) ───────────
+function gmLeadById(id) {
+  var hit = null;
+  ((gmLeadsData && gmLeadsData.leads) || []).forEach(function(l) { if (l.id === id) { hit = l; } });
+  return hit;
+}
+// Opens a lead by id, even a closed or won one (the referring customer).
+function gmOpenLeadById(id) {
+  var list = (gmLeadsData && gmLeadsData.leads) || [];
+  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { gmOpenLead(i); return; } }
+  gmApi("leads").then(function(d) {
+    gmLeadsData = d;
+    var l2 = d.leads || [];
+    for (var j = 0; j < l2.length; j++) { if (l2[j].id === id) { gmOpenLead(j); return; } }
+    gmToast(gmT("Este lead não está disponível para você.", "This lead is not available to you."));
+  }).catch(function(e) { gmToast(e.message); console.error("open lead: " + e.message); });
+}
+function gmLeadReferralHtml(lead) {
+  var rows = "";
+  if (lead.parceiro_lead_id && lead.parceiro_name) {
+    rows += gmSheetRowHtml("users", gmT("Indicado por", "Referred by"), '<span style="text-decoration:underline;">' + escHtml(lead.parceiro_name) + '</span>',
+      "gmOpenLeadById('" + escHtml(lead.parceiro_lead_id) + "')", null, gmT("abre o lead de quem indicou", "opens the referring customer's lead"));
+  }
+  if (lead.referrer_to_confirm) {
+    rows += gmSheetRowHtml("users", gmT("Indicação de uma indicação", "Referral of a referral"),
+      lead.actual_referrer ? escHtml(lead.actual_referrer) : '<span class="gm-pill gm-gold">● ' + gmT("confirmar quem indicou", "referrer to confirm") + '</span>',
+      "gmEditActualReferrer('" + escHtml(lead.id) + "')", null,
+      gmT("o cliente disse que não foi " + escHtml(lead.parceiro_name || "") + "; anote quem indicou", "the prospect said it was not " + escHtml(lead.parceiro_name || "") + "; record who referred them"));
+  }
+  var html = rows ? gmSheetSection(gmT("Indicação", "Referral"), rows) : "";
+  if (lead.referrals_count) {
+    var sent = ((gmLeadsData && gmLeadsData.leads) || []).filter(function(l) { return lead.my_partner_id && l.parceiro_id === lead.my_partner_id; });
+    html += gmSheetSection(gmT("Indicações", "Referrals") + ": " + lead.referrals_count + " " + gmT("leads", "leads") + " · " + gmMoney(Math.round((Number(lead.referrals_closed_value) || 0) * 100)) + " " + gmT("fechado", "closed"),
+      sent.map(function(l) {
+        return gmSheetRowHtml("users", escHtml(l.cliente || ""), escHtml(gmStatusLabel(l.estagio)) + (l.valor ? " · " + gmMoney(Math.round(Number(l.valor) * 100)) : ""), "gmOpenLeadById('" + escHtml(l.id) + "')", null,
+          l.referrer_to_confirm ? gmT("indicação de uma indicação", "referral of a referral") : "");
+      }).join("") || '<p class="muted" style="padding:10px 12px;">' + gmT("Leads fora da sua lista.", "Leads outside your list.") + '</p>');
+  }
+  return html;
+}
+function gmEditActualReferrer(leadId) {
+  var lead = gmLeadById(leadId);
+  if (!lead) { return; }
+  gmOpenFieldEditor(gmT("Quem indicou de verdade", "Who actually referred them"), "text", lead.actual_referrer || "", null, function(value) {
+    gmApi("leads/" + encodeURIComponent(leadId), { method: "PUT", body: { actual_referrer: value || null } })
+      .then(function(d) { Object.keys(d.lead || {}).forEach(function(k) { lead[k] = d.lead[k]; }); gmDetailLead = lead; gmRenderLeadSheet(); })
+      .catch(function(e) { gmToast(e.message); console.error("actual referrer: " + e.message); });
+  });
+}
+
+var gmCardSend = null;
+function gmCardSendOpen(leadId) {
+  gmSheetOpen(gmT("Enviar cartão de contato", "Send contact card"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("leads/" + encodeURIComponent(leadId) + "/contact-card", { method: "POST", body: {} })
+    .then(function(d) { gmCardSend = { leadId: leadId, d: d }; gmCardSendRender(); })
+    .catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } console.error("contact card: " + e.message); });
+}
+function gmCardSendRender() {
+  var s = gmCardSend; if (!s) { return; }
+  var lead = gmLeadById(s.leadId);
+  gmDocSendSheetRender(gmT("Enviar cartão de contato", "Send contact card"), s.d.phone || (lead && lead.telefone) || "", s.d.message, null, null,
+    function() { if (lead) { gmDetailLead = lead; gmRenderLeadSheet(); } else { gmSheetClose(); } }, function() { gmCardSendRender(); });
+  var body = document.querySelector(".gm-sheet-body");
+  if (!body) { return; }
+  var extra = document.createElement("div");
+  extra.className = "gm-sheet-section";
+  extra.innerHTML = '<p class="muted" style="font-size:13px;">' + gmT("O cartão salva o seu contato no telefone do cliente, com o link de indicação dele.", "The card saves your contact on the customer's phone, with their own referral link.") + '</p>' +
+    '<a class="gm-btn-secondary" href="' + escHtml(s.d.card_link) + '" target="_blank" rel="noopener">' + gmT("Ver o cartão", "View the card") + '</a>' +
+    (gmIsSeller() ? '<input type="file" id="gmMyPhotoInput" accept="image/png,image/jpeg,image/webp" hidden onchange="gmSellerPhotoUpload(this, gmSellerDisplayName(), function() { gmCardSendRender(); })">' +
+      '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmMyPhotoInput\').click()">' + gmT("Trocar minha foto", "Change my photo") + '</button>' : "");
+  body.appendChild(extra);
+}
+
+// I2: a salesperson photo is resized in the page (square, 512px JPEG) before
+// it is uploaded, so the card and the referral page load fast.
+function gmResizeToJpeg(file, size) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function() {
+      var s = Math.min(img.width, img.height);
+      var c = document.createElement("canvas");
+      c.width = size; c.height = size;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b) { if (b) { resolve(b); } else { reject(new Error(gmT("Não foi possível ler a imagem.", "Could not read the image."))); } }, "image/jpeg", 0.85);
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); reject(new Error(gmT("Não foi possível ler a imagem.", "Could not read the image."))); };
+    img.src = url;
+  });
+}
+function gmSellerPhotoUpload(input, name, after) {
+  var file = input && input.files && input.files[0];
+  if (!file || !name) { return; }
+  gmResizeToJpeg(file, 512).then(function(blob) {
+    var fd = new FormData();
+    fd.append("photo", new File([blob], "photo.jpg", { type: "image/jpeg" }));
+    return gmApi("seller-profiles/" + encodeURIComponent(name) + "/photo", { method: "POST", formData: fd });
+  }).then(function() {
+    input.value = "";
+    gmToast(gmT("Foto salva", "Photo saved"));
+    if (after) { after(); }
+  }).catch(function(e) { input.value = ""; gmToast(e.message); console.error("seller photo: " + e.message); });
+}
+
+// I2: the owner's editor for one salesperson's card details.
+var gmSellerProfiles = null;
+function gmSellerProfileOpen(name) {
+  gmSheetOpen(gmT("Cartão do vendedor", "Salesperson card") + " · " + escHtml(name), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("seller-profiles").then(function(d) {
+    gmSellerProfiles = d.profiles || [];
+    var p = gmSellerProfiles.filter(function(x) { return x.seller_name === name; })[0] || { seller_name: name };
+    // The photo route needs the session, which an <img> cannot send: loaded
+    // through apiFetch as a blob right after the sheet paints.
+    var photo = p.photo_url ? '<img alt="" id="gmSpPhotoImg" style="width:88px;height:88px;border-radius:50%;object-fit:cover;display:block;margin:0 0 8px;background:#eee;">' : "";
+    var body = '<div class="gm-sheet-section">' + photo +
+      '<input type="file" id="gmSpPhoto" accept="image/png,image/jpeg,image/webp" hidden onchange="gmSellerPhotoUpload(this, ' + escHtml(JSON.stringify(name)).replace(/'/g, "&#39;") + ', function() { gmSellerProfileOpen(' + escHtml(JSON.stringify(name)).replace(/'/g, "&#39;") + '); })">' +
+      '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmSpPhoto\').click()">' + (p.has_photo ? gmT("Trocar foto", "Change photo") : gmT("Enviar foto", "Upload photo")) + '</button>' +
+      '<label class="gm-field-label" for="gmSpPhone">' + gmT("Telefone", "Phone") + '</label><input type="text" inputmode="tel" id="gmSpPhone" class="gm-input" value="' + escHtml(p.phone || "") + '">' +
+      '<label class="gm-field-label" for="gmSpEmail">' + gmT("Email", "Email") + '</label><input type="text" inputmode="email" id="gmSpEmail" class="gm-input" value="' + escHtml(p.email || "") + '">' +
+      '<label class="gm-field-label" for="gmSpTitle">' + gmT("Cargo (no cartão, em inglês)", "Title (on the card)") + '</label><input type="text" id="gmSpTitle" class="gm-input" value="' + escHtml(p.title || "") + '">' +
+      '<p class="muted" style="font-size:13px;">' + gmT("Em branco, o cartão usa o telefone, o email e o logo da empresa.", "Left blank, the card uses the business phone, email and logo.") + '</p>' +
+      '<p class="gm-warn" id="gmSpMsg" hidden></p>' +
+      '<button type="button" class="gm-btn-primary" onclick="gmSellerProfileSave(' + escHtml(JSON.stringify(name)).replace(/'/g, "&#39;") + ')">' + gmT("Salvar", "Save") + '</button></div>';
+    var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = body; }
+    if (p.photo_url) {
+      apiFetch(p.photo_url).then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
+        .then(function(blob) { var im = document.getElementById("gmSpPhotoImg"); if (im) { im.src = URL.createObjectURL(blob); } })
+        .catch(function(e) { console.error("seller photo preview: " + e.message); });
+    }
+  }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } console.error("seller profiles: " + e.message); });
+}
+function gmSellerProfileSave(name) {
+  var v = function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
+  gmApi("seller-profiles/" + encodeURIComponent(name), { method: "PUT", body: { phone: v("gmSpPhone") || null, email: v("gmSpEmail") || null, title: v("gmSpTitle") || null } })
+    .then(function() { gmToast(gmT("Cartão salvo", "Card saved")); gmSheetClose(); })
+    .catch(function(e) { var m = document.getElementById("gmSpMsg"); if (m) { m.textContent = e.message; m.hidden = false; } console.error("seller profile: " + e.message); });
+}
+
 function gmToggleContactMore() {
   var btn = document.getElementById("gmContactMoreBtn");
   var panel = document.getElementById("gmContactMorePanel");
@@ -2198,6 +2338,12 @@ function gmRenderLeadSheet() {
   // ── Contact actions ───────────────────────────────────────────────────
   var body = gmContactButtonsHtml(lead.telefone);
   body += gmContactMoreHtml(lead.telefone, lead.email);
+  // Part I4: the salesperson's contact card (with this customer's own
+  // referral link), sent the same way the estimate is.
+  body += '<button type="button" class="gm-btn-secondary" style="width:100%;margin:6px 0 10px;" onclick="gmCardSendOpen(\'' + escHtml(lead.id) + '\')">' +
+    gmT("Enviar cartão de contato", "Send contact card") + '</button>';
+  // Part I3/I6: who referred this lead, and who this customer referred.
+  body += gmLeadReferralHtml(lead);
 
   // ── Hero: stage above, estimate value below ───────────────────────────
   // The two things asked first about any lead, given the sheet's headline
@@ -6341,6 +6487,13 @@ function gmJobSheetBody(row, spec) {
     '</' + heroTag + '></div>';
 
   body += gmThreePricesHtml(row);
+  // Part I4/I6: the customer's contact card and their referrals, on the
+  // project too (both live on the project's lead).
+  if (row && row.lead_id) {
+    var pl = gmLeadById(row.lead_id);
+    body += '<button type="button" class="gm-btn-secondary" style="width:100%;margin:6px 0 10px;" onclick="gmCardSendOpen(\'' + escHtml(row.lead_id) + '\')">' + gmT("Enviar cartão de contato", "Send contact card") + '</button>';
+    if (pl) { body += gmLeadReferralHtml(pl); }
+  }
   // G6b: the job name, apart from the customer's name.
   // G5e: a project made by hand becomes a lead in one step.
   if (row && row.id) {

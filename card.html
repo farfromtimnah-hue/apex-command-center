@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Contact card</title>
+  <!-- Hero follow-up, Part I (2026-09-27): the salesperson's contact card a
+       customer saves with one tap. PUBLIC, unguessable token (?t=), the
+       CLIENT's branding only (never Apex's), English (homeowner-facing).
+       "Save to contacts" is the Worker's vCard (/api/public/card/<t>.vcf):
+       its FIRST link is this customer's own referral link. -->
+  <style>
+    :root {
+      --brand-bg: #2b2b2b;
+      --brand-accent: #2b2b2b;
+      --ink: #1a1a1d;
+      --muted: #6b6660;
+      --border: #e8e2d9;
+      --bg: #f6f4f0;
+      --red: #b44040;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; padding: 0 16px 40px; }
+    .band { background: var(--brand-bg); width: 100vw; margin-left: calc(50% - 50vw); padding: calc(18px + env(safe-area-inset-top, 0px)) 16px 64px; text-align: center; }
+    .band img.logo { max-height: 64px; max-width: 200px; width: auto; display: none; margin: 0 auto; background: #fff; border-radius: 10px; padding: 6px 10px; }
+    .band img.logo.on { display: block; }
+    .band .company { color: #fff; font-weight: 800; font-size: 18px; margin-top: 8px; letter-spacing: 0.02em; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; max-width: 440px; margin: -48px auto 0; padding: 20px 18px 22px; text-align: center; box-shadow: 0 4px 18px rgba(26,26,29,0.08); }
+    .photo { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 2px 10px rgba(26,26,29,0.15); margin-top: -70px; background: #eee; display: none; }
+    .photo.on { display: inline-block; }
+    .name { font-size: 22px; font-weight: 800; margin-top: 8px; }
+    .title { color: var(--muted); font-size: 14px; margin-top: 2px; }
+    .rows { text-align: left; margin-top: 16px; border-top: 1px solid var(--border); }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+    .row .k { color: var(--muted); }
+    .row .v { font-weight: 600; text-align: right; word-break: break-word; }
+    .row a { color: var(--brand-accent); }
+    .btn { display: block; width: 100%; min-height: 52px; line-height: 52px; margin-top: 14px; border: none; border-radius: 12px; background: var(--brand-accent); color: #fff; font-size: 17px; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--brand-accent); border: 1px solid var(--brand-accent); line-height: 50px; }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.45; }
+    .refer { max-width: 440px; margin: 14px auto 0; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 18px; text-align: center; }
+    .refer h2 { font-size: 17px; }
+    .refer .link { font-size: 13px; color: var(--muted); word-break: break-all; margin-top: 6px; }
+    .msg { color: var(--muted); text-align: center; padding: 40px 0; }
+    .err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 18px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="band">
+    <img class="logo" id="logo" alt="">
+    <div class="company" id="company"></div>
+  </div>
+
+  <div class="card" id="cardLoading"><p class="msg">Loading…</p></div>
+  <div class="card" id="cardNotFound" hidden><p class="msg">This contact card is not available.</p></div>
+
+  <div id="cardMain" hidden>
+    <div class="card">
+      <img class="photo" id="photo" alt="">
+      <div class="name" id="name"></div>
+      <div class="title" id="title"></div>
+      <div class="rows" id="rows"></div>
+      <a class="btn" id="btnSave" href="#">Save to contacts</a>
+      <p class="hint">On iPhone this opens Add Contact: one tap and it is saved.</p>
+      <button type="button" class="btn secondary" id="btnShare" onclick="shareCard()">Send this contact to someone</button>
+      <p class="err" id="shareErr"></p>
+    </div>
+    <div class="refer">
+      <h2>Know someone who needs this?</h2>
+      <p class="hint" id="referHint"></p>
+      <button type="button" class="btn" onclick="shareReferral()">Share your link</button>
+      <p class="link" id="referLink"></p>
+      <p class="err" id="referErr"></p>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var card = null;
+
+    function byId(id) { return document.getElementById(id); }
+    function escHtml(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function show(id) { ["cardLoading", "cardNotFound", "cardMain"].forEach(function(c) { var el = byId(c); if (el) { el.hidden = c !== id; } }); }
+    function fmtPhone(p) {
+      var d = String(p || "").replace(/\D/g, "");
+      if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }
+      return d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : String(p || "");
+    }
+    function hexOk(h) { return /^#[0-9a-fA-F]{6}$/.test(h || ""); }
+
+    function render() {
+      var c = card;
+      if (hexOk(c.brand_primary)) { document.documentElement.style.setProperty("--brand-bg", c.brand_primary); }
+      if (hexOk(c.brand_accent)) { document.documentElement.style.setProperty("--brand-accent", c.brand_accent); }
+      else if (hexOk(c.brand_primary)) { document.documentElement.style.setProperty("--brand-accent", c.brand_primary); }
+      document.title = [c.seller_first, c.company].filter(Boolean).join(" · ") || "Contact card";
+      var logo = byId("logo");
+      if (logo && c.logo_url) { logo.src = c.logo_url; logo.classList.add("on"); }
+      var co = byId("company"); if (co) { co.textContent = c.company || ""; }
+      var ph = byId("photo");
+      if (ph && c.photo_url) { ph.src = c.photo_url; ph.classList.add("on"); }
+      var nm = byId("name"); if (nm) { nm.textContent = [c.seller_first, c.company].filter(Boolean).join(" · "); }
+      var tt = byId("title"); if (tt) { tt.textContent = c.title || ""; }
+      var rows = [];
+      if (c.phone) { rows.push(["Phone", '<a href="tel:' + escHtml(String(c.phone).replace(/[^\d+]/g, "")) + '">' + escHtml(fmtPhone(c.phone)) + '</a>']); }
+      if (c.email) { rows.push(["Email", escHtml(c.email)]); }
+      if (c.website) { rows.push(["Website", '<a href="' + escHtml(c.website) + '" target="_blank" rel="noopener">' + escHtml(String(c.website).replace(/^https?:\/\//, "").replace(/\/$/, "")) + '</a>']); }
+      var box = byId("rows");
+      if (box) { box.innerHTML = rows.map(function(r) { return '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join(""); }
+      var save = byId("btnSave"); if (save) { save.href = c.vcf_url; }
+      var hint = byId("referHint");
+      if (hint) { hint.textContent = "Your own link to " + (c.company || "us") + ". Friends who use it are sent straight to " + (c.seller_first || "the team") + "."; }
+      var rl = byId("referLink"); if (rl) { rl.textContent = c.referral_link || ""; }
+      show("cardMain");
+    }
+
+    function shareOrCopy(data, errId) {
+      var err = byId(errId);
+      if (err) { err.textContent = ""; }
+      if (navigator.share) {
+        navigator.share(data).catch(function(e) { if (e && e.name !== "AbortError" && err) { err.textContent = "Could not open sharing: " + e.message; } });
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(data.url).then(function() { if (err) { err.textContent = "Link copied."; } })
+          .catch(function(e) { if (err) { err.textContent = "Copy this link: " + data.url; } console.error(e); });
+        return;
+      }
+      if (err) { err.textContent = "Copy this link: " + data.url; }
+    }
+    function shareCard() {
+      if (!card) { return; }
+      shareOrCopy({ title: document.title, text: "Contact: " + document.title, url: window.location.href }, "shareErr");
+    }
+    function shareReferral() {
+      if (!card || !card.referral_link) { return; }
+      shareOrCopy({ title: card.company || "Referral", text: "I used " + (card.company || "them") + " and recommend them:", url: card.referral_link }, "referErr");
+    }
+
+    function load() {
+      var t = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+      if (!t) { show("cardNotFound"); return; }
+      fetch(WORKER_URL + "/api/public/card/" + t)
+        .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+        .then(function(d) { card = d.card; render(); })
+        .catch(function(e) { console.error("card: " + e.message); show("cardNotFound"); });
+    }
+
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

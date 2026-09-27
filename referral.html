@@ -156,6 +156,14 @@
     /* Honeypot: visually removed but present in the DOM for bots. */
     .hp-field { position: absolute; left: -9999px; top: -9999px; height: 0; overflow: hidden; }
     .loading, .notfound { text-align: center; color: var(--muted); padding: 30px 0; font-size: 15px; }
+    /* Part I5: a customer's link shows the salesperson who gets the credit. */
+    .cust-ref { text-align: center; }
+    .cust-ref .seller-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 10px; border: 3px solid #fff; box-shadow: 0 2px 10px rgba(26,26,29,0.12); }
+    .cust-ref .to { font-size: 17px; font-weight: 700; line-height: 1.35; }
+    .refby { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #faf9f6; font-size: 15px; }
+    .refby .not { min-height: 44px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); background: #fff; font-size: 14px; cursor: pointer; }
+    .refby .not.on { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; font-weight: 700; }
+    .save-contact { display: block; text-align: center; min-height: 48px; line-height: 48px; margin-top: 12px; border-radius: 10px; border: 1px solid var(--brand-accent); color: var(--brand-accent); font-weight: 700; text-decoration: none; }
   </style>
 </head>
 <body class="lang-pt">
@@ -187,6 +195,15 @@
   </div>
 
   <div class="card" id="cardForm" hidden>
+    <!-- Part I5: shown only on a CUSTOMER's referral link. -->
+    <div class="cust-ref" id="custRef" hidden>
+      <img class="seller-photo" id="sellerPhoto" alt="" hidden>
+      <div class="to" id="custRefTo"></div>
+      <div class="refby" id="refBy">
+        <span id="refByText"></span>
+        <button type="button" class="not" id="btnNotRef" aria-pressed="false" onclick="toggleNotReferrer()"></button>
+      </div>
+    </div>
     <label for="fNome"><span class="show-pt">Seu nome</span><span class="show-en">Your name</span> *</label>
     <input type="text" id="fNome" autocomplete="name">
     <label for="fTel"><span class="show-pt">Telefone</span><span class="show-en">Phone</span></label>
@@ -202,6 +219,11 @@
     <button type="button" class="btn" id="btnSend" onclick="submitReferral()">
       <span class="show-pt">Enviar</span><span class="show-en">Send</span>
     </button>
+    <!-- Part I5: a FRESH contact of the salesperson and the company, without
+         the referring customer's link (they get their own later). -->
+    <a class="save-contact" id="saveContact" href="#" hidden>
+      <span class="show-pt">Salvar contato</span><span class="show-en">Save contact</span>
+    </a>
   </div>
 
   <div class="card" id="cardDone" hidden>
@@ -221,6 +243,8 @@
     var loadedAt = Date.now();
     var pickedServicos = [];
     var bizName = "";
+    var notReferrer = false;
+    var custFirst = "";
 
     function escHtml(s) {
       return String(s == null ? "" : s)
@@ -313,10 +337,48 @@
             chips += '<button type="button" onclick="pickChip(this)">' + escHtml(s) + '</button>';
           });
           document.getElementById("chips").innerHTML = chips;
+          applyCustomerReferral(d.customer_referral);
           showCard("cardForm");
         })
         .catch(function() { showCard("cardNotFound"); });
     }
+
+    // Part I5: "You were referred to <salesperson> at <company>", the
+    // salesperson's photo, "Referred by <customer>" with a one-tap "Not
+    // <customer>" (nothing to type), and the fresh "Save contact".
+    function applyCustomerReferral(cr) {
+      var box = document.getElementById("custRef");
+      if (!box || !cr) { return; }
+      custFirst = cr.customer_first || "";
+      var who = cr.seller_first ? escHtml(cr.seller_first) + " " : "";
+      var to = document.getElementById("custRefTo");
+      if (to) {
+        to.innerHTML = '<span class="show-pt">Você foi indicado para ' + (who ? who + "da " : "a ") + escHtml(cr.company || bizName) + '</span>' +
+          '<span class="show-en">You were referred to ' + (who ? who + "at " : "") + escHtml(cr.company || bizName) + '</span>';
+      }
+      var ph = document.getElementById("sellerPhoto");
+      if (ph && cr.seller_photo_url) { ph.src = cr.seller_photo_url; ph.hidden = false; }
+      var rb = document.getElementById("refBy");
+      if (rb) { rb.hidden = !custFirst; }
+      renderReferredBy();
+      var sc = document.getElementById("saveContact");
+      if (sc && cr.contact_vcf_url) { sc.href = cr.contact_vcf_url; sc.hidden = false; }
+      var intro = document.getElementById("introLine");
+      if (intro) { intro.innerHTML = '<span class="show-pt">Deixe seus dados e a equipe entra em contato.</span><span class="show-en">Leave your details and the team will contact you.</span>'; }
+      box.hidden = false;
+    }
+    function renderReferredBy() {
+      var t = document.getElementById("refByText"), b = document.getElementById("btnNotRef");
+      if (!t || !b) { return; }
+      var n = escHtml(custFirst);
+      t.innerHTML = notReferrer
+        ? '<span class="show-pt">Outra pessoa indicou você</span><span class="show-en">Someone else referred you</span>'
+        : '<span class="show-pt">Indicado por ' + n + '</span><span class="show-en">Referred by ' + n + '</span>';
+      b.innerHTML = '<span class="show-pt">Não foi ' + n + '</span><span class="show-en">Not ' + n + '</span>';
+      b.classList.toggle("on", notReferrer);
+      b.setAttribute("aria-pressed", notReferrer ? "true" : "false");
+    }
+    function toggleNotReferrer() { notReferrer = !notReferrer; renderReferredBy(); }
 
     function submitReferral() {
       var err = document.getElementById("formErr");
@@ -337,6 +399,7 @@
           telefone: document.getElementById("fTel").value.trim() || null,
           servico: pickedServicos.length ? pickedServicos.join(", ") : null,
           website: document.getElementById("website").value || null,
+          not_referrer: notReferrer,
           elapsed_ms: Date.now() - loadedAt
         })
       })

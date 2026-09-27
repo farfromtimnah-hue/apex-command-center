@@ -13603,6 +13603,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
+                // Part I: salesperson profiles and a salesperson's photo.
+                if (gmRest === "seller-profiles") { return true; }
+                if (/^seller-profiles\/[^\/]+\/photo$/.test(gmRest)) { return true; }
                 // Estimates (phase 2): list, detail, and the send-message templates.
                 if (gmRest === "estimates" || gmRest === "doc-messages") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -13658,6 +13661,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
                 if (/^jobs\/[A-Za-z0-9-]+\/make-lead$/.test(gmRest)) { return true; }
+                // Part I: send a contact card; a salesperson photo upload.
+                if (/^leads\/[A-Za-z0-9-]+\/contact-card$/.test(gmRest)) { return true; }
+                if (/^seller-profiles\/[^\/]+\/photo$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
                 if (gmRest === "events") { return true; }
@@ -13707,6 +13713,8 @@ function clientRequestAllowed(path, method, clientId) {
             }
             if (method === "PUT") {
                 if (gmRest === "config/view-mode") { return true; }
+                // Part I: the owner edits a salesperson's phone / email / title.
+                if (/^seller-profiles\/[^\/]+$/.test(gmRest)) { return true; }
                 // Document settings for the client's own estimates/invoices.
                 if (gmRest === "doc-settings") { return true; }
                 // Hero build: pick a gallery hero, or frame an uploaded one
@@ -13814,6 +13822,10 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/invoices\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         // Contracts on their own projects (row-level guard in the handlers).
         if (rest === "gm/contracts" || rest === "gm/contracts/awaiting" || rest === "gm/change-orders") { return true; }
+        // Part I: a seller reads their own profile and photo (the handler
+        // returns only their own).
+        if (rest === "gm/seller-profiles") { return true; }
+        if (/^gm\/seller-profiles\/[^\/]+\/photo$/.test(rest)) { return true; }
         if (/^gm\/contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(rest)) { return true; }
@@ -13882,6 +13894,10 @@ function sellerRequestAllowed(path, method, clientId) {
         // Void stays owner-only (absent here AND refused in the handler).
         if (rest === "gm/estimates") { return true; }
         if (/^gm\/estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|revise)$/.test(rest)) { return true; }
+        // Part I: a seller sends a contact card for a lead they may see (the
+        // handler's lead guard), and uploads their OWN photo (handler checks).
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/contact-card$/.test(rest)) { return true; }
+        if (/^gm\/seller-profiles\/[^\/]+\/photo$/.test(rest)) { return true; }
         // Invoices on their own projects: create from the accepted estimate,
         // send, report a payment (pending until the owner verifies), receipt
         // message. Verify / reject / reverse / void / credits / late fee are
@@ -18260,7 +18276,12 @@ async function handleGetGmLeads(id, request, env) {
         // field off the same MAX(created_at) row.
         var estPick = "(SELECT e.id FROM gm_estimates e WHERE e.lead_id = l.id AND e.status NOT IN ('void','superseded') ORDER BY e.created_at DESC LIMIT 1)";
         var rows = await env.DB.prepare(
-            "SELECT l.*, p.name AS parceiro_name, " +
+            "SELECT l.*, p.name AS parceiro_name, p.lead_id AS parceiro_lead_id, " +
+            // Part I6: a customer's own referral partner, how many leads came
+            // through it and what closed.
+            "(SELECT mp.id FROM gm_partners mp WHERE mp.client_id = l.client_id AND mp.lead_id = l.id) AS my_partner_id, " +
+            "(SELECT COUNT(*) FROM gm_leads rl JOIN gm_partners rp ON rp.id = rl.parceiro_id WHERE rp.client_id = l.client_id AND rp.lead_id = l.id) AS referrals_count, " +
+            "(SELECT COALESCE(SUM(rl.valor), 0) FROM gm_leads rl JOIN gm_partners rp ON rp.id = rl.parceiro_id WHERE rp.client_id = l.client_id AND rp.lead_id = l.id AND rl.estagio = 'fechado') AS referrals_closed_value, " +
             "(SELECT COUNT(*) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS contatos_count, " +
             "(SELECT MIN(c.logged_at) FROM gm_lead_contacts c WHERE c.lead_id = l.id) AS primeiro_contato, " +
             "(SELECT e.status FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_status, " +
@@ -18407,6 +18428,8 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         ["address", 200], ["city", 100],
         // G2f / G2h: kept with the address, answered once on a contract.
         ["property_county", 100], ["property_type", 30],
+        // Part I5: the actual referrer, recorded by the salesperson.
+        ["actual_referrer", 200],
         // servico_desc is what the customer wants BUILT, in their own words --
         // deliberately separate from `servico`, which is a per-client dropdown
         // list the free text does not match. status_financiamento is free text
@@ -19338,7 +19361,20 @@ async function handleGetReferralInfo(slug, request, env) {
             // ever exposed to a public page.
             logoUrl = new URL(request.url).origin + "/api/clients/" + partner.client_id + "/logo-image";
         }
+        // Part I5: a CUSTOMER's link shows who they were referred to (the
+        // salesperson's photo, first name and the company) and "Referred by".
+        var custRef = null;
+        var pFull = await env.DB.prepare("SELECT lead_id, seller_name FROM gm_partners WHERE id = ?").bind(partner.id).first();
+        if (pFull && pFull.lead_id) {
+            var sProf = await gmSellerProfile(env, partner.client_id, pFull.seller_name);
+            var rDoc = await gmDocSettingsRow(env, partner.client_id);
+            custRef = { customer_first: (partner.name || "").split(/\s+/)[0], seller_first: gmFirstName(pFull.seller_name) || null,
+                company: rDoc.legal_name || partner.business_name,
+                seller_photo_url: sProf && sProf.photo_r2_key ? new URL(request.url).origin + "/api/referral/" + slug + "/photo" : null,
+                contact_vcf_url: new URL(request.url).origin + "/api/referral/" + slug + "/contact.vcf" };
+        }
         return jsonOk({
+            customer_referral: custRef,
             business_name: partner.business_name,
             partner_name: (partner.name || "").split(/\s+/)[0],
             servicos: config.servicos,
@@ -19350,6 +19386,332 @@ async function handleGetReferralInfo(slug, request, env) {
         });
     } catch (e) {
         return jsonErr("Error loading referral form", 500);
+    }
+}
+
+// ===========================================================================
+// SALESPERSON CONTACT CARD + CUSTOMER REFERRAL LINK (hero follow-up, Part I)
+//
+// Nicole 2026-09-27: when a friend asks "who did your pool?" nobody looks for a
+// link. So right after first contact the salesperson sends the customer a
+// contact card they save with one tap; it carries THAT customer's own referral
+// link, and the referral page shows the salesperson who gets the credit.
+// Reuses the partner referral machinery (gm_partners.referral_slug, parceiro_id
+// attribution by record, gm_referral_hits rate limits): a customer referrer is
+// a gm_partners row with lead_id = the customer's lead (UNIQUE client+lead),
+// tipo 'Cliente', created the first time a card is sent. card_token is the
+// public card page; referral_slug the link the customer shares.
+// ===========================================================================
+
+var GM_CUSTOMER_PARTNER_TYPE = "Cliente";
+
+// The salesperson's profile (gm_seller_profiles), with the business's phone,
+// email and logo as the fallback when a field is empty.
+async function gmSellerProfile(env, clientId, sellerName) {
+    var p = sellerName ? await env.DB.prepare("SELECT * FROM gm_seller_profiles WHERE client_id = ? AND seller_name = ?").bind(clientId, sellerName).first() : null;
+    return p || null;
+}
+
+function gmFirstName(s) { return String(s || "").trim().split(/\s+/)[0] || ""; }
+
+// Social links from the client's digital presence data (website first).
+function gmDigitalPresenceLinks(dpJson) {
+    var dp = {};
+    try { dp = JSON.parse(dpJson || "{}") || {}; } catch (e) { dp = {}; }
+    var out = { website: null, socials: [] };
+    if (dp.website && dp.website.url) { out.website = String(dp.website.url); }
+    var labels = { instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", youtube: "YouTube", linkedin: "LinkedIn", google: "Google", x: "X", twitter: "X", pinterest: "Pinterest", yelp: "Yelp", houzz: "Houzz", nextdoor: "Nextdoor" };
+    Object.keys(dp).forEach(function(k) {
+        if (k === "website" || k === "ai_assessment") { return; }
+        var v = dp[k];
+        if (v && typeof v === "object" && typeof v.url === "string" && /^https?:\/\//i.test(v.url)) {
+            out.socials.push({ label: labels[k] || (k.charAt(0).toUpperCase() + k.slice(1)), url: v.url });
+        }
+    });
+    return out;
+}
+
+function gmVcardEsc(s) { return String(s === null || s === undefined ? "" : s).replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\;"); }
+function gmVcardFold(line) {
+    var out = [];
+    while (line.length > 75) { out.push(line.slice(0, 75)); line = " " + line.slice(75); }
+    out.push(line);
+    return out.join("\r\n");
+}
+function gmBytesToB64(buf) {
+    var bytes = new Uint8Array(buf), bin = "";
+    for (var i = 0; i < bytes.length; i += 0x8000) { bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); }
+    return btoa(bin);
+}
+
+// vCard 3.0. opts: { company, first, title, phone, email, urls: [{label, url}],
+// note, logoKey }. N = "<Company>;<First>" so it shows as "<First> <Company>"
+// and stays findable years later; PHOTO = the company logo (as stored).
+async function gmBuildVcard(env, opts) {
+    var lines = ["BEGIN:VCARD", "VERSION:3.0"];
+    lines.push("N:" + gmVcardEsc(opts.company) + ";" + gmVcardEsc(opts.first) + ";;;");
+    lines.push("FN:" + gmVcardEsc([opts.first, opts.company].filter(Boolean).join(" ")));
+    lines.push("ORG:" + gmVcardEsc(opts.company));
+    if (opts.title) { lines.push("TITLE:" + gmVcardEsc(opts.title)); }
+    if (opts.phone) { lines.push("TEL;TYPE=CELL,VOICE:" + gmVcardEsc(opts.phone)); }
+    if (opts.email) { lines.push("EMAIL;TYPE=INTERNET:" + gmVcardEsc(opts.email)); }
+    (opts.urls || []).forEach(function(u, i) {
+        if (!u || !u.url) { return; }
+        lines.push("item" + (i + 1) + ".URL:" + u.url);
+        lines.push("item" + (i + 1) + ".X-ABLabel:" + gmVcardEsc(u.label));
+    });
+    if (opts.note) { lines.push("NOTE:" + gmVcardEsc(opts.note)); }
+    if (opts.logoKey) {
+        try {
+            var obj = await env.ASSETS.get(opts.logoKey);
+            if (obj) {
+                var ct = (obj.httpMetadata && obj.httpMetadata.contentType) || (/\.png$/i.test(opts.logoKey) ? "image/png" : "image/jpeg");
+                var type = /png/i.test(ct) ? "PNG" : (/webp/i.test(ct) ? "WEBP" : "JPEG");
+                var buf = await obj.arrayBuffer();
+                if (buf.byteLength <= 400 * 1024) { lines.push(gmVcardFold("PHOTO;ENCODING=b;TYPE=" + type + ":" + gmBytesToB64(buf))); }
+                else { console.error("[vcard] logo over 400KB, PHOTO left out: " + opts.logoKey); }
+            }
+        } catch (e) { console.error("[vcard] logo read failed: " + (e && e.message)); }
+    }
+    lines.push("END:VCARD");
+    return lines.map(function(l) { return l.indexOf("\r\n") !== -1 ? l : gmVcardFold(l); }).join("\r\n") + "\r\n";
+}
+
+function gmVcardResponse(text, fileBase) {
+    var name = String(fileBase || "contact").replace(/[^A-Za-z0-9 _-]/g, "").trim().replace(/\s+/g, "-") || "contact";
+    return new Response(text, { status: 200, headers: Object.assign({}, CORS_HEADERS, {
+        "Content-Type": "text/vcard; charset=utf-8",
+        "Content-Disposition": "inline; filename=\"" + name + ".vcf\"",
+        "Cache-Control": "private, no-store"
+    }) });
+}
+
+// The customer-referrer partner for a lead: created once (UNIQUE client+lead,
+// INSERT OR IGNORE), then read back. seller = the salesperson credited.
+async function gmEnsureCustomerPartner(env, clientId, lead, sellerName) {
+    await env.DB.batch([
+        env.DB.prepare("INSERT OR IGNORE INTO gm_partners (id, client_id, name, tipo, contato, status, referral_slug, lead_id, card_token, seller_name) VALUES (?, ?, ?, ?, ?, 'Ativo', ?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), clientId, lead.cliente || "Customer", GM_CUSTOMER_PARTNER_TYPE, lead.telefone || lead.email || null, gmReferralSlug(), lead.id, gmEstNewToken(), sellerName || null),
+        // The "Cliente / Customer" partner type joins the client's list once.
+        env.DB.prepare("UPDATE gm_config SET partner_types_json = json_insert(COALESCE(partner_types_json, '[]'), '$[#]', ?) WHERE client_id = ? AND NOT EXISTS (SELECT 1 FROM json_each(COALESCE(gm_config.partner_types_json, '[]')) je WHERE je.value = ?)")
+            .bind(GM_CUSTOMER_PARTNER_TYPE, clientId, GM_CUSTOMER_PARTNER_TYPE),
+        // A card sent later by a salesperson credits them when none was set.
+        env.DB.prepare("UPDATE gm_partners SET seller_name = ? WHERE client_id = ? AND lead_id = ? AND seller_name IS NULL AND ? IS NOT NULL").bind(sellerName || null, clientId, lead.id, sellerName || null)
+    ]);
+    return env.DB.prepare("SELECT * FROM gm_partners WHERE client_id = ? AND lead_id = ?").bind(clientId, lead.id).first();
+}
+
+// POST /api/clients/:id/gm/leads/:leadId/contact-card   (owner or the lead's
+// seller). Creates the customer's partner row the first time, and returns the
+// message + links for the same send sheet the documents use.
+async function handlePostGmLeadContactCard(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var guard = await gmSellerLeadGuard(env, user, id, leadId);
+        if (guard) { return guard; }
+        var lead = await gmOwnedRow(env, "gm_leads", leadId, id);
+        if (!lead) { return jsonErr("Lead not found", 404); }
+        var seller = sessionSellerName(user) || lead.vendedor || null;
+        var partner = await gmEnsureCustomerPartner(env, id, lead, seller);
+        if (!partner) { return jsonErr("Could not create the card", 500); }
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        var doc = await gmDocSettingsRow(env, id);
+        var company = doc.legal_name || (client && client.name) || "";
+        var credited = partner.seller_name || seller;
+        var cardLink = DEFAULT_ORIGIN + "/card?t=" + partner.card_token;
+        var refLink = DEFAULT_ORIGIN + "/referral.html?p=" + partner.referral_slug;
+        // English: the customer reads it (rule 4).
+        var msg = "Hi " + gmFirstName(lead.cliente) + ", it's " + (gmFirstName(credited) || company) + " from " + company + ". Save my contact with one tap: " + cardLink +
+            "\nIf a friend ever asks who did your project, the card has your own referral link.";
+        await gmLogLeadEvents(env, id, leadId, actorName(user), [{ action: "contact_card_sent", field: "contact_card", old_value: null, new_value: partner.card_token ? "card" : null, reason: credited ? "salesperson " + credited : null }]);
+        return jsonOk({ message: msg, card_link: cardLink, referral_link: refLink, phone: lead.telefone || null, partner_id: partner.id, seller_name: credited || null });
+    } catch (e) {
+        return jsonErr("Error preparing the contact card: " + e.message, 500);
+    }
+}
+
+async function gmPartnerByCardToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    return env.DB.prepare(
+        "SELECT p.*, l.cliente AS customer_name, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color " +
+        "FROM gm_partners p JOIN clients c ON c.id = p.client_id LEFT JOIN gm_leads l ON l.id = p.lead_id WHERE p.card_token = ? AND p.lead_id IS NOT NULL"
+    ).bind(token).first();
+}
+
+// Everything a card needs, from a partner row joined as above.
+async function gmCardContext(env, origin, p, withReferral) {
+    var doc = await gmDocSettingsRow(env, p.client_id);
+    var prof = await gmSellerProfile(env, p.client_id, p.seller_name);
+    var company = doc.legal_name || p.client_name || "";
+    var links = gmDigitalPresenceLinks(p.digital_presence);
+    var refLink = DEFAULT_ORIGIN + "/referral.html?p=" + p.referral_slug;
+    var urls = [];
+    if (withReferral) { urls.push({ label: "Refer a friend", url: refLink }); }
+    if (links.website) { urls.push({ label: "Website", url: links.website }); }
+    links.socials.forEach(function(s) { urls.push(s); });
+    return {
+        company: company,
+        seller_first: gmFirstName(p.seller_name),
+        seller_name: p.seller_name || null,
+        title: (prof && prof.title) || null,
+        phone: (prof && prof.phone) || doc.phone || p.client_phone || null,
+        email: (prof && prof.email) || doc.email || p.client_email || null,
+        has_photo: !!(prof && prof.photo_r2_key),
+        website: links.website,
+        urls: urls,
+        referral_link: refLink,
+        logo_key: p.logo_url || null,
+        logo_url: p.logo_url ? origin + "/api/clients/" + p.client_id + "/logo-image" : null,
+        brand_primary: doc.brand_primary || referralHexOrNull(p.referral_bg_color) || null,
+        brand_accent: doc.brand_accent || referralHexOrNull(p.referral_text_color) || null
+    };
+}
+
+// GET /api/public/card/:token        PUBLIC: the card page's data
+// GET /api/public/card/:token.vcf    PUBLIC: the vCard (referral link FIRST)
+// GET /api/public/card/:token/photo  PUBLIC: the salesperson's photo
+async function handleGetPublicCard(token, kind, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return limited; }
+        var p = await gmPartnerByCardToken(env, token);
+        if (!p) { return jsonErr("Not found", 404); }
+        var origin = new URL(request.url).origin;
+        if (kind === "photo") { return gmSellerPhotoResponse(env, p.client_id, p.seller_name); }
+        var ctx = await gmCardContext(env, origin, p, true);
+        if (kind === "vcf") {
+            var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first || ctx.company, title: ctx.title, phone: ctx.phone, email: ctx.email,
+                urls: ctx.urls, note: "Know someone who needs this? Tap Refer a friend above.", logoKey: ctx.logo_key });
+            return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
+        }
+        return jsonOk({ card: {
+            company: ctx.company, seller_first: ctx.seller_first, seller_name: ctx.seller_name, title: ctx.title, phone: ctx.phone, email: ctx.email,
+            photo_url: ctx.has_photo ? origin + "/api/public/card/" + token + "/photo" : null, logo_url: ctx.logo_url,
+            customer_first: gmFirstName(p.customer_name), referral_link: ctx.referral_link, website: ctx.website,
+            vcf_url: origin + "/api/public/card/" + token + ".vcf", brand_primary: ctx.brand_primary, brand_accent: ctx.brand_accent
+        } });
+    } catch (e) {
+        return jsonErr("Error loading the card: " + e.message, 500);
+    }
+}
+
+async function gmSellerPhotoResponse(env, clientId, sellerName) {
+    var prof = await gmSellerProfile(env, clientId, sellerName);
+    if (!prof || !prof.photo_r2_key) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var obj = await env.ASSETS.get(prof.photo_r2_key);
+    if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var allowed = { "image/jpeg": 1, "image/png": 1, "image/webp": 1 };
+    var ct = obj.httpMetadata && obj.httpMetadata.contentType;
+    return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": allowed[ct] ? ct : "image/jpeg", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=300" }) });
+}
+
+// ── Salesperson profiles (I2) ─────────────────────────────────────────────
+// GET  gm/seller-profiles               owner: every salesperson; seller: own
+// PUT  gm/seller-profiles/:name         owner: phone, email, title
+// POST gm/seller-profiles/:name/photo   owner any; a seller only their own
+async function handleGetGmSellerProfiles(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var seller = sessionSellerName(user);
+        var cfg = await gmGetConfig(env, id);
+        var names = seller ? [seller] : ((cfg && cfg.vendedores) || []);
+        var rows = (await env.DB.prepare("SELECT seller_name, phone, email, title, photo_r2_key, updated_at FROM gm_seller_profiles WHERE client_id = ?").bind(id).all()).results || [];
+        var by = {}; rows.forEach(function(r) { by[r.seller_name] = r; });
+        return jsonOk({ profiles: names.map(function(n) {
+            var r = by[n] || {};
+            return { seller_name: n, phone: r.phone || null, email: r.email || null, title: r.title || null, has_photo: !!r.photo_r2_key,
+                photo_url: r.photo_r2_key ? "/api/clients/" + id + "/gm/seller-profiles/" + encodeURIComponent(n) + "/photo?ts=" + encodeURIComponent(r.updated_at || "") : null };
+        }) });
+    } catch (e) {
+        return jsonErr("Error loading salesperson profiles: " + e.message, 500);
+    }
+}
+
+async function gmSellerNameAllowed(env, clientId, name) {
+    var cfg = await gmGetConfig(env, clientId);
+    return ((cfg && cfg.vendedores) || []).some(function(n) { return String(n).trim() === String(name).trim(); });
+}
+
+async function handlePutGmSellerProfile(id, name, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmSellerNameAllowed(env, id, name))) { return jsonErr2("Vendedor não encontrado.", "Salesperson not found.", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var phone = gmStr(body.phone, 60), email = gmStr(body.email, 200), title = gmStr(body.title, 120);
+        if (phone && !/^[0-9+()\-.\s]{7,60}$/.test(phone)) { return jsonErr2("Telefone inválido.", "Invalid phone number.", 400); }
+        if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { return jsonErr2("Email inválido.", "Invalid email.", 400); }
+        await env.DB.prepare("INSERT INTO gm_seller_profiles (client_id, seller_name, phone, email, title, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (client_id, seller_name) DO UPDATE SET phone = excluded.phone, email = excluded.email, title = excluded.title, updated_by = excluded.updated_by, updated_at = datetime('now')")
+            .bind(id, name, phone, email, title, actorName(user)).run();
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error saving the salesperson: " + e.message, 500);
+    }
+}
+
+// The photo arrives already resized by the page (a square JPEG, 512px); the
+// Worker keeps the logo's rules (JPG/PNG/WebP) with a 1MB ceiling.
+async function handlePostGmSellerPhoto(id, name, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var seller = sessionSellerName(user);
+        if (seller && seller !== name) { return jsonErr("Forbidden", 403); }
+        if (!seller && !(await gmSellerNameAllowed(env, id, name))) { return jsonErr2("Vendedor não encontrado.", "Salesperson not found.", 404); }
+        var form = await request.formData();
+        var file = form.get("photo");
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("photo file is required", 400); }
+        if (APEX_HERO_TYPES.indexOf(file.type) === -1) { return jsonErr2("Envie uma imagem JPG, PNG ou WebP.", "Upload a JPG, PNG or WebP image.", 400); }
+        if (file.size > 1024 * 1024) { return jsonErr2("Imagem muito grande. O limite é 1MB.", "Image too large. The limit is 1MB.", 400); }
+        var key = "seller-photos/" + id + "/" + (await sha256Hex(name)).slice(0, 24) + "." + apexHeroExt(file.type);
+        await env.ASSETS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+        await env.DB.prepare("INSERT INTO gm_seller_profiles (client_id, seller_name, photo_r2_key, updated_by, updated_at) VALUES (?, ?, ?, ?, datetime('now')) " +
+            "ON CONFLICT (client_id, seller_name) DO UPDATE SET photo_r2_key = excluded.photo_r2_key, updated_by = excluded.updated_by, updated_at = datetime('now')")
+            .bind(id, name, key, actorName(user)).run();
+        return jsonOk({ saved: true });
+    } catch (e) {
+        return jsonErr("Error uploading the photo: " + e.message, 500);
+    }
+}
+
+async function handleGetGmSellerPhoto(id, name, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        return gmSellerPhotoResponse(env, id, name);
+    } catch (e) {
+        return jsonErr("Error fetching the photo: " + e.message, 500);
+    }
+}
+
+// GET /api/referral/:slug/photo        PUBLIC: the credited salesperson's photo
+// GET /api/referral/:slug/contact.vcf  PUBLIC: a FRESH card of the salesperson
+//   and the company WITHOUT this customer's referral link (URL = website), so
+//   a new prospect cannot pass the first customer's credit along.
+async function handleGetReferralExtra(slug, kind, request, env) {
+    try {
+        var partner = await gmPartnerBySlug(env, slug);
+        if (!partner) { return jsonErr("Not found", 404); }
+        var full = await env.DB.prepare(
+            "SELECT p.*, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color FROM gm_partners p JOIN clients c ON c.id = p.client_id WHERE p.id = ?"
+        ).bind(partner.id).first();
+        if (kind === "photo") { return gmSellerPhotoResponse(env, full.client_id, full.seller_name); }
+        var ctx = await gmCardContext(env, new URL(request.url).origin, full, false);
+        var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first || ctx.company, title: ctx.title, phone: ctx.phone, email: ctx.email,
+            urls: ctx.urls, note: null, logoKey: ctx.logo_key });
+        return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
+    } catch (e) {
+        return jsonErr("Error loading the contact: " + e.message, 500);
     }
 }
 
@@ -19802,9 +20164,14 @@ async function handlePostReferralLead(slug, request, env) {
         var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
         if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
 
-        // Same insert path as the authenticated quick-add — parceiro_id from
-        // the slug's own partner row, by record.
-        await gmInsertLead(env, partner.client_id, {
+        // Part I5: through a CUSTOMER's link the lead is assigned to the
+        // salesperson credited on that customer, and stays a referral through
+        // that customer even when the prospect taps "Not <name>" (then flagged
+        // for the salesperson to confirm; the prospect never types a name).
+        var pRow = await env.DB.prepare("SELECT lead_id, seller_name FROM gm_partners WHERE id = ?").bind(partner.id).first();
+        var isCustomerRef = !!(pRow && pRow.lead_id);
+        var notReferrer = isCustomerRef && body.not_referrer === true;
+        var newLeadId = await gmInsertLead(env, partner.client_id, {
             cliente: nome,
             telefone: telefone,
             servico: servico,
@@ -19813,8 +20180,13 @@ async function handlePostReferralLead(slug, request, env) {
             estagio: "novo_lead",
             data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
             mes_lead: mesLead,
-            observacao: "Recebido pelo link de indicação do parceiro."
+            vendedor: isCustomerRef ? (pRow.seller_name || null) : undefined,
+            observacao: notReferrer ? "Recebido pelo link de indicação de um cliente. Indicação de uma indicação: o cliente que indicou precisa ser confirmado."
+                : (isCustomerRef ? "Recebido pelo link de indicação de um cliente." : "Recebido pelo link de indicação do parceiro.")
         });   // no actor: the public referral form has no authenticated user
+        if (notReferrer && newLeadId) {
+            await env.DB.prepare("UPDATE gm_leads SET referrer_to_confirm = 1 WHERE id = ? AND client_id = ?").bind(newLeadId, partner.client_id).run();
+        }
         // Deliberately no lead id / no data in the public response.
         return jsonOk({ created: true });
     } catch (e) {
@@ -39813,6 +40185,12 @@ async function handleFetch(request, env, ctx) {
             return handleGetPublicReceipt(pubInvMatch[2], request, env);
         }
 
+        // Part I: the PUBLIC contact card (unguessable token) and the customer
+        // referral page's salesperson photo / fresh vCard.
+        var cardMatch = path.match(/^\/api\/public\/card\/([a-f0-9]{48})(\.vcf|\/photo)?$/);
+        if (cardMatch && method === "GET") { return handleGetPublicCard(cardMatch[1], cardMatch[2] === ".vcf" ? "vcf" : (cardMatch[2] === "/photo" ? "photo" : "json"), request, env); }
+        var refExtraMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)\/(photo|contact\.vcf)$/);
+        if (refExtraMatch && method === "GET") { return handleGetReferralExtra(refExtraMatch[1], refExtraMatch[2] === "photo" ? "photo" : "vcf", request, env); }
         // PUBLIC partner-referral intake (no auth by design — see handlers).
         var refMatch = path.match(/^\/api\/referral\/([A-Za-z0-9]+)$/);
         if (refMatch) {
@@ -40478,6 +40856,14 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "accepted-estimates" && method === "GET") { return handleGetGmJobAcceptedEstimates(cid, segs[5], request, env); }
                 if (segs.length === 7 && (gmCol === "jobs" || gmCol === "leads") && segs[6] === "value-history" && method === "GET") { return handleGetGmValueHistory(cid, gmCol, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "make-lead" && method === "POST") { return handlePostGmJobMakeLead(cid, segs[5], request, env); }
+                // Part I: contact card + salesperson profiles.
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "contact-card" && method === "POST") { return handlePostGmLeadContactCard(cid, segs[5], request, env); }
+                if (segs.length === 5 && gmCol === "seller-profiles" && method === "GET") { return handleGetGmSellerProfiles(cid, request, env); }
+                if (segs.length === 6 && gmCol === "seller-profiles" && method === "PUT") { return handlePutGmSellerProfile(cid, decodeURIComponent(segs[5]), request, env); }
+                if (segs.length === 7 && gmCol === "seller-profiles" && segs[6] === "photo") {
+                    if (method === "POST") { return handlePostGmSellerPhoto(cid, decodeURIComponent(segs[5]), request, env); }
+                    if (method === "GET") { return handleGetGmSellerPhoto(cid, decodeURIComponent(segs[5]), request, env); }
+                }
                 if (segs.length === 5 && gmCol === "contracts" && method === "GET") { return handleGetGmContracts(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts" && segs[5] === "awaiting" && method === "GET") { return handleGetGmContractsAwaiting(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts") {

@@ -27300,12 +27300,12 @@ async function handleGetAdminStaleContractNotices(request, env) {
         var url = new URL(request.url);
         var clientId = gmStr(url.searchParams.get("client_id"), 80);
         // F54: only notices whose project still needs the warning: not Concluída,
-        // over $2,500, no fully signed contract, owner did not continue. A deleted
-        // project drops out through the JOIN.
+        // over $2,500, no fully signed contract. A deleted project drops out
+        // through the JOIN. (An owner "continue" or a meeting decision closes
+        // the open notice itself, so it needs no clause here.)
         var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')" +
             " AND j.status <> 'Concluída' AND CAST(COALESCE(j.valor, 0) AS REAL) * 100 > 250000" +
-            " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')" +
-            " AND NOT EXISTS (SELECT 1 FROM gm_contract_notices o WHERE o.client_id = n.client_id AND o.job_id = n.job_id AND (o.resolution = 'owner_continued' OR (o.resolution = 'resolved_in_meeting' AND o.resolution_decision = 'continue_without_contract')))";
+            " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')";
         var binds = [];
         if (clientId) { sql += " AND n.client_id = ?"; binds.push(clientId); }
         sql += " ORDER BY n.created_at";

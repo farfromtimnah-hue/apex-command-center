@@ -13604,6 +13604,9 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "config/view-mode") { return true; }
                 // Document settings for the client's own estimates/invoices.
                 if (gmRest === "doc-settings") { return true; }
+                // Hero build: pick a gallery hero, or frame an uploaded one
+                // (owner only; the handler refuses sellers too).
+                if (gmRest === "doc-hero-choice") { return true; }
                 if (gmRest === "doc-messages") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (gmRest === "contract-settings") { return true; }
@@ -22684,6 +22687,9 @@ async function handleGetGmDocSettings(id, request, env) {
         };
         settings.has_logo = !!(client && client.logo_url);
         settings.has_hero = !!settings.hero_r2_key;
+        // What the customer documents show right now (gallery pick or upload).
+        var curHero = gmDocHero(new URL(request.url).origin, id, settings);
+        settings.hero_url = curHero.url; settings.hero = curHero.hero;
         settings.late_fee_max_pct = GM_DOC_LATE_FEE_MAX_PCT;
         settings.payment_method_keys = GM_DOC_PAYMENT_METHODS;
         return jsonOk({ settings: settings });
@@ -22881,12 +22887,20 @@ async function handlePostGmDocHero(id, request, env) {
         if (file.size > 5 * 1024 * 1024) { return jsonErr("Imagem muito grande. O limite é 5MB. / Image too large. The limit is 5MB.", 400); }
         var key = "doc-heroes/" + id + "." + apexHeroExt(file.type);
         await env.ASSETS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
-        var cur = await env.DB.prepare("SELECT hero_r2_key FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var cur = await env.DB.prepare("SELECT hero_r2_key, hero_gallery_key FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
         var actor = actorName(user);
         await env.DB.prepare(
             "INSERT INTO gm_doc_settings (client_id, hero_r2_key, updated_by, updated_at) VALUES (?, ?, ?, datetime('now')) " +
-            "ON CONFLICT (client_id) DO UPDATE SET hero_r2_key = excluded.hero_r2_key, updated_by = excluded.updated_by, updated_at = datetime('now')"
+            "ON CONFLICT (client_id) DO UPDATE SET hero_r2_key = excluded.hero_r2_key, updated_by = excluded.updated_by, updated_at = datetime('now'), " +
+            // Hero build: uploading again clears a gallery pick, and a new
+            // photo starts from the default framing (the owner frames it next).
+            "hero_gallery_key = NULL, hero_focus_x = NULL, hero_focus_y = NULL, hero_zoom = NULL, hero_slide = NULL, hero_fill = NULL, hero_tone = NULL"
         ).bind(id, key, actor).run();
+        if (cur && cur.hero_gallery_key) {
+            await env.DB.prepare(
+                "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, 'hero_gallery_key', ?, NULL, ?)"
+            ).bind(crypto.randomUUID(), id, cur.hero_gallery_key, actor).run();
+        }
         await env.DB.prepare(
             "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, 'hero_r2_key', ?, ?, ?)"
         ).bind(crypto.randomUUID(), id, (cur && cur.hero_r2_key) || null, key, actor).run();
@@ -22918,6 +22932,58 @@ async function handleGetGmDocHeroImage(id, request, env) {
         return new Response(obj.body, { status: 200, headers: headers });
     } catch (e) {
         return jsonErr("Error fetching hero: " + e.message, 500);
+    }
+}
+
+// PUT /api/clients/:id/gm/doc-hero-choice   (owner only)
+//   { gallery_key: "pools-2" }   pick a gallery hero: copies Nicole's framing
+//                                for that photo from the manifest
+//   { upload: { focus_x, focus_y, zoom, tone } }   frame the uploaded hero
+//                                (needs hero_r2_key); clears any gallery pick
+// One UPDATE and one history row per call.
+async function handlePutGmDocHeroChoice(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var cur = await env.DB.prepare("SELECT client_id, hero_r2_key, hero_gallery_key, hero_focus_x, hero_focus_y, hero_zoom, hero_tone FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var actor = actorName(user);
+        var v, field, oldVal, newVal;
+        if (body.gallery_key !== undefined) {
+            var g = heroGalleryImage(String(body.gallery_key || ""));
+            if (!g) { return jsonErr2("Imagem da galeria não encontrada.", "Gallery image not found.", 400); }
+            v = { hero_gallery_key: g.key, hero_focus_x: g.focus_x, hero_focus_y: g.focus_y, hero_zoom: g.zoom, hero_slide: g.slide, hero_fill: g.fill || null, hero_tone: g.tone === "light" ? "light" : "dark" };
+            field = "hero_gallery_key"; oldVal = (cur && cur.hero_gallery_key) || null; newVal = g.key;
+        } else if (body.upload && typeof body.upload === "object") {
+            if (!cur || !cur.hero_r2_key) { return jsonErr2("Envie uma imagem primeiro.", "Upload an image first.", 400); }
+            var u = body.upload;
+            function num(x, dflt, lo, hi) { var n = gmNum(x); if (n === null) { return dflt; } return Math.max(lo, Math.min(hi, Math.round(n))); }
+            v = { hero_gallery_key: null, hero_focus_x: num(u.focus_x, 50, 0, 100), hero_focus_y: num(u.focus_y, 50, 0, 100), hero_zoom: num(u.zoom, 100, 100, 200), hero_slide: 0, hero_fill: null, hero_tone: u.tone === "light" ? "light" : "dark" };
+            field = "hero_framing";
+            oldVal = cur.hero_gallery_key ? cur.hero_gallery_key : (cur.hero_focus_x === null || cur.hero_focus_x === undefined ? null : [cur.hero_focus_x, cur.hero_focus_y, cur.hero_zoom, cur.hero_tone || "dark"].join(" / "));
+            newVal = [v.hero_focus_x, v.hero_focus_y, v.hero_zoom, v.hero_tone].join(" / ");
+        } else {
+            return jsonErr2("Escolha uma imagem da galeria ou ajuste a sua.", "Pick a gallery image or frame your own.", 400);
+        }
+        var cols = Object.keys(v);
+        if (cur) {
+            await gmRunUpdate(env, "UPDATE gm_doc_settings SET " + cols.map(function(k) { return k + " = ?"; }).join(", ") + ", updated_by = ?, updated_at = datetime('now') WHERE client_id = ?",
+                cols.map(function(k) { return v[k]; }).concat([actor, id]));
+        } else {
+            var ins = env.DB.prepare("INSERT INTO gm_doc_settings (client_id, " + cols.join(", ") + ", updated_by, updated_at) VALUES (?, " + cols.map(function() { return "?"; }).join(", ") + ", ?, datetime('now'))");
+            await ins.bind.apply(ins, [id].concat(cols.map(function(k) { return v[k]; }), [actor])).run();
+        }
+        await env.DB.prepare(
+            "INSERT INTO gm_doc_settings_history (id, client_id, field, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), id, field, oldVal, newVal, actor).run();
+        var settings = await gmDocSettingsRow(env, id);
+        var origin = new URL(request.url).origin;
+        var h = gmDocHero(origin, id, settings);
+        return jsonOk({ saved: true, settings: settings, hero_url: h.url, hero: h.hero });
+    } catch (e) {
+        return jsonErr("Error saving hero: " + e.message, 500);
     }
 }
 
@@ -39461,6 +39527,9 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 5 && gmCol === "doc-hero" && method === "POST") {
                     return handlePostGmDocHero(cid, request, env);
+                }
+                if (segs.length === 5 && gmCol === "doc-hero-choice" && method === "PUT") {
+                    return handlePutGmDocHeroChoice(cid, request, env);
                 }
                 // Estimates (phase 2).
                 if (segs.length === 5 && gmCol === "estimates") {

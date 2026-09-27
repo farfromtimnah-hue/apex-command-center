@@ -861,6 +861,28 @@ textarea.gm-input { min-height: 90px; resize: vertical; }
   border-radius: 10px; background: var(--card); object-fit: contain;
 }
 .gm-doc-image-preview.gm-doc-hero-preview { max-width: 100%; max-height: 120px; width: auto; }
+/* Hero picker (hero build). The band inside .gm-hero-preview is the
+   homeowner page's header from doc-hero.css; only the frame and the sample
+   estimate below it are styled here (values from estimate-view.html). */
+.gm-hero-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.gm-hero-preview { --brand-bg: #2b2f36; --brand-accent: #2b2f36; --accent-on-dark: #ffffff; border: 1px solid #e3e7ec; border-radius: 12px; overflow: hidden; background: #f5f6f8; margin-bottom: 10px; }
+.gm-hero-sample { background: #fff; margin: 12px 16px 16px; border: 1px solid #e3e7ec; border-radius: 12px; padding: 14px 16px; color: #1f2328; }
+.gm-hero-sample-meta { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.gm-hero-sample-k { font-size: 11px; font-weight: 700; color: #5a6470; text-transform: uppercase; letter-spacing: 0.05em; }
+.gm-hero-sample-who { font-size: 17px; font-weight: 700; }
+.gm-hero-sample-right { text-align: right; }
+.gm-hero-sample-title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+.gm-hero-sample-num { font-size: 15px; font-weight: 700; color: var(--brand-accent); }
+.gm-hero-sample-tile { background: #faf7f1; border: 1px solid var(--brand-accent); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+.gm-hero-sample-tile-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; }
+.gm-hero-sample-tile-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
+.gm-hero-shuffle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.gm-hero-count { font-size: 14px; color: #5a6470; font-variant-numeric: tabular-nums; }
+.gm-hero-tools { display: flex; flex-direction: column; gap: 10px; }
+.gm-hero-seg, .gm-hero-nudge { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-hero-shuffle .gm-btn-secondary, .gm-hero-nudge .gm-btn-secondary { width: auto; margin-top: 0; }
+.gm-hero-nudge .gm-btn-secondary { min-width: 48px; font-size: 17px; padding: 10px 14px; }
+.gm-hero-seg .gm-stage-chip { min-height: 44px; min-width: 88px; }
 .gm-doc-check-line {
   display: flex; align-items: center; gap: 10px;
   min-height: 48px; font-size: 15px; color: var(--text); cursor: pointer;

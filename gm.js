@@ -7851,15 +7851,7 @@ function gmDocSettingsFormHtml() {
       '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocLogoInput\').click()">' +
         gmT(st.has_logo ? "Trocar logo" : "Enviar logo", st.has_logo ? "Replace logo" : "Upload logo") + '</button>' +
     '</div>' +
-    '<div class="gm-field-label">' + gmT("Imagem de capa (hero)", "Hero image") + '</div>' +
-    '<p class="muted" style="margin:2px 0 8px;">' + gmT("Aparece no topo dos documentos que o seu cliente abre. JPG, PNG ou WebP, até 5MB.",
-        "Shown across the top of the documents your customer opens. JPG, PNG or WebP, up to 5MB.") + '</p>' +
-    '<div class="gm-doc-image-row">' +
-      (st.has_hero ? '<img class="gm-doc-image-preview gm-doc-hero-preview" alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/doc-hero-image?ts=" + Date.now()) + '">' : '') +
-      '<input type="file" id="gmDocHeroInput" accept="image/png,image/jpeg,image/webp" hidden onchange="gmDocUploadImage(this, \'hero\')">' +
-      '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocHeroInput\').click()">' +
-        gmT(st.has_hero ? "Trocar imagem" : "Enviar imagem", st.has_hero ? "Replace image" : "Upload image") + '</button>' +
-    '</div>' +
+    gmHeroPickerHtml() +
     '</div>';
 
   // ── Brand colors ──
@@ -8237,11 +8229,270 @@ function gmDocUploadImage(input, kind) {
   req.then(function() {
       input.value = "";
       if (kind === "logo") { gmDocSettings.has_logo = true; if (typeof loadPortalLogo === "function") { loadPortalLogo(); } }
-      else { gmDocSettings.has_hero = true; }
+      else {
+        // The Worker cleared the gallery pick and the framing; mirror it and
+        // open the new photo with the framing tools.
+        gmDocSettings.has_hero = true;
+        ["hero_gallery_key", "hero_focus_x", "hero_focus_y", "hero_zoom", "hero_slide", "hero_fill", "hero_tone"].forEach(function(k) { gmDocSettings[k] = null; });
+        gmHeroUi = gmHeroUiFromSettings(); gmHeroUi.upTs = Date.now();
+      }
       gmRenderEstimatesTab();
       gmToast(gmT("Imagem enviada", "Image uploaded"));
     })
-    .catch(function(e) { gmDocShowMsg(false, e.message); });
+    .catch(function(e) {
+      if (kind === "hero" && gmHeroUi) { gmHeroUi.err = e.message; console.error("doc-hero: " + e.message); gmHeroRepaint(); return; }
+      gmDocShowMsg(false, e.message);
+    });
+}
+
+// ── Document hero picker (hero build, 2026-09-27) ─────────────────────────
+// Nicole's design: the owner picks their industry, shuffles through the
+// photos she curated and framed, seeing each one on the top of a sample
+// estimate with THEIR logo, name and colors, then selects one. No framing
+// tools for gallery photos (hers are already framed). Uploading their own
+// photo adds the dark/light tile toggle and the focus tools. The header
+// preview is doc-hero.css + doc-hero.js, the same files the homeowner pages
+// and the PDF templates use, so what they see is what the customer gets.
+var gmHeroGallery = null;   // GET /api/hero-gallery (public manifest)
+var gmHeroGalleryErr = null;
+var gmHeroUi = null;        // { cat, idx, mode: "gallery" | "upload", up: {focus_x, focus_y, zoom, tone}, saving }
+
+function gmHeroImagesOf(cat) {
+  return ((gmHeroGallery && gmHeroGallery.images) || []).filter(function(im) { return im.category === cat; })
+    .sort(function(a, b) { return a.order - b.order; });
+}
+
+function gmHeroUiFromSettings() {
+  var st = gmDocSettings || {};
+  var ui = { cat: null, idx: 0, mode: "gallery", saving: false, err: null, upTs: Date.now(),
+    up: { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark" } };
+  if (st.hero_gallery_key) {
+    var m = String(st.hero_gallery_key).match(/^([a-z_]+)-(\d+)$/);
+    if (m) {
+      ui.cat = m[1];
+      var list = gmHeroImagesOf(m[1]);
+      for (var i = 0; i < list.length; i++) { if (list[i].key === st.hero_gallery_key) { ui.idx = i; } }
+    }
+  } else if (st.has_hero) {
+    ui.mode = "upload";
+    ui.up = { focus_x: st.hero_focus_x === null || st.hero_focus_x === undefined ? 50 : st.hero_focus_x,
+      focus_y: st.hero_focus_y === null || st.hero_focus_y === undefined ? 50 : st.hero_focus_y,
+      zoom: st.hero_zoom === null || st.hero_zoom === undefined ? 100 : st.hero_zoom,
+      tone: st.hero_tone === "light" ? "light" : "dark" };
+  }
+  return ui;
+}
+
+function gmHeroLoadGallery() {
+  if (gmHeroGallery || gmHeroGallery === false) { return; }
+  gmHeroGallery = false; // loading
+  fetch(WORKER_URL + "/api/hero-gallery")
+    .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
+    .then(function(d) { gmHeroGallery = d; gmHeroGalleryErr = null; gmHeroUi = gmHeroUiFromSettings(); gmHeroRepaint(); })
+    .catch(function(e) { gmHeroGallery = null; gmHeroGalleryErr = e.message; gmHeroRepaint(); });
+}
+
+// Repaint only the picker, so typed-but-unsaved settings fields stay put.
+function gmHeroRepaint() {
+  var box = document.getElementById("gmHeroPicker");
+  if (box) { box.outerHTML = gmHeroPickerHtml(); }
+}
+
+// Relative luminance, same formula as the homeowner pages' lum().
+function gmHeroLum(hex) {
+  var c = [1, 3, 5].map(function(i) {
+    var v = parseInt(hex.substr(i, 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+
+// The sample document: the homeowner page's header exactly (doc-hero.css),
+// then the top of an estimate. url/hero = the photo on show.
+function gmHeroPreviewHtml(url, hero) {
+  var d = gmDocDraft || {};
+  var st = gmDocSettings || {};
+  var pre = st.prefill || {};
+  var hex = /^#[0-9a-fA-F]{6}$/;
+  var primary = hex.test(d.brand_primary || "") ? d.brand_primary : null;
+  var accent = hex.test(d.brand_accent || "") ? d.brand_accent : primary;
+  var vars = "";
+  if (primary) { vars += "--brand-bg:" + primary + ";"; }
+  if (accent) { vars += "--brand-accent:" + accent + ";--accent-on-dark:" + (gmHeroLum(accent) > 0.18 ? accent : "#ffffff") + ";"; }
+  var name = d.legal_name || st.legal_name || pre.business_name || "";
+  var tile = st.has_logo
+    ? '<img alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/logo-image") + '">'
+    : '<span class="client-name-mark' + (name.length > 22 ? " is-long" : "") + '">' + escHtml(name) + '</span>';
+  var html = '<div class="gm-hero-preview" style="' + vars + '">' +
+    '<div class="hero-band doc-screen' + docHeroToneClass(hero) + '" style="' + docHeroBandStyle(hero) + '">' +
+      (url ? '<img class="hero-img" alt="" src="' + escHtml(url) + '" style="' + docHeroImgStyle(hero) + '">' : '') +
+      '<div class="header-tile-row"><div class="client-logo-tile">' + tile + '</div>' +
+      (name ? '<span class="brand-pill">' + escHtml(name) + '</span>' : '') + '</div>' +
+    '</div>' +
+    '<div class="gm-hero-sample">' +
+      '<div class="gm-hero-sample-meta"><div><div class="gm-hero-sample-k">Prepared for</div><div class="gm-hero-sample-who">Sample Homeowner</div></div>' +
+      '<div class="gm-hero-sample-right"><div class="gm-hero-sample-title">Estimate</div><div class="gm-hero-sample-num">EST-0001</div></div></div>' +
+      '<div class="gm-hero-sample-tile"><div class="gm-hero-sample-tile-label">ESTIMATE TOTAL</div><div class="gm-hero-sample-tile-value">$24,850.00</div></div>' +
+    '</div></div>';
+  return html;
+}
+
+function gmHeroPickerHtml() {
+  var st = gmDocSettings || {};
+  var html = '<div id="gmHeroPicker">' +
+    '<div class="gm-field-label">' + gmT("Imagem de capa", "Cover image") + '</div>' +
+    '<p class="muted" style="margin:2px 0 8px;">' + gmT("Aparece no topo dos documentos que o seu cliente abre. Escolha o seu ramo e veja as opções no seu orçamento.",
+        "Shown across the top of the documents your customer opens. Pick your industry and see the options on your estimate.") + '</p>';
+  if (gmHeroGalleryErr) {
+    html += '<p class="gm-warn">' + escHtml(gmT("Não foi possível carregar a galeria: ", "Could not load the gallery: ") + gmHeroGalleryErr) +
+      ' <button type="button" class="gm-btn-secondary" onclick="gmHeroGalleryErr = null; gmHeroLoadGallery(); gmHeroRepaint();">' + gmT("Tentar de novo", "Try again") + '</button></p>';
+  }
+  if (!gmHeroGallery) {
+    gmHeroLoadGallery();
+    if (!gmHeroGalleryErr) { html += '<p class="muted">' + gmT("Carregando a galeria…", "Loading the gallery…") + '</p>'; }
+    return html + '</div>';
+  }
+  if (!gmHeroUi) { gmHeroUi = gmHeroUiFromSettings(); }
+  var ui = gmHeroUi;
+  if (ui.err) { html += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(ui.err) + '</p>'; }
+
+  // Industry chooser (C1).
+  html += '<div class="gm-hero-cats" role="tablist">';
+  GmLabels.HERO_CATEGORIES.forEach(function(c) {
+    var on = ui.mode === "gallery" && ui.cat === c.key;
+    html += '<button type="button" role="tab" aria-selected="' + (on ? "true" : "false") + '" class="gm-stage-chip' + (on ? " gm-chip-active" : "") +
+      '" onclick="gmHeroPickCat(\'' + c.key + '\')">' + escHtml(GmLabels.heroCategoryLabel(c.key, isEn())) + '</button>';
+  });
+  html += '</div>';
+
+  if (ui.mode === "upload") {
+    // Their own photo (C5): preview + tone toggle + focus tools.
+    var upUrl = WORKER_URL + "/api/clients/" + clientId + "/doc-hero-image?ts=" + (ui.upTs || 0);
+    html += gmHeroPreviewHtml(upUrl, { focus_x: ui.up.focus_x, focus_y: ui.up.focus_y, zoom: ui.up.zoom, slide: 0, fill: null, tone: ui.up.tone });
+    html += '<div class="gm-hero-tools">' +
+      '<div class="gm-hero-seg" role="group" aria-label="' + gmT("Tom dos quadros", "Tile tone") + '">' +
+        '<button type="button" class="gm-stage-chip' + (ui.up.tone === "dark" ? " gm-chip-active" : "") + '" onclick="gmHeroTone(\'dark\')">' + gmT("Escuro", "Dark") + '</button>' +
+        '<button type="button" class="gm-stage-chip' + (ui.up.tone === "light" ? " gm-chip-active" : "") + '" onclick="gmHeroTone(\'light\')">' + gmT("Claro", "Light") + '</button>' +
+      '</div>' +
+      '<div class="gm-hero-nudge">' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(0, 5)" aria-label="' + gmT("Subir", "Up") + '">↑</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(0, -5)" aria-label="' + gmT("Descer", "Down") + '">↓</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(5, 0)" aria-label="' + gmT("Esquerda", "Left") + '">←</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(-5, 0)" aria-label="' + gmT("Direita", "Right") + '">→</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroZoomIn()"' + (ui.up.zoom >= 200 ? " disabled" : "") + '>' + gmT("Aproximar", "Zoom in") + ' (' + ui.up.zoom + '%)</button>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroReset()">' + gmT("Redefinir", "Reset") + '</button>' +
+      '</div>' +
+      '<button type="button" class="gm-btn-primary" onclick="gmHeroSaveUpload()"' + (ui.saving ? " disabled" : "") + '>' + gmT("Usar a minha imagem assim", "Use my image like this") + '</button>' +
+      '</div>';
+  } else if (!ui.cat) {
+    html += '<p class="muted" style="margin:6px 0 10px;">' + gmT("Escolha o seu ramo acima para ver as imagens.", "Pick your industry above to see the images.") + '</p>';
+  } else {
+    // Gallery (C2, C3): shuffle with Nicole's framing, no tools.
+    var list = gmHeroImagesOf(ui.cat);
+    if (!list.length) {
+      html += '<p class="muted" style="margin:6px 0 10px;">' + gmT("Ainda não há imagens neste ramo. Envie a sua abaixo.", "No images in this industry yet. Upload your own below.") + '</p>';
+    } else {
+      if (ui.idx >= list.length) { ui.idx = 0; }
+      var im = list[ui.idx];
+      var inUse = st.hero_gallery_key === im.key;
+      html += gmHeroPreviewHtml(im.url, im);
+      html += '<div class="gm-hero-shuffle">' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroStep(-1)" aria-label="' + gmT("Anterior", "Previous") + '">‹ ' + gmT("Anterior", "Previous") + '</button>' +
+        '<span class="gm-hero-count">' + (ui.idx + 1) + ' / ' + list.length + '</span>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmHeroStep(1)" aria-label="' + gmT("Próxima", "Next") + '">' + gmT("Próxima", "Next") + ' ›</button>' +
+        '</div>' +
+        '<button type="button" class="gm-btn-primary" onclick="gmHeroSelect(\'' + im.key + '\')"' + ((inUse || ui.saving) ? " disabled" : "") + '>' +
+          (inUse ? gmT("Em uso nos seus documentos ✓", "In use on your documents ✓") : gmT("Usar esta imagem", "Use this image")) + '</button>';
+    }
+  }
+
+  // Upload their own (existing route) / go back to their upload.
+  html += '<div class="gm-doc-image-row" style="margin-top:10px;">' +
+    '<input type="file" id="gmDocHeroInput" accept="image/png,image/jpeg,image/webp" hidden onchange="gmDocUploadImage(this, \'hero\')">' +
+    '<button type="button" class="gm-btn-secondary" onclick="document.getElementById(\'gmDocHeroInput\').click()">' +
+      gmT("Enviar a minha própria imagem", "Upload my own image") + '</button>' +
+    ((ui.mode === "gallery" && st.has_hero) ? '<button type="button" class="gm-btn-secondary" onclick="gmHeroUseUpload()">' + gmT("Ver a minha imagem enviada", "See my uploaded image") + '</button>' : '') +
+    '</div>' +
+    '<p class="muted" style="margin:4px 0 0;font-size:12px;">' + gmT("JPG, PNG ou WebP, até 5MB.", "JPG, PNG or WebP, up to 5MB.") + '</p>';
+  return html + '</div>';
+}
+
+function gmHeroPickCat(cat) {
+  if (!gmHeroUi) { return; }
+  var st = gmDocSettings || {};
+  gmHeroUi.mode = "gallery";
+  gmHeroUi.cat = cat;
+  gmHeroUi.idx = 0;
+  // Coming back to the industry in use opens on the photo in use.
+  gmHeroImagesOf(cat).forEach(function(im, i) { if (im.key === st.hero_gallery_key) { gmHeroUi.idx = i; } });
+  gmHeroRepaint();
+}
+
+function gmHeroStep(dir) {
+  if (!gmHeroUi || !gmHeroUi.cat) { return; }
+  var n = gmHeroImagesOf(gmHeroUi.cat).length;
+  if (!n) { return; }
+  gmHeroUi.idx = (gmHeroUi.idx + dir + n) % n;
+  gmHeroRepaint();
+}
+
+function gmHeroUseUpload() {
+  var st = gmDocSettings || {};
+  var ui = gmHeroUiFromSettings();
+  gmHeroUi.mode = "upload";
+  // Their saved framing only applies while the upload is what is in use.
+  gmHeroUi.up = st.hero_gallery_key ? { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark" } : ui.up;
+  gmHeroRepaint();
+}
+
+function gmHeroTone(t) { if (gmHeroUi) { gmHeroUi.up.tone = t === "light" ? "light" : "dark"; gmHeroRepaint(); } }
+
+// "Up" moves the picture up in the frame: more of its lower part shows,
+// which is a HIGHER object-position Y. Left likewise raises X.
+function gmHeroNudge(dx, dy) {
+  if (!gmHeroUi) { return; }
+  var u = gmHeroUi.up;
+  u.focus_x = Math.max(0, Math.min(100, u.focus_x + dx));
+  u.focus_y = Math.max(0, Math.min(100, u.focus_y + dy));
+  gmHeroRepaint();
+}
+
+function gmHeroZoomIn() { if (gmHeroUi) { gmHeroUi.up.zoom = Math.min(200, gmHeroUi.up.zoom + 10); gmHeroRepaint(); } }
+
+function gmHeroReset() {
+  if (!gmHeroUi) { return; }
+  gmHeroUi.up.focus_x = 50; gmHeroUi.up.focus_y = 50; gmHeroUi.up.zoom = 100;
+  gmHeroRepaint();
+}
+
+function gmHeroSave(body, okPt, okEn) {
+  if (!gmHeroUi || gmHeroUi.saving) { return; }
+  gmHeroUi.saving = true;
+  gmHeroUi.err = null;
+  gmHeroRepaint();
+  gmApi("doc-hero-choice", { method: "PUT", body: body })
+    .then(function(r) {
+      var keep = gmDocSettings || {};
+      gmDocSettings = Object.assign({}, keep, r.settings || {}, { prefill: keep.prefill, has_logo: keep.has_logo, has_hero: keep.has_hero, hero_url: r.hero_url, hero: r.hero });
+      gmHeroUi.saving = false;
+      gmHeroRepaint();
+      gmToast(gmT(okPt, okEn));
+    })
+    .catch(function(e) {
+      gmHeroUi.saving = false;
+      gmHeroUi.err = e.message;
+      console.error("doc-hero-choice: " + e.message);
+      gmHeroRepaint();
+    });
+}
+
+function gmHeroSelect(key) {
+  gmHeroSave({ gallery_key: key }, "Imagem de capa salva", "Cover image saved");
+}
+
+function gmHeroSaveUpload() {
+  var u = gmHeroUi.up;
+  gmHeroSave({ upload: { focus_x: u.focus_x, focus_y: u.focus_y, zoom: u.zoom, tone: u.tone } }, "Imagem de capa salva", "Cover image saved");
 }
 
 // The audit trail, in the same bottom sheet + .gm-hist rows the lead
@@ -8256,7 +8507,8 @@ var GM_DOC_HISTORY_LABELS = {
   payment_methods_json: ["Formas de pagamento", "Payment methods"], late_fee_annual_pct: ["Juros por atraso (% ao ano)", "Late payment interest (% per year)"],
   late_fee_grace_days: ["Carência (dias)", "Grace period (days)"], schedule_presets_json: ["Modelos de parcelamento", "Schedule presets"],
   estimate_message: ["Mensagem do orçamento", "Estimate message"], invoice_message: ["Mensagem da fatura", "Invoice message"], receipt_message: ["Mensagem do recibo", "Receipt message"], contract_message: ["Mensagem do contrato", "Contract message"],
-  hero_r2_key: ["Imagem de capa", "Cover image"], logo: ["Logo", "Logo"]
+  hero_r2_key: ["Imagem de capa", "Cover image"], logo: ["Logo", "Logo"],
+  hero_gallery_key: ["Imagem de capa da galeria", "Gallery cover image"], hero_framing: ["Enquadramento da imagem de capa", "Cover image framing"]
 };
 function gmDocHistoryFieldLabel(field) {
   var l = GM_DOC_HISTORY_LABELS[field];

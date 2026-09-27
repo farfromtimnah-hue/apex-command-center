@@ -325,6 +325,29 @@
     return en ? m.en : m.pt;
   }
 
+  // Document hero gallery industries (hero build, 2026-09-27). Keys match
+  // data/hero-gallery-v1.json categories, in Nicole's order.
+  var HERO_CATEGORIES = [
+    { key: "pools",          pt: "Piscinas",               en: "Pools" },
+    { key: "pavers",         pt: "Pavers",                 en: "Pavers" },
+    { key: "outdoor_living", pt: "Área externa",           en: "Outdoor living" },
+    { key: "tile",           pt: "Porcelanato e cerâmica", en: "Tile" },
+    { key: "flooring",       pt: "Pisos de madeira",       en: "Wood flooring" },
+    { key: "home_exterior",  pt: "Fachadas",               en: "Home exteriors" },
+    { key: "interiors",      pt: "Drywall e interiores",   en: "Drywall and interiors" },
+    { key: "stone",          pt: "Pedras e mármore",       en: "Stone and marble" },
+    { key: "construction",   pt: "Construção geral",       en: "General construction" },
+    { key: "cakes",          pt: "Bolos e confeitaria",    en: "Cakes and bakery" },
+    { key: "boutique",       pt: "Moda e tecidos",         en: "Boutique and fashion" },
+    { key: "water",          pt: "Filtros de água",        en: "Water filters" }
+  ];
+  function heroCategoryLabel(key, en) {
+    for (var i = 0; i < HERO_CATEGORIES.length; i++) {
+      if (HERO_CATEGORIES[i].key === key) { return en ? HERO_CATEGORIES[i].en : HERO_CATEGORIES[i].pt; }
+    }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
   // gm_pricing.kind
   var PRICING_KINDS = [
     { key: "product", pt: "Produto", en: "Product" },
@@ -690,6 +713,8 @@
     estimateLineTypeLabel: estimateLineTypeLabel,
     DOC_PAYMENT_METHODS: DOC_PAYMENT_METHODS,
     paymentMethodLabel: paymentMethodLabel,
+    HERO_CATEGORIES: HERO_CATEGORIES,
+    heroCategoryLabel: heroCategoryLabel,
     PRICING_KINDS: PRICING_KINDS,
     pricingKindLabel: pricingKindLabel,
     COST_LINE_TYPES: COST_LINE_TYPES,

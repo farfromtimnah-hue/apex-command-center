@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>Receipt</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790540966">
+  <script src="doc-hero.js?v=1790540966"></script>
   <style>
     /* Public, no-login page for a client's CUSTOMER. Modelled on
        referral.html: self-contained, no app JS/CSS, the CLIENT's brand only.
@@ -24,24 +26,8 @@
     html { -webkit-text-size-adjust: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
     .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
-    /* ---- HERO BAND + TILE ROW (DRAFT .hero-band / .header-tile-row /
-       .client-logo-tile / .client-name-mark / .gold-bar-label -> .brand-pill) */
-    .hero-band { position: relative; height: 190px; background: var(--brand-bg); overflow: hidden; }
-    .hero-band img.hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-    .hero-band img.hero-img[hidden] { display: none; }
-    .header-tile-row { position: absolute; left: 0; right: 0; bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 0; max-width: 720px; margin: 0 auto; padding: 0 16px; }
-    .client-logo-tile { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 18px; display: flex; align-items: center; justify-content: center; width: 220px; min-width: 220px; height: 90px; box-shadow: 0 4px 20px rgba(0,0,0,0.55); flex-shrink: 0; }
-    .client-logo-tile img { max-height: 64px; max-width: 190px; object-fit: contain; display: block; }
-    .client-logo-tile img[hidden] { display: none; }
-    .client-logo-tile .client-name-mark { font-size: 15px; font-weight: 700; line-height: 1.25; color: #fff; letter-spacing: 0.3px; text-align: center; max-width: 190px; display: inline-block; word-break: break-word; }
-    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
-    .client-logo-tile .client-name-mark[hidden] { display: none; }
-    .brand-pill { margin-left: 22px; display: inline-block; background: rgba(20, 20, 20, 0.82); border-radius: 20px; padding: 5px 18px; color: var(--accent-on-dark); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.18); max-width: 100%; overflow-wrap: anywhere; }
-    @media (max-width: 480px) {
-      .client-logo-tile { width: 180px; min-width: 180px; height: 74px; padding: 6px 12px; }
-      .client-logo-tile img { max-height: 54px; max-width: 150px; }
-      .brand-pill { margin-left: 12px; font-size: 13px; padding: 4px 12px; }
-    }
+    /* ---- HERO BAND + TILE ROW: doc-hero.css (shared with the PDF templates
+       and the portal hero picker); framing and tone from doc-hero.js. */
     .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
     h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
     /* ---- META (DRAFT .invoice-meta-area): customer + business left,
@@ -125,7 +111,7 @@
   </style>
 </head>
 <body>
-  <div class="hero-band" id="hero">
+  <div class="hero-band doc-screen" id="hero">
     <img class="hero-img" id="heroImg" alt="" hidden>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
@@ -244,6 +230,7 @@
       }
       var hero = byId("heroImg");
       if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
       var pill = byId("bizName");
       if (pill) { pill.textContent = name; pill.hidden = !name; }
     }

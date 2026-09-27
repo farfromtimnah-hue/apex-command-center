@@ -1,3 +1,4 @@
+import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 // Apex Command Center — Cloudflare Worker
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
@@ -22610,6 +22611,17 @@ async function gmDocSettingsRow(env, clientId) {
         client_id:             clientId,
         exists:                !!row,
         hero_r2_key:           r.hero_r2_key || null,
+        // The document hero (hero build, 2026-09-27). A gallery pick sets
+        // hero_gallery_key and copies Nicole's framing for that photo; an
+        // upload clears the key and keeps hero_r2_key. All NULL until the
+        // owner picks, so nothing changes for anyone who has not.
+        hero_gallery_key:      r.hero_gallery_key || null,
+        hero_focus_x:          (r.hero_focus_x === null || r.hero_focus_x === undefined) ? null : r.hero_focus_x,
+        hero_focus_y:          (r.hero_focus_y === null || r.hero_focus_y === undefined) ? null : r.hero_focus_y,
+        hero_zoom:             (r.hero_zoom === null || r.hero_zoom === undefined) ? null : r.hero_zoom,
+        hero_slide:            (r.hero_slide === null || r.hero_slide === undefined) ? null : r.hero_slide,
+        hero_fill:             gmDocHexColor(r.hero_fill),
+        hero_tone:             r.hero_tone === "light" ? "light" : (r.hero_tone === "dark" ? "dark" : null),
         // Brand colors for the customer-facing documents. NEVER Apex's own
         // palette: a homeowner is dealing with the client's company. Null
         // means "use the neutral default" (dark gray + white).
@@ -22906,6 +22918,76 @@ async function handleGetGmDocHeroImage(id, request, env) {
         return new Response(obj.body, { status: 200, headers: headers });
     } catch (e) {
         return jsonErr("Error fetching hero: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// HERO GALLERY (hero build, 2026-09-27). Nicole curated a photo per industry
+// with its own framing. The images live in R2 under hero-gallery/<file>
+// (downloaded once from Unsplash, free license; Pools 2 retouched before
+// upload) and the data is data/hero-gallery-v1.json, bundled here.
+//
+// Route: GET /api/hero-gallery              — PUBLIC, the manifest + urls
+// Route: GET /api/hero-gallery/:key.jpg     — PUBLIC, one image, long cache
+// ---------------------------------------------------------------------------
+
+function heroGalleryImage(key) {
+    var list = (HERO_GALLERY_V1 && HERO_GALLERY_V1.images) || [];
+    for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return list[i]; } }
+    return null;
+}
+
+// The hero on a customer document: { url, hero } where hero is the framing
+// doc-hero.js reads. A gallery pick wins over an upload only while
+// hero_gallery_key is set. s is a gmDocSettingsRow().
+function gmDocHero(origin, clientId, s) {
+    s = s || {};
+    var g = s.hero_gallery_key ? heroGalleryImage(s.hero_gallery_key) : null;
+    var url = g ? origin + "/api/hero-gallery/" + g.key + ".jpg"
+        : (s.hero_r2_key ? origin + "/api/clients/" + clientId + "/doc-hero-image" : null);
+    if (!url) { return { url: null, hero: null }; }
+    function pick(col, gv, dflt) {
+        if (s[col] !== null && s[col] !== undefined) { return s[col]; }
+        if (g && gv !== undefined) { return gv; }
+        return dflt;
+    }
+    return { url: url, hero: {
+        focus_x: pick("hero_focus_x", g && g.focus_x, 50),
+        focus_y: pick("hero_focus_y", g && g.focus_y, 50),
+        zoom:    pick("hero_zoom", g && g.zoom, 100),
+        slide:   pick("hero_slide", g && g.slide, 0),
+        fill:    pick("hero_fill", g ? g.fill : undefined, null),
+        tone:    pick("hero_tone", g && g.tone, "dark")
+    } };
+}
+
+function handleGetHeroGallery(request) {
+    var origin = new URL(request.url).origin;
+    var images = ((HERO_GALLERY_V1 && HERO_GALLERY_V1.images) || []).map(function(im) {
+        return { key: im.key, category: im.category, order: im.order, focus_x: im.focus_x, focus_y: im.focus_y,
+            zoom: im.zoom, slide: im.slide, fill: im.fill, tone: im.tone, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
+    });
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" });
+    return new Response(JSON.stringify({ version: HERO_GALLERY_V1.version, categories: HERO_GALLERY_V1.categories, images: images }), { status: 200, headers: headers });
+}
+
+// Same shape as /doc-hero-image, but the key must be in the manifest and the
+// files never change (a new framing or photo is a new manifest version), so
+// the cache is a year.
+async function handleGetHeroGalleryImage(key, request, env) {
+    try {
+        var im = heroGalleryImage(key);
+        if (!im) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var obj = await env.ASSETS.get("hero-gallery/" + im.file);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var headers = Object.assign({}, CORS_HEADERS, {
+            "Content-Type": "image/jpeg",
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "public, max-age=31536000, immutable"
+        });
+        return new Response(obj.body, { status: 200, headers: headers });
+    } catch (e) {
+        return jsonErr("Error fetching gallery image: " + e.message, 500);
     }
 }
 
@@ -23253,7 +23335,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
             address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
             license_numbers: settings.license_numbers || [],
             logo_url: (client && client.logo_url) ? origin + "/api/clients/" + est.client_id + "/logo-image" : null,
-            hero_url: settings.hero_r2_key ? origin + "/api/clients/" + est.client_id + "/doc-hero-image" : null,
+            hero_url: gmDocHero(origin, est.client_id, settings).url, hero: gmDocHero(origin, est.client_id, settings).hero,
             brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
             payment_methods: methods,
             late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days
@@ -24790,7 +24872,7 @@ async function gmInvPublicPayload(env, inv, origin) {
             name: settings.legal_name || (client && client.name) || "", address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
             license_numbers: settings.license_numbers || [],
             logo_url: (client && client.logo_url) ? origin + "/api/clients/" + inv.client_id + "/logo-image" : null,
-            hero_url: settings.hero_r2_key ? origin + "/api/clients/" + inv.client_id + "/doc-hero-image" : null,
+            hero_url: gmDocHero(origin, inv.client_id, settings).url, hero: gmDocHero(origin, inv.client_id, settings).hero,
             brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
             payment_methods: methods, late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days,
             terms_days: settings.default_terms_days
@@ -25768,7 +25850,7 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
             name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null,
             license_numbers: doc.license_numbers || [],
             logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" : null,
-            hero_url: doc.hero_r2_key ? origin + "/api/clients/" + c.client_id + "/doc-hero-image" : null,
+            hero_url: gmDocHero(origin, c.client_id, doc).url, hero: gmDocHero(origin, c.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, payment_methods: methods
         },
         sections: comp.sections, locked_format: comp.locked_format, requires: comp.requires,
@@ -25886,7 +25968,7 @@ async function contractVoidPayload(env, c, origin) {
         status: "void", number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), voided_at: c.voided_at || c.updated_at || null,
         business: { name: doc.legal_name || (client && client.name) || "", legal_name: doc.legal_name || (client && client.name) || "",
             logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" : null,
-            hero_url: doc.hero_r2_key ? origin + "/api/clients/" + c.client_id + "/doc-hero-image" : null,
+            hero_url: gmDocHero(origin, c.client_id, doc).url, hero: gmDocHero(origin, c.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, license_numbers: doc.license_numbers || [], payment_methods: [] }
     };
 }
@@ -26883,7 +26965,7 @@ async function coPublicPayload(env, co, origin) {
         job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null), property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null,
         created_at: co.created_at,
         business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" : null, hero_url: doc.hero_r2_key ? origin + "/api/clients/" + co.client_id + "/doc-hero-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" : null, hero_url: gmDocHero(origin, co.client_id, doc).url, hero: gmDocHero(origin, co.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
         company_signature: co.company_signed_at ? { signer_name: co.company_signer_name, signed_at: co.company_signed_at, kind: co.company_signature_kind, image_url: co.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: co.homeowner_signed_at ? { signer_name: co.homeowner_signer_name, signed_at: co.homeowner_signed_at, kind: co.homeowner_signature_kind, image_url: co.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(co.homeowner_signed_ua) } : null,
@@ -27533,7 +27615,7 @@ async function dAckPayload(env, a, origin) {
         kind: a.kind, status: a.status, statement: a.statement, job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null),
         property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null, created_at: a.created_at,
         business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: doc.hero_r2_key ? origin + "/api/clients/" + a.client_id + "/doc-hero-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: gmDocHero(origin, a.client_id, doc).url, hero: gmDocHero(origin, a.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
         photos: (payload.photos || []).map(function(p) { return { id: p.id, url: base + "/photo/" + p.id, note: p.note, taken_at: p.created_at }; }),
         punch_items: (payload.punch_items || []).map(function(it) { return { text: it.text, done_at: it.done_at, photo_url: it.has_photo ? base + "/punch-photo/" + it.id : null }; }),
@@ -27570,7 +27652,7 @@ async function handleGetPublicAck(token, request, env) {
             var vcl = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(a.client_id).first();
             var vo = new URL(request.url).origin;
             return jsonOk({ ack: { kind: a.kind, status: "void", void_reason: a.void_reason || "replaced",
-                business: { name: vdoc.legal_name || (vcl && vcl.name) || "", logo_url: (vcl && vcl.logo_url) ? vo + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: vdoc.hero_r2_key ? vo + "/api/clients/" + a.client_id + "/doc-hero-image" : null, brand_primary: vdoc.brand_primary || null, brand_accent: vdoc.brand_accent || null } } });
+                business: { name: vdoc.legal_name || (vcl && vcl.name) || "", logo_url: (vcl && vcl.logo_url) ? vo + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: gmDocHero(vo, a.client_id, vdoc).url, hero: gmDocHero(vo, a.client_id, vdoc).hero, brand_primary: vdoc.brand_primary || null, brand_accent: vdoc.brand_accent || null } } });
         }
         await env.DB.prepare("UPDATE gm_job_acks SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(a.id).run();
         if (a.status === "sent") { a.status = "viewed"; }
@@ -38753,6 +38835,12 @@ async function handleFetch(request, env, ctx) {
             if (method === "GET")  { return handleGetReferralInfo(refMatch[1], request, env); }
             if (method === "POST") { return handlePostReferralLead(refMatch[1], request, env); }
         }
+
+        // PUBLIC document hero gallery (hero build): the manifest and the
+        // images, read-only, no auth, like /doc-hero-image.
+        if (path === "/api/hero-gallery" && method === "GET") { return handleGetHeroGallery(request); }
+        var heroGalleryMatch = path.match(/^\/api\/hero-gallery\/([a-z_]+-[0-9]+)\.jpg$/);
+        if (heroGalleryMatch && method === "GET") { return handleGetHeroGalleryImage(heroGalleryMatch[1], request, env); }
 
         // PUBLIC intake for APEX'S OWN referral partners. Separate path and
         // separate handlers from /api/referral/ above: that one creates a

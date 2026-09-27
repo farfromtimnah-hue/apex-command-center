@@ -78,7 +78,11 @@ fi
 # 1968d5f changed the file. It is not in sw.js PRECACHE_URLS, so this is
 # browser cache rather than service-worker cache-first -- lower severity, same
 # class of bug. A changed file must mean a changed URL.
-VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js"
+# doc-hero.css/.js added 2026-09-27 (hero build): the shared customer-document
+# header, referenced by the six homeowner pages, the six PDF templates (as
+# ../doc-hero.*) and portal.html. A stale copy would print last week's header
+# on a customer's PDF.
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js doc-hero.css doc-hero.js"
 
 # The test below was once `grep -qx "$ASSET"` — an EXACT whole-line match. That
 # meant staging ios/App/App/public/gm.js matched nothing, the entire block was

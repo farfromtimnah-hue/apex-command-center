@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=816">
   <meta name="robots" content="noindex">
   <title>Receipt</title>
+  <link rel="stylesheet" href="../doc-hero.css?v=1790540966">
+  <script src="../doc-hero.js?v=1790540966"></script>
   <style>
     /* PRINT TEMPLATE for a client's payment receipt (estimates build, 3f;
        header and print sizing reworked in the 2026-09-26 fix build). Same
@@ -30,18 +32,8 @@
     .pg { position: absolute; right: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
     .blk { margin-bottom: 8pt; }
 
-    /* ---- HERO BAND (copied from apex-invoice-template-DRAFT: .hero-band,
-       .header-tile-row, .client-logo-tile, .client-name-mark, .gold-bar-label
-       -> .brand-pill in the client's accent colour). Full-bleed photo; with
-       no photo a solid band in the client's primary colour. ---- */
-    .hero-band { position: relative; height: 1.75in; overflow: hidden; background: var(--brand); margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 12pt; }
-    .hero-band img.hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-    .header-tile-row { display: flex; align-items: center; position: absolute; bottom: 12px; left: var(--pad-x); right: var(--pad-x); gap: 0; z-index: 10; }
-    .client-logo-tile { background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; padding: 8px 18px; display: flex; align-items: center; justify-content: center; width: 220px; min-width: 220px; height: 90px; box-shadow: 0 4px 20px rgba(0,0,0,0.55); flex-shrink: 0; }
-    .client-logo-tile img { max-height: 64px; max-width: 190px; object-fit: contain; display: block; }
-    .client-logo-tile .client-name-mark { font-size: 15px; font-weight: 700; line-height: 1.25; color: #fff; letter-spacing: 0.3px; text-align: center; max-width: 190px; display: inline-block; word-break: break-word; }
-    .client-logo-tile .client-name-mark.is-long { font-size: 12px; }
-    .brand-pill { margin-left: 22px; display: inline-block; background: rgba(20, 20, 20, 0.82); border-radius: 20px; padding: 5px 18px; color: var(--accent-on-dark, #fff); font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.18); }
+    /* ---- HERO BAND + TILE ROW: ../doc-hero.css (shared with the homeowner
+       pages and the portal hero picker); framing and tone from ../doc-hero.js. */
 
     /* ---- META AREA (DRAFT .invoice-meta-area): customer + business on the
        left, document number / dates / terms on the right, the amount tile
@@ -211,7 +203,11 @@
     function heroBlockHtml(b) {
       var name = b.name || "";
       var tile = b.logo_url ? '<img src="' + escHtml(b.logo_url) + '" alt="">' : '<span class="client-name-mark' + (name.length > 22 ? " is-long" : "") + '">' + escHtml(name) + '</span>';
-      return '<div class="blk hero-band">' + (b.hero_url ? '<img class="hero-img" src="' + escHtml(b.hero_url) + '" alt="">' : "") +
+      var h = b.hero || null;
+      var band = typeof docHeroBandStyle === "function" ? docHeroBandStyle(h) : "";
+      var tone = typeof docHeroToneClass === "function" ? docHeroToneClass(h) : "";
+      var img = typeof docHeroImgStyle === "function" ? docHeroImgStyle(h) : "";
+      return '<div class="blk hero-band doc-print' + tone + '"' + (band ? ' style="' + band + '"' : "") + '>' + (b.hero_url ? '<img class="hero-img" src="' + escHtml(b.hero_url) + '" alt="" style="' + img + '">' : "") +
         '<div class="header-tile-row"><div class="client-logo-tile">' + tile + '</div>' + (name ? '<span class="brand-pill">' + escHtml(name) + '</span>' : "") + '</div></div>';
     }
     // Business contact lines for the meta area (license, phone, email, address).

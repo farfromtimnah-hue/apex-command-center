@@ -1872,11 +1872,18 @@ function apexPushPlugin() {
 // Sends the device token to the Worker. Uses the Firebase ID token for auth,
 // the same credential every other authenticated call uses.
 function apexRegisterApnsToken(token) {
+  if (!token) { return; }
+  // A Google session registers with its Firebase ID token. A username /
+  // password portal login (a business owner or a salesperson) has none, so it
+  // registers with its own portal token and the Worker files the device under
+  // "login:<username>" (contracts fix build, F18/F49).
   var fbPlugin = apexFirebaseAuthPlugin();
-  if (!fbPlugin || !token) { return; }
-  fbPlugin.getIdToken().then(function (res) {
-    var idToken = res && res.token ? res.token : null;
-    if (!idToken) { apexTrace("PUSH", "no id token - cannot register"); return; }
+  var clientTok = null;
+  try { clientTok = window.localStorage.getItem("apex_client_token"); } catch (e) { clientTok = null; }
+  var idPromise = fbPlugin ? fbPlugin.getIdToken().then(function (res) { return res && res.token ? res.token : null; }).catch(function () { return null; }) : Promise.resolve(null);
+  idPromise.then(function (idToken) {
+    var bearer = idToken || clientTok;
+    if (!bearer) { apexTrace("PUSH", "no id token and no portal token - cannot register"); return; }
     // Sandbox tokens come from debug builds and only work against Apple's
     // sandbox host; TestFlight and App Store builds are production. Getting
     // this wrong returns BadDeviceToken, which is indistinguishable from a
@@ -1887,7 +1894,7 @@ function apexRegisterApnsToken(token) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + idToken
+        "Authorization": "Bearer " + bearer
       },
       body: JSON.stringify({
         token: token,

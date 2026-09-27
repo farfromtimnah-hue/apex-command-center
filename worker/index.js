@@ -13418,6 +13418,8 @@ function clientRequestAllowed(path, method, clientId) {
     if (path === "/api/auth/client-link-google" && method === "POST") { return true; }
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
+    // F18/F49: this device can receive the owner's pushes (login:<username>).
+    if ((path === "/api/push/apns" || path === "/api/push/subscribe") && method === "POST") { return true; }
     if (path === "/api/portal/next-meeting" && method === "GET") { return true; }
     // Drives the portal's two scheduling states (booking call-out vs
     // Reagendar). The handler takes client_id from the SESSION and rejects any
@@ -13503,7 +13505,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "invoices") { return true; }
                 if (/^invoices\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Contracts (contracts build): settings, list, awaiting, detail, preview.
-                if (gmRest === "contract-settings" || gmRest === "contracts" || gmRest === "contracts/awaiting" || gmRest === "contract-notices" || gmRest === "change-orders") { return true; }
+                if (gmRest === "contract-settings" || gmRest === "contracts" || gmRest === "contracts/awaiting" || gmRest === "contract-notices" || gmRest === "change-orders" || gmRest === "homeowner-responses") { return true; }
                 if (/^contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(gmRest)) { return true; }
@@ -13558,6 +13560,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^invoices\/[A-Za-z0-9-]+\/(send|payments|void|credits|late-fee)$/.test(gmRest)) { return true; }
                 // Contracts: create on the project; sign / route / send / void / revise / custom clause.
                 if (/^jobs\/[A-Za-z0-9-]+\/contracts$/.test(gmRest)) { return true; }
+                if (/^homeowner-responses\/[A-Za-z0-9-]+\/seen$/.test(gmRest)) { return true; }
                 if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy|void|revise|custom-clause)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy|void)$/.test(gmRest)) { return true; }
@@ -13652,6 +13655,8 @@ function sellerRequestAllowed(path, method, clientId) {
     if (path === "/api/auth/client-change-password" && method === "POST") { return true; }
     if (path === "/api/auth/client-logout" && method === "POST") { return true; }
     if (path === "/api/portal/me" && method === "GET") { return true; }
+    // F49: a salesperson's device can receive "contract awaiting your signature".
+    if ((path === "/api/push/apns" || path === "/api/push/subscribe") && method === "POST") { return true; }
 
     var base = "/api/clients/" + clientId;
     // The portal shell reads the client record to boot (name, logo, industry).
@@ -23872,6 +23877,8 @@ async function handleGetGmDocMessages(id, request, env) {
         settings_lite: {
             legal_name: s.legal_name || (client && client.name) || null,
             owner_first_name: gmOwnerFirstName(client),
+            // F24: every message built in the portal names the person sending.
+            sender_first_name: await gmDocSenderFirstName(env, user, id, client, s),
             estimate_valid_days: s.estimate_valid_days, schedule_presets: s.schedule_presets,
             min_margin_pct: s.min_margin_pct, setup_completed_at: s.setup_completed_at
         },
@@ -23879,8 +23886,9 @@ async function handleGetGmDocMessages(id, request, env) {
             estimate_message: s.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE,
             invoice_message:  s.invoice_message  || GM_DOC_DEFAULT_INVOICE_MESSAGE,
             receipt_message:  s.receipt_message  || GM_DOC_DEFAULT_RECEIPT_MESSAGE,
-            contract_message: s.contract_message || CONTRACT_DEFAULT_MESSAGE
-        }, defaults: { estimate_message: GM_DOC_DEFAULT_ESTIMATE_MESSAGE, invoice_message: GM_DOC_DEFAULT_INVOICE_MESSAGE, receipt_message: GM_DOC_DEFAULT_RECEIPT_MESSAGE, contract_message: CONTRACT_DEFAULT_MESSAGE },
+            contract_message: s.contract_message || CONTRACT_DEFAULT_MESSAGE,
+            contract_route_message: s.contract_route_message || CONTRACT_ROUTE_DEFAULT_MESSAGE
+        }, defaults: { estimate_message: GM_DOC_DEFAULT_ESTIMATE_MESSAGE, invoice_message: GM_DOC_DEFAULT_INVOICE_MESSAGE, receipt_message: GM_DOC_DEFAULT_RECEIPT_MESSAGE, contract_message: CONTRACT_DEFAULT_MESSAGE, contract_route_message: CONTRACT_ROUTE_DEFAULT_MESSAGE },
         updated_by: s.updated_by || null });
     } catch (e) {
         return jsonErr("Error fetching messages: " + e.message, 500);
@@ -23894,7 +23902,7 @@ async function handlePutGmDocMessages(id, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
-        var key = ["estimate_message", "invoice_message", "receipt_message", "contract_message"].indexOf(body.key) === -1 ? null : body.key;
+        var key = ["estimate_message", "invoice_message", "receipt_message", "contract_message", "contract_route_message"].indexOf(body.key) === -1 ? null : body.key;
         if (!key) { return jsonErr("key must be estimate_message, invoice_message, receipt_message or contract_message", 400); }
         var text = gmStr(body.text, 1000);
         if (!text) { return jsonErr("The message cannot be empty", 400); }
@@ -25184,6 +25192,7 @@ var CONTRACT_TRADE_WORDS = { pools: /pool/i, tile: /tile|flooring/i, remodeling:
 var CONTRACT_AREA_ORDER = ["C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19"];
 var CONTRACT_DISCLAIMER_UNREVIEWED = "This contract template has not been reviewed by an attorney. Have your attorney review it.";
 var CONTRACT_DEFAULT_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your contract for {job_name}: {link}";
+var CONTRACT_ROUTE_DEFAULT_MESSAGE = "O contrato {contract_number} de {job_name} está esperando a sua assinatura no Apex. Abra Projetos > {job_name} > Contrato > Assinar pela empresa: {link}";
 // Placeholders captured at signing or computed by the renderer: never asked.
 var CONTRACT_SIGNING_FIELDS = ["owner_signature_lien_notice", "owner_signature_lien_notice_date", "owner_signature_pool_ack", "owner_signature_pool_ack_date",
     "owner_initials_arbitration", "contractor_initials_arbitration", "owner_initials_jury", "contractor_initials_jury", "owner_marketing_consent_checkbox",
@@ -26089,7 +26098,7 @@ async function handleGetGmContracts(id, request, env) {
         var url = new URL(request.url);
         var jobId = gmStr(url.searchParams.get("job_id"), 80);
         var sellerName = effectiveSellerName(user, request);
-        var sql = "SELECT c.id, c.job_id, c.lead_id, c.number, c.revision, c.status, c.contract_amount_cents, c.company_signed_at, c.sent_at, c.homeowner_signed_at, c.routed_to_name, c.created_at, c.offer_expiry_date, j.obra AS job_name, l.vendedor FROM gm_contracts c JOIN gm_jobs j ON j.id = c.job_id LEFT JOIN gm_leads l ON l.id = c.lead_id WHERE c.client_id = ?";
+        var sql = "SELECT c.id, c.job_id, c.lead_id, c.number, c.revision, c.status, c.contract_amount_cents, c.company_signed_at, c.sent_at, c.homeowner_signed_at, c.routed_to_name, c.created_at, c.offer_expiry_date, c.decline_reason, c.change_request_text, j.obra AS job_name, l.vendedor FROM gm_contracts c JOIN gm_jobs j ON j.id = c.job_id LEFT JOIN gm_leads l ON l.id = c.lead_id WHERE c.client_id = ?";
         var binds = [id];
         if (sellerName) { sql += " AND (l.vendedor = ? OR l.vendedor_secundario = ?)"; binds.push(sellerName, sellerName); }
         if (jobId) { sql += " AND c.job_id = ?"; binds.push(jobId); }
@@ -26287,7 +26296,15 @@ async function handlePostGmContractRoute(id, cid, request, env) {
         ).bind(target.name, target.phone, actorName(user), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser encaminhado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be routed now (status " + c.status + ")", 409); }
         await gmContractEvent(env, id, cid, actorName(user), "routed_to_signer", { to: target.name });
-        var msg = "Contract " + contractDisplayNumber(c) + " for " + (ctx.job ? ctx.job.obra : "") + " is waiting for your signature in Apex. Open the project > Contract > Sign as company. " + DEFAULT_ORIGIN + "/portal.html?tab=gmjobs";
+        // F22: Portuguese, with the app's real labels, editable (contract_route_message).
+        var link = DEFAULT_ORIGIN + "/portal.html?tab=gmjobs";
+        var msg = gmDocFillMessage(ctx.doc.contract_route_message || CONTRACT_ROUTE_DEFAULT_MESSAGE, { contract_number: contractDisplayNumber(c), job_name: (ctx.job && ctx.job.obra) || "", link: link });
+        // F49: the routed person gets a push (owner login or the seller's login).
+        try {
+            var isOwnerTarget = ctx.settings.owner_signer_name && target.name.toLowerCase() === String(ctx.settings.owner_signer_name).toLowerCase();
+            var pushTo = await gmClientPushTargets(env, id, isOwnerTarget ? { owner: true } : { owner: false, seller_name: target.name });
+            if (pushTo.length) { await pushToUsers(env, pushTo, { title: "Contrato aguardando a sua assinatura", body: contractDisplayNumber(c) + " · " + ((ctx.job && ctx.job.obra) || "") + ": abra Projetos > Contrato > Assinar pela empresa", url: "/portal.html?tab=gmjobs" }); }
+        } catch (eP) { console.error("route push failed", eP && eP.message); }
         return jsonOk({ routed: true, to_name: target.name, to_phone: target.phone, message: msg });
     } catch (e) {
         return jsonErr("Error routing: " + e.message, 500);
@@ -26497,6 +26514,67 @@ async function handlePutGmCustomClauseReview(id, ccid, request, env) {
     }
 }
 
+// ── Who gets a push inside a client's business ─────────────────────────
+// Google-linked accounts push under their e-mail (users.client_id); a
+// username/password login pushes under "login:<username>" once its device
+// has registered with that session (handlePostApnsToken / subscribe).
+async function gmClientPushTargets(env, clientId, who) {
+    var out = [];
+    if (!who || who.owner) {
+        var us = (await env.DB.prepare("SELECT email FROM users WHERE client_id = ? AND role = 'client'").bind(clientId).all()).results || [];
+        us.forEach(function(r) { if (r.email) { out.push(r.email); } });
+        var ol = (await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND (seller_name IS NULL OR seller_name = '')").bind(clientId).all()).results || [];
+        ol.forEach(function(r) { out.push("login:" + r.username); });
+    }
+    if (who && who.seller_name) {
+        var sl = (await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND LOWER(TRIM(seller_name)) = LOWER(TRIM(?))").bind(clientId, who.seller_name).all()).results || [];
+        sl.forEach(function(r) { out.push("login:" + r.username); });
+    }
+    return out;
+}
+
+// F18/F28: a homeowner's answer reaches the owner: a row for the Home card
+// "Respostas dos clientes" (with the reason) and a push to the owner login.
+async function gmRecordHomeownerResponse(env, o) {
+    try {
+        var lead = o.lead_id ? await env.DB.prepare("SELECT cliente FROM gm_leads WHERE id = ? AND client_id = ?").bind(o.lead_id, o.client_id).first() : null;
+        var job = o.job_id ? await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ? AND client_id = ?").bind(o.job_id, o.client_id).first() : null;
+        var who = (lead && lead.cliente) || (job && job.obra) || "";
+        await env.DB.prepare("INSERT INTO gm_homeowner_responses (id, client_id, job_id, lead_id, doc_kind, doc_id, doc_number, response, reason, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), o.client_id, o.job_id || null, o.lead_id || null, o.doc_kind, o.doc_id, o.doc_number || null, o.response, o.reason || null, who).run();
+        var what = { contract: "o contrato", change_order: "o aditivo", ack_before_photos: "as fotos de antes", ack_completion: "o aceite de conclusão" }[o.doc_kind] || "o documento";
+        var targets = await gmClientPushTargets(env, o.client_id, { owner: true });
+        if (targets.length) {
+            await pushToUsers(env, targets, {
+                title: o.response === "changes_requested" ? "Cliente pediu mudanças" : "Cliente recusou",
+                body: who + (o.response === "changes_requested" ? " pediu mudanças em " : " recusou ") + what + (o.doc_number ? " " + o.doc_number : "") + (o.reason ? ": " + String(o.reason).slice(0, 140) : ""),
+                url: "/portal.html?tab=analytics"
+            });
+        }
+    } catch (e) { console.error("homeowner response record/push failed", e && e.message); }
+}
+
+async function handleGetGmHomeownerResponses(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonOk({ responses: [] }); }
+        var rows = (await env.DB.prepare("SELECT r.*, j.obra AS job_name FROM gm_homeowner_responses r LEFT JOIN gm_jobs j ON j.id = r.job_id WHERE r.client_id = ? AND r.seen_at IS NULL ORDER BY r.created_at DESC LIMIT 50").bind(id).all()).results || [];
+        return jsonOk({ responses: rows });
+    } catch (e) { return jsonErr2("Erro ao carregar as respostas dos clientes.", "Error: " + e.message, 500); }
+}
+async function handlePostGmHomeownerResponseSeen(id, rid, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        await env.DB.prepare("UPDATE gm_homeowner_responses SET seen_at = datetime('now'), seen_by = ? WHERE id = ? AND client_id = ? AND seen_at IS NULL").bind(actorName(user), rid, id).run();
+        return jsonOk({ seen: true });
+    } catch (e) { return jsonErr2("Erro ao marcar como visto.", "Error: " + e.message, 500); }
+}
+
 // ── Public: the homeowner ────────────────────────────────────────────────
 async function contractByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token)) { return null; }
@@ -26603,6 +26681,7 @@ async function handlePostPublicContractRespond(token, kind, request, env) {
         }
         if (!res.meta || !res.meta.changes) { return jsonErr("This contract can no longer be answered.", 409); }
         await gmContractEvent(env, c.client_id, c.id, c.homeowner_signer_name || "Homeowner", kind === "changes" ? "changes_requested" : "declined", { text: text, company_signature_voided: kind === "changes" });
+        await gmRecordHomeownerResponse(env, { client_id: c.client_id, job_id: c.job_id, lead_id: c.lead_id, doc_kind: "contract", doc_id: c.id, doc_number: contractDisplayNumber(c), response: kind === "changes" ? "changes_requested" : "declined", reason: text });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, "Homeowner", [{ action: kind === "changes" ? "contract_changes_requested" : "contract_declined", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: text }]); }
         return jsonOk({ ok: true });
     } catch (e) {
@@ -26859,7 +26938,13 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         var guard = await gmInvSellerGuardJob(env, user, id, co.job_id);
         if (guard) { return guard; }
         if (!co.company_signed_at) { return jsonErr2("A empresa assina primeiro.", "The company signs first.", 409); }
-        var res = await env.DB.prepare("UPDATE gm_change_orders SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')").bind(coid, id).run();
+        // F25: {mark:false} only builds the message (the send sheet); the sheet's
+        // buttons and "Mark as sent" call again with mark:true.
+        var sbody = {};
+        try { sbody = await request.json(); } catch (eB) { sbody = {}; }
+        var markIt = sbody.mark !== false;
+        var res = markIt ? await env.DB.prepare("UPDATE gm_change_orders SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')").bind(coid, id).run()
+            : { meta: { changes: ["company_signed", "sent", "viewed"].indexOf(co.status) !== -1 ? 1 : 0 } };
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este aditivo não pode ser enviado agora (" + contractStatusPt(co.status) + ").", "This change order cannot be sent now (status " + co.status + ")", 409); }
         var doc = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
@@ -26869,7 +26954,7 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         var msg = gmDocFillMessage("Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is change order " + co.number + " for {job_name} to review and sign: {link}", {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
             business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
-        if (co.lead_id && co.status === "company_signed") { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_sent", field: "change_order", old_value: null, new_value: co.number }]); }
+        if (markIt && co.lead_id && co.status === "company_signed") { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_sent", field: "change_order", old_value: null, new_value: co.number }]); }
         return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, null) });
     } catch (e) {
         return jsonErr("Error sending: " + e.message, 500);
@@ -27062,6 +27147,7 @@ async function handlePostPublicChangeOrderDecline(token, request, env) {
         try { body = await request.json(); } catch (e2) { body = {}; }
         var res = await env.DB.prepare("UPDATE gm_change_orders SET status = 'declined', decline_reason = ?, updated_at = datetime('now') WHERE id = ? AND status IN ('sent','viewed')").bind(gmStr(body.text, 1000), co.id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("This change order can no longer be answered.", 409); }
+        await gmRecordHomeownerResponse(env, { client_id: co.client_id, job_id: co.job_id, lead_id: co.lead_id, doc_kind: "change_order", doc_id: co.id, doc_number: co.number, response: "declined", reason: gmStr(body.text, 1000) });
         return jsonOk({ ok: true });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
@@ -27230,7 +27316,7 @@ async function handleGetGmConditionPhotos(id, jobId, request, env) {
         var origin = new URL(request.url).origin;
         var rows = (await env.DB.prepare("SELECT * FROM gm_job_condition_photos WHERE client_id = ? AND job_id = ? ORDER BY created_at").bind(id, jobId).all()).results || [];
         rows.forEach(function(r) { r.url = dFileOut(env, origin, id, "jobs/" + jobId + "/condition-photos/" + r.id + "/file"); delete r.r2_key; });
-        var acks = (await env.DB.prepare("SELECT id, kind, status, sent_at, signer_name, signed_at, public_token, payload_json FROM gm_job_acks WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC").bind(id, jobId).all()).results || [];
+        var acks = (await env.DB.prepare("SELECT id, kind, status, sent_at, signer_name, signed_at, public_token, payload_json, decline_reason, void_reason FROM gm_job_acks WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC").bind(id, jobId).all()).results || [];
         acks.forEach(function(a) { a.link = DEFAULT_ORIGIN + "/ack-view?t=" + a.public_token; a.preview_link = DEFAULT_ORIGIN + "/ack-view?preview=" + a.id; a.payload = gmDocParseJsonObject(a.payload_json, null); delete a.payload_json; delete a.public_token; });
         return jsonOk({ photos: rows, acks: acks });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
@@ -27384,6 +27470,7 @@ async function handlePostPublicAckDecline(token, request, env) {
         try { body = await request.json(); } catch (e2) { body = {}; }
         var res = await env.DB.prepare("UPDATE gm_job_acks SET status = 'declined', decline_reason = ? WHERE id = ? AND status IN ('sent','viewed')").bind(gmStr(body.text, 1000), a.id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("This acknowledgment can no longer be answered.", 409); }
+        await gmRecordHomeownerResponse(env, { client_id: a.client_id, job_id: a.job_id, lead_id: a.lead_id, doc_kind: a.kind === "completion" ? "ack_completion" : "ack_before_photos", doc_id: a.id, doc_number: null, response: "declined", reason: gmStr(body.text, 1000) });
         return jsonOk({ ok: true });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
@@ -32937,6 +33024,22 @@ async function sendApns(env, row, payloadObj) {
     }
 }
 
+// F40: ONE notification per user per device. A user can hold several
+// subscriptions that reach the same phone: the iOS app's APNs token AND a
+// Safari web-push subscription (Nicole's iPhone got the custom-clause push
+// twice, once as "from Apex"), plus stale sandbox tokens from debug builds of
+// the app. Rows are grouped by user + device (platform and OS version from the
+// user agent both tables store) and only the best one is sent to: an APNs
+// production token, then an APNs sandbox token, then web push; newest first
+// within a kind. The rest are marked superseded_at (never deleted); a row that
+// becomes the best again is un-marked, so nothing is lost for good.
+function pushDeviceKey(ua) {
+    var u = String(ua || "");
+    var m = u.match(/\((iPhone|iPad|Macintosh|Windows NT [\d.]+|Android[^;)]*|X11|Linux[^;)]*)/);
+    var plat = m ? m[1].trim() : "other";
+    var os = (u.match(/OS (\d+[_.]\d+(?:[_.]\d+)?)/) || [])[1] || "";
+    return plat + "|" + os.replace(/\./g, "_");
+}
 async function pushToUsers(env, emails, payloadObj) {
     var q = emails && emails.length
         ? "SELECT * FROM push_subscriptions WHERE user_email IN (" +
@@ -32944,64 +33047,76 @@ async function pushToUsers(env, emails, payloadObj) {
         : "SELECT * FROM push_subscriptions";
     var stmt = env.DB.prepare(q);
     if (emails && emails.length) { stmt = stmt.bind.apply(stmt, emails); }
-
     var subs = (await stmt.all()).results || [];
-    var sent = 0, removed = 0, failed = 0;
 
-    for (var i = 0; i < subs.length; i++) {
-        var r = await sendWebPush(env, subs[i], payloadObj);
-        if (r.ok) {
-            sent++;
-            await env.DB.prepare(
-                "UPDATE push_subscriptions SET last_sent_at = datetime('now'), last_error = NULL WHERE id = ?"
-            ).bind(subs[i].id).run();
-        } else if (r.gone) {
-            // The browser revoked it -- uninstalled, cleared data. Keeping it
-            // would mean failing forever.
-            removed++;
-            await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(subs[i].id).run();
-        } else {
-            failed++;
-            await env.DB.prepare(
-                "UPDATE push_subscriptions SET last_error = ? WHERE id = ?"
-            ).bind(String(r.error || "unknown").slice(0, 200), subs[i].id).run();
-        }
-    }
-    // ---- APNs leg: the same recipients, the native transport ----------------
-    //
-    // Added with native push 2026-09-03. Every existing caller of pushToUsers
-    // now reaches iOS devices too, with no edit at the call sites - which is
-    // the point of doing it here rather than in each notification path.
     var aq = emails && emails.length
         ? "SELECT * FROM apns_device_tokens WHERE user_email IN (" +
           emails.map(function() { return "?"; }).join(",") + ")"
         : "SELECT * FROM apns_device_tokens";
     var astmt = env.DB.prepare(aq);
     if (emails && emails.length) { astmt = astmt.bind.apply(astmt, emails); }
-
     var toks = [];
     try { toks = (await astmt.all()).results || []; }
     catch (e) { toks = []; }
 
-    for (var j = 0; j < toks.length; j++) {
-        var ar = await sendApns(env, toks[j], payloadObj);
-        if (ar.ok) {
-            sent++;
-            await env.DB.prepare(
-                "UPDATE apns_device_tokens SET last_sent_at = datetime('now'), last_error = NULL WHERE token = ?"
-            ).bind(toks[j].token).run();
-        } else if (ar.gone) {
-            removed++;
-            await env.DB.prepare("DELETE FROM apns_device_tokens WHERE token = ?").bind(toks[j].token).run();
-        } else {
-            failed++;
-            await env.DB.prepare(
-                "UPDATE apns_device_tokens SET last_error = ? WHERE token = ?"
-            ).bind(String(ar.error || "unknown").slice(0, 200), toks[j].token).run();
-        }
+    // Rank every row per user + device and keep the best.
+    var cands = [];
+    subs.forEach(function(r) { if (r.last_error === "gone") { return; } cands.push({ kind: "web", row: r, user: r.user_email, dev: pushDeviceKey(r.user_agent), rank: 1, at: r.created_at || "" }); });
+    toks.forEach(function(r) { if (r.last_error === "gone") { return; } cands.push({ kind: "apns", row: r, user: r.user_email, dev: pushDeviceKey(r.device_model), rank: r.environment === "sandbox" ? 2 : 3, at: r.created_at || "" }); });
+    var best = {};
+    cands.forEach(function(c) {
+        var k = c.user + "#" + c.dev, b = best[k];
+        if (!b || c.rank > b.rank || (c.rank === b.rank && c.at > b.at)) { best[k] = c; }
+    });
+    var winners = [], losers = [];
+    cands.forEach(function(c) { if (best[c.user + "#" + c.dev] === c) { winners.push(c); } else { losers.push(c); } });
+    for (var li = 0; li < losers.length; li++) {
+        var L = losers[li];
+        if (L.row.superseded_at) { continue; }
+        try {
+            if (L.kind === "web") { await env.DB.prepare("UPDATE push_subscriptions SET superseded_at = datetime('now') WHERE id = ? AND superseded_at IS NULL").bind(L.row.id).run(); }
+            else { await env.DB.prepare("UPDATE apns_device_tokens SET superseded_at = datetime('now') WHERE token = ? AND superseded_at IS NULL").bind(L.row.token).run(); }
+        } catch (eS) { console.error("push supersede mark failed", eS && eS.message); }
     }
 
-    return { sent: sent, removed: removed, failed: failed,
+    var sent = 0, removed = 0, failed = 0, skipped = losers.length;
+    for (var i = 0; i < winners.length; i++) {
+        var W = winners[i];
+        if (W.row.superseded_at) {
+            try {
+                if (W.kind === "web") { await env.DB.prepare("UPDATE push_subscriptions SET superseded_at = NULL WHERE id = ?").bind(W.row.id).run(); }
+                else { await env.DB.prepare("UPDATE apns_device_tokens SET superseded_at = NULL WHERE token = ?").bind(W.row.token).run(); }
+            } catch (eU) { console.error("push un-supersede failed", eU && eU.message); }
+        }
+        if (W.kind === "web") {
+            var r = await sendWebPush(env, W.row, payloadObj);
+            if (r.ok) {
+                sent++;
+                await env.DB.prepare("UPDATE push_subscriptions SET last_sent_at = datetime('now'), last_error = NULL WHERE id = ?").bind(W.row.id).run();
+            } else if (r.gone) {
+                // The browser revoked it (uninstalled, cleared data): kept as a
+                // record, marked superseded so it is never tried again.
+                removed++;
+                await env.DB.prepare("UPDATE push_subscriptions SET superseded_at = datetime('now'), last_error = 'gone' WHERE id = ?").bind(W.row.id).run();
+            } else {
+                failed++;
+                await env.DB.prepare("UPDATE push_subscriptions SET last_error = ? WHERE id = ?").bind(String(r.error || "unknown").slice(0, 200), W.row.id).run();
+            }
+        } else {
+            var ar = await sendApns(env, W.row, payloadObj);
+            if (ar.ok) {
+                sent++;
+                await env.DB.prepare("UPDATE apns_device_tokens SET last_sent_at = datetime('now'), last_error = NULL WHERE token = ?").bind(W.row.token).run();
+            } else if (ar.gone) {
+                removed++;
+                await env.DB.prepare("UPDATE apns_device_tokens SET superseded_at = datetime('now'), last_error = 'gone' WHERE token = ?").bind(W.row.token).run();
+            } else {
+                failed++;
+                await env.DB.prepare("UPDATE apns_device_tokens SET last_error = ? WHERE token = ?").bind(String(ar.error || "unknown").slice(0, 200), W.row.token).run();
+            }
+        }
+    }
+    return { sent: sent, removed: removed, failed: failed, skipped_duplicates: skipped,
              total: subs.length + toks.length };
 }
 
@@ -33015,10 +33130,19 @@ async function pushToUsers(env, emails, payloadObj) {
 // a device that reinstalls replaces its row rather than leaving a dead one
 // that would fail forever.
 // ---------------------------------------------------------------------------
+// A Google-linked account pushes under its e-mail; a username/password
+// portal login (owner or salesperson) under "login:<username>" (F18/F49).
+function pushIdentity(user) {
+    if (!user) { return null; }
+    if (user.email) { return user.email; }
+    return user.username ? "login:" + user.username : null;
+}
+
 async function handlePostApnsToken(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!pushIdentity(user)) { return jsonErr("Forbidden", 403); }
 
         var body = {};
         try { body = await request.json(); } catch (e) { body = {}; }
@@ -33039,10 +33163,10 @@ async function handlePostApnsToken(request, env) {
             "ON CONFLICT(token) DO UPDATE SET " +
             "user_email = excluded.user_email, environment = excluded.environment, " +
             "bundle_id = excluded.bundle_id, device_model = excluded.device_model, " +
-            "last_error = NULL"
+            "last_error = NULL, superseded_at = NULL"
         ).bind(
             token,
-            user.email,
+            pushIdentity(user),
             envName,
             String(body.bundleId || "").slice(0, 120) || null,
             String(body.model || "").slice(0, 60) || null
@@ -33066,6 +33190,7 @@ async function handlePostPushSubscribe(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!pushIdentity(user)) { return jsonErr("Forbidden", 403); }
 
         var body = await request.json().catch(function() { return {}; });
 
@@ -33075,7 +33200,7 @@ async function handlePostPushSubscribe(request, env) {
         if (body.unsubscribe && body.endpoint) {
             await env.DB.prepare(
                 "DELETE FROM push_subscriptions WHERE endpoint = ? AND user_email = ?"
-            ).bind(body.endpoint, user.email).run();
+            ).bind(body.endpoint, pushIdentity(user)).run();
             return jsonOk({ unsubscribed: true });
         }
 
@@ -33092,9 +33217,9 @@ async function handlePostPushSubscribe(request, env) {
             "VALUES (?, ?, ?, ?, ?, ?) " +
             "ON CONFLICT(endpoint) DO UPDATE SET " +
             "user_email = excluded.user_email, p256dh = excluded.p256dh, " +
-            "auth = excluded.auth, user_agent = excluded.user_agent, last_error = NULL"
+            "auth = excluded.auth, user_agent = excluded.user_agent, last_error = NULL, superseded_at = NULL"
         ).bind(
-            crypto.randomUUID(), user.email, sub.endpoint,
+            crypto.randomUUID(), pushIdentity(user), sub.endpoint,
             sub.keys.p256dh, sub.keys.auth,
             String(body.user_agent || "").slice(0, 200) || null
         ).run();
@@ -38735,6 +38860,8 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "contract-status" && method === "GET") { return handleGetGmJobContractStatus(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "contract-notice" && method === "POST") { return handlePostGmJobContractNotice(cid, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "contract-notices" && method === "GET") { return handleGetGmContractNotices(cid, request, env); }
+                if (segs.length === 5 && gmCol === "homeowner-responses" && method === "GET") { return handleGetGmHomeownerResponses(cid, request, env); }
+                if (segs.length === 7 && gmCol === "homeowner-responses" && segs[6] === "seen" && method === "POST") { return handlePostGmHomeownerResponseSeen(cid, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "change-orders" && method === "GET") { return handleGetGmChangeOrders(cid, request, env); }
                 if (segs.length === 6 && gmCol === "change-orders" && method === "GET") { return handleGetGmChangeOrder(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "change-orders" && method === "POST") {

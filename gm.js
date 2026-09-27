@@ -4400,6 +4400,9 @@ function gmRenderJobContracts(jobId, failedMsg) {
       // F37: "awaiting <name>" only while the contract actually waits for that person.
       var sub = (c.company_signed_at ? gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at)) + " · " : "") +
         (c.homeowner_signed_at ? gmT("cliente ", "homeowner ") + escHtml(formatDateTimeUTC(c.homeowner_signed_at)) : (c.status === "awaiting_company" && c.routed_to_name ? gmT("aguardando ", "awaiting ") + escHtml(c.routed_to_name) : ""));
+      // F28: the homeowner's own words on the row.
+      if (c.status === "declined" && c.decline_reason) { sub += (sub ? " · " : "") + gmT("motivo: ", "reason: ") + '"' + escHtml(c.decline_reason) + '"'; }
+      if (c.status === "changes_requested" && c.change_request_text) { sub += (sub ? " · " : "") + gmT("pediu: ", "asked: ") + '"' + escHtml(c.change_request_text) + '"'; }
       inner += gmSheetRowHtml("file", escHtml(c.display_number), gmConPill(c.status) + ' ' + gmMoney(c.contract_amount_cents), "gmOpenContract('" + escHtml(c.id) + "')", null, sub.replace(/ · $/, ""));
     });
   }
@@ -4827,7 +4830,7 @@ function gmConRouteSave() {
   var sel = document.getElementById("gmConRouteTo");
   gmApi("contracts/" + encodeURIComponent(gmConDetail.id) + "/route", { method: "POST", body: { signer_name: sel ? sel.value : null } })
     .then(function(d) {
-      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmOpenContract(gmConDetail.id); });
+      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_route_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmConRouteSave(); });
       gmLoadJobContracts(gmConDetail.job_id);
     })
     .catch(function(e) {
@@ -4844,7 +4847,8 @@ function gmConSendOpen() {
   gmSheetOpen(gmT("Enviar contrato", "Send contract"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmDocMsgLoad().then(function() {
     var tpl = (gmDocMessages.messages && gmDocMessages.messages.contract_message) || "";
-    var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: (gmDocMessages.settings_lite && gmDocMessages.settings_lite.legal_name) || (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (gmSellerDisplayName() || "") : gmDocSenderFallback(), link: c.link });
+    var sv = gmDocSenderVars();
+    var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: c.link });
     gmDocSendSheetRender(gmT("Enviar contrato", "Send contract") + " · " + escHtml(c.display_number), c.send_phone || "", text, "contract_message",
       function() { gmApi("contracts/" + encodeURIComponent(c.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Contrato marcado como enviado", "Contract marked as sent")); gmLoadJobContracts(c.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
       function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); });
@@ -4912,6 +4916,14 @@ function gmDAckPill(a) {
   var s = m[a.status] || ["gm-muted", "○", a.status, a.status];
   return '<span class="gm-pill ' + s[0] + '">' + s[1] + ' ' + escHtml(gmT(s[2], s[3])) + '</span>';
 }
+// The row line under an acknowledgment: who signed, or when it was sent, and
+// the homeowner's reason when they did not agree (F28).
+function gmDAckSub(a) {
+  var t = a.signed_at ? escHtml(a.signer_name || "") + " · " + escHtml(formatDateTimeUTC(a.signed_at)) : (a.sent_at ? gmT("enviado ", "sent ") + escHtml(formatDateTimeUTC(a.sent_at)) : "");
+  if (a.status === "declined") { t += (t ? " · " : "") + gmT("motivo: ", "reason: ") + (a.decline_reason ? '"' + escHtml(a.decline_reason) + '"' : gmT("nenhum", "none")); }
+  if (a.status === "void" && a.void_reason === "list_changed") { t += (t ? " · " : "") + gmT("anulado: a lista mudou", "void: the list changed"); }
+  return t;
+}
 function gmDCopyLink(link) {
   if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(function() { gmToast(gmT("Link copiado", "Link copied")); }).catch(function() { gmToast(link); }); } else { gmToast(link); }
 }
@@ -4934,7 +4946,7 @@ function gmDRenderConditions(jobId) {
     }
     (d.acks || []).filter(function(a) { return a.kind === "before_photos"; }).forEach(function(a) {
       inner += gmSheetRowHtml("file", gmT("Reconhecimento do cliente", "Homeowner acknowledgment"), gmDAckPill(a), "window.open(" + JSON.stringify(a.status === "signed" ? a.link : a.preview_link).replace(/"/g, "&quot;") + ", '_blank')", null,
-        a.signed_at ? escHtml(a.signer_name || "") + " · " + escHtml(formatDateTimeUTC(a.signed_at)) : (a.sent_at ? gmT("enviado ", "sent ") + escHtml(formatDateTimeUTC(a.sent_at)) : ""));
+        gmDAckSub(a));
     });
   }
   var canSend = d && !d.error && (d.photos || []).length && !(d.acks || []).some(function(a) { return a.kind === "before_photos" && a.status === "signed"; });
@@ -4998,6 +5010,10 @@ function gmDRenderPunch(jobId) {
         '<button type="button" class="gm-photo-del" style="position:static;" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">&times;</button></div>';
     });
     if (d.completion) { inner += '<p class="gm-derived-note" style="padding:0 12px 10px;">✓ ' + gmT("Conclusão aceita por ", "Completion signed by ") + escHtml(d.completion.signer_name) + ' · ' + escHtml(formatDateTimeUTC(d.completion.signed_at)) + '</p>'; }
+    // The completion sign-offs sent for this project, with a decline reason (F28).
+    ((gmDTools[jobId].cond && gmDTools[jobId].cond.acks) || []).filter(function(a) { return a.kind === "completion" && a.status !== "signed"; }).forEach(function(a) {
+      inner += gmSheetRowHtml("file", gmT("Aceite de conclusão", "Completion sign-off"), gmDAckPill(a), "window.open(" + JSON.stringify(a.preview_link).replace(/"/g, "&quot;") + ", '_blank')", null, gmDAckSub(a));
+    });
   }
   var items2 = (d && d.items) || [];
   var allDone = items2.length && items2.every(function(it) { return it.done; });
@@ -5249,7 +5265,8 @@ function gmRenderJobChangeOrders(jobId, failedMsg) {
   else {
     list.forEach(function(co) {
       inner += gmSheetRowHtml("tag", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + gmSignedMoney(co.amount_cents), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
-        gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : ""));
+        gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : "") +
+        (co.status === "declined" && co.decline_reason ? " · " + gmT("motivo: ", "reason: ") + '"' + escHtml(co.decline_reason) + '"' : ""));
     });
   }
   box.innerHTML = gmSheetSection(gmT("Aditivos (change orders)", "Change orders"), inner) +
@@ -5361,10 +5378,17 @@ function gmCOSignOpen() {
   gmConDetail = { id: co.id, display_number: co.number, signer_name: co.signer_name, job_id: co.job_id, _co: true };
   gmConSignOpen();
 }
+// F25: the same send sheet as the contract, with "Mark as sent without
+// opening a message"; the change order is marked sent only by those buttons.
 function gmCOSendOpen() {
   var co = gmCODetail;
-  gmApi("change-orders/" + encodeURIComponent(co.id) + "/send", { method: "POST" })
-    .then(function(d) { gmDocSendSheetRender(gmT("Enviar aditivo · ", "Send change order · ") + escHtml(co.number), d.phone || co.send_phone || "", d.message, "contract_message", null, function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); }); gmLoadJobChangeOrders(co.job_id); })
+  var base = "change-orders/" + encodeURIComponent(co.id) + "/send";
+  gmApi(base, { method: "POST", body: { mark: false } })
+    .then(function(d) {
+      gmDocSendSheetRender(gmT("Enviar aditivo · ", "Send change order · ") + escHtml(co.number), d.phone || co.send_phone || "", d.message, null,
+        function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Aditivo marcado como enviado", "Change order marked as sent")); gmLoadJobChangeOrders(co.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
+        function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); });
+    })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmCOVoid() {
@@ -5433,6 +5457,34 @@ function gmContractGuardSend(jobId) {
   if (idx === -1) { gmToast(gmT("Abra o projeto e use a seção Contrato.", "Open the project and use the Contract section.")); return; }
   gmOpenJob(idx);
 }
+// F18/F28: what homeowners answered (change requests and declines), with
+// their own words, until the owner marks it seen.
+var gmConResponses = [];
+function gmConLoadResponses() {
+  if (!gmContractsEnabled() || gmIsSeller()) { return Promise.resolve([]); }
+  return gmApi("homeowner-responses").then(function(d) { gmConResponses = d.responses || []; return gmConResponses; }).catch(function(e) { console.error(e); return []; });
+}
+var GM_CON_RESP_DOC = { contract: ["o contrato", "the contract"], change_order: ["o aditivo", "the change order"], ack_before_photos: ["as fotos de antes", "the before-work photos"], ack_completion: ["o aceite de conclusão", "the completion sign-off"] };
+function gmConResponsesCardHtml() {
+  if (!gmConResponses.length) { return ""; }
+  return '<div class="card-title" style="margin-top:12px;">' + gmT("Respostas dos clientes", "Customer responses") + ' <span class="goal-pending-badge">' + gmConResponses.length + '</span></div>' +
+    gmConResponses.map(function(r) {
+      var d = GM_CON_RESP_DOC[r.doc_kind] || ["o documento", "the document"];
+      var verb = r.response === "changes_requested" ? gmT(" pediu mudanças em ", " asked for changes to ") : gmT(" recusou ", " declined ");
+      return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(r.customer_name || r.job_name || "") + verb + escHtml(gmT(d[0], d[1])) + (r.doc_number ? " " + escHtml(r.doc_number) : "") + '</span>' +
+        (r.reason ? '<div class="gm-lead-sub" style="white-space:normal;">"' + escHtml(r.reason) + '"</div>' : '<div class="gm-lead-sub">' + gmT("sem motivo escrito", "no reason given") + '</div>') +
+        '<div class="gm-lead-sub">' + escHtml(r.job_name || "") + ' · ' + escHtml(formatDateTimeUTC(r.created_at)) + '</div>' +
+        '<div class="gm-est-actions" style="margin-top:6px;">' + (r.job_id ? '<button type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(r.job_id) + '\')">' + gmT("Abrir o projeto", "Open the project") + '</button>' : "") +
+        '<button type="button" class="gm-btn-secondary" onclick="gmConResponseSeen(\'' + escHtml(r.id) + '\', this)">' + gmT("Marcar como visto", "Mark as seen") + '</button></div></span></div>';
+    }).join("");
+}
+function gmConResponseSeen(rid, btn) {
+  if (btn) { btn.disabled = true; }
+  gmApi("homeowner-responses/" + encodeURIComponent(rid) + "/seen", { method: "POST" })
+    .then(function() { gmConResponses = gmConResponses.filter(function(r) { return r.id !== rid; }); if (typeof gmAttentionChanged === "function") { gmAttentionChanged(gmAttention); } })
+    .catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
+}
+
 // Owner Home: open notices with the two buttons.
 var gmConNotices = [];
 function gmConLoadNotices() {
@@ -8404,9 +8456,19 @@ function gmFmtPhone(tel) {
   return String(tel || "");
 }
 
+// F24: every send names the person logged in, by first name (seller login =
+// the seller; owner login = the owner signer from the contract settings) and
+// the business by its legal name from the document settings. The server
+// computes both (doc-messages settings_lite) so every message agrees.
+function gmDocSenderVars() {
+  var lite = (gmDocMessages && gmDocMessages.settings_lite) || {};
+  var biz = lite.legal_name || (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : "") || "";
+  var seller = lite.sender_first_name || (gmIsSeller() ? String(gmSellerDisplayName() || "").trim().split(/\s+/)[0] : gmDocSenderFallback());
+  return { business_name: biz, seller_name: seller };
+}
 function gmEstMessageVars(est) {
-  var biz = (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : "") || "";
-  var seller = gmIsSeller() ? (est.vendedor || gmSellerDisplayName() || "") : (est.sender_name || est.vendedor || gmDocSenderFallback());
+  var sv = gmDocSenderVars();
+  var biz = sv.business_name, seller = sv.seller_name;
   return {
     customer_first_name: String(est.customer_name || "").trim().split(/\s+/)[0] || "",
     job_name: est.job_name, business_name: biz, seller_name: seller, link: est.link
@@ -8482,7 +8544,9 @@ function gmDocMsgAttach(btn, key) {
 }
 
 var GM_DOC_MSG_TOKENS = ["{customer_first_name}", "{job_name}", "{business_name}", "{seller_name}", "{link}"];
+var GM_DOC_MSG_TOKENS_BY_KEY = { contract_route_message: ["{contract_number}", "{job_name}", "{link}"] };
 var GM_DOC_MSG_TITLES = {
+  contract_route_message: ["Mensagem para quem assina pela empresa", "Message to the company signer"],
   contract_message: ["Mensagem de envio do contrato", "Contract send message"],
   estimate_message: ["Mensagem de envio do estimate", "Estimate send message"],
   invoice_message:  ["Mensagem de envio da fatura",   "Invoice send message"],
@@ -8507,7 +8571,7 @@ function gmDocMsgEditorOpen(key, onSaved) {
     var current = (d.messages && d.messages[key]) || "";
     var h = '<textarea class="tpl-textarea" id="gmTplText" rows="6"></textarea>' +
       '<p class="tpl-hint">' + (en ? "Keep these exactly as they are — they are filled in automatically:" : "Mantenha estas exatamente como estão — são preenchidas automaticamente:") + '</p>' +
-      '<div class="tpl-tokens">' + GM_DOC_MSG_TOKENS.map(function(t) { return '<button type="button" class="tpl-token" data-token="' + escHtml(t) + '">' + escHtml(t) + '</button>'; }).join("") + '</div>' +
+      '<div class="tpl-tokens">' + (GM_DOC_MSG_TOKENS_BY_KEY[key] || GM_DOC_MSG_TOKENS).map(function(t) { return '<button type="button" class="tpl-token" data-token="' + escHtml(t) + '">' + escHtml(t) + '</button>'; }).join("") + '</div>' +
       '<p class="tpl-msg gm-warn" id="gmTplMsg" hidden></p>' +
       '<div class="tpl-actions"><button type="button" class="tpl-btn tpl-btn-gold" id="gmTplSave">' + (en ? "Save" : "Salvar") + '</button>' +
       '<button type="button" class="tpl-btn" id="gmTplCancel">' + (en ? "Cancel" : "Cancelar") + '</button></div>' +
@@ -9407,6 +9471,7 @@ function gmLoadAttention(fresh) {
   if (!gmEstList || fresh) { loads.push(gmLoadEstimatesList()); }
   loads.push(gmConLoadAwaiting());
   loads.push(gmConLoadNotices());
+  loads.push(gmConLoadResponses());
   if (gmContractsEnabled()) { loads.push(gmDSubsReload().catch(function(e) { console.error(e); })); }
   return Promise.all(loads).then(function() { gmAttentionRecompute(); return gmAttention; })
     .catch(function(e) { console.error("attention load failed", e); return gmAttention; });
@@ -9425,8 +9490,9 @@ function gmAttentionCount() { return (gmAttention.pending_alerts || []).length; 
 function gmAttentionCardHtml() {
   var a = gmAttention;
   var subsCard = gmDSubsCardHtml();
-  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length && !subsCard) { return ""; }
-  var h = gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
+  var respCard = gmConResponsesCardHtml();
+  if (!a.pending_alerts.length && !a.online_acceptances.length && !gmConAwaiting.length && !gmConNotices.length && !subsCard && !respCard) { return ""; }
+  var h = respCard + gmConNoticesCardHtml() + gmConAwaitingCardHtml() + subsCard;
   if (a.pending_alerts.length) {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
     a.pending_alerts.forEach(function(x) {
@@ -9536,7 +9602,8 @@ function gmInvSendOpen() {
   gmSheetOpen(gmT("Enviar fatura", "Send invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmDocMsgLoad().then(function() {
     var tpl = gmDocMessages.messages.invoice_message || "";
-    var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: (gmDocSettings && gmDocSettings.legal_name) || (typeof clientName !== "undefined" ? clientName : ""), seller_name: gmIsSeller() ? (inv.vendedor || gmSellerDisplayName() || "") : (inv.sender_name || inv.vendedor || gmDocSenderFallback()), link: inv.link });
+    var sv = gmDocSenderVars();
+    var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: inv.link });
     gmDocSendSheetRender(gmT("Enviar fatura", "Send invoice") + " · " + escHtml(inv.number), inv.customer_phone || "", text, "invoice_message",
       function() {
         var doSend = function() { gmApi("invoices/" + encodeURIComponent(inv.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Fatura marcada como enviada", "Invoice marked as sent")); gmLoadInvoicesSilent(); }).catch(function(e) { gmToast(e.message); console.error(e); }); };

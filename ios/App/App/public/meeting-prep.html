@@ -1681,7 +1681,11 @@
             var val = Number(n.valor) || 0;
             h += '<p style="margin:0 0 8px;font-size:14px;"><strong>' + escHtml(n.job_name || "") + '</strong> &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' &middot; ' +
               ptEn("aberto h\u00e1 " + days + " dias", "open for " + days + " days") + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) : '') +
-              '<br><span style="font-size:12px;color:var(--muted);">' + ptEn("Levantar na reuni\u00e3o: o contrato pode ser enviado pelo projeto no Apex.", "Raise in the meeting: the contract can be sent from the project in Apex.") + '</span></p>';
+              // N1: a project made by hand can never get a contract; same
+              // explanation the owner sees on the project (F12).
+              '<br><span style="font-size:12px;color:var(--muted);">' + (Number(n.accepted_estimates) === 0
+                ? ptEn("Levantar na reuni\u00e3o: este projeto n\u00e3o veio de um lead com or\u00e7amento aceito; o contrato \u00e9 montado a partir do or\u00e7amento.", "Raise in the meeting: this project did not come from a lead with an accepted estimate; the contract is built from the estimate.")
+                : ptEn("Levantar na reuni\u00e3o: o contrato pode ser enviado pelo projeto no Apex.", "Raise in the meeting: the contract can be sent from the project in Apex.")) + '</span></p>';
             // F53: closed right here when it is resolved in the meeting. The
             // same inline pattern as the lead "Resultado" card (out-btn choices
             // opening a hidden panel, out-state for the answer).

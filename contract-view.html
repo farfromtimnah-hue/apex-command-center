@@ -736,6 +736,23 @@
       var sec = byId("sections"); if (sec) { sec.innerHTML = ""; }
     }
 
+    // N22: the business made a revision that is not sent yet. Same layout as
+    // the voided contract (F38), with the business's contact.
+    function renderPreparing() {
+      var card = byId("cardMeta"), banner = byId("cardStateBanner");
+      var b = con.business || {};
+      var contact = [b.phone ? escHtml(fmtPhone(b.phone)) : "", b.email ? escHtml(b.email) : ""].filter(Boolean).join(" &middot; ");
+      if (card) {
+        card.innerHTML = '<div class="state"><h3>Contract ' + escHtml(con.display_number || "") + '</h3><p>' + escHtml(bizName()) +
+          ' is preparing a revised contract. You will receive a new link.</p>' +
+          '<p class="muted small">Questions: contact ' + escHtml(bizName()) + (contact ? ' &middot; ' + contact : "") + '.</p></div>';
+      }
+      if (banner) { banner.classList.add("hidden"); }
+      ["sections", "cardPay", "cardActions", "cardPdf"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
+      var sec = byId("sections"); if (sec) { sec.innerHTML = ""; }
+      document.title = "Contract " + (con.display_number || "") + (b.name ? " - " + b.name : "");
+    }
+
     function fetchContract() {
       if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
       if (previewId) {
@@ -754,6 +771,7 @@
         .then(function(d) {
           if (d.superseded) {
             if (d.current_token) { window.location.replace("contract-view?t=" + d.current_token); return; }
+            if (d.preparing) { con = d.preparing; con.business = con.business || {}; applyBranding(con.business); renderPreparing(); show("doc"); return; }
             show("cardNotFound"); return;
           }
           con = d.contract;

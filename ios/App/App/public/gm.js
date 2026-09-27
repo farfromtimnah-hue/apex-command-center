@@ -440,8 +440,13 @@ function gmServicoList(v) {
   return out;
 }
 
-function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, onCancel) {
+// requiredMsg ([pt, en], optional): the field may not be saved empty. The
+// editor then stays open and says so inside the sheet (N16) instead of
+// closing with nothing done.
+var gmEditorRequired = null;
+function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, onCancel, requiredMsg) {
   gmEditorSave = onSave;
+  gmEditorRequired = requiredMsg || null;
   var inner = "";
   if (type === "multichoice") {
     // Independent toggle chips — several can be active at once (servico).
@@ -489,6 +494,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
     inner = '<input type="' + inputType + '"' + inputMode + ' id="gmEditorInput" value="' + escHtml(v) + '">';
   }
   var body = '<div class="gm-editor-input" data-gm-type="' + type + '">' + inner + '</div>' +
+    '<p class="gm-warn" id="gmEditorMsg" hidden></p>' +
     (extraNoteHtml || "") +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
@@ -551,8 +557,15 @@ function gmEditorCommit(type) {
       value = raw.trim() === "" ? null : raw.trim();
     }
   }
+  if (gmEditorRequired && (value === null || value === undefined || String(value).trim() === "")) {
+    var msg = document.getElementById("gmEditorMsg");
+    if (msg) { msg.textContent = gmT(gmEditorRequired[0], gmEditorRequired[1]); msg.hidden = false; }
+    var inp = document.getElementById("gmEditorInput"); if (inp && inp.focus) { inp.focus(); }
+    return;
+  }
   var fn = gmEditorSave;
   gmEditorSave = null;
+  gmEditorRequired = null;
   gmSheetOnUserClose = null;   // a commit is not a dismissal
   gmSheetClose();
   if (fn) { fn(value); }
@@ -3269,7 +3282,13 @@ var GM_ICONS = {
   handshake: '<path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l8.42 8.42 8.42-8.42a5.4 5.4 0 0 0 0-7.65z"/>',
   // Job-site address / city rows on the lead sheet.
   "map-pin": '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>'
+  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>',
+  // N13: contract / change-order / document rows and the contract details
+  // rows asked for "file", "edit" and "user", which did not exist here, so
+  // they drew an empty square. Same glyphs as nav.js's apexNavSvg.
+  file:     '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  edit:     '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
 };
 
 function gmIcon(name) {
@@ -4439,7 +4458,9 @@ function gmRenderJobContracts(jobId, failedMsg) {
   else {
     list.forEach(function(c) {
       // F37: "awaiting <name>" only while the contract actually waits for that person.
-      var sub = (c.company_signed_at ? gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at)) + " · " : "") +
+      // N21: a company signature voided by the homeowner's change request is
+      // not a live signing time.
+      var sub = (c.company_signed_at ? (c.company_signature_voided_at ? gmT("assinatura da empresa anulada pelo pedido de mudanças", "company signature voided by the change request") : gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at))) + " · " : "") +
         (c.homeowner_signed_at ? gmT("cliente ", "homeowner ") + escHtml(formatDateTimeUTC(c.homeowner_signed_at)) : (c.status === "awaiting_company" && c.routed_to_name ? gmT("aguardando ", "awaiting ") + escHtml(c.routed_to_name) : ""));
       // F28: the homeowner's own words on the row.
       sub = sub.replace(/ · $/, "");
@@ -4528,7 +4549,9 @@ function gmConProblemsHtml(blockers, missingFields) {
   var items = (blockers || []).map(function(b) { return typeof b === "string" ? b : gmT(b.pt, b.en); });
   (missingFields || []).forEach(function(f) { items.push(gmT("Falta: ", "Missing: ") + gmConFieldLabel(f)); });
   if (!items.length) { return ""; }
-  return '<div class="gm-warn"><strong>' + gmT("Resolva antes de assinar:", "Fix these before signing:") + '</strong><ul style="margin:6px 0 0 18px;">' + items.map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join("") + '</ul></div>';
+  // N12: wrapped as a sheet section so it gets the same space below it as
+  // every other section and never runs into the next heading.
+  return '<div class="gm-sheet-section"><div class="gm-warn"><strong>' + gmT("Resolva antes de assinar:", "Fix these before signing:") + '</strong><ul style="margin:6px 0 0 18px;">' + items.map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join("") + '</ul></div></div>';
 }
 function gmConMissingFieldNames(c) { return (c.missing || []).map(function(m) { return m.field; }); }
 
@@ -4561,8 +4584,16 @@ function gmRenderContractSheet() {
   body += '</div></div>';
   // F3: a contract that cannot change says so and shows values, not controls.
   if (ro) {
-    body += '<p class="gm-derived-note">' + (companySigned || c.status === "completed" ? gmT("Contrato assinado: para mudar, crie uma revisão.", "Signed contract: to change it, create a revision.") :
-      gmT("Este contrato não pode mais ser mudado.", "This contract can no longer be changed.")) + '</p>';
+    // N19: after BOTH sign, changes go through a change order (no revision
+    // button exists then); the revision sentence stays where the revision
+    // button is (company-signed, sent, changes requested).
+    if (c.status === "completed") {
+      body += '<p class="gm-derived-note">' + gmT("Assinado pelas duas partes: para mudar, crie um aditivo.", "Signed by both parties: to change it, add a change order.") + '</p>' +
+        (c.job_id ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmCOWizardOpen(\'' + escHtml(c.job_id) + '\')">' + gmT("+ Aditivo", "+ Change order") + '</button>' : "");
+    } else {
+      body += '<p class="gm-derived-note">' + (companySigned ? gmT("Contrato assinado: para mudar, crie uma revisão.", "Signed contract: to change it, create a revision.") :
+        gmT("Este contrato não pode mais ser mudado.", "This contract can no longer be changed.")) + '</p>';
+    }
   }
   if (!ro && c.copied_from) { body += '<p class="gm-derived-note">' + gmT("Dados copiados do " + escHtml(c.copied_from) + "; confira.", "Details copied from " + escHtml(c.copied_from) + "; check them.") + '</p>'; }
   if (!ro) { body += gmConProblemsHtml(c.blockers, []); }
@@ -4736,7 +4767,7 @@ function gmConVoid() {
     gmApi("contracts/" + encodeURIComponent(c.id) + "/void", { method: "POST", body: { reason: reason } })
       .then(function() { gmToast(gmT("Contrato anulado", "Contract voided")); gmLoadJobContracts(c.job_id); gmOpenContract(c.id); })
       .catch(function(e) { gmToast(e.message); console.error(e); gmRenderContractSheet(); });
-  }, '<div class="gm-derived-note">' + gmT("O contrato fica guardado como anulado; nada é apagado.", "The contract is kept as void; nothing is deleted.") + '</div>', function() { gmRenderContractSheet(); });
+  }, '<div class="gm-derived-note">' + gmT("O contrato fica guardado como anulado; nada é apagado.", "The contract is kept as void; nothing is deleted.") + '</div>', function() { gmRenderContractSheet(); }, ["Escreva o motivo.", "Write the reason."]);
 }
 
 // Custom clause: warning first, then the text.
@@ -5082,19 +5113,22 @@ function gmDRenderPunch(jobId) {
       // F30: the whole row (44px) toggles done / not done, not a 12px box.
       // F29: remove asks for a reason, sits apart from the checkbox, and can be undone.
       inner += '<div class="gm-sheet-row" style="align-items:center;gap:10px;">' +
-        '<label style="display:flex;align-items:center;gap:12px;flex:1;min-height:44px;cursor:pointer;"><input type="checkbox" style="width:22px;height:22px;flex:0 0 auto;" ' + (it.done ? "checked" : "") + ' aria-label="' + gmT("Feito", "Done") + '" onchange="gmDPunchToggle(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ', this.checked)">' +
+        // N17: the item text is the wide part; the buttons keep their own
+        // width (gm-btn-secondary is width:100% by default) so the text never
+        // wraps a word per line and nothing is pushed past the edge at 390px.
+        '<label style="display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0;min-height:44px;cursor:pointer;"><input type="checkbox" style="width:22px;height:22px;flex:0 0 auto;" ' + (it.done ? "checked" : "") + ' aria-label="' + gmT("Feito", "Done") + '" onchange="gmDPunchToggle(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ', this.checked)">' +
         '<span class="gm-lead-main" style="flex:1;"><span class="gm-lead-name" style="white-space:normal;' + (it.done ? "text-decoration:line-through;opacity:.7;" : "") + '">' + escHtml(it.text) + '</span>' +
         (it.done_at ? '<div class="gm-lead-sub">' + gmT("feito ", "done ") + escHtml(formatDateTimeUTC(it.done_at)) + (it.done_by ? " · " + escHtml(it.done_by) : "") + '</div>' : "") + '</span></label>' +
-        (it.photo_url ? '<button type="button" class="gm-btn-secondary" style="padding:4px 8px;" onclick="gmDOpenPunchPhoto(' + JSON.stringify(it.photo_url).replace(/"/g, "&quot;") + ')">' + gmT("Foto", "Photo") + '</button>' : "") +
-        '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;margin-left:8px;" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Remover", "Remove") + '</button></div>';
+        (it.photo_url ? '<button type="button" class="gm-btn-secondary" style="padding:4px 8px;width:auto;flex:0 0 auto;min-height:36px;" onclick="gmDOpenPunchPhoto(' + JSON.stringify(it.photo_url).replace(/"/g, "&quot;") + ')">' + gmT("Foto", "Photo") + '</button>' : "") +
+        '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;width:auto;flex:0 0 auto;" onclick="gmDPunchRemove(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Remover", "Remove") + '</button></div>';
     });
     var removedItems = d.removed || [];
     if (removedItems.length) {
       inner += '<details style="padding:4px 12px 8px;"><summary class="muted" style="min-height:44px;line-height:44px;cursor:pointer;">' + gmT("Removidos", "Removed") + ' (' + removedItems.length + ')</summary>' +
         removedItems.map(function(it) {
-          return '<div class="gm-sheet-row" style="align-items:center;gap:10px;"><span class="gm-lead-main" style="flex:1;"><span class="gm-lead-name" style="white-space:normal;text-decoration:line-through;opacity:.7;">' + escHtml(it.text) + '</span>' +
+          return '<div class="gm-sheet-row" style="align-items:center;gap:10px;"><span class="gm-lead-main" style="flex:1 1 auto;min-width:0;"><span class="gm-lead-name" style="white-space:normal;text-decoration:line-through;opacity:.7;">' + escHtml(it.text) + '</span>' +
             '<div class="gm-lead-sub">' + gmT("removido ", "removed ") + escHtml(formatDateTimeUTC(it.removed_at)) + (it.removed_by ? " · " + escHtml(it.removed_by) : "") + (it.removed_reason ? ' · "' + escHtml(it.removed_reason) + '"' : "") + '</div></span>' +
-            '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;" onclick="gmDPunchRestore(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Restaurar", "Restore") + '</button></div>';
+            '<button type="button" class="gm-btn-secondary" style="padding:4px 10px;min-height:36px;width:auto;flex:0 0 auto;" onclick="gmDPunchRestore(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' + JSON.stringify(it.id).replace(/"/g, "&quot;") + ')">' + gmT("Restaurar", "Restore") + '</button></div>';
         }).join("") + '</details>';
     }
     if (d.completion) { inner += '<p class="gm-derived-note" style="padding:0 12px 10px;">✓ ' + gmT("Conclusão aceita por ", "Completion signed by ") + escHtml(d.completion.signer_name) + ' · ' + escHtml(formatDateTimeUTC(d.completion.signed_at)) + '</p>'; }
@@ -5134,7 +5168,7 @@ function gmDPunchRemove(jobId, itemId) {
   gmOpenFieldEditor(gmT("Motivo da remoção", "Reason for removing"), "text", "", null, function(reason) {
     if (!String(reason || "").trim()) { gmToast(gmT("Escreva o motivo.", "Write the reason.")); gmDBackToJob(jobId, "gmJobPunchSection"); return; }
     gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: true, removed_reason: reason } }).then(function(d) { gmToast(gmT("Pendência removida", "Item removed")); gmDPunchVoidNote(d); gmDBackToJob(jobId, "gmJobPunchSection"); }).catch(function(e) { gmToast(e.message); console.error(e); gmDBackToJob(jobId, "gmJobPunchSection"); });
-  }, null, function() { gmDBackToJob(jobId, "gmJobPunchSection"); });
+  }, null, function() { gmDBackToJob(jobId, "gmJobPunchSection"); }, ["Escreva o motivo.", "Write the reason."]);
 }
 function gmDPunchRestore(jobId, itemId) {
   gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: false } }).then(function(d) { gmToast(gmT("Pendência restaurada", "Item restored")); gmDPunchVoidNote(d); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
@@ -5206,7 +5240,7 @@ function gmDLienorRemove(jobId, lienorId) {
   gmOpenFieldEditor(gmT("Motivo da remoção", "Reason for removing"), "text", "", null, function(reason) {
     if (!String(reason || "").trim()) { gmToast(gmT("Escreva o motivo.", "Write the reason.")); return; }
     gmApi("lienors/" + encodeURIComponent(lienorId), { method: "PUT", body: { removed: true, removed_reason: reason } }).then(function() { gmSheetClose(); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
-  });
+  }, null, null, ["Escreva o motivo.", "Write the reason."]);
 }
 
 // ── D1: final payment affidavit + "Get it notarized" helper ──────────────
@@ -5393,8 +5427,8 @@ function gmRenderJobChangeOrders(jobId, failedMsg) {
   else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum aditivo.", "No change orders.") + '</p>'; }
   else {
     list.forEach(function(co) {
-      inner += gmSheetRowHtml("tag", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + gmSignedMoney(co.amount_cents), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
-        gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : "") +
+      inner += gmSheetRowHtml("file", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + gmSignedMoney(co.amount_cents), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
+        (co.price_changed ? gmMoney(co.current_price_before_cents) + " → " + gmMoney(co.current_price_before_cents + co.amount_cents) : gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents)) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : "") +
         (co.status === "declined" && co.decline_reason ? " · " + gmT("motivo: ", "reason: ") + '"' + escHtml(co.decline_reason) + '"' : ""));
     });
   }
@@ -5486,9 +5520,11 @@ function gmRenderChangeOrderSheet() {
   if (resend.length) { body += '<p class="gm-warn">' + gmT("Alterada depois de enviada: reenviar ", "Changed after sending: resend ") + resend.map(function(x) { return escHtml(x.number); }).join(", ") + '</p>'; }
   body += gmSheetSection(gmT("Resumo", "Summary"),
     gmSheetRowHtml("tag", gmT("Contrato", "Contract"), escHtml(co.contract_display_number || gmT("orçamento aceito (sem contrato assinado)", "accepted estimate (no signed contract)"))) +
-    gmSheetRowHtml("dollar", gmT("Preço antes", "Price before"), gmMoney(co.price_before_cents)) +
+    // N15: the summary shows the numbers the change order will have when
+    // signed; the old ones stay only in the "(was ...)" warning above.
+    gmSheetRowHtml("dollar", gmT("Preço antes", "Price before"), gmMoney(co.price_changed ? co.current_price_before_cents : co.price_before_cents)) +
     gmSheetRowHtml("dollar", gmT("Mudança", "Change"), gmSignedMoney(co.amount_cents)) +
-    gmSheetRowHtml("dollar", gmT("Novo preço", "New price"), "<strong>" + gmMoney(co.price_after_cents) + "</strong>") +
+    gmSheetRowHtml("dollar", gmT("Novo preço", "New price"), "<strong>" + gmMoney(co.price_changed ? co.current_price_before_cents + co.amount_cents : co.price_after_cents) + "</strong>") +
     gmSheetRowHtml("clock", gmT("Prazo", "Schedule"), (co.schedule_days || 0) + gmT(" dias úteis", " working days")) +
     gmSheetRowHtml("tag", gmT("Parcelas", "Payments"), co.payment_change === "new_step" ? gmT("nova parcela para o aditivo", "new invoice step") : gmT("faturas em aberto ajustadas", "unpaid invoices adjusted")));
   body += gmSheetSection(gmT("Linhas", "Lines"), (co.items || []).map(function(it) { return gmSheetRowHtml("tag", escHtml(it.item_name), gmSignedMoney(it.amount_cents), null, null, escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + " × " + gmMoney(it.rate_cents)); }).join(""));
@@ -5525,7 +5561,7 @@ function gmCOVoid() {
   gmOpenFieldEditor(gmT("Motivo da anulação", "Void reason"), "textarea", "", [], function(reason) {
     if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderChangeOrderSheet(); return; }
     gmApi("change-orders/" + encodeURIComponent(co.id) + "/void", { method: "POST", body: { reason: reason } }).then(function() { gmToast(gmT("Aditivo anulado", "Change order voided")); gmLoadJobChangeOrders(co.job_id); gmOpenChangeOrder(co.id); }).catch(function(e) { gmToast(e.message); console.error(e); gmRenderChangeOrderSheet(); });
-  }, null, function() { gmRenderChangeOrderSheet(); });
+  }, null, function() { gmRenderChangeOrderSheet(); }, ["Escreva o motivo.", "Write the reason."]);
 }
 
 // ── No signed contract on a job over $2,500 (C2) ─────────────────────────
@@ -8591,7 +8627,7 @@ function gmEstVoidOpen() {
     gmApi("estimates/" + encodeURIComponent(est.id) + "/void", { method: "POST", body: { reason: reason } })
       .then(function() { gmToast(gmT("Orçamento anulado", "Estimate voided")); gmSheetClose(); gmLoadEstimates(); })
       .catch(function(e) { gmToast(e.message); console.error(e); });
-  }, '<div class="gm-derived-note">' + gmT("O orçamento fica guardado como anulado; nada é apagado.", "The estimate is kept as void; nothing is deleted.") + '</div>');
+  }, '<div class="gm-derived-note">' + gmT("O orçamento fica guardado como anulado; nada é apagado.", "The estimate is kept as void; nothing is deleted.") + '</div>', null, ["Escreva o motivo.", "Write the reason."]);
 }
 
 function gmEstRevise() {
@@ -9707,7 +9743,7 @@ function gmInvPaymentAction(pid, action) {
     run(reason);
   }, action === "reverse" ? '<div class="gm-derived-note">' + gmT("Este motivo é impresso no recibo do cliente, junto com a data do estorno. O recibo mantém os números originais.",
       "This reason is printed on the customer's receipt with the reversal date. The receipt keeps its original numbers.") + '</div>' : "",
-  function() { gmRenderInvoiceSheet(); });
+  function() { gmRenderInvoiceSheet(); }, ["Escreva o motivo.", "Write the reason."]);
 }
 
 function gmInvVoid() {
@@ -9722,7 +9758,7 @@ function gmInvVoid() {
     gmApi("invoices/" + encodeURIComponent(inv.id) + "/void", { method: "POST", body: { reason: reason } })
       .then(function() { gmToast(gmT("Fatura anulada", "Invoice voided")); gmSheetClose(); gmLoadInvoices(); })
       .catch(function(e) { gmToast(e.message); console.error(e); gmRenderInvoiceSheet(); });
-  }, '<div class="gm-derived-note">' + gmT("Uma fatura paga só pode ser anulada depois de estornar os pagamentos.", "A paid invoice can only be voided after its payments are reversed.") + '</div>');
+  }, '<div class="gm-derived-note">' + gmT("Uma fatura paga só pode ser anulada depois de estornar os pagamentos.", "A paid invoice can only be voided after its payments are reversed.") + '</div>', null, ["Escreva o motivo.", "Write the reason."]);
 }
 
 function gmInvLateFee() {

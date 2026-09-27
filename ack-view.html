@@ -381,7 +381,8 @@
       var pdfBtn = byId("btnPdf"); if (pdfBtn && pdfBtn.parentNode) { pdfBtn.parentNode.classList.add("hidden"); }
     }
     function canRespond() { return !previewId && ["sent", "viewed"].indexOf(ack.status) !== -1; }
-    function kindTitle() { return ack.kind === "completion" ? "Completion and acceptance" : "Existing conditions before work"; }
+    // N23: "Before-work photos", the same heading as the contract's last page.
+    function kindTitle() { return ack.kind === "completion" ? "Completion and acceptance" : "Before-work photos"; }
     function kindShort() { return ack.kind === "completion" ? "Completion sign-off" : "Condition photos"; }
 
     function renderMeta() {
@@ -415,7 +416,8 @@
         }
       } else {
         var photos = ack.photos || [];
-        h += '<h2>Photos of existing conditions</h2><p class="muted small">Taken before work started. Tap a photo to open it full size.</p>';
+        var ackSig = ack.signature || null;
+        h += '<h2>Before-work photos</h2><p class="muted small">Photos of conditions that existed before work started' + (ack.status === "signed" && ackSig && ackSig.signed_at ? ', acknowledged by the homeowner on ' + escHtml(fmtDate(ackSig.signed_at)) : "") + '.</p><p class="muted small no-print">Tap a photo to open it full size.</p>';
         if (!photos.length) { h += '<p class="muted">No photos were attached.</p>'; }
         else {
           h += '<div class="photo-grid">' + photos.map(function(p) {

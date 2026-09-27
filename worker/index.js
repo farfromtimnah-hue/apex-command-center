@@ -25699,6 +25699,33 @@ var CONTRACT_READONLY_FIELDS = ["contract_price", "deposit_amount", "balance_amo
 function contractHomeownerHeading(areaTitle) { return String(areaTitle || "").replace(/\s*\([^)]*\)\s*$/, "").trim(); }
 
 // F14: the builder's blockers and missing fields, all of them, in both languages.
+// N14 GO-LIVE GUARD (docs PDF build). The Apex compliance data seeded for
+// testing ("Dados de conformidade (Apex)" on contract-review) still carries
+// "[UNVERIFIED - attorney question 4 open]" in the Recovery Fund block and
+// "PLACEHOLDER (test)" for both Chapter 515 pool documents. Verified text must
+// come from the attorney, so the data itself is left alone; instead, for any
+// client other than the test client, the company may not sign or send a
+// contract into which such a value would be inserted. Gated on the data: the
+// guard lifts by itself once Apex records the verified text.
+var CONTRACT_TEST_CLIENT_ID = "test-client-temp-001";
+function contractGoLiveBlock(clientId, ctx, comp) {
+    if (clientId === CONTRACT_TEST_CLIENT_ID) { return null; }
+    var rules = (comp && comp.rules) || {}, admin = (ctx && ctx.admin) || {};
+    var unverified = function(v) { return /UNVERIFIED|PLACEHOLDER/i.test(String(v || "")); };
+    var pt = [], en = [];
+    if (rules.L2 && rules.L2.on && unverified(admin.recovery_fund_contact_block)) {
+        pt.push("o aviso do Recovery Fund (§489.1425) ainda tem um contato não verificado");
+        en.push("the Recovery Fund notice (§489.1425) still has an unverified contact");
+    }
+    if (rules.L6 && rules.L6.on && (unverified(admin.ch515_doc_version) || unverified(admin.drowning_pub_version))) {
+        pt.push("os documentos de piscina (Capítulo 515) ainda são de teste");
+        en.push("the pool documents (Chapter 515) are still test placeholders");
+    }
+    if (!pt.length) { return null; }
+    console.log("[contract go-live guard] refused for client " + clientId + ": " + en.join("; "));
+    return jsonErr2("Este contrato ainda não pode ser assinado nem enviado: " + pt.join("; ") + ". A Apex precisa registrar o texto verificado pelo advogado. Fale com a Apex.",
+                    "This contract cannot be signed or sent yet: " + en.join("; ") + ". Apex has to record the attorney-verified text. Contact Apex.", 409, { code: "compliance_unverified" });
+}
 function contractProblemsErr(comp) {
     var missing = comp.missing.map(function(m) { return m.field; });
     var pt = comp.blockers.map(function(b) { return b.pt; }), en = comp.blockers.map(function(b) { return b.en; });
@@ -26128,7 +26155,7 @@ async function handleGetGmContracts(id, request, env) {
         var url = new URL(request.url);
         var jobId = gmStr(url.searchParams.get("job_id"), 80);
         var sellerName = effectiveSellerName(user, request);
-        var sql = "SELECT c.id, c.job_id, c.lead_id, c.number, c.revision, c.status, c.contract_amount_cents, c.company_signed_at, c.sent_at, c.homeowner_signed_at, c.routed_to_name, c.created_at, c.offer_expiry_date, c.decline_reason, c.change_request_text, j.obra AS job_name, l.vendedor FROM gm_contracts c JOIN gm_jobs j ON j.id = c.job_id LEFT JOIN gm_leads l ON l.id = c.lead_id WHERE c.client_id = ?";
+        var sql = "SELECT c.id, c.job_id, c.lead_id, c.number, c.revision, c.status, c.contract_amount_cents, c.company_signed_at, c.company_signature_voided_at, c.sent_at, c.homeowner_signed_at, c.routed_to_name, c.created_at, c.offer_expiry_date, c.decline_reason, c.change_request_text, j.obra AS job_name, l.vendedor FROM gm_contracts c JOIN gm_jobs j ON j.id = c.job_id LEFT JOIN gm_leads l ON l.id = c.lead_id WHERE c.client_id = ?";
         var binds = [id];
         if (sellerName) { sql += " AND (l.vendedor = ? OR l.vendedor_secundario = ?)"; binds.push(sellerName, sellerName); }
         if (jobId) { sql += " AND c.job_id = ?"; binds.push(jobId); }
@@ -26276,6 +26303,8 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         c.company_signed_at = prevSignedAt; c.company_signature_voided_at = prevVoided;
         // F14: every remaining problem at once, never one at a time.
         if (comp.blockers.length || comp.missing.length) { return contractProblemsErr(comp); }
+        var goLive = contractGoLiveBlock(id, ctx, comp);
+        if (goLive) { return goLive; }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
@@ -26376,6 +26405,8 @@ async function handlePostGmContractSend(id, cid, request, env) {
         var ctx = await contractContext(env, id, c);
         var comp = contractCompose(ctx, c, gmEasternToday());
         if (comp.blockers.length) { return contractProblemsErr({ blockers: comp.blockers, missing: [] }); }
+        var goLiveSend = contractGoLiveBlock(id, ctx, comp);
+        if (goLiveSend) { return goLiveSend; }
         var res = await env.DB.prepare(
             "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
         ).bind(actorName(user), cid, id).run();
@@ -26621,7 +26652,14 @@ async function handleGetPublicContract(token, request, env) {
         if (c.status === "void") { return jsonOk({ contract: await contractVoidPayload(env, c, new URL(request.url).origin) }); }
         if (c.status === "superseded") {
             var cur = await env.DB.prepare("SELECT public_token FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(c.client_id, c.number).first();
-            return jsonOk({ superseded: true, current_token: cur ? cur.public_token : null });
+            if (cur) { return jsonOk({ superseded: true, current_token: cur.public_token }); }
+            // N22: the revision exists but is not sent yet. The old link says
+            // so, with the business's contact, instead of "not found"; once
+            // the revision is sent this same branch redirects to it.
+            var prep = await contractVoidPayload(env, c, new URL(request.url).origin);
+            var prepDoc = await gmDocSettingsRow(env, c.client_id);
+            prep.business.phone = prepDoc.phone || null; prep.business.email = prepDoc.email || null;
+            return jsonOk({ superseded: true, current_token: null, preparing: { display_number: prep.display_number, business: prep.business } });
         }
         await env.DB.prepare("UPDATE gm_contracts SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now'), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(c.id).run();
         if (c.status === "sent") { c.status = "viewed"; }
@@ -26870,6 +26908,20 @@ async function handleGetGmChangeOrders(id, request, env) {
         var stmt = env.DB.prepare(sql);
         var rows = (await stmt.bind.apply(stmt, binds).all()).results || [];
         rows.forEach(function(r) { r.items = gmDocParseJsonObject(r.items_json, []) || []; delete r.items_json; });
+        // N15: a draft made before the contract amount changed shows the
+        // numbers it will have when signed (same rule as the detail, F9).
+        var drafts = rows.filter(function(r) { return r.status === "draft"; });
+        if (drafts.length) {
+            var nowByJob = {};
+            for (var di = 0; di < drafts.length; di++) {
+                var dr = drafts[di];
+                if (nowByJob[dr.job_id] === undefined) {
+                    var djob = await gmOwnedRow(env, "gm_jobs", dr.job_id, id);
+                    nowByJob[dr.job_id] = djob ? await coPriceBefore(env, id, djob, await coLiveContract(env, id, dr.job_id)) : null;
+                }
+                if (nowByJob[dr.job_id] !== null) { dr.current_price_before_cents = nowByJob[dr.job_id]; dr.price_changed = nowByJob[dr.job_id] !== dr.price_before_cents; }
+            }
+        }
         return jsonOk({ change_orders: rows });
     } catch (e) {
         return jsonErr("Error fetching change orders: " + e.message, 500);
@@ -27331,7 +27383,11 @@ async function handleGetAdminStaleContractNotices(request, env) {
         // over $2,500, no fully signed contract. A deleted project drops out
         // through the JOIN. (An owner "continue" or a meeting decision closes
         // the open notice itself, so it needs no clause here.)
-        var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')" +
+        // N1: accepted_estimates = 0 marks a project made by hand (no lead or
+        // no accepted estimate), which can never get a contract (F12).
+        var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name, " +
+            "(SELECT COUNT(1) FROM gm_estimates e WHERE j.lead_id IS NOT NULL AND e.client_id = n.client_id AND e.lead_id = j.lead_id AND e.status = 'accepted') AS accepted_estimates " +
+            "FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')" +
             " AND j.status <> 'Concluída' AND CAST(COALESCE(j.valor, 0) AS REAL) * 100 > 250000" +
             " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')";
         var binds = [];

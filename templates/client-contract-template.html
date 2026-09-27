@@ -436,8 +436,10 @@
       var ap = con.appendix_photos || [];
       if (ap.length) {
         var acked = ap[0];
-        blocks.push({ html: '<div class="blk"><div class="sec-title">Appendix: existing conditions before work</div>' +
-          (acked && acked.signer_name ? '<p style="font-size:9.5pt;margin-top:4pt;">Acknowledged by ' + escHtml(acked.signer_name) + ' on ' + escHtml(fmtDateTime(acked.signed_at)) + '.</p>' : "") + '</div>', kind: "block", ownPage: true, continueAfter: true });
+        // N23: "Appendix: existing conditions before work" read as an error;
+        // the page is titled for what it is, with one line under it.
+        blocks.push({ html: '<div class="blk"><div class="sec-title">Before-work photos</div>' +
+          '<p style="font-size:9.5pt;margin-top:4pt;">Photos of conditions that existed before work started' + (acked && acked.signed_at ? ', acknowledged by the homeowner on ' + escHtml(fmtDate(acked.signed_at)) : "") + '.</p></div>', kind: "block", ownPage: true, continueAfter: true });
         for (var pi = 0; pi < ap.length; pi += 2) {
           var pair = ap.slice(pi, pi + 2);
           blocks.push({ html: '<div class="blk appx-row">' + pair.map(function(ph) {

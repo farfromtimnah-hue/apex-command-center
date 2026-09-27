@@ -32,7 +32,7 @@
     { key: "novo_lead",        pt: "Novo Lead",        en: "New Lead" },
     { key: "contato_feito",    pt: "Contato Feito",    en: "Contacted" },
     { key: "visita_agendada",  pt: "Visita Agendada",  en: "Visit Scheduled" },
-    { key: "estimate_enviado", pt: "Estimate Enviado", en: "Estimate Sent" },
+    { key: "estimate_enviado", pt: "Orçamento Enviado", en: "Estimate Sent" },
     { key: "follow_up",        pt: "Follow-up",        en: "Follow-up" },
     { key: "negociacao",       pt: "Negociação",       en: "Negotiation" },
     { key: "fechado",          pt: "Fechado",          en: "Closed" },
@@ -59,6 +59,9 @@
     STAGE_KEY_BY_LABEL[s.pt] = s.key;
     STAGE_KEY_BY_LABEL[s.en] = s.key;
   });
+  // The Portuguese label was "Estimate Enviado" until the docs PDF build (N3);
+  // rows or requests carrying the old label still read as the same stage.
+  STAGE_KEY_BY_LABEL["Estimate Enviado"] = "estimate_enviado";
 
   // Normalise anything that might be a stage into a key.
   //
@@ -282,7 +285,13 @@
     "Google": "Google",
     "Instagram": "Instagram",
     "Site": "Website",
-    "Outro": "Other"
+    "Outro": "Other",
+    // Cycle months (gm_config.cycle_months, stored in Portuguese): lead
+    // "Mês" and project "Mês entrega" show English month names on an
+    // English screen (N4).
+    "Janeiro": "January", "Fevereiro": "February", "Março": "March", "Abril": "April",
+    "Maio": "May", "Junho": "June", "Julho": "July", "Agosto": "August",
+    "Setembro": "September", "Outubro": "October", "Novembro": "November", "Dezembro": "December"
   };
 
   // An unknown value is echoed back rather than blanked: showing the stored
@@ -580,8 +589,95 @@
   }
   function contractFieldType(key) { var f = CONTRACT_FIELDS[key]; return (f && f.type) || "text"; }
 
+
+  // ── Contract builder, owner-facing Portuguese (docs PDF build, N2) ──────
+  // Clause-area and option TITLES as the owner sees them on Portuguese
+  // screens. The clause text that PRINTS in the contract stays English and is
+  // never translated; these are screen labels only. A business's own custom
+  // clause has no entry and shows as typed.
+  var CONTRACT_AREA_PT = {
+    C01: "Partes, imóvel e descrição da obra", C02: "Escopo do serviço e exclusões", C03: "Preço do contrato",
+    C04: "Parcelas, formas de pagamento e atraso", C05: "Aditivos", C06: "Prazo, condições de início, atrasos e clima",
+    C07: "Acesso à obra e responsabilidades do cliente", C08: "Condições ocultas e imprevistas", C09: "Licenças, Notice of Commencement e vistorias",
+    C10: "Materiais, escolhas e substituições", C11: "Garantia de mão de obra e garantias dos fabricantes",
+    C12: "Conclusão, pendências, pagamento final, liberação de gravames e declaração de pagamento final",
+    C13: "Suspensão e rescisão", C14: "Solução de conflitos (pacotes definidos pelo advogado)", C15: "Limite de responsabilidade e seguro",
+    C16: "Validade da proposta e aceite", C17: "Limpeza, entulho e proteção da obra", C18: "Fotos e uso em marketing (com aceite)",
+    C19: "Acordo integral, avisos, assinatura eletrônica, independência das cláusulas e lei aplicável"
+  };
+  var CONTRACT_OPTION_PT = {
+    "C01-A": "Partes e imóvel: dono ou donos assinam em nome próprio", "C01-B": "Partes e imóvel: dono assina por empresa, trust ou representante", "C01-C": "Partes e imóvel: imóvel alugado ou sem morador",
+    "C02-A": "Escopo: orçamento aceito incorporado, contrato prevalece em conflito", "C02-B": "Escopo: orçamento mais plantas, projetos ou renderizações",
+    "C03-A": "Preço total fechado", "C03-B": "Preço total fechado com verbas (allowances)", "C03-C": "Preço total fechado com preço por unidade para quantidades incertas",
+    "C04-A": "Parcelas por etapa, recibos, sem multa por atraso", "C04-B": "Parcelas por etapa com carência e juros simples", "C04-C": "Sinal para comprar material, saldo na conclusão (obras curtas)",
+    "C05-A": "Aditivo assinado antes de começar o trabalho alterado", "C05-B": "Aditivo assinado; a parte afetada para até a assinatura", "C05-C": "Aditivo assinado, com autorização para condição urgente",
+    "C06-A": "Datas estimadas, sem garantia", "C06-B": "Data alvo de conclusão com prorrogações", "C06-C": "Obra externa: clima, dias de chuva e tempo de cura",
+    "C07-A": "Acesso e responsabilidades gerais do cliente", "C07-B": "Casa ocupada (reforma e obra interna)", "C07-C": "Obra externa com acesso de máquinas",
+    "C08-A": "Condições ocultas gerais", "C08-B": "Subsolo: piscinas e hardscape", "C08-C": "Contrapiso: cerâmica e piso", "C08-D": "Dentro das paredes e casas antigas: reforma e serviços gerais",
+    "C09-A": "A empresa tira as licenças; o cliente registra a Notice of Commencement", "C09-B": "A empresa tira as licenças e registra a Notice of Commencement como representante do cliente", "C09-C": "Sem licença necessária",
+    "C10-A": "Escolhas e substituições gerais", "C10-B": "Cerâmica e pedra natural: lotes, variação, rejunte e sobra de estoque", "C10-C": "Piscinas e hardscape: acabamentos, pavers e produtos naturais", "C10-D": "Material fornecido pelo cliente",
+    "C11-A": "Garantia de mão de obra de um ano", "C11-B": "Garantia de mão de obra de dois anos", "C11-C": "Tabela de garantia por componente",
+    "C12-A": "Pagamento final na conclusão substancial, pequena retenção para pendências", "C12-B": "Pagamento final na conclusão total", "C12-C": "Retenção em cada parcela",
+    "C13-A": "Assimétrica: a empresa pode suspender ou rescindir por falta de pagamento ou acesso; o cliente, por justa causa", "C13-B": "Assimétrica, e o cliente pode rescindir sem motivo pagando uma taxa", "C13-C": "Rescisão só por justa causa, igual para os dois",
+    "C14-A": "Pacote A: negociação, mediação e depois a justiça no condado do imóvel", "C14-B": "Pacote B: negociação, mediação e depois arbitragem obrigatória", "C14-C": "Pacote C: negociação, mediação, justiça, honorários para quem ganhar e renúncia ao júri",
+    "C15-A": "Responsabilidade limitada ao preço do contrato; sem danos indiretos", "C15-B": "Sem limite de responsabilidade; só a declaração do seguro", "C15-C": "Responsabilidade limitada ao valor pago pela parte afetada da obra",
+    "C16-A": "Validade ligada à do orçamento", "C16-B": "Execução mútua em 72 horas do Pr. Rafael", "C16-C": "Validade com data de início reservada",
+    "C17-A": "Arrumação diária e limpeza final, retirada de entulho incluída", "C17-B": "Só limpeza final", "C17-C": "O cliente fornece a caçamba",
+    "C18-A": "Sem uso em marketing", "C18-B": "Uso em marketing sem dados que identifiquem", "C18-C": "Uso em marketing com primeiro nome e cidade, e pedido de avaliação",
+    "C19-A": "Termos gerais padrão", "C19-B": "Termos padrão mais tradução de cortesia em português"
+  };
+  var CONTRACT_TRADE_PT = {
+    pools: "Piscinas e spas", tile: "Cerâmica e pisos", remodeling: "Reforma (cozinhas, banheiros, interiores)",
+    hardscape: "Hardscape e área externa (pavers, decks, pérgolas, cozinhas externas)", general: "Serviços gerais (pintura, pequenos reparos)"
+  };
+  // Why each Florida notice (L1-L7) is on or off, as the server sends it.
+  var CONTRACT_NOTICE_WHY_PT = {
+    "every contract": "todo contrato",
+    "sold during a visit to the customer's home": "vendido durante uma visita à casa do cliente",
+    "not sold at the home": "não vendido na casa do cliente",
+    "pool contract": "contrato de piscina",
+    "pool box unchecked": "caixa de piscina desmarcada",
+    "business does not build pools": "a empresa não constrói piscinas",
+    "over $2,500, residential 1-4 family": "acima de $2,500, residencial de 1 a 4 famílias",
+    "over $2,500, residential": "acima de $2,500, residencial",
+    "not a 1-4 family residence": "não é residência de 1 a 4 famílias",
+    "not residential": "não residencial",
+    "property type not answered": "tipo do imóvel não respondido",
+    "contract $2,500 or less": "contrato de $2,500 ou menos",
+    "first payment over 10%": "primeira parcela acima de 10%",
+    "first payment 10% or less": "primeira parcela de 10% ou menos"
+  };
+  var CONTRACT_DISCLAIMER_PT = {
+    "This contract template has not been reviewed by an attorney. Have your attorney review it.": "Este modelo de contrato não foi revisado por um advogado. Peça ao seu advogado para revisar."
+  };
+  function contractAreaTitle(id, title, en) { return (!en && CONTRACT_AREA_PT[id]) ? CONTRACT_AREA_PT[id] : (title || id || ""); }
+  function contractOptionTitle(id, title, en) { return (!en && CONTRACT_OPTION_PT[id]) ? CONTRACT_OPTION_PT[id] : (title || id || ""); }
+  function contractTradeLabel(key, label, en) { return (!en && CONTRACT_TRADE_PT[key]) ? CONTRACT_TRADE_PT[key] : (label || key || ""); }
+  function contractNoticeWhy(why, en) { return (!en && CONTRACT_NOTICE_WHY_PT[why]) ? CONTRACT_NOTICE_WHY_PT[why] : (why || ""); }
+  function contractDisclaimer(text, en) { return (!en && CONTRACT_DISCLAIMER_PT[text]) ? CONTRACT_DISCLAIMER_PT[text] : (text || ""); }
+
+  // ── Invoice / payment step names (N6) ───────────────────────────────────
+  // The stored step names stay English (they print on the English customer
+  // invoice); a Portuguese screen shows these. A name the owner typed shows
+  // as typed.
+  var PAY_STEP_PT = { "Deposit": "Sinal", "Mid-project": "Meio da obra", "Completion": "Conclusão", "Final payment": "Pagamento final", "Balance": "Saldo" };
+  function payStepLabel(name, en) {
+    var s = name === null || name === undefined ? "" : String(name);
+    if (en) { return s; }
+    if (PAY_STEP_PT[s]) { return PAY_STEP_PT[s]; }
+    var m = /^Change order (CO-\d+)$/.exec(s);
+    if (m) { return "Aditivo " + m[1]; }
+    return s;
+  }
+
   global.GmLabels = {
     CONTRACT_FIELDS: CONTRACT_FIELDS,
+    contractAreaTitle: contractAreaTitle,
+    contractOptionTitle: contractOptionTitle,
+    contractTradeLabel: contractTradeLabel,
+    contractNoticeWhy: contractNoticeWhy,
+    contractDisclaimer: contractDisclaimer,
+    payStepLabel: payStepLabel,
     contractFieldLabel: contractFieldLabel,
     contractFieldType: contractFieldType,
     INVOICE_STATUSES: INVOICE_STATUSES,

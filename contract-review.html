@@ -465,6 +465,21 @@
       });
     }
 
+    // N25: D1 stores UTC ("2026-09-27 17:14:05"); a person reads Eastern,
+    // 12-hour: "09/27/2026 1:14 PM". A plain YYYY-MM-DD date prints as
+    // MM/DD/YYYY with no time.
+    function fmtEt(ts) {
+      if (!ts) { return ""; }
+      var raw = String(ts);
+      var dm = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dm) { return dm[2] + "/" + dm[3] + "/" + dm[1]; }
+      var iso = raw.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return raw; }
+      try {
+        var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + String(p.dayPeriod || "").toUpperCase();
+      } catch (e) { console.error(e); return raw; }
+    }
     function escHtml(str) {
       return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
@@ -560,7 +575,7 @@
         '<div class="cr-head"><div><span class="cr-num">' + n + '.</span> <span class="cr-title">' + escHtml(it.id) + ' &middot; ' + escHtml(it.title) + '</span>' +
         (it.kind === "locked" ? '<span class="cr-lock">' + t("texto de lei, não editável", "statutory text, not editable") + '</span>' : "") +
         '<div class="cr-meta">' + (it.kind === "option" ? escHtml(it.area) + (it.trades ? ' &middot; ' + t("ofícios: ", "trades: ") + escHtml(it.trades) : "") : escHtml(it.note || "")) + '</div></div>' +
-        (rv ? '<div class="cr-saved">' + (rv.decision === "ok" ? t("OK como está", "OK as is") : t("Mudanças sugeridas", "Changes suggested")) + ' &middot; ' + escHtml(String(rv.updated_at || "").slice(0, 16)) + ' UTC</div>' : "") + '</div>';
+        (rv ? '<div class="cr-saved">' + (rv.decision === "ok" ? t("OK como está", "OK as is") : t("Mudanças sugeridas", "Changes suggested")) + ' &middot; ' + escHtml(fmtEt(rv.updated_at)) + '</div>' : "") + '</div>';
       h += '<div class="cr-cols"><div>' +
         (it.kind === "option" && it.owner ? '<div class="cr-meta" style="margin-bottom:6px;"><strong>' + t("Para o dono: ", "For the owner: ") + '</strong>' + escHtml(it.owner) + '</div>' : "") +
         '<div class="cr-text">' + (it.text ? crRich(it.text) : "") + (it.textNote ? (it.text ? "\n\n" : "") + '<em>' + escHtml(it.textNote) + '</em>' : "") +
@@ -723,7 +738,7 @@
       var h = "";
       var pdfBtn = document.getElementById("crAttorneyPdfBtn");
       if (v.status === "attorney_reviewed") {
-        h = '<div class="cr-banner ok">' + t("Modelo revisado por ", "Template reviewed by ") + escHtml(v.attorney_name || "") + ", Florida Bar #" + escHtml(v.attorney_bar_number || "") + t(", em ", ", on ") + escHtml(v.attorney_review_date || "") + '.</div>';
+        h = '<div class="cr-banner ok">' + t("Modelo revisado por ", "Template reviewed by ") + escHtml(v.attorney_name || "") + ", Florida Bar #" + escHtml(v.attorney_bar_number || "") + t(", em ", ", on ") + escHtml(fmtEt(v.attorney_review_date)) + '.</div>';
         if (pdfBtn) { pdfBtn.hidden = false; }
       } else if (v.status === "in_review") {
         h = '<div class="cr-banner ok">' + t("Revisão enviada: todos os itens OK. Agora envie a biblioteca para o seu advogado (PDF).", "Review sent: every item OK. Now send the library to your attorney (PDF).") + '</div>';
@@ -734,7 +749,7 @@
       } else if (pdfBtn) { pdfBtn.hidden = true; }
       b.innerHTML = h;
       var vs = document.getElementById("crVersionStatus");
-      if (vs) { vs.textContent = "v" + v.version + " · " + v.status + (v.set_by ? " · " + v.set_by : "") + (v.attorney_name ? " · " + v.attorney_name + " (Bar #" + v.attorney_bar_number + ", " + v.attorney_review_date + ")" : ""); }
+      if (vs) { vs.textContent = "v" + v.version + " · " + v.status + (v.set_by ? " · " + v.set_by : "") + (v.attorney_name ? " · " + v.attorney_name + " (Bar #" + v.attorney_bar_number + ", " + fmtEt(v.attorney_review_date) + ")" : ""); }
     }
 
     function crRenderAdmin() {
@@ -758,7 +773,7 @@
       if (subs && isDev) {
         var list = crLib.submissions || [];
         subs.innerHTML = list.length ? '<div class="cr-meta"><strong>' + t("Revisões enviadas", "Submitted reviews") + '</strong></div>' + list.map(function(s) {
-          return '<div class="cr-meta">' + escHtml(s.reviewer_name || s.reviewer_email || "") + ' &middot; ' + s.ok_count + " OK, " + s.changes_count + t(" com mudanças", " with changes") + ' &middot; ' + escHtml(String(s.submitted_at || "").slice(0, 16)) + ' UTC</div>';
+          return '<div class="cr-meta">' + escHtml(s.reviewer_name || s.reviewer_email || "") + ' &middot; ' + s.ok_count + " OK, " + s.changes_count + t(" com mudanças", " with changes") + ' &middot; ' + escHtml(fmtEt(s.submitted_at)) + '</div>';
         }).join("") : '<div class="cr-meta">' + t("Nenhuma revisão enviada ainda.", "No review submitted yet.") + '</div>';
       }
     }

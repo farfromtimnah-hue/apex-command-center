@@ -17672,6 +17672,9 @@ GM_STAGE_DEFS.forEach(function(s) {
     GM_STAGE_KEY_BY_LABEL[s.pt]  = s.key;
     GM_STAGE_KEY_BY_LABEL[s.en]  = s.key;
 });
+// Docs PDF build (N3): Portuguese screens now say "Orçamento Enviado"; a
+// client that posts that label reads as the same stage as the old one.
+GM_STAGE_KEY_BY_LABEL["Orçamento Enviado"] = "estimate_enviado";
 function gmStageKey(v) {
     if (v === null || v === undefined) { return null; }
     var s = String(v).trim();
@@ -25903,7 +25906,7 @@ async function handleGetContractSettings(id, request, env) {
             trades: CONTRACT_TRADE_KEYS.map(function(k) { return { key: k, label: CONTRACT_TRADE_LABELS[k] }; }),
             areas: lib ? lib.clause_areas.map(function(a) { return { id: a.id, title: a.title }; }) : [],
             options: lib ? lib.clause_options.concat((await env.DB.prepare("SELECT * FROM contract_clause_options WHERE scope = ? AND status = 'approved'").bind(id).all()).results || []).map(function(o) {
-                return { id: o.id, area_id: o.area_id, title: o.title, trades: contractOptionTrades(o.trades), owner_description: o.owner_description, scope: o.scope, private: o.scope !== "apex" };
+                return { id: o.id, area_id: o.area_id, title: o.title, trades: contractOptionTrades(o.trades), owner_description: o.owner_description, owner_description_pt: o.pt_summary || null, scope: o.scope, private: o.scope !== "apex" };
             }) : [],
             exclusion_checklists: lib ? lib.exclusion_checklists : [],
             library: lib ? { version: lib.version.version, status: lib.version.status, attorney_name: lib.version.attorney_name } : null,
@@ -26091,7 +26094,7 @@ async function contractInternalOut(env, id, c, user, request) {
     var signer = contractSignerAllowed(user, ctx.settings, ctx.client);
     var areaOptions = {};
     ctx.lib.optionsForClient.forEach(function(o) {
-        (areaOptions[o.area_id] = areaOptions[o.area_id] || []).push({ id: o.id, title: o.title, owner_description: o.owner_description, private: o.scope !== "apex" });
+        (areaOptions[o.area_id] = areaOptions[o.area_id] || []).push({ id: o.id, title: o.title, owner_description: o.owner_description, owner_description_pt: o.pt_summary || null, private: o.scope !== "apex" });
     });
     return {
         id: c.id, job_id: c.job_id, lead_id: c.lead_id, number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), status: c.status,

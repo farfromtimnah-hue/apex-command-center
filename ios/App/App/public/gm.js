@@ -59,10 +59,25 @@ var GM_API_ERR_PT = {
   "Please agree to sign electronically": "Marque a caixa de consentimento.",
   "Password change required": "Troque a senha para continuar."
 };
+// The older validation routes answer in Portuguese only, or as one
+// "Português / English" string. An English screen gets the English (N8).
+var GM_API_ERR_EN = {
+  "Status inválido": "Invalid status",
+  "Frente inválida": "Invalid front",
+  "Tipo inválido": "Invalid type",
+  "Estágio inválido": "Invalid stage",
+  "Origem inválida": "Invalid source",
+  "Categoria inválida": "Invalid category",
+  "Telefone inválido": "Invalid phone number",
+  "Email inválido": "Invalid email"
+};
 function gmApiErrText(d, status) {
   if (d && d.error_pt && d.error_en) { return gmT(d.error_pt, d.error_en); }
   var raw = (d && d.error) || ("HTTP " + status);
   if (GM_API_ERR_PT[raw]) { return gmT(GM_API_ERR_PT[raw], raw); }
+  if (GM_API_ERR_EN[raw]) { return gmT(raw, GM_API_ERR_EN[raw]); }
+  var pair = /^(.+?) \/ (.+)$/.exec(raw);
+  if (pair && /[ãáéíóúçõêâà]/i.test(pair[1] + " ")) { return gmT(pair[1], pair[2]); }
   if (status >= 500 && !isEn()) { return "Erro no servidor. Tente de novo. (" + raw + ")"; }
   return raw;
 }
@@ -406,6 +421,10 @@ function gmToastRunAction() {
 // choice with ≤5 options renders big chips; >5 renders a native <select>.
 var gmEditorSave = null;
 var gmEditorChoiceValue;
+// The options of the open choice editor, so a tapped chip stores the OPTION
+// at its index (the stored value, e.g. "Pausada"), never its on-screen label
+// ("Paused" on an English screen), which the server rejects (N7).
+var gmEditorChoiceOptions = [];
 var gmEditorMultiValue = [];
 
 // servico holds one or MORE services as one comma-separated TEXT value
@@ -435,6 +454,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
     inner += '</div>';
   } else if (type === "choice") {
     gmEditorChoiceValue = (value === null || value === undefined) ? null : value;
+    gmEditorChoiceOptions = (options || []).slice();
     if ((options || []).length <= 5) {
       inner = '<div class="gm-chip-set" id="gmEditorChips">';
       options.forEach(function(opt, i) {
@@ -491,7 +511,7 @@ function gmEditorPickChip(btn) {
     gmEditorChoiceValue = null;   // tap again to clear
   } else {
     btn.classList.add("gm-chip-sel");
-    gmEditorChoiceValue = btn.textContent;
+    gmEditorChoiceValue = gmEditorChoiceOptions[idx] !== undefined ? gmEditorChoiceOptions[idx] : null;
   }
 }
 
@@ -521,12 +541,12 @@ function gmEditorCommit(type) {
     if (type === "currency") {
       value = gmParseMoney(raw);
       if (raw !== "" && value === null) {
-        window.alert(gmT("Valor inválido — use números, ex.: 4.500,00", "Invalid value — numbers only, e.g. 4500.00"));
+        gmToast(gmT("Valor inválido — use números, ex.: 4.500,00", "Invalid value — numbers only, e.g. 4500.00"));
         return;
       }
     } else if (type === "number") {
       value = raw === "" ? null : Math.round(Number(raw));
-      if (raw !== "" && !isFinite(value)) { window.alert(gmT("Número inválido", "Invalid number")); return; }
+      if (raw !== "" && !isFinite(value)) { gmToast(gmT("Número inválido", "Invalid number")); return; }
     } else {
       value = raw.trim() === "" ? null : raw.trim();
     }
@@ -1171,7 +1191,7 @@ function gmCrmSummaryHtml() {
     '<div class="gm-metric-value">' + s.leads_totais + '</div></div>' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Pipeline ativo ($)", "Active pipeline ($)") + '</div>' +
     '<div class="gm-metric-value">' + fmtNum(s.pipeline_ativo, "currency") + '</div>' +
-    '<div class="gm-metric-sub">' + gmT("Estimate + Follow-up + Negociação", "Estimate + Follow-up + Negotiation") + '</div></div>' +
+    '<div class="gm-metric-sub">' + gmT("Orçamento + Follow-up + Negociação", "Estimate + Follow-up + Negotiation") + '</div></div>' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Receita fechada ($)", "Closed revenue ($)") + '</div>' +
     '<div class="gm-metric-value">' + fmtNum(s.receita_fechada, "currency") + '</div></div>' +
     '<div class="gm-metric"><div class="gm-metric-name">' + gmT("Conversão", "Conversion") + '</div>' +
@@ -1181,9 +1201,9 @@ function gmCrmSummaryHtml() {
     '<div class="gm-metric-value">' + (slaContatoBad ? "! " : "✓ ") + s.fora_sla_contato + '</div>' +
     '<div class="gm-metric-sub">' + gmT("contato em até 5 minutos", "first contact under 5 minutes") + '</div></div>' +
     '<div class="gm-metric' + (slaEstimateBad ? " gm-metric-bad" : " gm-metric-good") + '">' +
-    '<div class="gm-metric-name">' + gmT("Fora do SLA 24h (estimate)", "Outside 24h SLA (estimate)") + '</div>' +
+    '<div class="gm-metric-name">' + gmT("Fora do SLA 24h (orçamento)", "Outside 24h SLA (estimate)") + '</div>' +
     '<div class="gm-metric-value">' + (slaEstimateBad ? "! " : "✓ ") + s.fora_sla_estimate + '</div>' +
-    '<div class="gm-metric-sub">' + gmT("estimate em até 24 horas", "estimate within 24 hours") + '</div></div>' +
+    '<div class="gm-metric-sub">' + gmT("orçamento em até 24 horas", "estimate within 24 hours") + '</div></div>' +
     '</div>';
 }
 
@@ -1543,7 +1563,7 @@ function gmQuickAddSave() {
   var addr = addrEl ? (addrEl.value || "").trim() : "";
   var city = cityEl ? (cityEl.value || "").trim() : "";
   if (!nome) {
-    window.alert(gmT("O nome é obrigatório.", "Name is required."));
+    gmToast(gmT("O nome é obrigatório.", "Name is required."));
     return;
   }
   var payload = {
@@ -1569,7 +1589,7 @@ function gmQuickAddSave() {
         });
       });
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmLoadCrmSilent() {
@@ -1955,7 +1975,7 @@ function gmSaveOutreach() {
     })
     .catch(function(e) {
       var el = document.getElementById("gmOutcomeErr");
-      if (el) { el.textContent = e.message; } else { window.alert(e.message); }
+      if (el) { el.textContent = e.message; } else { gmToast(e.message); } console.error(e);
     });
 }
 
@@ -2183,7 +2203,7 @@ function gmRenderLeadSheet() {
       'aria-label="' + gmT("Mudar valor estimado", "Change estimate value") + '" ' +
       'onclick="' + edit("valor") + '">' +
       '<span class="gm-sheet-hero-body">' +
-        '<span class="gm-sheet-hero-label">' + gmT("Valor estimate", "Estimate value") + '</span>' +
+        '<span class="gm-sheet-hero-label">' + gmT("Valor do orçamento", "Estimate value") + '</span>' +
         '<span class="gm-sheet-hero-value' + (valor ? "" : " gm-empty") + '">' +
         (valor || gmT("A definir", "Not set")) + '</span>' +
       '</span>' +
@@ -2277,7 +2297,7 @@ function gmRenderLeadSheet() {
   var leadComissaoSub = leadComissaoEditable
     ? gmT("de " + fmtNum(lead.valor, "currency") + " (valor bruto) — toque para mudar",
           "of " + fmtNum(lead.valor, "currency") + " (gross sale) — tap to change")
-    : gmT("defina o Valor estimate ($) primeiro", "set the Estimate value ($) first");
+    : gmT("defina o Valor do orçamento ($) primeiro", "set the Estimate value ($) first");
 
   body += gmSheetSection(gmT("Resultado", "Result"),
     gmSheetRowHtml("dollar", gmT("Custo total", "Total cost"),
@@ -2384,14 +2404,14 @@ function gmLeadEstimatesSectionHtml(lead) {
   var review = null;
   if (lead.commission_review_json) { try { review = JSON.parse(lead.commission_review_json); } catch (e) { review = null; } }
   var h = '<div class="gm-sheet-section" id="gmLeadEstimatesSection">' +
-    '<p class="gm-sheet-section-title">' + gmT("Estimates", "Estimates") + '</p>';
+    '<p class="gm-sheet-section-title">' + gmT("Orçamentos", "Estimates") + '</p>';
   if (review) {
     h += '<p class="gm-warn">' + gmT("Valor mudou de " + gmMoney(review.from_cents) + " para " + gmMoney(review.to_cents) + " depois de a comissão ter sido definida. Revise a comissão.",
         "Value changed from " + gmMoney(review.from_cents) + " to " + gmMoney(review.to_cents) + " after commission was set. Review commission.") +
       (gmIsSeller() ? "" : ' <button type="button" class="btn-outline" style="min-height:36px;padding:4px 10px;" onclick="gmLeadCommissionReviewDismiss(\'' + escHtml(lead.id) + '\')">' + gmT("Dispensar", "Dismiss") + '</button>') + '</p>';
   }
   h += '<div class="gm-sheet-group" id="gmLeadEstimatesList"><p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p></div>' +
-    '<button type="button" class="btn-gold gm-add-btn" onclick="gmEstWizardOpenForLead(gmDetailLead)">' + gmT("+ Criar estimate", "+ Create estimate") + '</button>' +
+    '<button type="button" class="btn-gold gm-add-btn" onclick="gmEstWizardOpenForLead(gmDetailLead)">' + gmT("+ Criar orçamento", "+ Create estimate") + '</button>' +
     '</div>';
   return h;
 }
@@ -2407,7 +2427,7 @@ function gmRenderLeadEstimates(leadId, failedMsg) {
   if (!box) { return; }
   var list = gmLeadEstimates[leadId] || [];
   if (failedMsg) { box.innerHTML = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(failedMsg) + '</p>'; return; }
-  if (!list.length) { box.innerHTML = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum estimate ainda.", "No estimates yet.") + '</p>'; return; }
+  if (!list.length) { box.innerHTML = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum orçamento ainda.", "No estimates yet.") + '</p>'; return; }
   var h = "";
   list.forEach(function(e) {
     var st = gmEstResponseState(e);
@@ -2469,7 +2489,7 @@ function gmLeadFieldLabel(field) {
     valor:                [ "Valor",                "Value" ],
     proxima_acao:         [ "Próxima ação",         "Next action" ],
     data_contato:         [ "Data do contato",      "Contact date" ],
-    data_estimate:        [ "Data do estimate",     "Estimate date" ],
+    data_estimate:        [ "Data do orçamento",     "Estimate date" ],
     mes_lead:             [ "Mês lead",             "Lead month" ],
     mes_fechamento:       [ "Mês fechamento",       "Closing month" ],
     address:              [ "Endereço",             "Address" ],
@@ -2496,11 +2516,11 @@ function gmLeadHistValue(field, v) {
 
 function gmLeadEstEventLabel(action) {
   var m = {
-    estimate_created: ["Estimate criado", "Estimate created"], estimate_sent: ["Estimate enviado", "Estimate sent"],
-    estimate_revised: ["Revisão do estimate", "Estimate revised"], estimate_accepted: ["Estimate aceito", "Estimate accepted"],
-    estimate_declined: ["Estimate recusado", "Estimate declined"], estimate_changes_requested: ["Cliente pediu mudanças", "Customer requested changes"],
-    estimate_update_requested: ["Cliente pediu estimate atualizado", "Customer requested an updated estimate"],
-    estimate_voided: ["Estimate anulado", "Estimate voided"], estimate_rate_override: ["Preço da tabela alterado", "Price-list rate changed"]
+    estimate_created: ["Orçamento criado", "Estimate created"], estimate_sent: ["Orçamento enviado", "Estimate sent"],
+    estimate_revised: ["Revisão do orçamento", "Estimate revised"], estimate_accepted: ["Orçamento aceito", "Estimate accepted"],
+    estimate_declined: ["Orçamento recusado", "Estimate declined"], estimate_changes_requested: ["Cliente pediu mudanças", "Customer requested changes"],
+    estimate_update_requested: ["Cliente pediu orçamento atualizado", "Customer requested an updated estimate"],
+    estimate_voided: ["Orçamento anulado", "Estimate voided"], estimate_rate_override: ["Preço da tabela alterado", "Price-list rate changed"]
   };
   return m[action] ? gmT(m[action][0], m[action][1]) : action;
 }
@@ -2928,7 +2948,7 @@ function gmEditLeadComissaoPct() {
         return;
       }
       if (value < 0 || value > 100) {
-        window.alert(gmT("A porcentagem deve estar entre 0 e 100.",
+        gmToast(gmT("A porcentagem deve estar entre 0 e 100.",
                          "The percentage must be between 0 and 100."));
         gmRenderLeadSheet();
         return;
@@ -2967,7 +2987,7 @@ function gmEditLeadField(defIdx) {
   }
   gmOpenFieldEditor(gmT(def.pt, def.en), def.type, lead[def.key], def.options || [], function(value) {
     if (def.key === "cliente" && (value === null || value === "")) {
-      window.alert(gmT("O nome do cliente é obrigatório.", "Client name is required."));
+      gmToast(gmT("O nome do cliente é obrigatório.", "Client name is required."));
       gmRenderLeadSheet();
       return;
     }
@@ -2979,7 +2999,7 @@ function gmEditLeadField(defIdx) {
       gmOpenFieldEditor(gmT("Por que este custo mudou?", "Why did this cost change?"), "text", "", [], function(reason) {
         if (!reason) { gmToast(gmT("Alteração cancelada: informe o motivo.", "Change cancelled: a reason is required.")); gmRenderLeadSheet(); return; }
         gmSaveLeadField(def.key, value, function() { gmRenderLeadSheet(); }, reason);
-      }, '<div class="gm-derived-note">' + gmT("Este valor veio do estimate " + lead.est_number + ". O motivo fica no histórico do lead.",
+      }, '<div class="gm-derived-note">' + gmT("Este valor veio do orçamento " + lead.est_number + ". O motivo fica no histórico do lead.",
           "This value came from estimate " + lead.est_number + ". The reason is kept in the lead's history.") + '</div>',
       function() { gmToast(gmT("Alteração cancelada: informe o motivo.", "Change cancelled: a reason is required.")); gmRenderLeadSheet(); });
       return;
@@ -3021,7 +3041,7 @@ function gmSaveLeadField(key, value, after, reason) {
       gmLoadCrmSilent();
       if (after) { after(); }
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmDeleteLead() {
@@ -3030,7 +3050,7 @@ function gmDeleteLead() {
                           "Delete lead \"" + lead.cliente + "\"? This cannot be undone."))) { return; }
   gmApi("leads/" + lead.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); gmLoadCrmSilent(); })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -3067,7 +3087,7 @@ function gmRenderRoadmap() {
         '<span class="gm-lead-main">' +
         '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(item.acao) + '</span>' +
         '<div class="gm-lead-sub">' +
-        [item.mes, item.frente, item.responsavel].filter(function(x) { return !!x; }).map(escHtml).join(" · ") +
+        [item.mes ? gmStatusLabel(item.mes) : null, item.frente, item.responsavel].filter(function(x) { return !!x; }).map(escHtml).join(" · ") +
         '</div></span>' +
         '<span class="gm-lead-side" data-tour="roadmap-status">' + gmPillHtml(gmStatusLabel(item.status), GM_STATUS_PILLS.roadmap[item.status]) + '</span>' +
         '</button>';
@@ -3153,7 +3173,7 @@ function gmReactivateBase() {
       gmLoadBase();
       gmLeadsData = null;   // stale — CRM refetches on next open
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -3362,7 +3382,7 @@ function gmFinanceChartSvg(monthly) {
     var wIn = Math.max(2, Math.round((r.entradas / maxV) * (W - 110)));
     var wOut = Math.max(2, Math.round((r.saidas / maxV) * (W - 110)));
     svg += '<text x="' + padL + '" y="' + (y + 10) + '" font-size="11" font-weight="700" fill="#1a1a1d" font-family="Inter,sans-serif">' +
-      escHtml(r.mes || "—") + '</text>';
+      escHtml(r.mes ? gmStatusLabel(r.mes) : "—") + '</text>';
     svg += '<rect x="' + padL + '" y="' + (y + labelH) + '" width="' + wIn + '" height="' + barH + '" rx="3" fill="#3f7d4e"/>';
     svg += '<text x="' + (padL + wIn + 5) + '" y="' + (y + labelH + 9) + '" font-size="10" fill="#2f6b3e" font-family="Inter,sans-serif">▲ ' +
       escHtml(fmtNum(r.entradas, "currency")) + '</text>';
@@ -3388,7 +3408,7 @@ function gmRenderFinance() {
     monthly.forEach(function(m) {
       var band = m.resultado >= 0 ? "gm-ok" : "gm-warn";
       var glyph = m.resultado >= 0 ? "▲" : "▼";
-      html += '<div class="gm-month-card"><div class="gm-month-title">' + escHtml(m.mes || "—") + '</div>' +
+      html += '<div class="gm-month-card"><div class="gm-month-title">' + escHtml(m.mes ? gmStatusLabel(m.mes) : "—") + '</div>' +
         '<div class="gm-month-line"><span>' + gmT("Entradas", "In") + '</span><span>' + fmtNum(m.entradas, "currency") + '</span></div>' +
         '<div class="gm-month-line"><span>' + gmT("Saídas", "Out") + '</span><span>' + fmtNum(m.saidas, "currency") + '</span></div>' +
         '<div class="gm-month-line"><span>' + gmT("Resultado", "Net") + '</span><span class="' + band + '">' + glyph + ' ' + fmtNum(m.resultado, "currency") + '</span></div>' +
@@ -3576,7 +3596,7 @@ function gmRenderJobs() {
     (gmIsSeller() ? "" : (target === null || target === undefined
       ? '<p class="muted" style="margin-bottom:8px;">' +
         '<strong>' + gmT("Margem mínima: não definida (opcional).", "Minimum margin: not set (optional).") + '</strong> ' +
-        gmT("Defina em Ajustes ou nas configurações de documentos; o assistente avisa quando um estimate ou projeto fica abaixo dela.",
+        gmT("Defina em Ajustes ou nas configurações de documentos; o assistente avisa quando um orçamento ou projeto fica abaixo dela.",
             "Set it in Settings or in the document settings; the assistant warns when an estimate or project falls below it.") + '</p>'
       : '<p class="muted" style="margin-bottom:8px;">' +
         gmT("Margem mínima: ", "Minimum margin: ") + fmtNum(target, "percent") +
@@ -3626,7 +3646,7 @@ function gmRenderJobs() {
         '<span class="gm-lead-main">' +
         '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(j.obra) + '</span>' +
         '<div class="gm-lead-sub">' +
-        [j.valor !== null && j.valor !== undefined ? fmtNum(j.valor, "currency") : null, j.mes_entrega]
+        [j.valor !== null && j.valor !== undefined ? fmtNum(j.valor, "currency") : null, j.mes_entrega ? gmStatusLabel(j.mes_entrega) : null]
           .filter(function(x) { return !!x; }).map(escHtml).join(" · ") + '</div>' +
         '<div class="gm-lead-sub">' + [margemHtml, prazoHtml].filter(function(x) { return !!x; }).join(" · ") + '</div>' +
         '</span>' +
@@ -3759,7 +3779,7 @@ function gmRenderPricing() {
   if (gmIsSeller()) {
     // A seller sees the price list only (C13): no costs exist on their side.
     html += '<div class="card-title">' + gmT("Tabela de preços", "Price list") + '</div>' +
-      '<p class="muted" style="margin-bottom:12px;">' + escHtml(String(items.length)) + " " + gmT("itens · os preços que você usa nos estimates", "items · the prices you use on estimates") + '</p>';
+      '<p class="muted" style="margin-bottom:12px;">' + escHtml(String(items.length)) + " " + gmT("itens · os preços que você usa nos orçamentos", "items · the prices you use on estimates") + '</p>';
   } else {
     html += '<div class="card-title">' + gmT("Tabela de preços e custos", "Pricing & costs") + '</div>' +
       '<p class="muted" style="margin-bottom:8px;">' +
@@ -3897,7 +3917,7 @@ function gmRenderPricingSheet() {
       'oninput="gmPricingDraftSet(\'unit\', this.value)">' +
     '<label class="gm-field-label" for="gmPricingDescription">' + gmT("Descrição para o cliente", "Customer description") + '</label>' +
     '<textarea id="gmPricingDescription" class="gm-input" rows="3" ' +
-      'placeholder="' + gmT("Impresso abaixo da linha no estimate do cliente", "Printed under the line on the customer's estimate") + '" ' +
+      'placeholder="' + gmT("Impresso abaixo da linha no orçamento do cliente", "Printed under the line on the customer's estimate") + '" ' +
       'oninput="gmPricingDraftSet(\'description\', this.value)">' + escHtml(d.description) + '</textarea>' +
     '</div>';
 
@@ -4027,7 +4047,7 @@ function gmPricingSave() {
   var d = gmPricingDraft;
   if (!d) { return; }
   if (!d.item || !d.item.trim()) {
-    window.alert(gmT("O item precisa de um nome.", "The item needs a name."));
+    gmToast(gmT("O item precisa de um nome.", "The item needs a name."));
     return;
   }
   var lines = [];
@@ -4054,7 +4074,7 @@ function gmPricingSave() {
     ? gmApi("pricing/" + d.id, { method: "PUT", body: payload })
     : gmApi("pricing", { method: "POST", body: payload });
   req.then(function() { gmSheetClose(); gmLoadPricing(); })
-     .catch(function(e) { window.alert(e.message); });
+     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmPricingDelete() {
@@ -4064,7 +4084,7 @@ function gmPricingDelete() {
                           "Delete \"" + (d.item || "") + "\"? This cannot be undone."))) { return; }
   gmApi("pricing/" + d.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); gmLoadPricing(); })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 // ── CSV import ───────────────────────────────────────────────────────────
@@ -4314,12 +4334,12 @@ function gmConSettingsHtml() {
   }
   var d = gmConDraft, S = gmConSettings;
   var h = '<div class="content-card" id="gmConSettingsCard"><div class="card-title">' + gmT("Contrato", "Contract") + '</div>' +
-    '<p class="muted" style="margin-bottom:8px;">' + gmT("O que entra no contrato que fica entre o estimate aceito e a obra. Marca, logo, imagem, licença, nome legal e formas de pagamento vêm das configurações dos documentos acima; nada é pedido duas vezes.",
+    '<p class="muted" style="margin-bottom:8px;">' + gmT("O que entra no contrato que fica entre o orçamento aceito e a obra. Marca, logo, imagem, licença, nome legal e formas de pagamento vêm das configurações dos documentos acima; nada é pedido duas vezes.",
       "What goes into the contract that sits between the accepted estimate and the work. Brand, logo, hero, license, legal name and payment methods come from the document settings above; nothing is asked twice.") + '</p>';
   if (S.library) { h += '<p class="gm-derived-note">' + gmT("Biblioteca de cláusulas v" + S.library.version + ": ", "Clause library v" + S.library.version + ": ") + (S.library.status === "attorney_reviewed" ? gmT("revisada por " + S.library.attorney_name, "reviewed by " + S.library.attorney_name) : gmT("rascunho, ainda não revisada por advogado. Cada contrato diz isso até a revisão ser registrada.", "draft, not yet reviewed by an attorney. Every contract says so until the review is recorded.")) + '</p>'; }
   // Trades
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Ofícios da empresa", "Trades the business does") + '</p><div class="gm-chip-set">' +
-    S.trades.map(function(t) { return '<button type="button" class="gm-choice-chip' + (d.trades.indexOf(t.key) !== -1 ? " gm-chip-sel" : "") + '" onclick="gmConToggleTrade(\'' + t.key + '\')">' + escHtml(t.label) + '</button>'; }).join("") + '</div>' +
+    S.trades.map(function(t) { return '<button type="button" class="gm-choice-chip' + (d.trades.indexOf(t.key) !== -1 ? " gm-chip-sel" : "") + '" onclick="gmConToggleTrade(\'' + t.key + '\')">' + escHtml((window.GmLabels && GmLabels.contractTradeLabel) ? GmLabels.contractTradeLabel(t.key, t.label, isEn()) : t.label) + '</button>'; }).join("") + '</div>' +
     '<label class="gm-switch-row" style="display:flex;gap:10px;align-items:center;margin-top:10px;min-height:44px;"><input type="checkbox" ' + (d.builds_pools ? "checked" : "") + ' onchange="gmConDraft.builds_pools = this.checked;" style="width:22px;height:22px;"> ' + gmT("A empresa constrói piscinas ou spas?", "Do you build pools or spas?") + '</label></div>';
   // Defaults per area
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Opção padrão por área", "Default option per clause area") + ' <span class="gm-sheet-section-note">' + gmT("cada contrato pode trocar", "each contract can switch") + '</span></p>';
@@ -4328,11 +4348,11 @@ function gmConSettingsHtml() {
     if (!opts.length) { return; }
     var cur = d.defaults[a.id] || "";
     var sel = opts.filter(function(o) { return o.id === cur; })[0] || null;
-    h += '<label class="gm-field-label" for="gmConDef_' + a.id + '">' + escHtml(a.id + " · " + a.title) + '</label>' +
+    h += '<label class="gm-field-label" for="gmConDef_' + a.id + '">' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</label>' +
       '<select id="gmConDef_' + a.id + '" class="gm-input" onchange="gmConDraft.defaults[\'' + a.id + '\'] = this.value; gmConRenderDesc(\'' + a.id + '\');">' +
       '<option value="">' + gmT("— não usar esta área —", "— leave this area out —") + '</option>' +
-      opts.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur ? " selected" : "") + '>' + escHtml(o.id + " · " + o.title) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") + '</select>' +
-      '<p class="muted" id="gmConDesc_' + a.id + '" style="margin:-4px 0 10px;font-size:13px;">' + escHtml(sel ? sel.owner_description || "" : "") + '</p>';
+      opts.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") + '</select>' +
+      '<p class="muted" id="gmConDesc_' + a.id + '" style="margin:-4px 0 10px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : "") + '</p>';
   });
   h += '</div>';
   // Signers
@@ -4376,7 +4396,7 @@ function gmConToggleTrade(k) { var i = gmConDraft.trades.indexOf(k); if (i === -
 function gmConRenderDesc(areaId) {
   var el = document.getElementById("gmConDesc_" + areaId); if (!el) { return; }
   var o = (gmConSettings.options || []).filter(function(x) { return x.id === gmConDraft.defaults[areaId]; })[0];
-  el.textContent = o ? (o.owner_description || "") : "";
+  el.textContent = o ? gmConOptDesc(o) : "";
 }
 function gmConSettingsSave() {
   var d = gmConDraft, msg = document.getElementById("gmConMsg"), btn = document.getElementById("gmConSaveBtn");
@@ -4415,7 +4435,7 @@ function gmRenderJobContracts(jobId, failedMsg) {
   var noEstimate = ests && !ests.error && !(ests.estimates || []).length;
   var inner = "";
   if (failedMsg) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(failedMsg) + '</p>'; }
-  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + (noEstimate ? gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") : gmT("Nenhum contrato ainda. O contrato é montado a partir do estimate aceito.", "No contract yet. The contract is built from the accepted estimate.")) + '</p>'; }
+  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + (noEstimate ? gmT("Este projeto não veio de um lead com orçamento aceito; o contrato é montado a partir do orçamento.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") : gmT("Nenhum contrato ainda. O contrato é montado a partir do orçamento aceito.", "No contract yet. The contract is built from the accepted estimate.")) + '</p>'; }
   else {
     list.forEach(function(c) {
       // F37: "awaiting <name>" only while the contract actually waits for that person.
@@ -4430,7 +4450,7 @@ function gmRenderJobContracts(jobId, failedMsg) {
   }
   var live = list.some(function(c) { return ["void", "superseded", "declined"].indexOf(c.status) === -1; });
   box.innerHTML = gmSheetSection(gmT("Contrato", "Contract"), inner) +
-    (!live && !noEstimate && ests ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateContract(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato a partir do estimate aceito", "Create contract from the accepted estimate") + '</button>' : "");
+    (!live && !noEstimate && ests ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateContract(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato a partir do orçamento aceito", "Create contract from the accepted estimate") + '</button>' : "");
 }
 var gmJobAcceptedEsts = {};
 function gmLoadJobAcceptedEsts(jobId) {
@@ -4447,7 +4467,7 @@ function gmJobCreateContract(jobId) {
   var rows = ests.map(function(e) {
     return '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" class="gm-con-est-pick" value="' + escHtml(e.id) + '" data-cents="' + e.total_cents + '" checked style="width:22px;height:22px;" onchange="gmJobCreateContractTotal()"> <span><strong>' + escHtml(e.display_number) + '</strong> · ' + gmMoney(e.total_cents) + (e.job_name ? ' <span class="muted">' + escHtml(e.job_name) + '</span>' : "") + '</span></label>';
   }).join("");
-  gmSheetOpen(gmT("Criar contrato", "Create contract"), '<div class="gm-sheet-section"><p class="muted">' + gmT("Este lead tem mais de um estimate aceito. Marque o que entra neste contrato.", "This lead has more than one accepted estimate. Tick what this contract includes.") + '</p>' + rows +
+  gmSheetOpen(gmT("Criar contrato", "Create contract"), '<div class="gm-sheet-section"><p class="muted">' + gmT("Este lead tem mais de um orçamento aceito. Marque o que entra neste contrato.", "This lead has more than one accepted estimate. Tick what this contract includes.") + '</p>' + rows +
     '<div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), '<strong id="gmConEstTotal"></strong>') + '</div>' +
     '<p class="gm-warn" id="gmConEstMsg" hidden></p>' +
     '<button type="button" class="gm-btn-primary" onclick="gmJobCreateContractPicked(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato", "Create contract") + '</button>' +
@@ -4460,7 +4480,7 @@ function gmJobCreateContractTotal() {
 }
 function gmJobCreateContractPicked(jobId) {
   var ids = [].slice.call(document.querySelectorAll(".gm-con-est-pick")).filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.value; });
-  if (!ids.length) { var m = document.getElementById("gmConEstMsg"); if (m) { m.textContent = gmT("Marque ao menos um estimate.", "Tick at least one estimate."); m.hidden = false; } return; }
+  if (!ids.length) { var m = document.getElementById("gmConEstMsg"); if (m) { m.textContent = gmT("Marque ao menos um orçamento.", "Tick at least one estimate."); m.hidden = false; } return; }
   gmJobCreateContractDo(jobId, ids);
 }
 function gmJobCreateContractDo(jobId, ids) {
@@ -4480,12 +4500,21 @@ function gmOpenContract(id) {
 function gmConEditable(c) { return ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at); }
 var GM_CON_PROPERTY_TYPES = [["single_family", "Casa unifamiliar", "Single-family home"], ["townhouse", "Townhouse", "Townhouse"], ["duplex", "Duplex", "Duplex"], ["triplex", "Triplex", "Triplex"], ["fourplex", "Fourplex", "Fourplex"], ["condo", "Condomínio (apartamento)", "Condominium unit"], ["commercial", "Comercial", "Commercial"]];
 
+// N2: the owner reads clause areas, options, trades and notice reasons in
+// Portuguese on a Portuguese screen. The clause text that prints stays English.
+function gmConAreaTitle(a) { return (window.GmLabels && GmLabels.contractAreaTitle) ? GmLabels.contractAreaTitle(a.id, a.title, isEn()) : a.title; }
+function gmConOptTitle(o) { return (o.private || !window.GmLabels || !GmLabels.contractOptionTitle) ? o.title : GmLabels.contractOptionTitle(o.id, o.title, isEn()); }
+function gmConOptDesc(o) { return (!isEn() && o.owner_description_pt) ? o.owner_description_pt : (o.owner_description || ""); }
+// N6: a payment step's stored name ("Deposit", "Change order CO-0007") stays
+// English -- it prints on the customer's invoice -- and a Portuguese screen
+// shows it in Portuguese. A name the owner typed shows as typed.
+function gmStepLabel(name) { return (window.GmLabels && GmLabels.payStepLabel) ? GmLabels.payStepLabel(name, isEn()) : (name || ""); }
 function gmConFieldLabel(k) { return (window.GmLabels && GmLabels.contractFieldLabel) ? GmLabels.contractFieldLabel(k, isEn()) : k; }
 function gmConFieldType(k) { return (window.GmLabels && GmLabels.contractFieldType) ? GmLabels.contractFieldType(k) : "text"; }
 // Clause dates are printed as MM/DD/YYYY text; the date picker speaks YYYY-MM-DD.
 function gmConUsToIso(v) { var m = String(v || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
 function gmConIsoToUs(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + "/" + m[3] + "/" + m[1] : String(v || ""); }
-var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do estimate", "from the estimate"], settings: ["das configurações", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"] };
+var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do orçamento", "from the estimate"], settings: ["das configurações", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"] };
 function gmConSourceLabel(f) {
   var s = GM_CON_SOURCE[f.overridden ? "contract" : f.source] || [f.source, f.source];
   var t = gmT(s[0], s[1]);
@@ -4579,9 +4608,9 @@ function gmRenderContractSheet() {
 
   // Locked blocks by rule
   var R = c.rules || {};
-  var lockedNames = { L1: "Construction lien notice (§713.015)", L2: "Recovery Fund notice (§489.1425)", L3: "Chapter 558 notice", L4: "License number line", L5: "Three-day cancellation", L6: "Pool documents (Chapter 515)", L7: "Deposit information (§489.126)" };
+  var lockedNames = { L1: gmT("Aviso de gravame de construção (§713.015)", "Construction lien notice (§713.015)"), L2: gmT("Aviso do Recovery Fund (§489.1425)", "Recovery Fund notice (§489.1425)"), L3: gmT("Aviso do Capítulo 558", "Chapter 558 notice"), L4: gmT("Linha do número da licença", "License number line"), L5: gmT("Cancelamento em três dias", "Three-day cancellation"), L6: gmT("Documentos de piscina (Capítulo 515)", "Pool documents (Chapter 515)"), L7: gmT("Informação sobre o sinal (§489.126)", "Deposit information (§489.126)") };
   body += gmSheetSection(gmT("Avisos da Flórida inseridos por regra", "Florida notices inserted by rule"), Object.keys(lockedNames).map(function(k) {
-    var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml(r.why || ""));
+    var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml((window.GmLabels && GmLabels.contractNoticeWhy) ? GmLabels.contractNoticeWhy(r.why, isEn()) : (r.why || "")));
   }).join(""), gmT("não editáveis", "not editable"));
 
   // Missing fields: human labels (F15), date pickers and number pads.
@@ -4595,7 +4624,7 @@ function gmRenderContractSheet() {
         '<input type="text"' + (t === "number" ? ' inputmode="numeric"' : "") + ' id="gmConAns_' + m.field + '" class="gm-input" value="' + escHtml(val) + '" data-con-field="' + escHtml(m.field) + '">');
       mh += '<label class="gm-field-label" for="gmConAns_' + m.field + '">' + escHtml(gmConFieldLabel(m.field)) + ' <span class="muted" style="font-weight:400;font-size:12px;">' + escHtml(m.used_in.join(", ")) + '</span></label>' + inp;
     });
-    if (mh) { body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Faltam estes dados", "Missing information") + ' <span class="gm-sheet-section-note">' + gmT("só o que não veio do lead, do estimate ou das configurações", "only what did not come from the lead, the estimate or the settings") + '</span></p>' + mh + '<button type="button" class="gm-btn-primary" onclick="gmConSaveAnswers()">' + gmT("Salvar dados", "Save") + '</button></div>'; }
+    if (mh) { body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Faltam estes dados", "Missing information") + ' <span class="gm-sheet-section-note">' + gmT("só o que não veio do lead, do orçamento ou das configurações", "only what did not come from the lead, the estimate or the settings") + '</span></p>' + mh + '<button type="button" class="gm-btn-primary" onclick="gmConSaveAnswers()">' + gmT("Salvar dados", "Save") + '</button></div>'; }
   }
 
   // F19: every value this contract uses, where it came from, editable while
@@ -4619,15 +4648,15 @@ function gmRenderContractSheet() {
     var custom = (c.custom_clauses || []).filter(function(x) { return x.area_id === a.id; })[0];
     var cst = custom ? (GM_CON_CUSTOM_STATUS[custom.status] || [custom.status, custom.status]) : null;
     if (ro) {
-      body += gmSheetRowHtml("file", escHtml(a.id + " · " + a.title), sel ? escHtml(sel.id + " · " + sel.title) : (cur2 === "custom" && custom ? gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')' : '<span class="muted">' + gmT("fora deste contrato", "not in this contract") + '</span>'));
+      body += gmSheetRowHtml("file", escHtml(a.id + " · " + gmConAreaTitle(a)), sel ? escHtml(sel.id + " · " + gmConOptTitle(sel)) : (cur2 === "custom" && custom ? gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')' : '<span class="muted">' + gmT("fora deste contrato", "not in this contract") + '</span>'));
       if (custom) { body += gmConCustomHtml(custom); }
       return;
     }
-    body += '<label class="gm-field-label" for="gmConSel_' + a.id + '">' + escHtml(a.id + " · " + a.title) + '</label>' +
+    body += '<label class="gm-field-label" for="gmConSel_' + a.id + '">' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</label>' +
       '<select id="gmConSel_' + a.id + '" class="gm-input" onchange="gmConSelect(\'' + a.id + '\', this.value)"><option value="">' + gmT("— fora deste contrato —", "— not in this contract —") + '</option>' +
-      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + o.title) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") +
+      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") +
       (custom ? '<option value="custom"' + (cur2 === "custom" ? " selected" : "") + '>' + gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')</option>' : "") + '</select>' +
-      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? sel.owner_description || "" : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' +
+      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' +
       (!gmIsSeller() && !custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cláusula própria nesta área", "Write a custom clause for this area") + '</button>' : "") +
       (custom ? gmConCustomHtml(custom) : "");
   });
@@ -4648,7 +4677,7 @@ function gmRenderContractSheet() {
   if (c.public && c.public.signed_render_hash) { sig += gmSheetRowHtml("tag", gmT("SHA-256 da versão assinada", "SHA-256 of the signed render"), '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(c.public.signed_render_hash) + '</span>'); }
   if (c.void_reason) { sig += gmSheetRowHtml("sms", gmT("Motivo da anulação", "Void reason"), escHtml(c.void_reason) + ' <span class="muted">' + escHtml(c.voided_by || "") + '</span>'); }
   if (sig) { body += gmSheetSection(gmT("Assinaturas e registro", "Signatures and audit"), sig); }
-  body += '<p class="gm-derived-note">' + escHtml(c.disclaimer_line || "") + '</p>';
+  body += '<p class="gm-derived-note">' + escHtml((window.GmLabels && GmLabels.contractDisclaimer) ? GmLabels.contractDisclaimer(c.disclaimer_line, isEn()) : (c.disclaimer_line || "")) + '</p>';
   gmSheetOpen(escHtml(c.display_number) + " · " + escHtml(c.job_name || ""), body, "gm-contract-detail");
   var sb = document.getElementById("gmConSendBtn"); if (sb) { gmDocMsgAttach(sb, "contract_message"); }
 }
@@ -5456,7 +5485,7 @@ function gmRenderChangeOrderSheet() {
   var resend = (co.applied && co.applied.invoices || []).filter(function(x) { return x.changed_after_send; });
   if (resend.length) { body += '<p class="gm-warn">' + gmT("Alterada depois de enviada: reenviar ", "Changed after sending: resend ") + resend.map(function(x) { return escHtml(x.number); }).join(", ") + '</p>'; }
   body += gmSheetSection(gmT("Resumo", "Summary"),
-    gmSheetRowHtml("tag", gmT("Contrato", "Contract"), escHtml(co.contract_display_number || gmT("estimate aceito (sem contrato assinado)", "accepted estimate (no signed contract)"))) +
+    gmSheetRowHtml("tag", gmT("Contrato", "Contract"), escHtml(co.contract_display_number || gmT("orçamento aceito (sem contrato assinado)", "accepted estimate (no signed contract)"))) +
     gmSheetRowHtml("dollar", gmT("Preço antes", "Price before"), gmMoney(co.price_before_cents)) +
     gmSheetRowHtml("dollar", gmT("Mudança", "Change"), gmSignedMoney(co.amount_cents)) +
     gmSheetRowHtml("dollar", gmT("Novo preço", "New price"), "<strong>" + gmMoney(co.price_after_cents) + "</strong>") +
@@ -5469,7 +5498,7 @@ function gmRenderChangeOrderSheet() {
   if (co.applied) { sig += gmSheetRowHtml("dollar", gmT("Aplicado", "Applied"), (co.applied.invoices || []).map(function(x) { return escHtml(x.number) + " " + gmMoney(x.delta_cents) + (x.changed_after_send ? ' <span class="gm-pill gm-red">! ' + gmT("reenviar", "resend") + '</span>' : ""); }).join("<br>") || gmT("sem faturas", "no invoices"), null, null, escHtml(formatDateTimeUTC(co.applied_at))); }
   if (co.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(co.content_hash) + '</span>'); }
   if (sig) { body += gmSheetSection(gmT("Assinaturas", "Signatures"), sig); }
-  body += '<p class="gm-derived-note">' + escHtml(co.disclaimer_line || "") + '</p>';
+  body += '<p class="gm-derived-note">' + escHtml((window.GmLabels && GmLabels.contractDisclaimer) ? GmLabels.contractDisclaimer(co.disclaimer_line, isEn()) : (co.disclaimer_line || "")) + '</p>';
   gmSheetOpen(escHtml(co.number) + " · " + escHtml(co.job_name || ""), body);
 }
 function DEFAULT_ORIGIN_PORTAL() { return window.location.origin; }
@@ -5521,7 +5550,7 @@ function gmContractGuard(jobId, trigger, proceed) {
       } else {
         body += '<div class="gm-est-actions">' +
           (st.can_build_contract ? '<button type="button" class="gm-btn-primary" onclick="gmSheetClose(); switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(jobId) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' :
-            '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
+            '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com orçamento aceito; o contrato é montado a partir do orçamento.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
           '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div>' +
           '<p class="muted" style="font-size:13px;">' + gmT("Continuar fica registrado com o seu nome e a hora.", "Continuing is logged with your name and the time.") + '</p></div>';
       }
@@ -5598,7 +5627,7 @@ function gmConNoticesCardHtml() {
       return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(n.job_name || "") + ' · ' + gmMoney(Math.round((Number(n.valor) || 0) * 100)) + '</span>' +
         '<div class="gm-lead-sub">' + gmT("aberto em ", "opened ") + escHtml(formatDateTimeUTC(n.created_at)) + (n.opened_by ? " · " + escHtml(n.opened_by) : "") + '</div>' +
         '<div class="gm-est-actions" style="margin-top:6px;">' + (n.accepted_estimates ? '<button type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(n.job_id) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' :
-          '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
+          '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com orçamento aceito; o contrato é montado a partir do orçamento.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
         '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(n.job_id) + '\', \'home\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div></span></div>';
     }).join("");
 }
@@ -5918,6 +5947,7 @@ function gmSimpleFieldDisplay(row, def) {
   if (def.type === "date") { return escHtml(formatDate(v)); }
   if (def.type === "jobref") { return escHtml(row.obra_name || ""); }
   if (def.pills) { return gmPillHtml(gmStatusLabel(v), def.pills[v]); }
+  if (def.key === "mes" || def.key === "mes_entrega") { return escHtml(gmStatusLabel(v)); }
   return escHtml(String(v));
 }
 
@@ -6298,7 +6328,7 @@ function gmSimpleCreateSave() {
     payload[def.key] = value;
   });
   if (missing) {
-    window.alert(gmT("Preencha: " + missing.pt, "Fill in: " + missing.en));
+    gmToast(gmT("Preencha: " + missing.pt, "Fill in: " + missing.en));
     return;
   }
   if (gmSheetKind === "finance") { payload.mes = gmCurrentCycleMonth(); payload.data = gmTodayLocal(); }
@@ -6309,7 +6339,7 @@ function gmSimpleCreateSave() {
       spec.reload();
       if (gmSheetKind === "finance" || gmSheetKind === "job") { gmJobsData = null; }
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmEditSimpleField(defIdx) {
@@ -6332,7 +6362,7 @@ function gmEditSimpleField(defIdx) {
   }
   gmOpenFieldEditor(gmT(def.pt, def.en), def.type, row[def.key], def.options || [], function(value) {
     if (def.required && (value === null || value === "")) {
-      window.alert(gmT("Este campo é obrigatório.", "This field is required."));
+      gmToast(gmT("Este campo é obrigatório.", "This field is required."));
       gmRenderSimpleSheet(kind);
       return;
     }
@@ -6369,7 +6399,7 @@ function gmEditJobComissaoPct() {
         return;
       }
       if (value < 0 || value > 100) {
-        window.alert(gmT("A porcentagem deve estar entre 0 e 100.",
+        gmToast(gmT("A porcentagem deve estar entre 0 e 100.",
                          "The percentage must be between 0 and 100."));
         gmRenderSimpleSheet(kind);
         return;
@@ -6426,7 +6456,7 @@ function gmSaveSimpleField(kind, key, value) {
       };
       setTimeout(function() { reopen(8); }, 300);
     })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 function gmDeleteSimple() {
@@ -6436,7 +6466,7 @@ function gmDeleteSimple() {
                           "Delete \"" + (row[spec.nameKey] || "") + "\"? This cannot be undone."))) { return; }
   gmApi(spec.collection + "/" + row.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); spec.reload(); })
-    .catch(function(e) { window.alert(e.message); });
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -6825,6 +6855,37 @@ function gmDownloadReferralQr() {
 }
 
 // ── Language toggle re-render (called from portal.html's toggleLang) ─────
+// Redraws the open sheet (redraw() reopens it) and puts back where the user
+// was: the sheet's scroll position and every field typed but not saved.
+// Sections that load after the redraw get their typed text back on a second
+// pass, only where the new field is still empty.
+function gmSheetKeepState(redraw) {
+  var sheet = gmSheetEl ? gmSheetEl.querySelector(".gm-sheet") : null;
+  var top = sheet ? sheet.scrollTop : 0;
+  var typed = {};
+  if (sheet) {
+    Array.prototype.forEach.call(sheet.querySelectorAll("input[id], textarea[id], select[id]"), function(el) {
+      if (el.type === "file") { return; }
+      typed[el.id] = (el.type === "checkbox" || el.type === "radio") ? { c: el.checked } : { v: el.value };
+    });
+  }
+  redraw();
+  var restore = function(onlyEmpty) {
+    var sh = gmSheetEl ? gmSheetEl.querySelector(".gm-sheet") : null;
+    if (!sh) { return; }
+    Object.keys(typed).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el || !sh.contains(el)) { return; }
+      if (typed[id].c !== undefined) { if (!onlyEmpty) { el.checked = typed[id].c; } return; }
+      if (onlyEmpty && el.value) { return; }
+      el.value = typed[id].v;
+    });
+    sh.scrollTop = top;
+  };
+  restore(false);
+  setTimeout(function() { restore(true); }, 800);
+}
+
 function gmOnLangChange() {
   // Pipeline: the pills carry labels too, and only the visible section needs
   // re-rendering — the other two re-render when their pill is next tapped.
@@ -6848,13 +6909,30 @@ function gmOnLangChange() {
   // from this list, which is why a toggle left the grid in the old language.
   if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
 
-  // An open project sheet re-renders too, so the photo gallery's own labels
-  // ("No photos yet", "+ Add photo") switch with everything else. Replayed
-  // from gmJobPhotos, so no image is re-downloaded.
-  if (gmSheetKind === "job" && gmSheetRow && gmSheetRow.id &&
-      document.getElementById("gmJobPhotosSection")) {
-    gmRenderJobPhotos(gmSheetRow.id);
+  // N5: whatever sheet is open redraws in the new language -- the project
+  // sheet, the contract sheet and the estimate wizard -- keeping its scroll
+  // position and anything typed but not saved (gmSheetKeepState). The
+  // project sheet's photos replay from gmJobPhotos, so no image is
+  // re-downloaded; its invoice / contract / change-order rows reload.
+  var openSheet = gmSheetEl ? gmSheetEl.querySelector(".gm-sheet") : null;
+  var openTour = openSheet ? (openSheet.getAttribute("data-tour") || "") : "";
+  if (openTour === "gm-estimate-wizard" && gmEstWiz) {
+    gmSheetKeepState(function() { gmEstWizRender(); });
+  } else if (openTour === "gm-contract-detail" && gmConDetail && !gmConDetail._co) {
+    gmSheetKeepState(function() { gmRenderContractSheet(); });
+  } else if (openTour === "job-detail" && gmSheetKind === "job" && gmSheetRow && gmSheetRow.id) {
+    gmSheetKeepState(function() {
+      var jid = gmSheetRow.id;
+      gmRenderSimpleSheet("job");
+      gmLoadJobInvoices(jid); gmLoadJobContracts(jid); gmLoadJobChangeOrders(jid); gmDLoadJobTools(jid);
+      if (!gmIsSeller()) {
+        if (document.getElementById("gmJobPhotosSection")) { gmRenderJobPhotos(jid); }
+        gmLoadNotes("job", jid);
+      }
+    });
   }
+  // The salesperson's "awaiting your signature" card (Pipeline, Projetos).
+  if (gmIsSeller()) { gmSellerAwaitingRender(); }
 
   // An open LEAD sheet re-renders too. It carries more translated text than
   // any other sheet now — field labels, the stage pill, origem, and the whole
@@ -7048,7 +7126,7 @@ function gmRenderCalendar() {
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
       '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
-      '<span><i class="cgrid-chip lead"></i>' + gmT("Estimates", "Estimates") + '</span>' +
+      '<span><i class="cgrid-chip lead"></i>' + gmT("Orçamentos", "Estimates") + '</span>' +
       '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +
     '</div>' +
     '<button type="button" class="btn-gold gm-add-btn" onclick="gmCalNew()">' +
@@ -7597,7 +7675,7 @@ function gmEstimatesGo(section) {
 function gmEstimatesSubnavHtml() {
   var sections = gmEstimatesSections();
   if (sections.length < 2) { return ""; }
-  var labels = { list: gmT("Estimates", "Estimates"), settings: gmT("Configurações", "Settings") };
+  var labels = { list: gmT("Orçamentos", "Estimates"), settings: gmT("Configurações", "Settings") };
   var html = '<div class="gm-subnav" role="tablist">';
   sections.forEach(function(sec) {
     var active = sec === gmEstimatesSection;
@@ -7688,7 +7766,7 @@ function gmDocSettingsFormHtml() {
   var html = '<div class="content-card">' +
     '<div class="card-title">' + gmT("Configurações dos documentos", "Document settings") + '</div>' +
     '<p class="muted" style="margin-bottom:12px;">' +
-    gmT("O que aparece nos seus estimates, faturas e recibos para os seus clientes.",
+    gmT("O que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
         "What appears on your estimates, invoices and receipts to your customers.") + '</p>';
 
   // ── Images ──
@@ -7754,7 +7832,7 @@ function gmDocSettingsFormHtml() {
   // ── Terms ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Prazos", "Terms") + '</p>' +
-    gmDocField("gmDocValidDays", "Validade do estimate (dias)", "Estimate valid for (days)",
+    gmDocField("gmDocValidDays", "Validade do orçamento (dias)", "Estimate valid for (days)",
       gmDocTextInput("gmDocValidDays", "estimate_valid_days", d.estimate_valid_days, 'inputmode="numeric"')) +
     '<label class="gm-field-label" for="gmDocTerms">' + gmT("Prazo de pagamento padrão", "Default payment terms") + '</label>' +
     '<select id="gmDocTerms" class="gm-input" onchange="gmDocTermsMode(this.value)">' +
@@ -7782,7 +7860,7 @@ function gmDocSettingsFormHtml() {
     '<p class="gm-sheet-section-title">' + gmT("Margem e atraso", "Margin and late payment") + '</p>' +
     gmDocField("gmDocMinMargin", "Margem mínima (%) — opcional", "Minimum margin (%) — optional",
       gmDocTextInput("gmDocMinMargin", "min_margin_pct", d.min_margin_pct, 'inputmode="decimal"')) +
-    '<p class="muted" style="margin:-4px 0 10px;">' + gmT("Se preenchida, o assistente avisa quando um estimate fica abaixo dela. Nada depende dela.",
+    '<p class="muted" style="margin:-4px 0 10px;">' + gmT("Se preenchida, o assistente avisa quando um orçamento fica abaixo dela. Nada depende dela.",
         "If set, the builder warns when an estimate falls below it. Nothing depends on it.") + '</p>' +
     gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
       gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"')) +
@@ -7802,7 +7880,7 @@ function gmDocSettingsFormHtml() {
   // ── Message templates (edited from the Send button in phase 2) ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Mensagens de envio", "Send messages") + '</p>' +
-    '<p class="muted">' + gmT("Os textos de envio de estimate, fatura e recibo são editados pelo lápis ao lado do botão Enviar. Cada edição fica registrada no histórico.",
+    '<p class="muted">' + gmT("Os textos de envio de orçamento, fatura e recibo são editados pelo lápis ao lado do botão Enviar. Cada edição fica registrada no histórico.",
         "The estimate, invoice and receipt send messages are edited from the pencil next to the Send button. Every edit is recorded in the history.") + '</p>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDocHistoryOpen()">' + gmT("Ver histórico de alterações", "View change history") + '</button>' +
     '</div>';
@@ -7926,7 +8004,7 @@ function gmDocPresetsHtml() {
       '<button type="button" class="gm-btn-secondary" style="margin:0;" onclick="gmDocAddStep(' + pi + ')">' + gmT("+ Etapa", "+ Step") + '</button>' +
       '<span class="' + (ok ? "gm-ok" : "gm-warn") + '">' +
         (p.steps.length ? gmT("Total: ", "Total: ") + escHtml(fmtNum(total, "percent")) + (ok ? " ✓" : " — " + gmT("precisa ser 100%", "must be 100%"))
-                        : gmT("Sem etapas: definidas em cada estimate", "No steps: set on each estimate")) +
+                        : gmT("Sem etapas: definidas em cada orçamento", "No steps: set on each estimate")) +
       '</span></div>' +
       '</div>';
   });
@@ -7988,7 +8066,7 @@ function gmDocStepSet(pi, si, key, v) {
     foots[pi].className = ok ? "gm-ok" : "gm-warn";
     foots[pi].textContent = p.steps.length
       ? gmT("Total: ", "Total: ") + fmtNum(gmDocStepsTotal(p.steps), "percent") + (ok ? " ✓" : " — " + gmT("precisa ser 100%", "must be 100%"))
-      : gmT("Sem etapas: definidas em cada estimate", "No steps: set on each estimate");
+      : gmT("Sem etapas: definidas em cada orçamento", "No steps: set on each estimate");
   }
 }
 
@@ -8101,10 +8179,10 @@ var GM_DOC_HISTORY_LABELS = {
   brand_primary: ["Cor principal", "Primary color"], brand_accent: ["Cor de destaque", "Accent color"],
   legal_name: ["Nome legal", "Legal name"], address: ["Endereço", "Address"], phone: ["Telefone", "Phone"], email: ["Email", "Email"],
   license_numbers: ["Licenças", "License numbers"], min_margin_pct: ["Margem mínima (%)", "Minimum margin (%)"],
-  estimate_valid_days: ["Validade do estimate (dias)", "Estimate validity (days)"], default_terms_days: ["Prazo de pagamento (dias)", "Payment terms (days)"],
+  estimate_valid_days: ["Validade do orçamento (dias)", "Estimate validity (days)"], default_terms_days: ["Prazo de pagamento (dias)", "Payment terms (days)"],
   payment_methods_json: ["Formas de pagamento", "Payment methods"], late_fee_annual_pct: ["Juros por atraso (% ao ano)", "Late payment interest (% per year)"],
   late_fee_grace_days: ["Carência (dias)", "Grace period (days)"], schedule_presets_json: ["Modelos de parcelamento", "Schedule presets"],
-  estimate_message: ["Mensagem do estimate", "Estimate message"], invoice_message: ["Mensagem da fatura", "Invoice message"], receipt_message: ["Mensagem do recibo", "Receipt message"], contract_message: ["Mensagem do contrato", "Contract message"],
+  estimate_message: ["Mensagem do orçamento", "Estimate message"], invoice_message: ["Mensagem da fatura", "Invoice message"], receipt_message: ["Mensagem do recibo", "Receipt message"], contract_message: ["Mensagem do contrato", "Contract message"],
   hero_r2_key: ["Imagem de capa", "Cover image"], logo: ["Logo", "Logo"]
 };
 function gmDocHistoryFieldLabel(field) {
@@ -8228,9 +8306,9 @@ function gmEstMatchesFilter(e) {
 function gmEstimatesListHtml() {
   var list = (gmEstList && gmEstList.estimates) || [];
   var html = '<div class="content-card">' +
-    '<div class="card-title">' + gmT("Estimates", "Estimates") + '</div>';
+    '<div class="card-title">' + gmT("Orçamentos", "Estimates") + '</div>';
   if (!gmIsSeller() && gmDocSettings && !gmDocSettings.setup_completed_at) {
-    html += '<p class="gm-warn">' + gmT("Complete as Configurações antes de criar o primeiro estimate.", "Complete Settings before creating your first estimate.") + '</p>';
+    html += '<p class="gm-warn">' + gmT("Complete as Configurações antes de criar o primeiro orçamento.", "Complete Settings before creating your first estimate.") + '</p>';
   }
   // Filter chips: same rail as the pipeline's stage chips.
   html += '<div class="gm-subnav" role="tablist">';
@@ -8245,9 +8323,9 @@ function gmEstimatesListHtml() {
   html += '</div>';
   var shown = list.filter(gmEstMatchesFilter);
   if (!list.length) {
-    html += '<p class="muted">' + gmT("Nenhum estimate ainda. Crie o primeiro a partir de um lead no Pipeline.", "No estimates yet. Create the first one from a lead in the Pipeline.") + '</p>';
+    html += '<p class="muted">' + gmT("Nenhum orçamento ainda. Crie o primeiro a partir de um lead no Pipeline.", "No estimates yet. Create the first one from a lead in the Pipeline.") + '</p>';
   } else if (!shown.length) {
-    html += '<p class="muted">' + gmT("Nenhum estimate com esse status.", "No estimates with this status.") + '</p>';
+    html += '<p class="muted">' + gmT("Nenhum orçamento com esse status.", "No estimates with this status.") + '</p>';
   } else {
     shown.forEach(function(e) { html += gmEstRowHtml(e); });
   }
@@ -8280,7 +8358,7 @@ function gmLoadEstimatesList() {
 // ── Detail sheet ────────────────────────────────────────────────────────
 
 function gmOpenEstimate(id) {
-  gmSheetOpen(gmT("Estimate", "Estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmSheetOpen(gmT("Orçamento", "Estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi("estimates/" + encodeURIComponent(id))
     .then(function(d) { gmEstDetail = d.estimate; gmRenderEstimateSheet(); })
     .catch(function(e) {
@@ -8473,17 +8551,17 @@ function gmEstMarkAccepted() {
   var signer = document.getElementById("gmEstSigner");
   var opt = document.getElementById("gmEstAccOpt");
   gmApi("estimates/" + encodeURIComponent(est.id) + "/mark-accepted", { method: "POST", body: { signer_name: signer ? signer.value : "", option_id: opt ? opt.value : null } })
-    .then(function() { gmToast(gmT("Estimate aceito", "Estimate accepted")); gmEstAfterAccept(est); })
+    .then(function() { gmToast(gmT("Orçamento aceito", "Estimate accepted")); gmEstAfterAccept(est); })
     .catch(function(e) { var m = document.getElementById("gmEstAccMsg"); if (m) { m.textContent = e.message; m.hidden = false; } console.error(e); });
 }
 
 // After acceptance (2i): prompt, never auto-change.
 function gmEstAfterAccept(est) {
   var body = '<div class="gm-sheet-section"><p>' +
-    gmT("Estimate aceito. Mover este lead para " + gmStageLabel("fechado") + " e criar o projeto?", "Estimate accepted. Move this lead to " + gmStageLabel("fechado") + " and create the project?") + '</p>' +
+    gmT("Orçamento aceito. Mover este lead para " + gmStageLabel("fechado") + " e criar o projeto?", "Estimate accepted. Move this lead to " + gmStageLabel("fechado") + " and create the project?") + '</p>' +
     '<button type="button" class="gm-btn-primary" onclick="gmEstCloseAndPromote(\'' + escHtml(est.lead_id) + '\')">' + gmT("Sim, fechar e criar projeto", "Yes, close and create the project") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmOpenEstimate(\'' + escHtml(est.id) + '\')">' + gmT("Agora não", "Not now") + '</button></div>';
-  gmSheetOpen(gmT("Estimate aceito", "Estimate accepted"), body);
+  gmSheetOpen(gmT("Orçamento aceito", "Estimate accepted"), body);
   gmLoadEstimatesList().then(function() { if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); } });
 }
 
@@ -8511,9 +8589,9 @@ function gmEstVoidOpen() {
   gmOpenFieldEditor(gmT("Motivo da anulação", "Void reason"), "textarea", "", [], function(reason) {
     if (!reason) { gmToast(gmT("Informe o motivo.", "A reason is required.")); gmRenderEstimateSheet(); return; }
     gmApi("estimates/" + encodeURIComponent(est.id) + "/void", { method: "POST", body: { reason: reason } })
-      .then(function() { gmToast(gmT("Estimate anulado", "Estimate voided")); gmSheetClose(); gmLoadEstimates(); })
+      .then(function() { gmToast(gmT("Orçamento anulado", "Estimate voided")); gmSheetClose(); gmLoadEstimates(); })
       .catch(function(e) { gmToast(e.message); console.error(e); });
-  }, '<div class="gm-derived-note">' + gmT("O estimate fica guardado como anulado; nada é apagado.", "The estimate is kept as void; nothing is deleted.") + '</div>');
+  }, '<div class="gm-derived-note">' + gmT("O orçamento fica guardado como anulado; nada é apagado.", "The estimate is kept as void; nothing is deleted.") + '</div>');
 }
 
 function gmEstRevise() {
@@ -8578,7 +8656,7 @@ function gmEstMessageVars(est) {
 function gmEstSendOpen() {
   var est = gmEstDetail;
   if (!est) { return; }
-  gmSheetOpen(gmT("Enviar estimate", "Send estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmSheetOpen(gmT("Enviar orçamento", "Send estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmDocMsgLoad().then(function() { gmEstRenderSendSheet(); }).catch(function(e) {
     var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
   });
@@ -8592,19 +8670,19 @@ function gmEstRenderSendSheet() {
   var phone = est.send_phone || est.customer_phone || "";
   var digits = gmWaDigits(phone);
   var body = '<div class="gm-sheet-section">' +
-    '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O estimate fica como enviado.",
+    '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos. O orçamento fica como enviado.",
         "Opens your phone's messaging app with the text and link ready. The estimate is marked as sent.") + '</p>' +
     '<div class="gm-contact-row">' +
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmEstSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no estimate; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no orçamento; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmEstSendMark(true)">' + gmT("Marcar como enviado sem abrir mensagem", "Mark as sent without opening a message") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmRenderEstimateSheet()">' + gmT("Voltar", "Back") + '</button>' +
     '</div>';
-  gmSheetOpen(gmT("Enviar estimate", "Send estimate") + " · " + escHtml(est.display_number), body);
+  gmSheetOpen(gmT("Enviar orçamento", "Send estimate") + " · " + escHtml(est.display_number), body);
   var pencil = document.getElementById("gmEstMsgPencil");
   if (pencil) { pencil.onclick = function(ev) { ev.preventDefault(); gmDocMsgEditorOpen("estimate_message", function() { gmEstRenderSendSheet(); }); }; }
   var preview = document.getElementById("gmEstMsgPreview");
@@ -8619,7 +8697,7 @@ function gmEstSendMark(silent) {
   gmApi("estimates/" + encodeURIComponent(est.id) + "/send", { method: "POST" })
     .then(function() {
       gmEstSendInFlight = false;
-      gmToast(gmT("Estimate marcado como enviado", "Estimate marked as sent"));
+      gmToast(gmT("Orçamento marcado como enviado", "Estimate marked as sent"));
       gmLoadEstimatesList().then(function() { if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); } });
       gmLoadCrmSilent();
       if (silent) { gmOpenEstimate(est.id); } else { gmEstDetail.stored_status = "sent"; gmEstDetail.status = "sent"; }
@@ -8648,7 +8726,7 @@ var GM_DOC_MSG_TOKENS_BY_KEY = { contract_route_message: ["{contract_number}", "
 var GM_DOC_MSG_TITLES = {
   contract_route_message: ["Mensagem para quem assina pela empresa", "Message to the company signer"],
   contract_message: ["Mensagem de envio do contrato", "Contract send message"],
-  estimate_message: ["Mensagem de envio do estimate", "Estimate send message"],
+  estimate_message: ["Mensagem de envio do orçamento", "Estimate send message"],
   invoice_message:  ["Mensagem de envio da fatura",   "Invoice send message"],
   receipt_message:  ["Mensagem de envio do recibo",   "Receipt send message"]
 };
@@ -8771,7 +8849,7 @@ function gmEstWizardOpenForLead(lead) {
 
 function gmEstWizStart(lead) {
   if (!gmIsSeller() && gmDocSettings && !gmDocSettings.setup_completed_at) {
-    gmToast(gmT("Complete as Configurações do Estimates primeiro.", "Complete the Estimates Settings first."), gmT("Abrir", "Open"), function() { gmSheetClose(); switchTab("gmestimates"); gmEstimatesGo("settings"); });
+    gmToast(gmT("Complete as Configurações de Orçamentos primeiro.", "Complete the Estimates Settings first."), gmT("Abrir", "Open"), function() { gmSheetClose(); switchTab("gmestimates"); gmEstimatesGo("settings"); });
     return;
   }
   gmEstWiz = gmEstWizNewState(lead);
@@ -8800,7 +8878,7 @@ var GM_EST_WIZ_TITLES = [
 function gmEstWizRender() {
   var w = gmEstWiz;
   if (!w) { return; }
-  var title = gmT("Estimate", "Estimate") + " · " + w.step + "/8 · " + gmT(GM_EST_WIZ_TITLES[w.step - 1][0], GM_EST_WIZ_TITLES[w.step - 1][1]);
+  var title = gmT("Orçamento", "Estimate") + " · " + w.step + "/8 · " + gmT(GM_EST_WIZ_TITLES[w.step - 1][0], GM_EST_WIZ_TITLES[w.step - 1][1]);
   var body = "";
   if (w.step === 1) { body = gmEstWizStep1(); }
   else if (w.step === 2) { body = gmEstWizStep2(); }
@@ -9311,7 +9389,7 @@ function gmEstWizSave(andSend) {
   var req = w.id ? gmApi("estimates/" + encodeURIComponent(w.id), { method: "PUT", body: payload }) : gmApi("estimates", { method: "POST", body: payload });
   req.then(function(d) {
       var id = d.estimate.id;
-      gmToast(d.revised ? gmT("Revisão criada", "Revision created") : gmT("Estimate salvo", "Estimate saved"));
+      gmToast(d.revised ? gmT("Revisão criada", "Revision created") : gmT("Orçamento salvo", "Estimate saved"));
       gmLoadEstimatesList().then(function() { if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); } }).catch(function() {});
       gmLoadCrmSilent();
       return gmApi("estimates/" + encodeURIComponent(id)).then(function(dd) {
@@ -9408,7 +9486,7 @@ function gmRenderInvoicesTab() {
   html += '</div>';
   var shown = list.filter(gmInvMatchesFilter);
   if (!list.length) {
-    html += '<p class="muted">' + gmT("Nenhuma fatura ainda. Crie as faturas a partir do estimate aceito, na tela do projeto.", "No invoices yet. Create them from the accepted estimate, on the project screen.") + '</p>';
+    html += '<p class="muted">' + gmT("Nenhuma fatura ainda. Crie as faturas a partir do orçamento aceito, na tela do projeto.", "No invoices yet. Create them from the accepted estimate, on the project screen.") + '</p>';
   } else if (!shown.length) {
     html += '<p class="muted">' + gmT("Nenhuma fatura com esse status.", "No invoices with this status.") + '</p>';
   } else { shown.forEach(function(inv) { html += gmInvRowHtml(inv); }); }
@@ -9419,7 +9497,7 @@ function gmInvSetFilter(f) { gmInvFilter = f; gmRenderInvoicesTab(); }
 
 function gmInvRowHtml(inv) {
   return '<button type="button" class="gm-row" onclick="gmOpenInvoice(\'' + escHtml(inv.id) + '\')">' +
-    '<span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(inv.number) + ' · ' + escHtml(inv.job_name || "") + (inv.step_label ? ' · ' + escHtml(inv.step_label) : "") + '</span>' +
+    '<span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(inv.number) + ' · ' + escHtml(inv.job_name || "") + (inv.step_label ? ' · ' + escHtml(gmStepLabel(inv.step_label)) : "") + '</span>' +
     // The project is usually named after the customer (C10): print the name once.
     '<div class="gm-lead-sub">' + [(inv.customer_name && inv.customer_name !== inv.job_name) ? inv.customer_name : null, inv.vendedor, gmMoney(inv.amount_cents)].filter(Boolean).map(escHtml).join(" · ") + '</div>' +
     '<div class="gm-lead-sub">' + (inv.due_date ? gmT("vence ", "due ") + escHtml(formatDate(inv.due_date)) : "") + (inv.balance_cents ? ' · ' + gmT("saldo ", "balance ") + gmMoney(inv.balance_cents) : "") + '</div></span>' +
@@ -9464,7 +9542,7 @@ function gmRenderInvoiceSheet() {
     gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), gmMoney(c.total_cents)) +
     gmSheetRowHtml("check", gmT("Recebido até agora (verificado)", "Paid to date (verified)"), gmMoney(c.paid_cents)) +
     ((c.credit_cents || c.refund_cents) ? gmSheetRowHtml("tag", gmT("Créditos e reembolsos", "Credits and refunds"), gmT("créditos ", "credits ") + gmMoney(c.credit_cents) + " · " + gmT("reembolsos ", "refunds ") + gmMoney(c.refund_cents)) : "") +
-    gmSheetRowHtml("dollar", gmT("Esta fatura", "This invoice"), gmMoney(inv.amount_cents) + (inv.step_label ? ' <span class="muted">' + escHtml(inv.step_label) + (inv.step_pct ? " " + inv.step_pct + "%" : "") + '</span>' : "")) +
+    gmSheetRowHtml("dollar", gmT("Esta fatura", "This invoice"), gmMoney(inv.amount_cents) + (inv.step_label ? ' <span class="muted">' + escHtml(gmStepLabel(inv.step_label)) + (inv.step_pct ? " " + inv.step_pct + "%" : "") + '</span>' : "")) +
     gmSheetRowHtml("dollar", gmT("Saldo desta fatura", "Balance due now for this invoice"), "<strong>" + gmMoney(inv.balance_cents) + "</strong>", null, null,
       inv.pending_cents ? gmT("mais ", "plus ") + gmMoney(inv.pending_cents) + gmT(" informados, aguardando verificação", " reported, awaiting verification") : "") +
     gmSheetRowHtml("compass", gmT("Saldo restante do contrato", "Remaining contract balance"), gmMoney(c.remaining_cents)),
@@ -9510,7 +9588,7 @@ function gmRenderInvoiceSheet() {
       return gmSheetRowHtml("tag", escHtml(cr.number) + ' · ' + (cr.kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")), gmMoney(cr.amount_cents), null, null, escHtml(cr.reason) + ' · ' + escHtml(cr.created_by || ""));
     }).join(""));
   }
-  gmSheetOpen(escHtml(inv.number) + (inv.step_label ? " · " + escHtml(inv.step_label) : ""), body, "gm-invoice-detail");
+  gmSheetOpen(escHtml(inv.number) + (inv.step_label ? " · " + escHtml(gmStepLabel(inv.step_label)) : ""), body, "gm-invoice-detail");
   var sendBtn = document.getElementById("gmInvSendBtn");
   if (sendBtn) { gmDocMsgAttach(sendBtn, "invoice_message"); }
   pays.forEach(function(p) { var b = document.getElementById("gmRcptSend_" + p.id); if (b) { gmDocMsgAttach(b, "receipt_message"); } });
@@ -9769,7 +9847,7 @@ function gmRenderJobInvoices(jobId, failedMsg) {
   else {
     list.forEach(function(inv) {
       var pays = (inv.payments || []).filter(function(p) { return p.state === "verified" || p.state === "pending_verification"; });
-      inner += gmSheetRowHtml("dollar", escHtml(inv.number) + (inv.step_label ? ' · ' + escHtml(inv.step_label) : ""), gmInvPillHtml(inv) + ' ' + gmMoney(inv.amount_cents),
+      inner += gmSheetRowHtml("dollar", escHtml(inv.number) + (inv.step_label ? ' · ' + escHtml(gmStepLabel(inv.step_label)) : ""), gmInvPillHtml(inv) + ' ' + gmMoney(inv.amount_cents),
         "gmOpenInvoice('" + escHtml(inv.id) + "')", null,
         (inv.balance_cents ? gmT("saldo ", "balance ") + gmMoney(inv.balance_cents) + " · " : "") + (inv.due_date ? gmT("vence ", "due ") + escHtml(formatDate(inv.due_date)) : "") +
         (pays.length ? "<br>" + pays.map(function(p) { return gmMoney(p.amount_cents) + " " + escHtml(gmInvMethodLabel(p.method)) + (p.receipt_number ? " · " + escHtml(p.receipt_number) : "") + (p.state === "pending_verification" ? " · " + gmT("aguardando", "pending") : ""); }).join("<br>") : "") +
@@ -9778,7 +9856,7 @@ function gmRenderJobInvoices(jobId, failedMsg) {
   }
   var canCreate = !list.length;
   box.innerHTML = gmSheetSection(gmT("Faturas", "Invoices"), inner) +
-    (canCreate ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateInvoices(\'' + escHtml(jobId) + '\')">' + gmT("Criar faturas a partir do estimate", "Create invoices from estimate") + '</button>' : "");
+    (canCreate ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateInvoices(\'' + escHtml(jobId) + '\')">' + gmT("Criar faturas a partir do orçamento", "Create invoices from estimate") + '</button>' : "");
 }
 
 function gmJobCreateInvoices(jobId) {

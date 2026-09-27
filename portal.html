@@ -88,7 +88,7 @@
        calendar does not reimplement (and re-break) it. See calendar-grid.js. -->
   <script src="calendar-grid.js?v=1786493218"></script>
   <!-- Stored keys -> displayed labels. Must load BEFORE gm.js, which uses it. -->
-  <script src="gm-labels.js?v=1790483608"></script>
+  <script src="gm-labels.js?v=1790532311"></script>
   <!-- The single implementation of the Analytics view, shared with the admin
        per-client analytics page so the two can never drift apart. -->
   <script src="analytics-view.js"></script>
@@ -1347,11 +1347,11 @@
           <span class="show-pt">Pre&ccedil;os</span><span class="show-en">Pricing</span>
         </button>
         <!-- Estimates & invoices build: the client's OWN estimates and
-             invoices to THEIR customers. Both labels of Estimates are the
-             English word on purpose (that is what the contractors call it).
+             invoices to THEIR customers. Portuguese screens say "Orçamentos"
+             (Nicole, docs PDF build N3); English screens say Estimates.
              Gated per client by PORTAL_TAB_GATES until each phase ships. -->
         <button class="portal-tab" data-tab="gmestimates" onclick="switchTab('gmestimates')">
-          <span class="show-pt">Estimates</span><span class="show-en">Estimates</span>
+          <span class="show-pt">Or&ccedil;amentos</span><span class="show-en">Estimates</span>
         </button>
         <button class="portal-tab" data-tab="gminvoices" onclick="switchTab('gminvoices')">
           <span class="show-pt">Faturas</span><span class="show-en">Invoices</span>
@@ -2048,6 +2048,9 @@
       if (!document.getElementById("viewPortal").hidden) {
         // Reloads the whole shared analytics view, pace card included.
         loadAnalytics();
+        // N9: the entry-history card below the shared view builds its headers
+        // ("Data" / "Date") and status words in JS, so it redraws too.
+        if (!document.getElementById("tabAnalytics") || !document.getElementById("tabAnalytics").hidden) { loadHistory(); }
         // The meetings card builds "Hoje/Today" and "Entrar/Join" in JS, not
         // .show-pt/.show-en spans, so it needs an explicit re-render. Replays
         // the cached rows rather than refetching.
@@ -3078,7 +3081,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          window.alert("Erro: " + e.message);
+          gmToast(gmT("Erro: ", "Error: ") + e.message); console.error(e);
         });
     }
 
@@ -3183,7 +3186,7 @@
         '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
         (en
           ? "If set, the estimate builder warns when an estimate falls below it and projects are marked on or off target. Nothing is blocked. The same value appears in the document settings."
-          : "Se preenchida, o assistente avisa quando um estimate fica abaixo dela e os projetos são marcados como no alvo ou não. Nada é bloqueado. É o mesmo valor das configurações de documentos.") +
+          : "Se preenchida, o assistente avisa quando um orçamento fica abaixo dela e os projetos são marcados como no alvo ou não. Nada é bloqueado. É o mesmo valor das configurações de documentos.") +
         '</p>' +
         '<input type="number" id="gmTargetMargin" min="0.1" max="99.9" step="0.1" ' +
           'style="width:100%;" placeholder="' + (en ? "Not set" : "Não definida") + '" ' +
@@ -3704,7 +3707,7 @@
           btn.disabled = false;
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
           if (r.data.pending > 0) {
-            window.alert(isEn()
+            gmToast(isEn()
               ? "Some changed goals were sent for approval. The current goals stay active until they are approved."
               : "Algumas metas alteradas foram enviadas para aprovação. As metas atuais continuam valendo até a aprovação.");
           }
@@ -4535,7 +4538,7 @@
       // Estimates & invoices build. `gate` names a PORTAL_TAB_GATES entry:
       // the tab exists only for the clients listed there until its phase
       // ships for everyone (then the gate is removed).
-      { tab: "gmestimates", icon: "file",        labelPt: "Estimates",              labelEn: "Estimates", gate: "estimates" },
+      { tab: "gmestimates", icon: "file",        labelPt: "Or\u00e7amentos",            labelEn: "Estimates", gate: "estimates" },
       { tab: "gminvoices",  icon: "finance",     labelPt: "Faturas",                labelEn: "Invoices",  gate: "invoices" },
       { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
@@ -4806,7 +4809,7 @@
     // No await, no .then(), no alert() before it. This app has been bitten
     // twice — once by a popup silently blocked after an await (fixed 2026-07-06),
     // and once by an unresolved white-screen wedge in the iOS PWA whose working
-    // theory is window.alert() running in the handler's async chain after the
+    // theory is gmToast() running in the handler's async chain after the
     // handoff. Everything below is synchronous string work on local state.
     function supportSend() {
       var desc = (document.getElementById("supportDesc").value || "").trim();
@@ -5569,7 +5572,7 @@
       var total = xrayDetail.catalog.total;
       if (answered < total) {
         var missing = total - answered;
-        window.alert(isEn()
+        gmToast(isEn()
           ? missing + " question" + (missing === 1 ? "" : "s") + " still unanswered. Use the overview to find the pending sections."
           : "Ainda " + (missing === 1 ? "falta 1 pergunta" : "faltam " + missing + " perguntas") + ". Use a visão geral para encontrar as seções pendentes.");
         xrayView = "intro";
@@ -5578,7 +5581,7 @@
       }
       var profMissing = xrayProfileRequiredTotal() - xrayProfileTotalAnswered();
       if (profMissing > 0) {
-        window.alert(isEn()
+        gmToast(isEn()
           ? profMissing + " field" + (profMissing === 1 ? "" : "s") + " still pending in the practice sections (VII and VIII). Use the overview to find them."
           : "Ainda " + (profMissing === 1 ? "falta 1 campo" : "faltam " + profMissing + " campos") + " nas seções de prática (VII e VIII). Use a visão geral para encontrá-los.");
         xrayView = "intro";
@@ -5605,7 +5608,7 @@
           renderXray();
           window.scrollTo(0, 0);
         })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+        .catch(function(e) { gmToast(gmT("Erro: ", "Error: ") + e.message); console.error(e); });
     }
 
     function renderXrayDone() {
@@ -5956,7 +5959,7 @@
       var answered = spaTotalAnswered(key);
       if (answered < total) {
         var missing = total - answered;
-        window.alert(isEn()
+        gmToast(isEn()
           ? missing + " question" + (missing === 1 ? "" : "s") + " still unanswered."
           : "Ainda " + (missing === 1 ? "falta 1 pergunta" : "faltam " + missing + " perguntas") + ".");
         // Scroll to the first unanswered question rather than making the
@@ -5988,7 +5991,7 @@
           renderSpa(key);
           window.scrollTo(0, 0);
         })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+        .catch(function(e) { gmToast(gmT("Erro: ", "Error: ") + e.message); console.error(e); });
     }
 
     // The completion screen. Weighted instruments print score/max; band-based
@@ -6082,9 +6085,9 @@
         .then(function(d) {
           input.value = "";
           if (d.logo_key) { loadPortalLogo(); }
-          else if (d.error) { window.alert(d.error); }
+          else if (d.error) { gmToast(gmApiErrText(d, 400)); console.error(d.error); }
         })
-        .catch(function(e) { window.alert(e.message); });
+        .catch(function(e) { gmToast(e.message); console.error(e); });
     }
 
     // ── Upcoming meetings card (Analytics tab) ─────────────────────────────
@@ -6179,7 +6182,7 @@
           if (!r.ok) {
             console.error("[sched] could not reopen the booking link:",
               r.status, (r.body && r.body.error) || "");
-            window.alert(isEn()
+            gmToast(isEn()
               ? "Could not reopen the scheduling link. Please try again."
               : "Não foi possível reabrir o link de agendamento. Tente novamente.");
             return;
@@ -6188,7 +6191,7 @@
         })
         .catch(function(e) {
           console.error("[sched] reopen request failed:", e.message);
-          window.alert(isEn()
+          gmToast(isEn()
             ? "Could not reopen the scheduling link. Please try again."
             : "Não foi possível reabrir o link de agendamento. Tente novamente.");
         });
@@ -6513,7 +6516,11 @@
             '<th>' + (isEn() ? "Date" : "Data") + '</th><th>Status</th><th></th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table></div>';
         })
-        .catch(function() {});
+        .catch(function(e) {
+          console.error(e);
+          var hb = document.getElementById("historyBody");
+          if (hb) { hb.innerHTML = '<p class="muted">' + (isEn() ? "Could not load the entry history. Please try again." : "Não foi possível carregar o histórico. Tente de novo.") + '</p>'; }
+        });
     }
 
     function histDetailHtml(e) {
@@ -6752,24 +6759,24 @@
         // window.open must be synchronous in the click; fetch with auth then
         // hand the blob to the tab (same Safari-safe pattern as client.html).
         var newTab = window.open("", "_blank");
-        if (!newTab) { window.alert("Popup bloqueado / Popup blocked"); return; }
+        if (!newTab) { gmToast(gmT("Permita pop-ups para abrir.", "Allow pop-ups to open this.")); return; }
         apiFetch("/api/clients/" + clientId + "/documents/" + doc.id + docPath)
           .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); })
           .then(function(blob) { newTab.location.href = URL.createObjectURL(blob); })
-          .catch(function(e) { newTab.close(); window.alert(e.message); });
+          .catch(function(e) { newTab.close(); gmToast(e.message); console.error(e); });
         return;
       }
       // generated report → same template + postMessage handoff as documents.html
       var pdfData;
       try { pdfData = doc.pdf_data ? JSON.parse(doc.pdf_data) : null; } catch (e) { pdfData = null; }
-      if (!pdfData) { window.alert(isEn() ? "Report data missing." : "Dados do relatório ausentes."); return; }
+      if (!pdfData) { gmToast(isEn() ? "Report data missing." : "Dados do relatório ausentes."); return; }
       var data = {};
       for (var k in pdfData) { if (pdfData.hasOwnProperty(k)) { data[k] = pdfData[k]; } }
       data.client_name = clientName;
       data.consultant_name = "Rafael Prata";
       var TEMPLATE_URL = "https://apex.resonateai.online/templates/apex-strategic-report-wired.html?v=1786504801";
       var tab = window.open(TEMPLATE_URL, "_blank");
-      if (!tab) { window.alert("Popup bloqueado / Popup blocked"); return; }
+      if (!tab) { gmToast(gmT("Permita pop-ups para abrir.", "Allow pop-ups to open this.")); return; }
       var sent = false;
       function sendData() {
         if (sent) { return; }
@@ -6988,7 +6995,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790530598"></script>
+  <script src="gm.js?v=1790532310"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

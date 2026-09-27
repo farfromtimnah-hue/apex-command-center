@@ -2323,6 +2323,8 @@ async function handleGetClient(id, request, env) {
             "c.package, c.status, c.phone, c.email, c.whatsapp, c.payment_method, c.contacts, c.consolidated, c.lead_stage, " +
             "c.stage_changed_at, c.stage_changed_by, c.stage_change_source, " +
             "c.next_step, c.next_step_set_by, c.next_step_set_at, " +
+            "c.daily_log_enabled, c.daily_log_enabled_set_by, c.daily_log_enabled_set_at, " +
+            "c.goals_enabled, c.goals_enabled_set_by, c.goals_enabled_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
             "c.created_at FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
@@ -4275,6 +4277,23 @@ async function handlePatchClient(id, request, env) {
         if (body.hasOwnProperty("owners")) {
             await env.DB.prepare("UPDATE clients SET owners = ? WHERE id = ?")
                 .bind(body.owners || null, id).run();
+            updated = true;
+        }
+        // Pr. Rafa's switches (hero build, E): 1 = on, 0 = off, with who and
+        // when (the next_step_set_by / _set_at convention). Written only when
+        // the value actually changes, so a re-save never moves the stamp.
+        var switchKeys = ["daily_log_enabled", "goals_enabled"];
+        for (var sk = 0; sk < switchKeys.length; sk++) {
+            var key = switchKeys[sk];
+            if (!body.hasOwnProperty(key)) { continue; }
+            var want = (body[key] === true || body[key] === 1 || body[key] === "1") ? 1 : ((body[key] === false || body[key] === 0 || body[key] === "0") ? 0 : null);
+            if (want === null) { return jsonErr(key + " must be true or false", 400); }
+            var curSw = await env.DB.prepare("SELECT " + key + " AS v FROM clients WHERE id = ?").bind(id).first();
+            if (!curSw) { return jsonErr("Client not found", 404); }
+            if (curSw.v !== want) {
+                await env.DB.prepare("UPDATE clients SET " + key + " = ?, " + key + "_set_by = ?, " + key + "_set_at = datetime('now') WHERE id = ?")
+                    .bind(want, actorName(user), id).run();
+            }
             updated = true;
         }
         if (body.hasOwnProperty("industry")) {
@@ -14749,6 +14768,17 @@ async function handlePostEntryDayOff(id, dateStr, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Pr. Rafa's per-client switches (hero build, E): both default ON (1). A
+// missing row or column reads as ON, so nothing changes for anyone unless an
+// admin turns one off on the client profile.
+async function clientLogSwitches(env, clientId) {
+    var r = await env.DB.prepare("SELECT daily_log_enabled, goals_enabled FROM clients WHERE id = ?").bind(clientId).first();
+    return {
+        daily_log_enabled: !(r && r.daily_log_enabled === 0),
+        goals_enabled: !(r && r.goals_enabled === 0)
+    };
+}
+
 // Route: GET /api/clients/:id/entry-state?today=YYYY-MM-DD
 // Login/entry flow driver: every backlogged day (not completed, not a day
 // off) from tracking_start (capped at 14 days back) through today, each with
@@ -14766,6 +14796,7 @@ async function handleGetEntryState(id, request, env) {
         if (!isValidDateStr(today)) { today = new Date().toISOString().slice(0, 10); }
 
         var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ? AND role = 'client'").bind(id).first();
+        var switches = await clientLogSwitches(env, id);
         var start = (login && login.tracking_start && isValidDateStr(login.tracking_start)) ? login.tracking_start : today;
         var cap = new Date(new Date(today + "T12:00:00Z").getTime() - 13 * 24 * 3600 * 1000).toISOString().slice(0, 10);
         if (start < cap) { start = cap; }
@@ -14807,6 +14838,11 @@ async function handleGetEntryState(id, request, env) {
             today: today, tracking_start: start, required_sections: required,
             pending: pending,
             work_schedule_set: workCtx.schedule_set,
+            // Pr. Rafa's per-client switches (hero build, E). OFF = the portal
+            // skips that gate at login, drops the tab to the end of "Mais" and
+            // stops every missing-entry nudge; the tab itself still works.
+            daily_log_enabled: switches.daily_log_enabled,
+            goals_enabled: switches.goals_enabled,
             // Uncapped (the `tracking_start` above is clamped to 14 days for
             // the backlog): drives the new/established framing emphasis only.
             tracking_start_raw: (login && login.tracking_start) || null
@@ -15496,6 +15532,7 @@ async function handleGetWeeklySummary(id, request, env) {
             "SELECT missed_date, status, reason FROM client_missed_days WHERE client_id = ? AND missed_date >= ? AND missed_date <= ?"
         ).bind(id, start, endDate).all();
         var login = await env.DB.prepare("SELECT tracking_start FROM client_logins WHERE client_id = ? AND role = 'client'").bind(id).first();
+        var switches = await clientLogSwitches(env, id);
         var trackingStart = login ? login.tracking_start : null;
 
         var entryByDate = {}, missedByDate = {};
@@ -15519,10 +15556,13 @@ async function handleGetWeeklySummary(id, request, env) {
             else if (ds > today) { status = "future"; }
             else if (trackingStart && ds < trackingStart) { status = "not_tracked"; }
             else if (e) { status = "partial"; }
+            // Daily log switched OFF by Pr. Rafa: an unlogged day is not
+            // expected, so it must not read as "missing" (no red on the card).
+            else if (!switches.daily_log_enabled) { status = "not_tracked"; }
             else { status = "missing"; }
             days.push({ date: ds, status: status, reason: m ? (m.reason || null) : null });
         }
-        return jsonOk({ week_start: start, days: days });
+        return jsonOk({ week_start: start, days: days, daily_log_enabled: switches.daily_log_enabled });
     } catch (e) {
         return jsonErr("Error fetching weekly summary: " + e.message, 500);
     }

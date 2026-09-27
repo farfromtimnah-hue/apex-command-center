@@ -26,6 +26,9 @@ const eq = (got, want, m) =>
 globalThis.isLead = () => false;
 globalThis.isSeller = () => false;
 globalThis.anyIncompleteAssigned = () => false;
+// Pr. Rafa's daily log / goals switches (hero build, E): both ON by default.
+let ritmoDown = false;
+globalThis.ritmoDeprioritized = () => ritmoDown;
 // The estimates & invoices tabs are gated per client (PORTAL_TAB_GATES);
 // the canonical-order checks below run as the test client, where both exist.
 globalThis.clientId = "test-client-temp-001";
@@ -97,6 +100,15 @@ eq(PORTAL_DOCK_TABS[1].labelPt, "Ritmo", "Ritmo is second in the dock (highest-f
 eq(portalMoreTabs().map(t => t.tab),
    ["gmjobs", "gmpricing", "gmestimates", "gminvoices", "gmcalendar", "gmroadmap", "tasks", "documents", "worksched"],
    "More is everything undocked, in canonical order");
+
+// ---- daily log or goals switched OFF (hero build, E) ----
+ritmoDown = true;
+eq(portalDockTabs().map(t => t.tab), ["analytics", "gmcrm", "gmfinance", "gmjobs"],
+   "switch OFF: Ritmo leaves the dock and the next canonical tab takes its slot");
+eq(portalMoreTabs().map(t => t.tab),
+   ["gmpricing", "gmestimates", "gminvoices", "gmcalendar", "gmroadmap", "tasks", "documents", "worksched", "goals"],
+   "switch OFF: Ritmo is LAST in More");
+ritmoDown = false;
 
 // ---- the Apex-owned divider ----
 eq(PORTAL_TABS.filter(t => t.apexOwned).map(t => t.tab), APEX_OWNED,

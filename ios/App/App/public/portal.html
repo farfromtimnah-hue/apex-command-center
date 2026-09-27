@@ -2699,6 +2699,9 @@
       // opens that tab, and the goals form waits for the next Home visit.
       var bootTab = (location.search.match(/[?&]tab=([a-z0-9_-]+)/i) || [])[1] || "";
       if (bootTab && bootTab !== "analytics") { proceedToEntries(); return; }
+      // Goals switched OFF by Pr. Rafa (hero build, E): neither goals gate
+      // runs; the goals stay reachable in the Ritmo tab.
+      if (!goalsOn()) { proceedToEntries(); return; }
       if (goalState && (!goalState.has_any_goals || !goalState.current_month_has_goals) &&
           !goalHardSkipped()) {
         // Hard gate: no goals at all, or none set for the current month. Still
@@ -3525,7 +3528,9 @@
     // compute pending days without it.
     function proceedToEntries() {
       // One-time schedule setup comes before the daily log ever renders.
-      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS) {
+      // Daily log OFF (hero build, E): no daily-log screen at login at all;
+      // the setup still runs if the client opens the log themselves.
+      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS && dailyLogOn()) {
         showScheduleSetup();
         return;
       }
@@ -4012,7 +4017,24 @@
     // the desktop Ritmo dot and the dock's Ritmo dot all read this, so they
     // cannot disagree.
     function anyPendingEntries() {
+      // Daily log OFF: no banner, no dot, no nudge of any kind (hero build, E).
+      if (!dailyLogOn()) { return false; }
       return !!(entryState && entryState.pending && entryState.pending.length);
+    }
+
+    // Pr. Rafa's per-client switches (hero build, E), carried on entry-state.
+    // Anything but an explicit false is ON, so an old Worker changes nothing.
+    function dailyLogOn() { return !(entryState && entryState.daily_log_enabled === false); }
+    function goalsOn() { return !(entryState && entryState.goals_enabled === false); }
+    // The daily log and the goals share the Ritmo tab; either switch OFF
+    // takes it out of the dock and the front of the strip and puts it last
+    // in "Mais". It still opens and works.
+    function ritmoDeprioritized() { return !isSeller() && !isLead() && (!dailyLogOn() || !goalsOn()); }
+    function applyRitmoPriority() {
+      if (!ritmoDeprioritized()) { return; }
+      var btn = document.querySelector('.portal-tab[data-tab="goals"]');
+      if (btn && btn.parentNode) { btn.parentNode.appendChild(btn); }
+      populateMobileDock();
     }
 
     // Re-render every "you have a pending backlog" affordance from entryState.
@@ -4867,8 +4889,18 @@
       // strip, so the two never disagree. The bar still holds 4 + "Mais" (see
       // the note above), so the last fixed tab yields its slot rather than
       // making the bar overflow; it stays reachable under "Mais".
-      if (!anyIncompleteAssigned()) { return PORTAL_DOCK_TABS; }
-      return [ASSIGNED_DOCK_TAB].concat(PORTAL_DOCK_TABS.slice(0, PORTAL_DOCK_TABS.length - 1));
+      var dock = PORTAL_DOCK_TABS;
+      if (ritmoDeprioritized()) {
+        // Ritmo leaves the dock; the next tab in canonical order takes its
+        // slot so the bar keeps 4 + "Mais".
+        dock = dock.filter(function(t) { return t.tab !== "goals"; });
+        var fill = portalTabs().filter(function(t) {
+          return t.tab !== "goals" && !dock.some(function(d) { return d.tab === t.tab; });
+        })[0];
+        if (fill) { dock = dock.concat([fill]); }
+      }
+      if (!anyIncompleteAssigned()) { return dock; }
+      return [ASSIGNED_DOCK_TAB].concat(dock.slice(0, dock.length - 1));
     }
 
     function portalMoreTabs() {
@@ -4896,9 +4928,15 @@
       // regardless of how important it was. Filtering the canonical array puts
       // it back where it belongs with no special case at all.
       var docked = portalDockTabs();
-      return portalTabs().filter(function(t) {
+      var more = portalTabs().filter(function(t) {
         return !docked.some(function(d) { return d.tab === t.tab; });
       });
+      // Ritmo deprioritized (hero build, E): LAST in "Mais".
+      if (ritmoDeprioritized()) {
+        more = more.filter(function(t) { return t.tab !== "goals"; })
+          .concat(more.filter(function(t) { return t.tab === "goals"; }));
+      }
+      return more;
     }
 
     function populateMobileDock() {
@@ -6948,6 +6986,7 @@
           document.getElementById("appMain").hidden = false;
           // Goal gates run first; existing pending-days behavior follows
           // unchanged inside proceedToEntries().
+          applyRitmoPriority();
           decideBootView();
         })
         .catch(function(e) {

@@ -2565,7 +2565,9 @@ function gmRenderLeadHistory(leadId, failed) {
       gmT("Nenhum registro ainda.", "Nothing recorded yet.") + '</p>';
   } else {
     events.forEach(function(e) {
-      var who = e.actor || gmT("desconhecido", "unknown");
+      // E1: the Worker sends null for a developer or an automatic change;
+      // then only the date and time show.
+      var who = e.actor || "";
       var when = e.created_at ? formatDateTimeUTC(e.created_at) : "";
       var line;
       if (e.action === "stage_changed") {
@@ -2588,8 +2590,8 @@ function gmRenderLeadHistory(leadId, failed) {
       inner += '<div class="gm-hist">' +
         '<div class="gm-hist-line">' + line + '</div>' +
         (e.reason ? '<div class="gm-hist-meta">' + gmT("Motivo: ", "Reason: ") + escHtml(e.reason) + '</div>' : "") +
-        '<div class="gm-hist-meta">' + gmT("por ", "by ") + escHtml(who) +
-        (when ? ' · ' + escHtml(when) : "") + '</div>' +
+        '<div class="gm-hist-meta">' + (who ? gmT("por ", "by ") + escHtml(who) : "") +
+        (when ? (who ? ' · ' : "") + escHtml(when) : "") + '</div>' +
         '</div>';
     });
   }
@@ -2732,7 +2734,7 @@ function gmRenderNotes(parentType, parentId, failed) {
       var when = n.created_at ? formatDateTimeUTC(n.created_at) : "";
       inner += '<div class="gm-note">' +
         '<div class="gm-note-head">' +
-          '<span class="gm-note-who">' + escHtml(n.created_by || gmT("Desconhecido", "Unknown")) + '</span>' +
+          '<span class="gm-note-who">' + escHtml(n.created_by || "") + '</span>' +
           '<span class="gm-note-when">' + escHtml(when) + '</span>' +
         '</div>' +
         '<div class="gm-note-body" id="gmNoteBody_' + escHtml(n.id) + '">' + escHtml(n.body) + '</div>' +
@@ -8591,7 +8593,7 @@ function gmDocHistoryOpen() {
           h += '<div class="gm-hist"><div class="gm-hist-line"><strong>' + escHtml(gmDocHistoryFieldLabel(r.field)) + '</strong>: ' +
             escHtml(gmDocHistoryValue(r.field, r.old_value)) + ' → ' +
             escHtml(gmDocHistoryValue(r.field, r.new_value)) + '</div>' +
-            '<div class="gm-hist-meta">' + escHtml(r.actor || "") + ' · ' + escHtml(formatDateTimeUTC(r.created_at)) + '</div></div>';
+            '<div class="gm-hist-meta">' + (r.actor ? escHtml(r.actor) + ' · ' : "") + escHtml(formatDateTimeUTC(r.created_at)) + '</div></div>';
         });
       }
       var body = document.querySelector(".gm-sheet-body");
@@ -8873,7 +8875,7 @@ var GM_EST_DEPOSIT_LAW_EN = "Florida law (§489.126): with a deposit over 10%, y
 function gmEstSignedRowsHtml(est, open) {
   var ua = gmEstSummarizeUa(est.accepted_user_agent);
   var rows = gmSheetRowHtml("check", gmT("Assinado por", "Signed by"), escHtml(est.accepted_signer_name || "") +
-      (est.accepted_by_kind === "contractor" ? ' <span class="muted">(' + gmT("registrado por ", "recorded by ") + escHtml(est.accepted_by_actor || "") + ')</span>' : ""), null, null,
+      (est.accepted_by_kind === "contractor" ? ' <span class="muted">(' + (est.accepted_by_actor ? gmT("registrado por ", "recorded by ") + escHtml(est.accepted_by_actor) : gmT("registrado pela empresa", "recorded by the company")) + ')</span>' : ""), null, null,
       est.accepted_signature_kind ? gmT("assinatura ", "signature ") + (est.accepted_signature_kind === "drawn" ? gmT("desenhada", "drawn") : gmT("digitada", "typed")) : "") +
     gmSheetRowHtml("clock", gmT("Data e hora", "Date and time"), escHtml(formatDateTimeUTC(est.accepted_at))) +
     (ua ? gmSheetRowHtml("phone", gmT("Dispositivo", "Device"), escHtml(ua)) : "") +
@@ -9844,7 +9846,7 @@ function gmRenderInvoicesTab() {
     html += '<div class="content-card"><div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + '</div>';
     alerts.forEach(function(a) {
       html += '<button type="button" class="gm-row" onclick="gmOpenInvoice(\'' + escHtml(a.invoice_id) + '\')"><span class="gm-lead-main">' +
-        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(a.recorded_by || "") + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") + gmMoney(a.amount_cents) + '</span>' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + (a.recorded_by ? escHtml(a.recorded_by) + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") : gmT("Informado como pago: ", "Reported as paid: ")) + gmMoney(a.amount_cents) + '</span>' +
         '<div class="gm-lead-sub">' + escHtml(a.invoice_number) + ' · ' + escHtml(gmInvMethodLabel(a.method)) + (a.reference ? " " + escHtml(a.reference) : "") + ' · ' + escHtml(formatDate(a.paid_date)) + '</div>' +
         '</span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("verificar", "verify")) + '</span></span></button>';
     });
@@ -9945,7 +9947,7 @@ function gmRenderInvoiceSheet() {
   var pays = inv.payments || [];
   var ph = pays.length ? pays.map(function(p) {
     var st = { pending_verification: ["gm-gold", "●", gmT("aguardando", "pending")], verified: ["gm-green", "✓", gmT("verificado", "verified")], rejected: ["gm-muted", "✕", gmT("rejeitado", "rejected")], reversed: ["gm-red", "↩", gmT("estornado", "reversed")] }[p.state] || ["gm-muted", "○", p.state];
-    var sub = [escHtml(gmInvMethodLabel(p.method)) + (p.reference ? " " + escHtml(p.reference) : ""), escHtml(formatDate(p.paid_date)), gmT("por ", "by ") + escHtml(p.recorded_by || "")].join(" · ") +
+    var sub = [escHtml(gmInvMethodLabel(p.method)) + (p.reference ? " " + escHtml(p.reference) : ""), escHtml(formatDate(p.paid_date))].concat(p.recorded_by ? [gmT("por ", "by ") + escHtml(p.recorded_by)] : []).join(" · ") +
       (p.receipt_number ? '<br>' + gmT("Recibo ", "Receipt ") + escHtml(p.receipt_number) : "") +
       (p.reject_reason ? '<br>' + gmT("Motivo: ", "Reason: ") + escHtml(p.reject_reason) : "") + (p.reverse_reason ? '<br>' + gmT("Estornado ", "Reversed ") + (p.reversed_at ? escHtml(formatDateTimeUTC(p.reversed_at)) + " · " : "") + gmT("motivo (visível ao cliente): ", "reason (visible to the customer): ") + escHtml(p.reverse_reason) : "");
     var actions = "";
@@ -9966,7 +9968,7 @@ function gmRenderInvoiceSheet() {
   var creds = inv.credits || [];
   if (creds.length) {
     body += gmSheetSection(gmT("Créditos e reembolsos", "Credits and refunds"), creds.map(function(cr) {
-      return gmSheetRowHtml("tag", escHtml(cr.number) + ' · ' + (cr.kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")), gmMoney(cr.amount_cents), null, null, escHtml(cr.reason) + ' · ' + escHtml(cr.created_by || ""));
+      return gmSheetRowHtml("tag", escHtml(cr.number) + ' · ' + (cr.kind === "refund" ? gmT("Reembolso", "Refund") : gmT("Crédito", "Credit")), gmMoney(cr.amount_cents), null, null, escHtml(cr.reason) + (cr.created_by ? ' · ' + escHtml(cr.created_by) : ""));
     }).join(""));
   }
   gmSheetOpen(escHtml(inv.number) + (inv.step_label ? " · " + escHtml(gmStepLabel(inv.step_label)) : ""), body, "gm-invoice-detail");
@@ -10056,7 +10058,7 @@ function gmAttentionCardHtml() {
     h += '<div class="card-title">' + gmT("Pagamentos aguardando verificação", "Payments awaiting verification") + ' <span class="goal-pending-badge">' + a.pending_alerts.length + '</span></div>';
     a.pending_alerts.forEach(function(x) {
       h += '<button type="button" class="gm-row" onclick="gmAttentionOpenInvoice(\'' + escHtml(x.invoice_id) + '\')"><span class="gm-lead-main">' +
-        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(x.recorded_by || "") + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") + gmMoney(x.amount_cents) + '</span>' +
+        '<span class="gm-lead-name" style="white-space:normal;">' + (x.recorded_by ? escHtml(x.recorded_by) + ' ' + gmT("diz que isto foi pago: ", "says this is paid: ") : gmT("Informado como pago: ", "Reported as paid: ")) + gmMoney(x.amount_cents) + '</span>' +
         '<div class="gm-lead-sub">' + escHtml(x.invoice_number) + ' · ' + escHtml(gmInvMethodLabel(x.method)) + (x.reference ? " " + escHtml(x.reference) : "") + ' · ' + escHtml(formatDate(x.paid_date)) + '</div>' +
         '</span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("verificar", "verify")) + '</span></span></button>';
     });

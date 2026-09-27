@@ -89,7 +89,7 @@
   <script src="template-edit.js?v=1787608442"></script>
   <link rel="stylesheet" href="gm.css?v=1790541645">
   <script src="gm-labels.js?v=1790547505"></script>
-  <script src="gm.js?v=1790548403"></script>
+  <script src="gm.js?v=1790549908"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4472,10 +4472,14 @@
           '<div><div class="toggle-state"><span class="show-pt">' + sw.pt + '</span><span class="show-en">' + sw.en + '</span> &middot; ' +
             (on ? '<span class="show-pt">ligado</span><span class="show-en">on</span>'
                 : '<span class="show-pt">desligado</span><span class="show-en">off</span>') + '</div>' +
-          (by && at ? '<div style="color:var(--muted);font-size:12px;margin-top:2px;">' +
-            (on ? '<span class="show-pt">Ligado por </span><span class="show-en">Turned on by </span>'
-                : '<span class="show-pt">Desligado por </span><span class="show-en">Turned off by </span>') +
-            escHtml(by) + ' &middot; ' + formatDateTimeUTC(at) + '</div>' : '') +
+          // E1: the Worker sends by = null for a developer or an automatic
+          // (system) change: then only "Desligado · date time".
+          (at ? '<div style="color:var(--muted);font-size:12px;margin-top:2px;">' +
+            (by ? (on ? '<span class="show-pt">Ligado por </span><span class="show-en">Turned on by </span>'
+                      : '<span class="show-pt">Desligado por </span><span class="show-en">Turned off by </span>') + escHtml(by)
+                : (on ? '<span class="show-pt">Ligado</span><span class="show-en">Turned on</span>'
+                      : '<span class="show-pt">Desligado</span><span class="show-en">Turned off</span>')) +
+            ' &middot; ' + formatDateTimeUTC(at) + '</div>' : '') +
           '</div></div>';
       });
       html += '<div style="color:var(--muted);font-size:12px;">' +
@@ -8266,7 +8270,7 @@
 
         var metaEl = document.createElement("div");
         metaEl.className = "note-meta";
-        metaEl.textContent = (n.created_by || "—") + " · " + formatDateTimeUTC(n.created_at);
+        metaEl.textContent = (n.created_by ? n.created_by + " · " : "") + formatDateTimeUTC(n.created_at);
 
         item.appendChild(contentEl);
         item.appendChild(metaEl);

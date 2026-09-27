@@ -78,9 +78,38 @@ function withCorsOrigin(response, request) {
 // Response helpers
 // ---------------------------------------------------------------------------
 
+// Hero follow-up E1 (Nicole 2026-09-27): a developer is not Apex staff, so a
+// developer's name never reaches a screen. Who did something is still WRITTEN
+// to every *_by / actor column (the audit keeps it); every JSON answer leaving
+// through jsonOk sends null instead of a developer's display name, and
+// instead of 'system' (an automatic change), in any actor-style field. The
+// screens then show only the date and time. One place, so no screen (web or
+// an older iOS build) can miss it.
+var GM_ACTOR_KEY_RE = /^(actor|[a-z_]*_by|accepted_by_actor|created_by_email)$/;
+var GM_HIDDEN_ACTORS = { system: true, developer: true };
+var GM_HIDDEN_ACTORS_AT = 0;
+async function gmLoadHiddenActors(env) {
+    if (Date.now() - GM_HIDDEN_ACTORS_AT < 5 * 60 * 1000) { return; }
+    try {
+        var rows = (await env.DB.prepare("SELECT display_name, email FROM users WHERE role = 'developer'").all()).results || [];
+        var next = { system: true, developer: true };
+        rows.forEach(function(u) { if (u.display_name) { next[String(u.display_name).trim()] = true; } if (u.email) { next[String(u.email).trim()] = true; } });
+        GM_HIDDEN_ACTORS = next;
+        GM_HIDDEN_ACTORS_AT = Date.now();
+    } catch (e) { console.error("hidden actors load failed: " + (e && e.message)); }
+}
+function gmActorReplacer(key, value) {
+    if (typeof value === "string" && GM_ACTOR_KEY_RE.test(key) && GM_HIDDEN_ACTORS[value.trim()]) { return null; }
+    return value;
+}
+// For a name rendered into server-built text (never a developer's).
+function gmDisplayActor(name) {
+    return (typeof name === "string" && GM_HIDDEN_ACTORS[name.trim()]) ? null : (name || null);
+}
+
 function jsonOk(data) {
     var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json" });
-    return new Response(JSON.stringify(data), { status: 200, headers: headers });
+    return new Response(JSON.stringify(data, gmActorReplacer), { status: 200, headers: headers });
 }
 
 function jsonErr(message, status) {
@@ -491,6 +520,45 @@ var LEAD_STAGES = ["Lead", "Contato inicial", "Raio X enviado", "Raio X recebido
 // to have been a client. 'lead' REQUIRES a lead_stage — see handlePatchClient,
 // which rejects the pair rather than writing a stageless lead into limbo.
 // ---------------------------------------------------------------------------
+
+// Hero follow-up E2 (Nicole 2026-09-27): "all the active clients default on
+// and when someone is paused or closed they auto toggle off", and coming back
+// each switch returns to EXACTLY what it was. The extra SET clauses for the
+// UPDATE that writes clients.status, computed on the row's OLD values in the
+// same statement (SQLite evaluates every SET against the old row):
+//   -> paused / closed from anything else: remember each switch in
+//      *_before_pause, set it OFF, stamp 'system' (only if it was on).
+//      Already paused/closed (paused -> closed): nothing moves, so a switch
+//      flipped by hand during the pause keeps its hand setting.
+//   -> active: each remembered switch is restored, stamped 'system' when that
+//      moves it, and the memory cleared. Nothing remembered: untouched.
+//   anything else (lead, lead_dormant ...): "".
+// test-client-temp-001 is exempt (its "closed" is the test fixture's).
+// A hand flip (PATCH daily_log_enabled / goals_enabled) clears that switch's
+// memory, so reactivation never overwrites Pr. Rafa's or Alice's choice.
+var CLIENT_SWITCH_EXEMPT_ID = "test-client-temp-001";
+function clientStatusSwitchSql(newStatus) {
+    var ex = "id = '" + CLIENT_SWITCH_EXEMPT_ID + "'";
+    var paused = "status IN ('paused','closed')";
+    var parts = [];
+    [["daily_log_enabled", "daily_log_before_pause"], ["goals_enabled", "goals_before_pause"]].forEach(function(p) {
+        var col = p[0], mem = p[1];
+        if (newStatus === "paused" || newStatus === "closed") {
+            var skip = ex + " OR " + paused;
+            parts.push(mem + " = CASE WHEN " + skip + " THEN " + mem + " ELSE " + col + " END");
+            parts.push(col + "_set_by = CASE WHEN " + skip + " OR " + col + " = 0 THEN " + col + "_set_by ELSE 'system' END");
+            parts.push(col + "_set_at = CASE WHEN " + skip + " OR " + col + " = 0 THEN " + col + "_set_at ELSE datetime('now') END");
+            parts.push(col + " = CASE WHEN " + skip + " THEN " + col + " ELSE 0 END");
+        } else if (newStatus === "active") {
+            var keep = ex + " OR " + mem + " IS NULL";
+            parts.push(col + "_set_by = CASE WHEN " + keep + " OR " + mem + " = " + col + " THEN " + col + "_set_by ELSE 'system' END");
+            parts.push(col + "_set_at = CASE WHEN " + keep + " OR " + mem + " = " + col + " THEN " + col + "_set_at ELSE datetime('now') END");
+            parts.push(col + " = CASE WHEN " + keep + " THEN " + col + " ELSE " + mem + " END");
+            parts.push(mem + " = CASE WHEN " + ex + " THEN " + mem + " ELSE NULL END");
+        }
+    });
+    return parts.length ? ", " + parts.join(", ") : "";
+}
 
 var CLIENT_STATUS = [
     "active",        // a paying client
@@ -2772,7 +2840,7 @@ async function handlePostLeadOutcome(id, request, env) {
             await env.DB.prepare(
                 "UPDATE clients SET status = 'active', package = ?, lead_stage = NULL, " +
                 "package_started_at = ?, stage_changed_at = datetime('now'), " +
-                "stage_changed_by = ?, stage_change_source = 'lead_outcome:converted' WHERE id = ?"
+                "stage_changed_by = ?, stage_change_source = 'lead_outcome:converted'" + clientStatusSwitchSql("active") + " WHERE id = ?"
             ).bind(pkg, startedAt, actorName(user), id).run();
             return jsonOk({ status: "active", package: pkg, package_started_at: startedAt });
         }
@@ -4292,7 +4360,9 @@ async function handlePatchClient(id, request, env) {
             var curSw = await env.DB.prepare("SELECT " + key + " AS v FROM clients WHERE id = ?").bind(id).first();
             if (!curSw) { return jsonErr("Client not found", 404); }
             if (curSw.v !== want) {
-                await env.DB.prepare("UPDATE clients SET " + key + " = ?, " + key + "_set_by = ?, " + key + "_set_at = datetime('now') WHERE id = ?")
+                // E2: a hand flip wins over the pause memory for that switch.
+                var memCol = key === "daily_log_enabled" ? "daily_log_before_pause" : "goals_before_pause";
+                await env.DB.prepare("UPDATE clients SET " + key + " = ?, " + key + "_set_by = ?, " + key + "_set_at = datetime('now'), " + memCol + " = NULL WHERE id = ?")
                     .bind(want, actorName(user), id).run();
             }
             updated = true;
@@ -4385,10 +4455,10 @@ async function handlePatchClient(id, request, env) {
                 if (!pkgRow || !pkgRow.package) {
                     return jsonErr("Selecione um pacote para ativar / Select a package to activate", 400);
                 }
-                await env.DB.prepare("UPDATE clients SET status = 'active' WHERE id = ?")
+                await env.DB.prepare("UPDATE clients SET status = 'active'" + clientStatusSwitchSql("active") + " WHERE id = ?")
                     .bind(id).run();
             } else {
-                await env.DB.prepare("UPDATE clients SET status = ? WHERE id = ?")
+                await env.DB.prepare("UPDATE clients SET status = ?" + clientStatusSwitchSql(newStatus) + " WHERE id = ?")
                     .bind(newStatus, id).run();
             }
             updated = true;
@@ -39013,6 +39083,7 @@ export default {
     // to the app as a rejected one.
     fetch: async function(request, env, ctx) {
         try {
+            await gmLoadHiddenActors(env);
             var response = await handleFetch(request, env, ctx);
             return withCorsOrigin(response, request);
         } catch (err) {

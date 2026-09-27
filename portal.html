@@ -3827,7 +3827,9 @@
     function renderNextMonthGoalRow() {
       var row = document.getElementById("nextMonthGoalRow");
       if (!row) { return; }
-      var show = goalState && goalState.today && goalState.next_month &&
+      // Goals switched OFF by Pr. Rafa (hero follow-up, E3): no "next month
+      // has no goals" banner and no button; the goals still open in Ritmo.
+      var show = goalsOn() && goalState && goalState.today && goalState.next_month &&
         goalsMonth === goalState.current_month;
       row.hidden = !show;
       if (!show) { row.innerHTML = ""; return; }
@@ -7044,7 +7046,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790548403"></script>
+  <script src="gm.js?v=1790549908"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

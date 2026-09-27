@@ -88,7 +88,7 @@
        calendar does not reimplement (and re-break) it. See calendar-grid.js. -->
   <script src="calendar-grid.js?v=1786493218"></script>
   <!-- Stored keys -> displayed labels. Must load BEFORE gm.js, which uses it. -->
-  <script src="gm-labels.js?v=1790437233"></script>
+  <script src="gm-labels.js?v=1790483608"></script>
   <!-- The single implementation of the Analytics view, shared with the admin
        per-client analytics page so the two can never drift apart. -->
   <script src="analytics-view.js"></script>
@@ -5045,6 +5045,10 @@
       // attribution), so a stale cache would show wrong numbers.
       // "assigned" always re-renders too: the assignment set can change between
       // visits, and rendering it is cheap (no fetch — it reads xrayAssigned).
+      // F13: the Home attention cards (contract notices, awaiting signatures,
+      // subcontractor documents, alerts) refresh every time Home is shown,
+      // not only on the first visit.
+      if (tab === "analytics" && tabsLoaded[tab] && window.gmAttentionEnabled === true && typeof gmLoadAttention === "function") { gmLoadAttention(true); }
       if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0 || tab === "assigned") {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadPace(); loadAnalytics(); loadHistory(); }
@@ -6982,7 +6986,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790463781"></script>
+  <script src="gm.js?v=1790483607"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

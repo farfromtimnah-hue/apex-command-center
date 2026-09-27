@@ -2,35 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Fixed layout width (F45): a phone lays the page out at paper width and
+       shows it zoomed out, so what it prints is the same as a desktop. -->
+  <meta name="viewport" content="width=816">
   <meta name="robots" content="noindex">
   <title>Change Order</title>
   <style>
     /* PRINT TEMPLATE for a client's CONTRACT (contracts build, checkpoint B).
        Copied from client-estimate-template.html (fix-build header, paginator,
        print sizing, signature block); only the block builder differs.
-       Nicole's rule: content NEVER flows between pages. Every page is a
+       Long text flows between pages at paragraph and line level (fix build F45). Every page is a
        <section class="slide">; a JavaScript paginator measures each block and
        opens a new slide when the next block would not fit. The footer is
        ::after INSIDE the slide -- never position:fixed, never @bottom-center.
-       On screen a slide is 8.5in x 11in; in print it is sized to the PAGE BOX
-       (100vw x 100vh) so a browser that adds its own margins and URL/date
-       strips (iPhone Safari) still fits one slide per sheet, and the content
-       budget is deliberately shorter than the page (CONTENT_H) so nothing
-       ever spills. No Apex branding anywhere: the client's photo, logo and
+       Every slide is a fixed 7.5in x 10in box (the Letter page less the
+       0.5in @page margins) on screen and in print, on a phone or a desktop:
+       the paginator's budget never depends on the screen (F45/F47). No Apex branding anywhere: the client's photo, logo and
        colours only. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --ink: #1f2328; --muted: #5a6470; --rule: #E3E7EC; --brand: #2b2f36; --accent: #2b2f36; --on-brand: #fff; --on-accent: #fff;
       /* Slide geometry. --pad-x / --pad-top are shared by the slide padding
          and the hero band's negative margins, so the photo is full-bleed. */
-      --pad-x: 0.75in; --pad-top: 0.45in; --pad-bottom: 0.8in;
+      --pad-x: 0.25in; --pad-top: 0.45in; --pad-bottom: 0.8in;
     }
     html, body { background: #e9ebee; }
     body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.4; padding: 24px 0; }
-    .toolbar { max-width: 8.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+    .toolbar { max-width: 7.5in; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
     .toolbar button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #c8ccd2; background: #fff; font-weight: 700; cursor: pointer; font-size: 13px; }
-    .slide { position: relative; width: 8.5in; height: 11in; margin: 0 auto 24px; background: #fff; padding: var(--pad-top) var(--pad-x) var(--pad-bottom); overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
+    .slide { position: relative; width: 7.5in; height: 10in; margin: 0 auto 24px; background: #fff; padding: var(--pad-top) var(--pad-x) var(--pad-bottom); overflow: visible; box-shadow: 0 2px 14px rgba(0,0,0,0.12); }
     .slide::before { content: ""; position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: .56in; height: 1px; background: #E3E7EC; }
     .slide::after { content: attr(data-footer); position: absolute; left: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
     .pg { position: absolute; right: var(--pad-x); bottom: .32in; font-size: 8pt; color: #5A6470; }
@@ -125,19 +125,19 @@
     .noc .copy { font-size: 8pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8pt; }
     .l5a { font-size: 10pt; font-weight: 700; margin: 6pt 0; white-space: pre-wrap; }
     .disclaimer { font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 6pt; margin-top: 8pt; }
+    /* NOT SIGNED band: inside the footer zone of every page, outside the flow. */
+    .nsband { position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: 0.6in; text-align: center; font-size: 8pt; font-weight: 800; letter-spacing: 0.06em; color: #a63d3d; background: #fbeaea; border: 1px solid #e3b4b4; border-radius: 4pt; padding: 1pt 0; }
     #stage { position: absolute; left: -10000px; top: 0; width: 7in; }
     @media print {
       body { background: #fff; padding: 0; }
       .toolbar { display: none; }
-      /* The page box, whatever margins and header/footer strips the browser
-         adds: each slide is exactly one printable area. The horizontal
-         padding keeps the 7in content column centred; the hero's negative
-         margins follow it and stay full-bleed. */
-      :root { --pad-x: max(0.25in, calc((100vw - 7in) / 2)); }
-      .slide { width: 100vw; height: calc(100vh - 1px); margin: 0; box-shadow: none; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* A fixed physical page (contracts fix build, F45): Letter with 0.5in
+         margins, each slide exactly the 7.5in x 10in printable box, whatever
+         device prints it. Never vw/vh here: on a phone those are the SCREEN,
+         which is what printed the whole contract in a half-width column. */
+      .slide { width: 7.5in; height: 9.98in; margin: 0; box-shadow: none; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .slide:last-child { break-after: auto; page-break-after: auto; }
-      .hero-band { width: 100vw; }
-      @page { size: Letter portrait; margin: 0; }
+      @page { size: Letter portrait; margin: 0.5in; }
     }
     /* Change order items table (one-page addendum). */
     .co-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 4pt; }
@@ -186,7 +186,7 @@
   </style>
 </head>
 <body>
-  <div class="toolbar"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>
+  <div class="toolbar"><button type="button" onclick="printWithoutToken()">Print / Save as PDF</button></div>
   <div id="pages"><section class="slide" data-footer=""><p class="muted">Loading...</p></section></div>
   <!-- Off-screen measuring stage, the same width as a slide's content box. -->
   <div id="stage"></div>
@@ -198,12 +198,9 @@
     // Portal preview (owner session) and a local mock for offline checks only.
     var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
     var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
-    // Content budget per slide, in CSS px. Deliberately SHORTER than the
-    // 11in page: 0.45in top padding + 8.7in content + 0.8in footer zone =
-    // 9.95in, so a printable area as small as 9.95in (browser margins plus
-    // its URL/date strips) still holds a whole slide. Overflow:hidden must
-    // never be what decides where a page ends. If a phone still spills,
-    // lower CONTENT_BUDGET here (one constant, the same in all three).
+    // Content budget per slide, in CSS px: a printed slide is 10in tall =
+    // 0.45in top padding + 8.7in content + 0.8in footer zone (0.05in slack).
+    // The same number on every screen: the stage is a fixed 7in wide.
     var PAD_TOP_PX = 0.45 * 96;
     var CONTENT_BUDGET = 8.7 * 96;
     var CONTENT_H = CONTENT_BUDGET;
@@ -211,7 +208,54 @@
 
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
-    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
     function fmtDateTime(iso) {
       if (!iso) { return ""; }
       var s = String(iso).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
@@ -289,8 +333,12 @@
       }
       return h + '</div>';
     }
+    // F4 final guard: no raw {token} ever reaches the homeowner.
+    function stripTokens(html) { return String(html).replace(/\{([A-Za-z0-9_]+)\}/g, function(m, k) { console.error("[change order] unfilled placeholder removed from homeowner text: {" + k + "}"); return ""; }); }
+    // Every page of a change order that is not signed by both parties says so.
+    function unsignedBandHtml() { return con && con.status !== "completed" ? '<div class="nsband">NOT SIGNED - FOR REVIEW</div>' : ""; }
     function isCredit(cents) { return (Number(cents) || 0) < 0; }
-    function signedMoney(cents) { var n = Number(cents) || 0; return (n < 0 ? "- " : (n > 0 ? "+ " : "")) + money(Math.abs(n)); }
+    function signedMoney(cents) { var n = Number(cents) || 0; return (n < 0 ? "-" : (n > 0 ? "+" : "")) + money(Math.abs(n)); }
     function refText() { return con.contract_display_number ? "Contract " + con.contract_display_number + (con.contract_date ? " dated " + fmtDate(con.contract_date) : "") : "the accepted estimate"; }
 
     function buildBlocks() {
@@ -304,22 +352,23 @@
       if (con.homeowner_signature) { stamp = '<span class="stamp ok">SIGNED ' + escHtml(fmtDate(con.homeowner_signature.signed_at)) + '</span>'; }
       else if (con.status === "declined") { stamp = '<span class="stamp bad">DECLINED</span>'; }
       else if (con.status === "void") { stamp = '<span class="stamp bad">VOID</span>'; }
-      else if (previewId) { stamp = '<span class="stamp bad">PREVIEW - NOT SENT</span>'; }
+      else if (previewId && con.status === "draft") { stamp = '<span class="stamp bad">PREVIEW - NOT SENT</span>'; }
       blocks.push({ html: metaBlockHtml("Owner", con.customer_name, whoLines, b, "Change order", con.number, rows, stamp, null), kind: "block", keepWithNext: true });
 
-      var h = '<div class="blk clause"><p><strong>Change Order ' + escHtml(con.number) + ' to ' + escHtml(refText()) + '.</strong>' + (con.description ? ' ' + escHtml(con.description) : "") + '</p>';
-      h += '<table class="co-table"><thead><tr><th>Added or removed</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>';
+      // Intro, then one table row per line (rows flow across pages with the
+      // header repeated), then the totals and terms.
+      blocks.push({ html: '<div class="blk clause"><p><strong>Change Order ' + escHtml(con.number) + ' to ' + escHtml(refText()) + '.</strong>' + (con.description ? ' ' + stripTokens(escHtml(con.description)) : "") + '</p></div>', kind: "block", keepWithNext: true });
+      var thead = '<thead><tr><th>Added or removed</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead>';
       (con.items || []).forEach(function(it) {
         var credit = it.kind === "remove" || isCredit(it.amount_cents);
-        h += '<tr><td>' + (credit ? "Removed: " : "Added: ") + escHtml(it.item_name) + '</td><td class="n">' + escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + '</td><td class="n">' + money(it.rate_cents) + '</td><td class="n">' + signedMoney(it.amount_cents) + (credit ? " (credit)" : "") + '</td></tr>';
+        blocks.push({ html: '<tr><td>' + (credit ? "Removed: " : "Added: ") + escHtml(it.item_name) + '</td><td class="n">' + escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + '</td><td class="n">' + money(it.rate_cents) + '</td><td class="n">' + signedMoney(it.amount_cents) + (credit ? " (credit)" : "") + '</td></tr>', kind: "row", thead: thead, tableClass: "co-table" });
       });
-      h += '</tbody></table>';
-      h += '<div class="co-totals"><div><span>Contract Price before this Change Order</span><span>' + money(con.price_before_cents) + '</span></div>' +
+      var h = '<div class="blk clause"><div class="co-totals"><div><span>Contract Price before this Change Order</span><span>' + money(con.price_before_cents) + '</span></div>' +
         '<div><span>' + (isCredit(con.amount_cents) ? "Credit" : "Change") + '</span><span>' + signedMoney(con.amount_cents) + '</span></div>' +
         '<div class="grand"><span>New Contract Price</span><span>' + money(con.price_after_cents) + '</span></div></div>';
       var d = Number(con.schedule_days) || 0;
       h += '<p style="margin-top:8pt;"><strong>Effect on the schedule:</strong> ' + (d === 0 ? "no change to the schedule." : (Math.abs(d) + " working day" + (Math.abs(d) === 1 ? "" : "s") + (d > 0 ? " added to" : " removed from") + " the schedule.")) + '</p>';
-      h += '<p><strong>Payment schedule:</strong> ' + (con.payment_change === "new_step" ? "A new invoice step is added for this amount." : "The remaining unpaid invoices are adjusted by this amount.") + (con.payment_note ? " " + escHtml(con.payment_note) : "") + '</p>';
+      h += '<p><strong>Payment schedule:</strong> ' + (con.payment_change === "new_step" ? "A new invoice step is added for this amount." : "The remaining unpaid invoices are adjusted by this amount.") + (con.payment_note ? " " + stripTokens(escHtml(con.payment_note)) : "") + '</p>';
       h += '<p>Everything in the Contract not changed by this Change Order stays the same.</p></div>';
       blocks.push({ html: h, kind: "block" });
 
@@ -333,18 +382,30 @@
     }
 
     // ── Paginator ───────────────────────────────────────────────────────
-    // Measures each block on the off-screen stage (same width as a slide's
-    // content box) and fills slides: a new slide opens when the next block
-    // would not fit; a block flagged keepWithNext (a section header, the
-    // page header) is moved along with what follows it; a table row keeps
-    // its thead, repeated at the top of every continued table.
+    // (Contracts fix build, F45/F47. The six client print templates --
+    // contract, change order, affidavit, estimate, invoice, receipt -- each
+    // carry a copy of this same code; fix one, fix all six.)
+    // Measures each block on the off-screen stage (a fixed 7in, the same
+    // width as a printed slide's content box, whatever the screen width) and
+    // fills slides. Long text FLOWS: a paragraph block (kind "para") that
+    // does not fit the room left on a page is split at a word boundary so the
+    // first part fills the page and the rest continues on the next; a
+    // paragraph taller than a whole page is split the same way. Only small
+    // units are kept whole: a heading (keepWithNext) with at least its first
+    // two lines, a signature block, a payment-tiles row, an appendix photo
+    // row, a table row (which keeps its thead, repeated on continued pages).
+    // startPage / ownPage blocks open a fresh slide; ownPage and endPage
+    // blocks let nothing else follow them on their slide.
     // Heights INCLUDE vertical margins (getBoundingClientRect does not), plus
     // 1px of slack per block: an under-measured block is exactly how content
     // ends up under the footer line.
-    function measure(html, asRow, thead) {
+    var LINE_PX = 18;               // one line of 9.5-10pt text at 1.4
+    var MIN_SPLIT_PX = 3 * LINE_PX; // split a paragraph only into 3+ lines of room
+    function tableOpen(cls) { return '<table' + (cls ? ' class="' + cls + '"' : '') + '>'; }
+    function measure(html, asRow, thead, cls) {
       var stage = document.getElementById("stage");
       if (!stage) { return 0; }
-      stage.innerHTML = asRow ? '<table>' + thead + '<tbody>' + html + '</tbody></table>' : html;
+      stage.innerHTML = asRow ? tableOpen(cls) + thead + '<tbody>' + html + '</tbody></table>' : html;
       var el = stage.firstElementChild;
       var h = 0;
       if (asRow) { var tb = stage.querySelector("tbody"); h = tb ? tb.getBoundingClientRect().height : 0; }
@@ -355,14 +416,55 @@
       stage.innerHTML = "";
       return h + 1;
     }
-    function measureThead(thead) {
+    function measureThead(thead, cls) {
       var stage = document.getElementById("stage");
       if (!stage) { return 0; }
-      stage.innerHTML = '<table>' + thead + '<tbody></tbody></table>';
+      stage.innerHTML = tableOpen(cls) + thead + '<tbody></tbody></table>';
       var th = stage.querySelector("thead");
       var h = th ? th.getBoundingClientRect().height : 0;
       stage.innerHTML = "";
       return h + 1;
+    }
+    // A splittable paragraph: { kind: "para", pre, post, text, fmt(text)->html,
+    // preCont (wrapper for the continued part, optional) }.
+    function paraBlock(pre, post, text, fmt, extra) {
+      var b = { kind: "para", pre: pre, post: post, text: String(text || ""), fmt: fmt };
+      if (extra) { Object.keys(extra).forEach(function(k) { b[k] = extra[k]; }); }
+      return b;
+    }
+    function paraHtml(b, text) { return b.pre + b.fmt(text) + b.post; }
+    // markdown-light **bold** must stay balanced on both sides of a split.
+    function balanceBold(first, rest) {
+      var n = (first.match(/\*\*/g) || []).length;
+      if (n % 2 === 1) { return { first: first + "**", rest: "**" + rest }; }
+      return { first: first, rest: rest };
+    }
+    function splitAt(parts, n) {
+      // parts = text.split(/(\s+)/): words at even indexes, separators at odd.
+      return balanceBold(parts.slice(0, n * 2 - 1).join(""), parts.slice(n * 2).join(""));
+    }
+    // The largest leading run of words that fits in `room` px, or null.
+    function splitPara(b, room) {
+      var parts = String(b.text || "").split(/(\s+)/);
+      var words = Math.ceil(parts.length / 2);
+      if (words < 2) { return null; }
+      var lo = 1, hi = words - 1, best = 0;
+      while (lo <= hi) {
+        var mid = Math.floor((lo + hi) / 2);
+        var t = splitAt(parts, mid);
+        if (measure(paraHtml(b, t.first)) <= room) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      if (!best) { return null; }
+      var r = splitAt(parts, best);
+      if (!r.rest.replace(/\*\*/g, "").trim()) { return null; }
+      return r;
+    }
+    function contOf(b, text) {
+      var c = {};
+      Object.keys(b).forEach(function(k) { c[k] = b[k]; });
+      c.text = text;
+      if (b.preCont) { c.pre = b.preCont; }
+      return c;
     }
 
     function paginate(blocks) {
@@ -372,40 +474,77 @@
       function closeTable() { if (openTable) { cur.parts.push("</tbody></table>"); openTable = null; } }
       newSlide();
       var pending = [];   // keepWithNext blocks waiting to be placed with the next one
+      function pendingH() { var t = 0; pending.forEach(function(p) { t += p.h; }); return t; }
+      function flushPending() { pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; }); pending = []; }
       function place(b) {
-        var h = b.kind === "row" ? measure(b.html, true, b.thead) : measure(b.html);
+        var h = b.kind === "row" ? measure(b.html, true, b.thead, b.tableClass) : measure(b.html);
         var extra = 0;
         // A pending heading closes the open table, so the row reopens one:
         // its thead must be counted then too, not only on a thead change.
-        if (b.kind === "row" && (openTable !== b.thead || pending.length)) { extra = measureThead(b.thead); }
-        var pendingH = 0;
-        pending.forEach(function(p) { pendingH += p.h; });
-        if (cur.used + pendingH + extra + h > CONTENT_H && (cur.used > 0 || pendingH > 0)) {
+        if (b.kind === "row" && (openTable !== b.thead || pending.length)) { extra = measureThead(b.thead, b.tableClass); }
+        var ph = pendingH();
+        if (cur.used + ph + extra + h > CONTENT_H && (cur.used > 0 || ph > 0)) {
           newSlide();
         }
-        pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; });
-        pending = [];
+        flushPending();
         if (b.kind === "row") {
-          if (openTable !== b.thead) { closeTable(); cur.parts.push('<table>' + b.thead + '<tbody>'); cur.used += extra; openTable = b.thead; }
+          if (openTable !== b.thead) { closeTable(); cur.parts.push(tableOpen(b.tableClass) + b.thead + '<tbody>'); cur.used += extra; openTable = b.thead; }
           cur.parts.push(b.html); cur.used += h;
         } else { closeTable(); cur.parts.push(b.html); cur.used += h; }
       }
+      function placePara(b) {
+        var html = paraHtml(b, b.text), h = measure(html), ph = pendingH();
+        if (cur.used + ph + h <= CONTENT_H) { flushPending(); closeTable(); cur.parts.push(html); cur.used += h; return; }
+        var room = CONTENT_H - cur.used - ph;
+        if (room >= MIN_SPLIT_PX) {
+          var sp = splitPara(b, room);
+          if (sp) {
+            var fhtml = paraHtml(b, sp.first), fh = measure(fhtml);
+            // A pending heading goes only with at least two lines of its text.
+            if (!(ph > 0 && fh < 2 * LINE_PX)) {
+              flushPending(); closeTable(); cur.parts.push(fhtml); cur.used += fh;
+              newSlide();
+              placePara(contOf(b, sp.rest));
+              return;
+            }
+          }
+        }
+        if (cur.used === 0 && ph === 0) {
+          // A fresh page and still no word split fits: place it and let the
+          // overflow check below report it loudly.
+          closeTable(); cur.parts.push(html); cur.used += h; return;
+        }
+        if (cur.used === 0) { flushPending(); placePara(b); return; }
+        newSlide();
+        placePara(b);
+      }
       var lastOwn = false;
       blocks.forEach(function(b) {
-        // ownPage: the block starts a fresh slide and nothing follows it there
-        // (the lien notice, each cancellation copy).
-        if (b.ownPage) { if (cur.used > 0 || pending.length) { pending.forEach(function(p) { closeTable(); cur.parts.push(p.html); cur.used += p.h; }); pending = []; newSlide(); } place(b); lastOwn = true; return; }
         if (lastOwn) { newSlide(); lastOwn = false; }
+        // startPage / ownPage: the block starts a fresh slide (the lien
+        // notice, each cancellation copy, the appendix heading).
+        if ((b.ownPage || b.startPage) && (cur.used > 0 || pending.length)) { flushPending(); closeTable(); newSlide(); }
         // keepWithNext is only honoured for block kinds: a pending table row
         // would be emitted outside its table.
-        if (b.keepWithNext && b.kind !== "row") { var h = measure(b.html); pending.push({ html: b.html, h: h + 2 }); return; }
-        place(b);
+        if (b.keepWithNext && b.kind === "block" && !b.ownPage) { var kh = measure(b.html); pending.push({ html: b.html, h: kh + 2 }); return; }
+        if (b.kind === "para") { placePara(b); } else { place(b); }
+        if (b.ownPage) { lastOwn = !b.continueAfter; }
+        if (b.endPage) { lastOwn = true; }
       });
-      if (pending.length) { pending.forEach(function(p) { if (cur.used + p.h > CONTENT_H) { newSlide(); } closeTable(); cur.parts.push(p.html); cur.used += p.h; }); }
+      if (pending.length) { if (cur.used + pendingH() > CONTENT_H) { newSlide(); } flushPending(); }
       closeTable();
       return slides;
     }
 
+    // Anything drawn under the footer zone is a bug; it is counted in
+    // window.__printOverflowErrors so a verification run fails loudly.
+    function slideOverflowPx(sec) {
+      var kids = sec.children, last = null;
+      for (var k = kids.length - 1; k >= 0; k--) { if (!/\b(pg|nsband)\b/.test(kids[k].className || "")) { last = kids[k]; break; } }
+      if (!last) { return 0; }
+      var bottom = last.getBoundingClientRect().bottom - sec.getBoundingClientRect().top;
+      return bottom - (PAD_TOP_PX + CONTENT_BUDGET);
+    }
     function render() {
       var blocks = buildBlocks();
       // Belt and braces: if a slide still overflows after measuring, shrink
@@ -420,18 +559,23 @@
         tries++;
       }
       var footer = footerText();
+      var band = typeof unsignedBandHtml === "function" ? unsignedBandHtml() : "";
       var html = "";
       slides.forEach(function(s, i) {
-        html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + '<div class="pg">Page ' + (i + 1) + " of " + slides.length + '</div></section>';
+        html += '<section class="slide" data-footer="' + escHtml(footer) + '">' + s.parts.join("") + band + '<div class="pg">Page ' + (i + 1) + " of " + slides.length + '</div></section>';
       });
       var pages = document.getElementById("pages");
       if (pages) { pages.innerHTML = html; }
       document.title = docTitle();
       var sections = document.querySelectorAll("#pages .slide");
+      var errors = 0;
       for (var i = 0; i < sections.length; i++) {
-        var inner = sections[i].scrollHeight;
-        if (inner > sections[i].clientHeight + 1) { console.error("[print-template] slide " + (i + 1) + " overflows by " + (inner - sections[i].clientHeight) + "px"); }
+        var over = slideOverflowPx(sections[i]);
+        if (over > 2) { errors++; console.error("[print-template] slide " + (i + 1) + " overflows the content area by " + Math.round(over) + "px"); }
       }
+      window.__printOverflowErrors = errors;
+      // Also on the body, so a headless --dump-dom run can read the verdict.
+      if (document.body) { document.body.setAttribute("data-print-overflow-errors", String(errors)); document.body.setAttribute("data-print-pages", String(slides.length)); document.body.setAttribute("data-print-budget", String(Math.round(CONTENT_H))); }
       window.__changeOrderPages = slides.length;
     }
 
@@ -445,12 +589,8 @@
       var worst = 0;
       var secs = probe.querySelectorAll(".slide");
       for (var i = 0; i < secs.length; i++) {
-        var kids = secs[i].children;
-        var last = kids[kids.length - 1];
-        if (!last) { continue; }
-        var bottom = last.getBoundingClientRect().bottom - secs[i].getBoundingClientRect().top;
-        var limit = PAD_TOP_PX + CONTENT_BUDGET;
-        if (bottom - limit > worst) { worst = bottom - limit; }
+        var o = slideOverflowPx(secs[i]);
+        if (o > worst) { worst = o; }
       }
       document.body.removeChild(probe);
       return Math.ceil(worst);
@@ -502,7 +642,7 @@
           });
         })
         .then(function() {
-          if (con && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { window.print(); }, 300); }
+          if (con && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { printWithoutToken(); }, 300); }
         })
         .catch(function(e) { console.error(e); notFound(); });
     }

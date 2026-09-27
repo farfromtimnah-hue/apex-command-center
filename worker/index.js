@@ -85,6 +85,15 @@ function jsonErr(message, status) {
     var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json" });
     return new Response(JSON.stringify({ error: message }), { status: status || 400, headers: headers });
 }
+// An error the portal shows in the user's language: error stays English for
+// every older caller, error_pt / error_en let gm.js pick (gmApiErrText). An
+// optional problems list carries every remaining item at once (F14).
+function jsonErr2(pt, en, status, extra) {
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json" });
+    var body = { error: en, error_pt: pt, error_en: en };
+    if (extra) { Object.keys(extra).forEach(function(k) { body[k] = extra[k]; }); }
+    return new Response(JSON.stringify(body), { status: status || 400, headers: headers });
+}
 
 // ---------------------------------------------------------------------------
 // Authentication failures
@@ -13497,7 +13506,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "contract-settings" || gmRest === "contracts" || gmRest === "contracts/awaiting" || gmRest === "contract-notices" || gmRest === "change-orders") { return true; }
                 if (/^contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
-                if (/^jobs\/[A-Za-z0-9-]+\/contract-status$/.test(gmRest)) { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(gmRest)) { return true; }
                 // Dispute-prevention tools.
                 if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|punch|lienors|affidavit)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
@@ -13549,10 +13558,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^invoices\/[A-Za-z0-9-]+\/(send|payments|void|credits|late-fee)$/.test(gmRest)) { return true; }
                 // Contracts: create on the project; sign / route / send / void / revise / custom clause.
                 if (/^jobs\/[A-Za-z0-9-]+\/contracts$/.test(gmRest)) { return true; }
-                if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|void|revise|custom-clause)$/.test(gmRest)) { return true; }
+                if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy|void|revise|custom-clause)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(gmRest)) { return true; }
-                if (/^change-orders\/[A-Za-z0-9-]+\/(company-sign|send|void)$/.test(gmRest)) { return true; }
-                if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch|lienors|subcontractors|affidavit\/notarized)$/.test(gmRest)) { return true; }
+                if (/^change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy|void)$/.test(gmRest)) { return true; }
+                if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch|lienors|subcontractors|affidavit\/notarized|affidavit\/generate)$/.test(gmRest)) { return true; }
                 if (gmRest === "subcontractors") { return true; }
                 if (/^payments\/[A-Za-z0-9-]+\/(verify|reject|reverse|receipt-message)$/.test(gmRest)) { return true; }
                 if (/^base-ouro\/[A-Za-z0-9-]+\/reactivate$/.test(gmRest)) { return true; }
@@ -13684,7 +13693,7 @@ function sellerRequestAllowed(path, method, clientId) {
         if (rest === "gm/contracts" || rest === "gm/contracts/awaiting" || rest === "gm/change-orders") { return true; }
         if (/^gm\/contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
-        if (/^gm\/jobs\/[A-Za-z0-9-]+\/contract-status$/.test(rest)) { return true; }
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|punch)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         if (/^gm\/acks\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
@@ -13754,9 +13763,9 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/invoices\/[A-Za-z0-9-]+\/(send|payments)$/.test(rest)) { return true; }
         // Contracts: a seller may build, sign (when an authorized signer), route and send on their own projects.
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/contracts$/.test(rest)) { return true; }
-        if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send)$/.test(rest)) { return true; }
+        if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(rest)) { return true; }
-        if (/^gm\/change-orders\/[A-Za-z0-9-]+\/(company-sign|send)$/.test(rest)) { return true; }
+        if (/^gm\/change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch)$/.test(rest)) { return true; }
         if (/^gm\/payments\/[A-Za-z0-9-]+\/receipt-message$/.test(rest)) { return true; }
         return false;
@@ -13777,6 +13786,11 @@ function sellerRequestAllowed(path, method, clientId) {
         // send-message templates.
         if (/^gm\/estimates\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         if (rest === "gm/doc-messages") { return true; }
+        // F48: saving a contract they build on their own project (flags,
+        // answers, clause choices). contractSellerGuard scopes the row to the
+        // seller's own lead in handlePutGmContract. Void, custom clause,
+        // attorney review and contract settings stay owner-only.
+        if (/^gm\/contracts\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         return false;
     }
     if (method === "DELETE") {
@@ -23448,7 +23462,7 @@ async function handleGetGmEstimate(id, estId, request, env) {
         // The send sheet opens the lead's CURRENT phone (A4) and names the
         // sender the way the server would (C14).
         payload.send_phone = gmDocSendPhone(lead, est.customer_phone);
-        payload.sender_name = gmDocSenderName(user, lead, client, settings);
+        payload.sender_name = (await gmDocSenderFirstName(env, user, id, client, settings));
         return jsonOk({ estimate: payload });
     } catch (e) {
         return jsonErr("Error fetching estimate: " + e.message, 500);
@@ -23706,7 +23720,7 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
         var msg = gmDocFillMessage(settings.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE, {
             customer_first_name: String(est.customer_name || (lead && lead.cliente) || "").trim().split(/\s+/)[0] || "",
             job_name: est.job_name, business_name: settings.legal_name || (client && client.name) || "",
-            seller_name: gmDocSenderName(user, lead, client, settings),
+            seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)),
             link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token
         });
         return jsonOk({ sent: true, message: msg, link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token, phone: gmDocSendPhone(lead, est.customer_phone) });
@@ -23730,6 +23744,17 @@ function gmOwnerFirstName(client) {
 }
 function gmDocSenderName(user, lead, client, settings) {
     return sessionSellerName(user) || (lead && lead.vendedor) || gmOwnerFirstName(client) || settings.legal_name || (client && client.name) || "";
+}
+// F24: every send names the person actually sending, by first name: a seller
+// login = the seller; the owner login = the owner signer name from the
+// contract settings (then the owner's first name on the client record). The
+// business is always the legal name from the document settings.
+function gmFirstWord(n) { return String(n || "").trim().split(/\s+/)[0] || ""; }
+async function gmDocSenderFirstName(env, user, clientId, client, doc) {
+    var seller = sessionSellerName(user);
+    if (seller) { return gmFirstWord(seller); }
+    var cs = await contractSettingsRow(env, clientId);
+    return gmFirstWord(cs.owner_signer_name) || gmOwnerFirstName(client) || (doc && doc.legal_name) || (client && client.name) || "";
 }
 // The number a send opens: the lead's CURRENT phone first, the document's
 // frozen phone as the fallback (A4).
@@ -24371,7 +24396,7 @@ async function handleGetGmInvoice(id, invId, request, env) {
         out.customer_name = (lead && lead.cliente) || (job && job.obra) || null;
         out.customer_phone = gmDocSendPhone(lead, await gmInvEstimatePhone(env, inv));
         out.vendedor = lead ? lead.vendedor : null;
-        out.sender_name = gmDocSenderName(user, lead, client, settings);
+        out.sender_name = (await gmDocSenderFirstName(env, user, id, client, settings));
         // D3: the completion sign-off, shown on the final invoice.
         var compAck = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(id, inv.job_id).first();
         out.completion_signed_at = compAck ? compAck.signed_at : null; out.completion_signer = compAck ? compAck.signer_name : null;
@@ -24396,7 +24421,7 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
         var guard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
         if (guard) { return guard; }
         var res = await env.DB.prepare(
-            "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
+            "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), changed_after_send_at = NULL, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
         ).bind(invId, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("A void invoice cannot be sent", 409); }
         var settings = await gmDocSettingsRow(env, id);
@@ -24408,7 +24433,7 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
         var msg = gmDocFillMessage(settings.invoice_message || GM_DOC_DEFAULT_INVOICE_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
-            seller_name: gmDocSenderName(user, lead, client, settings), link: link
+            seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)), link: link
         });
         if (inv.status === "draft" && inv.lead_id) {
             await gmLogLeadEvents(env, id, inv.lead_id, actorName(user), [{ action: "invoice_sent", field: "invoice", old_value: null, new_value: inv.number }]);
@@ -24670,7 +24695,7 @@ async function handlePostGmPaymentReceiptMessage(id, paymentId, request, env) {
         var msg = gmDocFillMessage(settings.receipt_message || GM_DOC_DEFAULT_RECEIPT_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
-            seller_name: gmDocSenderName(user, lead, client, settings), link: link
+            seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)), link: link
         });
         return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, estPhone), customer_name: (lead && lead.cliente) || (job && job.obra) || null });
     } catch (e) {
@@ -25205,7 +25230,8 @@ async function contractLibraryForClient(env, clientId, version, trades) {
     }).concat(priv);
     priv.forEach(function(o) { byId[o.id] = o; });
     var ph = {};
-    lib.placeholders.forEach(function(p) { ph[p.field] = p; });
+    // Some library rows name several fields ("owner_email, owner_phone, ...").
+    lib.placeholders.forEach(function(p) { String(p.field || "").split(/\s*,\s*/).forEach(function(f) { if (f) { ph[f] = p; } }); });
     lib.optionsById = byId; lib.optionsForClient = options; lib.placeholderMap = ph;
     return lib;
 }
@@ -25235,10 +25261,12 @@ function contractOptionText(o, byId) {
 }
 
 function contractMoney(cents) {
-    var n = (Number(cents) || 0) / 100;
+    var c = Number(cents) || 0;
+    var n = Math.abs(c) / 100;
     var parts = n.toFixed(2).split(".");
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return "$" + parts.join(".");
+    // Rule 5: -$180.00, never $-180.00.
+    return (c < 0 ? "-" : "") + "$" + parts.join(".");
 }
 function contractFmtDate(ymd) { return gmFmtUsDate(ymd); }
 function contractFmtEastern(utc) {
@@ -25330,7 +25358,61 @@ function contractEstimateSums(ests) {
 
 // The placeholder values (section 4 of the library: Lead / Estimate / Settings
 // / Admin / Builder / Computed). Anything still missing is asked in the builder.
-function contractBuildVars(ctx, c, today) {
+// F20: the values that only exist once the homeowner signs. Three modes:
+//   "live"     — shown before the homeowner signs: clean words that read
+//                correctly inside the statutory sentence (never the old
+//                "MIDNIGHT OF midnight of ..." fallback);
+//   "template" — the text frozen at company signing: these stay as {tokens}
+//                so the frozen text never carries a guess;
+//   "signed"   — re-rendered at homeowner signing from the real Eastern
+//                transaction date and deadline.
+var CONTRACT_SIGNING_TIME_KEYS = ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method"];
+var CONTRACT_UNSIGNED_TEXT = {
+    transaction_date: "Date of your signature",
+    cancellation_deadline_date: "the third business day after Owner signs",
+    cancellation_deadline_date_notice: "THE THIRD BUSINESS DAY AFTER YOU SIGN",
+    pool_docs_delivered_at: "the date Owner signs this Contract",
+    pool_docs_delivery_method: "electronic delivery on the signing page",
+    company_signed_at: "the date Contractor signs (shown once Contractor signs)",
+    mutual_execution_deadline: "72 hours after Contractor signs"
+};
+function contractSigningTimeVars(v, c, mode) {
+    if (mode === "template") { CONTRACT_SIGNING_TIME_KEYS.forEach(function(k) { v[k] = "{" + k + "}"; }); return; }
+    if (mode === "signed") {
+        v.transaction_date = c.transaction_date ? contractFmtDate(c.transaction_date) : CONTRACT_UNSIGNED_TEXT.transaction_date;
+        v.cancellation_deadline_date = c.cancellation_deadline ? contractFmtDate(c.cancellation_deadline) : CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date;
+        v.pool_docs_delivered_at = c.pool_ack_at ? contractFmtEastern(c.pool_ack_at) : (c.homeowner_signed_at ? contractFmtEastern(c.homeowner_signed_at) : CONTRACT_UNSIGNED_TEXT.pool_docs_delivered_at);
+        v.pool_docs_delivery_method = CONTRACT_UNSIGNED_TEXT.pool_docs_delivery_method;
+        return;
+    }
+    CONTRACT_SIGNING_TIME_KEYS.forEach(function(k) { v[k] = CONTRACT_UNSIGNED_TEXT[k]; });
+}
+// The Notice of Cancellation is in capitals where the deadline sits.
+function contractNoticeVars(v, mode) {
+    if (mode === "template" || mode === "signed") { return v; }
+    var nv = Object.assign({}, v);
+    nv.cancellation_deadline_date = CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
+    return nv;
+}
+// Fill the signing-time {tokens} left in frozen text. Old snapshots (frozen
+// before this fix) carry the old fallback words instead of tokens: those are
+// replaced too, so no contract ever shows "MIDNIGHT OF midnight of ...".
+function contractFillSigningTime(text, v, isNotice) {
+    var out = String(text || "");
+    var unsigned = v.cancellation_deadline_date === CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date || v.cancellation_deadline_date === CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
+    var deadline = unsigned ? (isNotice ? CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice : CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date) : v.cancellation_deadline_date;
+    out = out.split("MIDNIGHT OF midnight of the third business day after the day Owner signs").join("MIDNIGHT OF " + (unsigned ? CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice : deadline));
+    out = out.split("midnight of the third business day after the day Owner signs").join(deadline);
+    out = out.split("**the day Owner signs**").join("**" + v.transaction_date + "**");
+    out = out.split("On the date Owner signs this Contract,").join("On " + v.pool_docs_delivered_at + ",");
+    var vv = Object.assign({}, v); vv.cancellation_deadline_date = deadline;
+    ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method", "company_signed_at", "mutual_execution_deadline", "ch515_doc_version", "drowning_pub_version"].forEach(function(k) {
+        if (vv[k] !== undefined && vv[k] !== null && vv[k] !== "") { out = out.split("{" + k + "}").join(vv[k]); }
+    });
+    return out;
+}
+
+function contractBuildVars(ctx, c, today, mode) {
     var doc = ctx.doc, lead = ctx.lead || {}, job = ctx.job || {}, s = ctx.settings, v = {};
     var sums = contractEstimateSums(ctx.estimates);
     var licenses = doc.license_numbers || [];
@@ -25372,19 +25454,19 @@ function contractBuildVars(ctx, c, today) {
     v.final_inspection_clause = (c.selections.C09 === "C09-C") ? "" : ", has passed final inspection,";
     v.insurance_statement = ""; v.extension_sentence = ""; v.late_payment_sentence = "If a payment is not received by its due date, Contractor may suspend the Work as described in Section 13.";
     v.cancellation_period_clause = c.flags.sold_in_home === false ? "" : ", and the three-business-day cancellation period has ended on {cancellation_deadline_date}";
-    v.cancellation_deadline_date = c.cancellation_deadline ? contractFmtDate(c.cancellation_deadline) : "midnight of the third business day after the day Owner signs";
-    v.transaction_date = c.transaction_date ? contractFmtDate(c.transaction_date) : "the day Owner signs";
-    v.company_signed_at = c.company_signed_at ? contractFmtEastern(c.company_signed_at) : "";
-    v.mutual_execution_deadline = c.company_signed_at ? contractFmtEastern(new Date(Date.parse(String(c.company_signed_at).replace(" ", "T") + "Z") + 72 * 3600000).toISOString()) : "";
+    v.company_signed_at = c.company_signed_at ? contractFmtEastern(c.company_signed_at) : CONTRACT_UNSIGNED_TEXT.company_signed_at;
+    v.mutual_execution_deadline = c.company_signed_at ? contractFmtEastern(new Date(Date.parse(String(c.company_signed_at).replace(" ", "T") + "Z") + 72 * 3600000).toISOString()) : CONTRACT_UNSIGNED_TEXT.mutual_execution_deadline;
+    contractSigningTimeVars(v, c, mode);
     v.attachments_list = ["Estimate " + sums.number + (sums.version ? "-" + sums.version : "")].concat(c.flags.is_pool ? ["Chapter 515 requirements document", "Drowning prevention publication"] : []).join("; ");
     v.recovery_fund_contact_block = ctx.admin.recovery_fund_contact_block || "";
     v.ch515_doc_version = ctx.admin.ch515_doc_version || ""; v.drowning_pub_version = ctx.admin.drowning_pub_version || "";
-    v.pool_docs_delivered_at = c.pool_ack_at ? contractFmtEastern(c.pool_ack_at) : "the date Owner signs this Contract";
-    v.pool_docs_delivery_method = "electronic delivery on the signing page";
     v.pool_safety_feature = c.flags.pool_safety_feature || "";
     v.lead_paint_clause = ""; v.lead_testing_sentence = "";
-    // Builder answers win over everything above.
+    // Builder answers win over everything above. contractSources() records
+    // where each value came from so the builder can show it (F19).
     Object.keys(c.answers || {}).forEach(function(k) { if (c.answers[k] !== null && c.answers[k] !== undefined && c.answers[k] !== "") { v[k] = String(c.answers[k]); } });
+    // F8: every phone prints as (401) 651-4117.
+    Object.keys(v).forEach(function(k) { if (/phone$/.test(k) && v[k]) { v[k] = contractFmtPhone(v[k]); } });
     if (v.year_built) {
         var yb = Number(v.year_built);
         v.lead_paint_clause = (yb && yb >= 1978) ? "Owner states the home was built in " + v.year_built + "." :
@@ -25401,17 +25483,43 @@ function GmLabelsPaymentMethodEn(k) {
 // answer, never a missing field.
 var CONTRACT_OPTIONAL_EMPTY = ["business_dba_clause", "co_owner_clause", "owner_title_note", "extension_sentence", "insurance_statement",
     "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause"];
+// F7: an "... or empty" value must never leave doubled punctuation or a
+// doubled space where it was assembled. The junction is fixed at the
+// placeholder only, never anywhere else in the library text (the statute
+// forms carry their own deliberate spacing, e.g. L1's signature line).
+function contractFillPass(text, vars) {
+    var src = String(text || ""), out = "", last = 0, m, re = /\{([a-z0-9_]+)\}/g;
+    while ((m = re.exec(src)) !== null) {
+        out += src.slice(last, m.index);
+        last = m.index + m[0].length;
+        var k = m[1], val = null;
+        if (vars[k] !== undefined && vars[k] !== null && vars[k] !== "") { val = String(vars[k]); }
+        else if (CONTRACT_OPTIONAL_EMPTY.indexOf(k) !== -1 && vars[k] !== undefined) { val = ""; }
+        if (val === null) { out += m[0]; continue; }
+        var next = src.charAt(last);
+        if (val !== "" && /[,;]$/.test(val) && /^[,.;:]/.test(next)) { val = val.slice(0, -1); }
+        if (val === "") {
+            // "Section 12. {x} Contractor" and "**15. ...** {x} Except": one space, not two.
+            if (/[ \t]$/.test(out) && /^[ \t]/.test(next)) { out = out.replace(/[ \t]+$/, ""); }
+            // "... word {x}." / "... word {x}," never leaves "word ." / "word ,".
+            else if (/[ \t]$/.test(out) && /^[,.;:]/.test(next)) { out = out.replace(/[ \t]+$/, ""); }
+        }
+        out += val;
+    }
+    return out + src.slice(last);
+}
 function contractFill(text, vars) {
     var out = String(text || "");
     // Two passes: a filled value may itself carry a placeholder (noc_sentence).
-    for (var pass = 0; pass < 2; pass++) {
-        out = out.replace(/\{([a-z0-9_]+)\}/g, function(m, k) {
-            if (vars[k] !== undefined && vars[k] !== null && vars[k] !== "") { return vars[k]; }
-            if (CONTRACT_OPTIONAL_EMPTY.indexOf(k) !== -1 && vars[k] !== undefined) { return ""; }
-            return m;
-        });
-    }
+    for (var pass = 0; pass < 2; pass++) { out = contractFillPass(out, vars); }
     return out.replace(/[ \t]+\n/g, "\n");
+}
+// (401) 651-4117 whatever was typed; anything that is not a US number stays as typed.
+function contractFmtPhone(tel) {
+    var d = String(tel || "").replace(/\D/g, "");
+    if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }
+    if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); }
+    return String(tel || "");
 }
 function contractMissing(text) {
     var out = [], m, re = /\{([a-z0-9_]+)\}/g;
@@ -25420,8 +25528,8 @@ function contractMissing(text) {
 }
 
 // The rules engine + the document, in print order.
-function contractCompose(ctx, c, today) {
-    var built = contractBuildVars(ctx, c, today);
+function contractCompose(ctx, c, today, mode) {
+    var built = contractBuildVars(ctx, c, today, mode);
     var v = built.vars, lib = ctx.lib, byId = lib.optionsById;
     var amount = built.sums.total_cents;
     var flags = c.flags || {};
@@ -25440,15 +25548,16 @@ function contractCompose(ctx, c, today) {
     };
     var locked = {};
     lib.locked_blocks.forEach(function(b) { locked[b.id] = b; });
-    var sections = [], missing = {}, blockers = [];
+    var sections = [], missing = {}, blockers = [], used = {};
     function add(kind, id, title, text, extra) {
+        contractMissing(text).forEach(function(k) { (used[k] = used[k] || []).push(id); });
         var filled = contractFill(text, v);
         contractMissing(filled).forEach(function(k) { if (CONTRACT_SIGNING_FIELDS.indexOf(k) === -1) { missing[k] = missing[k] || []; missing[k].push(id); } });
         var sec = { kind: kind, id: id, title: title, text: filled };
         if (extra) { Object.keys(extra).forEach(function(k) { sec[k] = extra[k]; }); }
         sections.push(sec);
     }
-    if (!v.license_number) { blockers.push("A Florida license number is required (document settings)."); }
+    if (!v.license_number) { blockers.push({ code: "license", pt: "Falta o número da licença da Flórida (configurações dos documentos).", en: "A Florida license number is required (document settings)." }); }
     if (locked.L4) { add("locked", "L4", locked.L4.title, locked.L4.text); }
     CONTRACT_AREA_ORDER.forEach(function(areaId) {
         var optId = c.selections[areaId];
@@ -25456,7 +25565,7 @@ function contractCompose(ctx, c, today) {
         var custom = c.custom_clauses.filter(function(x) { return x.area_id === areaId && x.status !== "not_approved"; })[0];
         if (optId === "custom" && custom) {
             var txt = custom.status === "approved_with_edits" && custom.revised_text ? custom.revised_text : custom.text;
-            add("custom", "custom:" + areaId, (lib.clause_areas.filter(function(a) { return a.id === areaId; })[0] || {}).title || areaId, txt, { custom_status: custom.status });
+            add("custom", "custom:" + areaId, contractHomeownerHeading((lib.clause_areas.filter(function(a) { return a.id === areaId; })[0] || {}).title || areaId), txt, { custom_status: custom.status });
             return;
         }
         var o = byId[optId];
@@ -25468,7 +25577,9 @@ function contractCompose(ctx, c, today) {
         if (areaId === "C17" && (ctx.settings.trades.indexOf("pools") !== -1 || ctx.settings.trades.indexOf("hardscape") !== -1) && v.spoil_disposition) {
             text += "\n\nExcavated soil will be " + v.spoil_disposition + ".";
         }
-        add("clause", o.id, o.title, text);
+        // F5: the homeowner reads the AREA title; the option title is the
+        // contractor's own label and stays in option_title.
+        add("clause", o.id, contractHomeownerHeading((lib.clause_areas.filter(function(a) { return a.id === areaId; })[0] || {}).title || o.title), text, { option_title: o.title });
         if (areaId === "C04" && rules.L7.on && locked.L7) {
             var l7 = (locked.L7.extra_blocks || [])[0] || "";
             add("locked", "L7", locked.L7.title, l7);
@@ -25476,33 +25587,45 @@ function contractCompose(ctx, c, today) {
     });
     if (rules.L2.on && locked.L2) {
         add("locked", "L2", locked.L2.title, locked.L2.text);
-        if (!v.recovery_fund_contact_block) { blockers.push("The Recovery Fund contact block (L2) is not filled in yet. Contact Apex before sending this contract."); }
+        if (!v.recovery_fund_contact_block) { blockers.push({ code: "recovery_fund", pt: "O bloco de contato do Recovery Fund (L2) ainda não foi preenchido. Fale com a Apex antes de enviar este contrato.", en: "The Recovery Fund contact block (L2) is not filled in yet. Contact Apex before sending this contract." }); }
     }
     if (rules.L1.on && locked.L1) { add("locked", "L1", locked.L1.title, locked.L1.text, { separate_page: true }); }
     if (rules.L6.on && locked.L6) {
         var ex = locked.L6.extra_blocks || [];
         add("locked", "L6", "Pool safety documents and safety feature", (ex[0] || "") + "\n\n" + (ex[1] || ""));
         if (v.pool_safety_feature && /barrier|enclosure/i.test(v.pool_safety_feature) && ex[2]) { add("locked", "L6-barrier", "Residential swimming pool barrier requirements (s. 515.29)", ex[2]); }
-        if (!flags.pool_safety_feature) { blockers.push("Choose the pool safety feature (s. 515.27) for this contract."); }
-        if (!ctx.admin.ch515_doc_r2_key || !ctx.admin.drowning_pub_r2_key) { blockers.push("The two pool documents (Chapter 515 requirements and the drowning-prevention publication) are not on file yet. Contact Apex before sending this contract."); }
+        if (!flags.pool_safety_feature) { blockers.push({ code: "pool_safety_feature", pt: "Escolha o recurso de segurança da piscina (s. 515.27) deste contrato.", en: "Choose the pool safety feature (s. 515.27) for this contract." }); }
+        if (!ctx.admin.ch515_doc_r2_key || !ctx.admin.drowning_pub_r2_key) { blockers.push({ code: "pool_docs", pt: "Os dois documentos de piscina (requisitos do Capítulo 515 e a publicação sobre afogamento) ainda não estão arquivados. Fale com a Apex antes de enviar este contrato.", en: "The two pool documents (Chapter 515 requirements and the drowning-prevention publication) are not on file yet. Contact Apex before sending this contract." }); }
     }
     if (rules.L5.on) {
         if (locked["L5-C"]) { add("locked", "L5-C", locked["L5-C"].title, locked["L5-C"].text); }
         if (locked["L5-A"]) { add("locked", "L5-A", locked["L5-A"].title, locked["L5-A"].text, { beside_signature: true }); }
     }
-    var noticeForm = rules.L5.on && locked["L5-B"] ? contractFill(locked["L5-B"].text, v) : null;
+    var noticeForm = rules.L5.on && locked["L5-B"] ? contractFill(locked["L5-B"].text, contractNoticeVars(v, mode)) : null;
     delete missing.pool_safety_feature;
     var missingList = Object.keys(missing).map(function(k) {
         var p = lib.placeholderMap[k] || {};
         return { field: k, meaning: p.meaning || k, source: p.source || "Builder", used_in: missing[k] };
     });
     if (res14 === null && amount > 250000) { missingList.unshift({ field: "property_type", meaning: "Property type (single-family, duplex, triplex, fourplex, townhouse, condo, commercial)", source: "Builder", used_in: ["L1", "L2"] }); }
+    // F19: every value this contract prints, where it came from, and whether
+    // the builder may override it for this contract only.
+    Object.keys(used).forEach(function(k) { String(v[k] || "").replace(/\{([a-z0-9_]+)\}/g, function(m, n) { (used[n] = used[n] || []).push.apply(used[n], used[k]); return m; }); });
+    var fields = Object.keys(used).filter(function(k) { return CONTRACT_SIGNING_FIELDS.indexOf(k) === -1 && CONTRACT_SIGNING_TIME_KEYS.indexOf(k) === -1; }).map(function(k) {
+        var p = lib.placeholderMap[k] || {};
+        var src = contractFieldSource(p.source);
+        var answered = c.answers && c.answers[k] !== undefined && c.answers[k] !== null && c.answers[k] !== "";
+        var editable = ["lead", "estimate", "settings", "contract"].indexOf(src) !== -1 && CONTRACT_READONLY_FIELDS.indexOf(k) === -1;
+        var val = v[k] === undefined || v[k] === null ? "" : String(v[k]);
+        return { field: k, value: /\{[a-z0-9_]+\}/.test(val) && !answered ? "" : val, source: answered ? "contract" : src, default_source: src, overridden: !!answered && src !== "contract",
+                 used_in: used[k].filter(function(x, i, a) { return a.indexOf(x) === i; }), editable: editable, meaning: p.meaning || k };
+    });
     var reviewed = ctx.lib.version.status === "attorney_reviewed";
     var hasCustom = c.custom_clauses.some(function(x) { return x.status !== "not_approved"; }) || Object.keys(c.selections).some(function(k) { return c.selections[k] === "custom"; });
     var disclaimer = (reviewed && !hasCustom) ? ("Template reviewed by " + ctx.lib.version.attorney_name + ", Florida Bar #" + ctx.lib.version.attorney_bar_number + ", on " + contractFmtDate(ctx.lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED;
     if (hasCustom) { disclaimer += " This contract contains a custom clause that was not reviewed by an attorney."; }
     return {
-        sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers,
+        sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers, fields: fields,
         amount_cents: amount, vars: v, sums: built.sums, disclaimer_line: disclaimer,
         requires: { lien_signature: rules.L1.on, pool_ack: rules.L6.on, cancellation: rules.L5.on,
                     marketing_checkbox: c.selections.C18 === "C18-B" || c.selections.C18 === "C18-C",
@@ -25516,6 +25639,38 @@ function contractCompose(ctx, c, today) {
     };
 }
 
+// Where a placeholder's value comes from (library section 4 "source" text).
+function contractFieldSource(source) {
+    var t = String(source || "");
+    if (/^Lead/i.test(t)) { return "lead"; }
+    if (/^Estimate|^Computed from Estimate/i.test(t)) { return "estimate"; }
+    if (/^Settings/i.test(t)) { return "settings"; }
+    if (/^Admin/i.test(t)) { return "admin"; }
+    if (/^Computed/i.test(t)) { return "computed"; }
+    if (/^Signing/i.test(t)) { return "signing"; }
+    return "contract";
+}
+// Money and the license come from the estimate and the document settings and
+// are changed there (or by a change order), never overridden on one contract.
+var CONTRACT_READONLY_FIELDS = ["contract_price", "deposit_amount", "balance_amount", "payment_schedule_table", "license_number", "business_legal_name",
+    "estimate_number", "estimate_version", "estimate_date", "estimate_accepted_date", "allowance_list", "payment_methods_list"];
+
+// "Dispute resolution (attorney-managed packages)" -> "Dispute resolution":
+// the parenthetical is a note for the contractor, not a heading for the homeowner.
+function contractHomeownerHeading(areaTitle) { return String(areaTitle || "").replace(/\s*\([^)]*\)\s*$/, "").trim(); }
+
+// F14: the builder's blockers and missing fields, all of them, in both languages.
+function contractProblemsErr(comp) {
+    var missing = comp.missing.map(function(m) { return m.field; });
+    var pt = comp.blockers.map(function(b) { return b.pt; }), en = comp.blockers.map(function(b) { return b.en; });
+    if (missing.length) { pt.push("Faltam dados: " + missing.join(", ")); en.push("Missing information: " + missing.join(", ")); }
+    return jsonErr2(pt.join(" "), en.join(" "), 409, { code: "contract_incomplete", blockers: comp.blockers, missing_fields: missing });
+}
+function contractStatusPt(st) {
+    return { draft: "rascunho", awaiting_company: "aguardando a empresa", company_signed: "assinado pela empresa", sent: "enviado", viewed: "visto", completed: "assinado pelos dois",
+             changes_requested: "mudanças pedidas", declined: "recusado", expired: "expirado", void: "anulado", superseded: "substituído" }[st] || st;
+}
+
 function contractDisplayNumber(c) { return c.number + (c.revision > 1 ? "-R" + c.revision : ""); }
 
 function contractSignerAllowed(user, settings, client) {
@@ -25527,7 +25682,7 @@ function contractSignerAllowed(user, settings, client) {
 
 async function contractPublicPayload(env, c, ctx, origin, opts) {
     var today = gmEasternToday();
-    var comp = contractCompose(ctx, c, today);
+    var comp = contractCompose(ctx, c, today, "live");
     var doc = ctx.doc, client = ctx.client;
     var pm = doc.payment_methods || {};
     var methods = [];
@@ -25557,13 +25712,116 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
                                           { label: "Drowning prevention publication" + (ctx.admin.drowning_pub_version ? " (" + ctx.admin.drowning_pub_version + ")" : ""), url: tokenBase + "/pool-doc/drowning" }] : [] },
         company_signature: c.company_signed_at && !c.company_signature_voided_at ? { signer_name: c.company_signer_name, signed_at: c.company_signed_at, kind: c.company_signature_kind, image_url: c.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: c.homeowner_signed_at ? { signer_name: c.homeowner_signer_name, signed_at: c.homeowner_signed_at, kind: c.homeowner_signature_kind, image_url: c.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(c.homeowner_signed_ua) } : null,
-        lien_signature: c.lien_signed_at ? { signed_at: c.lien_signed_at, kind: c.lien_signature_kind, image_url: c.lien_signature_r2_key ? tokenBase + "/signature-image/lien" : null } : null,
+        lien_signature: c.lien_signed_at ? { signed_at: c.lien_signed_at, kind: c.lien_signature_kind, signer_name: c.homeowner_signer_name, image_url: c.lien_signature_r2_key ? tokenBase + "/signature-image/lien" : null } : null,
         pool_ack: c.pool_ack_at ? { signed_at: c.pool_ack_at, delivered_at: c.pool_ack_at, method: "electronic delivery on this page" } : null,
+        homeowner_initials: c.homeowner_signed_at ? (c.homeowner_initials || null) : null,
+        marketing_consent: c.homeowner_signed_at ? !!c.marketing_consent : null,
+        transaction_date: c.transaction_date || null,
+        // F2: the price as signed, and the current price after signed change orders.
+        current_contract_amount_cents: (c.company_signed_at && !c.company_signature_voided_at) || c.homeowner_signed_at ? (c.contract_amount_cents || comp.amount_cents) : comp.amount_cents,
         disclaimer_line: c.disclaimer_line || comp.disclaimer_line,
         content_hash: c.content_hash || null,
+        signed_render_hash: c.signed_render_hash || null,
         appendix_photos: await contractAppendixPhotos(env, c, origin),
         pdf_link: DEFAULT_ORIGIN + "/templates/client-contract-template.html?t=" + c.public_token,
         change_request_text: c.change_request_text, decline_reason: c.decline_reason
+    };
+}
+
+async function contractR2Json(env, key) {
+    if (!key) { return null; }
+    var obj = await env.ASSETS.get(key);
+    if (!obj) { return null; }
+    try { return JSON.parse(await obj.text()); } catch (e) { console.error("contract json unreadable", key, e && e.message); return null; }
+}
+
+// F20: at homeowner signing the frozen text (company snapshot) is re-rendered
+// with the real Eastern transaction date and cancellation deadline and stored
+// beside it. content_hash stays the company-signing hash; this render gets its
+// own hash (signed_render_hash). A contract signed before the fix is rendered
+// the first time it is read (same code path, guarded so it happens once).
+async function contractBuildSignedRender(env, c, ctx) {
+    var snap = await contractR2Json(env, c.snapshot_r2_key);
+    if (!snap) { return null; }
+    var v = contractBuildVars(ctx, c, gmEasternToday(), "signed").vars;
+    var out = {
+        number: snap.number, amount_cents: snap.amount_cents, disclaimer_line: snap.disclaimer_line,
+        sections: (snap.sections || []).map(function(s) { var t = Object.assign({}, s); t.text = contractFillSigningTime(s.text, v, false); return t; }),
+        notice_form_text: snap.notice_form_text ? contractFillSigningTime(snap.notice_form_text, v, true) : null,
+        company_snapshot_hash: c.content_hash || null,
+        signed: { transaction_date: c.transaction_date || null, cancellation_deadline: c.cancellation_deadline || null, homeowner_signed_at: c.homeowner_signed_at || null, pool_ack_at: c.pool_ack_at || null }
+    };
+    var json = JSON.stringify(out);
+    var hash = await sha256Hex(json);
+    var key = "contracts/" + c.id + "/signed-r" + c.revision + ".json";
+    // The object first (same key and same bytes if two readers race), then
+    // the row, claimed once.
+    await env.ASSETS.put(key, json, { httpMetadata: { contentType: "application/json" } });
+    var res = await env.DB.prepare("UPDATE gm_contracts SET signed_render_r2_key = ?, signed_render_hash = ? WHERE id = ? AND homeowner_signed_at IS NOT NULL AND signed_render_r2_key IS NULL").bind(key, hash, c.id).run();
+    if (res.meta && res.meta.changes) {
+        c.signed_render_r2_key = key; c.signed_render_hash = hash;
+        await gmContractEvent(env, c.client_id, c.id, "system", "signed_render_stored", { hash: hash, company_hash: c.content_hash || null });
+        return out;
+    }
+    // Someone else stored it first: read theirs.
+    var row = await env.DB.prepare("SELECT signed_render_r2_key, signed_render_hash FROM gm_contracts WHERE id = ?").bind(c.id).first();
+    c.signed_render_r2_key = row && row.signed_render_r2_key; c.signed_render_hash = row && row.signed_render_hash;
+    return (await contractR2Json(env, c.signed_render_r2_key)) || out;
+}
+
+// What the homeowner reads: the signed render once signed, the company
+// snapshot (with clean placeholders for what signing will fill) while a valid
+// company signature stands, else the live composition. Clause headings are the
+// area titles (F5), also for snapshots frozen before the fix.
+async function contractPublicView(env, c, ctx, origin, opts) {
+    var pub = await contractPublicPayload(env, c, ctx, origin, opts);
+    var companyValid = !!(c.company_signed_at && !c.company_signature_voided_at);
+    var frozen = null, signedRender = false;
+    if (c.homeowner_signed_at && c.snapshot_r2_key) {
+        frozen = c.signed_render_r2_key ? await contractR2Json(env, c.signed_render_r2_key) : null;
+        if (!frozen) { try { frozen = await contractBuildSignedRender(env, c, ctx); } catch (e) { console.error("signed render failed", e && e.message); } }
+        signedRender = !!frozen;
+        pub.signed_render_hash = c.signed_render_hash || null;
+    }
+    if (!frozen && (companyValid || c.homeowner_signed_at) && c.snapshot_r2_key) {
+        var snap = await contractR2Json(env, c.snapshot_r2_key);
+        if (snap) {
+            var v = contractBuildVars(ctx, c, gmEasternToday(), c.homeowner_signed_at ? "signed" : "live").vars;
+            frozen = { sections: (snap.sections || []).map(function(s) { var t = Object.assign({}, s); t.text = contractFillSigningTime(s.text, v, false); return t; }),
+                       notice_form_text: snap.notice_form_text ? contractFillSigningTime(snap.notice_form_text, v, true) : null,
+                       disclaimer_line: snap.disclaimer_line, amount_cents: snap.amount_cents };
+        }
+    }
+    if (frozen) {
+        pub.sections = frozen.sections || pub.sections;
+        pub.cancellation.notice_form_text = frozen.notice_form_text;
+        pub.disclaimer_line = frozen.disclaimer_line || pub.disclaimer_line;
+        if (frozen.amount_cents !== undefined && frozen.amount_cents !== null) { pub.contract_amount_cents = frozen.amount_cents; }
+    }
+    var areaTitles = {};
+    ((ctx.lib && ctx.lib.clause_areas) || []).forEach(function(a) { areaTitles[a.id] = contractHomeownerHeading(a.title); });
+    pub.sections = (pub.sections || []).map(function(s) {
+        var t = Object.assign({}, s);
+        var area = s.kind === "custom" ? String(s.id || "").replace(/^custom:/, "") : (s.kind === "clause" ? String(s.id || "").slice(0, 3) : null);
+        if (area && areaTitles[area]) { if (s.kind === "clause" && !t.option_title) { t.option_title = s.title; } t.title = areaTitles[area]; }
+        if (!opts || !opts.internal) { delete t.option_title; }
+        return t;
+    });
+    pub.signed_render = signedRender;
+    return pub;
+}
+
+// F38: a voided contract's link says so plainly, with the business name and
+// date, and carries no text and no signing controls.
+async function contractVoidPayload(env, c, origin) {
+    var doc = await gmDocSettingsRow(env, c.client_id);
+    var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(c.client_id).first();
+    return {
+        status: "void", number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), voided_at: c.voided_at || c.updated_at || null,
+        business: { name: doc.legal_name || (client && client.name) || "", legal_name: doc.legal_name || (client && client.name) || "",
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" : null,
+            hero_url: doc.hero_r2_key ? origin + "/api/clients/" + c.client_id + "/doc-hero-image" : null,
+            brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, license_numbers: doc.license_numbers || [], payment_methods: [] }
     };
 }
 
@@ -25638,7 +25896,7 @@ async function handlePutContractSettings(id, request, env) {
         for (var i = 0; i < signers.length && i < 20; i++) {
             var nm = gmStr(signers[i] && signers[i].name, 120), ph = gmStr(signers[i] && signers[i].phone, 40);
             if (!nm) { continue; }
-            if (!ph || gmWaDigitsServer(ph).length < 10) { return jsonErr("Every authorized signer needs a phone number: " + nm, 400); }
+            if (!ph || gmWaDigitsServer(ph).length < 10) { return jsonErr2("Toda pessoa autorizada precisa de telefone: " + nm, "Every authorized signer needs a phone number: " + nm, 400); }
             cleanSigners.push({ name: nm, phone: ph });
         }
         var values = body.values && typeof body.values === "object" ? body.values : cur.values;
@@ -25648,8 +25906,10 @@ async function handlePutContractSettings(id, request, env) {
         var ownerPhone = body.owner_signer_phone !== undefined ? gmStr(body.owner_signer_phone, 40) : cur.owner_signer_phone;
         var source = body.source === "client" ? "client" : (body.source === "apex" ? "apex" : cur.source);
         if (source === "client") {
-            var privCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_options WHERE scope = ? AND status = 'approved'").bind(id).first();
-            if (!privCount || !privCount.c) { return jsonErr("Apex has not loaded your own contract template yet. Contact Apex.", 409); }
+            // F41: only a full client template loaded by Apex unlocks "my own
+            // contract"; one approved custom clause does not (origin marker).
+            var privCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM contract_clause_options WHERE scope = ? AND status = 'approved' AND origin = 'apex_template'").bind(id).first();
+            if (!privCount || !privCount.c) { return jsonErr2("A Apex ainda não carregou o seu próprio modelo de contrato. Fale com a Apex.", "Apex has not loaded your own contract template yet. Contact Apex.", 409); }
         }
         var actor = actorName(user);
         await env.DB.prepare(
@@ -25673,15 +25933,25 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         if (!job) { return jsonErr("Project not found", 404); }
         var guard = await gmInvSellerGuardJob(env, user, id, jobId);
         if (guard) { return guard; }
-        if (!job.lead_id) { return jsonErr("This project is not linked to a lead, so it has no accepted estimate", 400); }
+        // F12: a project made by hand has no accepted estimate to build from.
+        if (!job.lead_id) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.", 400, { code: "no_estimate" }); }
         var settings = await contractSettingsRow(env, id);
-        if (!settings.trades.length) { return jsonErr("Set up the contract settings first (trades, signers) under Estimates > Settings", 400); }
+        if (!settings.trades.length) { return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400); }
         var doc = await gmDocSettingsRow(env, id);
-        if (!doc.license_numbers.length) { return jsonErr("A Florida license number is required in the document settings", 400); }
+        if (!doc.license_numbers.length) { return jsonErr2("Falta o número da licença da Flórida nas configurações dos documentos.", "A Florida license number is required in the document settings", 400); }
         var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
-        if (!ests.length) { return jsonErr("No accepted estimate on this project", 400); }
-        var live = await env.DB.prepare("SELECT id, number, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
-        if (live) { return jsonErr("This project already has contract " + live.number + " (" + live.status + "). Open it from the project.", 409); }
+        if (!ests.length) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        // Several accepted estimates: the owner picks which ones this contract
+        // covers (all by default, the rule before this fix).
+        if (Array.isArray(body.estimate_ids)) {
+            var pick = body.estimate_ids.map(function(x) { return String(x); });
+            ests = ests.filter(function(e) { return pick.indexOf(e.id) !== -1; });
+            if (!ests.length) { return jsonErr2("Marque ao menos um estimate aceito.", "Pick at least one accepted estimate.", 400); }
+        }
+        var live = await env.DB.prepare("SELECT id, number, revision, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        if (live) { return jsonErr2("Este projeto já tem o contrato " + contractDisplayNumber(live) + " (" + contractStatusPt(live.status) + "). Abra pelo projeto.", "This project already has contract " + live.number + " (" + live.status + "). Open it from the project.", 409); }
         var lib = await contractLibraryForClient(env, id, 1, settings.trades);
         var selections = {};
         CONTRACT_AREA_ORDER.forEach(function(a) {
@@ -25691,15 +25961,44 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             if (first) { selections[a] = first.id; }
         });
         var estRow = await gmEstLoad(env, id, ests[0].id);
+        // F21: the pool box follows the accepted estimate, not the company:
+        // ticked only when a line of an accepted option sits in a price-list
+        // category named like "pool"/"piscina" (the line's price-list item's
+        // category, or the category the line was saved with when it carries
+        // no price-list link). The owner can always change it.
+        var poolRe = /pool|piscina/i, isPoolJob = false;
+        var pricingCats = {};
+        ((await env.DB.prepare("SELECT id, category FROM gm_pricing WHERE client_id = ?").bind(id).all()).results || []).forEach(function(r) { pricingCats[r.id] = r.category || ""; });
+        for (var ei = 0; ei < ests.length && !isPoolJob; ei++) {
+            var eFull = ei === 0 ? estRow : await gmEstLoad(env, id, ests[ei].id);
+            if (!eFull) { continue; }
+            var accOpt = (eFull.options || []).filter(function(o) { return o.id === eFull.accepted_option_id; })[0] || (eFull.options || [])[0];
+            ((accOpt && accOpt.items) || []).forEach(function(it) {
+                var cat = it.pricing_id && pricingCats[it.pricing_id] !== undefined ? pricingCats[it.pricing_id] : (it.category || "");
+                if (poolRe.test(cat)) { isPoolJob = true; }
+            });
+        }
+        var flags = { sold_in_home: true, is_pool: !!(settings.builds_pools && isPoolJob), property_type: null, pool_safety_feature: null };
+        var answers = {};
+        // F39: a new contract on the same project starts from the latest
+        // earlier one (any status): answers, flags and clause choices.
+        var prev = await env.DB.prepare("SELECT number, revision, answers_json, flags_json, selections_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        if (prev) {
+            answers = gmDocParseJsonObject(prev.answers_json, {}) || {};
+            var pf = gmDocParseJsonObject(prev.flags_json, {}) || {};
+            ["sold_in_home", "is_pool", "property_type", "pool_safety_feature"].forEach(function(k) { if (pf[k] !== undefined) { flags[k] = pf[k]; } });
+            var ps = gmDocParseJsonObject(prev.selections_json, {}) || {};
+            Object.keys(ps).forEach(function(a) { if (ps[a] !== "custom" && lib.optionsById[ps[a]]) { selections[a] = ps[a]; } });
+            flags.copied_from = contractDisplayNumber(prev);
+        }
         var num = await gmDocAllocateNumber(env, id, "CON");
         var cid = crypto.randomUUID();
         var today = gmEasternToday();
-        var flags = { sold_in_home: true, is_pool: settings.builds_pools, property_type: null, pool_safety_feature: null };
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, 1, 'draft', 1, ?, ?, '{}', ?, ?, ?, ?, ?)"
+            "VALUES (?, ?, ?, ?, ?, ?, 1, 'draft', 1, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(cid, id, jobId, job.lead_id, JSON.stringify(ests.map(function(e) { return e.id; })), num.number, settings.source === "client" ? id : "apex",
-               JSON.stringify(selections), JSON.stringify(flags), today, estRow && estRow.valid_until && estRow.valid_until > today ? estRow.valid_until : gmDateAddDays(today, 30), gmEstNewToken(), actorName(user)).run();
+               JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), today, estRow && estRow.valid_until && estRow.valid_until > today ? estRow.valid_until : gmDateAddDays(today, 30), gmEstNewToken(), actorName(user)).run();
         // The amount is known from the accepted estimates on day one.
         try {
             var c0 = await gmContractLoad(env, id, cid);
@@ -25709,9 +26008,35 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         } catch (e4) { console.error("contract amount at creation", e4 && e4.message); }
         await gmContractEvent(env, id, cid, actorName(user), "created", { number: num.number, estimates: ests.length });
         await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: "contract_created", field: "contract", old_value: null, new_value: num.number }]);
-        return jsonOk({ created: true, contract_id: cid, number: num.number });
+        return jsonOk({ created: true, contract_id: cid, number: num.number, copied_from: flags.copied_from || null });
     } catch (e) {
-        return jsonErr("Error creating contract: " + e.message, 500);
+        return jsonErr2("Erro ao criar o contrato. Tente de novo.", "Error creating contract: " + e.message, 500);
+    }
+}
+
+// The create step: the accepted estimates a contract on this project can be
+// built from (each with its total), so the owner sees what is included.
+async function handleGetGmJobAcceptedEstimates(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        if (!job) { return jsonErr2("Projeto não encontrado.", "Project not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, jobId);
+        if (guard) { return guard; }
+        if (!job.lead_id) { return jsonOk({ estimates: [], has_lead: false }); }
+        var rows = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
+        var out = [];
+        for (var i = 0; i < rows.length; i++) {
+            var est = await gmEstLoad(env, id, rows[i].id);
+            if (!est) { continue; }
+            var sums = contractEstimateSums([est]);
+            out.push({ id: est.id, display_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""), job_name: est.job_name || null, total_cents: sums.total_cents, accepted_at: est.accepted_at || null });
+        }
+        return jsonOk({ estimates: out, has_lead: true });
+    } catch (e) {
+        return jsonErr2("Erro ao carregar os estimates aceitos.", "Error: " + e.message, 500);
     }
 }
 
@@ -25719,8 +26044,14 @@ async function contractInternalOut(env, id, c, user, request) {
     var ctx = await contractContext(env, id, c);
     var origin = new URL(request.url).origin;
     var today = gmEasternToday();
-    var comp = contractCompose(ctx, c, today);
+    var comp = contractCompose(ctx, c, today, "live");
     var pub = await contractPublicPayload(env, c, ctx, origin, { internal: true });
+    // F2: the current amount (after signed change orders) and the original.
+    var coSum = await env.DB.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS s FROM gm_change_orders WHERE client_id = ? AND contract_id = ? AND status = 'completed' AND applied_at IS NOT NULL").bind(id, c.id).first();
+    var signedAmount = (c.company_signed_at && !c.company_signature_voided_at) || c.homeowner_signed_at;
+    var currentAmount = signedAmount ? (c.contract_amount_cents || 0) : comp.amount_cents;
+    var originalAmount = signedAmount ? currentAmount - ((coSum && coSum.s) || 0) : comp.amount_cents;
+    var editable = ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at);
     var signer = contractSignerAllowed(user, ctx.settings, ctx.client);
     var areaOptions = {};
     ctx.lib.optionsForClient.forEach(function(o) {
@@ -25731,6 +26062,7 @@ async function contractInternalOut(env, id, c, user, request) {
         selections: c.selections, answers: c.answers, flags: c.flags, estimate_ids: c.estimate_ids,
         areas: ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
         missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line,
+        fields: comp.fields, editable: editable, current_amount_cents: currentAmount, original_amount_cents: originalAmount, copied_from: (c.flags && c.flags.copied_from) || null,
         pool_setting: ctx.settings.builds_pools, builds_pools: ctx.settings.builds_pools,
         safety_features: ["(a) Isolated from the home by an enclosure that meets s. 515.29", "(b) Approved safety pool cover", "(c) Exit alarms on all doors and windows with direct access (85 dB A at 10 feet)", "(d) Self-closing, self-latching devices on all doors with direct access (release no lower than 54 inches)", "(e) Swimming pool alarm certified to ASTM F2208"],
         exclusion_checklist: (ctx.lib.exclusion_checklists || []).filter(function(e) { return /All trades/i.test(e.trade) || ctx.settings.trades.some(function(k) { return CONTRACT_TRADE_WORDS[k].test(e.trade); }); }),
@@ -25795,9 +26127,14 @@ async function handleGetGmContractPreview(id, cid, request, env) {
         if (!c) { return jsonErr("Contract not found", 404); }
         var guard = await contractSellerGuard(env, user, id, c);
         if (guard) { return guard; }
+        // F6: the preview is exactly what the homeowner's link shows; only an
+        // unsent draft carries the PREVIEW banner (preview_draft).
+        var origin = new URL(request.url).origin;
+        if (c.status === "void") { var vp = await contractVoidPayload(env, c, origin); vp.preview = true; return jsonOk({ contract: vp }); }
         var ctx = await contractContext(env, id, c);
-        var pub = await contractPublicPayload(env, c, ctx, new URL(request.url).origin, {});
+        var pub = await contractPublicView(env, c, ctx, origin, {});
         pub.preview = true;
+        pub.preview_draft = !c.homeowner_signed_at && !(c.company_signed_at && !c.company_signature_voided_at) && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1;
         return jsonOk({ contract: pub });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
@@ -25815,7 +26152,7 @@ async function handlePutGmContract(id, cid, request, env) {
         var guard = await contractSellerGuard(env, user, id, c);
         if (guard) { return guard; }
         if (["draft", "awaiting_company", "changes_requested"].indexOf(c.status) === -1 || c.company_signed_at && !c.company_signature_voided_at) {
-            return jsonErr("This contract is already signed by the company. Create a revision to change it.", 409);
+            return jsonErr2("Contrato assinado: para mudar, crie uma revisão.", "This contract is already signed by the company. Create a revision to change it.", 409);
         }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
@@ -25839,15 +26176,18 @@ async function handlePutGmContract(id, cid, request, env) {
             if (body.flags.pool_safety_feature !== undefined) { flags.pool_safety_feature = gmStr(body.flags.pool_safety_feature, 300); }
         }
         var offer = body.offer_expiry_date !== undefined ? gmStr(body.offer_expiry_date, 10) : c.offer_expiry_date;
-        if (offer && !/^\d{4}-\d{2}-\d{2}$/.test(offer)) { return jsonErr("offer_expiry_date must be YYYY-MM-DD", 400); }
+        if (offer && !/^\d{4}-\d{2}-\d{2}$/.test(offer)) { return jsonErr2("Data inválida.", "offer_expiry_date must be YYYY-MM-DD", 400); }
         c.selections = selections; c.answers = answers; c.flags = flags; c.offer_expiry_date = offer;
-        var comp = contractCompose(ctx, c, gmEasternToday());
-        await gmRunUpdate(env, "UPDATE gm_contracts SET selections_json = ?, answers_json = ?, flags_json = ?, offer_expiry_date = ?, contract_amount_cents = ?, rules_json = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested')",
-            [JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), offer, comp.amount_cents, JSON.stringify(comp.rules), cid, id]);
+        var comp = contractCompose(ctx, c, gmEasternToday(), "live");
+        // Rule 23: the guard lives in the write. A company signature or a send
+        // that lands between the read above and this write makes it a no-op.
+        var up = await env.DB.prepare("UPDATE gm_contracts SET selections_json = ?, answers_json = ?, flags_json = ?, offer_expiry_date = ?, contract_amount_cents = ?, rules_json = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested') AND (company_signed_at IS NULL OR company_signature_voided_at IS NOT NULL)")
+            .bind(JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), offer, comp.amount_cents, JSON.stringify(comp.rules), cid, id).run();
+        if (!up.meta || !up.meta.changes) { return jsonErr2("Contrato assinado: para mudar, crie uma revisão.", "This contract can no longer be changed. Create a revision to change it.", 409); }
         var fresh = await gmContractLoad(env, id, cid);
         return jsonOk({ saved: true, contract: await contractInternalOut(env, id, fresh, user, request) });
     } catch (e) {
-        return jsonErr("Error saving contract: " + e.message, 500);
+        return jsonErr2("Erro ao salvar o contrato. Tente de novo.", "Error saving contract: " + e.message, 500);
     }
 }
 
@@ -25858,16 +26198,19 @@ async function contractStoreSignature(env, c, which, dataUrl) {
     if (bin.length > 400000) { return { error: "Signature image too large" }; }
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
-    var key = "contracts/" + c.id + "/sig-" + which + "-r" + c.revision + ".png";
+    var key = "contracts/" + c.id + "/sig-" + which + "-r" + c.revision + "-" + Date.now() + ".png";
     await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: "image/png" } });
     return { key: key };
 }
 
+// F20: frozen at company signing in "template" mode, so the values only the
+// homeowner's signature creates stay {tokens} instead of a guessed sentence.
 async function contractStoreSnapshot(env, id, c, ctx, request) {
-    var pub = await contractPublicPayload(env, c, ctx, new URL(request.url).origin, {});
-    var json = JSON.stringify({ sections: pub.sections, notice_form_text: pub.cancellation.notice_form_text, disclaimer_line: pub.disclaimer_line, amount_cents: pub.contract_amount_cents, number: pub.display_number });
+    var comp = contractCompose(ctx, c, gmEasternToday(), "template");
+    var json = JSON.stringify({ sections: comp.sections, notice_form_text: comp.notice_form_text, disclaimer_line: comp.disclaimer_line, amount_cents: comp.amount_cents, number: contractDisplayNumber(c) });
     var hash = await sha256Hex(json);
-    var key = "contracts/" + c.id + "/snapshot-r" + c.revision + ".json";
+    // Never overwritten: a re-signing after a change request keeps the earlier snapshot.
+    var key = "contracts/" + c.id + "/snapshot-r" + c.revision + "-" + Date.now() + ".json";
     await env.ASSETS.put(key, json, { httpMetadata: { contentType: "application/json" } });
     return { hash: hash, key: key };
 }
@@ -25884,24 +26227,31 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         if (guard) { return guard; }
         var ctx = await contractContext(env, id, c);
         var signer = contractSignerAllowed(user, ctx.settings, ctx.client);
-        if (!signer.ok) { return jsonErr("You are not an authorized signer. Route the contract to one.", 403); }
-        var comp = contractCompose(ctx, c, gmEasternToday());
-        if (comp.blockers.length) { return jsonErr(comp.blockers[0], 409); }
-        if (comp.missing.length) { return jsonErr("Fill in the missing fields first: " + comp.missing.map(function(m) { return m.field; }).join(", "), 409); }
+        if (!signer.ok) { return jsonErr2("Você não está autorizado a assinar pela empresa. Encaminhe o contrato para quem assina.", "You are not an authorized signer. Route the contract to one.", 403); }
+        // The company-signing time is fixed once and used both in the frozen
+        // text (C16's "Contractor signed on ...") and in the row.
+        var signedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+        var prevSignedAt = c.company_signed_at, prevVoided = c.company_signature_voided_at;
+        c.company_signed_at = signedAt; c.company_signature_voided_at = null;
+        var comp = contractCompose(ctx, c, gmEasternToday(), "template");
+        c.company_signed_at = prevSignedAt; c.company_signature_voided_at = prevVoided;
+        // F14: every remaining problem at once, never one at a time.
+        if (comp.blockers.length || comp.missing.length) { return contractProblemsErr(comp); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
-        if (body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
         var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
         var sigKey = null;
-        if (kind === "drawn") { var st = await contractStoreSignature(env, c, "company", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
+        if (kind === "drawn") { var st = await contractStoreSignature(env, c, "company", body.signature_png); if (st.error) { return jsonErr2("Desenhe a assinatura.", st.error, 400); } sigKey = st.key; }
+        c.company_signed_at = signedAt; c.company_signature_voided_at = null;
         var snap = await contractStoreSnapshot(env, id, c, ctx, request);
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
         var res = await env.DB.prepare(
-            "UPDATE gm_contracts SET status = 'company_signed', company_signer_name = ?, company_signer_phone = ?, company_signed_at = datetime('now'), company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, " +
+            "UPDATE gm_contracts SET status = 'company_signed', company_signer_name = ?, company_signer_phone = ?, company_signed_at = ?, company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, " +
             "company_signature_voided_at = NULL, company_signature_void_reason = NULL, snapshot_r2_key = ?, content_hash = ?, disclaimer_line = ?, contract_amount_cents = ?, rules_json = ?, has_custom_clause = ?, updated_at = datetime('now') " +
             "WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested')"
-        ).bind(signer.name, ctx.settings.owner_signer_phone || null, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, cid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This contract can no longer be signed by the company (status " + c.status + ")", 409); }
+        ).bind(signer.name, ctx.settings.owner_signer_phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, cid, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode mais ser assinado pela empresa (" + contractStatusPt(c.status) + ").", "This contract can no longer be signed by the company (status " + c.status + ")", 409); }
         await gmContractEvent(env, id, cid, actorName(user), "company_signed", { signer: signer.name, kind: kind, hash: snap.hash });
         if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_company_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed by " + signer.name + " (" + kind + ")" }]); }
         return jsonOk({ signed: true, content_hash: snap.hash });
@@ -25930,12 +26280,12 @@ async function handlePostGmContractRoute(id, cid, request, env) {
         (ctx.settings.signers || []).forEach(function(s) { if (name && s.name.toLowerCase() === name.toLowerCase()) { target = s; } });
         if (!target) { target = { name: ctx.settings.owner_signer_name || (ctx.client && ctx.client.name) || "Owner", phone: ctx.settings.owner_signer_phone || (ctx.client && (ctx.client.whatsapp || ctx.client.phone)) || null }; }
         var comp = contractCompose(ctx, c, gmEasternToday());
-        if (comp.blockers.length) { return jsonErr(comp.blockers[0], 409); }
-        if (comp.missing.length) { return jsonErr("Fill in the missing fields first: " + comp.missing.map(function(m) { return m.field; }).join(", "), 409); }
+        if (comp.blockers.length || comp.missing.length) { return contractProblemsErr(comp); }
+
         var res = await env.DB.prepare(
             "UPDATE gm_contracts SET status = 'awaiting_company', routed_to_name = ?, routed_to_phone = ?, routed_at = datetime('now'), routed_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','changes_requested','awaiting_company')"
         ).bind(target.name, target.phone, actorName(user), cid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This contract cannot be routed now (status " + c.status + ")", 409); }
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser encaminhado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be routed now (status " + c.status + ")", 409); }
         await gmContractEvent(env, id, cid, actorName(user), "routed_to_signer", { to: target.name });
         var msg = "Contract " + contractDisplayNumber(c) + " for " + (ctx.job ? ctx.job.obra : "") + " is waiting for your signature in Apex. Open the project > Contract > Sign as company. " + DEFAULT_ORIGIN + "/portal.html?tab=gmjobs";
         return jsonOk({ routed: true, to_name: target.name, to_phone: target.phone, message: msg });
@@ -25954,9 +26304,12 @@ async function handleGetGmContractsAwaiting(id, request, env) {
         var seller = sessionSellerName(user);
         var me = seller || settings.owner_signer_name || null;
         var rows = (await env.DB.prepare("SELECT c.id, c.number, c.revision, c.routed_to_name, c.routed_at, c.job_id, j.obra AS job_name FROM gm_contracts c JOIN gm_jobs j ON j.id = c.job_id WHERE c.client_id = ? AND c.status = 'awaiting_company' ORDER BY c.routed_at DESC").bind(id).all()).results || [];
-        var mine = rows.filter(function(r) { return !seller || (me && String(r.routed_to_name || "").toLowerCase() === me.toLowerCase()); });
-        mine.forEach(function(r) { r.display_number = contractDisplayNumber(r); });
-        return jsonOk({ awaiting: mine });
+        // F36: the owner sees every routed contract, each marked mine or not
+        // ("awaiting your signature" only for rows routed to the logged-in
+        // person); a seller sees only their own.
+        rows.forEach(function(r) { r.mine = !!(me && String(r.routed_to_name || "").trim().toLowerCase() === me.trim().toLowerCase()); r.display_number = contractDisplayNumber(r); });
+        var out = seller ? rows.filter(function(r) { return r.mine; }) : rows;
+        return jsonOk({ awaiting: out, me: me });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }
@@ -25972,19 +26325,19 @@ async function handlePostGmContractSend(id, cid, request, env) {
         if (!c) { return jsonErr("Contract not found", 404); }
         var guard = await contractSellerGuard(env, user, id, c);
         if (guard) { return guard; }
-        if (!c.company_signed_at || c.company_signature_voided_at) { return jsonErr("The company signs first. Sign as company or route the contract to an authorized signer.", 409); }
+        if (!c.company_signed_at || c.company_signature_voided_at) { return jsonErr2("A empresa assina primeiro. Assine pela empresa ou encaminhe para quem assina.", "The company signs first. Sign as company or route the contract to an authorized signer.", 409); }
         var ctx = await contractContext(env, id, c);
         var comp = contractCompose(ctx, c, gmEasternToday());
-        if (comp.blockers.length) { return jsonErr(comp.blockers[0], 409); }
+        if (comp.blockers.length) { return contractProblemsErr({ blockers: comp.blockers, missing: [] }); }
         var res = await env.DB.prepare(
             "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
         ).bind(actorName(user), cid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This contract cannot be sent now (status " + c.status + ")", 409); }
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser enviado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be sent now (status " + c.status + ")", 409); }
         var link = DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token;
         var msg = gmDocFillMessage(ctx.doc.contract_message || CONTRACT_DEFAULT_MESSAGE, {
             customer_first_name: String((ctx.lead && ctx.lead.cliente) || (ctx.job && ctx.job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
-            seller_name: gmDocSenderName(user, ctx.lead, ctx.client, ctx.doc), link: link
+            seller_name: (await gmDocSenderFirstName(env, user, id, ctx.client, ctx.doc)), link: link
         });
         if (c.status === "company_signed") {
             await gmContractEvent(env, id, cid, actorName(user), "sent", {});
@@ -25993,6 +26346,39 @@ async function handlePostGmContractSend(id, cid, request, env) {
         return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null) });
     } catch (e) {
         return jsonErr("Error sending contract: " + e.message, 500);
+    }
+}
+
+// F44: the homeowner's copy of a fully signed contract. {mark:true} records
+// the send (the send sheet's buttons); otherwise it only builds the message.
+var CONTRACT_SIGNED_COPY_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your signed copy of {document} for {job_name}: {link}";
+async function handlePostGmContractSignedCopy(id, cid, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var c = await gmContractLoad(env, id, cid);
+        if (!c) { return jsonErr2("Contrato não encontrado.", "Contract not found", 404); }
+        var guard = await contractSellerGuard(env, user, id, c);
+        if (guard) { return guard; }
+        if (c.status !== "completed") { return jsonErr2("Só um contrato assinado pelos dois tem cópia assinada.", "Only a fully signed contract has a signed copy.", 409); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var ctx = await contractContext(env, id, c);
+        var link = DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token;
+        if (body.mark === true) {
+            await gmContractEvent(env, id, cid, actorName(user), "signed_copy_sent", { link: link });
+            if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_signed_copy_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
+            return jsonOk({ marked: true });
+        }
+        var msg = gmDocFillMessage(CONTRACT_SIGNED_COPY_MESSAGE, {
+            customer_first_name: String((ctx.lead && ctx.lead.cliente) || (ctx.job && ctx.job.obra) || "").trim().split(/\s+/)[0] || "",
+            job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
+            seller_name: await gmDocSenderFirstName(env, user, id, ctx.client, ctx.doc), document: "contract " + contractDisplayNumber(c), link: link
+        });
+        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null) });
+    } catch (e) {
+        return jsonErr2("Erro ao preparar a cópia assinada.", "Error preparing the signed copy: " + e.message, 500);
     }
 }
 
@@ -26007,9 +26393,9 @@ async function handlePostGmContractVoid(id, cid, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var reason = gmStr(body.reason, 500);
-        if (!reason) { return jsonErr("A reason is required to void a contract", 400); }
+        if (!reason) { return jsonErr2("Informe o motivo da anulação.", "A reason is required to void a contract", 400); }
         var res = await env.DB.prepare("UPDATE gm_contracts SET status = 'void', void_reason = ?, voided_by = ?, voided_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(reason, actorName(user), cid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("A completed or already void contract cannot be voided", 409); }
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Um contrato assinado pelos dois ou já anulado não pode ser anulado.", "A completed or already void contract cannot be voided", 409); }
         await gmContractEvent(env, id, cid, actorName(user), "voided", { reason: reason });
         if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_voided", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: reason }]); }
         return jsonOk({ voided: true });
@@ -26029,7 +26415,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         if (!c) { return jsonErr("Contract not found", 404); }
         var guard = await contractSellerGuard(env, user, id, c);
         if (guard) { return guard; }
-        if (["void", "superseded", "completed", "draft"].indexOf(c.status) !== -1) { return jsonErr("A " + c.status + " contract cannot be revised from here", 409); }
+        if (["void", "superseded", "completed", "draft"].indexOf(c.status) !== -1) { return jsonErr2("Um contrato " + contractStatusPt(c.status) + " não pode ser revisado daqui.", "A " + c.status + " contract cannot be revised from here", 409); }
         var latest = await env.DB.prepare("SELECT MAX(revision) AS r FROM gm_contracts WHERE client_id = ? AND number = ?").bind(id, c.number).first();
         var rev = ((latest && latest.r) || c.revision) + 1;
         var newId = crypto.randomUUID();
@@ -26054,13 +26440,13 @@ async function handlePostGmContractCustomClause(id, cid, request, env) {
         if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
         var c = await gmContractLoad(env, id, cid);
         if (!c) { return jsonErr("Contract not found", 404); }
-        if (c.company_signed_at && !c.company_signature_voided_at) { return jsonErr("This contract is already signed by the company", 409); }
+        if (c.company_signed_at && !c.company_signature_voided_at) { return jsonErr2("Este contrato já foi assinado pela empresa.", "This contract is already signed by the company", 409); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var area = gmStr(body.area_id, 4), text = gmStr(body.text, 6000);
-        if (!area || CONTRACT_AREA_ORDER.indexOf(area) === -1) { return jsonErr("area_id is required", 400); }
-        if (!text) { return jsonErr("Write the clause text", 400); }
-        if (body.acknowledged !== true) { return jsonErr("Confirm the warning about the custom clause first", 400); }
+        if (!area || CONTRACT_AREA_ORDER.indexOf(area) === -1) { return jsonErr2("Escolha a área da cláusula.", "area_id is required", 400); }
+        if (!text) { return jsonErr2("Escreva o texto da cláusula.", "Write the clause text", 400); }
+        if (body.acknowledged !== true) { return jsonErr2("Marque que entendeu o aviso da cláusula personalizada.", "Confirm the warning about the custom clause first", 400); }
         var ccid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_contract_custom_clauses (id, client_id, contract_id, area_id, text, created_by) VALUES (?, ?, ?, ?, ?, ?)").bind(ccid, id, cid, area, text, actorName(user)).run();
         c.selections[area] = "custom";
@@ -26084,22 +26470,22 @@ async function handlePutGmCustomClauseReview(id, ccid, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
         var cc = await env.DB.prepare("SELECT * FROM gm_contract_custom_clauses WHERE id = ? AND client_id = ?").bind(ccid, id).first();
-        if (!cc) { return jsonErr("Custom clause not found", 404); }
+        if (!cc) { return jsonErr2("Cláusula personalizada não encontrada.", "Custom clause not found", 404); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var decision = ["approved", "approved_with_edits", "not_approved"].indexOf(body.decision) === -1 ? null : body.decision;
-        if (!decision) { return jsonErr("decision must be approved, approved_with_edits or not_approved", 400); }
+        if (!decision) { return jsonErr2("Escolha a decisão do advogado.", "decision must be approved, approved_with_edits or not_approved", 400); }
         var name = gmStr(body.attorney_name, 120), bar = gmStr(body.bar_number, 40), date = gmStr(body.review_date, 10);
         var revised = gmStr(body.revised_text, 6000);
-        if (decision !== "not_approved" && (!name || !bar || !date)) { return jsonErr("The attorney's name, Florida Bar number and review date are required", 400); }
-        if (decision === "approved_with_edits" && !revised) { return jsonErr("Approved with edits needs the revised clause text", 400); }
+        if (decision !== "not_approved" && (!name || !bar || !date)) { return jsonErr2("Informe o nome do advogado, o número na Florida Bar e a data da revisão.", "The attorney's name, Florida Bar number and review date are required", 400); }
+        if (decision === "approved_with_edits" && !revised) { return jsonErr2("Aprovada com edições precisa do texto revisado.", "Approved with edits needs the revised clause text", 400); }
         var libOptId = null;
         if (decision !== "not_approved") {
             // Word for word into THIS client's private library (never shared).
             libOptId = cc.area_id + "-P" + Date.now().toString(36);
             var area = await env.DB.prepare("SELECT title FROM contract_clause_areas WHERE id = ? AND version = 1").bind(cc.area_id).first();
             await env.DB.prepare(
-                "INSERT INTO contract_clause_options (id, version, scope, area_id, title, trades, owner_description, clause_text, status, reviewed_by_name, reviewed_bar_number, reviewed_at, created_by, sort_order) VALUES (?, 1, ?, ?, ?, 'all', ?, ?, 'approved', ?, ?, ?, ?, 900)"
+                "INSERT INTO contract_clause_options (id, version, scope, area_id, title, trades, owner_description, clause_text, status, reviewed_by_name, reviewed_bar_number, reviewed_at, created_by, sort_order, origin) VALUES (?, 1, ?, ?, ?, 'all', ?, ?, 'approved', ?, ?, ?, ?, 900, 'custom_clause')"
             ).bind(libOptId, id, cc.area_id, (area ? area.title : cc.area_id) + " (your clause)", "Your own clause, reviewed by " + name + ", Florida Bar #" + bar + ", on " + date + ".", decision === "approved_with_edits" ? revised : cc.text, name, bar, date, actorName(user)).run();
         }
         await env.DB.prepare("UPDATE gm_contract_custom_clauses SET status = ?, revised_text = ?, attorney_name = ?, attorney_bar_number = ?, attorney_review_date = ?, reviewed_by = ?, reviewed_at = datetime('now'), library_option_id = ? WHERE id = ? AND client_id = ? AND status = 'pending'")
@@ -26123,7 +26509,8 @@ async function handleGetPublicContract(token, request, env) {
         var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
         if (limited) { return limited; }
         var c = await contractByToken(env, token);
-        if (!c || c.status === "draft" || c.status === "awaiting_company" || c.status === "void") { return jsonErr("Not found", 404); }
+        if (!c || c.status === "draft" || c.status === "awaiting_company") { return jsonErr("Not found", 404); }
+        if (c.status === "void") { return jsonOk({ contract: await contractVoidPayload(env, c, new URL(request.url).origin) }); }
         if (c.status === "superseded") {
             var cur = await env.DB.prepare("SELECT public_token FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(c.client_id, c.number).first();
             return jsonOk({ superseded: true, current_token: cur ? cur.public_token : null });
@@ -26131,12 +26518,9 @@ async function handleGetPublicContract(token, request, env) {
         await env.DB.prepare("UPDATE gm_contracts SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now'), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(c.id).run();
         if (c.status === "sent") { c.status = "viewed"; }
         var ctx = await contractContext(env, c.client_id, c);
-        var pub = await contractPublicPayload(env, c, ctx, new URL(request.url).origin, {});
-        // Signed: serve the frozen sections, exactly as signed.
-        if (c.snapshot_r2_key && (c.homeowner_signed_at || c.company_signed_at)) {
-            var obj = await env.ASSETS.get(c.snapshot_r2_key);
-            if (obj) { var snap = JSON.parse(await obj.text()); pub.sections = snap.sections; pub.cancellation.notice_form_text = snap.notice_form_text; pub.disclaimer_line = snap.disclaimer_line; }
-        }
+        // Signed: the signed render (real dates); company-signed: the frozen
+        // text with clean placeholders; see contractPublicView.
+        var pub = await contractPublicView(env, c, ctx, new URL(request.url).origin, {});
         return jsonOk({ contract: pub });
     } catch (e) {
         return jsonErr("Error loading contract: " + e.message, 500);
@@ -26157,7 +26541,7 @@ async function handlePostPublicContractSign(token, request, env) {
         var today = gmEasternToday();
         if (c.offer_expiry_date && c.offer_expiry_date < today) { return jsonErr("This offer has expired. Request an updated contract.", 409); }
         var ctx = await contractContext(env, c.client_id, c);
-        var comp = contractCompose(ctx, c, today);
+        var comp = contractCompose(ctx, c, today, "live");
         var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
         var sigKey = null, lienKey = null, lienKind = null;
         if (kind === "drawn") { var st = await contractStoreSignature(env, c, "homeowner", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
@@ -26171,15 +26555,24 @@ async function handlePostPublicContractSign(token, request, env) {
         if ((comp.requires.arbitration_initials || comp.requires.jury_initials) && !initials) { return jsonErr("Please add your initials", 400); }
         var deadline = comp.requires.cancellation ? contractCancellationDeadline(today) : null;
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        // One timestamp for the signature, the lien notice and the pool
+        // acknowledgment; "today" (Eastern) is the transaction date.
+        var signedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
         var res = await env.DB.prepare(
-            "UPDATE gm_contracts SET status = 'completed', homeowner_signer_name = ?, homeowner_signed_at = datetime('now'), homeowner_signature_kind = ?, homeowner_signature_r2_key = ?, homeowner_signed_ip = ?, homeowner_signed_ua = ?, homeowner_initials = ?, marketing_consent = ?, " +
-            "lien_signed_at = CASE WHEN ? THEN datetime('now') ELSE lien_signed_at END, lien_signature_kind = ?, lien_signature_r2_key = ?, pool_ack_at = CASE WHEN ? THEN datetime('now') ELSE pool_ack_at END, pool_docs_delivery_json = ?, " +
+            "UPDATE gm_contracts SET status = 'completed', homeowner_signer_name = ?, homeowner_signed_at = ?, homeowner_signature_kind = ?, homeowner_signature_r2_key = ?, homeowner_signed_ip = ?, homeowner_signed_ua = ?, homeowner_initials = ?, marketing_consent = ?, " +
+            "lien_signed_at = CASE WHEN ? THEN ? ELSE lien_signed_at END, lien_signature_kind = ?, lien_signature_r2_key = ?, pool_ack_at = CASE WHEN ? THEN ? ELSE pool_ack_at END, pool_docs_delivery_json = ?, " +
             "cancellation_deadline = ?, transaction_date = ?, updated_at = datetime('now') " +
-            "WHERE id = ? AND status IN ('sent','viewed','changes_requested') AND company_signed_at IS NOT NULL AND company_signature_voided_at IS NULL"
-        ).bind(signer, kind, sigKey, ip, ua, initials, body.marketing_consent ? 1 : 0, comp.requires.lien_signature ? 1 : 0, lienKind, lienKey, comp.requires.pool_ack ? 1 : 0,
+            "WHERE id = ? AND status IN ('sent','viewed') AND company_signed_at IS NOT NULL AND company_signature_voided_at IS NULL"
+        ).bind(signer, signedAt, kind, sigKey, ip, ua, initials, body.marketing_consent ? 1 : 0, comp.requires.lien_signature ? 1 : 0, signedAt, lienKind, lienKey, comp.requires.pool_ack ? 1 : 0, signedAt,
                comp.requires.pool_ack ? JSON.stringify({ files: ["ch515:" + (ctx.admin.ch515_doc_r2_key || ""), "drowning:" + (ctx.admin.drowning_pub_r2_key || "")], to: signer, method: "electronic delivery on the signing page" }) : null,
                deadline, today, c.id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("This contract can no longer be signed.", 409); }
+        // F20: the signed render with the real dates, stored beside the frozen text.
+        try {
+            c.status = "completed"; c.homeowner_signed_at = signedAt; c.homeowner_signer_name = signer; c.transaction_date = today; c.cancellation_deadline = deadline;
+            if (comp.requires.pool_ack) { c.pool_ack_at = signedAt; }
+            await contractBuildSignedRender(env, c, ctx);
+        } catch (eR) { console.error("signed render at signing failed (built on next read)", eR && eR.message); }
         await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'contract_signed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(signer, c.client_id, c.job_id).run();
         await gmContractEvent(env, c.client_id, c.id, signer, "homeowner_signed", { kind: kind, ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash, lien: comp.requires.lien_signature, pool_ack: comp.requires.pool_ack, cancellation_deadline: deadline });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
@@ -26222,7 +26615,7 @@ async function handleGetPublicContractSignature(token, which, request, env) {
         var c = await contractByToken(env, token);
         if (!c) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         var key = which === "company" ? c.company_signature_r2_key : (which === "homeowner" ? c.homeowner_signature_r2_key : c.lien_signature_r2_key);
-        if (!key || !/^contracts\/[A-Za-z0-9-]+\/sig-[a-z]+-r\d+\.png$/.test(key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (!key || !/^contracts\/[A-Za-z0-9-]+\/sig-[a-z]+-r\d+(-\d+)?\.png$/.test(key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         var obj = await env.ASSETS.get(key);
         if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" }) });
@@ -26275,7 +26668,7 @@ function coParseItems(body, pricing) {
     for (var i = 0; i < raw.length && i < 60; i++) {
         var r = raw[i] || {};
         var name = gmStr(r.item_name, 200);
-        if (!name) { return { error: "every line needs a name" }; }
+        if (!name) { return { error: "every line needs a name", error_pt: "Toda linha precisa de um nome." }; }
         var qty = gmNum(r.qty); if (qty === null || qty <= 0) { qty = 1; }
         var rate = gmCents(r.rate_cents); if (rate === null || rate < 0) { rate = 0; }
         var kind = r.kind === "remove" ? "remove" : "add";
@@ -26289,7 +26682,7 @@ function coParseItems(body, pricing) {
         m += Math.round(it.material_cost_cents * qty) * sign; l += Math.round(it.labor_cost_cents * qty) * sign; o += Math.round(it.other_cost_cents * qty) * sign;
         items.push(it);
     }
-    if (!items.length) { return { error: "add at least one line" }; }
+    if (!items.length) { return { error: "add at least one line", error_pt: "Adicione ao menos uma linha." }; }
     return { items: items, total_cents: total, material_cents: m, labor_cents: l, other_cents: o };
 }
 
@@ -26307,7 +26700,7 @@ async function handlePostGmJobChangeOrder(id, jobId, request, env) {
         var pricingRows = (await env.DB.prepare("SELECT * FROM gm_pricing WHERE client_id = ?").bind(id).all()).results || [];
         var pricing = {}; pricingRows.forEach(function(r) { pricing[r.id] = r; });
         var parsed = coParseItems(body, pricing);
-        if (parsed.error) { return jsonErr(parsed.error, 400); }
+        if (parsed.error) { return jsonErr2(parsed.error_pt || parsed.error, parsed.error, 400); }
         var contract = await coLiveContract(env, id, jobId);
         var before = await coPriceBefore(env, id, job, contract);
         var days = Math.round(gmNum(body.schedule_days) || 0);
@@ -26391,6 +26784,14 @@ async function handleGetGmChangeOrder(id, coid, request, env) {
         pub.applied = gmDocParseJsonObject(co.applied_json, null); pub.applied_at = co.applied_at; pub.sent_at = co.sent_at; pub.first_viewed_at = co.first_viewed_at;
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
         pub.send_phone = gmDocSendPhone(lead, null);
+        // F9: a draft whose contract amount moved since it was created.
+        if (co.status === "draft") {
+            var job = await gmOwnedRow(env, "gm_jobs", co.job_id, id);
+            var liveCon = await coLiveContract(env, id, co.job_id);
+            var nowBefore = job ? await coPriceBefore(env, id, job, liveCon) : co.price_before_cents;
+            pub.current_price_before_cents = nowBefore;
+            pub.price_changed = nowBefore !== co.price_before_cents;
+        }
         return jsonOk({ change_order: pub });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
@@ -26409,23 +26810,39 @@ async function handlePostGmChangeOrderCompanySign(id, coid, request, env) {
         var settings = await contractSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
         var signer = contractSignerAllowed(user, settings, client);
-        if (!signer.ok) { return jsonErr("You are not an authorized signer.", 403); }
+        if (!signer.ok) { return jsonErr2("Você não está autorizado a assinar pela empresa.", "You are not an authorized signer.", 403); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
-        if (body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
+        // F9: "before" is the contract's amount at the moment of signing. A
+        // draft made before another change order was signed is recomputed,
+        // after the owner confirms the new numbers.
+        var jobRow = await gmOwnedRow(env, "gm_jobs", co.job_id, id);
+        var liveCon = await coLiveContract(env, id, co.job_id);
+        var nowBefore = jobRow ? await coPriceBefore(env, id, jobRow, liveCon) : co.price_before_cents;
+        var oldBefore = co.price_before_cents;
+        if (nowBefore !== oldBefore) {
+            if (body.confirm_recompute !== true) {
+                return jsonErr2("O valor do contrato mudou desde que este aditivo foi criado: antes " + contractMoney(nowBefore) + ", depois " + contractMoney(nowBefore + co.amount_cents) + ". Confirme para assinar com os valores novos.",
+                    "The contract amount changed since this change order was created: before " + contractMoney(nowBefore) + ", after " + contractMoney(nowBefore + co.amount_cents) + ". Confirm to sign with the new amounts.", 409,
+                    { code: "price_changed", price_before_cents: nowBefore, price_after_cents: nowBefore + co.amount_cents });
+            }
+            co.price_before_cents = nowBefore; co.price_after_cents = nowBefore + co.amount_cents; co.contract_id = liveCon ? liveCon.id : co.contract_id;
+        }
         var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
         var sigKey = null;
-        if (kind === "drawn") { var st = await contractStoreSignature(env, { id: "co-" + co.id, revision: 1 }, "company", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
+        if (kind === "drawn") { var st = await contractStoreSignature(env, { id: "co-" + co.id, revision: 1 }, "company", body.signature_png); if (st.error) { return jsonErr2("Desenhe a assinatura.", st.error, 400); } sigKey = st.key; }
         var pub = await coPublicPayload(env, co, new URL(request.url).origin);
         var json = JSON.stringify({ number: pub.number, description: pub.description, items: pub.items, amount_cents: pub.amount_cents, price_before_cents: pub.price_before_cents, price_after_cents: pub.price_after_cents, schedule_days: pub.schedule_days, payment_change: pub.payment_change, disclaimer_line: pub.disclaimer_line });
         var hash = await sha256Hex(json);
-        var key = "contracts/co-" + co.id + "/snapshot.json";
+        var key = "contracts/co-" + co.id + "/snapshot-" + Date.now() + ".json";
         await env.ASSETS.put(key, json, { httpMetadata: { contentType: "application/json" } });
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
         var res = await env.DB.prepare(
-            "UPDATE gm_change_orders SET status = 'company_signed', company_signer_name = ?, company_signed_at = datetime('now'), company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, snapshot_r2_key = ?, content_hash = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft'"
-        ).bind(signer.name, kind, sigKey, ip, ua, key, hash, coid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This change order can no longer be signed by the company (status " + co.status + ")", 409); }
+            "UPDATE gm_change_orders SET status = 'company_signed', company_signer_name = ?, company_signed_at = datetime('now'), company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, snapshot_r2_key = ?, content_hash = ?, " +
+            "price_before_cents = ?, price_after_cents = ?, contract_id = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status = 'draft' AND price_before_cents = ?"
+        ).bind(signer.name, kind, sigKey, ip, ua, key, hash, co.price_before_cents, co.price_after_cents, co.contract_id || null, coid, id, oldBefore).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este aditivo não pode mais ser assinado pela empresa (" + contractStatusPt(co.status) + ").", "This change order can no longer be signed by the company (status " + co.status + ")", 409); }
         return jsonOk({ signed: true, content_hash: hash });
     } catch (e) {
         return jsonErr("Error signing: " + e.message, 500);
@@ -26441,9 +26858,9 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         if (!co) { return jsonErr("Change order not found", 404); }
         var guard = await gmInvSellerGuardJob(env, user, id, co.job_id);
         if (guard) { return guard; }
-        if (!co.company_signed_at) { return jsonErr("The company signs first.", 409); }
+        if (!co.company_signed_at) { return jsonErr2("A empresa assina primeiro.", "The company signs first.", 409); }
         var res = await env.DB.prepare("UPDATE gm_change_orders SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')").bind(coid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This change order cannot be sent now (status " + co.status + ")", 409); }
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este aditivo não pode ser enviado agora (" + contractStatusPt(co.status) + ").", "This change order cannot be sent now (status " + co.status + ")", 409); }
         var doc = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
@@ -26451,11 +26868,41 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         var link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token;
         var msg = gmDocFillMessage("Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is change order " + co.number + " for {job_name} to review and sign: {link}", {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
-            business_name: doc.legal_name || (client && client.name) || "", seller_name: gmDocSenderName(user, lead, client, doc), link: link });
+            business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
         if (co.lead_id && co.status === "company_signed") { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_sent", field: "change_order", old_value: null, new_value: co.number }]); }
         return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, null) });
     } catch (e) {
         return jsonErr("Error sending: " + e.message, 500);
+    }
+}
+
+async function handlePostGmChangeOrderSignedCopy(id, coid, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var co = await gmChangeOrderLoad(env, id, coid);
+        if (!co) { return jsonErr2("Aditivo não encontrado.", "Change order not found", 404); }
+        var guard = await gmInvSellerGuardJob(env, user, id, co.job_id);
+        if (guard) { return guard; }
+        if (co.status !== "completed") { return jsonErr2("Só um aditivo assinado pelos dois tem cópia assinada.", "Only a fully signed change order has a signed copy.", 409); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token;
+        if (body.mark === true) {
+            if (co.lead_id) { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_signed_copy_sent", field: "change_order", old_value: null, new_value: co.number }]); }
+            return jsonOk({ marked: true });
+        }
+        var doc = await gmDocSettingsRow(env, id);
+        var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
+        var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
+        var job = await gmOwnedRow(env, "gm_jobs", co.job_id, id);
+        var msg = gmDocFillMessage(CONTRACT_SIGNED_COPY_MESSAGE, {
+            customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
+            business_name: doc.legal_name || (client && client.name) || "", seller_name: await gmDocSenderFirstName(env, user, id, client, doc), document: "change order " + co.number, link: link });
+        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, null) });
+    } catch (e) {
+        return jsonErr2("Erro ao preparar a cópia assinada.", "Error preparing the signed copy: " + e.message, 500);
     }
 }
 
@@ -26468,9 +26915,9 @@ async function handlePostGmChangeOrderVoid(id, coid, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var reason = gmStr(body.reason, 500);
-        if (!reason) { return jsonErr("A reason is required", 400); }
+        if (!reason) { return jsonErr2("Informe o motivo.", "A reason is required", 400); }
         var res = await env.DB.prepare("UPDATE gm_change_orders SET status = 'void', void_reason = ?, voided_by = ?, voided_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(reason, actorName(user), coid, id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("A completed or void change order cannot be voided", 409); }
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Um aditivo assinado pelos dois ou já anulado não pode ser anulado.", "A completed or void change order cannot be voided", 409); }
         return jsonOk({ voided: true });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
@@ -26489,15 +26936,20 @@ async function coApply(env, co, request) {
         await env.DB.prepare("UPDATE gm_contracts SET contract_amount_cents = contract_amount_cents + ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(co.amount_cents, co.contract_id, clientId).run();
         applied.contract = { delta_cents: co.amount_cents };
     }
+    var clamped = [];
     if (job) {
         var delta = co.amount_cents / 100;
-        await env.DB.prepare("UPDATE gm_jobs SET valor = COALESCE(valor, 0) + ?, material = COALESCE(material, 0) + ?, mao_de_obra = COALESCE(mao_de_obra, 0) + ?, outros = COALESCE(outros, 0) + ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+        // F27: a credit never pushes a cost below zero (a removed item on a
+        // project whose material cost was 0 made it -$107). Clamped at 0 and
+        // recorded in the lead event.
+        [["material", parsed.m], ["mao_de_obra", parsed.l], ["outros", parsed.o]].forEach(function(f) { if ((Number(job[f[0]]) || 0) + f[1] / 100 < 0) { clamped.push(f[0]); } });
+        await env.DB.prepare("UPDATE gm_jobs SET valor = COALESCE(valor, 0) + ?, material = MAX(0, COALESCE(material, 0) + ?), mao_de_obra = MAX(0, COALESCE(mao_de_obra, 0) + ?), outros = MAX(0, COALESCE(outros, 0) + ?), updated_at = datetime('now') WHERE id = ? AND client_id = ?")
             .bind(delta, parsed.m / 100, parsed.l / 100, parsed.o / 100, co.job_id, clientId).run();
         if (job.lead_id) {
-            await env.DB.prepare("UPDATE gm_leads SET valor = COALESCE(valor, 0) + ?, material = COALESCE(material, 0) + ?, mao_de_obra = COALESCE(mao_de_obra, 0) + ?, outros = COALESCE(outros, 0) + ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+            await env.DB.prepare("UPDATE gm_leads SET valor = COALESCE(valor, 0) + ?, material = MAX(0, COALESCE(material, 0) + ?), mao_de_obra = MAX(0, COALESCE(mao_de_obra, 0) + ?), outros = MAX(0, COALESCE(outros, 0) + ?), updated_at = datetime('now') WHERE id = ? AND client_id = ?")
                 .bind(delta, parsed.m / 100, parsed.l / 100, parsed.o / 100, job.lead_id, clientId).run();
         }
-        applied.job = { valor_delta: delta, material_delta: parsed.m / 100, labor_delta: parsed.l / 100, other_delta: parsed.o / 100 };
+        applied.job = { valor_delta: delta, material_delta: parsed.m / 100, labor_delta: parsed.l / 100, other_delta: parsed.o / 100, clamped_at_zero: clamped };
     }
     var today = gmEasternToday();
     var doc = await gmDocSettingsRow(env, clientId);
@@ -26536,13 +26988,15 @@ async function coApply(env, co, request) {
                 var maxSort = await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM gm_invoice_items WHERE invoice_id = ?").bind(open[i].inv.id).first();
                 await env.DB.prepare("INSERT INTO gm_invoice_items (id, invoice_id, description, qty, unit, rate_cents, amount_cents, reason, sort_order) VALUES (?, ?, ?, 1, NULL, ?, ?, ?, ?)")
                     .bind(crypto.randomUUID(), open[i].inv.id, "Change order " + co.number + (share < 0 ? " (credit)" : ""), share, share, "signed change order " + co.number, (maxSort.m || 0) + 1).run();
-                await env.DB.prepare("UPDATE gm_invoices SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(share, open[i].inv.id, clientId).run();
-                applied.invoices.push({ number: open[i].inv.number, delta_cents: share, kind: "adjusted" });
+                // An invoice the homeowner already received is flagged until it is sent again.
+                var wasSent = !!open[i].inv.sent_at;
+                await env.DB.prepare("UPDATE gm_invoices SET amount_cents = amount_cents + ?, changed_after_send_at = CASE WHEN sent_at IS NOT NULL THEN datetime('now') ELSE changed_after_send_at END, updated_at = datetime('now') WHERE id = ? AND client_id = ?").bind(share, open[i].inv.id, clientId).run();
+                applied.invoices.push({ id: open[i].inv.id, number: open[i].inv.number, delta_cents: share, kind: "adjusted", changed_after_send: wasSent });
             }
         }
     }
     await env.DB.prepare("UPDATE gm_change_orders SET applied_at = datetime('now'), applied_json = ? WHERE id = ? AND applied_at IS NULL").bind(JSON.stringify(applied), co.id).run();
-    if (co.lead_id) { await gmLogLeadEvents(env, clientId, co.lead_id, co.homeowner_signer_name || "Homeowner", [{ action: "change_order_signed", field: "change_order", old_value: contractMoney(co.price_before_cents), new_value: contractMoney(co.price_after_cents), reason: co.number + " " + contractMoney(co.amount_cents) + "; invoices: " + applied.invoices.map(function(x) { return x.number + " " + contractMoney(x.delta_cents); }).join(", ") }]); }
+    if (co.lead_id) { await gmLogLeadEvents(env, clientId, co.lead_id, co.homeowner_signer_name || "Homeowner", [{ action: "change_order_signed", field: "change_order", old_value: contractMoney(co.price_before_cents), new_value: contractMoney(co.price_after_cents), reason: co.number + " " + contractMoney(co.amount_cents) + "; invoices: " + applied.invoices.map(function(x) { return x.number + " " + contractMoney(x.delta_cents) + (x.changed_after_send ? " (already sent: resend)" : ""); }).join(", ") + (clamped.length ? "; costs clamped at $0.00: " + clamped.join(", ") : "") }]); }
     return applied;
 }
 
@@ -26579,10 +27033,20 @@ async function handlePostPublicChangeOrderSign(token, request, env) {
         var sigKey = null;
         if (kind === "drawn") { var st = await contractStoreSignature(env, { id: "co-" + co.id, revision: 1 }, "homeowner", body.signature_png); if (st.error) { return jsonErr(st.error, 400); } sigKey = st.key; }
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        // Rule 23 / F9: no other change order on this project was signed after
+        // this one was company-signed, and "before" still equals the contract's
+        // amount; both checked in the write itself.
         var res = await env.DB.prepare(
-            "UPDATE gm_change_orders SET status = 'completed', homeowner_signer_name = ?, homeowner_signed_at = datetime('now'), homeowner_signature_kind = ?, homeowner_signature_r2_key = ?, homeowner_signed_ip = ?, homeowner_signed_ua = ?, updated_at = datetime('now') WHERE id = ? AND status IN ('sent','viewed') AND company_signed_at IS NOT NULL"
+            "UPDATE gm_change_orders SET status = 'completed', homeowner_signer_name = ?, homeowner_signed_at = datetime('now'), homeowner_signature_kind = ?, homeowner_signature_r2_key = ?, homeowner_signed_ip = ?, homeowner_signed_ua = ?, updated_at = datetime('now') " +
+            "WHERE id = ? AND status IN ('sent','viewed') AND company_signed_at IS NOT NULL " +
+            "AND NOT EXISTS (SELECT 1 FROM gm_change_orders o2 WHERE o2.client_id = gm_change_orders.client_id AND o2.job_id = gm_change_orders.job_id AND o2.id <> gm_change_orders.id AND o2.status = 'completed' AND o2.homeowner_signed_at >= gm_change_orders.company_signed_at) " +
+            "AND (contract_id IS NULL OR price_before_cents = (SELECT k.contract_amount_cents FROM gm_contracts k WHERE k.id = gm_change_orders.contract_id))"
         ).bind(signer, kind, sigKey, ip, ua, co.id).run();
-        if (!res.meta || !res.meta.changes) { return jsonErr("This change order can no longer be signed.", 409); }
+        if (!res.meta || !res.meta.changes) {
+            var fresh = await env.DB.prepare("SELECT status FROM gm_change_orders WHERE id = ?").bind(co.id).first();
+            if (fresh && (fresh.status === "sent" || fresh.status === "viewed")) { return jsonErr("This change order is out of date because the contract price changed. The company will send an updated one.", 409); }
+            return jsonErr("This change order can no longer be signed.", 409);
+        }
         co.homeowner_signer_name = signer;
         var applied = await coApply(env, co, request);
         return jsonOk({ signed: true, applied: applied });
@@ -26608,7 +27072,7 @@ async function handleGetPublicChangeOrderSignature(token, which, request, env) {
         var co = await coByToken(env, token);
         if (!co) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         var key = which === "company" ? co.company_signature_r2_key : co.homeowner_signature_r2_key;
-        if (!key || !/^contracts\/co-[A-Za-z0-9-]+\/sig-[a-z]+-r\d+\.png$/.test(key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        if (!key || !/^contracts\/co-[A-Za-z0-9-]+\/sig-[a-z]+-r\d+(-\d+)?\.png$/.test(key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         var obj = await env.ASSETS.get(key);
         if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" }) });
@@ -26640,7 +27104,10 @@ async function handleGetGmJobContractStatus(id, jobId, request, env) {
         var client = await env.DB.prepare("SELECT phone, whatsapp FROM clients WHERE id = ?").bind(id).first();
         var lead = st.job.lead_id ? await gmOwnedRow(env, "gm_leads", st.job.lead_id, id) : null;
         var msg = "I'm moving forward on " + (st.job.obra || "") + " (" + ((lead && lead.cliente) || st.job.obra || "") + ", " + contractMoney(st.amount_cents) + ") without a signed contract. Florida requires the construction lien notice (section 713.015) and the Recovery Fund notice (section 489.1425) in the contract for residential jobs over $2,500. Please send the contract from the project in Apex.";
+        // F12: a hand-made project (no lead, or no accepted estimate) cannot get a contract built.
+        var accCount = st.job.lead_id ? await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, st.job.lead_id).first() : null;
         return jsonOk({ needs_warning: st.needs_warning, amount_cents: st.amount_cents, signed_contract: st.signed_contract, open_notice: st.open_notice, owner_continued: st.owner_continued,
+            can_build_contract: !!(accCount && accCount.c),
             owner_phone: (client && (client.whatsapp || client.phone)) || null, seller_message: msg, is_seller: !!sessionSellerName(user) });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
@@ -26675,7 +27142,7 @@ async function handlePostGmJobContractNotice(id, jobId, request, env) {
             await env.DB.prepare("UPDATE gm_contract_notices SET taps_json = ? WHERE id = ?").bind(JSON.stringify(taps), notice.id).run();
         }
         if (action === "owner_continue") {
-            if (role !== "owner") { return jsonErr("Only the owner can continue without a contract", 403); }
+            if (role !== "owner") { return jsonErr2("Só o dono pode continuar sem contrato.", "Only the owner can continue without a contract", 403); }
             if (notice) { await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'owner_continued', resolved_by = ? WHERE id = ? AND resolved_at IS NULL").bind(actor, notice.id).run(); }
             else { await env.DB.prepare("INSERT INTO gm_contract_notices (id, client_id, job_id, opened_by, opened_role, trigger_action, taps_json, resolved_at, resolution, resolved_by) VALUES (?, ?, ?, ?, 'owner', ?, ?, datetime('now'), 'owner_continued', ?)").bind(crypto.randomUUID(), id, jobId, actor, trigger, JSON.stringify([tap]), actor).run(); }
             if (st.job.lead_id) { await gmLogLeadEvents(env, id, st.job.lead_id, actor, [{ action: "no_contract_accepted", field: "contract", old_value: null, new_value: contractMoney(st.amount_cents), reason: "owner chose to continue without a signed contract" }]); }
@@ -26692,7 +27159,7 @@ async function handleGetGmContractNotices(id, request, env) {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
-        var rows = (await env.DB.prepare("SELECT n.*, j.obra AS job_name, j.valor FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id WHERE n.client_id = ? AND n.resolved_at IS NULL ORDER BY n.created_at").bind(id).all()).results || [];
+        var rows = (await env.DB.prepare("SELECT n.*, j.obra AS job_name, j.valor, (SELECT COUNT(*) FROM gm_estimates e WHERE e.client_id = n.client_id AND e.lead_id = j.lead_id AND e.status = 'accepted') AS accepted_estimates FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id WHERE n.client_id = ? AND n.resolved_at IS NULL ORDER BY n.created_at").bind(id).all()).results || [];
         var sellerName = sessionSellerName(user);
         if (sellerName) { rows = []; }
         return jsonOk({ notices: rows });
@@ -26736,11 +27203,11 @@ function dFileOut(env, origin, clientId, path) { return origin + "/api/clients/"
 
 async function dStoreUpload(env, form, field, prefix, allowPdf) {
     var file = form.get(field);
-    if (!file || typeof file.arrayBuffer !== "function") { return { error: field + " is required" }; }
+    if (!file || typeof file.arrayBuffer !== "function") { return { error: "Choose a file", error_pt: "Escolha um arquivo." }; }
     var ext = JOB_PHOTO_TYPES[file.type];
-    if (!ext || (!allowPdf && file.type === "application/pdf")) { return { error: allowPdf ? "Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image." : "Upload a JPG, PNG, GIF, WebP or HEIC image." }; }
+    if (!ext || (!allowPdf && file.type === "application/pdf")) { return { error: allowPdf ? "Upload a PDF or a JPG, PNG, GIF, WebP or HEIC image." : "Upload a JPG, PNG, GIF, WebP or HEIC image.", error_pt: allowPdf ? "Envie um PDF ou uma imagem JPG, PNG, GIF, WebP ou HEIC." : "Envie uma imagem JPG, PNG, GIF, WebP ou HEIC." }; }
     var buf = await file.arrayBuffer();
-    if (buf.byteLength > JOB_PHOTO_MAX_BYTES) { return { error: "File too large. Maximum size is 15 MB." }; }
+    if (buf.byteLength > JOB_PHOTO_MAX_BYTES) { return { error: "File too large. Maximum size is 15 MB.", error_pt: "Arquivo muito grande. Máximo 15 MB." }; }
     var key = prefix + "/" + crypto.randomUUID() + "." + ext;
     await env.ASSETS.put(key, buf, { httpMetadata: { contentType: file.type } });
     return { key: key, content_type: file.type };
@@ -26776,7 +27243,7 @@ async function handlePostGmConditionPhoto(id, jobId, request, env) {
         var g = await dJobGuard(env, user, id, jobId); if (g) { return g; }
         var form = await request.formData();
         var st = await dStoreUpload(env, form, "photo", "condition-photos/" + id, false);
-        if (st.error) { return jsonErr(st.error, 400); }
+        if (st.error) { return jsonErr2(st.error_pt || st.error, st.error, 400); }
         var note = gmStr(form.get("note"), 300);
         var pid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_job_condition_photos (id, client_id, job_id, r2_key, content_type, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(pid, id, jobId, st.key, st.content_type, note, actorName(user)).run();
@@ -26806,17 +27273,17 @@ async function handlePostGmJobAck(id, jobId, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var kind = body.kind === "completion" ? "completion" : (body.kind === "before_photos" ? "before_photos" : null);
-        if (!kind) { return jsonErr("kind must be before_photos or completion", 400); }
+        if (!kind) { return jsonErr2("Tipo de reconhecimento inválido.", "kind must be before_photos or completion", 400); }
         var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
         var payload;
         if (kind === "before_photos") {
             var photos = (await env.DB.prepare("SELECT id, note, created_at FROM gm_job_condition_photos WHERE client_id = ? AND job_id = ? ORDER BY created_at").bind(id, jobId).all()).results || [];
-            if (!photos.length) { return jsonErr("Upload at least one photo first", 400); }
+            if (!photos.length) { return jsonErr2("Adicione ao menos uma foto primeiro.", "Upload at least one photo first", 400); }
             payload = { photos: photos };
         } else {
             var items = (await env.DB.prepare("SELECT id, text, done, done_at, photo_r2_key FROM gm_job_punch_items WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY sort_order, created_at").bind(id, jobId).all()).results || [];
-            if (!items.length) { return jsonErr("Add the punch list first", 400); }
-            if (items.some(function(it) { return !it.done; })) { return jsonErr("Every punch list item must be done before the completion sign-off", 409); }
+            if (!items.length) { return jsonErr2("Adicione a lista de pendências primeiro.", "Add the punch list first", 400); }
+            if (items.some(function(it) { return !it.done; })) { return jsonErr2("Todas as pendências precisam estar feitas antes do aceite de conclusão.", "Every punch list item must be done before the completion sign-off", 409); }
             payload = { punch_items: items.map(function(it) { return { id: it.id, text: it.text, done_at: it.done_at, has_photo: !!it.photo_r2_key }; }) };
         }
         var open = await env.DB.prepare("SELECT id FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = ? AND status IN ('sent','viewed') LIMIT 1").bind(id, jobId, kind).first();
@@ -26835,7 +27302,7 @@ async function handlePostGmJobAck(id, jobId, request, env) {
         var link = DEFAULT_ORIGIN + "/ack-view?t=" + row.public_token;
         var tpl = kind === "before_photos" ? "Hi {customer_first_name}, it's {seller_name} from {business_name}. Before we start on {job_name}, please look at the photos of the existing conditions and sign the acknowledgment: {link}"
                                             : "Hi {customer_first_name}, it's {seller_name} from {business_name}. The work on {job_name} is complete. Please review the walkthrough list and sign the completion acceptance: {link}";
-        var msg = gmDocFillMessage(tpl, { customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "", business_name: doc.legal_name || (client && client.name) || "", seller_name: gmDocSenderName(user, lead, client, doc), link: link });
+        var msg = gmDocFillMessage(tpl, { customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "", business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
         if (job && job.lead_id) { await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: kind === "before_photos" ? "conditions_sent" : "completion_sent", field: "acknowledgment", old_value: null, new_value: link }]); }
         return jsonOk({ ack_id: aid, link: link, message: msg, phone: gmDocSendPhone(lead, null) });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
@@ -26965,12 +27432,12 @@ async function handlePostGmPunch(id, jobId, request, env) {
         if (ctype.indexOf("multipart/form-data") !== -1) {
             var form = await request.formData();
             text = gmStr(form.get("text"), 300);
-            if (form.get("photo") && typeof form.get("photo").arrayBuffer === "function") { photo = await dStoreUpload(env, form, "photo", "punch-photos/" + id, false); if (photo.error) { return jsonErr(photo.error, 400); } }
+            if (form.get("photo") && typeof form.get("photo").arrayBuffer === "function") { photo = await dStoreUpload(env, form, "photo", "punch-photos/" + id, false); if (photo.error) { return jsonErr2(photo.error_pt || photo.error, photo.error, 400); } }
         } else {
             var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
             text = gmStr(body.text, 300);
         }
-        if (!text) { return jsonErr("Describe the item", 400); }
+        if (!text) { return jsonErr2("Descreva a pendência.", "Describe the item", 400); }
         var pid = crypto.randomUUID();
         var maxSort = await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM gm_job_punch_items WHERE job_id = ?").bind(jobId).first();
         await env.DB.prepare("INSERT INTO gm_job_punch_items (id, client_id, job_id, text, photo_r2_key, photo_content_type, sort_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(pid, id, jobId, text, photo ? photo.key : null, photo ? photo.content_type : null, (maxSort.m || 0) + 1, actorName(user)).run();
@@ -26988,7 +27455,7 @@ async function handlePutGmPunch(id, itemId, request, env) {
         var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
         var sets = [], binds = [];
         if (body.done !== undefined) { sets.push("done = ?"); binds.push(body.done ? 1 : 0); sets.push("done_at = ?"); binds.push(body.done ? new Date().toISOString().slice(0, 19).replace("T", " ") : null); sets.push("done_by = ?"); binds.push(body.done ? actorName(user) : null); }
-        if (body.text !== undefined) { var t = gmStr(body.text, 300); if (!t) { return jsonErr("Describe the item", 400); } sets.push("text = ?"); binds.push(t); }
+        if (body.text !== undefined) { var t = gmStr(body.text, 300); if (!t) { return jsonErr2("Descreva a pendência.", "Describe the item", 400); } sets.push("text = ?"); binds.push(t); }
         if (body.removed === true) { sets.push("removed_at = datetime('now')"); }
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
         sets.push("updated_at = datetime('now')"); binds.push(itemId, id);
@@ -27033,8 +27500,8 @@ async function handlePostGmLienor(id, jobId, request, env) {
         if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
         if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
         var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
-        var name = gmStr(body.name, 200); if (!name) { return jsonErr("The lienor's name is required", 400); }
-        var date = gmStr(body.notice_date, 10); if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { return jsonErr("notice_date must be YYYY-MM-DD", 400); }
+        var name = gmStr(body.name, 200); if (!name) { return jsonErr2("Informe o nome de quem mandou o aviso.", "The lienor's name is required", 400); }
+        var date = gmStr(body.notice_date, 10); if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { return jsonErr2("Data do aviso inválida.", "notice_date must be YYYY-MM-DD", 400); }
         var amt = gmCents(body.amount_claimed_cents);
         var lid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_job_lienors (id, client_id, job_id, name, notice_date, amount_claimed_cents, note, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(lid, id, jobId, name, date, amt, gmStr(body.note, 500), actorName(user)).run();
@@ -27056,7 +27523,7 @@ async function handlePutGmLienor(id, lienorId, request, env) {
             var form = await request.formData();
             var kind = form.get("kind") === "unconditional" ? "unconditional" : "conditional";
             var st = await dStoreUpload(env, form, "file", "lien-releases/" + id, true);
-            if (st.error) { return jsonErr(st.error, 400); }
+            if (st.error) { return jsonErr2(st.error_pt || st.error, st.error, 400); }
             sets.push(kind + "_release_r2_key = ?"); binds.push(st.key);
             sets.push(kind + "_release_at = datetime('now')");
             var note = gmStr(form.get("note"), 300); if (note) { sets.push(kind + "_release_note = ?"); binds.push(note); }
@@ -27065,7 +27532,7 @@ async function handlePutGmLienor(id, lienorId, request, env) {
             ["conditional", "unconditional"].forEach(function(k) {
                 if (body[k + "_release_recorded"] === true) { sets.push(k + "_release_at = COALESCE(" + k + "_release_at, datetime('now'))"); var n = gmStr(body[k + "_release_note"], 300); if (n) { sets.push(k + "_release_note = ?"); binds.push(n); } }
             });
-            if (body.removed === true) { var rr = gmStr(body.removed_reason, 300); if (!rr) { return jsonErr("A reason is required to remove a lienor", 400); } sets.push("removed_at = datetime('now')"); sets.push("removed_reason = ?"); binds.push(rr); }
+            if (body.removed === true) { var rr = gmStr(body.removed_reason, 300); if (!rr) { return jsonErr2("Informe o motivo para remover.", "A reason is required to remove a lienor", 400); } sets.push("removed_at = datetime('now')"); sets.push("removed_reason = ?"); binds.push(rr); }
             if (body.amount_claimed_cents !== undefined) { sets.push("amount_claimed_cents = ?"); binds.push(gmCents(body.amount_claimed_cents)); }
             if (body.note !== undefined) { sets.push("note = ?"); binds.push(gmStr(body.note, 500)); }
         }
@@ -27106,29 +27573,43 @@ async function handleGetGmAffidavit(id, jobId, request, env) {
         var warnings = [], warningLienors = [];
         var lrows = lienors.map(function(l) {
             var rs = l.unconditional_release_at ? "unconditional" : (l.conditional_release_at ? "conditional" : "none");
-            if (rs === "none") { warnings.push(l.name + " served a Notice to Owner" + (l.notice_date ? " on " + contractFmtDate(l.notice_date) : "") + " and has no release on file."); warningLienors.push({ name: l.name, notice_date: l.notice_date }); }
+            // A conditional release is not the all-clear: the lienor stays a
+            // warning until the unconditional (final) release is on file.
+            if (rs === "none") { warnings.push(l.name + " served a Notice to Owner" + (l.notice_date ? " on " + contractFmtDate(l.notice_date) : "") + " and has no release on file."); warningLienors.push({ name: l.name, notice_date: l.notice_date, release_status: rs }); }
+            if (rs === "conditional") { warnings.push(l.name + " has only a conditional release on file; the final (unconditional) release is still missing."); warningLienors.push({ name: l.name, notice_date: l.notice_date, release_status: rs }); }
             return { name: l.name, notice_date: l.notice_date, amount_claimed_cents: l.amount_claimed_cents, conditional_release_at: l.conditional_release_at, unconditional_release_at: l.unconditional_release_at, release_status: rs };
         });
         var unpaid = lrows.filter(function(l) { return l.release_status !== "unconditional"; }).map(function(l) { return { name: l.name, amount_due_cents: l.amount_claimed_cents || 0 }; });
         var mode = admin.affidavit_written_declaration === "1" ? "declaration" : "notary";
+        // F32: the contract's own answers first (what the homeowner signed),
+        // then the lead. F33: the affiant is never titled "Owner" (the
+        // homeowner is the Owner two lines later).
+        var answers = con ? (gmDocParseJsonObject(con.answers_json, {}) || {}) : {};
+        var leadAddr = lead ? [lead.address, lead.city].filter(Boolean).join(", ") : "";
+        var propertyAddress = answers.property_address || leadAddr || "";
         var payload = {
             mode: mode,
             business: { legal_name: doc.legal_name || "", address: doc.address || "", phone: doc.phone || "", license_numbers: doc.license_numbers || [], entity_type: cs.values.business_entity_type || "", qualifier_name: cs.values.qualifier_name || "" },
-            affiant: { name: cs.owner_signer_name || cs.values.qualifier_name || "", title: cs.values.affiant_title || "Owner" },
-            owner: { name: lead ? lead.cliente : job.obra, address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : "" },
-            property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : "",
+            affiant: { name: cs.owner_signer_name || cs.values.qualifier_name || "", title: cs.values.company_signer_title || "Authorized Representative" },
+            owner: { name: answers.owner_full_name || (lead ? lead.cliente : job.obra), address: answers.owner_mailing_address || propertyAddress },
+            property_address: propertyAddress,
             contract: { display_number: con ? contractDisplayNumber(con) : null, contract_date: con ? con.contract_date : null, original_amount_cents: origAmount,
                         change_orders: cos.map(function(c) { return { number: c.number, amount_cents: c.amount_cents, signed_at: c.homeowner_signed_at }; }), current_amount_cents: con ? con.contract_amount_cents : contract.contract_total_cents },
             paid_to_date_cents: contract.paid_cents, final_payment_due_cents: Math.max(0, (con ? con.contract_amount_cents : contract.contract_total_cents) - contract.paid_cents - (contract.credit_cents || 0)),
             lienors: lrows, unpaid_lienors: unpaid, generated_at: new Date().toISOString().slice(0, 19).replace("T", " "), county: (con && gmDocParseJsonObject(con.answers_json, {}).property_county) || null,
             warnings: warnings, warning_lienors: warningLienors, info_45_days: D_45_DAY_INFO
         };
-        var aid = crypto.randomUUID();
-        await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, mode, JSON.stringify(payload), actorName(user)).run();
+        // F43: reading the sheet (or the print page) logs nothing; a generation
+        // is logged only when "Open to print / PDF" is pressed (POST .../generate).
+        if (request.method === "POST") {
+            var aid = crypto.randomUUID();
+            await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, mode, JSON.stringify(payload), actorName(user)).run();
+            payload.affidavit_id = aid;
+        }
         var origin = new URL(request.url).origin;
         var notarized = (await env.DB.prepare("SELECT id, notarized_at, notarized_uploaded_by FROM gm_job_affidavits WHERE client_id = ? AND job_id = ? AND notarized_r2_key IS NOT NULL ORDER BY notarized_at DESC").bind(id, jobId).all()).results || [];
         notarized.forEach(function(n) { n.url = dFileOut(env, origin, id, "affidavits/" + n.id + "/file"); });
-        payload.affidavit_id = aid; payload.notarized_copies = notarized;
+        payload.notarized_copies = notarized;
         payload.print_link = DEFAULT_ORIGIN + "/templates/client-affidavit-template.html?job=" + jobId;
         return jsonOk({ affidavit: payload });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
@@ -27142,9 +27623,19 @@ async function handlePostGmAffidavitNotarized(id, jobId, request, env) {
         if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
         var form = await request.formData();
         var st = await dStoreUpload(env, form, "file", "affidavits/" + id, true);
-        if (st.error) { return jsonErr(st.error, 400); }
-        var aid = crypto.randomUUID();
-        await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by, notarized_r2_key, notarized_content_type, notarized_at, notarized_uploaded_by) VALUES (?, ?, ?, 'notary', NULL, ?, ?, ?, datetime('now'), ?)").bind(aid, id, jobId, actorName(user), st.key, st.content_type, actorName(user)).run();
+        if (st.error) { return jsonErr2(st.error_pt || st.error, st.error, 400); }
+        // F43: the copy belongs to the latest generation that has none yet
+        // (guarded in the UPDATE); with none to attach to, a row of its own.
+        var latest = await env.DB.prepare("SELECT id FROM gm_job_affidavits WHERE client_id = ? AND job_id = ? AND payload_json IS NOT NULL ORDER BY generated_at DESC LIMIT 1").bind(id, jobId).first();
+        var aid = null;
+        if (latest) {
+            var up = await env.DB.prepare("UPDATE gm_job_affidavits SET notarized_r2_key = ?, notarized_content_type = ?, notarized_at = datetime('now'), notarized_uploaded_by = ? WHERE id = ? AND client_id = ? AND notarized_r2_key IS NULL").bind(st.key, st.content_type, actorName(user), latest.id, id).run();
+            if (up.meta && up.meta.changes) { aid = latest.id; }
+        }
+        if (!aid) {
+            aid = crypto.randomUUID();
+            await env.DB.prepare("INSERT INTO gm_job_affidavits (id, client_id, job_id, mode, payload_json, generated_by, notarized_r2_key, notarized_content_type, notarized_at, notarized_uploaded_by) VALUES (?, ?, ?, 'notary', NULL, ?, ?, ?, datetime('now'), ?)").bind(aid, id, jobId, actorName(user), st.key, st.content_type, actorName(user)).run();
+        }
         var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
         if (job && job.lead_id) { await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: "affidavit_notarized_uploaded", field: "affidavit", old_value: null, new_value: aid }]); }
         return jsonOk({ affidavit_id: aid });
@@ -27197,7 +27688,7 @@ async function handlePostGmSubcontractor(id, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
         var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
-        var name = gmStr(body.name, 200); if (!name) { return jsonErr("Name is required", 400); }
+        var name = gmStr(body.name, 200); if (!name) { return jsonErr2("Informe o nome.", "Name is required", 400); }
         var sid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_subcontractors (id, client_id, name, trade, license_number, coi_expires, wc_kind, wc_expires, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .bind(sid, id, name, gmStr(body.trade, 80), gmStr(body.license_number, 60), gmStr(body.coi_expires, 10), ["policy", "exemption"].indexOf(body.wc_kind) === -1 ? null : body.wc_kind, gmStr(body.wc_expires, 10), gmStr(body.notes, 500), actorName(user)).run();
@@ -27218,7 +27709,7 @@ async function handlePutGmSubcontractor(id, sid, request, env) {
             var form = await request.formData();
             var kind = form.get("kind") === "wc" ? "wc" : "coi";
             var st = await dStoreUpload(env, form, "file", "sub-docs/" + id, true);
-            if (st.error) { return jsonErr(st.error, 400); }
+            if (st.error) { return jsonErr2(st.error_pt || st.error, st.error, 400); }
             sets.push(kind + "_r2_key = ?"); binds.push(st.key);
             var exp = gmStr(form.get("expires"), 10); if (exp) { sets.push(kind + "_expires = ?"); binds.push(exp); }
             if (kind === "wc") { var wk = form.get("wc_kind"); sets.push("wc_kind = ?"); binds.push(wk === "exemption" ? "exemption" : "policy"); }
@@ -38186,6 +38677,7 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "contracts" && method === "POST") {
                     return handlePostGmJobContract(cid, segs[5], request, env);
                 }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "accepted-estimates" && method === "GET") { return handleGetGmJobAcceptedEstimates(cid, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "contracts" && method === "GET") { return handleGetGmContracts(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts" && segs[5] === "awaiting" && method === "GET") { return handleGetGmContractsAwaiting(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts") {
@@ -38198,6 +38690,7 @@ async function handleFetch(request, env, ctx) {
                         if (segs[6] === "company-sign")  { return handlePostGmContractCompanySign(cid, segs[5], request, env); }
                         if (segs[6] === "route")         { return handlePostGmContractRoute(cid, segs[5], request, env); }
                         if (segs[6] === "send")          { return handlePostGmContractSend(cid, segs[5], request, env); }
+                        if (segs[6] === "signed-copy")   { return handlePostGmContractSignedCopy(cid, segs[5], request, env); }
                         if (segs[6] === "void")          { return handlePostGmContractVoid(cid, segs[5], request, env); }
                         if (segs[6] === "revise")        { return handlePostGmContractRevise(cid, segs[5], request, env); }
                         if (segs[6] === "custom-clause") { return handlePostGmContractCustomClause(cid, segs[5], request, env); }
@@ -38227,6 +38720,7 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 6 && gmCol === "lienors" && method === "PUT") { return handlePutGmLienor(cid, segs[5], request, env); }
                 if (segs.length === 8 && gmCol === "lienors" && segs[6] === "file" && method === "GET") { return handleGetGmLienorFile(cid, segs[5], segs[7], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "affidavit" && method === "GET") { return handleGetGmAffidavit(cid, segs[5], request, env); }
+                if (segs.length === 8 && gmCol === "jobs" && segs[6] === "affidavit" && segs[7] === "generate" && method === "POST") { return handleGetGmAffidavit(cid, segs[5], request, env); }
                 if (segs.length === 8 && gmCol === "jobs" && segs[6] === "affidavit" && segs[7] === "notarized" && method === "POST") { return handlePostGmAffidavitNotarized(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "affidavits" && segs[6] === "file" && method === "GET") { return handleGetGmAffidavitFile(cid, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "subcontractors") {
@@ -38246,6 +38740,7 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "change-orders" && method === "POST") {
                     if (segs[6] === "company-sign") { return handlePostGmChangeOrderCompanySign(cid, segs[5], request, env); }
                     if (segs[6] === "send")         { return handlePostGmChangeOrderSend(cid, segs[5], request, env); }
+                    if (segs[6] === "signed-copy")  { return handlePostGmChangeOrderSignedCopy(cid, segs[5], request, env); }
                     if (segs[6] === "void")         { return handlePostGmChangeOrderVoid(cid, segs[5], request, env); }
                 }
                 if (segs.length === 8 && gmCol === "leads" && segs[6] === "commission-review" && segs[7] === "dismiss" && method === "POST") {

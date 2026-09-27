@@ -208,7 +208,54 @@
     var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
-    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
     // UTC from D1 -> Eastern, 12-hour.
     function fmtDateTime(iso) {
       if (!iso) { return ""; }
@@ -283,6 +330,19 @@
     var sigKind = "typed";
     var pads = {};   // canvas id -> { ctx, drew }
 
+    function sayErr(err, text) { err.textContent = text; if (err.scrollIntoView) { err.scrollIntoView({ block: "center" }); } }
+    // F31: a request replaced or changed after it was sent shows why, and
+    // nothing can be signed on it.
+    function renderVoid() {
+      var name = (ack.business && ack.business.name) || "The company";
+      var card = byId("cardMeta");
+      if (card) {
+        card.innerHTML = '<div class="state"><h3>' + escHtml(kindTitle()) + '</h3><p>' +
+          (ack.void_reason === "list_changed" ? "This list changed. " + escHtml(name) + " will send an updated one." : "This request was replaced. " + escHtml(name) + " will send an updated one.") + '</p></div>';
+      }
+      ["cardStateBanner", "cardBody", "cardActions"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
+      var pdfBtn = byId("btnPdf"); if (pdfBtn && pdfBtn.parentNode) { pdfBtn.parentNode.classList.add("hidden"); }
+    }
     function canRespond() { return !previewId && ["sent", "viewed"].indexOf(ack.status) !== -1; }
     function kindTitle() { return ack.kind === "completion" ? "Completion and acceptance" : "Existing conditions before work"; }
     function kindShort() { return ack.kind === "completion" ? "Completion sign-off" : "Condition photos"; }
@@ -323,7 +383,7 @@
         else {
           h += '<div class="photo-grid">' + photos.map(function(p) {
             return '<div class="photo-cell"><a href="' + escHtml(p.url) + '" target="_blank" rel="noopener"><img src="' + escHtml(p.url) + '" alt=""></a>' +
-              '<div class="cap">' + (p.note ? escHtml(p.note) : '<span class="muted">No note</span>') + (p.taken_at ? '<div class="when">' + escHtml(fmtDateTime(p.taken_at)) + '</div>' : "") + '</div></div>';
+              '<div class="cap">' + (p.note ? escHtml(p.note) : "") + (p.taken_at ? '<div class="when">' + escHtml(fmtDateTime(p.taken_at)) + '</div>' : "") + '</div></div>';
           }).join("") + '</div>';
         }
       }
@@ -351,7 +411,7 @@
       var banner = byId("cardStateBanner");
       if (!card || !banner) { return; }
       banner.classList.add("hidden");
-      var disc = ack.disclaimer_line ? '<p class="disclaimer">' + escHtml(ack.disclaimer_line) + '</p>' : "";
+      var disc = "";   // F10: the disclaimer prints once, at the foot of the page (#disclaimerEnd)
       if (previewId) {
         card.innerHTML = '<h2>Signing</h2><p class="muted">The homeowner signs here. Signing is not available in preview.</p>' + disc;
         return;
@@ -363,7 +423,7 @@
         return;
       }
       if (ack.status === "declined") {
-        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined to sign' + (ack.decline_reason ? ": " + escHtml(ack.decline_reason) : "") + '.</p></div>';
+        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined to sign' + (ack.decline_reason ? ": " + escHtml(ack.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((ack.business && ack.business.name) || "The company") + ' will follow up with you.</p></div>';
         banner.classList.remove("hidden");
         card.innerHTML = disc;
         return;
@@ -419,13 +479,13 @@
       err.textContent = "";
       var signerEl = byId("signer");
       var signer = signerEl ? signerEl.value.trim() : "";
-      if (!signer) { err.textContent = "Please type your full name."; return; }
+      if (!signer) { sayErr(err, "Please type your full name."); return; }
       var consent = byId("consent");
-      if (!consent || !consent.checked) { err.textContent = "Please tick the box to agree to sign electronically."; return; }
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
       var body = { signer_name: signer, signature_kind: sigKind, consent: true };
       if (sigKind === "drawn") {
         var c = byId("sigCanvas"); var p = pads["sigCanvas"];
-        if (!c || !p || !p.drew) { err.textContent = "Please draw your signature."; return; }
+        if (!c || !p || !p.drew) { sayErr(err, "Please draw your signature."); return; }
         body.signature_png = c.toDataURL("image/png");
       }
       var btn = byId("btnSign"); if (btn) { btn.disabled = true; }
@@ -433,7 +493,7 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
         .then(function() { window.scrollTo(0, 0); })
-        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
     }
 
     function respond(kind) {
@@ -446,7 +506,7 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } return load(); })
         .then(function() { window.scrollTo(0, 0); })
-        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
     }
 
     function fetchAck() {
@@ -469,11 +529,12 @@
           applyBranding(ack.business || {});
           document.title = kindTitle() + (ack.business && ack.business.name ? " - " + ack.business.name : "");
           var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !previewId); }
+          if (ack.status === "void") { renderVoid(); show("doc"); return; }
           renderMeta(); renderBody(); renderActions();
           var de = byId("disclaimerEnd"); if (de) { de.textContent = ack.disclaimer_line || ""; }
           var pdf = byId("btnPdf");
           // No print template for acknowledgments: the page itself prints.
-          if (pdf) { pdf.textContent = "Print / Save as PDF"; pdf.onclick = function() { window.print(); }; }
+          if (pdf) { pdf.textContent = "Print / Save as PDF"; pdf.onclick = function() { printWithoutToken(); }; }
           show("doc");
         })
         .catch(function(e) { console.error(e); show("cardNotFound"); });

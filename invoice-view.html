@@ -154,7 +154,54 @@
     var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
-    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
     // UTC from D1 -> Eastern, 12-hour.
     function fmtDateTime(iso) {
       if (!iso) { return ""; }
@@ -256,8 +303,8 @@
           '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
           ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
           '<div class="row"><span>This invoice</span><span>' + money(inv.amount_cents) + '</span></div>' +
-          (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>- ' + money(inv.paid_cents) + '</span></div>' : "") +
-          (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>- ' + money(inv.credit_cents) + '</span></div>' : "") +
+          (inv.paid_cents ? '<div class="row"><span>Paid on this invoice</span><span>-' + money(inv.paid_cents) + '</span></div>' : "") +
+          (inv.credit_cents ? '<div class="row"><span>Credits on this invoice</span><span>-' + money(inv.credit_cents) + '</span></div>' : "") +
           '<div class="row grand"><span>Balance due now</span><span>' + money(inv.balance_cents) + '</span></div>' +
           '<div class="row"><span>Remaining contract balance</span><span>' + money(c.remaining_cents) + '</span></div>';
       }
@@ -267,7 +314,7 @@
           pays.innerHTML = (inv.payments || []).map(function(p) {
             return '<div class="line"><div><div class="name">' + escHtml(fmtDate(p.paid_date)) + ' - ' + escHtml(PM_LABEL[p.method] || p.method) + (p.reference ? " " + escHtml(p.reference) : "") + '</div>' + (p.receipt_number ? '<div class="math">Receipt ' + escHtml(p.receipt_number) + '</div>' : "") + '</div><div class="amt">' + money(p.amount_cents) + '</div></div>';
           }).join("") + (inv.credits || []).map(function(cr) {
-            return '<div class="line"><div><div class="name">' + escHtml(cr.number) + ' - ' + (cr.kind === "refund" ? "Refund" : "Credit") + '</div><div class="math">' + escHtml(cr.reason) + '</div></div><div class="amt">' + (cr.kind === "refund" ? "+ " : "- ") + money(cr.amount_cents) + '</div></div>';
+            return '<div class="line"><div><div class="name">' + escHtml(cr.number) + ' - ' + (cr.kind === "refund" ? "Refund" : "Credit") + '</div><div class="math">' + escHtml(cr.reason) + '</div></div><div class="amt">' + (cr.kind === "refund" ? "+" : "-") + money(cr.amount_cents) + '</div></div>';
           }).join("");
         }
         var pc = byId("cardPayments"); if (pc) { pc.classList.remove("hidden"); }
@@ -297,7 +344,7 @@
         var subtotal = (sc.subtotal_cents !== null && sc.subtotal_cents !== undefined) ? sc.subtotal_cents : sum;
         var discount = (sc.discount_cents !== null && sc.discount_cents !== undefined) ? sc.discount_cents : Math.max(0, subtotal - (sc.total_cents || 0));
         h += '<div class="totals">' + ((multi || discount) ? '<div class="row"><span>Subtotal</span><span>' + money(subtotal) + '</span></div>' : "") +
-          (discount ? '<div class="row"><span>Discount' + (sc.discount_type === "pct" && sc.discount_value ? " (" + escHtml(String(sc.discount_value)) + "%)" : "") + '</span><span>- ' + money(discount) + '</span></div>' : "") +
+          (discount ? '<div class="row"><span>Discount' + (sc.discount_type === "pct" && sc.discount_value ? " (" + escHtml(String(sc.discount_value)) + "%)" : "") + '</span><span>-' + money(discount) + '</span></div>' : "") +
           '<div class="row grand"><span>Contract total</span><span>' + money(sc.total_cents) + '</span></div></div>';
         var scopeEl = byId("scope"); if (scopeEl) { scopeEl.innerHTML = h; }
         var scard = byId("cardScope"); if (scard) { scard.classList.remove("hidden"); }

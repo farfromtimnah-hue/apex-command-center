@@ -34,10 +34,37 @@ function gmApi(path, opts) {
   return apiFetch("/api/clients/" + clientId + "/gm/" + path, opts)
     .then(function(res) {
       return res.json().then(function(d) {
-        if (!res.ok) { throw new Error(d.error || ("HTTP " + res.status)); }
+        if (!res.ok) {
+          var err = new Error(gmApiErrText(d, res.status));
+          err.data = d; err.status = res.status;
+          throw err;
+        }
         return d;
       });
     });
+}
+
+// Rule: a server message never reaches a Portuguese screen in English. The
+// contract routes send error_pt / error_en; the shared guards send a handful
+// of fixed English words, translated here. Anything else is shown as sent.
+var GM_API_ERR_PT = {
+  "Forbidden": "Sem permissão para esta ação.",
+  "Unauthorized": "Sua sessão expirou. Entre de novo.",
+  "Not found": "Não encontrado.",
+  "Project not found": "Projeto não encontrado.",
+  "Contract not found": "Contrato não encontrado.",
+  "Change order not found": "Aditivo não encontrado.",
+  "Subcontractor not found": "Subempreiteiro não encontrado.",
+  "Nothing to update": "Nada para salvar.",
+  "Please agree to sign electronically": "Marque a caixa de consentimento.",
+  "Password change required": "Troque a senha para continuar."
+};
+function gmApiErrText(d, status) {
+  if (d && d.error_pt && d.error_en) { return gmT(d.error_pt, d.error_en); }
+  var raw = (d && d.error) || ("HTTP " + status);
+  if (GM_API_ERR_PT[raw]) { return gmT(GM_API_ERR_PT[raw], raw); }
+  if (status >= 500 && !isEn()) { return "Erro no servidor. Tente de novo. (" + raw + ")"; }
+  return raw;
 }
 
 function gmLoadConfig() {
@@ -4291,7 +4318,10 @@ function gmConSettingsHtml() {
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Quem assina pela empresa", "Authorized signers") + '</p>' +
     '<label class="gm-field-label">' + gmT("Dono (assina por padrão)", "Owner (default signer)") + '</label>' +
     '<div class="gm-cost-line"><input type="text" class="gm-input gm-cost-label" placeholder="' + gmT("Nome", "Name") + '" value="' + escHtml(d.owner_signer_name) + '" oninput="gmConDraft.owner_signer_name = this.value">' +
-    '<input type="text" inputmode="tel" class="gm-input gm-cost-amount" placeholder="' + gmT("Telefone", "Phone") + '" value="' + escHtml(d.owner_signer_phone) + '" oninput="gmConDraft.owner_signer_phone = this.value"></div>' +
+    '<input type="text" inputmode="tel" class="gm-input gm-cost-amount" style="flex:0 0 11em;" placeholder="' + gmT("Telefone", "Phone") + '" value="' + escHtml(gmFmtPhone(d.owner_signer_phone)) + '" oninput="gmConDraft.owner_signer_phone = this.value" onblur="this.value = gmFmtPhone(this.value)"></div>' +
+    '<label class="gm-field-label" for="gmConSignerTitle">' + gmT("Cargo de quem assina pela empresa", "Title of the company signer") + '</label>' +
+    '<input type="text" id="gmConSignerTitle" class="gm-input" placeholder="' + gmT("ex.: Presidente, Gerente (em inglês, como vai no documento)", "e.g. President, Managing Member") + '" value="' + escHtml(d.values.company_signer_title || "") + '" oninput="gmConDraft.values.company_signer_title = this.value">' +
+    '<p class="muted" style="font-size:13px;margin-top:-4px;">' + gmT("Usado na declaração de pagamento final. Em branco, sai \"Authorized Representative\".", "Used on the final payment affidavit. Left blank, it prints \"Authorized Representative\".") + '</p>' +
     '<div id="gmConSigners">' + gmConSignersHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmConDraft.signers.push({name:\'\',phone:\'\'}); var b = document.getElementById(\'gmConSigners\'); if (b) { b.innerHTML = gmConSignersHtml(); }">' + gmT("+ Pessoa autorizada", "+ Authorized person") + '</button>' +
     '<p class="muted" style="font-size:13px;">' + gmT("Telefone obrigatório: quando o contrato precisa da assinatura dessa pessoa, quem envia abre uma mensagem para esse número.", "Phone required: when the contract needs this person's signature, the sender opens a message to this number.") + '</p></div>';
@@ -4317,7 +4347,7 @@ function gmConSettingsHtml() {
 function gmConSignersHtml() {
   return gmConDraft.signers.map(function(s, i) {
     return '<div class="gm-cost-line"><input type="text" class="gm-input gm-cost-label" placeholder="' + gmT("Nome", "Name") + '" value="' + escHtml(s.name) + '" oninput="gmConDraft.signers[' + i + '].name = this.value">' +
-      '<input type="text" inputmode="tel" class="gm-input gm-cost-amount" placeholder="' + gmT("Telefone *", "Phone *") + '" value="' + escHtml(s.phone) + '" oninput="gmConDraft.signers[' + i + '].phone = this.value">' +
+      '<input type="text" inputmode="tel" class="gm-input gm-cost-amount" style="flex:0 0 11em;" placeholder="' + gmT("Telefone *", "Phone *") + '" value="' + escHtml(gmFmtPhone(s.phone)) + '" oninput="gmConDraft.signers[' + i + '].phone = this.value" onblur="this.value = gmFmtPhone(this.value)">' +
       '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmConDraft.signers.splice(' + i + ', 1); var b = document.getElementById(\'gmConSigners\'); if (b) { b.innerHTML = gmConSignersHtml(); }">&times;</button></div>';
   }).join("");
 }
@@ -4343,6 +4373,7 @@ function gmConSettingsSave() {
 var gmJobContracts = {};
 function gmLoadJobContracts(jobId) {
   if (!gmContractsEnabled()) { return; }
+  gmLoadJobAcceptedEsts(jobId);
   gmApi("contracts?job_id=" + encodeURIComponent(jobId))
     .then(function(d) { gmJobContracts[jobId] = d.contracts || []; gmRenderJobContracts(jobId); })
     .catch(function(e) { gmJobContracts[jobId] = []; gmRenderJobContracts(jobId, e.message); console.error(e); });
@@ -4357,21 +4388,58 @@ function gmRenderJobContracts(jobId, failedMsg) {
   var box = document.getElementById("gmJobContractSection");
   if (!box) { return; }
   var list = gmJobContracts[jobId] || [];
+  var ests = gmJobAcceptedEsts[jobId];
+  // F12: a project made by hand (no lead / no accepted estimate) cannot have
+  // a contract built; say why instead of offering a button that fails.
+  var noEstimate = ests && !ests.error && !(ests.estimates || []).length;
   var inner = "";
   if (failedMsg) { inner = '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(failedMsg) + '</p>'; }
-  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum contrato ainda. O contrato é montado a partir do estimate aceito.", "No contract yet. The contract is built from the accepted estimate.") + '</p>'; }
+  else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + (noEstimate ? gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") : gmT("Nenhum contrato ainda. O contrato é montado a partir do estimate aceito.", "No contract yet. The contract is built from the accepted estimate.")) + '</p>'; }
   else {
     list.forEach(function(c) {
-      inner += gmSheetRowHtml("file", escHtml(c.display_number), gmConPill(c.status) + ' ' + gmMoney(c.contract_amount_cents), "gmOpenContract('" + escHtml(c.id) + "')", null,
-        (c.company_signed_at ? gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at)) + " · " : "") + (c.homeowner_signed_at ? gmT("cliente ", "homeowner ") + escHtml(formatDateTimeUTC(c.homeowner_signed_at)) : (c.routed_to_name ? gmT("aguardando ", "awaiting ") + escHtml(c.routed_to_name) : "")));
+      // F37: "awaiting <name>" only while the contract actually waits for that person.
+      var sub = (c.company_signed_at ? gmT("empresa ", "company ") + escHtml(formatDateTimeUTC(c.company_signed_at)) + " · " : "") +
+        (c.homeowner_signed_at ? gmT("cliente ", "homeowner ") + escHtml(formatDateTimeUTC(c.homeowner_signed_at)) : (c.status === "awaiting_company" && c.routed_to_name ? gmT("aguardando ", "awaiting ") + escHtml(c.routed_to_name) : ""));
+      inner += gmSheetRowHtml("file", escHtml(c.display_number), gmConPill(c.status) + ' ' + gmMoney(c.contract_amount_cents), "gmOpenContract('" + escHtml(c.id) + "')", null, sub.replace(/ · $/, ""));
     });
   }
   var live = list.some(function(c) { return ["void", "superseded", "declined"].indexOf(c.status) === -1; });
   box.innerHTML = gmSheetSection(gmT("Contrato", "Contract"), inner) +
-    (!live ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateContract(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato a partir do estimate aceito", "Create contract from the accepted estimate") + '</button>' : "");
+    (!live && !noEstimate && ests ? '<button type="button" class="btn-gold gm-add-btn" onclick="gmJobCreateContract(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato a partir do estimate aceito", "Create contract from the accepted estimate") + '</button>' : "");
 }
+var gmJobAcceptedEsts = {};
+function gmLoadJobAcceptedEsts(jobId) {
+  return gmApi("jobs/" + encodeURIComponent(jobId) + "/accepted-estimates")
+    .then(function(d) { gmJobAcceptedEsts[jobId] = d; gmRenderJobContracts(jobId); return d; })
+    .catch(function(e) { gmJobAcceptedEsts[jobId] = { error: e.message }; gmRenderJobContracts(jobId); console.error(e); });
+}
+// With more than one accepted estimate on the lead, the owner sees each one
+// (all ticked, today's rule) and the total before the contract is created.
 function gmJobCreateContract(jobId) {
-  gmApi("jobs/" + encodeURIComponent(jobId) + "/contracts", { method: "POST" })
+  var d = gmJobAcceptedEsts[jobId];
+  var ests = (d && d.estimates) || [];
+  if (ests.length <= 1) { gmJobCreateContractDo(jobId, null); return; }
+  var rows = ests.map(function(e) {
+    return '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" class="gm-con-est-pick" value="' + escHtml(e.id) + '" data-cents="' + e.total_cents + '" checked style="width:22px;height:22px;" onchange="gmJobCreateContractTotal()"> <span><strong>' + escHtml(e.display_number) + '</strong> · ' + gmMoney(e.total_cents) + (e.job_name ? ' <span class="muted">' + escHtml(e.job_name) + '</span>' : "") + '</span></label>';
+  }).join("");
+  gmSheetOpen(gmT("Criar contrato", "Create contract"), '<div class="gm-sheet-section"><p class="muted">' + gmT("Este lead tem mais de um estimate aceito. Marque o que entra neste contrato.", "This lead has more than one accepted estimate. Tick what this contract includes.") + '</p>' + rows +
+    '<div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), '<strong id="gmConEstTotal"></strong>') + '</div>' +
+    '<p class="gm-warn" id="gmConEstMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmJobCreateContractPicked(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato", "Create contract") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button></div>');
+  gmJobCreateContractTotal();
+}
+function gmJobCreateContractTotal() {
+  var t = 0; [].slice.call(document.querySelectorAll(".gm-con-est-pick")).forEach(function(cb) { if (cb.checked) { t += Number(cb.getAttribute("data-cents")) || 0; } });
+  var el = document.getElementById("gmConEstTotal"); if (el) { el.textContent = gmMoney(t); }
+}
+function gmJobCreateContractPicked(jobId) {
+  var ids = [].slice.call(document.querySelectorAll(".gm-con-est-pick")).filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.value; });
+  if (!ids.length) { var m = document.getElementById("gmConEstMsg"); if (m) { m.textContent = gmT("Marque ao menos um estimate.", "Tick at least one estimate."); m.hidden = false; } return; }
+  gmJobCreateContractDo(jobId, ids);
+}
+function gmJobCreateContractDo(jobId, ids) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/contracts", { method: "POST", body: ids ? { estimate_ids: ids } : {} })
     .then(function(d) { gmToast(gmT("Contrato criado: ", "Contract created: ") + d.number); gmLoadJobContracts(jobId); gmOpenContract(d.contract_id); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -4387,16 +4455,43 @@ function gmOpenContract(id) {
 function gmConEditable(c) { return ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at); }
 var GM_CON_PROPERTY_TYPES = [["single_family", "Casa unifamiliar", "Single-family home"], ["townhouse", "Townhouse", "Townhouse"], ["duplex", "Duplex", "Duplex"], ["triplex", "Triplex", "Triplex"], ["fourplex", "Fourplex", "Fourplex"], ["condo", "Condomínio (apartamento)", "Condominium unit"], ["commercial", "Comercial", "Commercial"]];
 
+function gmConFieldLabel(k) { return (window.GmLabels && GmLabels.contractFieldLabel) ? GmLabels.contractFieldLabel(k, isEn()) : k; }
+function gmConFieldType(k) { return (window.GmLabels && GmLabels.contractFieldType) ? GmLabels.contractFieldType(k) : "text"; }
+// Clause dates are printed as MM/DD/YYYY text; the date picker speaks YYYY-MM-DD.
+function gmConUsToIso(v) { var m = String(v || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
+function gmConIsoToUs(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + "/" + m[3] + "/" + m[1] : String(v || ""); }
+var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do estimate", "from the estimate"], settings: ["das configurações", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"] };
+function gmConSourceLabel(f) {
+  var s = GM_CON_SOURCE[f.overridden ? "contract" : f.source] || [f.source, f.source];
+  var t = gmT(s[0], s[1]);
+  if (f.overridden) { var d = GM_CON_SOURCE[f.default_source] || ["", ""]; t += gmT(" (substitui o valor " + d[0] + ")", " (overrides the value " + d[1] + ")"); }
+  return t;
+}
+var GM_CON_CUSTOM_STATUS = { pending: ["pendente", "pending"], approved: ["aprovada", "approved"], approved_with_edits: ["aprovada com edições", "approved with edits"], not_approved: ["não aprovada", "not approved"] };
+// F14: every remaining problem at once (blockers + missing fields), with the
+// human labels. Takes the detail payload or a server error's data.
+function gmConProblemsHtml(blockers, missingFields) {
+  var items = (blockers || []).map(function(b) { return typeof b === "string" ? b : gmT(b.pt, b.en); });
+  (missingFields || []).forEach(function(f) { items.push(gmT("Falta: ", "Missing: ") + gmConFieldLabel(f)); });
+  if (!items.length) { return ""; }
+  return '<div class="gm-warn"><strong>' + gmT("Resolva antes de assinar:", "Fix these before signing:") + '</strong><ul style="margin:6px 0 0 18px;">' + items.map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join("") + '</ul></div>';
+}
+function gmConMissingFieldNames(c) { return (c.missing || []).map(function(m) { return m.field; }); }
+
 function gmRenderContractSheet() {
   var c = gmConDetail;
   if (!c) { return; }
   var ro = !gmConEditable(c);
+  var companySigned = c.company_signed_at && !c.company_signature_voided_at;
+  // F2: the current amount after signed change orders; the original under it.
+  var cur = c.current_amount_cents !== undefined && c.current_amount_cents !== null ? c.current_amount_cents : c.amount_cents;
+  var orig = c.original_amount_cents !== undefined && c.original_amount_cents !== null ? c.original_amount_cents : cur;
   var body = '<div class="gm-sheet-hero">' +
     '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span><span class="gm-sheet-hero-pill">' + gmConPill(c.status) + '</span></span></div>' +
-    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Valor do contrato", "Contract amount") + '</span><span class="gm-sheet-hero-value">' + gmMoney(c.amount_cents) + '</span></span></div></div>';
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Valor atual", "Current amount") + '</span><span class="gm-sheet-hero-value">' + gmMoney(cur) + '</span>' +
+    (orig !== cur ? '<span class="gm-sheet-hero-label" style="margin-top:4px;">' + gmT("Valor original ", "Original amount ") + gmMoney(orig) + '</span>' : "") + '</span></div></div>';
   // Actions
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
-  var companySigned = c.company_signed_at && !c.company_signature_voided_at;
   if (!companySigned && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1) {
     if (c.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmConSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
     body += '<button type="button" class="gm-btn-secondary" onclick="gmConRouteOpen()">' + (c.can_sign_as_company ? gmT("Pedir a assinatura de outra pessoa", "Ask another signer") : gmT("Enviar para quem assina", "Route to an authorized signer")) + '</button>';
@@ -4406,34 +4501,56 @@ function gmRenderContractSheet() {
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(c.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed", "superseded"].indexOf(c.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConVoid()">' + gmT("Anular", "Void") + '</button>'; }
   body += '</div></div>';
-  if (c.blockers && c.blockers.length) { body += '<p class="gm-warn">' + c.blockers.map(escHtml).join("<br>") + '</p>'; }
+  // F3: a contract that cannot change says so and shows values, not controls.
+  if (ro) {
+    body += '<p class="gm-derived-note">' + (companySigned || c.status === "completed" ? gmT("Contrato assinado: para mudar, crie uma revisão.", "Signed contract: to change it, create a revision.") :
+      gmT("Este contrato não pode mais ser mudado.", "This contract can no longer be changed.")) + '</p>';
+  }
+  if (!ro && c.copied_from) { body += '<p class="gm-derived-note">' + gmT("Dados copiados do " + escHtml(c.copied_from) + "; confira.", "Details copied from " + escHtml(c.copied_from) + "; check them.") + '</p>'; }
+  if (!ro) { body += gmConProblemsHtml(c.blockers, []); }
   if (c.change_request_text) { body += '<p class="gm-warn">' + gmT("Cliente pediu mudanças: ", "Homeowner requested changes: ") + escHtml(c.change_request_text) + (c.company_signature_voided_at ? ' <span class="muted">(' + gmT("assinatura da empresa anulada", "company signature voided") + ')</span>' : "") + '</p>'; }
+  if (c.decline_reason && c.status === "declined") { body += '<p class="gm-warn">' + gmT("Motivo do cliente: ", "Homeowner's reason: ") + escHtml(c.decline_reason) + '</p>'; }
   if (c.status === "awaiting_company") { body += '<p class="gm-derived-note">' + gmT("Aguardando a assinatura de ", "Awaiting the signature of ") + escHtml(c.routed_to_name || "") + (c.routed_at ? " · " + escHtml(formatDateTimeUTC(c.routed_at)) : "") + '</p>'; }
 
   // Questions for this contract (the rules engine's inputs)
   var f = c.flags || {};
-  var q = '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Vendido durante uma visita à casa do cliente?", "Was this sold during a visit to the customer's home?") + '</span>' +
-    '<button type="button" class="gm-choice-chip' + (f.sold_in_home !== false ? " gm-chip-sel" : "") + '"' + (ro ? " disabled" : ' onclick="gmConSetFlag(\'sold_in_home\', true)"') + '>' + gmT("Sim", "Yes") + '</button>' +
-    '<button type="button" class="gm-choice-chip' + (f.sold_in_home === false ? " gm-chip-sel" : "") + '"' + (ro ? " disabled" : ' onclick="gmConSetFlag(\'sold_in_home\', false)"') + '>' + gmT("Não", "No") + '</button></div>';
+  var q = "";
+  var propLabel = ""; GM_CON_PROPERTY_TYPES.forEach(function(p) { if (p[0] === f.property_type) { propLabel = gmT(p[1], p[2]); } });
+  if (ro) {
+    q += gmSheetRowHtml("tag", gmT("Vendido durante uma visita à casa do cliente?", "Sold during a visit to the customer's home?"), f.sold_in_home !== false ? gmT("Sim", "Yes") : gmT("Não", "No"));
+    q += gmSheetRowHtml("tag", gmT("Tipo do imóvel", "Property type"), escHtml(propLabel));
+    if (c.builds_pools) {
+      q += gmSheetRowHtml("tag", gmT("Obra de piscina", "Pool job"), f.is_pool ? gmT("Sim", "Yes") : gmT("Não", "No"));
+      if (f.is_pool) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
+    }
+    q += gmSheetRowHtml("clock", gmT("Proposta válida até", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
+  } else {
+    q += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Vendido durante uma visita à casa do cliente?", "Was this sold during a visit to the customer's home?") + '</span>' +
+      '<button type="button" class="gm-choice-chip' + (f.sold_in_home !== false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', true)">' + gmT("Sim", "Yes") + '</button>' +
+      '<button type="button" class="gm-choice-chip' + (f.sold_in_home === false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', false)">' + gmT("Não", "No") + '</button></div>';
+  }
   if (c.rules && c.rules.L5 && c.rules.L5.on) {
     q += '<p class="gm-derived-note">' + gmT("Prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar (sábado conta; domingo e feriados federais não). ", "Cancellation deadline: midnight of the 3rd business day after the homeowner signs (Saturday counts; Sunday and federal holidays do not). ") +
       (c.cancellation_deadline ? gmT("Calculado: ", "Calculated: ") + escHtml(formatDate(c.cancellation_deadline)) : gmT("Calculado na assinatura do cliente.", "Calculated when the homeowner signs.")) +
       (c.attorney_question_pending ? '<br><span class="gm-pill gm-gold">● ' + gmT("pendente de revisão do advogado", "pending attorney review") + '</span> ' + gmT("Trabalho e sinal antes do prazo de cancelamento (pergunta 9 da biblioteca).", "Work and deposits before the cancellation deadline (library question 9).") : "") + '</p>';
   }
-  q += '<label class="gm-field-label" for="gmConPropType">' + gmT("Tipo do imóvel", "Property type") + '</label><select id="gmConPropType" class="gm-input"' + (ro ? " disabled" : "") + ' onchange="gmConSetFlag(\'property_type\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
-    GM_CON_PROPERTY_TYPES.map(function(p) { return '<option value="' + p[0] + '"' + (f.property_type === p[0] ? " selected" : "") + '>' + escHtml(gmT(p[1], p[2])) + '</option>'; }).join("") + '</select>';
-  if (c.builds_pools) {
-    q += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;" ' + (f.is_pool ? "checked" : "") + (ro ? " disabled" : "") + ' onchange="gmConSetFlag(\'is_pool\', this.checked)"> ' + gmT("Obra de piscina (anexa os dois documentos do Capítulo 515)", "Pool job (attaches the two Chapter 515 documents)") + '</label>';
-    if (f.is_pool) {
-      q += '<label class="gm-field-label" for="gmConSafety">' + gmT("Recurso de segurança da piscina (s. 515.27) *", "Pool safety feature (s. 515.27) *") + '</label><select id="gmConSafety" class="gm-input"' + (ro ? " disabled" : "") + ' onchange="gmConSetFlag(\'pool_safety_feature\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
-        (c.safety_features || []).map(function(s) { return '<option value="' + escHtml(s) + '"' + (f.pool_safety_feature === s ? " selected" : "") + '>' + escHtml(s) + '</option>'; }).join("") + '</select>';
+  if (!ro) {
+    q += '<label class="gm-field-label" for="gmConPropType">' + gmT("Tipo do imóvel", "Property type") + '</label><select id="gmConPropType" class="gm-input" onchange="gmConSetFlag(\'property_type\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
+      GM_CON_PROPERTY_TYPES.map(function(p) { return '<option value="' + p[0] + '"' + (f.property_type === p[0] ? " selected" : "") + '>' + escHtml(gmT(p[1], p[2])) + '</option>'; }).join("") + '</select>';
+    if (c.builds_pools) {
+      q += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;" ' + (f.is_pool ? "checked" : "") + ' onchange="gmConSetFlag(\'is_pool\', this.checked)"> ' + gmT("Obra de piscina (anexa os dois documentos do Capítulo 515)", "Pool job (attaches the two Chapter 515 documents)") + '</label>';
+      if (f.is_pool) {
+        q += '<label class="gm-field-label" for="gmConSafety">' + gmT("Recurso de segurança da piscina (s. 515.27) *", "Pool safety feature (s. 515.27) *") + '</label><select id="gmConSafety" class="gm-input" onchange="gmConSetFlag(\'pool_safety_feature\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
+          (c.safety_features || []).map(function(s) { return '<option value="' + escHtml(s) + '"' + (f.pool_safety_feature === s ? " selected" : "") + '>' + escHtml(s) + '</option>'; }).join("") + '</select>';
+      }
     }
+    q += '<label class="gm-field-label" for="gmConExpiry">' + gmT("Proposta válida até", "Offer valid until") + '</label><input type="date" id="gmConExpiry" class="gm-input" value="' + escHtml(c.offer_expiry_date || "") + '" onchange="gmConSave({ offer_expiry_date: this.value })">';
   }
-  q += '<label class="gm-field-label" for="gmConExpiry">' + gmT("Proposta válida até", "Offer valid until") + '</label><input type="date" id="gmConExpiry" class="gm-input" value="' + escHtml(c.offer_expiry_date || "") + '"' + (ro ? " disabled" : "") + ' onchange="gmConSave({ offer_expiry_date: this.value })">';
-  body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Este contrato", "This contract") + '</p>' + q + '</div>';
+  body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Este contrato", "This contract") + '</p>' + (ro ? '<div class="gm-sheet-group">' + q + '</div>' : q) + '</div>';
 
   // Locked blocks by rule
   var R = c.rules || {};
@@ -4442,32 +4559,51 @@ function gmRenderContractSheet() {
     var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml(r.why || ""));
   }).join(""), gmT("não editáveis", "not editable"));
 
-  // Missing fields
+  // Missing fields: human labels (F15), date pickers and number pads.
   if (c.missing && c.missing.length && !ro) {
     var mh = "";
     c.missing.forEach(function(m) {
       if (m.field === "property_type") { return; }
-      mh += '<label class="gm-field-label" for="gmConAns_' + m.field + '">' + escHtml(m.meaning) + ' <span class="muted">(' + escHtml(m.used_in.join(", ")) + ')</span></label>' +
-        '<input type="text" id="gmConAns_' + m.field + '" class="gm-input" value="' + escHtml((c.answers || {})[m.field] || "") + '" data-con-field="' + escHtml(m.field) + '">';
+      var t = gmConFieldType(m.field), val = (c.answers || {})[m.field] || "";
+      var inp = t === "date" ? '<input type="date" id="gmConAns_' + m.field + '" class="gm-input" value="' + escHtml(gmConUsToIso(val)) + '" data-con-field="' + escHtml(m.field) + '" data-con-type="date">' :
+        (t === "textarea" ? '<textarea id="gmConAns_' + m.field + '" class="gm-input" rows="3" data-con-field="' + escHtml(m.field) + '">' + escHtml(val) + '</textarea>' :
+        '<input type="text"' + (t === "number" ? ' inputmode="numeric"' : "") + ' id="gmConAns_' + m.field + '" class="gm-input" value="' + escHtml(val) + '" data-con-field="' + escHtml(m.field) + '">');
+      mh += '<label class="gm-field-label" for="gmConAns_' + m.field + '">' + escHtml(gmConFieldLabel(m.field)) + ' <span class="muted" style="font-weight:400;font-size:12px;">' + escHtml(m.used_in.join(", ")) + '</span></label>' + inp;
     });
     if (mh) { body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Faltam estes dados", "Missing information") + ' <span class="gm-sheet-section-note">' + gmT("só o que não veio do lead, do estimate ou das configurações", "only what did not come from the lead, the estimate or the settings") + '</span></p>' + mh + '<button type="button" class="gm-btn-primary" onclick="gmConSaveAnswers()">' + gmT("Salvar dados", "Save") + '</button></div>'; }
-  } else if (c.missing && c.missing.length) {
-    body += '<p class="gm-warn">' + gmT("Faltam dados: ", "Missing: ") + escHtml(c.missing.map(function(m) { return m.field; }).join(", ")) + '</p>';
+  }
+
+  // F19: every value this contract uses, where it came from, editable while
+  // the contract is editable (an edit overrides it for this contract only).
+  var fields = c.fields || [];
+  if (fields.length) {
+    body += gmSheetSection(gmT("Dados deste contrato", "This contract's details"), fields.map(function(fd) {
+      var canEdit = !ro && fd.editable;
+      var val = fd.value ? escHtml(fd.value) : (canEdit ? "" : '<span class="muted">—</span>');
+      return gmSheetRowHtml("edit", escHtml(gmConFieldLabel(fd.field)), val, canEdit ? "gmConEditField('" + escHtml(fd.field) + "')" : null, null,
+        escHtml(gmConSourceLabel(fd)) + ' · <span class="muted">' + escHtml(fd.used_in.join(", ")) + '</span>');
+    }).join(""), ro ? gmT("só leitura", "read only") : gmT("toque para mudar só neste contrato", "tap to change for this contract only"));
   }
 
   // Clause areas: default option, switchable per contract; custom clause
   var areas = c.areas || [];
   body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Cláusulas", "Clauses") + ' <span class="gm-sheet-section-note">' + gmT("padrão das configurações; troque só neste contrato", "defaults from settings; switch for this contract only") + '</span></p>';
   areas.forEach(function(a) {
-    var cur = (c.selections || {})[a.id] || "";
-    var sel = a.options.filter(function(o) { return o.id === cur; })[0];
+    var cur2 = (c.selections || {})[a.id] || "";
+    var sel = a.options.filter(function(o) { return o.id === cur2; })[0];
     var custom = (c.custom_clauses || []).filter(function(x) { return x.area_id === a.id; })[0];
+    var cst = custom ? (GM_CON_CUSTOM_STATUS[custom.status] || [custom.status, custom.status]) : null;
+    if (ro) {
+      body += gmSheetRowHtml("file", escHtml(a.id + " · " + a.title), sel ? escHtml(sel.id + " · " + sel.title) : (cur2 === "custom" && custom ? gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')' : '<span class="muted">' + gmT("fora deste contrato", "not in this contract") + '</span>'));
+      if (custom) { body += gmConCustomHtml(custom); }
+      return;
+    }
     body += '<label class="gm-field-label" for="gmConSel_' + a.id + '">' + escHtml(a.id + " · " + a.title) + '</label>' +
-      '<select id="gmConSel_' + a.id + '" class="gm-input"' + (ro ? " disabled" : "") + ' onchange="gmConSelect(\'' + a.id + '\', this.value)"><option value="">' + gmT("— fora deste contrato —", "— not in this contract —") + '</option>' +
-      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur ? " selected" : "") + '>' + escHtml(o.id + " · " + o.title) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") +
-      (custom ? '<option value="custom"' + (cur === "custom" ? " selected" : "") + '>' + gmT("Cláusula personalizada (", "Custom clause (") + escHtml(custom.status) + ')</option>' : "") + '</select>' +
-      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? sel.owner_description || "" : (cur === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' +
-      (!ro && !gmIsSeller() && !custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cláusula própria nesta área", "Write a custom clause for this area") + '</button>' : "") +
+      '<select id="gmConSel_' + a.id + '" class="gm-input" onchange="gmConSelect(\'' + a.id + '\', this.value)"><option value="">' + gmT("— fora deste contrato —", "— not in this contract —") + '</option>' +
+      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + o.title) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") +
+      (custom ? '<option value="custom"' + (cur2 === "custom" ? " selected" : "") + '>' + gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')</option>' : "") + '</select>' +
+      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? sel.owner_description || "" : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' +
+      (!gmIsSeller() && !custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cláusula própria nesta área", "Write a custom clause for this area") + '</button>' : "") +
       (custom ? gmConCustomHtml(custom) : "");
   });
   body += '</div>';
@@ -4484,11 +4620,30 @@ function gmRenderContractSheet() {
     if (c.cancellation_deadline) { sig += gmSheetRowHtml("clock", gmT("Pode cancelar até", "May cancel until"), escHtml(formatDate(c.cancellation_deadline))); }
   }
   if (c.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(c.content_hash) + '</span>'); }
+  if (c.public && c.public.signed_render_hash) { sig += gmSheetRowHtml("tag", gmT("SHA-256 da versão assinada", "SHA-256 of the signed render"), '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(c.public.signed_render_hash) + '</span>'); }
   if (c.void_reason) { sig += gmSheetRowHtml("sms", gmT("Motivo da anulação", "Void reason"), escHtml(c.void_reason) + ' <span class="muted">' + escHtml(c.voided_by || "") + '</span>'); }
   if (sig) { body += gmSheetSection(gmT("Assinaturas e registro", "Signatures and audit"), sig); }
   body += '<p class="gm-derived-note">' + escHtml(c.disclaimer_line || "") + '</p>';
   gmSheetOpen(escHtml(c.display_number) + " · " + escHtml(c.job_name || ""), body, "gm-contract-detail");
   var sb = document.getElementById("gmConSendBtn"); if (sb) { gmDocMsgAttach(sb, "contract_message"); }
+}
+
+// F19: one value of this contract, through the shared field editor. An empty
+// value removes the override and the lead / estimate / settings value returns.
+function gmConEditField(field) {
+  var c = gmConDetail; if (!c) { return; }
+  var fd = (c.fields || []).filter(function(x) { return x.field === field; })[0] || { value: "" };
+  var t = gmConFieldType(field);
+  var editorType = t === "date" ? "date" : (t === "number" ? "number" : (t === "textarea" ? "textarea" : "text"));
+  var shown = t === "date" ? gmConUsToIso(fd.value) : (fd.value || "");
+  var note = '<div class="gm-derived-note">' + escHtml(gmConSourceLabel(fd)) + (fd.overridden || (fd.source === "contract" && fd.default_source !== "contract") ? "" : gmT(". Mudar aqui vale só para este contrato.", ". A change here applies to this contract only.")) +
+    (fd.default_source !== "contract" ? gmT(" Deixe em branco para voltar ao valor original.", " Leave blank to go back to the original value.") : "") + '</div>';
+  gmOpenFieldEditor(gmConFieldLabel(field), editorType, shown, null, function(v) {
+    var answers = {};
+    var val = String(v === null || v === undefined ? "" : v).trim();
+    answers[field] = val ? (t === "date" ? gmConIsoToUs(val) : val) : null;
+    gmConSave({ answers: answers }, function() { gmToast(gmT("Salvo", "Saved")); gmRenderContractSheet(); });
+  }, note, function() { gmRenderContractSheet(); });
 }
 
 function gmConCustomHtml(cc) {
@@ -4512,7 +4667,7 @@ function gmConSetFlag(k, v) { var flags = {}; flags[k] = v; gmConSave({ flags: f
 function gmConSelect(areaId, optId) { var sel = {}; sel[areaId] = optId || null; gmConSave({ selections: sel }); }
 function gmConSaveAnswers() {
   var answers = {};
-  [].slice.call(document.querySelectorAll("[data-con-field]")).forEach(function(inp) { answers[inp.getAttribute("data-con-field")] = inp.value.trim() || null; });
+  [].slice.call(document.querySelectorAll("[data-con-field]")).forEach(function(inp) { var v = inp.value.trim(); if (v && inp.getAttribute("data-con-type") === "date") { v = gmConIsoToUs(v); } answers[inp.getAttribute("data-con-field")] = v || null; });
   gmConSave({ answers: answers }, function() { gmToast(gmT("Dados salvos", "Saved")); gmRenderContractSheet(); });
 }
 function gmConRevise() {
@@ -4583,12 +4738,23 @@ function gmConCustomReviewSave(ccid) {
 
 // ── Company signature (copied from estimate-view's pad) ──────────────────
 var gmConSigKind = "typed", gmConSigCtx = null, gmConSigDrew = false, gmConSigDrawing = false;
+var gmConSignConfirmRecompute = false;
 function gmConSignOpen() {
   var c = gmConDetail;
-  var body = '<div class="gm-sheet-section"><p class="muted">' + gmT("Você assina primeiro como ", "You sign first as ") + '<strong>' + escHtml(c.signer_name || "") + '</strong>' + gmT("; depois o contrato vai ao cliente.", "; then the contract goes to the homeowner.") + '</p>' +
+  var isCo = !!c._co;
+  gmConSignConfirmRecompute = false;
+  // F14: everything still missing, listed before any signature is drawn.
+  if (!isCo) {
+    var problems = gmConProblemsHtml(c.blockers, gmConMissingFieldNames(c));
+    if (problems) {
+      gmSheetOpen(gmT("Assinatura da empresa · ", "Company signature · ") + escHtml(c.display_number), '<div class="gm-sheet-section">' + problems + '<button type="button" class="gm-btn-secondary" onclick="gmRenderContractSheet()">' + gmT("Voltar ao contrato", "Back to the contract") + '</button></div>');
+      return;
+    }
+  }
+  var body = '<div class="gm-sheet-section"><p class="muted">' + gmT("Você assina primeiro como ", "You sign first as ") + '<strong>' + escHtml(c.signer_name || "") + '</strong>' + (isCo ? gmT("; depois o aditivo vai ao cliente.", "; then the change order goes to the homeowner.") : gmT("; depois o contrato vai ao cliente.", "; then the contract goes to the homeowner.")) + '</p>' +
     '<div class="gm-chip-set"><button type="button" class="gm-choice-chip gm-chip-sel" id="gmConChipTyped" onclick="gmConSetSig(\'typed\')">' + gmT("Nome digitado", "Type my name") + '</button><button type="button" class="gm-choice-chip" id="gmConChipDrawn" onclick="gmConSetSig(\'drawn\')">' + gmT("Desenhar", "Draw") + '</button></div>' +
     '<div id="gmConSigDrawn" hidden><canvas id="gmConSigCanvas" style="width:100%;height:160px;border:2px dashed var(--border);border-radius:10px;background:#fff;touch-action:none;display:block;"></canvas><button type="button" class="gm-btn-secondary" onclick="gmConClearSig()">' + gmT("Limpar", "Clear") + '</button></div>' +
-    '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmConConsent" style="width:22px;height:22px;"> <span>' + gmT("Concordo em assinar eletronicamente este contrato em nome da empresa.", "I agree to sign this contract electronically on behalf of the company.") + '</span></label>' +
+    '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:8px;"><input type="checkbox" id="gmConConsent" style="width:22px;height:22px;"> <span>' + (isCo ? gmT("Concordo em assinar eletronicamente este aditivo em nome da empresa.", "I agree to sign this change order electronically on behalf of the company.") : gmT("Concordo em assinar eletronicamente este contrato em nome da empresa.", "I agree to sign this contract electronically on behalf of the company.")) + '</span></label>' +
     '<p class="gm-warn" id="gmConSignMsg" hidden></p>' +
     '<button type="button" class="gm-btn-primary" id="gmConSignBtn" onclick="gmConSignSave()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>' +
     '<button type="button" class="gm-btn-secondary" onclick="' + (c._co ? "gmRenderChangeOrderSheet()" : "gmRenderContractSheet()") + '">' + gmT("Cancelar", "Cancel") + '</button></div>';
@@ -4628,9 +4794,23 @@ function gmConSignSave() {
   }
   if (btn) { btn.disabled = true; }
   var isCo = !!gmConDetail._co;
+  if (gmConSignConfirmRecompute) { body.confirm_recompute = true; }
   gmApi((isCo ? "change-orders/" : "contracts/") + encodeURIComponent(gmConDetail.id) + "/company-sign", { method: "POST", body: body })
     .then(function() { gmToast(gmT("Assinado pela empresa. Agora envie ao cliente.", "Signed by the company. Now send it to the homeowner.")); if (isCo) { gmLoadJobChangeOrders(gmConDetail.job_id); gmOpenChangeOrder(gmConDetail.id); } else { gmLoadJobContracts(gmConDetail.job_id); gmOpenContract(gmConDetail.id); } })
-    .catch(function(e) { if (btn) { btn.disabled = false; } say(e.message); console.error(e); });
+    .catch(function(e) {
+      if (btn) { btn.disabled = false; }
+      console.error(e);
+      var d = e.data || {};
+      if (d.code === "contract_incomplete") { if (msg) { msg.innerHTML = gmConProblemsHtml(d.blockers, d.missing_fields); msg.hidden = false; } return; }
+      // F9: the contract amount moved since the draft; sign again to accept the new numbers.
+      if (d.code === "price_changed") {
+        gmConSignConfirmRecompute = true;
+        say(e.message);
+        if (btn) { btn.textContent = gmT("Assinar com os valores novos", "Sign with the new amounts"); }
+        return;
+      }
+      say(e.message);
+    });
 }
 
 // Not an authorized signer: route to one, with a text/WhatsApp from this phone.
@@ -4650,7 +4830,12 @@ function gmConRouteSave() {
       gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmOpenContract(gmConDetail.id); });
       gmLoadJobContracts(gmConDetail.job_id);
     })
-    .catch(function(e) { gmToast(e.message); console.error(e); });
+    .catch(function(e) {
+      console.error(e);
+      var d = e.data || {};
+      if (d.code === "contract_incomplete") { gmSheetOpen(gmT("Encaminhar para assinatura", "Route for signature"), '<div class="gm-sheet-section">' + gmConProblemsHtml(d.blockers, d.missing_fields) + '<button type="button" class="gm-btn-secondary" onclick="gmRenderContractSheet()">' + gmT("Voltar ao contrato", "Back to the contract") + '</button></div>'); return; }
+      gmToast(e.message);
+    });
 }
 
 // Send to the homeowner through the same send sheet as estimates.
@@ -4666,6 +4851,21 @@ function gmConSendOpen() {
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
+// F44: the homeowner's signed copy, through the same send sheet (text or
+// WhatsApp to the lead's current phone, or mark as sent).
+function gmSignedCopyOpen(kind, id, number) {
+  var base = (kind === "co" ? "change-orders/" : "contracts/") + encodeURIComponent(id) + "/signed-copy";
+  var back = function() { if (kind === "co") { gmOpenChangeOrder(id); } else { gmOpenContract(id); } };
+  gmSheetOpen(gmT("Enviar cópia assinada", "Send signed copy"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi(base, { method: "POST", body: {} })
+    .then(function(d) {
+      gmDocSendSheetRender(gmT("Enviar cópia assinada · ", "Send signed copy · ") + escHtml(number), d.phone || "", d.message, null,
+        function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Cópia assinada marcada como enviada", "Signed copy marked as sent")); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
+        back, function() { gmSignedCopyOpen(kind, id, number); });
+    })
+    .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
+}
+
 // Awaiting-my-signature alerts (in-app), merged into the Home attention card.
 var gmConAwaiting = [];
 function gmConLoadAwaiting() {
@@ -4674,11 +4874,18 @@ function gmConLoadAwaiting() {
 }
 function gmConAwaitingCardHtml() {
   if (!gmConAwaiting.length) { return ""; }
-  return '<div class="card-title" style="margin-top:12px;">' + gmT("Contratos aguardando a sua assinatura", "Contracts awaiting your signature") + ' <span class="goal-pending-badge">' + gmConAwaiting.length + '</span></div>' +
-    gmConAwaiting.map(function(c) {
-      return '<button type="button" class="gm-row" onclick="switchTab(\'gmjobs\'); gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number) + ' · ' + escHtml(c.job_name || "") + '</span>' +
-        '<div class="gm-lead-sub">' + gmT("encaminhado ", "routed ") + escHtml(formatDateTimeUTC(c.routed_at)) + '</div></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(gmT("assinar", "sign")) + '</span></span></button>';
-    }).join("");
+  // F36: "awaiting YOUR signature" only for contracts routed to the person
+  // logged in; the owner sees the others as "awaiting <name>".
+  var mine = gmConAwaiting.filter(function(c) { return c.mine; });
+  var others = gmConAwaiting.filter(function(c) { return !c.mine; });
+  function row(c, pill) {
+    return '<button type="button" class="gm-row" onclick="switchTab(\'gmjobs\'); gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number) + ' · ' + escHtml(c.job_name || "") + '</span>' +
+      '<div class="gm-lead-sub">' + (c.mine ? "" : gmT("Aguardando assinatura de ", "Awaiting the signature of ") + escHtml(c.routed_to_name || "") + " · ") + gmT("encaminhado ", "routed ") + escHtml(formatDateTimeUTC(c.routed_at)) + '</div></span><span class="gm-lead-side"><span class="gm-pill gm-gold">● ' + escHtml(pill) + '</span></span></button>';
+  }
+  var h = "";
+  if (mine.length) { h += '<div class="card-title" style="margin-top:12px;">' + gmT("Contratos aguardando a sua assinatura", "Contracts awaiting your signature") + ' <span class="goal-pending-badge">' + mine.length + '</span></div>' + mine.map(function(c) { return row(c, gmT("assinar", "sign")); }).join(""); }
+  if (others.length) { h += '<div class="card-title" style="margin-top:12px;">' + gmT("Contratos aguardando assinatura de outra pessoa", "Contracts awaiting someone else's signature") + ' <span class="goal-pending-badge">' + others.length + '</span></div>' + others.map(function(c) { return row(c, gmT("aguardando", "waiting")); }).join(""); }
+  return h;
 }
 
 
@@ -5041,7 +5248,7 @@ function gmRenderJobChangeOrders(jobId, failedMsg) {
   else if (!list.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum aditivo.", "No change orders.") + '</p>'; }
   else {
     list.forEach(function(co) {
-      inner += gmSheetRowHtml("tag", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + (co.amount_cents < 0 ? "−" : "+") + gmMoney(Math.abs(co.amount_cents)), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
+      inner += gmSheetRowHtml("tag", escHtml(co.number) + (co.description ? ' · ' + escHtml(co.description.slice(0, 40)) : ""), gmConPill(co.status) + ' ' + gmSignedMoney(co.amount_cents), "gmOpenChangeOrder('" + escHtml(co.id) + "')", null,
         gmMoney(co.price_before_cents) + " → " + gmMoney(co.price_after_cents) + (co.schedule_days ? " · " + co.schedule_days + gmT(" dias", " days") : ""));
     });
   }
@@ -5073,11 +5280,11 @@ function gmCOWizardRender() {
           '<button type="button" class="gm-cost-del" onclick="gmCOWiz.items.splice(' + i + ', 1); gmCOWizardRender();">&times;</button></div>' +
           '<div class="gm-cost-line"><input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml(it.qty) + '" onchange="gmCOWiz.items[' + i + '].qty = this.value; gmCOWizardRender();"><span class="gm-est-x">×</span>' +
           '<input type="text" inputmode="decimal" class="gm-input gm-cost-amount" value="' + escHtml((it.rate_cents / 100).toFixed(2)) + '" onchange="var n = gmParseMoney(this.value); if (n !== null) { gmCOWiz.items[' + i + '].rate_cents = Math.round(n * 100); } gmCOWizardRender();">' +
-          '<select class="gm-input gm-cost-type" onchange="gmCOWiz.items[' + i + '].kind = this.value; gmCOWizardRender();"><option value="add"' + (it.kind === "add" ? " selected" : "") + '>' + gmT("Acrescenta", "Add") + '</option><option value="remove"' + (it.kind === "remove" ? " selected" : "") + '>' + gmT("Remove (crédito)", "Remove (credit)") + '</option></select></div>' +
-          '<div class="gm-lead-sub">' + (it.kind === "remove" ? "− " : "+ ") + gmMoney(Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents)) + '</div></div>';
+          '<select class="gm-input gm-cost-type" onchange="gmCOWiz.items[' + i + '].kind = this.value; gmCOWizardRender();"><option value="add"' + (it.kind === "add" ? " selected" : "") + '>' + gmT("Adicionar", "Add") + '</option><option value="remove"' + (it.kind === "remove" ? " selected" : "") + '>' + gmT("Remover", "Remove") + '</option></select></div>' +
+          '<div class="gm-lead-sub">' + gmSignedMoney(Math.round((Number(String(it.qty).replace(",", ".")) || 0) * it.rate_cents) * (it.kind === "remove" ? -1 : 1)) + '</div></div>';
       }).join("") + '</div>';
   }
-  h += '<div class="gm-sheet-section"><div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Mudança no preço", "Change in price"), "<strong>" + (total < 0 ? "− " : "+ ") + gmMoney(Math.abs(total)) + "</strong>") + '</div>' +
+  h += '<div class="gm-sheet-section"><div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Mudança no preço", "Change in price"), "<strong>" + gmSignedMoney(total) + "</strong>") + '</div>' +
     '<label class="gm-field-label" for="gmCODays">' + gmT("Impacto no prazo (dias úteis; negativo encurta)", "Schedule impact (working days; negative shortens)") + '</label><input type="text" inputmode="numeric" id="gmCODays" class="gm-input" value="' + escHtml(w.schedule_days) + '" oninput="gmCOWiz.schedule_days = this.value">' +
     '<p class="gm-sheet-section-title" style="margin-top:10px;">' + gmT("Parcelas", "Payment schedule") + '</p><div class="gm-chip-set">' +
     '<button type="button" class="gm-choice-chip' + (w.payment_change === "adjust_remaining" ? " gm-chip-sel" : "") + '" onclick="gmCOWiz.payment_change = \'adjust_remaining\'; gmCOWizardRender();">' + gmT("Ajustar as faturas em aberto", "Adjust the unpaid invoices") + '</button>' +
@@ -5114,26 +5321,35 @@ function gmRenderChangeOrderSheet() {
   var co = gmCODetail; if (!co) { return; }
   var body = '<div class="gm-sheet-hero">' +
     '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span><span class="gm-sheet-hero-pill">' + gmConPill(co.status) + '</span></span></div>' +
-    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Mudança", "Change") + '</span><span class="gm-sheet-hero-value">' + (co.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(co.amount_cents)) + '</span></span></div></div>';
+    '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Mudança", "Change") + '</span><span class="gm-sheet-hero-value">' + gmSignedMoney(co.amount_cents) + '</span></span></div></div>';
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (co.status === "draft" && co.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
   if (["company_signed", "sent", "viewed"].indexOf(co.status) !== -1) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>'; }
   body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(co.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (co.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'co\', \'' + escHtml(co.id) + '\', \'' + escHtml(co.number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed"].indexOf(co.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmCOVoid()">' + gmT("Anular", "Void") + '</button>'; }
   body += '</div></div>';
+  // F9: a draft made before the contract amount changed.
+  if (co.price_changed) {
+    body += '<p class="gm-warn">' + gmT("O valor do contrato mudou desde que este aditivo foi criado. Ao assinar, o aditivo passa a ser de ", "The contract amount changed since this change order was created. When signed, it becomes ") +
+      gmMoney(co.current_price_before_cents) + ' → ' + gmMoney(co.current_price_before_cents + co.amount_cents) + gmT(" (antes: ", " (was: ") + gmMoney(co.price_before_cents) + ' → ' + gmMoney(co.price_after_cents) + ').</p>';
+  }
+  if (co.status === "declined" && co.decline_reason) { body += '<p class="gm-warn">' + gmT("Motivo do cliente: ", "Homeowner's reason: ") + escHtml(co.decline_reason) + '</p>'; }
+  var resend = (co.applied && co.applied.invoices || []).filter(function(x) { return x.changed_after_send; });
+  if (resend.length) { body += '<p class="gm-warn">' + gmT("Alterada depois de enviada: reenviar ", "Changed after sending: resend ") + resend.map(function(x) { return escHtml(x.number); }).join(", ") + '</p>'; }
   body += gmSheetSection(gmT("Resumo", "Summary"),
     gmSheetRowHtml("tag", gmT("Contrato", "Contract"), escHtml(co.contract_display_number || gmT("estimate aceito (sem contrato assinado)", "accepted estimate (no signed contract)"))) +
     gmSheetRowHtml("dollar", gmT("Preço antes", "Price before"), gmMoney(co.price_before_cents)) +
-    gmSheetRowHtml("dollar", gmT("Mudança", "Change"), (co.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(co.amount_cents))) +
+    gmSheetRowHtml("dollar", gmT("Mudança", "Change"), gmSignedMoney(co.amount_cents)) +
     gmSheetRowHtml("dollar", gmT("Novo preço", "New price"), "<strong>" + gmMoney(co.price_after_cents) + "</strong>") +
     gmSheetRowHtml("clock", gmT("Prazo", "Schedule"), (co.schedule_days || 0) + gmT(" dias úteis", " working days")) +
     gmSheetRowHtml("tag", gmT("Parcelas", "Payments"), co.payment_change === "new_step" ? gmT("nova parcela para o aditivo", "new invoice step") : gmT("faturas em aberto ajustadas", "unpaid invoices adjusted")));
-  body += gmSheetSection(gmT("Linhas", "Lines"), (co.items || []).map(function(it) { return gmSheetRowHtml("tag", escHtml(it.item_name), (it.amount_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(it.amount_cents)), null, null, escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + " × " + gmMoney(it.rate_cents)); }).join(""));
+  body += gmSheetSection(gmT("Linhas", "Lines"), (co.items || []).map(function(it) { return gmSheetRowHtml("tag", escHtml(it.item_name), gmSignedMoney(it.amount_cents), null, null, escHtml(String(it.qty)) + (it.unit ? " " + escHtml(it.unit) : "") + " × " + gmMoney(it.rate_cents)); }).join(""));
   var sig = "";
   if (co.company_signature) { sig += gmSheetRowHtml("check", gmT("Empresa", "Company"), escHtml(co.company_signature.signer_name || ""), null, null, escHtml(formatDateTimeUTC(co.company_signature.signed_at))); }
   if (co.homeowner_signature) { sig += gmSheetRowHtml("check", gmT("Cliente", "Homeowner"), escHtml(co.homeowner_signature.signer_name || ""), null, null, escHtml(formatDateTimeUTC(co.homeowner_signature.signed_at)) + (co.homeowner_signature.device ? " · " + escHtml(co.homeowner_signature.device) : "")); }
-  if (co.applied) { sig += gmSheetRowHtml("dollar", gmT("Aplicado", "Applied"), (co.applied.invoices || []).map(function(x) { return escHtml(x.number) + " " + (x.delta_cents < 0 ? "− " : "+ ") + gmMoney(Math.abs(x.delta_cents)); }).join("<br>") || gmT("sem faturas", "no invoices"), null, null, escHtml(formatDateTimeUTC(co.applied_at))); }
+  if (co.applied) { sig += gmSheetRowHtml("dollar", gmT("Aplicado", "Applied"), (co.applied.invoices || []).map(function(x) { return escHtml(x.number) + " " + gmMoney(x.delta_cents) + (x.changed_after_send ? ' <span class="gm-pill gm-red">! ' + gmT("reenviar", "resend") + '</span>' : ""); }).join("<br>") || gmT("sem faturas", "no invoices"), null, null, escHtml(formatDateTimeUTC(co.applied_at))); }
   if (co.content_hash) { sig += gmSheetRowHtml("tag", "SHA-256", '<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;overflow-wrap:anywhere;">' + escHtml(co.content_hash) + '</span>'); }
   if (sig) { body += gmSheetSection(gmT("Assinaturas", "Signatures"), sig); }
   body += '<p class="gm-derived-note">' + escHtml(co.disclaimer_line || "") + '</p>';
@@ -5179,24 +5395,36 @@ function gmContractGuard(jobId, trigger, proceed) {
           '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(st.seller_message) + '" target="_blank" rel="noopener" onclick="gmContractGuardTap(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmIcon("wa") + 'WhatsApp</a></div>' +
           '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + gmT("Voltar", "Back") + '</button></div>';
       } else {
-        body += '<div class="gm-est-actions"><button type="button" class="gm-btn-primary" onclick="gmSheetClose(); switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(jobId) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' +
+        body += '<div class="gm-est-actions">' +
+          (st.can_build_contract ? '<button type="button" class="gm-btn-primary" onclick="gmSheetClose(); switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(jobId) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' :
+            '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
           '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(jobId) + '\', \'' + escHtml(trigger) + '\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div>' +
           '<p class="muted" style="font-size:13px;">' + gmT("Continuar fica registrado com o seu nome e a hora.", "Continuing is logged with your name and the time.") + '</p></div>';
       }
       gmContractGuardProceed = proceed;
       gmSheetOpen(gmT("Sem contrato assinado", "No signed contract"), body);
+      // F11: closing the warning (X, "Enviar contrato", Voltar) leaves the
+      // action undone, and the owner is told so.
+      gmSheetOnUserClose = function() { if (gmContractGuardProceed === proceed) { gmContractGuardProceed = null; gmToast(gmContractGuardNotDoneText(trigger)); } };
     })
     .catch(function(e) { console.error(e); proceed(); });
+}
+function gmContractGuardNotDoneText(trigger) {
+  var t = String(trigger || "");
+  if (t.indexOf("job_status") === 0) { return gmT("O status não foi alterado.", "Status not changed."); }
+  if (t === "progress_photo") { return gmT("A foto não foi adicionada.", "Photo not added."); }
+  if (t === "second_invoice_send") { return gmT("A fatura não foi enviada.", "Invoice not sent."); }
+  return gmT("Nada foi alterado.", "Nothing was changed.");
 }
 var gmContractGuardProceed = null;
 function gmContractGuardTap(jobId, trigger) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "seller_notify_tap", trigger: trigger } }).catch(function(e) { console.error(e); });
   var p = gmContractGuardProceed; gmContractGuardProceed = null;
-  setTimeout(function() { gmSheetClose(); if (p) { p(); } }, 300);
+  setTimeout(function() { gmSheetOnUserClose = null; gmSheetClose(); if (p) { p(); } }, 300);
 }
 function gmContractGuardContinue(jobId, trigger) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "owner_continue", trigger: trigger } })
-    .then(function() { var p = gmContractGuardProceed; gmContractGuardProceed = null; gmSheetClose(); gmToast(gmT("Registrado: continuando sem contrato.", "Logged: continuing without a contract.")); gmConLoadNotices(); if (p) { p(); } })
+    .then(function() { var p = gmContractGuardProceed; gmContractGuardProceed = null; gmSheetOnUserClose = null; gmSheetClose(); gmToast(gmT("Registrado: continuando sem contrato.", "Logged: continuing without a contract.")); gmConLoadNotices(); if (p) { p(); } })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmContractGuardSend(jobId) {
@@ -5217,7 +5445,8 @@ function gmConNoticesCardHtml() {
     gmConNotices.map(function(n) {
       return '<div class="gm-row" style="cursor:default;"><span class="gm-lead-main"><span class="gm-lead-name" style="white-space:normal;">' + escHtml(n.job_name || "") + ' · ' + gmMoney(Math.round((Number(n.valor) || 0) * 100)) + '</span>' +
         '<div class="gm-lead-sub">' + gmT("aberto em ", "opened ") + escHtml(formatDateTimeUTC(n.created_at)) + (n.opened_by ? " · " + escHtml(n.opened_by) : "") + '</div>' +
-        '<div class="gm-est-actions" style="margin-top:6px;"><button type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(n.job_id) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' +
+        '<div class="gm-est-actions" style="margin-top:6px;">' + (n.accepted_estimates ? '<button type="button" class="gm-btn-primary" onclick="switchTab(\'gmjobs\'); gmContractGuardSend(\'' + escHtml(n.job_id) + '\')">' + gmT("Enviar contrato", "Send contract") + '</button>' :
+          '<p class="gm-derived-note" style="flex-basis:100%;">' + gmT("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "This project did not come from a lead with an accepted estimate; the contract is built from the estimate.") + '</p>') +
         '<button type="button" class="gm-btn-secondary" onclick="gmContractGuardContinue(\'' + escHtml(n.job_id) + '\', \'home\')">' + gmT("Continuar sem contrato", "Continue without contract") + '</button></div></span></div>';
     }).join("");
 }
@@ -7931,7 +8160,7 @@ function gmEstOptionSummaryHtml(o, est) {
     h += '<span class="gm-sheet-row-sub">' + gmT("Subtotal ", "Subtotal ") + gmMoney(sec.subtotal_cents) + '</span></span></div>';
   });
   h += gmSheetRowHtml("dollar", gmT("Subtotal", "Subtotal"), gmMoney(o.subtotal_cents));
-  if (o.discount_cents) { h += gmSheetRowHtml("tag", gmT("Desconto", "Discount"), "− " + gmMoney(o.discount_cents)); }
+  if (o.discount_cents) { h += gmSheetRowHtml("tag", gmT("Desconto", "Discount"), gmMoney(-Math.abs(o.discount_cents))); }
   h += gmSheetRowHtml("dollar", gmT("Total", "Total"), "<strong>" + gmMoney(o.total_cents) + "</strong>");
   h += '</div></div>';
   // Internal panel: never on the customer's document, and not for a seller
@@ -8689,7 +8918,7 @@ function gmEstWizStep5() {
     '<button type="button" class="gm-choice-chip' + (opt.discount_type === "amount" ? " gm-chip-sel" : "") + '" onclick="gmEstWizDiscount(\'amount\')">$</button>' +
     '<button type="button" class="gm-choice-chip' + (opt.discount_type === "pct" ? " gm-chip-sel" : "") + '" onclick="gmEstWizDiscount(\'pct\')">%</button></div>' +
     (opt.discount_type ? '<input type="text" inputmode="decimal" class="gm-input" value="' + escHtml(opt.discount_value) + '" placeholder="' + (opt.discount_type === "pct" ? "10" : "500.00") + '" onchange="gmEstWizDiscountValue(this.value)">' : "") +
-    (t.discount ? '<p class="muted">' + gmT("Desconto: ", "Discount: ") + "− " + gmMoney(t.discount) + '</p>' : "") +
+    (t.discount ? '<p class="muted">' + gmT("Desconto: ", "Discount: ") + gmMoney(-Math.abs(t.discount)) + '</p>' : "") +
     '<div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Total", "Total"), "<strong>" + gmMoney(t.total) + "</strong>") + '</div></div>';
   // Internal panel: never for a seller (C13) -- a seller never receives
   // costs, so "Cost $0.00 / Margin 100%" would be false.
@@ -8957,8 +9186,12 @@ var GM_INV_STATUS_PILL = {
 function gmInvPillHtml(inv) {
   var h = gmPillHtml(gmInvStatusLabel(inv.derived_status), GM_INV_STATUS_PILL[inv.derived_status]);
   if (inv.awaiting_verification) { h += ' <span class="gm-pill gm-gold">● ' + escHtml(gmT("aguardando verificação", "awaiting verification")) + '</span>'; }
+  // A signed change order adjusted an invoice the homeowner already had.
+  if (inv.changed_after_send_at) { h += ' <span class="gm-pill gm-red">! ' + escHtml(gmT("Alterada depois de enviada: reenviar", "Changed after sending: resend")) + '</span>'; }
   return h;
 }
+// Rule 5: +$450.00 / -$180.00 (minus before the dollar sign, 2 decimals).
+function gmSignedMoney(cents) { var c = Number(cents) || 0; return (c > 0 ? "+" : "") + gmMoney(c); }
 
 function gmLoadInvoices() {
   gmCurrentTab = "gminvoices";
@@ -9167,11 +9400,11 @@ function gmLoadInvoicesSilent() { gmApi("invoices").then(function(d) { gmInvList
 // Home. portal.html owns the badge and card containers and calls
 // gmLoadAttention() at boot; gmAttentionChanged() (portal.html) repaints.
 var gmAttention = { pending_alerts: [], online_acceptances: [] };
-function gmLoadAttention() {
+function gmLoadAttention(fresh) {
   if (gmIsSeller() || window.gmAttentionEnabled !== true) { return Promise.resolve(gmAttention); }
   var loads = [];
-  if (!gmInvList) { loads.push(gmApi("invoices").then(function(d) { gmInvList = d; })); }
-  if (!gmEstList) { loads.push(gmLoadEstimatesList()); }
+  if (!gmInvList || fresh) { loads.push(gmApi("invoices").then(function(d) { gmInvList = d; })); }
+  if (!gmEstList || fresh) { loads.push(gmLoadEstimatesList()); }
   loads.push(gmConLoadAwaiting());
   loads.push(gmConLoadNotices());
   if (gmContractsEnabled()) { loads.push(gmDSubsReload().catch(function(e) { console.error(e); })); }
@@ -9336,7 +9569,7 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
-    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
+    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + (key ? ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button>' : "") + '</div>' +
     '<p class="gm-derived-note" id="gmDocSendPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
     (onSend ? '<button type="button" class="gm-btn-secondary" onclick="if (gmDocSendMark) { gmDocSendMark(); } gmSheetClose();">' + gmT("Marcar como enviada sem abrir mensagem", "Mark as sent without opening a message") + '</button>' : "") +
     '<button type="button" class="gm-btn-secondary" id="gmDocSendBack">' + gmT("Voltar", "Back") + '</button></div>';
@@ -9344,7 +9577,7 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
   var pencil = document.getElementById("gmDocSendPencil");
   if (pencil) { pencil.onclick = function(ev) { ev.preventDefault(); gmDocMsgEditorOpen(key, onRerender); }; }
   var prev = document.getElementById("gmDocSendPreview");
-  if (prev) { prev.addEventListener("contextmenu", function(ev) { ev.preventDefault(); gmDocMsgEditorOpen(key, onRerender); }); }
+  if (prev && key) { prev.addEventListener("contextmenu", function(ev) { ev.preventDefault(); gmDocMsgEditorOpen(key, onRerender); }); }
   var back = document.getElementById("gmDocSendBack");
   if (back) { back.onclick = onBack; }
 }

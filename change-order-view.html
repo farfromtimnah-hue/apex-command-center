@@ -106,6 +106,7 @@
     .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
     canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
     .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
     .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
     .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
     .ok { color: var(--green); font-weight: 700; }
@@ -191,7 +192,54 @@
     var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
-    function fmtDate(ymd) { if (!ymd) { return ""; } var p = String(ymd).slice(0, 10).split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ymd; }
+    // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
+    // first converted to the Eastern calendar date (a 10 PM Eastern signature
+    // is still that day, never tomorrow).
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      var iso = s.replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+      var d = new Date(iso); if (isNaN(d.getTime())) { return s; }
+      try {
+        var q = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return q.month + "/" + q.day + "/" + q.year;
+      } catch (e) { return s.slice(0, 10); }
+    }
+    // F46: iPhone Safari prints the page URL in its print header/footer, and
+    // this URL carries the private ?t= access token. Everything is already
+    // loaded, so the token is taken out of the address bar
+    // (history.replaceState, same path, other parameters kept) for the
+    // duration of the print and put back afterwards. Hooked on
+    // beforeprint/afterprint AND a print media-query listener (Safari fires
+    // one or the other depending on how printing was started), and wrapped
+    // around this page's own print() calls.
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
     // UTC from D1 -> Eastern, 12-hour.
     function fmtDateTime(iso) {
       if (!iso) { return ""; }
@@ -268,8 +316,12 @@
 
     function canRespond() { return !previewId && ["sent", "viewed"].indexOf(con.status) !== -1; }
     function isCredit(cents) { return (Number(cents) || 0) < 0; }
-    function signedMoney(cents) { var n = Number(cents) || 0; return (n < 0 ? "- " : (n > 0 ? "+ " : "")) + money(Math.abs(n)); }
+    function signedMoney(cents) { var n = Number(cents) || 0; return (n < 0 ? "-" : (n > 0 ? "+" : "")) + money(Math.abs(n)); }
     function refText() { return con.contract_display_number ? "Contract " + con.contract_display_number + (con.contract_date ? " dated " + fmtDate(con.contract_date) : "") : "the accepted estimate"; }
+
+    // F4 final guard: no raw {token} ever reaches the homeowner.
+    function stripTokens(html) { return String(html).replace(/\{([A-Za-z0-9_]+)\}/g, function(m, k) { console.error("[change order] unfilled placeholder removed from homeowner text: {" + k + "}"); return ""; }); }
+    function sayErr(err, text) { err.textContent = text; if (err.scrollIntoView) { err.scrollIntoView({ block: "center" }); } }
 
     function renderMeta() {
       var b = con.business;
@@ -290,7 +342,7 @@
       var box = byId("cardBody");
       if (!box) { return; }
       var h = '<h2>Change Order ' + escHtml(con.number) + ' to ' + escHtml(refText()) + '</h2>';
-      if (con.description) { h += '<p style="margin-top:6px;">' + escHtml(con.description) + '</p>'; }
+      if (con.description) { h += '<p style="margin-top:6px;">' + stripTokens(escHtml(con.description)) + '</p>'; }
       h += '<table class="co-table"><thead><tr><th>Added or removed</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>';
       (con.items || []).forEach(function(it) {
         var credit = it.kind === "remove" || isCredit(it.amount_cents);
@@ -335,7 +387,7 @@
       var banner = byId("cardStateBanner");
       if (!card || !banner) { return; }
       banner.classList.add("hidden");
-      var disc = con.disclaimer_line ? '<p class="disclaimer">' + escHtml(con.disclaimer_line) + '</p>' : "";
+      var disc = "";   // F10: printed once, at the foot of the page (#disclaimerEnd)
       var company = '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + '</div>';
       if (previewId) {
         card.innerHTML = '<h2>Signing</h2>' + company + '<p class="muted">The homeowner signs here after the company has signed. Signing is not available in preview.</p>' + disc;
@@ -348,7 +400,8 @@
         return;
       }
       if (con.status === "declined") {
-        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined this change order' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p></div>';
+        // F17: a declined change order shows its state; no sign form.
+        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this change order' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((con.business && con.business.name) || "The company") + ' will contact you if anything changes.</p></div>';
         banner.classList.remove("hidden");
         card.innerHTML = company + disc;
         return;
@@ -408,13 +461,13 @@
       err.textContent = "";
       var signerEl = byId("signer");
       var signer = signerEl ? signerEl.value.trim() : "";
-      if (!signer) { err.textContent = "Please type your full name."; return; }
+      if (!signer) { sayErr(err, "Please type your full name."); return; }
       var consent = byId("consent");
-      if (!consent || !consent.checked) { err.textContent = "Please tick the box to agree to sign electronically."; return; }
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
       var body = { signer_name: signer, signature_kind: sigKind, consent: true };
       if (sigKind === "drawn") {
         var c = byId("sigCanvas"); var p = pads["sigCanvas"];
-        if (!c || !p || !p.drew) { err.textContent = "Please draw your signature."; return; }
+        if (!c || !p || !p.drew) { sayErr(err, "Please draw your signature."); return; }
         body.signature_png = c.toDataURL("image/png");
       }
       var btn = byId("btnSign"); if (btn) { btn.disabled = true; }
@@ -422,7 +475,7 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
         .then(function() { window.scrollTo(0, 0); })
-        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
     }
 
     function respond(kind) {
@@ -435,7 +488,7 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not send"); } return load(); })
         .then(function() { window.scrollTo(0, 0); })
-        .catch(function(e) { if (btn) { btn.disabled = false; } err.textContent = e.message; console.error(e); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
     }
 
     function fetchChangeOrder() {

@@ -2234,6 +2234,8 @@ function gmRenderLeadSheet() {
       '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>' +
     '</button></div>';
 
+  // Part H1: estimate price, contract price and final total, together.
+  body += gmThreePricesHtml(lead);
   // ── Estimates (estimates build, phase 2) ──────────────────────────────
   // Create estimate, the lead's own estimates (with reminders and the
   // signed-document rows), and the commission review prompt.
@@ -4643,6 +4645,24 @@ function gmRenderContractSheet() {
     '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Status", "Status") + '</span><span class="gm-sheet-hero-pill">' + gmConPill(c.status) + '</span></span></div>' +
     '<div class="gm-sheet-hero-half"><span class="gm-sheet-hero-body"><span class="gm-sheet-hero-label">' + gmT("Valor atual", "Current amount") + '</span><span class="gm-sheet-hero-value">' + gmMoney(cur) + '</span>' +
     (orig !== cur ? '<span class="gm-sheet-hero-label" style="margin-top:4px;">' + gmT("Valor original ", "Original amount ") + gmMoney(orig) + '</span>' : "") + '</span></div></div>';
+  // Part H3: the contract price. It starts as the estimate price; a price
+  // renegotiated after the estimate is typed here (until the contract is
+  // signed), and the contract is built from it. The difference prints as ONE
+  // "Negotiated adjustment" line on the homeowner's page and PDF.
+  var cpVal = (c.contract_price_cents !== undefined && c.contract_price_cents !== null) ? c.contract_price_cents : c.amount_cents;
+  var cpAdj = c.adjustment_cents || 0;
+  var cpNote = gmT("Preço do orçamento ", "Estimate price ") + gmMoney(c.estimate_price_cents || 0) +
+    (cpAdj ? " · " + gmT("ajuste negociado ", "negotiated adjustment ") + gmSignedMoney(cpAdj) : "");
+  if (ro) {
+    body += gmSheetSection(gmT("Preço do contrato", "Contract price"), gmSheetRowHtml("dollar", gmT("Preço do contrato", "Contract price"), gmMoney(cpVal), null, null, cpNote));
+  } else {
+    body += '<div class="gm-sheet-section"><label class="gm-field-label" for="gmConPrice">' + gmT("Preço do contrato ($)", "Contract price ($)") + '</label>' +
+      '<div class="gm-cost-line"><input type="text" inputmode="decimal" id="gmConPrice" class="gm-input gm-cost-label" value="' + escHtml((cpVal / 100).toFixed(2)) + '">' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmConSavePrice()">' + gmT("Salvar preço", "Save price") + '</button></div>' +
+      '<p class="muted" style="margin:4px 0 0;font-size:13px;">' + escHtml(cpNote) + '. ' + gmT("Mude só se renegociou depois do orçamento; as parcelas seguem este preço.", "Change it only if you renegotiated after the estimate; the payment schedule follows this price.") + '</p>' +
+      (c.contract_price_set ? '<button type="button" class="gm-btn-secondary" style="margin-top:6px;" onclick="gmConSave({ contract_price_cents: null })">' + gmT("Voltar ao preço do orçamento", "Back to the estimate price") + '</button>' : "") +
+      '</div>';
+  }
   // Actions
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (!companySigned && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1) {
@@ -4834,6 +4854,13 @@ function gmConSave(patch, after) {
   gmApi("contracts/" + encodeURIComponent(c.id), { method: "PUT", body: patch })
     .then(function(d) { gmConDetail = d.contract; if (after) { after(); } else { gmRenderContractSheet(); } })
     .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmConSavePrice() {
+  var el = document.getElementById("gmConPrice");
+  if (!el) { return; }
+  var n = gmParseMoney(el.value);
+  if (n === null || n < 0) { gmToast(gmT("Informe um preço válido.", "Enter a valid price.")); return; }
+  gmConSave({ contract_price_cents: Math.round(n * 100) });
 }
 function gmConSetFlag(k, v) { var flags = {}; flags[k] = v; gmConSave({ flags: flags }); }
 function gmConSelect(areaId, optId) { var sel = {}; sel[areaId] = optId || null; gmConSave({ selections: sel }); }
@@ -6153,6 +6180,24 @@ function gmSimpleSpec(kind) {
   };
 }
 
+// Part H1: the three prices of a deal, shown together on the project and the
+// lead. Estimate price = the accepted estimates; contract price = what the
+// contract was built from ("—" until a contract exists); final total =
+// contract price + signed change orders (before a contract, the estimate
+// price). The final total is the value (valor) the rest of the app uses.
+function gmThreePricesHtml(row) {
+  if (!row) { return ""; }
+  var est = row.estimate_price_cents, con = row.contract_price_cents;
+  var fin = row.final_total_cents !== null && row.final_total_cents !== undefined ? row.final_total_cents
+          : (row.valor !== null && row.valor !== undefined ? Math.round(Number(row.valor) * 100) : null);
+  if ((est === null || est === undefined) && (con === null || con === undefined)) { return ""; }
+  var dash = '<span class="muted">—</span>';
+  return gmSheetSection(gmT("Preços", "Prices"),
+    gmSheetRowHtml("file", gmT("Preço do orçamento", "Estimate price"), est !== null && est !== undefined ? gmMoney(est) : dash, null, null, gmT("orçamentos aceitos", "accepted estimates")) +
+    gmSheetRowHtml("edit", gmT("Preço do contrato", "Contract price"), con !== null && con !== undefined ? gmMoney(con) : dash, null, null, gmT("negociado no contrato", "negotiated on the contract")) +
+    gmSheetRowHtml("dollar", gmT("Total final", "Final total"), fin !== null ? "<strong>" + gmMoney(fin) + "</strong>" : dash, null, null, gmT("contrato + aditivos", "contract + change orders")));
+}
+
 function gmJobMakeLead(jobId) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/make-lead", { method: "POST", body: {} })
     .then(function(d) {
@@ -6295,6 +6340,7 @@ function gmJobSheetBody(row, spec) {
       (ro ? "" : '<span class="gm-sheet-hero-chev">' + gmIcon("chevron") + '</span>') +
     '</' + heroTag + '></div>';
 
+  body += gmThreePricesHtml(row);
   // G6b: the job name, apart from the customer's name.
   // G5e: a project made by hand becomes a lead in one step.
   if (row && row.id) {

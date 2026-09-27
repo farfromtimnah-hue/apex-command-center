@@ -18270,7 +18270,9 @@ async function handleGetGmLeads(id, request, env) {
             "(SELECT e.responded_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_responded_at, " +
             "(SELECT e.valid_until FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_valid_until, " +
             "(SELECT e.accepted_at FROM gm_estimates e WHERE e.id = " + estPick + ") AS est_accepted_at, " +
-            "(SELECT COUNT(*) FROM gm_estimates e WHERE e.lead_id = l.id AND e.status = 'accepted') AS est_accepted_count " +
+            "(SELECT COUNT(*) FROM gm_estimates e WHERE e.lead_id = l.id AND e.status = 'accepted') AS est_accepted_count, " +
+            // Part H1: the three prices (estimate computed; contract and final stored).
+            gmEstimatePriceSql("l.id") + " AS estimate_price_cents " +
             "FROM gm_leads l " +
             "LEFT JOIN gm_partners p ON p.id = l.parceiro_id " +
             "WHERE l.client_id = ?" + sellerFilter + " " +
@@ -18621,6 +18623,7 @@ async function handlePutGmLead(id, leadId, request, env) {
         Object.keys(f).forEach(function(k, i) {
             if (valueCols.indexOf(k) !== -1) {
                 leadValueFields.push({ col: k, expr: k === "valor" ? gmGuardedValorExpr("gm_leads", "?") : "?", binds: [f[k]] });
+                if (k === "valor") { leadValueFields.push({ col: "final_total_cents", expr: gmGuardedFinalCentsExpr("gm_leads", "?"), binds: [f[k] === null ? null : Math.round(Number(f[k]) * 100)] }); }
             } else { plainSets.push(k + " = ?"); plainBinds.push(f[k]); }
         });
         if (stageMoved) { plainSets.push("stage_changed_at = datetime('now')"); }
@@ -18629,7 +18632,7 @@ async function handlePutGmLead(id, leadId, request, env) {
             fields: leadValueFields, extraSets: plainSets, extraBinds: plainBinds, source: "manual", sourceRef: null, actor: actor });
         if (leadValueFields.length) {
             leadBatch = leadBatch.concat(gmValueWriteStmts(env, { table: "gm_jobs", where: "client_id = ? AND lead_id = ?", whereBinds: [id, leadId],
-                fields: leadValueFields.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : "?", binds: v.binds }; }),
+                fields: leadValueFields.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : (v.col === "final_total_cents" ? gmGuardedFinalCentsExpr("gm_jobs", "?") : "?"), binds: v.binds }; }),
                 source: "manual", sourceRef: null, actor: actor }));
         }
         // G6c: the customer's name and the salesperson live on the lead; the
@@ -20622,11 +20625,11 @@ async function handleGetGmJobs(id, request, env) {
         var sellerName = sessionSellerName(user);
         var rows = sellerName
             ? await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
                 "WHERE j.client_id = ? AND (l.vendedor = ? OR l.vendedor_secundario = ?) ORDER BY j.created_at DESC"
               ).bind(id, sellerName, sellerName).all()
             : await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents FROM gm_jobs j WHERE j.client_id = ? ORDER BY j.created_at DESC"
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents FROM gm_jobs j WHERE j.client_id = ? ORDER BY j.created_at DESC"
               ).bind(id).all();
         var jobs = [];
         (rows.results || []).forEach(function(r) {
@@ -22037,12 +22040,13 @@ async function gmPromoteLeadCore(env, clientId, lead, actor, reason) {
     await env.DB.batch([
         env.DB.prepare(
             "INSERT INTO gm_jobs (id, client_id, lead_id, obra, job_name, valor, material, mao_de_obra, outros, " +
-            "custo_administrativo, comissao, imposto, vendedor, status) " +
-            "VALUES (?, ?, ?, ?, (SELECT e.job_name FROM gm_estimates e WHERE e.client_id = ? AND e.lead_id = ? AND e.status = 'accepted' AND e.job_name IS NOT NULL ORDER BY e.accepted_at DESC LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, 'Em andamento')"
+            "custo_administrativo, comissao, imposto, vendedor, contract_price_cents, final_total_cents, status) " +
+            "VALUES (?, ?, ?, ?, (SELECT e.job_name FROM gm_estimates e WHERE e.client_id = ? AND e.lead_id = ? AND e.status = 'accepted' AND e.job_name IS NOT NULL ORDER BY e.accepted_at DESC LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Em andamento')"
         ).bind(jobId, clientId, lead.id, lead.cliente, clientId, lead.id,
                lead.valor, lead.material, lead.mao_de_obra, lead.outros,
                lead.custo_administrativo, lead.comissao, lead.imposto,
-               lead.vendedor),
+               lead.vendedor, lead.contract_price_cents === undefined ? null : lead.contract_price_cents,
+               lead.final_total_cents === undefined ? null : lead.final_total_cents),
         env.DB.prepare("UPDATE gm_estimates SET job_id = ? WHERE client_id = ? AND lead_id = ? AND job_id IS NULL").bind(jobId, clientId, lead.id)
     ]);
 
@@ -22123,7 +22127,10 @@ async function handlePutGmJob(id, rowId, request, env) {
         var jobLogged = ["valor", "material", "mao_de_obra", "outros", "custo_administrativo", "comissao", "imposto", "inicio", "prazo_previsto"];
         var jobFields = [], jobSets = [], jobBinds = [];
         Object.keys(f).forEach(function(k) {
-            if (jobLogged.indexOf(k) !== -1) { jobFields.push({ col: k, expr: k === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : "?", binds: [f[k]] }); }
+            if (jobLogged.indexOf(k) !== -1) {
+                jobFields.push({ col: k, expr: k === "valor" ? gmGuardedValorExpr("gm_jobs", "?") : "?", binds: [f[k]] });
+                if (k === "valor") { jobFields.push({ col: "final_total_cents", expr: gmGuardedFinalCentsExpr("gm_jobs", "?"), binds: [f[k] === null ? null : Math.round(Number(f[k]) * 100)] }); }
+            }
             else { jobSets.push(k + " = ?"); jobBinds.push(f[k]); }
         });
         var jobActor = actorName(user);
@@ -22132,7 +22139,7 @@ async function handlePutGmJob(id, rowId, request, env) {
         var toLead = jobFields.filter(function(v) { return ["inicio", "prazo_previsto"].indexOf(v.col) === -1; });
         if (existing.lead_id && toLead.length) {
             jobBatch = jobBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [existing.lead_id, id],
-                fields: toLead.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_leads", "?") : "?", binds: v.binds }; }),
+                fields: toLead.map(function(v) { return { col: v.col, expr: v.col === "valor" ? gmGuardedValorExpr("gm_leads", "?") : (v.col === "final_total_cents" ? gmGuardedFinalCentsExpr("gm_leads", "?") : "?"), binds: v.binds }; }),
                 source: "manual", sourceRef: null, actor: jobActor }));
         }
         // G6c: renaming the project's customer renames the lead's.
@@ -23901,6 +23908,17 @@ function gmValueWriteStmts(env, spec) {
     return stmts;
 }
 
+// Part H: the FINAL TOTAL in cents, same guard (the signed contract decides).
+function gmGuardedFinalCentsExpr(table, fallbackSql) {
+    return "COALESCE(" + (table === "gm_jobs" ? GM_FINAL_CENTS_JOB_SQL : GM_FINAL_CENTS_LEAD_SQL) + ", " + fallbackSql + ")";
+}
+// Part H: the ESTIMATE PRICE (sum of the accepted option of every accepted
+// estimate on the lead), in cents, as a subquery for a row aliased `alias`
+// whose lead id is `leadCol`.
+function gmEstimatePriceSql(leadCol) {
+    return "(SELECT SUM(eo.total_cents) FROM gm_estimates ee JOIN gm_estimate_options eo ON eo.id = ee.accepted_option_id WHERE ee.lead_id = " + leadCol + " AND ee.status = 'accepted')";
+}
+
 // The guarded value expression: the signed contract's final total when one
 // exists, otherwise the value this writer computed (SQL `fallbackSql`).
 function gmGuardedValorExpr(table, fallbackSql) {
@@ -23938,6 +23956,9 @@ async function gmEstApplyToLead(env, clientId, est, actor, opts) {
     var valueFields = [];
     var oldValor = lead.valor === null || lead.valor === undefined ? null : lead.valor;
     valueFields.push({ col: "valor", expr: gmGuardedValorExpr("gm_leads", "?"), binds: [newValor] });
+    // H1: the final total is the same number in cents (before a contract, the
+    // estimate price).
+    valueFields.push({ col: "final_total_cents", expr: gmGuardedFinalCentsExpr("gm_leads", "?"), binds: [Math.round(newValor * 100)] });
     if (oldValor !== effValor) {
         events.push({ action: "updated", field: "valor", old_value: oldValor, new_value: effValor, reason: "estimate " + estRef });
         // Commission set and the value moved because of an estimate: flag a
@@ -23975,10 +23996,25 @@ async function gmEstApplyToLead(env, clientId, est, actor, opts) {
     if (accepted.count > 0) {
         batch = batch.concat(gmValueWriteStmts(env, { table: "gm_jobs", where: "client_id = ? AND lead_id = ?", whereBinds: [clientId, est.lead_id],
             fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_jobs", "?"), binds: [newValor] },
+                     { col: "final_total_cents", expr: gmGuardedFinalCentsExpr("gm_jobs", "?"), binds: [Math.round(newValor * 100)] },
                      { col: "material", expr: "?", binds: [prefill.material] },
                      { col: "mao_de_obra", expr: "?", binds: [prefill.mao_de_obra] },
                      { col: "outros", expr: "?", binds: [prefill.outros] }],
             source: "estimate", sourceRef: estRef, actor: actor }));
+    }
+    // H1: accepting an estimate changes the ESTIMATE PRICE (computed, never
+    // typed): one history row for the lead and its project, old = the sum
+    // without this estimate, new = the sum with it.
+    if (opts && opts.accepting && est.status === "accepted") {
+        var accOptE = gmEstValorOption(est);
+        var thisTotal = accOptE ? gmEstOptTotals(est, accOptE).total_cents : 0;
+        var newEstPrice = accepted.total_cents, oldEstPrice = accepted.total_cents - thisTotal;
+        batch.push(env.DB.prepare("INSERT INTO gm_job_value_history (id, client_id, job_id, lead_id, entity, field, old_value, new_value, source, source_ref, actor) " +
+            "SELECT lower(hex(randomblob(16))), ?, (SELECT j.id FROM gm_jobs j WHERE j.client_id = ? AND j.lead_id = ? LIMIT 1), ?, 'lead', 'estimate_price_cents', ?, ?, 'estimate', ?, ?")
+            .bind(clientId, clientId, est.lead_id, est.lead_id, oldEstPrice || null, newEstPrice, estRef, actor));
+        batch.push(env.DB.prepare("INSERT INTO gm_job_value_history (id, client_id, job_id, lead_id, entity, field, old_value, new_value, source, source_ref, actor) " +
+            "SELECT lower(hex(randomblob(16))), client_id, id, lead_id, 'job', 'estimate_price_cents', ?, ?, 'estimate', ?, ? FROM gm_jobs WHERE client_id = ? AND lead_id = ?")
+            .bind(oldEstPrice || null, newEstPrice, estRef, actor, clientId, est.lead_id));
     }
     // G6a: an estimate on a lead that is already a project points at it.
     // G6b: a project with no job name takes the accepted estimate's.
@@ -24467,7 +24503,7 @@ async function handlePostGmEstimateMarkAccepted(id, estId, request, env) {
         if (!res.meta || !res.meta.changes) { return jsonErr("This estimate can no longer be accepted (status " + est.status + ")", 409); }
         await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_accepted", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "marked accepted by contractor" + (signer ? " for " + signer : "") }]);
         var full = await gmEstLoad(env, id, estId);
-        await gmEstApplyToLead(env, id, full, actor, { sending: false });
+        await gmEstApplyToLead(env, id, full, actor, { sending: false, accepting: true });
         if (full && full.public_token) { docPdfAfterFinal(request, env, "estimate", full.public_token); }
         return jsonOk({ accepted: true });
     } catch (e) {
@@ -24724,7 +24760,7 @@ async function handlePostPublicEstimateAccept(token, request, env) {
         if (!res.meta || !res.meta.changes) { return jsonErr("This estimate can no longer be accepted.", 409); }
         await gmLogLeadEvents(env, est.client_id, est.lead_id, signer, [{ action: "estimate_accepted", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "signed online (" + kind + ")" }]);
         var full = await gmEstLoad(env, est.client_id, est.id);
-        await gmEstApplyToLead(env, est.client_id, full, signer, { sending: false });
+        await gmEstApplyToLead(env, est.client_id, full, signer, { sending: false, accepting: true });
         // A2: the customer's signature closes the lead. Stage -> fechado
         // (guarded in SQL) and the project is created exactly as the Projects
         // button does (idempotent). Actor is the customer's typed name.
@@ -26171,6 +26207,19 @@ function contractFillSigningTime(text, v, isNotice) {
 function contractBuildVars(ctx, c, today, mode) {
     var doc = ctx.doc, lead = ctx.lead || {}, job = ctx.job || {}, s = ctx.settings, v = {};
     var sums = contractEstimateSums(ctx.estimates);
+    // Part H3: the contract is built from its CONTRACT PRICE (starts as the
+    // estimate price; renegotiated in the builder). The difference is ONE
+    // "Negotiated adjustment"; the schedule percentages apply to the price.
+    sums.estimate_cents = sums.total_cents;
+    sums.adjustment_cents = 0;
+    if (c && c.contract_price_cents !== null && c.contract_price_cents !== undefined && c.contract_price_cents !== "") {
+        var cp = Number(c.contract_price_cents);
+        if (!isNaN(cp) && cp >= 0) {
+            sums.adjustment_cents = cp - sums.estimate_cents;
+            sums.total_cents = cp;
+            sums.schedule = sums.first ? gmEstScheduleAmounts(sums.first.schedule || [], cp) : [];
+        }
+    }
     var licenses = doc.license_numbers || [];
     var pm = doc.payment_methods || {};
     var methods = Object.keys(pm).map(function(k) { return GmLabelsPaymentMethodEn(k) + (pm[k] ? " (" + pm[k] + ")" : ""); });
@@ -26590,6 +26639,12 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         // the homeowner's own change-order page. Drafts (never shown to the
         // homeowner) and voided ones are left out.
         change_orders: await contractChangeOrdersPublic(env, c),
+        // Part H3: a renegotiated price shows as the estimate price plus ONE
+        // "Negotiated adjustment" line (empty when there is none).
+        price_lines: comp.sums.adjustment_cents ? [
+            { label: "Estimate price" + (comp.sums.number ? " (" + comp.sums.number + (comp.sums.version && comp.sums.version !== "R1" ? "-" + comp.sums.version : "") + ")" : ""), amount_cents: comp.sums.estimate_cents },
+            { label: "Negotiated adjustment", amount_cents: comp.sums.adjustment_cents }
+        ] : [],
         disclaimer_line: c.disclaimer_line || comp.disclaimer_line,
         content_hash: c.content_hash || null,
         signed_render_hash: c.signed_render_hash || null,
@@ -27007,6 +27062,8 @@ async function contractInternalOut(env, id, c, user, request) {
         selections: c.selections, answers: c.answers, flags: c.flags, estimate_ids: c.estimate_ids,
         areas: ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
         missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line,
+        // Part H3: the three numbers the builder shows.
+        contract_price_cents: comp.amount_cents, estimate_price_cents: comp.sums.estimate_cents, adjustment_cents: comp.sums.adjustment_cents, contract_price_set: c.contract_price_cents !== null && c.contract_price_cents !== undefined,
         fields: comp.fields, editable: editable, routed_only: routedOnly, current_amount_cents: currentAmount, original_amount_cents: originalAmount, copied_from: (c.flags && c.flags.copied_from) || null,
         pool_setting: ctx.settings.builds_pools, builds_pools: ctx.settings.builds_pools,
         safety_features: ["(a) Isolated from the home by an enclosure that meets s. 515.29", "(b) Approved safety pool cover", "(c) Exit alarms on all doors and windows with direct access (85 dB A at 10 feet)", "(d) Self-closing, self-latching devices on all doors with direct access (release no lower than 54 inches)", "(e) Swimming pool alarm certified to ASTM F2208"],
@@ -27122,6 +27179,20 @@ async function handlePutGmContract(id, cid, request, env) {
         }
         var offer = body.offer_expiry_date !== undefined ? gmStr(body.offer_expiry_date, 10) : c.offer_expiry_date;
         if (offer && !/^\d{4}-\d{2}-\d{2}$/.test(offer)) { return jsonErr2("Data inválida.", "offer_expiry_date must be YYYY-MM-DD", 400); }
+        // Part H3: the contract price (renegotiated after the estimate).
+        // null = back to the estimate price. Frozen once company-signed: the
+        // UPDATE below only writes an editable contract.
+        var priceBefore = c.contract_price_cents === undefined ? null : c.contract_price_cents;
+        var price = priceBefore;
+        if (body.contract_price_cents !== undefined) {
+            if (body.contract_price_cents === null || body.contract_price_cents === "") { price = null; }
+            else {
+                var pc = gmCents(body.contract_price_cents);
+                if (pc === null || pc < 0) { return jsonErr2("Preço do contrato inválido.", "Invalid contract price", 400); }
+                price = pc;
+            }
+        }
+        c.contract_price_cents = price;
         c.selections = selections; c.answers = answers; c.flags = flags; c.offer_expiry_date = offer;
         var comp = contractCompose(ctx, c, gmEasternToday(), "live");
         // Rule 23: the guard lives in the write. A company signature or a send
@@ -27129,9 +27200,22 @@ async function handlePutGmContract(id, cid, request, env) {
         // G4e (drift c): a change order already signed and applied to this
         // contract while it was a draft stays in its amount -- added in the
         // same statement, never dropped by a save.
-        var up = await env.DB.prepare("UPDATE gm_contracts SET selections_json = ?, answers_json = ?, flags_json = ?, offer_expiry_date = ?, contract_amount_cents = ? + " + CONTRACT_APPLIED_CO_SQL + ", rules_json = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested') AND (company_signed_at IS NULL OR company_signature_voided_at IS NOT NULL)")
-            .bind(JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), offer, comp.amount_cents, JSON.stringify(comp.rules), cid, id).run();
+        var up = await env.DB.prepare("UPDATE gm_contracts SET selections_json = ?, answers_json = ?, flags_json = ?, offer_expiry_date = ?, contract_price_cents = ?, contract_amount_cents = ? + " + CONTRACT_APPLIED_CO_SQL + ", rules_json = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested') AND (company_signed_at IS NULL OR company_signature_voided_at IS NOT NULL)")
+            .bind(JSON.stringify(selections), JSON.stringify(answers), JSON.stringify(flags), offer, price, comp.amount_cents, JSON.stringify(comp.rules), cid, id).run();
         if (!up.meta || !up.meta.changes) { return jsonErr2("Contrato assinado: para mudar, crie uma revisão.", "This contract can no longer be changed. Create a revision to change it.", 409); }
+        // H1: the deal's contract price follows the builder until signing (a
+        // history row per change; the signed price is written at signing).
+        // Guarded: never over a project/lead whose contract is already signed.
+        if (price !== priceBefore) {
+            var cpRef = contractDisplayNumber(c), cpActor = actorName(user);
+            var cpBatch = gmValueWriteStmts(env, { table: "gm_jobs", where: "id = ? AND client_id = ? AND " + GM_FINAL_CENTS_JOB_SQL + " IS NULL", whereBinds: [c.job_id, id],
+                fields: [{ col: "contract_price_cents", expr: "?", binds: [comp.amount_cents] }], source: "contract", sourceRef: cpRef, actor: cpActor });
+            if (c.lead_id) {
+                cpBatch = cpBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ? AND " + GM_FINAL_CENTS_LEAD_SQL + " IS NULL", whereBinds: [c.lead_id, id],
+                    fields: [{ col: "contract_price_cents", expr: "?", binds: [comp.amount_cents] }], source: "contract", sourceRef: cpRef, actor: cpActor }));
+            }
+            await env.DB.batch(cpBatch);
+        }
         // G2f: county and property type are stored with the lead the FIRST
         // time a contract answers them (never overwriting what the lead has).
         if (c.lead_id && (answers.property_county || flags.property_type)) {
@@ -27620,11 +27704,18 @@ async function handlePostPublicContractSign(token, request, env) {
         // final total), logged in F1 history. The expression reads the contract
         // row just written, in the same statements.
         var conRef = contractDisplayNumber(c);
+        // H1: the contract price as signed (frozen from here) and the final
+        // total (contract price + change orders) land on the project and lead.
+        function signFields(t) {
+            return [{ col: "valor", expr: gmGuardedValorExpr(t, "valor"), binds: [] },
+                    { col: "contract_price_cents", expr: "?", binds: [comp.amount_cents] },
+                    { col: "final_total_cents", expr: gmGuardedFinalCentsExpr(t, "final_total_cents"), binds: [] }];
+        }
         var valBatch = gmValueWriteStmts(env, { table: "gm_jobs", where: "id = ? AND client_id = ?", whereBinds: [c.job_id, c.client_id],
-            fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_jobs", "valor"), binds: [] }], source: "contract", sourceRef: conRef, actor: signer });
+            fields: signFields("gm_jobs"), source: "contract", sourceRef: conRef, actor: signer });
         if (c.lead_id) {
             valBatch = valBatch.concat(gmValueWriteStmts(env, { table: "gm_leads", where: "id = ? AND client_id = ?", whereBinds: [c.lead_id, c.client_id],
-                fields: [{ col: "valor", expr: gmGuardedValorExpr("gm_leads", "valor"), binds: [] }], source: "contract", sourceRef: conRef, actor: signer }));
+                fields: signFields("gm_leads"), source: "contract", sourceRef: conRef, actor: signer }));
         }
         // G2d: the signed contract's start date and duration become the
         // project's start and deadline (F1 history, source contract).
@@ -28070,6 +28161,7 @@ async function coApply(env, co, request) {
         // F1: every changed field logged in the same batch.
         function coFields(table) {
             return [{ col: "valor", expr: gmGuardedValorExpr(table, "COALESCE(valor, 0) + ?"), binds: [delta] },
+                    { col: "final_total_cents", expr: gmGuardedFinalCentsExpr(table, "COALESCE(final_total_cents, CAST(ROUND(COALESCE(valor, 0) * 100) AS INTEGER)) + ?"), binds: [co.amount_cents] },
                     { col: "material", expr: "MAX(0, COALESCE(material, 0) + ?)", binds: [parsed.m / 100] },
                     { col: "mao_de_obra", expr: "MAX(0, COALESCE(mao_de_obra, 0) + ?)", binds: [parsed.l / 100] },
                     { col: "outros", expr: "MAX(0, COALESCE(outros, 0) + ?)", binds: [parsed.o / 100] }];

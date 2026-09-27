@@ -383,6 +383,11 @@
       if (con.offer_expiry_date) { rows.push(["Offer valid until", escHtml(fmtDate(con.offer_expiry_date))]); }
       rows.push(["Job", escHtml(con.job_name || "")]);
       if (con.estimate_display_number) { rows.push(["Estimate", escHtml(con.estimate_display_number)]); }
+      // Part H3: a price renegotiated after the estimate: the estimate price
+      // and ONE "Negotiated adjustment" line add up to the contract price.
+      (con.price_lines || []).forEach(function(pl) {
+        rows.push([escHtml(pl.label), escHtml((pl.label === "Negotiated adjustment" && Number(pl.amount_cents) > 0 ? "+" : "") + money(pl.amount_cents))]);
+      });
       // F2: the tile is the price as signed; the current price after signed
       // change orders is added when it differs.
       var cur = con.current_contract_amount_cents;

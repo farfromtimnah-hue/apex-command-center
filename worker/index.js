@@ -21863,6 +21863,10 @@ async function handlePutGmJob(id, rowId, request, env) {
         sets.push("updated_at = datetime('now')");
         binds.push(rowId); binds.push(id);
         await gmRunUpdate(env, "UPDATE gm_jobs SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        // F54: a finished project closes its no-contract warning in the same request.
+        if (f.status === "Concluída" && existing.status !== "Concluída") {
+            await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'job_concluded', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(actorName(user), id, rowId).run();
+        }
         var row = await gmOwnedRow(env, "gm_jobs", rowId, id);
         return jsonOk({ saved: true, job: row });
     } catch (e) {
@@ -27174,7 +27178,9 @@ async function coJobContractStatus(env, clientId, jobId) {
     var amount = Math.round((Number(job.valor) || 0) * 100);
     var signed = await env.DB.prepare("SELECT id, number FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status = 'completed' ORDER BY homeowner_signed_at DESC LIMIT 1").bind(clientId, jobId).first();
     var open = await env.DB.prepare("SELECT * FROM gm_contract_notices WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL ORDER BY created_at DESC LIMIT 1").bind(clientId, jobId).first();
-    var resolvedByOwner = await env.DB.prepare("SELECT id FROM gm_contract_notices WHERE client_id = ? AND job_id = ? AND resolution = 'owner_continued' LIMIT 1").bind(clientId, jobId).first();
+    // "Seguir sem contrato (decisão do dono)" decided in Rafa's meeting counts as
+    // the owner continuing; "Contrato será enviado" does not (F53).
+    var resolvedByOwner = await env.DB.prepare("SELECT id FROM gm_contract_notices WHERE client_id = ? AND job_id = ? AND (resolution = 'owner_continued' OR (resolution = 'resolved_in_meeting' AND resolution_decision = 'continue_without_contract')) LIMIT 1").bind(clientId, jobId).first();
     var needs = amount > 250000 && !signed && !resolvedByOwner && job.status !== "Concluída";
     return { job: job, amount_cents: amount, signed_contract: signed || null, needs_warning: needs, open_notice: open || null, owner_continued: !!resolvedByOwner };
 }
@@ -27253,6 +27259,38 @@ async function handleGetGmContractNotices(id, request, env) {
         return jsonErr("Error: " + e.message, 500);
     }
 }
+// F53: Pr. Rafael (or the developer) closes a warning in the meeting, with
+// what was decided. Soft: resolved_at + resolution, the row stays.
+var NOTICE_MEETING_DECISIONS = { contract_will_be_sent: ["Contrato será enviado", "Contract will be sent"], continue_without_contract: ["Seguir sem contrato (decisão do dono)", "Continue without a contract (owner's decision)"], other: ["Outro", "Other"] };
+async function handlePostAdminStaleNoticeResolve(noticeId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!(user.role === "rafa" || user.role === "developer")) { return jsonErr2("Sem permissão para esta ação.", "Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var decision = NOTICE_MEETING_DECISIONS[body.decision] ? body.decision : null;
+        if (!decision) { return jsonErr2("Escolha o que foi decidido.", "Choose what was decided.", 400); }
+        var note = gmStr(body.note, 1000);
+        var n = await env.DB.prepare("SELECT n.*, j.lead_id, j.obra FROM gm_contract_notices n LEFT JOIN gm_jobs j ON j.id = n.job_id WHERE n.id = ?").bind(gmStr(noticeId, 80)).first();
+        if (!n) { return jsonErr2("Aviso não encontrado.", "Notice not found", 404); }
+        var who = actorName(user);
+        // Rule 23: the guard is in the write; a second tap or a second person gets 409.
+        var res = await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'resolved_in_meeting', resolved_by = ?, resolution_decision = ?, resolution_note = ? WHERE id = ? AND resolved_at IS NULL")
+            .bind(who, decision, note, n.id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr2("Este aviso já foi resolvido.", "This warning was already resolved.", 409); }
+        if (n.lead_id) {
+            // The owner reads this history: Apex staff other than Pr. Rafael
+            // show as "Apex" (the full name stays in resolved_by).
+            var shown = user.role === "rafa" ? who : "Apex";
+            await gmLogLeadEvents(env, n.client_id, n.lead_id, shown, [{ action: "no_contract_resolved_in_meeting", field: "contract", old_value: null, new_value: NOTICE_MEETING_DECISIONS[decision][1], reason: NOTICE_MEETING_DECISIONS[decision][1] + (note ? ": " + note : "") }]);
+        }
+        return jsonOk({ resolved: true, id: n.id, decision: decision });
+    } catch (e) {
+        return jsonErr2("Erro ao resolver o aviso.", "Error resolving the warning: " + e.message, 500);
+    }
+}
+
 // Admin dashboards (rafa/developer) + meeting prep: notices open for 7+ days.
 async function handleGetAdminStaleContractNotices(request, env) {
     try {
@@ -27261,7 +27299,13 @@ async function handleGetAdminStaleContractNotices(request, env) {
         if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
         var url = new URL(request.url);
         var clientId = gmStr(url.searchParams.get("client_id"), 80);
-        var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')";
+        // F54: only notices whose project still needs the warning: not Concluída,
+        // over $2,500, no fully signed contract, owner did not continue. A deleted
+        // project drops out through the JOIN.
+        var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')" +
+            " AND j.status <> 'Concluída' AND CAST(COALESCE(j.valor, 0) AS REAL) * 100 > 250000" +
+            " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')" +
+            " AND NOT EXISTS (SELECT 1 FROM gm_contract_notices o WHERE o.client_id = n.client_id AND o.job_id = n.job_id AND (o.resolution = 'owner_continued' OR (o.resolution = 'resolved_in_meeting' AND o.resolution_decision = 'continue_without_contract')))";
         var binds = [];
         if (clientId) { sql += " AND n.client_id = ?"; binds.push(clientId); }
         sql += " ORDER BY n.created_at";
@@ -28147,6 +28191,8 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
             if (refFin && refFin.c > 0) {
                 return jsonErr("Esta obra tem lançamentos financeiros vinculados — remova o vínculo antes de excluir", 400);
             }
+            // F54: a removed project closes its no-contract warning (soft; the notice row stays).
+            await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'job_removed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(actorName(user), id, rowId).run();
         }
         if (table === "gm_leads") {
             await env.DB.prepare(
@@ -38317,6 +38363,8 @@ async function handleFetch(request, env, ctx) {
             if (pubAck[3] && method === "GET") { return handleGetPublicAckFile(pubAck[1], pubAck[3], pubAck[4], request, env); }
         }
         if (path === "/api/contracts/stale-notices"     && method === "GET")  { return handleGetAdminStaleContractNotices(request, env); }
+        var mStaleResolve = path.match(/^\/api\/contracts\/stale-notices\/([A-Za-z0-9-]+)\/resolve$/);
+        if (mStaleResolve && method === "POST") { return handlePostAdminStaleNoticeResolve(mStaleResolve[1], request, env); }
         if (path === "/api/contracts/library"           && method === "GET")  { return handleGetContractLibrary(request, env); }
         if (path === "/api/contracts/library/review"    && method === "POST") { return handlePostContractReview(request, env); }
         if (path === "/api/contracts/library/submit"    && method === "POST") { return handlePostContractReviewSubmit(request, env); }

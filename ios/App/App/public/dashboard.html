@@ -1336,6 +1336,41 @@
        INSIDE does not dismiss. Three ways out -- the X, the backdrop, Escape --
        because this opens full-screen over everything and a single underlined
        "Fechar" at the bottom is easy to miss on a phone. -->
+  <!-- F53: Pr. Rafael closes a no-contract warning in the meeting. Same
+       overlay + box as #voiceModal below (X, backdrop and Escape close it). -->
+  <div id="noticeResolveModal" class="voice-modal-overlay" hidden onclick="closeNoticeResolve()">
+    <div class="voice-modal-box" onclick="event.stopPropagation()">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <h3 style="margin:0 0 6px;">
+          <span class="show-pt">Resolvido na reuni&atilde;o</span>
+          <span class="show-en">Resolved in the meeting</span>
+        </h3>
+        <button type="button" aria-label="Fechar" onclick="closeNoticeResolve()"
+                style="background:none;border:none;font-size:24px;line-height:1;color:#6b6459;cursor:pointer;padding:0 2px;">&#215;</button>
+      </div>
+      <p class="voice-hint" id="noticeResolveJob"></p>
+      <p class="voice-hint" style="font-weight:600;color:#1a1712;">
+        <span class="show-pt">O que foi decidido?</span>
+        <span class="show-en">What was decided?</span>
+      </p>
+      <div id="noticeResolveChoices" style="display:flex;flex-direction:column;gap:8px;margin:8px 0 14px;"></div>
+      <p class="voice-hint" style="font-weight:600;color:#1a1712;">
+        <span class="show-pt">Observa&ccedil;&atilde;o (opcional)</span>
+        <span class="show-en">Note (optional)</span>
+      </p>
+      <textarea id="noticeResolveNote" rows="3" style="width:100%;box-sizing:border-box;margin-top:6px;background:#f1ece2;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'Inter',sans-serif;font-size:14px;"></textarea>
+      <div id="noticeResolveMsg" class="voice-hint" style="color:#b4322a;"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button type="button" class="btn-cta-link" id="noticeResolveSave" onclick="saveNoticeResolve()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+        <button type="button" onclick="closeNoticeResolve()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="voiceModal" class="voice-modal-overlay" hidden onclick="closeVoiceModal()">
     <div class="voice-modal-box" onclick="event.stopPropagation()">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
@@ -1585,6 +1620,8 @@
       if (e.key !== "Escape") { return; }
       var m = document.getElementById("voiceModal");
       if (m && !m.hidden) { closeVoiceModal(); }
+      var nr = document.getElementById("noticeResolveModal");
+      if (nr && !nr.hidden) { closeNoticeResolve(); }
     });
 
     function closeVoiceModal() {
@@ -2491,6 +2528,57 @@
     // Contracts build (checkpoint C2): after 7 days unresolved, a job over
     // $2,500 with no signed contract is raised here (rafa + developer) and in
     // meeting prep, so it comes up in the weekly meeting.
+    // F53: "Resolvido na reunião". One decision required, an optional note;
+    // saving closes the warning (POST /api/contracts/stale-notices/:id/resolve)
+    // and the row leaves this card (and meeting prep) at once.
+    var staleNoticeRows = [];
+    var noticeResolveId = null, noticeResolveDecision = null;
+    var NOTICE_DECISIONS = [["contract_will_be_sent", "Contrato ser\u00e1 enviado", "Contract will be sent"],
+      ["continue_without_contract", "Seguir sem contrato (decis\u00e3o do dono)", "Continue without a contract (owner's decision)"],
+      ["other", "Outro", "Other"]];
+    function renderNoticeDecisions() {
+      var box = document.getElementById("noticeResolveChoices");
+      if (!box) { return; }
+      var isEnLang = document.body.classList.contains("lang-en");
+      box.innerHTML = NOTICE_DECISIONS.map(function(dc) {
+        var on = noticeResolveDecision === dc[0];
+        return '<button type="button" onclick="pickNoticeDecision(\'' + dc[0] + '\')" style="text-align:left;border-radius:8px;padding:10px 14px;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;' +
+          (on ? 'background:var(--gold);color:#fff;border:1px solid var(--gold);' : 'background:transparent;color:#1a1712;border:1px solid var(--border);') + '">' + escHtml(isEnLang ? dc[2] : dc[1]) + '</button>';
+      }).join("");
+    }
+    function pickNoticeDecision(key) { noticeResolveDecision = key; renderNoticeDecisions(); }
+    function openNoticeResolve(id) {
+      var m = document.getElementById("noticeResolveModal");
+      if (!m) { return; }
+      var n = staleNoticeRows.filter(function(r) { return r.id === id; })[0] || {};
+      noticeResolveId = id; noticeResolveDecision = null;
+      var job = document.getElementById("noticeResolveJob");
+      if (job) { job.textContent = (n.client_name || "") + " \u00b7 " + (n.job_name || ""); }
+      var note = document.getElementById("noticeResolveNote"); if (note) { note.value = ""; }
+      var msg = document.getElementById("noticeResolveMsg"); if (msg) { msg.textContent = ""; }
+      var btn = document.getElementById("noticeResolveSave"); if (btn) { btn.disabled = false; }
+      renderNoticeDecisions();
+      m.hidden = false;
+    }
+    function closeNoticeResolve() { var m = document.getElementById("noticeResolveModal"); if (m) { m.hidden = true; } noticeResolveId = null; }
+    function saveNoticeResolve() {
+      var isEnLang = document.body.classList.contains("lang-en");
+      var msg = document.getElementById("noticeResolveMsg");
+      var btn = document.getElementById("noticeResolveSave");
+      if (!noticeResolveId) { return; }
+      if (!noticeResolveDecision) { if (msg) { msg.textContent = isEnLang ? "Choose what was decided." : "Escolha o que foi decidido."; } return; }
+      var note = document.getElementById("noticeResolveNote");
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/contracts/stale-notices/" + encodeURIComponent(noticeResolveId) + "/resolve", { method: "POST", body: { decision: noticeResolveDecision, note: note && note.value.trim() ? note.value.trim() : null } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, d: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error((isEnLang ? r.d.error_en : r.d.error_pt) || r.d.error || "Error"); }
+          closeNoticeResolve();
+          loadStaleContractNotices();
+        })
+        .catch(function(e) { if (btn) { btn.disabled = false; } if (msg) { msg.textContent = e.message; } console.error(e); });
+    }
+
     function loadStaleContractNotices() {
       apiFetch("/api/contracts/stale-notices")
         .then(function(res) { return res.json(); })
@@ -2500,7 +2588,8 @@
           var badge = document.getElementById("staleContractNoticesBadge");
           if (!section || !listEl) { return; }
           var rows = d.notices || [];
-          if (!rows.length) { section.hidden = true; return; }
+          staleNoticeRows = rows;
+          if (!rows.length) { section.hidden = true; listEl.innerHTML = ""; return; }
           if (badge) { badge.textContent = rows.length; }
           var isEnLang = document.body.classList.contains("lang-en");
           listEl.innerHTML = rows.map(function(n) {
@@ -2509,8 +2598,10 @@
             return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);">' +
               '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(n.client_name || "") + ' &middot; ' + escHtml(n.job_name || "") + ' &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</div>' +
               '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Open for ' + days + ' days' : 'Aberto h\u00e1 ' + days + ' dias') + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) + ' (' + escHtml(n.opened_role || "") + ')' : '') + '</div></div>' +
-              '<a href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a></div>';
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;"><a href="meeting-prep.html?client=' + encodeURIComponent(n.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Meeting prep' : 'Prepara\u00e7\u00e3o') + '</a>' +
+              '<button style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;" onclick="openNoticeResolve(\'' + escHtml(n.id) + '\')">' + (isEnLang ? 'Resolved in the meeting' : 'Resolvido na reuni\u00e3o') + '</button></div></div>';
           }).join("");
+          staleNoticeRows = rows;
           section.hidden = false;
         })
         .catch(function() {});

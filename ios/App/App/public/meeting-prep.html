@@ -1682,11 +1682,62 @@
             h += '<p style="margin:0 0 8px;font-size:14px;"><strong>' + escHtml(n.job_name || "") + '</strong> &middot; $' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' &middot; ' +
               ptEn("aberto h\u00e1 " + days + " dias", "open for " + days + " days") + (n.opened_by ? ' &middot; ' + escHtml(n.opened_by) : '') +
               '<br><span style="font-size:12px;color:var(--muted);">' + ptEn("Levantar na reuni\u00e3o: o contrato pode ser enviado pelo projeto no Apex.", "Raise in the meeting: the contract can be sent from the project in Apex.") + '</span></p>';
+            // F53: closed right here when it is resolved in the meeting. The
+            // same inline pattern as the lead "Resultado" card (out-btn choices
+            // opening a hidden panel, out-state for the answer).
+            h += '<button type="button" class="out-btn" style="margin:0 0 10px;" onclick="openPrepNoticeResolve(\'' + escHtml(n.id) + '\')">' + ptEn("Resolvido na reuni\u00e3o", "Resolved in the meeting") + '</button>';
+            h += '<div class="out-pick" id="prepNoticePanel_' + escHtml(n.id) + '" hidden style="margin:0 0 16px;"></div>';
           });
           box.innerHTML = h;
           box.hidden = false;
         })
         .catch(function() {});
+    }
+
+    // F53: "Resolvido na reunião": one decision, an optional note, Save closes
+    // the warning (POST /api/contracts/stale-notices/:id/resolve) and the row
+    // leaves this list and the dashboard card.
+    var PREP_NOTICE_DECISIONS = [["contract_will_be_sent", "Contrato ser\u00e1 enviado", "Contract will be sent"],
+      ["continue_without_contract", "Seguir sem contrato (decis\u00e3o do dono)", "Continue without a contract (owner's decision)"],
+      ["other", "Outro", "Other"]];
+    var prepNoticeDecision = {};
+    function openPrepNoticeResolve(id) {
+      var panel = document.getElementById("prepNoticePanel_" + id);
+      if (!panel) { return; }
+      if (!panel.hidden) { panel.hidden = true; return; }
+      prepNoticeDecision[id] = null;
+      renderPrepNoticePanel(id);
+      panel.hidden = false;
+    }
+    function renderPrepNoticePanel(id) {
+      var panel = document.getElementById("prepNoticePanel_" + id);
+      if (!panel) { return; }
+      var noteEl = document.getElementById("prepNoticeNote_" + id);
+      var noteVal = noteEl ? noteEl.value : "";
+      var h = '<p class="out-sub" style="margin-bottom:6px;">' + ptEn("O que foi decidido?", "What was decided?") + '</p><div class="out-actions">';
+      PREP_NOTICE_DECISIONS.forEach(function(dc) {
+        h += '<button type="button" class="out-btn' + (prepNoticeDecision[id] === dc[0] ? " primary" : "") + '" onclick="pickPrepNoticeDecision(\'' + escHtml(id) + '\', \'' + dc[0] + '\')">' + ptEn(dc[1], dc[2]) + '</button>';
+      });
+      h += '</div><div class="cb-field"><label class="cb-label" for="prepNoticeNote_' + escHtml(id) + '">' + ptEn("Observa\u00e7\u00e3o (opcional)", "Note (optional)") + '</label>' +
+        '<textarea class="cb-in" id="prepNoticeNote_' + escHtml(id) + '">' + escHtml(noteVal) + '</textarea></div>' +
+        '<button type="button" class="out-btn primary" id="prepNoticeSave_' + escHtml(id) + '" onclick="savePrepNoticeResolve(\'' + escHtml(id) + '\')">' + ptEn("Salvar", "Save") + '</button>' +
+        '<div class="out-state" id="prepNoticeState_' + escHtml(id) + '"></div>';
+      panel.innerHTML = h;
+    }
+    function pickPrepNoticeDecision(id, key) { prepNoticeDecision[id] = key; renderPrepNoticePanel(id); }
+    function savePrepNoticeResolve(id) {
+      var st = document.getElementById("prepNoticeState_" + id);
+      var btn = document.getElementById("prepNoticeSave_" + id);
+      var note = document.getElementById("prepNoticeNote_" + id);
+      if (!prepNoticeDecision[id]) { if (st) { st.innerHTML = ptEn("Escolha o que foi decidido.", "Choose what was decided."); } return; }
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/contracts/stale-notices/" + encodeURIComponent(id) + "/resolve", { method: "POST", body: JSON.stringify({ decision: prepNoticeDecision[id], note: note && note.value.trim() ? note.value.trim() : null }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, d: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error(r.d.error_pt ? ptEn(escHtml(r.d.error_pt), escHtml(r.d.error_en)) : escHtml(r.d.error || "Error")); }
+          loadPrepContractNotices();
+        })
+        .catch(function(e) { if (btn) { btn.disabled = false; } if (st) { st.innerHTML = e.message; } console.error(e); });
     }
 
     // The container. The week itself loads after render(), since it has its

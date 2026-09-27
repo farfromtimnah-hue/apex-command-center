@@ -140,7 +140,7 @@
       <div class="card" id="cardMeta"></div>
       <div class="card hidden" id="cardReversed"></div>
       <div class="card" id="totals"><h2>Balance</h2><div class="totals" id="balance"></div></div>
-      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your receipt (PDF)</button></div>
     </div>
   </div>
 
@@ -210,6 +210,16 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone.
+    function openPdf(kind) {
+      var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
 
     // The header: brand colours, the photo (or the solid band), the logo
     // tile (or the name as a wordmark), the name pill.
@@ -290,7 +300,7 @@
           '<div class="row grand"><span>Invoice balance after</span><span>' + money(r.balance_after_cents) + '</span></div>' +
           '<div class="row"><span>Remaining contract balance</span><span>' + money(r.contract ? r.contract.remaining_cents : 0) + '</span></div>';
       }
-      var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { window.open("templates/client-receipt-template.html?t=" + token, "_blank"); }; }
+      var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { openPdf("receipt"); }; }
     }
     function load() {
       if (!token) { show("cardNotFound"); return; }

@@ -145,7 +145,7 @@
       <div class="card hidden" id="cardScope"><h2>Contract scope</h2><p class="muted small" id="scopeNote"></p><div id="scope"></div></div>
       <div class="card hidden" id="cardPay"><h2>How to pay</h2><div id="payMethods"></div></div>
       <div class="card" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
-      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your invoice (PDF)</button></div>
     </div>
   </div>
 
@@ -215,6 +215,16 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone.
+    function openPdf(kind) {
+      var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
 
     // The header: brand colours, the photo (or the solid band), the logo
     // tile (or the name as a wordmark), the name pill.
@@ -356,7 +366,7 @@
       }
       var t = '<b>Payment terms</b><p>' + (b.terms_days ? "Net " + b.terms_days + " days" : "Due on receipt") + '. Please reference ' + escHtml(inv.number) + ' with your payment.</p>' + lateFeeTerms(b);
       var te = byId("terms"); if (te) { te.innerHTML = t; }
-      var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { window.open("templates/client-invoice-template.html?t=" + token, "_blank"); }; }
+      var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { openPdf("invoice"); }; }
     }
     function load() {
       if (!token) { show("cardNotFound"); return; }

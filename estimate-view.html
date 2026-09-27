@@ -145,7 +145,7 @@
       <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
       <div class="card hidden" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
       <div class="card" id="cardActions"></div>
-      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button></div>
+      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your estimate (PDF)</button></div>
     </div>
   </div>
 
@@ -215,6 +215,16 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone.
+    function openPdf(kind) {
+      var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
 
     // The header: brand colours, the photo (or the solid band), the logo
     // tile (or the name as a wordmark), the name pill.
@@ -545,7 +555,7 @@
           document.title = "Estimate " + est.display_number + (est.business.name ? " - " + est.business.name : "");
           if (est.mode === "tiered" && est.accepted_option_id) { pickedOption = est.accepted_option_id; }
           renderMeta(); renderScope(); renderSchedule(); renderPayAndTerms(); renderActions();
-          var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { window.open("templates/client-estimate-template.html?t=" + token, "_blank"); }; }
+          var pdf = byId("btnPdf"); if (pdf) { pdf.textContent = est.status === "accepted" ? "Download your accepted estimate (PDF)" : "Download your estimate (PDF)"; pdf.onclick = function() { openPdf("estimate"); }; }
           show("doc");
         })
         .catch(function(e) { console.error(e); show("cardNotFound"); });

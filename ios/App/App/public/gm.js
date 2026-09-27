@@ -350,6 +350,25 @@ document.addEventListener("keydown", function(ev) {
 // ── Toast / snackbar ─────────────────────────────────────────────────────
 var gmToastEl = null, gmToastTimer = null, gmToastAction = null;
 
+// Docs PDF build: customer PDFs are printed by Chrome on the server and the
+// portal opens a real https PDF (Safari's own PDF viewer on iPhone, where
+// Share / Save to Files works). The page the Worker shows when the PDF is not
+// ready yet follows the portal's language.
+function gmPdfHref(link) {
+  if (!link) { return ""; }
+  return link + (link.indexOf("?") === -1 ? "?" : "&") + "lang=" + (isEn() ? "en" : "pt");
+}
+// Owner-side documents (the affidavit): the Worker issues a link for this one
+// document, opened in the window taken on the tap so no popup rule blocks it.
+function gmPdfOpenOwner(kind, id, before) {
+  var w = window.open("", "_blank");
+  var first = before ? before() : Promise.resolve();
+  first
+    .then(function() { return gmApi("pdf-link", { method: "POST", body: { kind: kind, id: id, lang: isEn() ? "en" : "pt" } }); })
+    .then(function(d) { if (w) { w.location.href = d.url; } else { window.location.href = d.url; } })
+    .catch(function(e) { if (w) { w.close(); } gmToast(e.message); console.error(e); });
+}
+
 function gmToast(msg, actionLabel, actionFn) {
   if (gmToastEl && gmToastEl.parentNode) { gmToastEl.parentNode.removeChild(gmToastEl); }
   if (gmToastTimer) { clearTimeout(gmToastTimer); }
@@ -4506,7 +4525,7 @@ function gmRenderContractSheet() {
     body += '<button type="button" class="gm-btn-primary" id="gmConSendBtn" onclick="gmConSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
-  if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(c.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(c.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
   if (c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed", "superseded"].indexOf(c.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConVoid()">' + gmT("Anular", "Void") + '</button>'; }
@@ -5173,7 +5192,7 @@ function gmDAffidavitOpen(jobId) {
         (w.release_status === "conditional" ? gmT(". Condicional: aguardando liberação final.", ". Conditional: waiting for the final release.") : gmT(" e não tem liberação arquivada.", " and has no release on file.")) + '</p>'; }).join("") +
       (a.mode === "declaration" ? '<p class="gm-derived-note">' + gmT("Modo: declaração escrita sob pena de perjúrio (sem cartório).", "Mode: written declaration under penalty of perjury (no notary).") + '</p>' : "") +
       '</div><div class="gm-est-actions">' +
-      '<button type="button" class="gm-btn-primary" onclick="gmDAffidavitPrint(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ', ' + JSON.stringify(a.print_link).replace(/"/g, "&quot;") + ')">' + gmT("Abrir para imprimir / PDF", "Open to print / PDF") + '</button></div>';
+      '<button type="button" class="gm-btn-primary" onclick="gmDAffidavitPrint(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Baixar PDF da declaração", "Download affidavit (PDF)") + '</button></div>';
     if (a.mode !== "declaration") {
       body += gmSheetSection(gmT("Onde reconhecer firma (notarize)", "Get it notarized"),
         '<div style="padding:6px 12px;">' +
@@ -5192,11 +5211,8 @@ function gmDAffidavitOpen(jobId) {
 // F43: a generation is logged only when the owner opens it to print. The tab
 // opens at the tap (so it is not blocked as a pop-up) and loads the print page
 // once the generation is recorded.
-function gmDAffidavitPrint(jobId, link) {
-  var w = window.open("", "_blank");
-  gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit/generate", { method: "POST" })
-    .then(function() { if (w) { w.location.href = link; } else { window.location.href = link; } })
-    .catch(function(e) { if (w) { w.close(); } gmToast(e.message); console.error(e); });
+function gmDAffidavitPrint(jobId) {
+  gmPdfOpenOwner("affidavit", jobId, function() { return gmApi("jobs/" + encodeURIComponent(jobId) + "/affidavit/generate", { method: "POST" }); });
 }
 function gmDAffidavitUpload(jobId, input) {
   if (!input.files || !input.files[0]) { return; }
@@ -5427,7 +5443,7 @@ function gmRenderChangeOrderSheet() {
   if (co.status === "draft" && co.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
   if (["company_signed", "sent", "viewed"].indexOf(co.status) !== -1) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>'; }
   body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
-  if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(co.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(co.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
   if (co.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'co\', \'' + escHtml(co.id) + '\', \'' + escHtml(co.number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed"].indexOf(co.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmCOVoid()">' + gmT("Anular", "Void") + '</button>'; }
   body += '</div></div>';
@@ -8360,7 +8376,7 @@ function gmRenderEstimateSheet() {
     body += '<button type="button" class="gm-btn-primary" id="gmEstSendBtn" onclick="gmEstSendOpen()">' + gmT("Enviar", "Send") + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(est.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
-    '<a class="gm-btn-secondary" href="' + escHtml(est.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
+    '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(est.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
   if (gmEstCanEdit(est)) {
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstEditOpen()">' + (est.stored_status === "draft" ? gmT("Editar", "Edit") : gmT("Criar revisão", "Create revision")) + '</button>';
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstMarkAcceptedOpen()">' + gmT("Marcar como aceito", "Mark accepted") + '</button>';
@@ -9434,7 +9450,7 @@ function gmRenderInvoiceSheet() {
       '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>';
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
-    '<a class="gm-btn-secondary" href="' + escHtml(inv.pdf_link) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
+    '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(inv.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
   if (!ro && inv.status !== "void") {
     if (inv.late_fee_available) { body += '<button type="button" class="gm-btn-secondary" onclick="gmInvLateFee()">' + gmT("Adicionar juros de atraso", "Add late fee") + (inv.late_fee_preview ? " (" + gmMoney(inv.late_fee_preview.cents) + ")" : "") + '</button>'; }
     body += '<button type="button" class="gm-btn-secondary" onclick="gmInvCreditOpen(\'credit\')">' + gmT("Crédito", "Credit") + '</button>';

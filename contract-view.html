@@ -108,6 +108,11 @@
     .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
     .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--brand-accent); }
     .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .noc-fold { margin-top: 22px; }
+    .noc-fold > summary { cursor: pointer; list-style: none; }
+    .noc-fold > summary::-webkit-details-marker { display: none; }
+    .noc-fold > summary h2 { display: inline; text-decoration: underline; }
+    .noc-fold[open] > summary h2 { text-decoration: none; }
     .ok { color: var(--green); font-weight: 700; }
     .state { text-align: center; padding: 20px 0; }
     .state h3 { font-size: 20px; margin-bottom: 8px; }
@@ -173,7 +178,7 @@
       <div id="sections"></div>
       <div class="card hidden" id="cardPay"><h2>Accepted payment methods</h2><div id="payMethods"></div></div>
       <div class="card" id="cardActions"></div>
-      <div class="card" id="cardPdf"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" id="cardPdf" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download contract (PDF)</button><div class="err" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
   </div>
 
@@ -248,6 +253,32 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone. A preview (owner
+    // signed in to the portal) first asks the Worker for a one-document link.
+    function openPdf(kind) {
+      var err = byId("pdfErr"); if (err) { err.textContent = ""; }
+      if (!previewId) {
+        var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+        var w0 = window.open(url, "_blank");
+        if (!w0) { window.location.href = url; }
+        return;
+      }
+      var cid = null, tok = null;
+      try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+      if (!cid || !tok) { if (err) { sayErr(err, "Open this preview from the portal to download it."); } return; }
+      var w = window.open("", "_blank");
+      fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/pdf-link", { method: "POST", headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind, id: previewId }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && (r.data.error_en || r.data.error)) || "Could not prepare the PDF. Please try again."); }
+          if (w) { w.location.href = r.data.url; } else { window.location.href = r.data.url; }
+        })
+        .catch(function(e) { if (w) { w.close(); } if (err) { sayErr(err, e.message); } console.error(e); });
+    }
     // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
     // as line breaks (the statutory forms rely on them).
     function richHtml(text) {
@@ -573,7 +604,11 @@
       var c = con.cancellation || {};
       if (!req("cancellation") || !c.notice_form_text) { return ""; }
       var copy = function(n) { return '<div class="noc-copy"><div class="copy-label">Notice of cancellation - copy ' + n + ' of 2</div>' + richHtml(c.notice_form_text) + '</div>'; };
-      return '<h2 style="margin-top:22px;">Notice of cancellation</h2><p class="small muted">Two completed copies are furnished with this contract. Keep both; use one if you decide to cancel.</p>' + copy(1) + copy(2);
+      // Nicole's decision (docs PDF build, A8): on this page the two copies
+      // are collapsed behind a heading the homeowner taps to open. The short
+      // "may cancel until midnight of ..." sentence in the contract stays
+      // visible, and the PDF keeps both copies in full (s. 501.031, 16 CFR 429).
+      return '<details class="noc-fold"><summary><h2>Notice of Cancellation (2 copies) - tap to read</h2></summary><p class="small muted">Two completed copies are furnished with this contract. Keep both; use one if you decide to cancel.</p>' + copy(1) + copy(2) + '</details>';
     }
 
     function setSig(kind) {
@@ -732,7 +767,7 @@
           renderMeta(); renderSections(); renderPay(); renderActions();
           var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }
           var pdf = byId("btnPdf");
-          if (pdf) { pdf.onclick = function() { window.open("templates/client-contract-template.html?" + (previewId ? "preview=" + previewId : "t=" + token), "_blank"); }; }
+          if (pdf) { pdf.textContent = con.status === "completed" ? "Download your signed contract (PDF)" : "Download contract (PDF)"; pdf.onclick = function() { openPdf("contract"); }; }
           show("doc");
         })
         .catch(function(e) { console.error(e); show("cardNotFound"); });

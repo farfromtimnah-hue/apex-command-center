@@ -186,6 +186,13 @@
     // Portal preview (owner session) and a local mock for offline checks only.
     var previewId = null;
     var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
+    // Docs PDF build: Chrome on the server prints this page to the PDF the
+    // phone downloads. It waits for body[data-render-done] ("1" = finished,
+    // "notfound" = no document). Owner-side documents are loaded with a
+    // Worker-signed render token for this ONE document (rt=, cid=), never a login.
+    var renderToken = (window.location.search.match(/[?&]rt=(rndr_[A-Za-z0-9_.-]+)/) || [])[1] || null;
+    var renderCid = (window.location.search.match(/[?&]cid=([A-Za-z0-9_-]+)/) || [])[1] || null;
+    function renderDone(v) { if (document.body) { document.body.setAttribute("data-render-done", v); } }
     // Content budget per slide, in CSS px: a printed slide is 10in tall =
     // 0.45in top padding + 8.7in content + 0.8in footer zone (0.05in slack).
     // The same number on every screen: the stage is a fixed 7in wide.
@@ -608,12 +615,12 @@
       // measured without them and the first slide overflows.
       return Promise.all(urls.filter(Boolean).map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); }));
     }
-    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } }
+    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } renderDone("notfound"); }
 
     function fetchAffidavit() {
       if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
       var cid = null, tok = null;
-      try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+      if (renderToken && renderCid) { cid = renderCid; tok = renderToken; } else { try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; } }
       if (!cid || !tok || !jobId) { return Promise.reject(new Error("nf")); }
       return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/jobs/" + encodeURIComponent(jobId) + "/affidavit", { headers: { "Authorization": "Bearer " + tok } })
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
@@ -632,6 +639,7 @@
           });
         })
         .then(function() {
+          if (aff) { renderDone("1"); }
           if (aff && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { printWithoutToken(); }, 300); }
         })
         .catch(function(e) { console.error(e); notFound(); });

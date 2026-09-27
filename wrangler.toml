@@ -1,6 +1,8 @@
 name              = "apex-api"
 main              = "worker/index.js"
 compatibility_date = "2024-09-23"
+# Required by @cloudflare/puppeteer (docs PDF build, Part A).
+compatibility_flags = ["nodejs_compat"]
 
 [observability]
 enabled = true
@@ -32,6 +34,12 @@ crons = ["0 */4 * * *"]
 # are what he routes around, so the microphone has to be the whole interface.
 [ai]
 binding = "AI"
+
+# Headless Chrome (Browser Rendering, Workers FREE plan), exactly as the
+# rafa-vault Worker declares it. Customer document PDFs are printed here from
+# the same templates instead of by the homeowner's phone (docs PDF build).
+[browser]
+binding = "BROWSER"
 
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"

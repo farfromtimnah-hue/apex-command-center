@@ -178,7 +178,7 @@
       <div class="card hidden" id="cardStateBanner"></div>
       <div class="card" id="cardBody"></div>
       <div class="card" id="cardActions"></div>
-      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download change order (PDF)</button><div class="err" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
   </div>
 
@@ -253,6 +253,32 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone. A preview (owner
+    // signed in to the portal) first asks the Worker for a one-document link.
+    function openPdf(kind) {
+      var err = byId("pdfErr"); if (err) { err.textContent = ""; }
+      if (!previewId) {
+        var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+        var w0 = window.open(url, "_blank");
+        if (!w0) { window.location.href = url; }
+        return;
+      }
+      var cid = null, tok = null;
+      try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+      if (!cid || !tok) { if (err) { sayErr(err, "Open this preview from the portal to download it."); } return; }
+      var w = window.open("", "_blank");
+      fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/pdf-link", { method: "POST", headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind, id: previewId }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && (r.data.error_en || r.data.error)) || "Could not prepare the PDF. Please try again."); }
+          if (w) { w.location.href = r.data.url; } else { window.location.href = r.data.url; }
+        })
+        .catch(function(e) { if (w) { w.close(); } if (err) { sayErr(err, e.message); } console.error(e); });
+    }
     // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
     // as line breaks (the statutory forms rely on them).
     function richHtml(text) {
@@ -514,7 +540,7 @@
           renderMeta(); renderBody(); renderActions();
           var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }
           var pdf = byId("btnPdf");
-          if (pdf) { pdf.onclick = function() { window.open("templates/client-change-order-template.html?" + (previewId ? "preview=" + previewId : "t=" + token), "_blank"); }; }
+          if (pdf) { pdf.textContent = con.status === "completed" ? "Download your signed change order (PDF)" : "Download change order (PDF)"; pdf.onclick = function() { openPdf("change-order"); }; }
           show("doc");
         })
         .catch(function(e) { console.error(e); show("cardNotFound"); });

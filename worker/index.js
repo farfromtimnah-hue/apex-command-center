@@ -290,6 +290,11 @@ async function authenticateInner(request, env) {
     if (token.indexOf("capt_") === 0) {
         return authenticateClientToken(token, env);
     }
+    // A Worker-signed render token for ONE customer document (docs PDF
+    // build): the client gate below lets it GET that document and nothing else.
+    if (token.indexOf("rndr_") === 0) {
+        return docPdfRenderSession(token, env);
+    }
     // A token that is not a Firebase JWT is simply NOT AUTHENTICATED. Letting
     // the parse error propagate turned every such request into a 500, which is
     // indistinguishable from a real server fault and sends whoever sees it
@@ -13542,6 +13547,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
                     gmRest === "partners" || gmRest === "finance" || gmRest === "jobs" ||
                     gmRest === "pricing" || gmRest === "pricing/import") { return true; }
+                // Docs PDF build: a download link for one customer document.
+                // The handler replays the document's own GET with this
+                // session, so it can never reach more than that GET does.
+                if (gmRest === "pdf-link") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
@@ -13751,6 +13760,10 @@ function sellerRequestAllowed(path, method, clientId) {
         // inside the handler, the same as every other route in this list.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/promote$/.test(rest)) { return true; }
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contacts$/.test(rest)) { return true; }
+        // Docs PDF build: a PDF link for a contract / change order / ack the
+        // seller can already open. Row-level scoping is the replayed GET in
+        // handlePostDocPdfLink (contractSellerGuard and friends).
+        if (rest === "gm/pdf-link") { return true; }
         // Add a note, and upload a proposal / estimate / site photo. The
         // upload is the point: the seller is the one at the house with the
         // pictures, and Alice and the owner review what they attach.
@@ -13821,6 +13834,12 @@ async function enforceClientRoleGate(request, env, path, method) {
         return jsonErr("Password change required", 403);
     }
     if (!user.client_id) { return jsonErr("Forbidden", 403); }
+    // A render token (headless Chrome printing a customer document) reaches
+    // exactly the one owner route it was signed for, GET only.
+    if (user.auth_method === "render") {
+        if (method === "GET" && path === user.render_path) { return null; }
+        return jsonErr("Forbidden", 403);
+    }
     // A salesperson session goes through its own strict allowlist and never
     // touches the client one. Owners (login_role 'client', and every
     // Google-auth client session, which has no login_role at all) are
@@ -23254,7 +23273,7 @@ async function gmEstimateInternalPayload(env, est, settings, client, lead, origi
     pub.min_margin_pct = settings.min_margin_pct;
     pub.deposit_over_ten = gmEstDepositOverTen(est.schedule);
     pub.link = DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token;
-    pub.pdf_link = DEFAULT_ORIGIN + "/templates/client-estimate-template.html?t=" + est.public_token;
+    pub.pdf_link = APEX_API_BASE + "/api/public/pdf/estimate/" + est.public_token;
     pub.options.forEach(function(o, i) {
         var src = est.options[i];
         var costs = gmEstOptionCosts(src.items);
@@ -23443,7 +23462,7 @@ async function handleGetGmEstimates(id, request, env) {
                 responded_at: e.responded_at, accepted_at: e.accepted_at, accepted_by_kind: e.accepted_by_kind,
                 accepted_signer_name: e.accepted_signer_name, created_at: e.created_at, created_by: e.created_by,
                 public_token: e.public_token, link: DEFAULT_ORIGIN + "/estimate-view?t=" + e.public_token,
-                pdf_link: DEFAULT_ORIGIN + "/templates/client-estimate-template.html?t=" + e.public_token,
+                pdf_link: APEX_API_BASE + "/api/public/pdf/estimate/" + e.public_token,
                 content_hash: e.content_hash, accepted_ip: e.accepted_ip, accepted_user_agent: e.accepted_user_agent,
                 accepted_signature_kind: e.accepted_signature_kind, change_request_text: e.change_request_text, decline_reason: e.decline_reason,
                 void_reason: e.void_reason
@@ -23805,6 +23824,7 @@ async function handlePostGmEstimateMarkAccepted(id, estId, request, env) {
         await gmLogLeadEvents(env, id, est.lead_id, actor, [{ action: "estimate_accepted", field: "estimate", old_value: est.status, new_value: est.number + (est.revision > 1 ? "-R" + est.revision : ""), reason: "marked accepted by contractor" + (signer ? " for " + signer : "") }]);
         var full = await gmEstLoad(env, id, estId);
         await gmEstApplyToLead(env, id, full, actor, { sending: false });
+        if (full && full.public_token) { docPdfAfterFinal(request, env, "estimate", full.public_token); }
         return jsonOk({ accepted: true });
     } catch (e) {
         return jsonErr("Error marking accepted: " + e.message, 500);
@@ -24071,6 +24091,7 @@ async function handlePostPublicEstimateAccept(token, request, env) {
                 await gmPromoteLeadCore(env, est.client_id, leadRow, signer, "estimate " + est.number + " accepted online");
             }
         } catch (e3) { console.error("online acceptance: lead close/promote failed", e3 && e3.message); }
+        docPdfAfterFinal(request, env, "estimate", token);
         return jsonOk({ accepted: true, content_hash: snap.hash });
     } catch (e) {
         return jsonErr("Error accepting estimate: " + e.message, 500);
@@ -24257,11 +24278,11 @@ function gmInvOut(inv, derived, contract) {
     Object.keys(derived).forEach(function(k) { out[k] = derived[k]; });
     out.contract = contract || null;
     out.link = DEFAULT_ORIGIN + "/invoice-view?t=" + inv.public_token;
-    out.pdf_link = DEFAULT_ORIGIN + "/templates/client-invoice-template.html?t=" + inv.public_token;
+    out.pdf_link = APEX_API_BASE + "/api/public/pdf/invoice/" + inv.public_token;
     out.payments = (inv.payments || []).map(function(p) {
         var q = {}; Object.keys(p).forEach(function(k) { q[k] = p[k]; });
         q.receipt_link = p.receipt_token ? DEFAULT_ORIGIN + "/receipt-view?t=" + p.receipt_token : null;
-        q.receipt_pdf_link = p.receipt_token ? DEFAULT_ORIGIN + "/templates/client-receipt-template.html?t=" + p.receipt_token : null;
+        q.receipt_pdf_link = p.receipt_token ? APEX_API_BASE + "/api/public/pdf/receipt/" + p.receipt_token : null;
         return q;
     });
     return out;
@@ -24457,11 +24478,13 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
 }
 
 // ── Payments (3d) ────────────────────────────────────────────────────────
-async function gmInvIssueReceipt(env, clientId, paymentId) {
+async function gmInvIssueReceipt(env, clientId, paymentId, request) {
     var num = await gmDocAllocateNumber(env, clientId, "RCT");
     var tok = gmEstNewToken();
     await env.DB.prepare("UPDATE gm_invoice_payments SET receipt_number = ?, receipt_token = ? WHERE id = ? AND receipt_number IS NULL").bind(num.number, tok, paymentId).run();
     await gmInvFreezeReceiptNumbers(env, clientId, paymentId);
+    // Docs PDF: the issued receipt is final; its PDF is stored after the response.
+    if (request) { docPdfAfterFinal(request, env, "receipt", tok); }
     return num.number;
 }
 
@@ -24517,7 +24540,7 @@ async function handlePostGmInvoicePayment(id, invId, request, env) {
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(pid, invId, id, amount, paidDate, method, reference, note, state, actor, role, state === "verified" ? actor : null, state === "verified" ? new Date().toISOString().slice(0, 19).replace("T", " ") : null).run();
         var receipt = null;
-        if (state === "verified") { receipt = await gmInvIssueReceipt(env, id, pid); }
+        if (state === "verified") { receipt = await gmInvIssueReceipt(env, id, pid, request); }
         if (inv.lead_id) {
             await gmLogLeadEvents(env, id, inv.lead_id, actor, [{ action: state === "verified" ? "payment_recorded" : "payment_reported", field: inv.number, old_value: null, new_value: (amount / 100).toFixed(2), reason: method + (reference ? " " + reference : "") }]);
         }
@@ -24550,7 +24573,7 @@ async function handlePostGmPaymentAction(id, paymentId, action, request, env) {
                 "UPDATE gm_invoice_payments SET state = 'verified', verified_by = ?, verified_at = datetime('now') WHERE id = ? AND client_id = ? AND state = 'pending_verification'"
             ).bind(actor, paymentId, id).run();
             if (!res.meta || !res.meta.changes) { return jsonErr("This payment is not awaiting verification", 409); }
-            var rc = await gmInvIssueReceipt(env, id, paymentId);
+            var rc = await gmInvIssueReceipt(env, id, paymentId, request);
             evt = { action: "payment_verified", field: p.invoice_number, old_value: "pending_verification", new_value: (p.amount_cents / 100).toFixed(2), reason: "receipt " + rc };
         } else if (action === "reject") {
             if (!reason) { return jsonErr("A reason is required to reject a payment", 400); }
@@ -25736,7 +25759,7 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         content_hash: c.content_hash || null,
         signed_render_hash: c.signed_render_hash || null,
         appendix_photos: await contractAppendixPhotos(env, c, origin),
-        pdf_link: DEFAULT_ORIGIN + "/templates/client-contract-template.html?t=" + c.public_token,
+        pdf_link: APEX_API_BASE + "/api/public/pdf/contract/" + c.public_token,
         change_request_text: c.change_request_text, decline_reason: c.decline_reason
     };
 }
@@ -26658,6 +26681,7 @@ async function handlePostPublicContractSign(token, request, env) {
         await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'contract_signed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(signer, c.client_id, c.job_id).run();
         await gmContractEvent(env, c.client_id, c.id, signer, "homeowner_signed", { kind: kind, ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash, lien: comp.requires.lien_signature, pool_ack: comp.requires.pool_ack, cancellation_deadline: deadline });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
+        docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
     } catch (e) {
         return jsonErr("Error signing contract: " + e.message, 500);
@@ -26863,7 +26887,7 @@ async function handleGetGmChangeOrder(id, coid, request, env) {
         var signer = contractSignerAllowed(user, settings, client);
         var pub = await coPublicPayload(env, co, new URL(request.url).origin);
         pub.id = co.id; pub.job_id = co.job_id; pub.contract_id = co.contract_id; pub.can_sign_as_company = signer.ok; pub.signer_name = signer.name; pub.signers = settings.signers; pub.owner_signer_name = settings.owner_signer_name;
-        pub.link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token; pub.pdf_link = DEFAULT_ORIGIN + "/templates/client-change-order-template.html?t=" + co.public_token;
+        pub.link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token; pub.pdf_link = APEX_API_BASE + "/api/public/pdf/change-order/" + co.public_token;
         pub.applied = gmDocParseJsonObject(co.applied_json, null); pub.applied_at = co.applied_at; pub.sent_at = co.sent_at; pub.first_viewed_at = co.first_viewed_at;
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
         pub.send_phone = gmDocSendPhone(lead, null);
@@ -27138,6 +27162,7 @@ async function handlePostPublicChangeOrderSign(token, request, env) {
         }
         co.homeowner_signer_name = signer;
         var applied = await coApply(env, co, request);
+        docPdfAfterFinal(request, env, "change-order", token);
         return jsonOk({ signed: true, applied: applied });
     } catch (e) {
         return jsonErr("Error signing change order: " + e.message, 500);
@@ -27518,6 +27543,7 @@ async function handlePostPublicAckSign(token, request, env) {
             return jsonErr("This acknowledgment can no longer be signed.", 409);
         }
         if (a.lead_id) { await gmLogLeadEvents(env, a.client_id, a.lead_id, signer, [{ action: a.kind === "before_photos" ? "conditions_acknowledged" : "completion_signed", field: "acknowledgment", old_value: null, new_value: a.kind, reason: "signed online (" + kind + ")" }]); }
+        docPdfAfterFinal(request, env, "ack", token);
         return jsonOk({ signed: true });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
@@ -38060,6 +38086,423 @@ async function handlePostFinanceNewRecurrence(request, env) {
     }
 }
 
+// ===========================================================================
+// Customer document PDFs (docs PDF build, Part A).
+//
+// iPhone Safari cannot print these documents the way desktop Chrome does (it
+// enlarges text, ignores @page margins and stamps the page URL on every sheet;
+// CON-0006 came out as 42 pages instead of 12). So the homeowner's browser no
+// longer prints: Chrome on Cloudflare's side (Browser Rendering, Workers FREE
+// plan) opens the SAME template with &noprint=1, waits for the template's
+// "finished" signal (body[data-render-done]), and prints it to a Letter PDF.
+// The phone just opens that file.
+//
+// Free-plan limits (developers.cloudflare.com/browser-rendering/limits,
+// read 2026-09-27): 10 minutes of browser time per day, 3 concurrent
+// browsers, 1 new browser every 20 seconds, browser closes after 60 s idle.
+// Every render launches one browser and CLOSES it right after (an idle kept
+// browser would burn the 10 daily minutes). A 429 on launch waits the 20 s
+// launch window once and retries; after that the caller gets a plain
+// "being prepared, try again in a minute" page, never a silent failure.
+//
+// FINAL documents (contract / change order signed by both, estimate
+// accepted, acknowledgment signed, receipt issued) are rendered ONCE, stored
+// in R2 and recorded in gm_document_pdfs; every later download serves those
+// same bytes. A document that stops being final (voided, reversed) renders
+// live again, so a stored copy never hides a VOID.
+//
+// Access: the public route takes the homeowner's own link token and loads
+// the template with it, so the template's fetch applies exactly the public
+// GET's rule. Owner-only documents (drafts, "Preview as customer", the
+// affidavit) go through POST gm/pdf-link: the caller's own session must be
+// able to read the document's owner route (checked by replaying that GET with
+// the caller's credentials), and the Worker then signs a render token
+// (rndr_, HMAC-SHA256 with DOC_PDF_SECRET, 10 minutes) for that ONE document.
+// The token is the download URL and is also what the headless page sends as
+// its Bearer; authenticate() maps it to a session that the client gate
+// allows to do exactly one thing: GET that document's owner route.
+// ===========================================================================
+
+var DOC_PDF_KINDS = {
+    "contract":     { label: "Contract",     page: "/templates/client-contract-template.html",     owner: function(cid, id) { return "/api/clients/" + cid + "/gm/contracts/" + id + "/preview"; }, ownerParam: "preview" },
+    "estimate":     { label: "Estimate",     page: "/templates/client-estimate-template.html" },
+    "invoice":      { label: "Invoice",      page: "/templates/client-invoice-template.html" },
+    "receipt":      { label: "Receipt",      page: "/templates/client-receipt-template.html" },
+    "change-order": { label: "Change Order", page: "/templates/client-change-order-template.html", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/change-orders/" + id; }, ownerParam: "preview" },
+    // No print template exists for acknowledgments: the page itself prints.
+    "ack":          { label: "Acknowledgment", page: "/ack-view",                                   owner: function(cid, id) { return "/api/clients/" + cid + "/gm/acks/" + id; }, ownerParam: "preview" },
+    "affidavit":    { label: "Final Payment Affidavit", page: "/templates/client-affidavit-template.html", owner: function(cid, id) { return "/api/clients/" + cid + "/gm/jobs/" + id + "/affidavit"; }, ownerParam: "job" }
+};
+var DOC_PDF_TOKEN_TTL_MS = 10 * 60 * 1000;
+// The sign handlers get (token, request, env); the render that runs after the
+// response needs ctx.waitUntil, so handleFetch files ctx under the request.
+var REQUEST_CTX = new WeakMap();
+
+async function docPdfBusinessName(env, clientId) {
+    var s = await env.DB.prepare("SELECT legal_name FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+    if (s && s.legal_name) { return s.legal_name; }
+    var c = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(clientId).first();
+    return (c && c.name) || "";
+}
+
+function docPdfRevNumber(number, revision) { return (number || "") + (revision > 1 ? "-R" + revision : ""); }
+
+// One document by its homeowner token, with what the download needs: which
+// row, its number, whether it is final. Superseded contracts and estimates
+// resolve to the current revision exactly as the public GET does.
+async function docPdfByToken(env, kind, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    var r;
+    if (kind === "contract") {
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE public_token = ?").bind(token).first();
+        if (!r || r.status === "draft" || r.status === "awaiting_company") { return null; }
+        if (r.status === "superseded") {
+            r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
+            if (!r) { return null; }
+        }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed", token: r.public_token };
+    }
+    if (kind === "estimate") {
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_estimates WHERE public_token = ?").bind(token).first();
+        if (!r || r.status === "draft" || r.status === "void") { return null; }
+        if (r.status === "superseded") {
+            r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_estimates WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
+            if (!r) { return null; }
+        }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "accepted", token: r.public_token };
+    }
+    if (kind === "invoice") {
+        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_invoices WHERE public_token = ?").bind(token).first();
+        if (!r || r.status === "void" || r.status === "draft") { return null; }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: r.number, status: r.status, final: false, token: r.public_token };
+    }
+    if (kind === "receipt") {
+        r = await env.DB.prepare("SELECT id, client_id, receipt_number, state, receipt_token FROM gm_invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL").bind(token).first();
+        if (!r) { return null; }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: r.receipt_number, status: r.state, final: r.state === "verified", token: r.receipt_token };
+    }
+    if (kind === "change-order") {
+        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_change_orders WHERE public_token = ?").bind(token).first();
+        if (!r || r.status === "draft") { return null; }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: r.number, status: r.status, final: r.status === "completed", token: r.public_token };
+    }
+    if (kind === "ack") {
+        r = await env.DB.prepare("SELECT id, client_id, kind AS ack_kind, status, public_token FROM gm_job_acks WHERE public_token = ?").bind(token).first();
+        if (!r) { return null; }
+        return { kind: kind, id: r.id, client_id: r.client_id, number: null, ack_kind: r.ack_kind, status: r.status, final: r.status === "signed", token: r.public_token };
+    }
+    return null;
+}
+
+// The same, by row id, for the owner flow. The row must belong to clientId.
+async function docPdfById(env, kind, clientId, id) {
+    var r;
+    if (kind === "contract") {
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE id = ? AND client_id = ?").bind(id, clientId).first();
+        return r ? { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed", token: r.public_token } : null;
+    }
+    if (kind === "change-order") {
+        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_change_orders WHERE id = ? AND client_id = ?").bind(id, clientId).first();
+        return r ? { kind: kind, id: r.id, client_id: r.client_id, number: r.number, status: r.status, final: r.status === "completed", token: r.public_token } : null;
+    }
+    if (kind === "ack") {
+        r = await env.DB.prepare("SELECT id, client_id, kind AS ack_kind, status, public_token FROM gm_job_acks WHERE id = ? AND client_id = ?").bind(id, clientId).first();
+        return r ? { kind: kind, id: r.id, client_id: r.client_id, number: null, ack_kind: r.ack_kind, status: r.status, final: r.status === "signed", token: r.public_token } : null;
+    }
+    if (kind === "affidavit") {
+        r = await env.DB.prepare("SELECT id, client_id, obra FROM gm_jobs WHERE id = ? AND client_id = ?").bind(id, clientId).first();
+        return r ? { kind: kind, id: r.id, client_id: r.client_id, number: null, job_name: r.obra || "", status: null, final: false, token: null } : null;
+    }
+    return null;
+}
+
+function docPdfFileName(doc, business) {
+    var label = DOC_PDF_KINDS[doc.kind].label;
+    if (doc.kind === "ack") { label = doc.ack_kind === "completion" ? "Completion sign-off" : "Before-work photos"; }
+    var name = label + (doc.number ? " " + doc.number : "") + (doc.job_name ? " - " + doc.job_name : "") + (business ? " - " + business : "");
+    return name.replace(/[\\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) + ".pdf";
+}
+
+function docPdfPublicPageUrl(doc) {
+    return DEFAULT_ORIGIN + DOC_PDF_KINDS[doc.kind].page + "?t=" + doc.token + "&noprint=1";
+}
+
+// ── Render token (rndr_) ────────────────────────────────────────────────
+function docPdfB64url(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) { s += String.fromCharCode(bytes[i]); }
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function docPdfHmac(env, text) {
+    if (!env.DOC_PDF_SECRET) { throw new Error("DOC_PDF_SECRET is not set"); }
+    var key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.DOC_PDF_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text));
+    return docPdfB64url(new Uint8Array(sig));
+}
+async function docPdfMintToken(env, kind, clientId, id) {
+    var body = docPdfB64url(new TextEncoder().encode(JSON.stringify({ k: kind, c: clientId, i: id, x: Date.now() + DOC_PDF_TOKEN_TTL_MS })));
+    return "rndr_" + body + "." + (await docPdfHmac(env, body));
+}
+// The decoded claims, or null for a bad signature, an unknown kind or an
+// expired token. Constant-time compare on the signature.
+async function docPdfVerifyToken(env, token) {
+    var m = /^rndr_([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(token || "");
+    if (!m) { return null; }
+    var expect = await docPdfHmac(env, m[1]);
+    if (expect.length !== m[2].length) { return null; }
+    var diff = 0;
+    for (var i = 0; i < expect.length; i++) { diff |= expect.charCodeAt(i) ^ m[2].charCodeAt(i); }
+    if (diff !== 0) { return null; }
+    var claims;
+    try { claims = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch (e) { return null; }
+    if (!claims || !DOC_PDF_KINDS[claims.k] || !DOC_PDF_KINDS[claims.k].owner || !claims.c || !claims.i) { return null; }
+    if (!(claims.x > Date.now())) { return null; }
+    return claims;
+}
+// authenticate() for an rndr_ Bearer: a client-tier session that the client
+// gate lets reach ONE path (render_path), GET only. Never a login.
+async function docPdfRenderSession(token, env) {
+    var claims = await docPdfVerifyToken(env, token);
+    if (!claims) { return null; }
+    return {
+        email: null, role: "client", display_name: "PDF render", avatar_url: null,
+        client_id: claims.c, username: null, login_role: "client", seller_name: null,
+        must_change_password: false, auth_method: "render",
+        render_path: DOC_PDF_KINDS[claims.k].owner(claims.c, claims.i)
+    };
+}
+
+// ── Rendering ───────────────────────────────────────────────────────────
+function docPdfIsLimitError(e) {
+    var msg = String((e && e.message) || e || "");
+    return /429|rate limit|too many|limit exceeded/i.test(msg);
+}
+async function docPdfLaunch(puppeteer, env) {
+    try {
+        return await puppeteer.launch(env.BROWSER);
+    } catch (e) {
+        if (!docPdfIsLimitError(e) || /time limit exceeded/i.test(String(e && e.message))) { throw e; }
+        // 1 new browser every 20 s on the free plan: wait that window once.
+        console.log("[doc-pdf] launch rate-limited, retrying in 20 s: " + (e && e.message));
+        await new Promise(function(resolve) { setTimeout(resolve, 20000); });
+        return await puppeteer.launch(env.BROWSER);
+    }
+}
+// Opens pageUrl in headless Chrome and prints it. Returns
+// { bytes, pages, overflow, ms } or { notFound: true } when the template
+// says the document is not there.
+async function docPdfRender(env, pageUrl) {
+    var puppeteer = (await import("@cloudflare/puppeteer")).default;
+    var browser = await docPdfLaunch(puppeteer, env);
+    var started = Date.now();
+    try {
+        var page = await browser.newPage();
+        await page.goto(pageUrl, { waitUntil: "networkidle0", timeout: 30000 });
+        await page.waitForFunction(function() { return !!(document.body && document.body.getAttribute("data-render-done")); }, { timeout: 20000 });
+        // Every image (logo, photos, drawn signatures) decoded before printing.
+        await page.evaluate(function() {
+            return Promise.all(Array.prototype.map.call(document.images, function(im) {
+                return im.complete ? null : new Promise(function(resolve) { im.onload = resolve; im.onerror = resolve; });
+            }));
+        });
+        var info = await page.evaluate(function() {
+            return { done: document.body.getAttribute("data-render-done"), pages: Number(document.body.getAttribute("data-print-pages") || 0), overflow: Number(document.body.getAttribute("data-print-overflow-errors") || 0) };
+        });
+        if (info.done !== "1") { return { notFound: true }; }
+        var pdf = await page.pdf({ format: "letter", printBackground: true, preferCSSPageSize: true });
+        var bytes = pdf instanceof Uint8Array ? pdf : new Uint8Array(pdf);
+        var counted = (new TextDecoder().decode(bytes).match(/\/Type\s*\/Page[^s]/g) || []).length;
+        if (info.overflow) { console.error("[doc-pdf] template reported " + info.overflow + " overflowing page(s): " + pageUrl.replace(/t=[a-f0-9]{48}/, "t=...")); }
+        return { bytes: bytes, pages: counted || info.pages, overflow: info.overflow, ms: Date.now() - started };
+    } finally {
+        try { await browser.close(); } catch (e2) { console.error("[doc-pdf] browser close failed", e2 && e2.message); }
+    }
+}
+
+async function docPdfSha256(bytes) {
+    var buf = await crypto.subtle.digest("SHA-256", bytes);
+    var b = new Uint8Array(buf), out = "";
+    for (var i = 0; i < b.length; i++) { out += b[i].toString(16).padStart(2, "0"); }
+    return out;
+}
+
+// Stores a final document's first render. UNIQUE (doc_kind, doc_id) is the
+// guard: when two requests race, INSERT OR IGNORE keeps the first row and the
+// loser serves that row's bytes, so every download is the same file.
+async function docPdfStore(env, doc, result) {
+    var sha = await docPdfSha256(result.bytes);
+    var key = "doc-pdfs/" + doc.client_id + "/" + doc.kind + "/" + doc.id + "-" + sha.slice(0, 16) + ".pdf";
+    await env.ASSETS.put(key, result.bytes, { httpMetadata: { contentType: "application/pdf" } });
+    var ins = await env.DB.prepare(
+        "INSERT OR IGNORE INTO gm_document_pdfs (id, client_id, doc_kind, doc_id, doc_number, source_status, r2_key, sha256, byte_size, page_count, render_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), doc.client_id, doc.kind, doc.id, doc.number, doc.status, key, sha, result.bytes.length, result.pages, result.ms).run();
+    if (ins.meta && ins.meta.changes) { return { r2_key: key, sha256: sha, page_count: result.pages, render_ms: result.ms, won: true }; }
+    var row = await env.DB.prepare("SELECT * FROM gm_document_pdfs WHERE doc_kind = ? AND doc_id = ?").bind(doc.kind, doc.id).first();
+    return row ? { r2_key: row.r2_key, sha256: row.sha256, page_count: row.page_count, render_ms: row.render_ms, won: false } : null;
+}
+
+function docPdfResponse(body, fileName, meta) {
+    var ascii = fileName.replace(/[^\x20-\x7E]/g, "_");
+    var headers = Object.assign({}, CORS_HEADERS, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline; filename=\"" + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(fileName),
+        "Cache-Control": "private, no-store",
+        "X-Doc-Pdf-Source": meta.source
+    });
+    if (meta.sha256) { headers["X-Doc-Pdf-Sha256"] = meta.sha256; }
+    if (meta.pages) { headers["X-Doc-Pdf-Pages"] = String(meta.pages); }
+    if (meta.ms) { headers["X-Browser-Ms-Used"] = String(meta.ms); }
+    return new Response(body, { status: 200, headers: headers });
+}
+
+// The page a phone lands on when there is no PDF to give. Plain, in the
+// caller's language (the portal passes lang=pt), never blank. The look is
+// copied from the homeowner pages' .card / .state block.
+function docPdfMessagePage(lang, reason, status) {
+    var pt = lang === "pt";
+    var title, text;
+    if (reason === "busy") {
+        title = pt ? "Seu PDF está sendo preparado" : "Your PDF is being prepared";
+        text = pt ? "Seu PDF está sendo preparado. Tente de novo em um minuto." : "Your PDF is being prepared. Please try again in a minute.";
+    } else if (reason === "expired") {
+        title = pt ? "Link expirado" : "Link expired";
+        text = pt ? "Este link de PDF expirou. Volte e toque em Baixar PDF de novo." : "This PDF link has expired. Go back and tap the download button again.";
+    } else {
+        title = pt ? "Documento não encontrado" : "Document not found";
+        text = pt ? "Este documento não está disponível." : "This document is not available.";
+    }
+    var again = pt ? "Tentar de novo" : "Try again";
+    var html = '<!DOCTYPE html><html lang="' + (pt ? "pt-BR" : "en") + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + title + '</title>' +
+        '<style>body{margin:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;-webkit-text-size-adjust:100%}' +
+        '.wrap{max-width:640px;margin:0 auto;padding:24px 16px}.card{background:#fff;border:1px solid #e4e4e7;border-radius:14px;padding:20px}' +
+        '.state h3{margin:0 0 8px;font-size:18px}.state p{margin:0 0 16px;color:#3f3f46;line-height:1.5}' +
+        '.btn{display:inline-block;border:1px solid #d4d4d8;background:#fff;color:#111;border-radius:10px;padding:12px 18px;font-size:15px;font-weight:600;text-decoration:none}</style></head>' +
+        '<body><div class="wrap"><div class="card"><div class="state"><h3>' + title + '</h3><p>' + text + '</p>' +
+        (reason === "busy" ? '<a class="btn" href="" onclick="window.location.reload(); return false;">' + again + '</a>' : '') +
+        '</div></div></div></body></html>';
+    var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+    if (reason === "busy") { headers["Retry-After"] = "60"; }
+    return new Response(html, { status: status, headers: headers });
+}
+
+// Serve one document: the stored bytes when it is final and already stored,
+// else a render (stored first when final).
+async function docPdfServe(env, doc, pageUrl, lang) {
+    var business = await docPdfBusinessName(env, doc.client_id);
+    var fileName = docPdfFileName(doc, business);
+    if (doc.final) {
+        var row = await env.DB.prepare("SELECT r2_key, sha256, page_count FROM gm_document_pdfs WHERE doc_kind = ? AND doc_id = ?").bind(doc.kind, doc.id).first();
+        if (row) {
+            var obj = await env.ASSETS.get(row.r2_key);
+            if (obj) { return docPdfResponse(obj.body, fileName, { source: "stored", sha256: row.sha256, pages: row.page_count }); }
+            console.error("[doc-pdf] stored row without R2 object: " + row.r2_key);
+        }
+    }
+    var result;
+    try {
+        result = await docPdfRender(env, pageUrl);
+    } catch (e) {
+        console.error("[doc-pdf] render failed (" + doc.kind + " " + doc.id + "): " + (e && e.message));
+        return docPdfMessagePage(lang, "busy", 503);
+    }
+    if (result.notFound) { return docPdfMessagePage(lang, "notfound", 404); }
+    if (doc.final) {
+        var stored = null;
+        try { stored = await docPdfStore(env, doc, result); } catch (eS) { console.error("[doc-pdf] store failed (" + doc.kind + " " + doc.id + "): " + (eS && eS.message)); }
+        if (stored && !stored.won) {
+            var winner = await env.ASSETS.get(stored.r2_key);
+            if (winner) { return docPdfResponse(winner.body, fileName, { source: "stored", sha256: stored.sha256, pages: stored.page_count }); }
+        }
+        if (stored) { return docPdfResponse(result.bytes, fileName, { source: "stored-now", sha256: stored.sha256, pages: stored.page_count, ms: result.ms }); }
+    }
+    return docPdfResponse(result.bytes, fileName, { source: "live", pages: result.pages, ms: result.ms, sha256: await docPdfSha256(result.bytes) });
+}
+
+// GET /api/public/pdf/:kind/:token  (homeowner link token = the credential)
+async function handleGetPublicDocPdf(kind, token, request, env) {
+    var lang = new URL(request.url).searchParams.get("lang") === "pt" ? "pt" : "en";
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 30, 300);
+        if (limited) { return docPdfMessagePage(lang, "busy", 429); }
+        var doc = await docPdfByToken(env, kind, token);
+        if (!doc) { return docPdfMessagePage(lang, "notfound", 404); }
+        return await docPdfServe(env, doc, docPdfPublicPageUrl(doc), lang);
+    } catch (e) {
+        console.error("[doc-pdf] public route failed: " + (e && e.stack ? e.stack : e));
+        return docPdfMessagePage(lang, "busy", 503);
+    }
+}
+
+// GET /api/pdf/r/:rndr  (owner-side documents; the signed token = the credential)
+async function handleGetRenderTokenPdf(token, request, env) {
+    var lang = new URL(request.url).searchParams.get("lang") === "pt" ? "pt" : "en";
+    try {
+        var claims = await docPdfVerifyToken(env, token);
+        if (!claims) { return docPdfMessagePage(lang, "expired", 403); }
+        var doc = await docPdfById(env, claims.k, claims.c, claims.i);
+        if (!doc) { return docPdfMessagePage(lang, "notfound", 404); }
+        // A final document is ONE file whoever asks: served (or first stored)
+        // from the homeowner's own view.
+        if (doc.final && doc.token) { return await docPdfServe(env, doc, docPdfPublicPageUrl(doc), lang); }
+        var spec = DOC_PDF_KINDS[claims.k];
+        var pageUrl = DEFAULT_ORIGIN + spec.page + "?" + spec.ownerParam + "=" + encodeURIComponent(claims.i) +
+            "&cid=" + encodeURIComponent(claims.c) + "&rt=" + encodeURIComponent(token) + "&noprint=1";
+        return await docPdfServe(env, doc, pageUrl, lang);
+    } catch (e) {
+        console.error("[doc-pdf] render-token route failed: " + (e && e.stack ? e.stack : e));
+        return docPdfMessagePage(lang, "busy", 503);
+    }
+}
+
+// POST /api/clients/:id/gm/pdf-link {kind, id, lang} -> { url }
+// The caller must already be able to read the document's owner route with
+// their OWN session (owner, seller with row scoping, admin): that GET is
+// replayed with their credentials, so the link is never wider than what the
+// caller can open today.
+async function handlePostDocPdfLink(clientId, request, env, ctx) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+        var body = {};
+        try { body = await request.json(); } catch (e0) { body = {}; }
+        var kind = String(body.kind || ""), id = String(body.id || "");
+        var spec = DOC_PDF_KINDS[kind];
+        if (!spec || !spec.owner || !/^[A-Za-z0-9-]{1,80}$/.test(id)) { return jsonErr2("Documento inválido", "Invalid document", 400); }
+        var doc = await docPdfById(env, kind, clientId, id);
+        if (!doc) { return jsonErr2("Documento não encontrado", "Document not found", 404); }
+        var origin = new URL(request.url).origin;
+        var check = new Request(origin + spec.owner(clientId, id) + new URL(request.url).search, { method: "GET", headers: { "Authorization": request.headers.get("Authorization") || "" } });
+        var res = await handleFetch(check, env, ctx);
+        if (!res.ok) { return jsonErr2("Você não tem acesso a este documento", "You do not have access to this document", res.status === 404 ? 404 : 403); }
+        var token = await docPdfMintToken(env, kind, clientId, id);
+        return jsonOk({ url: origin + "/api/pdf/r/" + token + (body.lang === "pt" ? "?lang=pt" : "") });
+    } catch (e) {
+        return jsonErr2("Erro ao preparar o PDF: " + e.message, "Error preparing the PDF: " + e.message, 500);
+    }
+}
+
+// Called where a document becomes final: renders and stores its PDF after
+// the response, so the signing never waits on (or fails with) the render.
+// A failure is logged; the next download renders and stores it instead.
+function docPdfAfterFinal(request, env, kind, token) {
+    var job = (async function() {
+        try {
+            var doc = await docPdfByToken(env, kind, token);
+            if (!doc || !doc.final) { return; }
+            var have = await env.DB.prepare("SELECT 1 AS x FROM gm_document_pdfs WHERE doc_kind = ? AND doc_id = ?").bind(doc.kind, doc.id).first();
+            if (have) { return; }
+            var result = await docPdfRender(env, docPdfPublicPageUrl(doc));
+            if (result.notFound) { console.error("[doc-pdf] final render found no document (" + kind + " " + doc.id + ")"); return; }
+            await docPdfStore(env, doc, result);
+        } catch (e) {
+            console.error("[doc-pdf] final render failed (" + kind + "), will render on next download: " + (e && e.message));
+        }
+    })();
+    var c = REQUEST_CTX.get(request);
+    if (c && c.waitUntil) { c.waitUntil(job); }
+}
+
 export default {
     // Thin wrapper over the real handler. Every response leaving this Worker
     // passes through withCorsOrigin(), so the allowlisted Origin is echoed
@@ -38149,6 +38592,7 @@ export default {
 };
 
 async function handleFetch(request, env, ctx) {
+        if (ctx) { REQUEST_CTX.set(request, ctx); }
         var url    = new URL(request.url);
         var path   = url.pathname;
         var method = request.method;
@@ -38216,6 +38660,13 @@ async function handleFetch(request, env, ctx) {
         if (schedReopen && method === "POST") { return handlePostSchedulingReopen(schedReopen[1], request, env); }
         var schedNone = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/none$/);
         if (schedNone && method === "POST") { return handlePostSchedulingNone(schedNone[1], request, env); }
+
+        // PUBLIC customer document PDFs (docs PDF build, Part A): the
+        // homeowner's link token, or a Worker-signed render token.
+        var pubPdf = path.match(/^\/api\/public\/pdf\/(contract|estimate|invoice|receipt|change-order|ack)\/([a-f0-9]{48})$/);
+        if (pubPdf && method === "GET") { return handleGetPublicDocPdf(pubPdf[1], pubPdf[2], request, env); }
+        var rndrPdf = path.match(/^\/api\/pdf\/r\/(rndr_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/);
+        if (rndrPdf && method === "GET") { return handleGetRenderTokenPdf(rndrPdf[1], request, env); }
 
         // PUBLIC customer-facing estimate (estimates build, 2f). The token is
         // the credential; rate limited in the handlers; 404 for unknown.
@@ -38877,6 +39328,8 @@ async function handleFetch(request, env, ctx) {
                     if (method === "GET") { return handleGetGmDocMessages(cid, request, env); }
                     if (method === "PUT") { return handlePutGmDocMessages(cid, request, env); }
                 }
+                // Customer document PDF link (docs PDF build, Part A).
+                if (segs.length === 5 && gmCol === "pdf-link" && method === "POST") { return handlePostDocPdfLink(cid, request, env, ctx); }
                 // Contract builder (contracts build, checkpoint B).
                 if (segs.length === 5 && gmCol === "contract-settings") {
                     if (method === "GET") { return handleGetContractSettings(cid, request, env); }

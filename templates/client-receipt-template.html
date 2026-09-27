@@ -128,6 +128,10 @@
     var NOT_FOUND = "Receipt not found.";
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // Docs PDF build: Chrome on the server prints this page to the PDF the
+    // phone downloads. It waits for body[data-render-done] ("1" = finished,
+    // "notfound" = no document).
+    function renderDone(v) { if (document.body) { document.body.setAttribute("data-render-done", v); } }
     // Content budget per slide, in CSS px: a printed slide is 10in tall =
     // 0.45in top padding + 8.7in content + 0.8in footer zone (0.05in slack).
     // The same number on every screen: the stage is a fixed 7in wide.
@@ -498,7 +502,7 @@
       // measured without them and the first slide overflows.
       return Promise.all(urls.filter(Boolean).map(function(u) { return new Promise(function(resolve) { var im = new Image(); im.onload = resolve; im.onerror = resolve; im.src = u; }); }));
     }
-    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } }
+    function notFound() { var pages = document.getElementById("pages"); if (pages) { pages.innerHTML = '<section class="slide" data-footer=""><p>' + NOT_FOUND + '</p></section>'; } renderDone("notfound"); }
 
     function load() {
       if (!token) { notFound(); return; }
@@ -513,6 +517,7 @@
           });
         })
         .then(function() {
+          if (est) { renderDone("1"); }
           if (est && !/[?&]noprint=1/.test(window.location.search)) { setTimeout(function() { printWithoutToken(); }, 300); }
         })
         .catch(function(e) { console.error(e); notFound(); });

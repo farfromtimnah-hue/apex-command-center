@@ -194,7 +194,7 @@
       <div class="card hidden" id="cardStateBanner"></div>
       <div class="card" id="cardBody"></div>
       <div class="card" id="cardActions"></div>
-      <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download PDF</button><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download (PDF)</button><div class="err" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
   </div>
 
@@ -206,6 +206,14 @@
     var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
     // Local mock for offline checks only (mock=path.json); never used in production.
     var mockUrl = (window.location.search.match(/[?&]mock=([A-Za-z0-9_.\/-]+)/) || [])[1] || null;
+    // Docs PDF build: Chrome on the server prints this page to the PDF the
+    // phone downloads (there is no separate print template for
+    // acknowledgments). It waits for body[data-render-done] ("1" = finished,
+    // "notfound" = no document). An owner-side preview is loaded with a
+    // Worker-signed render token for this ONE document (rt=, cid=), never a login.
+    var renderToken = (window.location.search.match(/[?&]rt=(rndr_[A-Za-z0-9_.-]+)/) || [])[1] || null;
+    var renderCid = (window.location.search.match(/[?&]cid=([A-Za-z0-9_-]+)/) || [])[1] || null;
+    function renderDone(v) { if (document.body) { document.body.setAttribute("data-render-done", v); } }
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
     // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
@@ -269,6 +277,32 @@
     function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
     var PM_LABEL = { zelle: "Zelle", check: "Check", cash: "Cash", money_order: "Money order", bank_transfer: "Bank transfer / ACH", card_link: "Card", card: "Card", other: "Other" };
     function byId(id) { return document.getElementById(id); }
+
+    // Docs PDF build: the PDF is printed by Chrome on the server from the same
+    // template and opened as a real https PDF (on iPhone, Safari's own PDF
+    // viewer, where Share / Save to Files works). No blob: URL, no
+    // <a download>, never window.print() on the phone. A preview (owner
+    // signed in to the portal) first asks the Worker for a one-document link.
+    function openPdf(kind) {
+      var err = byId("pdfErr"); if (err) { err.textContent = ""; }
+      if (!previewId) {
+        var url = WORKER_URL + "/api/public/pdf/" + kind + "/" + token;
+        var w0 = window.open(url, "_blank");
+        if (!w0) { window.location.href = url; }
+        return;
+      }
+      var cid = null, tok = null;
+      try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+      if (!cid || !tok) { if (err) { sayErr(err, "Open this preview from the portal to download it."); } return; }
+      var w = window.open("", "_blank");
+      fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/pdf-link", { method: "POST", headers: { "Authorization": "Bearer " + tok, "Content-Type": "application/json" }, body: JSON.stringify({ kind: kind, id: previewId }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && (r.data.error_en || r.data.error)) || "Could not prepare the PDF. Please try again."); }
+          if (w) { w.location.href = r.data.url; } else { window.location.href = r.data.url; }
+        })
+        .catch(function(e) { if (w) { w.close(); } if (err) { sayErr(err, e.message); } console.error(e); });
+    }
     // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
     // as line breaks (the statutory forms rely on them).
     function richHtml(text) {
@@ -513,7 +547,7 @@
       if (mockUrl) { return fetch(mockUrl).then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); }); }
       if (previewId) {
         var cid = null, tok = null;
-        try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; }
+        if (renderToken && renderCid) { cid = renderCid; tok = renderToken; } else { try { cid = localStorage.getItem("apex_client_id"); tok = localStorage.getItem("apex_client_token"); } catch (e) { cid = null; } }
         if (!cid || !tok) { return Promise.reject(new Error("nf")); }
         return fetch(WORKER_URL + "/api/clients/" + encodeURIComponent(cid) + "/gm/acks/" + encodeURIComponent(previewId), { headers: { "Authorization": "Bearer " + tok } })
           .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); });
@@ -522,22 +556,23 @@
     }
 
     function load() {
-      if (!token && !previewId && !mockUrl) { show("cardNotFound"); return Promise.resolve(); }
+      if (!token && !previewId && !mockUrl) { show("cardNotFound"); renderDone("notfound"); return Promise.resolve(); }
       return fetchAck()
         .then(function(d) {
           ack = d.ack;
           applyBranding(ack.business || {});
           document.title = kindTitle() + (ack.business && ack.business.name ? " - " + ack.business.name : "");
           var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !previewId); }
-          if (ack.status === "void") { renderVoid(); show("doc"); return; }
+          if (ack.status === "void") { renderVoid(); show("doc"); renderDone("1"); return; }
           renderMeta(); renderBody(); renderActions();
           var de = byId("disclaimerEnd"); if (de) { de.textContent = ack.disclaimer_line || ""; }
           var pdf = byId("btnPdf");
-          // No print template for acknowledgments: the page itself prints.
-          if (pdf) { pdf.textContent = "Print / Save as PDF"; pdf.onclick = function() { printWithoutToken(); }; }
+          // No print template for acknowledgments: Chrome on the server prints this page.
+          if (pdf) { pdf.textContent = "Download " + (ack.status === "signed" ? "your signed " : "") + (ack.kind === "completion" ? "completion sign-off" : "before-work photos") + " (PDF)"; pdf.onclick = function() { openPdf("ack"); }; }
           show("doc");
+          renderDone("1");
         })
-        .catch(function(e) { console.error(e); show("cardNotFound"); });
+        .catch(function(e) { console.error(e); show("cardNotFound"); renderDone("notfound"); });
     }
 
     window.onload = function() { load(); };

@@ -8255,22 +8255,39 @@ function gmDocUploadImage(input, kind) {
 // and the PDF templates use, so what they see is what the customer gets.
 var gmHeroGallery = null;   // GET /api/hero-gallery (public manifest)
 var gmHeroGalleryErr = null;
-var gmHeroUi = null;        // { cat, idx, mode: "gallery" | "upload", up: {focus_x, focus_y, zoom, tone}, saving }
+// Hero follow-up (B4): GET gm/hero-gallery-private. The client's private
+// collection(s) (JM's own photos): the Worker answers an empty list for every
+// client not on a collection's list, and this client only ever gets its own.
+// All of a client's private photos sit under ONE chip, "Exclusivas".
+var gmHeroPrivate = [];
+var gmHeroUi = null;        // { cat, idx, mode: "gallery" | "upload", up: {focus_x, focus_y, zoom, tone, flip}, saving }
+
+function gmHeroHasPrivate() { return gmHeroPrivate.length > 0; }
 
 function gmHeroImagesOf(cat) {
+  if (cat === GmLabels.HERO_PRIVATE_CHIP.key) { return gmHeroPrivate.slice(); }
   return ((gmHeroGallery && gmHeroGallery.images) || []).filter(function(im) { return im.category === cat; })
     .sort(function(a, b) { return a.order - b.order; });
+}
+
+// The chip a saved gallery key belongs to (null when it is in neither list).
+function gmHeroCatOfKey(key) {
+  var i;
+  for (i = 0; i < gmHeroPrivate.length; i++) { if (gmHeroPrivate[i].key === key) { return GmLabels.HERO_PRIVATE_CHIP.key; } }
+  var all = (gmHeroGallery && gmHeroGallery.images) || [];
+  for (i = 0; i < all.length; i++) { if (all[i].key === key) { return all[i].category; } }
+  return null;
 }
 
 function gmHeroUiFromSettings() {
   var st = gmDocSettings || {};
   var ui = { cat: null, idx: 0, mode: "gallery", saving: false, err: null, upTs: Date.now(),
-    up: { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark" } };
+    up: { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark", flip: false } };
   if (st.hero_gallery_key) {
-    var m = String(st.hero_gallery_key).match(/^([a-z_]+)-(\d+)$/);
-    if (m) {
-      ui.cat = m[1];
-      var list = gmHeroImagesOf(m[1]);
+    var cat = gmHeroCatOfKey(String(st.hero_gallery_key));
+    if (cat) {
+      ui.cat = cat;
+      var list = gmHeroImagesOf(cat);
       for (var i = 0; i < list.length; i++) { if (list[i].key === st.hero_gallery_key) { ui.idx = i; } }
     }
   } else if (st.has_hero) {
@@ -8278,7 +8295,15 @@ function gmHeroUiFromSettings() {
     ui.up = { focus_x: st.hero_focus_x === null || st.hero_focus_x === undefined ? 50 : st.hero_focus_x,
       focus_y: st.hero_focus_y === null || st.hero_focus_y === undefined ? 50 : st.hero_focus_y,
       zoom: st.hero_zoom === null || st.hero_zoom === undefined ? 100 : st.hero_zoom,
-      tone: st.hero_tone === "light" ? "light" : "dark" };
+      tone: st.hero_tone === "light" ? "light" : "dark",
+      flip: !!st.hero_flip };
+  }
+  // B4: a client with its own collection opens on "Exclusivas" (on the photo
+  // in use when that is one of theirs, else the first one).
+  if (gmHeroHasPrivate() && ui.cat !== GmLabels.HERO_PRIVATE_CHIP.key) {
+    ui.mode = "gallery";
+    ui.cat = GmLabels.HERO_PRIVATE_CHIP.key;
+    ui.idx = 0;
   }
   return ui;
 }
@@ -8286,10 +8311,19 @@ function gmHeroUiFromSettings() {
 function gmHeroLoadGallery() {
   if (gmHeroGallery || gmHeroGallery === false) { return; }
   gmHeroGallery = false; // loading
-  fetch(WORKER_URL + "/api/hero-gallery")
-    .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); })
-    .then(function(d) { gmHeroGallery = d; gmHeroGalleryErr = null; gmHeroUi = gmHeroUiFromSettings(); gmHeroRepaint(); })
-    .catch(function(e) { gmHeroGallery = null; gmHeroGalleryErr = e.message; gmHeroRepaint(); });
+  var pub = fetch(WORKER_URL + "/api/hero-gallery")
+    .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.json(); });
+  // Sellers never see the picker; the owner (or an admin previewing) asks
+  // for the client's private collection alongside the shared one.
+  var priv = gmIsSeller() ? Promise.resolve({ collections: [] }) : gmApi("hero-gallery-private");
+  Promise.all([pub, priv])
+    .then(function(res) {
+      var list = [];
+      ((res[1] && res[1].collections) || []).forEach(function(col) { list = list.concat(col.images || []); });
+      gmHeroPrivate = list.sort(function(a, b) { return a.order - b.order; });
+      gmHeroGallery = res[0]; gmHeroGalleryErr = null; gmHeroUi = gmHeroUiFromSettings(); gmHeroRepaint();
+    })
+    .catch(function(e) { gmHeroGallery = null; gmHeroGalleryErr = e.message; console.error("hero gallery: " + e.message); gmHeroRepaint(); });
 }
 
 // Repaint only the picker, so typed-but-unsaved settings fields stay put.
@@ -8358,7 +8392,8 @@ function gmHeroPickerHtml() {
 
   // Industry chooser (C1).
   html += '<div class="gm-hero-cats" role="tablist">';
-  GmLabels.HERO_CATEGORIES.forEach(function(c) {
+  var chips = gmHeroHasPrivate() ? [GmLabels.HERO_PRIVATE_CHIP].concat(GmLabels.HERO_CATEGORIES) : GmLabels.HERO_CATEGORIES;
+  chips.forEach(function(c) {
     var on = ui.mode === "gallery" && ui.cat === c.key;
     html += '<button type="button" role="tab" aria-selected="' + (on ? "true" : "false") + '" class="gm-stage-chip' + (on ? " gm-chip-active" : "") +
       '" onclick="gmHeroPickCat(\'' + c.key + '\')">' + escHtml(GmLabels.heroCategoryLabel(c.key, isEn())) + '</button>';
@@ -8368,7 +8403,7 @@ function gmHeroPickerHtml() {
   if (ui.mode === "upload") {
     // Their own photo (C5): preview + tone toggle + focus tools.
     var upUrl = WORKER_URL + "/api/clients/" + clientId + "/doc-hero-image?ts=" + (ui.upTs || 0);
-    html += gmHeroPreviewHtml(upUrl, { focus_x: ui.up.focus_x, focus_y: ui.up.focus_y, zoom: ui.up.zoom, slide: 0, fill: null, tone: ui.up.tone });
+    html += gmHeroPreviewHtml(upUrl, { focus_x: ui.up.focus_x, focus_y: ui.up.focus_y, zoom: ui.up.zoom, slide: 0, fill: null, tone: ui.up.tone, flip: !!ui.up.flip });
     html += '<div class="gm-hero-tools">' +
       '<div class="gm-hero-seg" role="group" aria-label="' + gmT("Tom dos quadros", "Tile tone") + '">' +
         '<button type="button" class="gm-stage-chip' + (ui.up.tone === "dark" ? " gm-chip-active" : "") + '" onclick="gmHeroTone(\'dark\')">' + gmT("Escuro", "Dark") + '</button>' +
@@ -8379,6 +8414,7 @@ function gmHeroPickerHtml() {
         '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(0, -5)" aria-label="' + gmT("Descer", "Down") + '">↓</button>' +
         '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(5, 0)" aria-label="' + gmT("Esquerda", "Left") + '">←</button>' +
         '<button type="button" class="gm-btn-secondary" onclick="gmHeroNudge(-5, 0)" aria-label="' + gmT("Direita", "Right") + '">→</button>' +
+        '<button type="button" class="gm-btn-secondary' + (ui.up.flip ? " gm-chip-active" : "") + '" aria-pressed="' + (ui.up.flip ? "true" : "false") + '" onclick="gmHeroFlip()">' + gmT("Espelhar", "Flip") + '</button>' +
         '<button type="button" class="gm-btn-secondary" onclick="gmHeroZoomIn()"' + (ui.up.zoom >= 200 ? " disabled" : "") + '>' + gmT("Aproximar", "Zoom in") + ' (' + ui.up.zoom + '%)</button>' +
         '<button type="button" class="gm-btn-secondary" onclick="gmHeroReset()">' + gmT("Redefinir", "Reset") + '</button>' +
       '</div>' +
@@ -8441,7 +8477,7 @@ function gmHeroUseUpload() {
   var ui = gmHeroUiFromSettings();
   gmHeroUi.mode = "upload";
   // Their saved framing only applies while the upload is what is in use.
-  gmHeroUi.up = st.hero_gallery_key ? { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark" } : ui.up;
+  gmHeroUi.up = st.hero_gallery_key ? { focus_x: 50, focus_y: 50, zoom: 100, tone: "dark", flip: false } : ui.up;
   gmHeroRepaint();
 }
 
@@ -8449,13 +8485,19 @@ function gmHeroTone(t) { if (gmHeroUi) { gmHeroUi.up.tone = t === "light" ? "lig
 
 // "Up" moves the picture up in the frame: more of its lower part shows,
 // which is a HIGHER object-position Y. Left likewise raises X.
+// Hero follow-up (A2): while the photo is mirrored, object-position is still
+// read in the photo's own (unmirrored) coordinates, so Left and Right swap
+// to keep moving the picture the way the arrows read on screen.
 function gmHeroNudge(dx, dy) {
   if (!gmHeroUi) { return; }
   var u = gmHeroUi.up;
+  if (u.flip) { dx = -dx; }
   u.focus_x = Math.max(0, Math.min(100, u.focus_x + dx));
   u.focus_y = Math.max(0, Math.min(100, u.focus_y + dy));
   gmHeroRepaint();
 }
+
+function gmHeroFlip() { if (gmHeroUi) { gmHeroUi.up.flip = !gmHeroUi.up.flip; gmHeroRepaint(); } }
 
 function gmHeroZoomIn() { if (gmHeroUi) { gmHeroUi.up.zoom = Math.min(200, gmHeroUi.up.zoom + 10); gmHeroRepaint(); } }
 
@@ -8492,7 +8534,7 @@ function gmHeroSelect(key) {
 
 function gmHeroSaveUpload() {
   var u = gmHeroUi.up;
-  gmHeroSave({ upload: { focus_x: u.focus_x, focus_y: u.focus_y, zoom: u.zoom, tone: u.tone } }, "Imagem de capa salva", "Cover image saved");
+  gmHeroSave({ upload: { focus_x: u.focus_x, focus_y: u.focus_y, zoom: u.zoom, tone: u.tone, flip: !!u.flip } }, "Imagem de capa salva", "Cover image saved");
 }
 
 // The audit trail, in the same bottom sheet + .gm-hist rows the lead

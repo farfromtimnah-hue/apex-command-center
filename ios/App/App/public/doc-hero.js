@@ -2,7 +2,7 @@
 // shared by the six homeowner pages, the six PDF templates and the portal's
 // hero picker (see doc-hero.css for the look).
 //
-// A hero is { focus_x, focus_y, zoom, slide, fill, tone }, as the Worker
+// A hero is { focus_x, focus_y, zoom, slide, fill, tone, flip }, as the Worker
 // sends it on business.hero (a gallery pick copies Nicole's saved values
 // from data/hero-gallery-v1.json; an upload carries the owner's own):
 //   focus_x / focus_y  object-position, percent (default 50 / 50)
@@ -11,6 +11,8 @@
 //   slide              translateX, percent of the photo's width
 //   fill               the band's color behind the photo, or null
 //   tone               "dark" (default) or "light" tiles
+//   flip               true = mirrored horizontally (default false), so a
+//                      subject on the left moves out from under the logo
 
 function docHeroNum(v, dflt, lo, hi) {
   var n = (v === null || v === undefined || v === "") ? NaN : Number(v);
@@ -27,15 +29,26 @@ function docHeroNorm(h) {
     zoom: docHeroNum(h.zoom, 100, fill ? 50 : 100, 200),
     slide: docHeroNum(h.slide, 0, -50, 50),
     fill: fill,
-    tone: h.tone === "light" ? "light" : "dark"
+    tone: h.tone === "light" ? "light" : "dark",
+    flip: h.flip === true || h.flip === 1 || h.flip === "1"
   };
+}
+
+// The img transform: slide, then zoom, then the mirror (last, so the photo
+// is flipped in place). "" when none applies.
+function docHeroTransform(n) {
+  var t = "";
+  if (n.slide !== 0 || n.zoom !== 100) { t = "translateX(" + n.slide + "%) scale(" + (n.zoom / 100) + ")"; }
+  if (n.flip) { t += (t ? " " : "") + "scaleX(-1)"; }
+  return t;
 }
 
 // Inline style for the <img class="hero-img">.
 function docHeroImgStyle(h) {
   var n = docHeroNorm(h);
   var s = "object-position:" + n.focus_x + "% " + n.focus_y + "%;";
-  if (n.slide !== 0 || n.zoom !== 100) { s += "transform:translateX(" + n.slide + "%) scale(" + (n.zoom / 100) + ");"; }
+  var t = docHeroTransform(n);
+  if (t) { s += "transform:" + t + ";"; }
   return s;
 }
 
@@ -59,6 +72,6 @@ function docHeroApply(band, img, h) {
   }
   if (img) {
     img.style.objectPosition = n.focus_x + "% " + n.focus_y + "%";
-    img.style.transform = (n.slide !== 0 || n.zoom !== 100) ? "translateX(" + n.slide + "%) scale(" + (n.zoom / 100) + ")" : "";
+    img.style.transform = docHeroTransform(n);
   }
 }

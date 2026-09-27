@@ -1,4 +1,5 @@
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
+import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 // Apex Command Center — Cloudflare Worker
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
@@ -13523,6 +13524,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // settings and their audit trail. Owner only -- the seller
                 // list below deliberately never names these.
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
+                // Hero follow-up (B3): the client's private hero collections
+                // (empty for every client not on a collection's list).
+                if (gmRest === "hero-gallery-private") { return true; }
                 // Estimates (phase 2): list, detail, and the send-message templates.
                 if (gmRest === "estimates" || gmRest === "doc-messages") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
@@ -22665,6 +22669,8 @@ async function gmDocSettingsRow(env, clientId) {
         hero_slide:            (r.hero_slide === null || r.hero_slide === undefined) ? null : r.hero_slide,
         hero_fill:             gmDocHexColor(r.hero_fill),
         hero_tone:             r.hero_tone === "light" ? "light" : (r.hero_tone === "dark" ? "dark" : null),
+        // Hero follow-up (A2): mirror the photo horizontally. NULL = not set.
+        hero_flip:             (r.hero_flip === null || r.hero_flip === undefined) ? null : (r.hero_flip ? 1 : 0),
         // Brand colors for the customer-facing documents. NEVER Apex's own
         // palette: a homeowner is dealing with the client's company. Null
         // means "use the neutral default" (dark gray + white).
@@ -22934,7 +22940,7 @@ async function handlePostGmDocHero(id, request, env) {
             "ON CONFLICT (client_id) DO UPDATE SET hero_r2_key = excluded.hero_r2_key, updated_by = excluded.updated_by, updated_at = datetime('now'), " +
             // Hero build: uploading again clears a gallery pick, and a new
             // photo starts from the default framing (the owner frames it next).
-            "hero_gallery_key = NULL, hero_focus_x = NULL, hero_focus_y = NULL, hero_zoom = NULL, hero_slide = NULL, hero_fill = NULL, hero_tone = NULL"
+            "hero_gallery_key = NULL, hero_focus_x = NULL, hero_focus_y = NULL, hero_zoom = NULL, hero_slide = NULL, hero_fill = NULL, hero_tone = NULL, hero_flip = NULL"
         ).bind(id, key, actor).run();
         if (cur && cur.hero_gallery_key) {
             await env.DB.prepare(
@@ -22988,22 +22994,32 @@ async function handlePutGmDocHeroChoice(id, request, env) {
         if (block) { return block; }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
-        var cur = await env.DB.prepare("SELECT client_id, hero_r2_key, hero_gallery_key, hero_focus_x, hero_focus_y, hero_zoom, hero_tone FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
+        var cur = await env.DB.prepare("SELECT client_id, hero_r2_key, hero_gallery_key, hero_focus_x, hero_focus_y, hero_zoom, hero_tone, hero_flip FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
         var actor = actorName(user);
         var v, field, oldVal, newVal;
         if (body.gallery_key !== undefined) {
-            var g = heroGalleryImage(String(body.gallery_key || ""));
+            var gkey = String(body.gallery_key || "");
+            var g = heroGalleryImage(gkey);
+            if (!g) {
+                // Hero follow-up (B3): a private photo is picked only by a
+                // client on its collection's list. Anyone else gets a 403.
+                var pv = heroPrivateImage(gkey);
+                if (pv && !heroPrivateAllowed(pv.collection, id)) {
+                    return jsonErr2("Esta imagem não está disponível para a sua empresa.", "This image is not available to your business.", 403);
+                }
+                g = pv ? pv.image : null;
+            }
             if (!g) { return jsonErr2("Imagem da galeria não encontrada.", "Gallery image not found.", 400); }
-            v = { hero_gallery_key: g.key, hero_focus_x: g.focus_x, hero_focus_y: g.focus_y, hero_zoom: g.zoom, hero_slide: g.slide, hero_fill: g.fill || null, hero_tone: g.tone === "light" ? "light" : "dark" };
+            v = { hero_gallery_key: g.key, hero_focus_x: g.focus_x, hero_focus_y: g.focus_y, hero_zoom: g.zoom, hero_slide: g.slide, hero_fill: g.fill || null, hero_tone: g.tone === "light" ? "light" : "dark", hero_flip: g.flip ? 1 : 0 };
             field = "hero_gallery_key"; oldVal = (cur && cur.hero_gallery_key) || null; newVal = g.key;
         } else if (body.upload && typeof body.upload === "object") {
             if (!cur || !cur.hero_r2_key) { return jsonErr2("Envie uma imagem primeiro.", "Upload an image first.", 400); }
             var u = body.upload;
             function num(x, dflt, lo, hi) { var n = gmNum(x); if (n === null) { return dflt; } return Math.max(lo, Math.min(hi, Math.round(n))); }
-            v = { hero_gallery_key: null, hero_focus_x: num(u.focus_x, 50, 0, 100), hero_focus_y: num(u.focus_y, 50, 0, 100), hero_zoom: num(u.zoom, 100, 100, 200), hero_slide: 0, hero_fill: null, hero_tone: u.tone === "light" ? "light" : "dark" };
+            v = { hero_gallery_key: null, hero_focus_x: num(u.focus_x, 50, 0, 100), hero_focus_y: num(u.focus_y, 50, 0, 100), hero_zoom: num(u.zoom, 100, 100, 200), hero_slide: 0, hero_fill: null, hero_tone: u.tone === "light" ? "light" : "dark", hero_flip: u.flip === true ? 1 : 0 };
             field = "hero_framing";
-            oldVal = cur.hero_gallery_key ? cur.hero_gallery_key : (cur.hero_focus_x === null || cur.hero_focus_x === undefined ? null : [cur.hero_focus_x, cur.hero_focus_y, cur.hero_zoom, cur.hero_tone || "dark"].join(" / "));
-            newVal = [v.hero_focus_x, v.hero_focus_y, v.hero_zoom, v.hero_tone].join(" / ");
+            oldVal = cur.hero_gallery_key ? cur.hero_gallery_key : (cur.hero_focus_x === null || cur.hero_focus_x === undefined ? null : [cur.hero_focus_x, cur.hero_focus_y, cur.hero_zoom, cur.hero_tone || "dark"].join(" / ") + (cur.hero_flip ? " / flip" : ""));
+            newVal = [v.hero_focus_x, v.hero_focus_y, v.hero_zoom, v.hero_tone].join(" / ") + (v.hero_flip ? " / flip" : "");
         } else {
             return jsonErr2("Escolha uma imagem da galeria ou ajuste a sua.", "Pick a gallery image or frame your own.", 400);
         }
@@ -23043,12 +23059,62 @@ function heroGalleryImage(key) {
     return null;
 }
 
+// Hero follow-up (B): PRIVATE collections (data/hero-gallery-private-v1.json).
+// A client's own material (JM LUXURY POOLS' catalogs and website), listed and
+// pickable ONLY by the client_ids on the collection's list. The bytes are
+// served by key like the shared gallery (homeowner pages and PDFs load them
+// with no login); the protection is that nobody else can LIST or PICK them.
+function heroPrivateCollections() {
+    return (HERO_GALLERY_PRIVATE_V1 && HERO_GALLERY_PRIVATE_V1.collections) || [];
+}
+function heroPrivateAllowed(col, clientId) {
+    return !!(col && clientId && (col.allowed_client_ids || []).indexOf(clientId) !== -1);
+}
+function heroPrivateImage(key) {
+    var cols = heroPrivateCollections();
+    for (var c = 0; c < cols.length; c++) {
+        var list = cols[c].images || [];
+        for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return { collection: cols[c], image: list[i] }; } }
+    }
+    return null;
+}
+// A saved key from either manifest (the hero on a document).
+function heroAnyImage(key) {
+    var g = heroGalleryImage(key);
+    if (g) { return g; }
+    var p = heroPrivateImage(key);
+    return p ? p.image : null;
+}
+
+// GET /api/clients/:id/gm/hero-gallery-private   (owner, or an admin
+// previewing the client). { collections: [...] } with only the collections
+// this client is on; an empty list for everyone else. Never cached publicly.
+async function handleGetGmHeroGalleryPrivate(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var origin = new URL(request.url).origin;
+        var out = heroPrivateCollections().filter(function(col) { return heroPrivateAllowed(col, id); }).map(function(col) {
+            return { key: col.key, label_pt: col.label_pt, label_en: col.label_en,
+                images: (col.images || []).map(function(im) {
+                    return { key: im.key, category: col.key, order: im.order, focus_x: im.focus_x, focus_y: im.focus_y, zoom: im.zoom,
+                        slide: im.slide, fill: im.fill, tone: im.tone, flip: !!im.flip, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
+                }) };
+        });
+        return new Response(JSON.stringify({ ok: true, collections: out }), { status: 200,
+            headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json", "Cache-Control": "private, no-store" }) });
+    } catch (e) {
+        return jsonErr("Error fetching private hero collections: " + e.message, 500);
+    }
+}
+
 // The hero on a customer document: { url, hero } where hero is the framing
 // doc-hero.js reads. A gallery pick wins over an upload only while
 // hero_gallery_key is set. s is a gmDocSettingsRow().
 function gmDocHero(origin, clientId, s) {
     s = s || {};
-    var g = s.hero_gallery_key ? heroGalleryImage(s.hero_gallery_key) : null;
+    var g = s.hero_gallery_key ? heroAnyImage(s.hero_gallery_key) : null;
     var url = g ? origin + "/api/hero-gallery/" + g.key + ".jpg"
         : (s.hero_r2_key ? origin + "/api/clients/" + clientId + "/doc-hero-image" : null);
     if (!url) { return { url: null, hero: null }; }
@@ -23063,7 +23129,8 @@ function gmDocHero(origin, clientId, s) {
         zoom:    pick("hero_zoom", g && g.zoom, 100),
         slide:   pick("hero_slide", g && g.slide, 0),
         fill:    pick("hero_fill", g ? g.fill : undefined, null),
-        tone:    pick("hero_tone", g && g.tone, "dark")
+        tone:    pick("hero_tone", g && g.tone, "dark"),
+        flip:    !!pick("hero_flip", g ? !!g.flip : undefined, false)
     } };
 }
 
@@ -23071,7 +23138,7 @@ function handleGetHeroGallery(request) {
     var origin = new URL(request.url).origin;
     var images = ((HERO_GALLERY_V1 && HERO_GALLERY_V1.images) || []).map(function(im) {
         return { key: im.key, category: im.category, order: im.order, focus_x: im.focus_x, focus_y: im.focus_y,
-            zoom: im.zoom, slide: im.slide, fill: im.fill, tone: im.tone, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
+            zoom: im.zoom, slide: im.slide, fill: im.fill, tone: im.tone, flip: !!im.flip, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
     });
     var headers = Object.assign({}, CORS_HEADERS, { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" });
     return new Response(JSON.stringify({ version: HERO_GALLERY_V1.version, categories: HERO_GALLERY_V1.categories, images: images }), { status: 200, headers: headers });
@@ -23083,8 +23150,13 @@ function handleGetHeroGallery(request) {
 async function handleGetHeroGalleryImage(key, request, env) {
     try {
         var im = heroGalleryImage(key);
-        if (!im) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
-        var obj = await env.ASSETS.get("hero-gallery/" + im.file);
+        var r2key = im ? "hero-gallery/" + im.file : null;
+        if (!im) {
+            var pv = heroPrivateImage(key);
+            if (pv) { r2key = "hero-gallery-private/" + pv.collection.key + "/" + pv.image.file; }
+        }
+        if (!r2key) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var obj = await env.ASSETS.get(r2key);
         if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
         var headers = Object.assign({}, CORS_HEADERS, {
             "Content-Type": "image/jpeg",
@@ -38951,7 +39023,7 @@ async function handleFetch(request, env, ctx) {
         // PUBLIC document hero gallery (hero build): the manifest and the
         // images, read-only, no auth, like /doc-hero-image.
         if (path === "/api/hero-gallery" && method === "GET") { return handleGetHeroGallery(request); }
-        var heroGalleryMatch = path.match(/^\/api\/hero-gallery\/([a-z_]+-[0-9]+)\.jpg$/);
+        var heroGalleryMatch = path.match(/^\/api\/hero-gallery\/([a-z_]+(?:-[a-z_]+)*-[0-9]+)\.jpg$/);
         if (heroGalleryMatch && method === "GET") { return handleGetHeroGalleryImage(heroGalleryMatch[1], request, env); }
 
         // PUBLIC intake for APEX'S OWN referral partners. Separate path and
@@ -39570,6 +39642,9 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 5 && gmCol === "doc-hero-choice" && method === "PUT") {
                     return handlePutGmDocHeroChoice(cid, request, env);
+                }
+                if (segs.length === 5 && gmCol === "hero-gallery-private" && method === "GET") {
+                    return handleGetGmHeroGalleryPrivate(cid, request, env);
                 }
                 // Estimates (phase 2).
                 if (segs.length === 5 && gmCol === "estimates") {

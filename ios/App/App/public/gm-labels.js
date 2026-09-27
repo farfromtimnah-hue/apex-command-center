@@ -341,10 +341,14 @@
     { key: "boutique",       pt: "Moda e tecidos",         en: "Boutique and fashion" },
     { key: "water",          pt: "Filtros de água",        en: "Water filters" }
   ];
+  // Hero follow-up (B4): a client's PRIVATE collection (their own photos),
+  // shown as the first chip only to the clients on its list.
+  var HERO_PRIVATE_CHIP = { key: "exclusive", pt: "Exclusivas", en: "Exclusive" };
   function heroCategoryLabel(key, en) {
     for (var i = 0; i < HERO_CATEGORIES.length; i++) {
       if (HERO_CATEGORIES[i].key === key) { return en ? HERO_CATEGORIES[i].en : HERO_CATEGORIES[i].pt; }
     }
+    if (key === HERO_PRIVATE_CHIP.key) { return en ? HERO_PRIVATE_CHIP.en : HERO_PRIVATE_CHIP.pt; }
     return key === null || key === undefined ? "" : String(key);
   }
 
@@ -714,6 +718,7 @@
     DOC_PAYMENT_METHODS: DOC_PAYMENT_METHODS,
     paymentMethodLabel: paymentMethodLabel,
     HERO_CATEGORIES: HERO_CATEGORIES,
+    HERO_PRIVATE_CHIP: HERO_PRIVATE_CHIP,
     heroCategoryLabel: heroCategoryLabel,
     PRICING_KINDS: PRICING_KINDS,
     pricingKindLabel: pricingKindLabel,

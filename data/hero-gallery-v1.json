@@ -1,6 +1,6 @@
 {
  "version": 1,
- "note": "Nicole's curated document heroes (2026-09-27). Files live in R2 under hero-gallery/<file>, served by GET /api/hero-gallery/<key>.jpg. focus_x/focus_y = object-position %, zoom = % (below 100 only with a fill), slide = translateX %, tone = tile tone. Unsplash license. Pavers (pavers-golden.jpg / pavers-dusk.jpg from Nicole's Flow account) not stored yet: the source files were not found.",
+ "note": "Nicole's curated document heroes (2026-09-27). Files live in R2 under hero-gallery/<file>, served by GET /api/hero-gallery/<key>.jpg. focus_x/focus_y = object-position %, zoom = % (below 100 only with a fill), slide = translateX %, tone = tile tone. Unsplash license. Pavers: pavers-golden.jpg / pavers-dusk.jpg from Nicole's Flow account (2026-09-27, resized to 2400 q85); tile-7 reuses the pavers-2.jpg file. flip = mirror horizontally (optional, default false).",
  "categories": [
   {
    "key": "pools",
@@ -107,6 +107,38 @@
    "retouch": null
   },
   {
+   "key": "pavers-1",
+   "category": "pavers",
+   "order": 1,
+   "file": "pavers-1.jpg",
+   "focus_x": 50,
+   "focus_y": 50,
+   "zoom": 100,
+   "slide": 0,
+   "fill": null,
+   "tone": "dark",
+   "flip": false,
+   "unsplash_id": null,
+   "source": "Nicole's Flow account: pavers-golden.jpg",
+   "retouch": null
+  },
+  {
+   "key": "pavers-2",
+   "category": "pavers",
+   "order": 2,
+   "file": "pavers-2.jpg",
+   "focus_x": 50,
+   "focus_y": 45,
+   "zoom": 100,
+   "slide": 0,
+   "fill": null,
+   "tone": "dark",
+   "flip": false,
+   "unsplash_id": null,
+   "source": "Nicole's Flow account: pavers-dusk.jpg",
+   "retouch": null
+  },
+  {
    "key": "outdoor_living-1",
    "category": "outdoor_living",
    "order": 1,
@@ -202,6 +234,22 @@
    "fill": null,
    "tone": "dark",
    "unsplash_id": "1617895731464-0f1fe7eb6fba",
+   "retouch": null
+  },
+  {
+   "key": "tile-7",
+   "category": "tile",
+   "order": 7,
+   "file": "pavers-2.jpg",
+   "focus_x": 50,
+   "focus_y": 45,
+   "zoom": 100,
+   "slide": 0,
+   "fill": null,
+   "tone": "dark",
+   "flip": false,
+   "unsplash_id": null,
+   "source": "Nicole's Flow account: pavers-dusk.jpg (same file as pavers-2)",
    "retouch": null
   },
   {

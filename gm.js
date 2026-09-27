@@ -3039,8 +3039,14 @@ function gmSaveLeadField(key, value, after, reason) {
   if (reason) { payload._reason = reason; }
   gmApi("leads/" + lead.id, { method: "PUT", body: payload })
     .then(function(d) {
-      var idx = gmLeadsData.leads.indexOf(lead);
-      if (idx !== -1 && d.lead) {
+      // N20: found by ID, not by object. The previous save's background
+      // refetch (gmLoadCrmSilent) replaces every lead object, so an identity
+      // lookup missed from the second quick edit on and the open sheet kept
+      // redrawing the old values while D1 had the new ones.
+      var idx = -1;
+      gmLeadsData.leads.forEach(function(l, i) { if (l.id === lead.id) { idx = i; } });
+      if (gmDetailLead && gmDetailLead.id === lead.id) { lead = gmDetailLead; }
+      if (d.lead) {
         // keep the joined partner name fresh
         if (key === "parceiro_id") {
           var name = null;
@@ -3059,8 +3065,8 @@ function gmSaveLeadField(key, value, after, reason) {
         // NEXT cost edit no longer knows the value came from an estimate and
         // saves without asking for a reason (fix build, A1b).
         Object.keys(lead).forEach(function(k) { if (d.lead[k] === undefined) { d.lead[k] = lead[k]; } });
-        gmLeadsData.leads[idx] = d.lead;
-        gmDetailLead = d.lead;
+        if (idx !== -1) { gmLeadsData.leads[idx] = d.lead; }
+        if (gmDetailLead && gmDetailLead.id === d.lead.id) { gmDetailLead = d.lead; }
       }
       gmLoadCrmSilent();
       if (after) { after(); }

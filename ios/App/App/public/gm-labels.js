@@ -341,6 +341,31 @@
     { key: "boutique",       pt: "Moda e tecidos",         en: "Boutique and fashion" },
     { key: "water",          pt: "Filtros de água",        en: "Water filters" }
   ];
+  // Hero follow-up F1: gm_job_value_history.source and .field.
+  var VALUE_HISTORY_SOURCES = [
+    { key: "estimate",     pt: "Orçamento",     en: "Estimate" },
+    { key: "change_order", pt: "Aditivo",       en: "Change order" },
+    { key: "contract",     pt: "Contrato",      en: "Contract" },
+    { key: "manual",       pt: "Edição manual", en: "Manual edit" }
+  ];
+  var VALUE_HISTORY_FIELDS = [
+    { key: "valor",                pt: "Valor",                en: "Value" },
+    { key: "material",             pt: "Material",             en: "Materials" },
+    { key: "mao_de_obra",          pt: "Mão de obra",          en: "Labor" },
+    { key: "outros",               pt: "Outros",               en: "Other" },
+    { key: "custo_administrativo", pt: "Custo administrativo", en: "Administrative cost" },
+    { key: "comissao",             pt: "Comissão vendedor",    en: "Sales commission" },
+    { key: "imposto",              pt: "Imposto",              en: "Tax" },
+    { key: "inicio",               pt: "Início",               en: "Start" },
+    { key: "prazo_previsto",       pt: "Prazo previsto",       en: "Deadline" },
+    { key: "contract_price_cents", pt: "Preço do contrato",    en: "Contract price" },
+    { key: "final_total_cents",    pt: "Total final",          en: "Final total" }
+  ];
+  function valueHistoryLabel(list, key, en) {
+    for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return en ? list[i].en : list[i].pt; } }
+    return key === null || key === undefined ? "" : String(key);
+  }
+
   // Hero follow-up (B4): a client's PRIVATE collection (their own photos),
   // shown as the first chip only to the clients on its list.
   var HERO_PRIVATE_CHIP = { key: "exclusive", pt: "Exclusivas", en: "Exclusive" };
@@ -719,6 +744,8 @@
     paymentMethodLabel: paymentMethodLabel,
     HERO_CATEGORIES: HERO_CATEGORIES,
     HERO_PRIVATE_CHIP: HERO_PRIVATE_CHIP,
+    valueHistorySourceLabel: function(key, en) { return valueHistoryLabel(VALUE_HISTORY_SOURCES, key, en); },
+    valueHistoryFieldLabel: function(key, en) { return valueHistoryLabel(VALUE_HISTORY_FIELDS, key, en); },
     heroCategoryLabel: heroCategoryLabel,
     PRICING_KINDS: PRICING_KINDS,
     pricingKindLabel: pricingKindLabel,

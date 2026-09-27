@@ -13608,6 +13608,9 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(gmRest)) { return true; }
+                // Hero follow-up F1: the project's value history (owner only;
+                // never on the seller list, the handler refuses sellers too).
+                if (/^(jobs|leads)\/[A-Za-z0-9-]+\/value-history$/.test(gmRest)) { return true; }
                 // Dispute-prevention tools.
                 if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|punch|lienors|affidavit)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
@@ -23715,6 +23718,29 @@ function gmEstValorOption(est) {
 var GM_FINAL_CENTS_JOB_SQL = "(SELECT fc.contract_amount_cents FROM gm_contracts fc WHERE fc.client_id = gm_jobs.client_id AND fc.status = 'completed' AND (fc.job_id = gm_jobs.id OR (gm_jobs.lead_id IS NOT NULL AND fc.lead_id = gm_jobs.lead_id)) ORDER BY fc.homeowner_signed_at DESC LIMIT 1)";
 var GM_FINAL_CENTS_LEAD_SQL = "(SELECT fc.contract_amount_cents FROM gm_contracts fc WHERE fc.client_id = gm_leads.client_id AND fc.status = 'completed' AND fc.lead_id = gm_leads.id ORDER BY fc.homeowner_signed_at DESC LIMIT 1)";
 
+// GET /api/clients/:id/gm/jobs/:jobId/value-history   (F1)
+// GET /api/clients/:id/gm/leads/:leadId/value-history (H1)
+// Newest first. Owner / admin only: costs are the business's, not a seller's.
+// The actor goes out through jsonOk, so a developer or 'system' is null (E1).
+async function handleGetGmValueHistory(id, kind, rowId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var isJob = kind === "jobs";
+        var row = await gmOwnedRow(env, isJob ? "gm_jobs" : "gm_leads", rowId, id);
+        if (!row) { return jsonErr(isJob ? "Project not found" : "Lead not found", 404); }
+        var rows = (await env.DB.prepare(
+            "SELECT id, entity, field, old_value, new_value, source, source_ref, actor, created_at FROM gm_job_value_history " +
+            "WHERE client_id = ? AND entity = ? AND " + (isJob ? "job_id" : "lead_id") + " = ? ORDER BY created_at DESC, rowid DESC LIMIT 200"
+        ).bind(id, isJob ? "job" : "lead", rowId).all()).results || [];
+        return jsonOk({ history: rows });
+    } catch (e) {
+        return jsonErr("Error fetching value history: " + e.message, 500);
+    }
+}
+
 // The same number read back (for display, a lead event's wording, invoices).
 // null when the lead/job has no signed contract.
 async function gmDealFinalCents(env, clientId, leadId, jobId) {
@@ -24706,7 +24732,23 @@ async function gmInvContract(env, clientId, jobId, estimateId, today) {
     var pays = await env.DB.prepare("SELECT p.* FROM gm_invoice_payments p JOIN gm_invoices i ON i.id = p.invoice_id WHERE i.client_id = ? AND i.job_id = ? AND i.status <> 'void'").bind(clientId, jobId).all();
     var creds = await env.DB.prepare("SELECT c.* FROM gm_invoice_credits c JOIN gm_invoices i ON i.id = c.invoice_id WHERE i.client_id = ? AND i.job_id = ? AND i.status <> 'void'").bind(clientId, jobId).all();
     var contractTotal = 0;
-    if (estimateId) {
+    // Hero follow-up F2 (Nicole 2026-09-27: "The invoice has to pull from the
+    // final price which would include the change orders"). ONE source: a
+    // signed contract's final total (signed price + every signed change
+    // order, gmDealFinalCents = the contract page's after-change-orders line
+    // and the project value). Without a contract: the sum of the lead's
+    // accepted estimates when there is more than one, else (as before) the
+    // invoice's own accepted estimate. Receipts already issued keep their
+    // frozen balances (gmInvFreezeReceiptNumbers writes them once, WHERE
+    // balance_after_cents IS NULL; gmInvPublicPayload reads them back).
+    var invJob = await env.DB.prepare("SELECT lead_id FROM gm_jobs WHERE id = ? AND client_id = ?").bind(jobId, clientId).first();
+    var finalCents = await gmDealFinalCents(env, clientId, invJob ? invJob.lead_id : null, jobId);
+    if (finalCents !== null) { contractTotal = finalCents; }
+    else if (invJob && invJob.lead_id) {
+        var accSums = await gmEstAcceptedSums(env, clientId, invJob.lead_id);
+        if (accSums.count > 1) { contractTotal = accSums.total_cents; }
+    }
+    if (!contractTotal && estimateId) {
         var est = await env.DB.prepare("SELECT accepted_option_id FROM gm_estimates WHERE id = ? AND client_id = ?").bind(estimateId, clientId).first();
         if (est && est.accepted_option_id) {
             var opt = await env.DB.prepare("SELECT total_cents FROM gm_estimate_options WHERE id = ?").bind(est.accepted_option_id).first();
@@ -24717,14 +24759,16 @@ async function gmInvContract(env, clientId, jobId, estimateId, today) {
     (invs.results || []).forEach(function(i) { invoiced += i.amount_cents || 0; lateFees += i.late_fee_cents || 0; });
     (pays.results || []).forEach(function(p) { if (p.state === "verified") { paid += p.amount_cents; } if (p.state === "pending_verification") { pending += p.amount_cents; } });
     (creds.results || []).forEach(function(c) { if (c.kind === "refund") { refunds += c.amount_cents; } else { credits += c.amount_cents; } });
-    // Late fees count in the remaining contract balance (A7). The accepted
-    // estimate is the contract; fees are added on top of it.
-    var contract = (contractTotal || (invoiced - lateFees)) + lateFees;
+    // Late fees count in the remaining contract balance (A7), on top of the
+    // price. F2: contract_total_cents is the price itself (the final total),
+    // so "Contract total" reads the same number as the contract page; the
+    // fees show on their own line.
+    var price = contractTotal || (invoiced - lateFees);
     var paidNet = Math.max(0, paid - refunds);
     return {
-        contract_total_cents: contract, invoiced_cents: invoiced, paid_cents: paidNet, verified_cents: paid,
+        contract_total_cents: price, invoiced_cents: invoiced, paid_cents: paidNet, verified_cents: paid,
         refund_cents: refunds, credit_cents: credits, pending_cents: pending, late_fee_cents: lateFees,
-        remaining_contract_cents: Math.max(0, contract - paidNet - credits)
+        remaining_contract_cents: Math.max(0, price + lateFees - paidNet - credits)
     };
 }
 
@@ -24873,7 +24917,7 @@ async function handleGetGmInvoice(id, invId, request, env) {
         // Same shape the public payload uses, so gm.js reads one contract object.
         var contract = { total_cents: contractRaw.contract_total_cents, invoiced_cents: contractRaw.invoiced_cents, paid_cents: contractRaw.paid_cents,
                          credit_cents: contractRaw.credit_cents, refund_cents: contractRaw.refund_cents, pending_cents: contractRaw.pending_cents,
-                         remaining_cents: contractRaw.remaining_contract_cents };
+                         late_fee_cents: contractRaw.late_fee_cents, remaining_cents: contractRaw.remaining_contract_cents };
         var settings = await gmDocSettingsRow(env, id);
         var out = gmInvOut(inv, d, contract);
         var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
@@ -25237,7 +25281,7 @@ async function gmInvPublicPayload(env, inv, origin) {
         paid_cents: d.paid_cents, credit_cents: d.credit_cents, refund_cents: d.refund_cents, balance_cents: d.balance_cents,
         payments: inv.payments.filter(function(p) { return p.state === "verified"; }).map(function(p) { return { paid_date: p.paid_date, method: p.method, reference: p.reference, amount_cents: p.amount_cents, receipt_number: p.receipt_number }; }),
         credits: inv.credits.map(function(c) { return { kind: c.kind, number: c.number, amount_cents: c.amount_cents, reason: c.reason, created_at: c.created_at }; }),
-        contract: { total_cents: contract.contract_total_cents, paid_cents: contract.paid_cents, credit_cents: contract.credit_cents, refund_cents: contract.refund_cents, remaining_cents: contract.remaining_contract_cents },
+        contract: { total_cents: contract.contract_total_cents, late_fee_cents: contract.late_fee_cents, paid_cents: contract.paid_cents, credit_cents: contract.credit_cents, refund_cents: contract.refund_cents, remaining_cents: contract.remaining_contract_cents },
         scope: scope,
         business: {
             name: settings.legal_name || (client && client.name) || "", address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
@@ -39922,6 +39966,7 @@ async function handleFetch(request, env, ctx) {
                     return handlePostGmJobContract(cid, segs[5], request, env);
                 }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "accepted-estimates" && method === "GET") { return handleGetGmJobAcceptedEstimates(cid, segs[5], request, env); }
+                if (segs.length === 7 && (gmCol === "jobs" || gmCol === "leads") && segs[6] === "value-history" && method === "GET") { return handleGetGmValueHistory(cid, gmCol, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "contracts" && method === "GET") { return handleGetGmContracts(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts" && segs[5] === "awaiting" && method === "GET") { return handleGetGmContractsAwaiting(cid, request, env); }
                 if (segs.length === 6 && gmCol === "contracts") {

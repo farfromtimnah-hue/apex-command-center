@@ -3710,6 +3710,7 @@ function gmOpenJob(idx) {
   // notes to. A seller has no route to either, so neither is fetched.
   if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); gmDLoadJobTools(gmSheetRow.id); }
   if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
+    gmLoadValueHistory("jobs", gmSheetRow.id, "gmJobValueHistory");
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
   }
@@ -5451,6 +5452,47 @@ function gmDSubsCardHtml() {
 // send). NO-CONTRACT NOTICE (C2): a warning when a job over $2,500 with no
 // signed contract gets progress, a second invoice send, or a status change.
 // ═════════════════════════════════════════════════════════════════════════
+// ── Value history (hero follow-up F1 / H1) ────────────────────────────────
+// gm_job_value_history for a project (kind "jobs") or a lead ("leads"),
+// rendered into box id. Money fields are dollars; the two H1 price columns are
+// cents; dates print as dates. A null actor (a developer or an automatic
+// change, E1) shows only the date and time.
+var GM_VH_CENTS = { contract_price_cents: 1, final_total_cents: 1 };
+var GM_VH_DATES = { inicio: 1, prazo_previsto: 1 };
+function gmValueHistoryValue(field, v) {
+  if (v === null || v === undefined || v === "") { return "—"; }
+  if (GM_VH_DATES[field]) { return formatDate(v); }
+  var n = Number(v);
+  if (isNaN(n)) { return String(v); }
+  return gmMoney(GM_VH_CENTS[field] ? n : Math.round(n * 100));
+}
+function gmLoadValueHistory(kind, rowId, boxId) {
+  var box = document.getElementById(boxId);
+  if (!box) { return; }
+  box.innerHTML = gmSheetSection(gmT("Histórico de valores", "Value history"), '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi(kind + "/" + encodeURIComponent(rowId) + "/value-history")
+    .then(function(d) {
+      var b = document.getElementById(boxId);
+      if (!b) { return; }
+      var rows = d.history || [];
+      var inner = "";
+      if (!rows.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhuma alteração registrada ainda.", "No changes recorded yet.") + '</p>'; }
+      rows.forEach(function(h) {
+        var src = GmLabels.valueHistorySourceLabel(h.source, isEn()) + (h.source_ref ? " " + h.source_ref : "");
+        inner += '<div class="gm-hist">' +
+          '<div class="gm-hist-line"><strong>' + escHtml(GmLabels.valueHistoryFieldLabel(h.field, isEn())) + '</strong> ' +
+            escHtml(gmValueHistoryValue(h.field, h.old_value)) + ' → ' + escHtml(gmValueHistoryValue(h.field, h.new_value)) + '</div>' +
+          '<div class="gm-hist-meta">' + escHtml(formatDateTimeUTC(h.created_at)) + ' · ' + escHtml(src) + (h.actor ? ' · ' + escHtml(h.actor) : "") + '</div></div>';
+      });
+      b.innerHTML = gmSheetSection(gmT("Histórico de valores", "Value history"), '<div style="padding:4px 12px 8px;">' + inner + '</div>');
+    })
+    .catch(function(e) {
+      var b = document.getElementById(boxId);
+      if (b) { b.innerHTML = gmSheetSection(gmT("Histórico de valores", "Value history"), '<p class="gm-warn" style="padding:10px 12px;">' + escHtml(e.message) + '</p>'); }
+      console.error("value history: " + e.message);
+    });
+}
+
 var gmJobCOs = {};
 function gmLoadJobChangeOrders(jobId) {
   if (!gmContractsEnabled()) { return; }
@@ -6166,6 +6208,9 @@ function gmJobSheetBody(row, spec) {
     // edit, and the target-margin warning starts including tax automatically.
     gmSheetRowHtml("tag", gmT("Imposto ($)", "Tax ($)"),
       val("imposto"), edit("imposto")));
+  // Hero follow-up F1: every change to the value, costs and dates, newest
+  // first (filled by gmLoadValueHistory; owner only).
+  if (row && row.id && !gmIsSeller()) { body += '<div id="gmJobValueHistory"></div>'; }
 
   // ── Schedule ──────────────────────────────────────────────────────────
   body += gmSheetSection(gmT("Prazos", "Schedule"),
@@ -9923,6 +9968,7 @@ function gmRenderInvoiceSheet() {
   // Money lines (3c): separate labelled lines, so a big job never reads as overdue.
   body += gmSheetSection(gmT("Valores", "Amounts"),
     gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), gmMoney(c.total_cents)) +
+    (c.late_fee_cents ? gmSheetRowHtml("tag", gmT("Juros por atraso", "Late fees"), gmMoney(c.late_fee_cents)) : "") +
     gmSheetRowHtml("check", gmT("Recebido até agora (verificado)", "Paid to date (verified)"), gmMoney(c.paid_cents)) +
     ((c.credit_cents || c.refund_cents) ? gmSheetRowHtml("tag", gmT("Créditos e reembolsos", "Credits and refunds"), gmT("créditos ", "credits ") + gmMoney(c.credit_cents) + " · " + gmT("reembolsos ", "refunds ") + gmMoney(c.refund_cents)) : "") +
     gmSheetRowHtml("dollar", gmT("Esta fatura", "This invoice"), gmMoney(inv.amount_cents) + (inv.step_label ? ' <span class="muted">' + escHtml(gmStepLabel(inv.step_label)) + (inv.step_pct ? " " + inv.step_pct + "%" : "") + '</span>' : "")) +

@@ -308,6 +308,7 @@
       if (bal) {
         bal.innerHTML =
           '<div class="row"><span>Contract total</span><span>' + money(c.total_cents) + '</span></div>' +
+          (c.late_fee_cents ? '<div class="row"><span>Late fees</span><span>' + money(c.late_fee_cents) + '</span></div>' : "") +
           '<div class="row"><span>Paid to date</span><span>' + money(c.paid_cents) + '</span></div>' +
           ((c.credit_cents || c.refund_cents) ? '<div class="row"><span>Credits / refunds</span><span>' + money(c.credit_cents) + ' / ' + money(c.refund_cents) + '</span></div>' : "") +
           '<div class="row"><span>This invoice</span><span>' + money(inv.amount_cents) + '</span></div>' +

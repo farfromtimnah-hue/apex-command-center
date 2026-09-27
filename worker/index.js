@@ -23093,12 +23093,13 @@ async function handlePutGmDocSettings(id, request, env) {
         // G6f: the business's phone, email, legal name and address are one
         // value: the document settings (which every document reads) and the
         // client record are written together from this screen.
-        var bsets = [], bbinds = [];
-        if (f.phone !== undefined) { bsets.push("phone = ?"); bbinds.push(f.phone); }
-        if (f.email !== undefined) { bsets.push("email = ?"); bbinds.push(f.email); }
-        if (f.legal_name !== undefined) { bsets.push("legal_entity_name = ?"); bbinds.push(f.legal_name); }
-        if (f.address !== undefined) { bsets.push("legal_entity_address = ?"); bbinds.push(f.address); }
-        if (bsets.length) { bbinds.push(id); await gmRunUpdate(env, "UPDATE clients SET " + bsets.join(", ") + " WHERE id = ?", bbinds); }
+        // Written from the SAVED row (not only the fields this save changed),
+        // so an older mismatch is closed by the next save of this screen.
+        await env.DB.prepare(
+            "UPDATE clients SET phone = d.phone, email = d.email, legal_entity_name = d.legal_name, legal_entity_address = d.address " +
+            "FROM (SELECT phone, email, legal_name, address FROM gm_doc_settings WHERE client_id = ?) AS d " +
+            "WHERE clients.id = ? AND (clients.phone IS NOT d.phone OR clients.email IS NOT d.email OR clients.legal_entity_name IS NOT d.legal_name OR clients.legal_entity_address IS NOT d.address)"
+        ).bind(id, id).run();
         // D3: brand colors and the referral page colors are one value.
         if (f.brand_primary !== undefined || f.brand_accent !== undefined) {
             var csets = [], cbinds = [];

@@ -40093,13 +40093,24 @@ function docLinkEsc(v) {
 async function docLinkServe(request, env) {
     var url = new URL(request.url);
     var slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
+    // The preview picture is served from this same address, and answers HEAD
+    // as well as GET: WhatsApp checks the image with HEAD first, and the API's
+    // logo route only answers GET, so the card came through with no picture.
+    var wantsImage = /\/preview\.jpg$/.test(slug);
+    if (wantsImage) { slug = slug.replace(/\/preview\.jpg$/, ""); }
     var row = slug ? await env.DB.prepare("SELECT kind, public_token, client_id, title, description FROM doc_links WHERE slug = ?").bind(slug).first() : null;
     if (!row || !DOC_LINK_PAGES[row.kind]) {
         return new Response("<!doctype html><meta charset=\"utf-8\"><title>Link not found</title><p style=\"font-family:sans-serif\">This link is not valid. Please ask the business to send it again.</p>",
             { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
     }
+    if (wantsImage) {
+        var imgRes = await handleGetClientLogoImage(row.client_id, new Request(request.url, { method: "GET" }), env);
+        var imgHeaders = new Headers(imgRes.headers);
+        imgHeaders.delete("Content-Disposition");
+        return new Response(request.method === "HEAD" ? null : imgRes.body, { status: imgRes.status, headers: imgHeaders });
+    }
     var target = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[row.kind] + "?t=" + row.public_token;
-    var image = APEX_API_BASE + "/api/clients/" + encodeURIComponent(row.client_id) + "/logo-image";
+    var image = DOC_LINK_ORIGIN + "/" + slug + "/preview.jpg";
     var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
         "<meta name=\"robots\" content=\"noindex, nofollow\">" +
@@ -40109,6 +40120,8 @@ async function docLinkServe(request, env) {
         "<meta property=\"og:title\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:description\" content=\"" + docLinkEsc(row.description) + "\">" +
         "<meta property=\"og:image\" content=\"" + docLinkEsc(image) + "\">" +
+        "<meta property=\"og:image:secure_url\" content=\"" + docLinkEsc(image) + "\">" +
+        "<meta property=\"og:image:alt\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:url\" content=\"" + docLinkEsc(DOC_LINK_ORIGIN + "/" + slug) + "\">" +
         "<meta name=\"twitter:card\" content=\"summary\">" +
         "<meta http-equiv=\"refresh\" content=\"0;url=" + docLinkEsc(target) + "\">" +

@@ -24124,7 +24124,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
         };
     });
     var derived = gmEstDerivedStatus(est);
-    return {
+    var out = {
         number: est.number, revision: est.revision, display_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""),
         status: derived, mode: est.mode, job_name: est.job_name,
         customer_name: est.customer_name, customer_email: est.customer_email, customer_phone: est.customer_phone, customer_address: est.customer_address,
@@ -24147,6 +24147,22 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
             late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days
         }
     };
+    gmEstApplyBrandOverride(est, out.business);
+    return out;
+}
+
+// A per-estimate look (2026-09-27, demo estimates for Pr. Rafa): when an
+// estimate carries brand_override_json, its name/logo/hero/colors/address win
+// over the business's live settings, so one test account can hold several
+// demo estimates that each keep their own business's look.
+function gmEstApplyBrandOverride(est, business) {
+    if (!est || !est.brand_override_json || !business) { return business; }
+    var o = gmDocParseJsonObject(est.brand_override_json, null);
+    if (!o) { return business; }
+    ["name", "address", "phone", "email", "logo_url", "hero_url", "hero", "brand_primary", "brand_accent"].forEach(function(k) {
+        if (Object.prototype.hasOwnProperty.call(o, k)) { business[k] = o[k]; }
+    });
+    return business;
 }
 
 // The internal detail: everything above plus the costs, margin, commission
@@ -24827,6 +24843,24 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
         var settings = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = await gmOwnedRow(env, "gm_leads", est.lead_id, id);
+        // Nicole, 2026-09-27: what was approved and sent stays exactly that way.
+        // Freeze the business's look (name, logo, photo, colors) on the estimate
+        // the first time it is sent; later logo or photo changes never alter a
+        // link a customer already has. Written only when empty (WHERE clause).
+        try {
+            var lookClient = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(id).first();
+            var lookOrigin = new URL(request.url).origin;
+            var lookHero = gmDocHero(lookOrigin, id, settings);
+            var look = {
+                name: settings.legal_name || (lookClient && lookClient.name) || "",
+                address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
+                logo_url: (lookClient && lookClient.logo_url) ? lookOrigin + "/api/clients/" + id + "/logo-image" + logoVersionParam(lookClient.logo_url) : null,
+                hero_url: lookHero.url, hero: lookHero.hero,
+                brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null
+            };
+            await env.DB.prepare("UPDATE gm_estimates SET brand_override_json = ? WHERE id = ? AND client_id = ? AND brand_override_json IS NULL")
+                .bind(JSON.stringify(look), estId, id).run();
+        } catch (lookErr) { console.error("[estimate-look] " + (lookErr && lookErr.message)); }
         var estLink = await docPrettyLink(env, "estimate", est.public_token, id,
             est.number + (est.revision > 1 ? "-R" + est.revision : ""), est.customer_name || (lead && lead.cliente) || "");
         var msg = gmDocFillMessage(settings.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE, {
@@ -25109,7 +25143,7 @@ async function handleGetPublicEstimate(token, request, env) {
                 // a gallery pick or new framing must reach the page too. Only
                 // the header; the signed terms stay exactly as frozen, and a
                 // stored PDF is never re-rendered.
-                if (snap.business) { var ch = gmDocHero(origin, est.client_id, settings); snap.business.hero_url = ch.url; snap.business.hero = ch.hero; }
+                if (snap.business) { var ch = gmDocHero(origin, est.client_id, settings); snap.business.hero_url = ch.url; snap.business.hero = ch.hero; gmEstApplyBrandOverride(est, snap.business); }
                 return jsonOk({ estimate: snap });
             }
         }
@@ -40108,6 +40142,18 @@ async function docLinkServe(request, env) {
             { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
     }
     if (wantsImage) {
+        // An estimate sent with a frozen look previews with THAT logo.
+        if (row.kind === "estimate") {
+            var lookRow = await env.DB.prepare("SELECT brand_override_json FROM gm_estimates WHERE public_token = ?").bind(row.public_token).first();
+            var lookObj = lookRow ? gmDocParseJsonObject(lookRow.brand_override_json, null) : null;
+            var lookLogo = lookObj && typeof lookObj.logo_url === "string" ? lookObj.logo_url : "";
+            var m = /\/api\/clients\/([^\/?]+)\/logo-image/.exec(lookLogo);
+            if (m) {
+                var lookRes = await handleGetClientLogoImage(decodeURIComponent(m[1]), new Request(request.url, { method: "GET" }), env);
+                var lookHeaders = new Headers(lookRes.headers); lookHeaders.delete("Content-Disposition");
+                return new Response(request.method === "HEAD" ? null : lookRes.body, { status: lookRes.status, headers: lookHeaders });
+            }
+        }
         var imgRes = await handleGetClientLogoImage(row.client_id, new Request(request.url, { method: "GET" }), env);
         var imgHeaders = new Headers(imgRes.headers);
         imgHeaders.delete("Content-Disposition");

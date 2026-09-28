@@ -7,6 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 # Readable customer document links (Nicole, 2026-09-27): the Worker answers
 # doc.resonateai.online directly (a Workers custom domain, so its DNS record is
 # created by deploy). apex.resonateai.online stays on GitHub Pages, untouched.
+# Keep the workers.dev address ON: the whole app calls apex-api.farfromtimnah.workers.dev.
+# Declaring routes makes wrangler turn it OFF unless this is explicit (it did, 2026-09-27).
+workers_dev = true
+
 routes = [
   { pattern = "doc.resonateai.online", custom_domain = true }
 ]

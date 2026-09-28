@@ -5192,7 +5192,9 @@ function gmConRouteSave() {
 function gmConSendOpen() {
   var c = gmConDetail;
   gmSheetOpen(gmT("Enviar contrato", "Send contract"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
-  gmDocMsgLoad().then(function() {
+  var linkReq = gmApi("contracts/" + encodeURIComponent(c.id) + "/send-link", { method: "POST" })
+    .then(function(d) { if (d && d.link) { c.link = d.link; } }).catch(function(e) { console.error("send-link", e); });
+  Promise.all([gmDocMsgLoad(), linkReq]).then(function() {
     var tpl = (gmDocMessages.messages && gmDocMessages.messages.contract_message) || "";
     var sv = gmDocSenderVars();
     var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: c.link });

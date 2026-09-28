@@ -13704,7 +13704,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // Contracts: create on the project; sign / route / send / void / revise / custom clause.
                 if (/^jobs\/[A-Za-z0-9-]+\/contracts$/.test(gmRest)) { return true; }
                 if (/^homeowner-responses\/[A-Za-z0-9-]+\/seen$/.test(gmRest)) { return true; }
-                if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy|void|revise|custom-clause)$/.test(gmRest)) { return true; }
+                if (/^contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|send-link|signed-copy|void|revise|custom-clause)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy|void)$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch|lienors|subcontractors|affidavit\/notarized|affidavit\/generate)$/.test(gmRest)) { return true; }
@@ -13928,7 +13928,7 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/invoices\/[A-Za-z0-9-]+\/(send|send-link|payments)$/.test(rest)) { return true; }
         // Contracts: a seller may build, sign (when an authorized signer), route and send on their own projects.
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/contracts$/.test(rest)) { return true; }
-        if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy)$/.test(rest)) { return true; }
+        if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|send-link|signed-copy)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(change-orders|contract-notice)$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch)$/.test(rest)) { return true; }
@@ -25619,7 +25619,7 @@ async function handleGetGmInvoice(id, invId, request, env) {
 }
 
 // ── Send ─────────────────────────────────────────────────────────────────
-// The readable doc.resonateai.online link for the estimate / invoice send
+// The readable doc.resonateai.online link for the estimate / invoice / contract send
 // sheets, which build their message in the browser (the tap must open
 // WhatsApp synchronously). Minted when the sheet opens; a document that
 // already has a link keeps it, so a link a customer holds never changes.
@@ -25637,6 +25637,14 @@ async function handlePostGmDocSendLink(id, kind, docId, request, env) {
             var elead = est.lead_id ? await gmOwnedRow(env, "gm_leads", est.lead_id, id) : null;
             link = await docPrettyLink(env, "estimate", est.public_token, id,
                 est.number + (est.revision > 1 ? "-R" + est.revision : ""), est.customer_name || (elead && elead.cliente) || "");
+        } else if (kind === "contract") {
+            var c = await gmContractLoad(env, id, docId);
+            if (!c) { return jsonErr("Contract not found", 404); }
+            var cguard = await contractSellerGuard(env, user, id, c);
+            if (cguard) { return cguard; }
+            var clead = c.lead_id ? await gmOwnedRow(env, "gm_leads", c.lead_id, id) : null;
+            link = await docPrettyLink(env, "contract", c.public_token, id,
+                c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (clead && clead.cliente) || "");
         } else {
             var inv = await gmInvLoad(env, id, docId);
             if (!inv) { return jsonErr("Invoice not found", 404); }
@@ -41111,6 +41119,7 @@ async function handleFetch(request, env, ctx) {
                         if (segs[6] === "company-sign")  { return handlePostGmContractCompanySign(cid, segs[5], request, env); }
                         if (segs[6] === "route")         { return handlePostGmContractRoute(cid, segs[5], request, env); }
                         if (segs[6] === "send")          { return handlePostGmContractSend(cid, segs[5], request, env); }
+                        if (segs[6] === "send-link")     { return handlePostGmDocSendLink(cid, "contract", segs[5], request, env); }
                         if (segs[6] === "signed-copy")   { return handlePostGmContractSignedCopy(cid, segs[5], request, env); }
                         if (segs[6] === "void")          { return handlePostGmContractVoid(cid, segs[5], request, env); }
                         if (segs[6] === "revise")        { return handlePostGmContractRevise(cid, segs[5], request, env); }

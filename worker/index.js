@@ -4262,7 +4262,9 @@ async function handlePostClientLogo(id, request, env) {
                 : (file.type === "image/gif") ? "gif"
                 : (file.type === "image/webp") ? "webp"
                 : "jpg";
-        var key = "logos/" + id + "." + ext;
+        // A new key per upload (no R2 deletes; old objects stay): documents add
+        // ?v=<key> so a browser never keeps showing the previous logo (2026-09-27).
+        var key = "logos/" + id + "-" + Date.now() + "." + ext;
 
         await env.ASSETS.put(key, await file.arrayBuffer(), {
             httpMetadata: { contentType: file.type }
@@ -4282,6 +4284,8 @@ async function handlePostClientLogo(id, request, env) {
 // Serves the client logo from R2 — no raw R2 paths exposed to frontend.
 // Auth-free: logos are non-sensitive image assets referenced by client UUID.
 // ---------------------------------------------------------------------------
+
+function logoVersionParam(key) { return key ? "?v=" + encodeURIComponent(String(key).replace(/^logos\//, "").replace(/\.[a-z]+$/, "")) : ""; }
 
 async function handleGetClientLogoImage(id, request, env) {
     try {
@@ -24136,7 +24140,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
             name: settings.legal_name || (client && client.name) || "",
             address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
             license_numbers: settings.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + est.client_id + "/logo-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + est.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null,
             hero_url: gmDocHero(origin, est.client_id, settings).url, hero: gmDocHero(origin, est.client_id, settings).hero,
             brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
             payment_methods: methods,
@@ -25939,7 +25943,7 @@ async function gmInvPublicPayload(env, inv, origin) {
         business: {
             name: settings.legal_name || (client && client.name) || "", address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
             license_numbers: settings.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + inv.client_id + "/logo-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + inv.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null,
             hero_url: gmDocHero(origin, inv.client_id, settings).url, hero: gmDocHero(origin, inv.client_id, settings).hero,
             brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null,
             payment_methods: methods, late_fee_annual_pct: settings.late_fee_annual_pct, late_fee_grace_days: settings.late_fee_grace_days,
@@ -27017,7 +27021,7 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         business: {
             name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null,
             license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null,
             hero_url: gmDocHero(origin, c.client_id, doc).url, hero: gmDocHero(origin, c.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, payment_methods: methods
         },
@@ -27145,7 +27149,7 @@ async function contractVoidPayload(env, c, origin) {
     return {
         status: "void", number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), voided_at: c.voided_at || c.updated_at || null,
         business: { name: doc.legal_name || (client && client.name) || "", legal_name: doc.legal_name || (client && client.name) || "",
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" : null,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null,
             hero_url: gmDocHero(origin, c.client_id, doc).url, hero: gmDocHero(origin, c.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, license_numbers: doc.license_numbers || [], payment_methods: [] }
     };
@@ -28327,7 +28331,7 @@ async function coPublicPayload(env, co, origin) {
         job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null), property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null,
         created_at: co.created_at,
         business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" : null, hero_url: gmDocHero(origin, co.client_id, doc).url, hero: gmDocHero(origin, co.client_id, doc).hero,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null, hero_url: gmDocHero(origin, co.client_id, doc).url, hero: gmDocHero(origin, co.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
         company_signature: co.company_signed_at ? { signer_name: co.company_signer_name, signed_at: co.company_signed_at, kind: co.company_signature_kind, image_url: co.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: co.homeowner_signed_at ? { signer_name: co.homeowner_signer_name, signed_at: co.homeowner_signed_at, kind: co.homeowner_signature_kind, image_url: co.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(co.homeowner_signed_ua) } : null,
@@ -28998,7 +29002,7 @@ async function dAckPayload(env, a, origin) {
         kind: a.kind, status: a.status, statement: a.statement, job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null),
         property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null, created_at: a.created_at,
         business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: gmDocHero(origin, a.client_id, doc).url, hero: gmDocHero(origin, a.client_id, doc).hero,
+            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + a.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null, hero_url: gmDocHero(origin, a.client_id, doc).url, hero: gmDocHero(origin, a.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
         photos: (payload.photos || []).map(function(p) { return { id: p.id, url: base + "/photo/" + p.id, note: p.note, taken_at: p.created_at }; }),
         punch_items: (payload.punch_items || []).map(function(it) { return { text: it.text, done_at: it.done_at, photo_url: it.has_photo ? base + "/punch-photo/" + it.id : null }; }),
@@ -29035,7 +29039,7 @@ async function handleGetPublicAck(token, request, env) {
             var vcl = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(a.client_id).first();
             var vo = new URL(request.url).origin;
             return jsonOk({ ack: { kind: a.kind, status: "void", void_reason: a.void_reason || "replaced",
-                business: { name: vdoc.legal_name || (vcl && vcl.name) || "", logo_url: (vcl && vcl.logo_url) ? vo + "/api/clients/" + a.client_id + "/logo-image" : null, hero_url: gmDocHero(vo, a.client_id, vdoc).url, hero: gmDocHero(vo, a.client_id, vdoc).hero, brand_primary: vdoc.brand_primary || null, brand_accent: vdoc.brand_accent || null } } });
+                business: { name: vdoc.legal_name || (vcl && vcl.name) || "", logo_url: (vcl && vcl.logo_url) ? vo + "/api/clients/" + a.client_id + "/logo-image" + logoVersionParam(vcl.logo_url) : null, hero_url: gmDocHero(vo, a.client_id, vdoc).url, hero: gmDocHero(vo, a.client_id, vdoc).hero, brand_primary: vdoc.brand_primary || null, brand_accent: vdoc.brand_accent || null } } });
         }
         await env.DB.prepare("UPDATE gm_job_acks SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END WHERE id = ?").bind(a.id).run();
         if (a.status === "sent") { a.status = "viewed"; }

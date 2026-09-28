@@ -9410,7 +9410,11 @@ function gmEstSendOpen() {
   var est = gmEstDetail;
   if (!est) { return; }
   gmSheetOpen(gmT("Enviar orçamento", "Send estimate"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
-  gmDocMsgLoad().then(function() { gmEstRenderSendSheet(); }).catch(function(e) {
+  // The readable doc.resonateai.online link, minted before the sheet renders
+  // so the WhatsApp / SMS tap stays synchronous. On failure the old link stays.
+  var linkReq = gmApi("estimates/" + encodeURIComponent(est.id) + "/send-link", { method: "POST" })
+    .then(function(d) { if (d && d.link) { est.link = d.link; } }).catch(function(e) { console.error("send-link", e); });
+  Promise.all([gmDocMsgLoad(), linkReq]).then(function() { gmEstRenderSendSheet(); }).catch(function(e) {
     var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
   });
 }
@@ -10645,7 +10649,9 @@ function gmInvSendOpen() {
   var inv = gmInvDetail;
   if (!inv) { return; }
   gmSheetOpen(gmT("Enviar fatura", "Send invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
-  gmDocMsgLoad().then(function() {
+  var linkReq = gmApi("invoices/" + encodeURIComponent(inv.id) + "/send-link", { method: "POST" })
+    .then(function(d) { if (d && d.link) { inv.link = d.link; } }).catch(function(e) { console.error("send-link", e); });
+  Promise.all([gmDocMsgLoad(), linkReq]).then(function() {
     var tpl = gmDocMessages.messages.invoice_message || "";
     var sv = gmDocSenderVars();
     var text = gmDocFillMessage(tpl, { customer_first_name: String(inv.customer_name || "").trim().split(/\s+/)[0] || "", job_name: inv.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: inv.link });

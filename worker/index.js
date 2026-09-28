@@ -24085,7 +24085,10 @@ async function gmEstLoad(env, clientId, estId) {
 }
 
 async function gmEstAttach(env, est) {
-    var opts = await env.DB.prepare("SELECT * FROM gm_estimate_options WHERE estimate_id = ? ORDER BY sort_order").bind(est.id).all();
+    // A draft saved more than once keeps its old options tagged 'replaced:'
+    // (see handlePutGmEstimate); they are dead rows and must never be read,
+    // or the portal sheet crashes on the unknown tier (EST-0017, 2026-09-27).
+    var opts = await env.DB.prepare("SELECT * FROM gm_estimate_options WHERE estimate_id = ? AND tier NOT LIKE 'replaced:%' ORDER BY sort_order").bind(est.id).all();
     var items = await env.DB.prepare("SELECT * FROM gm_estimate_items WHERE estimate_id = ? ORDER BY sort_order").bind(est.id).all();
     est.options = (opts.results || []).map(function(o) {
         o.items = (items.results || []).filter(function(it) { return it.option_id === o.id; });
@@ -25616,6 +25619,38 @@ async function handleGetGmInvoice(id, invId, request, env) {
 }
 
 // ── Send ─────────────────────────────────────────────────────────────────
+// The readable doc.resonateai.online link for the estimate / invoice send
+// sheets, which build their message in the browser (the tap must open
+// WhatsApp synchronously). Minted when the sheet opens; a document that
+// already has a link keeps it, so a link a customer holds never changes.
+async function handlePostGmDocSendLink(id, kind, docId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var link;
+        if (kind === "estimate") {
+            var est = await gmEstLoad(env, id, docId);
+            if (!est) { return jsonErr("Estimate not found", 404); }
+            var eguard = await gmEstSellerGuard(env, user, id, est.lead_id);
+            if (eguard) { return eguard; }
+            var elead = est.lead_id ? await gmOwnedRow(env, "gm_leads", est.lead_id, id) : null;
+            link = await docPrettyLink(env, "estimate", est.public_token, id,
+                est.number + (est.revision > 1 ? "-R" + est.revision : ""), est.customer_name || (elead && elead.cliente) || "");
+        } else {
+            var inv = await gmInvLoad(env, id, docId);
+            if (!inv) { return jsonErr("Invoice not found", 404); }
+            var iguard = await gmInvSellerGuardJob(env, user, id, inv.job_id);
+            if (iguard) { return iguard; }
+            var ilead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
+            link = await docPrettyLink(env, "invoice", inv.public_token, id, inv.number, inv.customer_name || (ilead && ilead.cliente) || "");
+        }
+        return jsonOk({ link: link });
+    } catch (e) {
+        return jsonErr("Error making the link: " + e.message, 500);
+    }
+}
+
 async function handlePostGmInvoiceSend(id, invId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -41034,6 +41069,7 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 7 && gmCol === "estimates" && method === "POST") {
                     if (segs[6] === "send")          { return handlePostGmEstimateSend(cid, segs[5], request, env); }
+                    if (segs[6] === "send-link")     { return handlePostGmDocSendLink(cid, "estimate", segs[5], request, env); }
                     if (segs[6] === "mark-accepted") { return handlePostGmEstimateMarkAccepted(cid, segs[5], request, env); }
                     if (segs[6] === "void")          { return handlePostGmEstimateVoid(cid, segs[5], request, env); }
                     if (segs[6] === "revise")        { return handlePostGmEstimateRevise(cid, segs[5], request, env); }
@@ -41141,6 +41177,7 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 6 && gmCol === "invoices" && method === "GET") { return handleGetGmInvoice(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "invoices" && method === "POST") {
                     if (segs[6] === "send")     { return handlePostGmInvoiceSend(cid, segs[5], request, env); }
+                    if (segs[6] === "send-link") { return handlePostGmDocSendLink(cid, "invoice", segs[5], request, env); }
                     if (segs[6] === "payments") { return handlePostGmInvoicePayment(cid, segs[5], request, env); }
                     if (segs[6] === "void")     { return handlePostGmInvoiceVoid(cid, segs[5], request, env); }
                     if (segs[6] === "credits")  { return handlePostGmInvoiceCredit(cid, segs[5], request, env); }

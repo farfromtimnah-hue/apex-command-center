@@ -708,7 +708,7 @@ function gmLeadReferralHtml(lead) {
     var sent = ((gmLeadsData && gmLeadsData.leads) || []).filter(function(l) { return lead.my_partner_id && l.parceiro_id === lead.my_partner_id; });
     html += gmSheetSection(gmT("Indicações", "Referrals") + ": " + lead.referrals_count + " " + gmT("leads", "leads") + " · " + gmMoney(Math.round((Number(lead.referrals_closed_value) || 0) * 100)) + " " + gmT("fechado", "closed"),
       sent.map(function(l) {
-        return gmSheetRowHtml("users", escHtml(l.cliente || ""), escHtml(gmStatusLabel(l.estagio)) + (l.valor ? " · " + gmMoney(Math.round(Number(l.valor) * 100)) : ""), "gmOpenLeadById('" + escHtml(l.id) + "')", null,
+        return gmSheetRowHtml("users", escHtml(l.cliente || ""), escHtml(gmStageLabel(l.estagio)) + (l.valor ? " · " + gmMoney(Math.round(Number(l.valor) * 100)) : ""), "gmOpenLeadById('" + escHtml(l.id) + "')", null,
           l.referrer_to_confirm ? gmT("indicação de uma indicação", "referral of a referral") : "");
       }).join("") || '<p class="muted" style="padding:10px 12px;">' + gmT("Leads fora da sua lista.", "Leads outside your list.") + '</p>');
   }

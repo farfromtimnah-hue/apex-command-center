@@ -71,7 +71,6 @@
       <h2>Know someone who needs this?</h2>
       <p class="hint" id="referHint"></p>
       <button type="button" class="btn" onclick="shareReferral()">Share your link</button>
-      <p class="link" id="referLink"></p>
       <p class="err" id="referErr"></p>
     </div>
   </div>
@@ -112,7 +111,6 @@
       var save = byId("btnSave"); if (save) { save.href = c.vcf_url; }
       var hint = byId("referHint");
       if (hint) { hint.textContent = "Your own link to " + (c.company || "us") + ". Friends who use it are sent straight to " + (c.seller_first || "the team") + "."; }
-      var rl = byId("referLink"); if (rl) { rl.textContent = c.referral_link || ""; }
       show("cardMain");
     }
 

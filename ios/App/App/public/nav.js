@@ -136,6 +136,20 @@
       body = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
     } else if (type === "target") {
       body = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
+    } else if (type === "funnel") {
+      body = '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5L3 4z"/>';
+    } else if (type === "clipboard") {
+      body = '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>';
+    } else if (type === "receipt") {
+      body = '<path d="M5 2v20l2.5-1.5L10 22l2-1.5 2 1.5 2.5-1.5L19 22V2l-2.5 1.5L14 2l-2 1.5L10 2 7.5 3.5z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/>';
+    } else if (type === "tag") {
+      body = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>';
+    } else if (type === "bar-chart") {
+      body = '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/>';
+    } else if (type === "store") {
+      body = '<path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><line x1="2" y1="9" x2="22" y2="9"/><rect x="9.5" y="14" width="5" height="6"/>';
+    } else if (type === "peak") {
+      body = '<polyline points="2 20 9.5 6 13.5 13"/><polyline points="11 20 16 11 22 20"/><line x1="2" y1="20" x2="22" y2="20"/>';
     } else if (type === "view") {
       body = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
     }

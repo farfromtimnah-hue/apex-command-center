@@ -448,6 +448,15 @@
       background: #c0392b; color: #fff; font-size: 11px; font-weight: 700;
       display: inline-flex; align-items: center; justify-content: center;
     }
+    .portal-new-pill {
+      display: inline-flex; align-items: center; height: 17px; padding: 0 7px;
+      border-radius: 9px; background: var(--gold, #c9a53e); color: #1a1a1d;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; line-height: 1;
+    }
+    .pg-item .portal-new-pill { margin-left: 4px; }
+    /* On the dock: a small tag over the icon's top-right corner. */
+    #mobile-tab-bar .m-tab { position: relative; }
+    .m-tab-new { position: absolute; top: 3px; left: 50%; margin-left: 6px; height: 14px; padding: 0 5px; font-size: 8.5px; }
     .portal-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; }
     @media (max-width: 768px) {
       .portal-groups { display: none; }
@@ -4874,6 +4883,30 @@
       if (entry.tab === "grp-apex") { return { count: 0, dot: anyIncompleteAssigned() || anyPendingEntries() }; }
       return { count: 0, dot: false };
     }
+    // "Novo" pill (Nicole, 2026-09-28) on the tools that opened to every
+    // client with the public update. Each one disappears for that viewer once
+    // they open it, and all of them stop after PORTAL_NEW_UNTIL.
+    var PORTAL_NEW_TABS = ["gmestimates", "gminvoices"];
+    var PORTAL_NEW_UNTIL = "2026-11-30";
+    // Website only (Nicole): the app is all new, and removing a pill from the
+    // app would take another Apple review.
+    function portalIsNew(tab) {
+      if (window.apexIsNative && apexIsNative()) { return false; }
+      if (new Date().toISOString().slice(0, 10) > PORTAL_NEW_UNTIL) { return false; }
+      var tabs = tab === "grp-negocio" ? PORTAL_NEW_TABS : (PORTAL_NEW_TABS.indexOf(tab) !== -1 ? [tab] : []);
+      return tabs.some(function(t) {
+        var seen = null;
+        try { seen = localStorage.getItem("apex_new_seen_" + t); } catch (e) { seen = null; }
+        return !seen && portalTabs().some(function(x) { return x.tab === t; });
+      });
+    }
+    function portalMarkSeen(tab) {
+      if (PORTAL_NEW_TABS.indexOf(tab) === -1) { return; }
+      try { localStorage.setItem("apex_new_seen_" + tab, "1"); } catch (e) {}
+    }
+    function portalNewPillHtml(tab) {
+      return portalIsNew(tab) ? '<span class="portal-new-pill"><span class="show-pt">Novo</span><span class="show-en">New</span></span>' : "";
+    }
     function portalBadgeHtml(b) {
       if (b.count) { return '<span class="portal-nav-count" aria-hidden="true">' + b.count + '</span>'; }
       return b.dot ? '<span class="portal-nav-dot" aria-hidden="true"></span>' : "";
@@ -4892,13 +4925,13 @@
       var curGroup = portalGroupOfTab(cur);
       groupNav.innerHTML = portalGroups().map(function(g) {
         return '<button type="button" class="portal-group-tab' + (curGroup && curGroup.tab === g.tab ? " active" : "") +
-          '" onclick="switchTab(\'' + g.tab + '\')">' + window.apexNavSvg(g.icon) + portalLabelHtml(g) + portalBadgeHtml(portalNavBadge(g)) + '</button>';
+          '" onclick="switchTab(\'' + g.tab + '\')">' + window.apexNavSvg(g.icon) + portalLabelHtml(g) + portalNewPillHtml(g.tab) + portalBadgeHtml(portalNavBadge(g)) + '</button>';
       }).join("");
       groupNav.hidden = false;
       if (curGroup && curGroup.tabs.length > 1) {
         stepNav.innerHTML = curGroup.tabs.map(function(t) {
           return '<button type="button" class="portal-step' + (t.tab === cur ? " active" : "") +
-            '" onclick="switchTab(\'' + t.tab + '\')">' + window.apexNavSvg(t.icon) + portalLabelHtml(t) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
+            '" onclick="switchTab(\'' + t.tab + '\')">' + window.apexNavSvg(t.icon) + portalLabelHtml(t) + portalNewPillHtml(t.tab) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
         }).join("");
         stepNav.hidden = false;
       } else {
@@ -4926,7 +4959,7 @@
       if (!sheet.hidden && sheet.getAttribute("data-group") === key) { portalGroupSheetClose(); return; }
       panel.innerHTML = '<div class="pg-title">' + portalLabelHtml(g) + '</div>' + g.tabs.map(function(t) {
         return '<button type="button" class="pg-item' + (t.tab === currentTab ? " active" : "") + '" role="menuitem" onclick="portalGroupSheetGo(\'' + t.tab + '\')">' +
-          window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalBadgeHtml(portalNavBadge(t)) + '</button>';
+          window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalNewPillHtml(t.tab) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
       }).join("");
       sheet.setAttribute("data-group", key);
       sheet.hidden = false;
@@ -5239,6 +5272,7 @@
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) +
           (count ? '<span class="m-tab-dot m-tab-count" aria-hidden="true">' + count + '</span>' : (dot ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '')) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
+        if (t.group && portalIsNew(t.tab)) { html += '<span class="portal-new-pill m-tab-new"><span class="show-pt">Novo</span><span class="show-en">New</span></span>'; }
         html += '</button>';
       });
       // "Mais" only when there is actually something behind it. A seller's
@@ -5371,6 +5405,9 @@
       });
       updateMobileDockActive(tab);
       portalRememberTab(tab);
+      var wasNew = portalIsNew(tab);
+      portalMarkSeen(tab);
+      if (wasNew) { populateMobileDock(); }
       renderPortalNav();
       // Each entry must match its element id EXACTLY after the "tab" prefix
       // (id="tabLockedPreview", capital P) — a casing slip here returns null

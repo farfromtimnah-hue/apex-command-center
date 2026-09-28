@@ -40229,39 +40229,46 @@ function docLinkEsc(v) {
     return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+async function docLinkLogoResponse(env, row) {
+    if (GM_DOC_LOOK_TABLES[row.kind]) {
+        var lookRow = await env.DB.prepare("SELECT brand_override_json FROM " + GM_DOC_LOOK_TABLES[row.kind] + " WHERE public_token = ?").bind(row.public_token).first();
+        var lookObj = lookRow ? gmDocParseJsonObject(lookRow.brand_override_json, null) : null;
+        var lookLogo = lookObj && typeof lookObj.logo_url === "string" ? lookObj.logo_url : "";
+        var m = /\/api\/clients\/([^\/?]+)\/logo-image/.exec(lookLogo);
+        // The frozen URL itself carries ?v=<upload key>, so the route serves that upload.
+        if (m) { return await handleGetClientLogoImage(decodeURIComponent(m[1]), new Request(lookLogo, { method: "GET" }), env); }
+    }
+    return await handleGetClientLogoImage(row.client_id, new Request(APEX_API_BASE + "/api/clients/" + encodeURIComponent(row.client_id) + "/logo-image", { method: "GET" }), env);
+}
+
 async function docLinkServe(request, env) {
     var url = new URL(request.url);
     var slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
     // The preview picture is served from this same address, and answers HEAD
     // as well as GET: WhatsApp checks the image with HEAD first, and the API's
     // logo route only answers GET, so the card came through with no picture.
-    var wantsImage = /\/preview\.jpg$/.test(slug);
-    if (wantsImage) { slug = slug.replace(/\/preview\.jpg$/, ""); }
+    // The extension follows the logo's real type (2026-09-27: a PNG logo served
+    // as preview.jpg gave a WhatsApp card with no picture; every JPEG worked).
+    var wantsImage = /\/preview\.(jpg|png|webp|gif)$/.test(slug);
+    if (wantsImage) { slug = slug.replace(/\/preview\.(jpg|png|webp|gif)$/, ""); }
     var row = slug ? await env.DB.prepare("SELECT kind, public_token, client_id, title, description FROM doc_links WHERE slug = ?").bind(slug).first() : null;
     if (!row || !DOC_LINK_PAGES[row.kind]) {
         return new Response("<!doctype html><meta charset=\"utf-8\"><title>Link not found</title><p style=\"font-family:sans-serif\">This link is not valid. Please ask the business to send it again.</p>",
             { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
     }
+    // The logo this link previews with: the document's FROZEN logo (its exact
+    // upload, via ?v=) when it has one, else the business's current logo.
+    var logoRes = await docLinkLogoResponse(env, row);
+    var logoType = (logoRes && logoRes.ok && logoRes.headers.get("Content-Type")) || "image/jpeg";
     if (wantsImage) {
-        // An estimate sent with a frozen look previews with THAT logo.
-        if (GM_DOC_LOOK_TABLES[row.kind]) {
-            var lookRow = await env.DB.prepare("SELECT brand_override_json FROM " + GM_DOC_LOOK_TABLES[row.kind] + " WHERE public_token = ?").bind(row.public_token).first();
-            var lookObj = lookRow ? gmDocParseJsonObject(lookRow.brand_override_json, null) : null;
-            var lookLogo = lookObj && typeof lookObj.logo_url === "string" ? lookObj.logo_url : "";
-            var m = /\/api\/clients\/([^\/?]+)\/logo-image/.exec(lookLogo);
-            if (m) {
-                var lookRes = await handleGetClientLogoImage(decodeURIComponent(m[1]), new Request(request.url, { method: "GET" }), env);
-                var lookHeaders = new Headers(lookRes.headers); lookHeaders.delete("Content-Disposition");
-                return new Response(request.method === "HEAD" ? null : lookRes.body, { status: lookRes.status, headers: lookHeaders });
-            }
-        }
-        var imgRes = await handleGetClientLogoImage(row.client_id, new Request(request.url, { method: "GET" }), env);
-        var imgHeaders = new Headers(imgRes.headers);
+        var imgHeaders = new Headers(logoRes.headers);
         imgHeaders.delete("Content-Disposition");
-        return new Response(request.method === "HEAD" ? null : imgRes.body, { status: imgRes.status, headers: imgHeaders });
+        return new Response(request.method === "HEAD" ? null : logoRes.body, { status: logoRes.status, headers: imgHeaders });
     }
+    if (logoRes && logoRes.body && typeof logoRes.body.cancel === "function") { try { logoRes.body.cancel(); } catch (e) {} }
+    var logoExt = /png/i.test(logoType) ? "png" : (/webp/i.test(logoType) ? "webp" : (/gif/i.test(logoType) ? "gif" : "jpg"));
     var target = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[row.kind] + "?t=" + row.public_token;
-    var image = DOC_LINK_ORIGIN + "/" + slug + "/preview.jpg";
+    var image = DOC_LINK_ORIGIN + "/" + slug + "/preview." + logoExt;
     var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
         "<meta name=\"robots\" content=\"noindex, nofollow\">" +
@@ -40271,6 +40278,7 @@ async function docLinkServe(request, env) {
         "<meta property=\"og:title\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:description\" content=\"" + docLinkEsc(row.description) + "\">" +
         "<meta property=\"og:image\" content=\"" + docLinkEsc(image) + "\">" +
+        "<meta property=\"og:image:type\" content=\"" + docLinkEsc(logoType) + "\">" +
         "<meta property=\"og:image:secure_url\" content=\"" + docLinkEsc(image) + "\">" +
         "<meta property=\"og:image:alt\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:url\" content=\"" + docLinkEsc(DOC_LINK_ORIGIN + "/" + slug) + "\">" +

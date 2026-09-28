@@ -428,6 +428,81 @@
     }
     .portal-tab.active { background: var(--header); color: var(--gold); border-color: var(--header); }
 
+    /* Nav rebuild 2026-09-28: the five destinations (desktop strip; the phone
+       uses the dock) and the tools of the open group, icon + label. */
+    .portal-groups, .portal-steps { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .portal-groups[hidden], .portal-steps[hidden] { display: none; }
+    .portal-group-tab, .portal-step {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: transparent; border: 1px solid var(--border); border-radius: 20px;
+      font-family: 'Inter', sans-serif; font-weight: 600; color: var(--muted);
+      cursor: pointer; white-space: nowrap; position: relative;
+    }
+    .portal-group-tab { padding: 9px 18px; font-size: 14px; min-height: 42px; }
+    .portal-step { padding: 7px 12px; font-size: 13px; min-height: 38px; }
+    .portal-group-tab svg { width: 18px; height: 18px; }
+    .portal-step svg { width: 16px; height: 16px; }
+    .portal-group-tab.active, .portal-step.active { background: var(--header); color: var(--gold); border-color: var(--header); }
+    .portal-nav-count {
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+      background: #c0392b; color: #fff; font-size: 11px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .portal-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; }
+    @media (max-width: 768px) {
+      .portal-groups { display: none; }
+      /* All the tools of a group stay visible on a phone: they wrap rather
+         than scroll off the edge. */
+      /* Phone: no row on the screen (Nicole). Negócio and Apex open a small
+         pop-up of their tools from the dock instead (#portalGroupSheet). */
+      .portal-steps { display: none !important; }
+    }
+    .hero-gear-wrap { position: relative; flex-shrink: 0; }
+    /* Dock pop-up for a group's tools (phone). Sits just above the dock and
+       is only as tall as its list: not the old full-screen "Mais". */
+    /* Under the dock (950) so the dock stays tappable while it is open. */
+    .pg-sheet { position: fixed; inset: 0; z-index: 945; }
+    .pg-sheet[hidden] { display: none; }
+    .pg-backdrop { position: absolute; inset: 0; background: rgba(20,18,16,0.45); }
+    .pg-panel {
+      position: absolute; left: 10px; right: 10px;
+      bottom: calc(58px + 10px + env(safe-area-inset-bottom));
+      background: #fff; border-radius: 16px; padding: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .pg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
+    .pg-item {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      background: none; border: 0; border-radius: 10px; padding: 12px; min-height: 52px;
+      font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left;
+    }
+    .pg-item svg { width: 20px; height: 20px; color: var(--muted); flex-shrink: 0; }
+    .pg-item.active { background: var(--header); color: var(--gold); }
+    .pg-item.active svg { color: var(--gold); }
+    .pg-item .portal-nav-count, .pg-item .portal-nav-dot { margin-left: auto; }
+    .hero-gear-ico {
+      width: 17px; height: 17px; flex-shrink: 0;
+      background-repeat: no-repeat; background-position: center; background-size: contain;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z'/%3E%3C/svg%3E");
+    }
+    .portal-gear-menu {
+      /* fixed, placed from the button by portalGearToggle(): the hero clips
+         anything absolutely positioned inside it (overflow: hidden). */
+      position: fixed; z-index: 960;
+      background: #fff; border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18); min-width: 190px; padding: 6px;
+    }
+    .portal-gear-menu[hidden] { display: none; }
+    .portal-gear-item {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      background: none; border: 0; border-radius: 8px; padding: 11px 12px; min-height: 44px;
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left;
+    }
+    .portal-gear-item:hover { background: rgba(0,0,0,0.05); }
+    .portal-gear-item svg { width: 18px; height: 18px; color: var(--muted); }
+
     /* On a phone the pill strip and #mobile-tab-bar were both on screen doing
        the same job, and the strip scrolls horizontally — so most destinations
        were off-screen on load, which is exactly the anti-pattern the bottom
@@ -1308,6 +1383,17 @@
               <span class="hero-support-ico" aria-hidden="true"></span>
               <span class="show-pt">Ajuda</span><span class="show-en">Help</span>
             </button>
+            <!-- Setup, not a step in the work: Preços and Ajustes live behind
+                 this gear instead of in the process order (nav rebuild
+                 2026-09-28). Filled by renderPortalNav(); hidden for leads. -->
+            <div class="hero-gear-wrap">
+              <button type="button" class="hero-support hero-gear" id="heroGearBtn" hidden
+                      onclick="portalGearToggle()" aria-haspopup="menu">
+                <span class="hero-gear-ico" aria-hidden="true"></span>
+                <span class="show-pt">Ajustes</span><span class="show-en">Settings</span>
+              </button>
+              <div class="portal-gear-menu" id="portalGearMenu" hidden role="menu"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1327,7 +1413,7 @@
              the playbook rather than scorecard data, so it follows the money.
              scripts/test-portal-tab-order.mjs asserts this markup against
              PORTAL_TABS so the strip cannot drift from the dock and "Mais". -->
-        <button class="portal-tab active" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
+        <button class="portal-tab" data-tab="analytics" onclick="switchTab('analytics')">Analytics</button>
         <button class="portal-tab" data-tab="goals" onclick="switchTab('goals')">
           <span class="show-pt">Ritmo</span><span class="show-en">Pace</span>
           <!-- Same dot component as Assigned, same owner: the daily log lost
@@ -1429,13 +1515,19 @@
         </button>
       </div>
 
-      <div id="tabAnalytics">
-        <!-- Upcoming meetings (today / tomorrow). Deliberately the same
-             .content-card weight as #pendingBanner below: this used to be a
-             12px grey .hero-sub line under the client name and Nicole, who
-             designed the page, still missed her own meeting on it. Rows are
-             rendered by loadMeetings(); the card stays hidden when there is
-             nothing today or tomorrow rather than showing an empty shell. -->
+      <!-- ══ Navigation (rebuild 2026-09-28) ══════════════════════════════
+           Five destinations: Início, Negócio, Agenda, Analytics, Apex. On a
+           phone they are the dock; on a wider screen, this strip. A group with
+           several tools (Negócio, Apex) opens the tool used last and shows its
+           tools across the top in the order the work happens (#portalStepNav).
+           Built by renderPortalNav() from PORTAL_GROUPS. Leads keep the old
+           .portal-tabs strip above (their own shape). -->
+      <nav class="portal-groups" id="portalGroupNav" hidden></nav>
+      <nav class="portal-steps" id="portalStepNav" hidden></nav>
+
+      <!-- Início: what needs the owner now. The alert cards that used to sit
+           on top of Analytics live here; Analytics is only the numbers. -->
+      <div id="tabHome" hidden>
         <!-- ══ ONE meeting card ═════════════════════════════════════════════
              This card and the scheduling call-out were two separate cards
              showing the SAME meeting, stacked on the page the client lands on:
@@ -1473,6 +1565,21 @@
             </button>
           </div>
         </div>
+        <div class="content-card" id="homeEmpty" hidden>
+          <div class="list-title">
+            <span class="show-pt">Nada precisa da sua aten&ccedil;&atilde;o agora.</span>
+            <span class="show-en">Nothing needs your attention right now.</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="tabAnalytics" hidden>
+        <!-- Upcoming meetings (today / tomorrow). Deliberately the same
+             .content-card weight as #pendingBanner below: this used to be a
+             12px grey .hero-sub line under the client name and Nicole, who
+             designed the page, still missed her own meeting on it. Rows are
+             rendered by loadMeetings(); the card stays hidden when there is
+             nothing today or tomorrow rather than showing an empty shell. -->
         <!-- ══ Pace summary + analytics + growth chart ══════════════════════
              All three cards are rendered by the SHARED view (analytics-view.js)
              into this root, so the client portal and Rafa's admin per-client
@@ -2059,6 +2166,7 @@
         // .show-pt/.show-en spans, so it needs an explicit re-render. Replays
         // the cached rows rather than refetching.
         renderMeetings(lastMeetings);
+        refreshHomeEmpty();
         if (!document.getElementById("tabGoals").hidden) { loadGoalsTab(); }
         if (!document.getElementById("tabWorksched").hidden && workSettings) { renderWorkSettings(); }
       }
@@ -2698,7 +2806,7 @@
       // other tab (?tab=gmestimates from "Mais", a shared Pipeline link)
       // opens that tab, and the goals form waits for the next Home visit.
       var bootTab = (location.search.match(/[?&]tab=([a-z0-9_-]+)/i) || [])[1] || "";
-      if (bootTab && bootTab !== "analytics") { proceedToEntries(); return; }
+      if (bootTab && bootTab !== "analytics" && bootTab !== "home") { proceedToEntries(); return; }
       // Goals switched OFF by Pr. Rafa (hero build, E): neither goals gate
       // runs; the goals stay reachable in the Ritmo tab.
       if (!goalsOn()) { proceedToEntries(); return; }
@@ -4065,11 +4173,13 @@
         card.innerHTML = html;
         card.hidden = !html;
       }
+      refreshHomeEmpty();
     }
 
     function refreshPendingAffordances() {
       var banner = document.getElementById("pendingBanner");
       if (banner) { banner.hidden = !anyPendingEntries(); }
+      refreshHomeEmpty();
       var gdot = document.getElementById("goalsTabDot");
       if (gdot) { gdot.hidden = !anyPendingEntries(); }
       populateMobileDock();
@@ -4118,7 +4228,11 @@
       // guards every id against the caller's role, so an unknown or
       // not-allowed value falls back exactly as a stale in-app link does.
       var deepTab = PORTAL_DEEP_TAB();
-      switchTab(deepTab || (isSeller() ? "gmcrm" : (isLead() ? "assigned" : "analytics")), true);
+      // Nav rebuild 2026-09-28: the old one-row strip is the lead's shape
+      // only; everyone else navigates by the groups (#portalGroupNav).
+      var oldStrip = document.querySelector(".portal-tabs");
+      if (oldStrip && !isLead()) { oldStrip.style.display = "none"; }
+      switchTab(deepTab || (isSeller() ? "gmcrm" : (isLead() ? "assigned" : "home")), true);
       showView("viewPortal");
     }
 
@@ -4564,18 +4678,20 @@
     // Assigned is deliberately NOT here: it is inserted dynamically, and only
     // when something is actually assigned (see portalDockTabs).
     var PORTAL_TABS = [
-      { tab: "analytics",  icon: "home",         labelPt: "Analytics",              labelEn: "Analytics" },
+      // Início (nav rebuild 2026-09-28): the alerts, off the Analytics page.
+      { tab: "home",       icon: "home",         labelPt: "In\u00edcio",             labelEn: "Home" },
+      { tab: "analytics",  icon: "bar-chart",    labelPt: "Analytics",              labelEn: "Analytics" },
       { tab: "goals",      icon: "target",       labelPt: "Ritmo",                  labelEn: "Pace" },
       // Golden Base and Partners are no longer here: they are sub-sections of
       // Pipeline (see #tabGmcrm). They remain valid tab ids for deep links.
-      { tab: "gmcrm",      icon: "trend",        labelPt: "Pipeline",               labelEn: "Pipeline" },
+      { tab: "gmcrm",      icon: "funnel",       labelPt: "Pipeline",               labelEn: "Pipeline" },
       { tab: "gmjobs",     icon: "briefcase",    labelPt: "Projetos",               labelEn: "Projects" },
-      { tab: "gmpricing",  icon: "finance",      labelPt: "Pre\u00e7os",              labelEn: "Pricing" },
+      { tab: "gmpricing",  icon: "tag",          labelPt: "Pre\u00e7os",              labelEn: "Pricing" },
       // Estimates & invoices build. `gate` names a PORTAL_TAB_GATES entry:
       // the tab exists only for the clients listed there until its phase
       // ships for everyone (then the gate is removed).
-      { tab: "gmestimates", icon: "file",        labelPt: "Or\u00e7amentos",            labelEn: "Estimates", gate: "estimates" },
-      { tab: "gminvoices",  icon: "finance",     labelPt: "Faturas",                labelEn: "Invoices",  gate: "invoices" },
+      { tab: "gmestimates", icon: "clipboard",   labelPt: "Or\u00e7amentos",            labelEn: "Estimates", gate: "estimates" },
+      { tab: "gminvoices",  icon: "receipt",     labelPt: "Faturas",                labelEn: "Invoices",  gate: "invoices" },
       { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
       { tab: "gmroadmap",  icon: "list",         labelPt: "Execu&ccedil;&atilde;o", labelEn: "Execution" },
@@ -4599,12 +4715,16 @@
     // to all. Phases 1-3 shipped 2026-09-26, then re-gated to the test client the same day until Nicole's full click-through (fix list pending). Put a
     // list of client ids back here to narrow a tab again.
     var PORTAL_TAB_GATES = {
-      estimates: ["test-client-temp-001"],
-      invoices:  ["test-client-temp-001"],
+      // Opened to every client 2026-09-28 (Nicole: "Everything ships in the
+      // public update"). Contracts stay safe: the Worker's contractGoLiveBlock
+      // refuses to sign or send a real client's contract while the Recovery
+      // Fund / pool text is still unverified.
+      estimates: null,
+      invoices:  null,
       // Contracts build: builder, contract settings, change orders, dispute
       // tools. Not a tab of its own (it lives on the project and under
       // Estimates > Settings); gm.js reads window.PORTAL_CONTRACTS_ENABLED.
-      contracts: ["test-client-temp-001"]
+      contracts: null
     };
     function portalTabEnabled(t) {
       if (!t || !t.gate) { return true; }
@@ -4659,6 +4779,205 @@
         if (PORTAL_TABS[i].tab === tab) { return PORTAL_TABS[i]; }
       }
       return null;
+    }
+
+    // ── Navigation groups (rebuild 2026-09-28, Nicole) ─────────────────────
+    // "There's just tools everywhere. There is no organization or flow." Five
+    // destinations instead of a dock plus a full-screen "Mais":
+    //   Início    what needs the owner now (alerts)
+    //   Negócio   the business tools, in the order the work happens: a lead
+    //             first, invoicing last (contracts live inside Projetos)
+    //   Agenda    daily, and not a step: a lead visit and a job visit both
+    //   Analytics the numbers
+    //   Apex      the client's relationship with Apex
+    // Preços and Ajustes are setup, not steps, so they sit behind the gear
+    // (PORTAL_GEAR_TABS). Every group is filtered by portalTabs(), so roles and
+    // PORTAL_TAB_GATES still decide what exists; a group left empty is dropped,
+    // and a group left with one tool shows as that tool. Assigned joins Apex
+    // only while something is waiting. Leads keep their own shape.
+    var PORTAL_GROUPS = [
+      { key: "grp-home",      icon: "home",      labelPt: "In\u00edcio",   labelEn: "Home",      tabs: ["home"] },
+      { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"] },
+      { key: "grp-agenda",    icon: "calendar",  labelPt: "Agenda",       labelEn: "Calendar",  tabs: ["gmcalendar"] },
+      { key: "grp-analytics", icon: "bar-chart", labelPt: "Analytics",    labelEn: "Analytics", tabs: ["analytics"] },
+      { key: "grp-apex",      icon: "peak",      labelPt: "Apex",         labelEn: "Apex",      tabs: ["assigned", "goals", "gmroadmap", "tasks", "documents"] }
+    ];
+    var PORTAL_GEAR_TABS = ["gmpricing", "worksched"];
+
+    // The tools of one group this session can actually open, in process order.
+    function portalGroupTabs(g) {
+      var avail = portalTabs().map(function(t) { return t.tab; });
+      var list = g.tabs.filter(function(k) {
+        if (k === "assigned") { return !isSeller() && anyIncompleteAssigned(); }
+        return avail.indexOf(k) !== -1;
+      });
+      // Ritmo switched OFF by Pr. Rafa (hero build, E): last in its group.
+      if (ritmoDeprioritized() && list.indexOf("goals") !== -1) {
+        list = list.filter(function(k) { return k !== "goals"; }).concat(["goals"]);
+      }
+      return list.map(function(k) { return k === "assigned" ? ASSIGNED_DOCK_TAB : portalTabByKey(k); });
+    }
+    // The dock / desktop entries: one per group that has anything in it.
+    function portalGroups() {
+      var out = [];
+      PORTAL_GROUPS.forEach(function(g) {
+        var tabs = portalGroupTabs(g);
+        if (!tabs.length) { return; }
+        var solo = tabs.length === 1 && g.tabs.length > 1;
+        out.push({
+          tab: g.key, group: g, tabs: tabs,
+          icon: solo ? tabs[0].icon : g.icon,
+          labelPt: solo ? tabs[0].labelPt : g.labelPt,
+          labelEn: solo ? tabs[0].labelEn : g.labelEn
+        });
+      });
+      return out;
+    }
+    function portalGroupByKey(key) {
+      var gs = portalGroups();
+      for (var i = 0; i < gs.length; i++) { if (gs[i].tab === key) { return gs[i]; } }
+      return null;
+    }
+    function portalGroupOfTab(tab) {
+      var gs = portalGroups();
+      for (var i = 0; i < gs.length; i++) {
+        if (gs[i].tabs.some(function(t) { return t.tab === tab; })) { return gs[i]; }
+      }
+      return null;
+    }
+    function portalGearTabs() {
+      var avail = portalTabs().map(function(t) { return t.tab; });
+      return PORTAL_GEAR_TABS.filter(function(k) { return avail.indexOf(k) !== -1; }).map(portalTabByKey);
+    }
+    // A group opens the tool used last in it (per browser; a convenience, so a
+    // storage failure just means the first tool).
+    function portalGroupLanding(g) {
+      var last = null;
+      try { last = localStorage.getItem("apex_nav_last_" + g.tab); } catch (e) { last = null; }
+      var hit = g.tabs.filter(function(t) { return t.tab === last; })[0];
+      return (hit || g.tabs[0]).tab;
+    }
+    function portalRememberTab(tab) {
+      var g = portalGroupOfTab(tab);
+      if (!g || g.tabs.length < 2) { return; }
+      try { localStorage.setItem("apex_nav_last_" + g.tab, tab); } catch (e) {}
+    }
+    // Badges follow the destination: Início carries the alert count (the
+    // alerts live there), Negócio's Faturas step carries it too, and Apex
+    // dots when an assessment waits or the daily log has days to fill.
+    function portalNavBadge(entry) {
+      var attn = gmAttentionBadgeCount();
+      if (entry.tab === "grp-home") { return { count: attn, dot: false }; }
+      if (entry.tab === "gminvoices") { return { count: attn, dot: false }; }
+      if (entry.tab === "assigned") { return { count: 0, dot: anyIncompleteAssigned() }; }
+      if (entry.tab === "goals") { return { count: 0, dot: anyPendingEntries() }; }
+      if (entry.tab === "grp-apex") { return { count: 0, dot: anyIncompleteAssigned() || anyPendingEntries() }; }
+      return { count: 0, dot: false };
+    }
+    function portalBadgeHtml(b) {
+      if (b.count) { return '<span class="portal-nav-count" aria-hidden="true">' + b.count + '</span>'; }
+      return b.dot ? '<span class="portal-nav-dot" aria-hidden="true"></span>' : "";
+    }
+    function portalLabelHtml(t) {
+      return '<span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span>';
+    }
+    // Desktop strip, the open group's tools, and the gear menu.
+    function renderPortalNav() {
+      var groupNav = document.getElementById("portalGroupNav");
+      var stepNav = document.getElementById("portalStepNav");
+      var gearBtn = document.getElementById("heroGearBtn");
+      if (!groupNav || !stepNav || !window.apexNavSvg) { return; }
+      if (isLead()) { groupNav.hidden = true; stepNav.hidden = true; if (gearBtn) { gearBtn.hidden = true; } return; }
+      var cur = currentTab;
+      var curGroup = portalGroupOfTab(cur);
+      groupNav.innerHTML = portalGroups().map(function(g) {
+        return '<button type="button" class="portal-group-tab' + (curGroup && curGroup.tab === g.tab ? " active" : "") +
+          '" onclick="switchTab(\'' + g.tab + '\')">' + window.apexNavSvg(g.icon) + portalLabelHtml(g) + portalBadgeHtml(portalNavBadge(g)) + '</button>';
+      }).join("");
+      groupNav.hidden = false;
+      if (curGroup && curGroup.tabs.length > 1) {
+        stepNav.innerHTML = curGroup.tabs.map(function(t) {
+          return '<button type="button" class="portal-step' + (t.tab === cur ? " active" : "") +
+            '" onclick="switchTab(\'' + t.tab + '\')">' + window.apexNavSvg(t.icon) + portalLabelHtml(t) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
+        }).join("");
+        stepNav.hidden = false;
+      } else {
+        stepNav.innerHTML = "";
+        stepNav.hidden = true;
+      }
+      var gear = portalGearTabs();
+      if (gearBtn) { gearBtn.hidden = !gear.length; }
+      var menu = document.getElementById("portalGearMenu");
+      if (menu) {
+        menu.innerHTML = gear.map(function(t) {
+          return '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalGearGo(\'' + t.tab + '\')">' +
+            window.apexNavSvg(t.icon) + portalLabelHtml(t) + '</button>';
+        }).join("");
+      }
+    }
+    // Dock tap. A group with several tools pops up its list (phone); a
+    // single-tool group, or a lead's plain tab, just opens.
+    function portalDockTap(key) {
+      var g = key.indexOf("grp-") === 0 ? portalGroupByKey(key) : null;
+      if (!g || g.tabs.length < 2) { portalGroupSheetClose(); switchTab(key); return; }
+      var sheet = document.getElementById("portalGroupSheet");
+      var panel = document.getElementById("portalGroupPanel");
+      if (!sheet || !panel) { switchTab(key); return; }
+      if (!sheet.hidden && sheet.getAttribute("data-group") === key) { portalGroupSheetClose(); return; }
+      panel.innerHTML = '<div class="pg-title">' + portalLabelHtml(g) + '</div>' + g.tabs.map(function(t) {
+        return '<button type="button" class="pg-item' + (t.tab === currentTab ? " active" : "") + '" role="menuitem" onclick="portalGroupSheetGo(\'' + t.tab + '\')">' +
+          window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalBadgeHtml(portalNavBadge(t)) + '</button>';
+      }).join("");
+      sheet.setAttribute("data-group", key);
+      sheet.hidden = false;
+    }
+    function portalGroupSheetClose() {
+      var sheet = document.getElementById("portalGroupSheet");
+      if (sheet) { sheet.hidden = true; }
+    }
+    function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
+    function portalGearToggle() {
+      var gear = portalGearTabs();
+      // One item (a seller's Preços): the gear opens it directly.
+      if (gear.length === 1) { switchTab(gear[0].tab); return; }
+      var menu = document.getElementById("portalGearMenu");
+      var btn = document.getElementById("heroGearBtn");
+      if (!menu || !btn) { return; }
+      // The hero's backdrop-filter makes it the containing block for fixed
+      // children, and it clips them. The menu lives on <body> instead.
+      if (menu.parentNode !== document.body) { document.body.appendChild(menu); }
+      if (menu.hidden) {
+        var r = btn.getBoundingClientRect();
+        menu.style.top = Math.round(r.bottom + 6) + "px";
+        menu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + "px";
+      }
+      menu.hidden = !menu.hidden;
+    }
+    // A fixed menu would float away from its button on scroll; close it.
+    window.addEventListener("scroll", function() {
+      var menu = document.getElementById("portalGearMenu");
+      if (menu && !menu.hidden) { menu.hidden = true; }
+    }, true);
+    function portalGearGo(tab) {
+      var menu = document.getElementById("portalGearMenu");
+      if (menu) { menu.hidden = true; }
+      switchTab(tab);
+    }
+    document.addEventListener("click", function(e) {
+      var menu = document.getElementById("portalGearMenu");
+      if (!menu || menu.hidden) { return; }
+      if (e.target.closest && (e.target.closest(".hero-gear-wrap") || e.target.closest("#portalGearMenu"))) { return; }
+      menu.hidden = true;
+    });
+    // Início shows a line instead of a blank page when nothing is waiting.
+    function refreshHomeEmpty() {
+      var empty = document.getElementById("homeEmpty");
+      if (!empty) { return; }
+      var any = ["gmAttentionCard", "meetingsCard", "pendingBanner"].some(function(id) {
+        var el = document.getElementById(id);
+        return el && !el.hidden;
+      });
+      empty.hidden = any;
     }
 
     // ══ Support ═══════════════════════════════════════════════════════════
@@ -4883,34 +5202,14 @@
     };
 
     function portalDockTabs() {
-      // Seller: the first four of their tabs; the rest sit under "Mais"
-      // (portalMoreTabs). No Assigned, no lead teasers — neither surface
-      // exists for this session.
-      if (isSeller()) { return portalTabs().slice(0, 4); }
       if (isLead()) { return LEAD_DOCK_TABS; }
-      // Client: Assigned leads the dock whenever something is waiting, and is
-      // absent entirely when there is nothing to do — same rule as the desktop
-      // strip, so the two never disagree. The bar still holds 4 + "Mais" (see
-      // the note above), so the last fixed tab yields its slot rather than
-      // making the bar overflow; it stays reachable under "Mais".
-      var dock = PORTAL_DOCK_TABS;
-      if (ritmoDeprioritized()) {
-        // Ritmo leaves the dock; the next tab in canonical order takes its
-        // slot so the bar keeps 4 + "Mais".
-        dock = dock.filter(function(t) { return t.tab !== "goals"; });
-        var fill = portalTabs().filter(function(t) {
-          return t.tab !== "goals" && !dock.some(function(d) { return d.tab === t.tab; });
-        })[0];
-        if (fill) { dock = dock.concat([fill]); }
-      }
-      if (!anyIncompleteAssigned()) { return dock; }
-      return [ASSIGNED_DOCK_TAB].concat(dock.slice(0, dock.length - 1));
+      // Clients and sellers (nav rebuild 2026-09-28): the groups. Nothing
+      // overflows, so there is no "Mais" for them.
+      return portalGroups();
     }
-
     function portalMoreTabs() {
-      // Seller: whatever did not fit the four dock slots. Empty when their
-      // tab set is four or fewer, and populateMobileDock() then omits "Mais".
-      if (isSeller()) { return portalTabs().slice(4); }
+      // Clients and sellers have no overflow since the nav rebuild.
+      if (!isLead()) { return []; }
       // Lead: the More menu is entirely locked teasers. Invoices and Tasks are
       // absent by design — not locked, not listed.
       if (isLead()) {
@@ -4920,27 +5219,7 @@
           };
         });
       }
-      // The per-assessment entries used to be appended here, one per assigned
-      // type — up to seven, on top of the eight fixed ones, which is what made
-      // this menu scroll. They are gone: Assigned is the one entry point, and
-      // it lives in the dock proper, not in the overflow.
-      //
-      // Derived straight from PORTAL_TABS rather than patched: "Mais" is simply
-      // everything that is not currently docked, in canonical order. The old
-      // version push()ed a displaced dock tab onto the END, so when Assigned
-      // appeared and bumped the last dock tab, that tab landed after Settings
-      // regardless of how important it was. Filtering the canonical array puts
-      // it back where it belongs with no special case at all.
-      var docked = portalDockTabs();
-      var more = portalTabs().filter(function(t) {
-        return !docked.some(function(d) { return d.tab === t.tab; });
-      });
-      // Ritmo deprioritized (hero build, E): LAST in "Mais".
-      if (ritmoDeprioritized()) {
-        more = more.filter(function(t) { return t.tab !== "goals"; })
-          .concat(more.filter(function(t) { return t.tab === "goals"; }));
-      }
-      return more;
+      return [];
     }
 
     function populateMobileDock() {
@@ -4950,12 +5229,13 @@
       // Faturas count (A9); 0 wherever the attention loader is absent.
       var attnCount = typeof gmAttentionBadgeCount === "function" ? gmAttentionBadgeCount() : 0;
       portalDockTabs().forEach(function(t) {
-        html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
+        html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="portalDockTap(\'' + t.tab + '\')">';
         // Dots are state-derived, same rule as the desktop strip: Assigned dots
         // on an incomplete assessment, Ritmo dots on a pending daily backlog.
         var dot = (t.tab === "assigned" && anyIncompleteAssigned()) ||
                   (t.tab === "goals" && anyPendingEntries());
         var count = t.tab === "gminvoices" ? attnCount : 0;
+        if (t.group) { var gb = portalNavBadge(t); dot = gb.dot; count = gb.count; }
         html += '<span class="m-tab-ico">' + window.apexNavSvg(t.icon) +
           (count ? '<span class="m-tab-dot m-tab-count" aria-hidden="true">' + count + '</span>' : (dot ? '<span class="m-tab-dot" aria-hidden="true"></span>' : '')) + '</span>';
         html += '<span class="m-tab-label"><span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span></span>';
@@ -5013,7 +5293,8 @@
       // The dock is now rebuilt mid-session (whenever the assignment set
       // changes), so it must re-highlight the tab the user is actually on
       // rather than snapping back to the boot tab.
-      updateMobileDockActive(currentTab || (isLead() ? "assigned" : "analytics"));
+      updateMobileDockActive(currentTab || (isLead() ? "assigned" : "home"));
+      renderPortalNav();
     }
 
     function portalMoreToggle() {
@@ -5031,6 +5312,13 @@
     function updateMobileDockActive(tab) {
       var bar = document.getElementById("mobile-tab-bar");
       if (!bar) { return; }
+      if (!isLead()) {
+        var g = portalGroupOfTab(tab);
+        bar.querySelectorAll(".m-tab").forEach(function(b) {
+          b.classList.toggle("m-tab-active", !!g && b.getAttribute("data-dock-tab") === g.tab);
+        });
+        return;
+      }
       var inDock = portalDockTabs().some(function(t) { return t.tab === tab; });
       bar.querySelectorAll(".m-tab").forEach(function(b) {
         var key = b.getAttribute("data-dock-tab");
@@ -5048,6 +5336,13 @@
     var GM_PIPELINE_ALIASES = { gmbase: "base", gmpartners: "partners" };
 
     function switchTab(tab, force) {
+      // A group (dock / desktop strip) opens the tool used last in it.
+      if (tab && tab.indexOf("grp-") === 0) {
+        var grp = portalGroupByKey(tab);
+        tab = grp ? portalGroupLanding(grp) : (isSeller() ? "gmcrm" : "home");
+      }
+      // Leads never had Início; old links to it land on their front door.
+      if (tab === "home" && isLead()) { tab = "assigned"; }
       if (GM_PIPELINE_ALIASES[tab] && !isLead()) {
         gmSetPipelineSection(GM_PIPELINE_ALIASES[tab]);
         tab = "gmcrm";
@@ -5061,8 +5356,8 @@
       // A gated tab this client does not have (or the hidden Apex invoices
       // tab) falls back the same way a stale deep link does.
       var gatedMeta = portalTabByKey(tab);
-      if (gatedMeta && !portalTabEnabled(gatedMeta)) { tab = isSeller() ? "gmcrm" : "analytics"; }
-      if (tab === "invoices" && !isLead()) { tab = "analytics"; }
+      if (gatedMeta && !portalTabEnabled(gatedMeta)) { tab = isSeller() ? "gmcrm" : "home"; }
+      if (tab === "invoices" && !isLead()) { tab = "home"; }
       // Lead safety net: even if a stale deep-link or an old cached dock aims
       // at a client-only tab, a lead can never land on real client data. The
       // teaser tabs go to their preview; anything else falls back to Assigned.
@@ -5075,6 +5370,8 @@
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
       updateMobileDockActive(tab);
+      portalRememberTab(tab);
+      renderPortalNav();
       // Each entry must match its element id EXACTLY after the "tab" prefix
       // (id="tabLockedPreview", capital P) — a casing slip here returns null
       // from getElementById and throws inside the forEach, which aborts
@@ -5086,7 +5383,7 @@
       // #tabGmbase / #tabGmpartners elements any more, only the sub-section
       // bodies inside #tabGmcrm. Both ids reach that container through
       // GM_PIPELINE_ALIASES above.
-      ["Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
+      ["Home", "Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs", "Gmpricing", "Gmcalendar",
        "Gmestimates", "Gminvoices",
        "Assigned", "LockedPreview"]
@@ -5105,7 +5402,8 @@
       // F13: the Home attention cards (contract notices, awaiting signatures,
       // subcontractor documents, alerts) refresh every time Home is shown
       // (the boot call is forced and already loaded them in showPortal).
-      if (tab === "analytics" && !force && window.gmAttentionEnabled === true && typeof gmLoadAttention === "function") { gmLoadAttention(true); }
+      if (tab === "home" && !force && window.gmAttentionEnabled === true && typeof gmLoadAttention === "function") { gmLoadAttention(true); }
+      if (tab === "home") { refreshHomeEmpty(); }
       if (force || !tabsLoaded[tab] || tab.indexOf("gm") === 0 || tab === "assigned") {
         tabsLoaded[tab] = true;
         if (tab === "analytics") { loadPace(); loadAnalytics(); loadHistory(); }
@@ -6212,6 +6510,7 @@
         // implementation, shared -- not a second copy over there.
         window.apexBookingToken = lastSchedState ? lastSchedState.booking_token : null;
         renderMeetings(lastMeetings);
+        refreshHomeEmpty();
       });
     }
 
@@ -7060,5 +7359,10 @@
   <!-- "Mais" full-screen menu — static container like the tab bar (never
        created at runtime; populateMobileDock() only fills it in). -->
   <div id="mobile-more-menu"></div>
+  <!-- Phone: Negócio / Apex tools pop-up (nav rebuild). Filled by portalDockTap(). -->
+  <div class="pg-sheet" id="portalGroupSheet" hidden>
+    <div class="pg-backdrop" onclick="portalGroupSheetClose()"></div>
+    <div class="pg-panel" id="portalGroupPanel" role="menu"></div>
+  </div>
 </body>
 </html>

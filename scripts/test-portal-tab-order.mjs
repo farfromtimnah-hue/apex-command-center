@@ -30,6 +30,7 @@ globalThis.gmAttentionBadgeCount = () => 0;
 let ritmoDown = false;
 globalThis.ritmoDeprioritized = () => ritmoDown;
 globalThis.document = { addEventListener() {}, getElementById() { return null; } };
+globalThis.window = { addEventListener() {}, innerWidth: 400 };
 const store = {};
 globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
 globalThis.clientId = "test-client-temp-001";
@@ -77,14 +78,16 @@ eq(portalGroups().find(g => g.tab === "grp-apex").tabs.map(t => t.tab),
    ["gmroadmap", "tasks", "documents", "goals"], "daily log / goals switched off: Ritmo goes last in Apex");
 ritmoDown = false;
 
-// ---- a real client while estimates/invoices are gated ----
+// ---- a real client (gates opened for everyone 2026-09-28) ----
 globalThis.clientId = "some-real-client";
+eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab),
+   ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"], "every client gets the full Negócio now");
+PORTAL_TAB_GATES.estimates = ["test-client-temp-001"]; PORTAL_TAB_GATES.invoices = ["test-client-temp-001"];
 eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab), ["gmcrm", "gmjobs", "gmfinance"],
-   "gated client: Negócio has no Orçamentos / Faturas until the gates open");
+   "a gate list, if ever set again: Negócio has no Orçamentos / Faturas until the gates open");
 PORTAL_TAB_GATES.estimates = null; PORTAL_TAB_GATES.invoices = null;
 eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab),
-   ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"], "…and gets them in process order once opened");
-PORTAL_TAB_GATES.estimates = ["test-client-temp-001"]; PORTAL_TAB_GATES.invoices = ["test-client-temp-001"];
+   ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"], "…and gets them back in process order once reopened");
 globalThis.clientId = "test-client-temp-001";
 
 // ---- salesperson ----

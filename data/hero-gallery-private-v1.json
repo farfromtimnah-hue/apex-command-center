@@ -1,6 +1,6 @@
 {
  "version": 1,
- "note": "PRIVATE hero collections (2026-09-27). Never listed or pickable by any client outside allowed_client_ids. Files in R2 under hero-gallery-private/<collection>/<file>, bytes served by GET /api/hero-gallery/<key>.jpg (public by key, like the shared gallery: homeowner pages and PDFs load without a login). jm-web-* framed by Nicole on EST-0011; jm-catalog-* not framed yet (defaults).",
+ "note": "PRIVATE hero collections (2026-09-27). Never listed or pickable by any client outside allowed_client_ids. Files in R2 under hero-gallery-private/<collection>/<file>, bytes served by GET /api/hero-gallery/<key>.jpg (public by key, like the shared gallery: homeowner pages and PDFs load without a login). jm-web-* and the 7 kept jm-catalog-* framed by Nicole on EST-0011. hidden: true = not listed and not pickable (low resolution; jm-catalog-12 duplicates 08); the R2 objects stay and a document that already carries the key still renders.",
  "collections": [
   {
    "key": "jm",
@@ -146,23 +146,11 @@
      "flip": false
     },
     {
-     "key": "jm-catalog-01",
-     "order": 12,
-     "file": "jm-catalog-01.jpg",
-     "focus_x": 50,
-     "focus_y": 50,
-     "zoom": 100,
-     "slide": 0,
-     "fill": null,
-     "tone": "dark",
-     "flip": false
-    },
-    {
      "key": "jm-catalog-02",
-     "order": 13,
+     "order": 12,
      "file": "jm-catalog-02.jpg",
-     "focus_x": 50,
-     "focus_y": 50,
+     "focus_x": 0,
+     "focus_y": 40,
      "zoom": 100,
      "slide": 0,
      "fill": null,
@@ -171,21 +159,9 @@
     },
     {
      "key": "jm-catalog-03",
-     "order": 14,
+     "order": 13,
      "file": "jm-catalog-03.jpg",
-     "focus_x": 50,
-     "focus_y": 50,
-     "zoom": 100,
-     "slide": 0,
-     "fill": null,
-     "tone": "dark",
-     "flip": false
-    },
-    {
-     "key": "jm-catalog-04",
-     "order": 15,
-     "file": "jm-catalog-04.jpg",
-     "focus_x": 50,
+     "focus_x": 95,
      "focus_y": 50,
      "zoom": 100,
      "slide": 0,
@@ -195,19 +171,19 @@
     },
     {
      "key": "jm-catalog-05",
-     "order": 16,
+     "order": 14,
      "file": "jm-catalog-05.jpg",
-     "focus_x": 50,
+     "focus_x": 65,
      "focus_y": 50,
      "zoom": 100,
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": true
     },
     {
      "key": "jm-catalog-06",
-     "order": 17,
+     "order": 15,
      "file": "jm-catalog-06.jpg",
      "focus_x": 50,
      "focus_y": 50,
@@ -219,10 +195,10 @@
     },
     {
      "key": "jm-catalog-07",
-     "order": 18,
+     "order": 16,
      "file": "jm-catalog-07.jpg",
      "focus_x": 50,
-     "focus_y": 50,
+     "focus_y": 100,
      "zoom": 100,
      "slide": 0,
      "fill": null,
@@ -231,27 +207,53 @@
     },
     {
      "key": "jm-catalog-08",
-     "order": 19,
+     "order": 17,
      "file": "jm-catalog-08.jpg",
-     "focus_x": 50,
-     "focus_y": 50,
+     "focus_x": 55,
+     "focus_y": 85,
      "zoom": 100,
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": true
     },
     {
      "key": "jm-catalog-09",
-     "order": 20,
+     "order": 18,
      "file": "jm-catalog-09.jpg",
+     "focus_x": 50,
+     "focus_y": 70,
+     "zoom": 100,
+     "slide": 0,
+     "fill": null,
+     "tone": "dark",
+     "flip": true
+    },
+    {
+     "key": "jm-catalog-01",
+     "order": 19,
+     "file": "jm-catalog-01.jpg",
      "focus_x": 50,
      "focus_y": 50,
      "zoom": 100,
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": false,
+     "hidden": true
+    },
+    {
+     "key": "jm-catalog-04",
+     "order": 20,
+     "file": "jm-catalog-04.jpg",
+     "focus_x": 50,
+     "focus_y": 50,
+     "zoom": 100,
+     "slide": 0,
+     "fill": null,
+     "tone": "dark",
+     "flip": false,
+     "hidden": true
     },
     {
      "key": "jm-catalog-10",
@@ -263,7 +265,8 @@
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": false,
+     "hidden": true
     },
     {
      "key": "jm-catalog-11",
@@ -275,7 +278,8 @@
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": false,
+     "hidden": true
     },
     {
      "key": "jm-catalog-12",
@@ -287,7 +291,8 @@
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": false,
+     "hidden": true
     },
     {
      "key": "jm-catalog-13",
@@ -299,7 +304,8 @@
      "slide": 0,
      "fill": null,
      "tone": "dark",
-     "flip": false
+     "flip": false,
+     "hidden": true
     }
    ]
   }

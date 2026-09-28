@@ -23624,6 +23624,11 @@ async function handlePutGmDocHeroChoice(id, request, env) {
                 if (pv && !heroPrivateAllowed(pv.collection, id)) {
                     return jsonErr2("Esta imagem não está disponível para a sua empresa.", "This image is not available to your business.", 403);
                 }
+                // Click-through fixes C2: a photo hidden from the picker (low
+                // resolution, or a duplicate) cannot be picked either.
+                if (pv && pv.image.hidden) {
+                    return jsonErr2("Imagem da galeria não encontrada.", "Gallery image not found.", 404);
+                }
                 g = pv ? pv.image : null;
             }
             if (!g) { return jsonErr2("Imagem da galeria não encontrada.", "Gallery image not found.", 400); }
@@ -23714,7 +23719,9 @@ async function handleGetGmHeroGalleryPrivate(id, request, env) {
         var origin = new URL(request.url).origin;
         var out = heroPrivateCollections().filter(function(col) { return heroPrivateAllowed(col, id); }).map(function(col) {
             return { key: col.key, label_pt: col.label_pt, label_en: col.label_en,
-                images: (col.images || []).map(function(im) {
+                // hidden: kept in R2 and still rendered on a document that
+                // already carries it, but never offered (click-through fixes C2).
+                images: (col.images || []).filter(function(im) { return !im.hidden; }).map(function(im) {
                     return { key: im.key, category: col.key, order: im.order, focus_x: im.focus_x, focus_y: im.focus_y, zoom: im.zoom,
                         slide: im.slide, fill: im.fill, tone: im.tone, flip: !!im.flip, url: origin + "/api/hero-gallery/" + im.key + ".jpg" };
                 }) };

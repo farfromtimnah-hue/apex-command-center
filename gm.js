@@ -4820,7 +4820,7 @@ function gmRenderContractSheet() {
   if (!c.routed_only && companySigned && ["company_signed", "sent", "viewed"].indexOf(c.status) !== -1) {
     body += '<button type="button" class="gm-btn-primary" id="gmConSendBtn" onclick="gmConSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>';
   }
-  body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
+  body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener" onclick="return gmOpenDocLink(this.href)">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(c.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
   if (!c.routed_only && c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!c.routed_only && ["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
@@ -5054,6 +5054,12 @@ function gmConCustomSave(areaId) {
 function gmConCustomPdf(ccid) {
   var cc = (gmConDetail.custom_clauses || []).filter(function(x) { return x.id === ccid; })[0];
   if (!cc) { return; }
+  if (gmInApp()) {
+    // The app cannot print a written page; show it, the owner can screenshot or share it.
+    gmAppViewBlob(new Blob(['<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Georgia,serif;margin:24px;color:#111;font-size:12.5pt;line-height:1.5}h1{font-size:18pt}p{white-space:pre-wrap}.m{color:#555;font-size:10pt}</style></head><body>' +
+      '<h1>Custom clause for attorney review</h1><p class="m">Contract ' + escHtml(gmConDetail.display_number) + ' · clause area ' + escHtml(cc.area_id) + ' · written ' + escHtml(String(cc.created_at || "").slice(0, 10)) + '</p><hr><p>' + escHtml(cc.text) + '</p><hr><p class="m">This clause was written by the business and has not been reviewed by an attorney. Attorney: name, Florida Bar number, review date, decision (approved / approved with edits / not approved).</p></body></html>'], { type: "text/html" }));
+    return;
+  }
   var w = window.open("", "_blank");
   if (!w) { gmToast(gmT("Permita pop-ups para baixar o PDF.", "Allow pop-ups to download the PDF.")); return; }
   w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Custom clause ' + escHtml(cc.area_id) + '</title><style>body{font-family:Georgia,serif;max-width:7in;margin:1in auto;color:#111;font-size:12.5pt;line-height:1.5}h1{font-size:18pt}p{white-space:pre-wrap}.m{color:#555;font-size:10pt}</style></head><body>' +
@@ -5304,7 +5310,7 @@ function gmDRenderConditions(jobId) {
       }).join("") + '</div>';
     }
     (d.acks || []).filter(function(a) { return a.kind === "before_photos"; }).forEach(function(a) {
-      inner += gmSheetRowHtml("file", gmT("Reconhecimento do cliente", "Homeowner acknowledgment"), gmDAckPill(a), "window.open(" + JSON.stringify(a.status === "signed" ? a.link : a.preview_link).replace(/"/g, "&quot;") + ", '_blank')", null,
+      inner += gmSheetRowHtml("file", gmT("Reconhecimento do cliente", "Homeowner acknowledgment"), gmDAckPill(a), "gmOpenDocLink(" + JSON.stringify(a.status === "signed" ? a.link : a.preview_link).replace(/"/g, "&quot;") + ")", null,
         gmDAckSub(a));
     });
   }
@@ -5401,7 +5407,7 @@ function gmDRenderPunch(jobId) {
     if (d.completion) { inner += '<p class="gm-derived-note" style="padding:0 12px 10px;">✓ ' + gmT("Conclusão aceita por ", "Completion signed by ") + escHtml(d.completion.signer_name) + ' · ' + escHtml(formatDateTimeUTC(d.completion.signed_at)) + '</p>'; }
     // The completion sign-offs sent for this project, with a decline reason (F28).
     ((gmDTools[jobId].cond && gmDTools[jobId].cond.acks) || []).filter(function(a) { return a.kind === "completion" && a.status !== "signed"; }).forEach(function(a) {
-      inner += gmSheetRowHtml("file", gmT("Aceite de conclusão", "Completion sign-off"), gmDAckPill(a), "window.open(" + JSON.stringify(a.preview_link).replace(/"/g, "&quot;") + ", '_blank')", null, gmDAckSub(a));
+      inner += gmSheetRowHtml("file", gmT("Aceite de conclusão", "Completion sign-off"), gmDAckPill(a), "gmOpenDocLink(" + JSON.stringify(a.preview_link).replace(/"/g, "&quot;") + ")", null, gmDAckSub(a));
     });
   }
   var items2 = (d && d.items) || [];
@@ -5441,7 +5447,7 @@ function gmDPunchRestore(jobId, itemId) {
   gmApi("punch/" + encodeURIComponent(itemId), { method: "PUT", body: { removed: false } }).then(function(d) { gmToast(gmT("Pendência restaurada", "Item restored")); gmDPunchVoidNote(d); gmDLoadJobTools(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDOpenPunchPhoto(url) {
-  apiFetch(url).then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); }).then(function(blob) { var u = URL.createObjectURL(blob); gmPhotoObjectUrls["file-" + Date.now()] = u; window.open(u, "_blank"); }).catch(function(e) { gmToast(e.message); });
+  apiFetch(url).then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.blob(); }).then(function(blob) { if (gmInApp()) { gmAppViewBlob(blob); return; } var u = URL.createObjectURL(blob); gmPhotoObjectUrls["file-" + Date.now()] = u; window.open(u, "_blank"); }).catch(function(e) { gmToast(e.message); });
 }
 
 // ── D4: lienors (Notices to Owner) and releases ──────────────────────────
@@ -5856,7 +5862,7 @@ function gmRenderChangeOrderSheet() {
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (co.status === "draft" && co.can_sign_as_company) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSignOpen()">' + gmT("Assinar pela empresa", "Sign as company") + '</button>'; }
   if (["company_signed", "sent", "viewed"].indexOf(co.status) !== -1) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>'; }
-  body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
+  body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener" onclick="return gmOpenDocLink(this.href)">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(co.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
   if (co.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'co\', \'' + escHtml(co.id) + '\', \'' + escHtml(co.number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed"].indexOf(co.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmCOVoid()">' + gmT("Anular", "Void") + '</button>'; }
@@ -6148,6 +6154,55 @@ function gmFileRowHtml(f, openFn, deleteCall) {
     '</div>';
 }
 
+// ── iOS app: in-app document viewer ──────────────────────────────────────
+// Inside the iOS app (WKWebView) three things the web relies on do not work:
+// window.open("") returns null, so "open a tab, fill it after the fetch" does
+// nothing; a blob: URL cannot be handed to Safari; and Safari is not signed in
+// to the portal, so an owner preview (?preview=<id>) opened there 404s. In the
+// app those open here instead: a full-screen sheet over the portal, same
+// origin, so the preview pages read the same signed-in localStorage.
+function gmInApp() { return !!(window.apexIsNative && apexIsNative()); }
+function gmAppViewer(src, isImage) {
+  var old = document.getElementById("gmAppViewer");
+  if (old) { old.parentNode.removeChild(old); }
+  var wrap = document.createElement("div");
+  wrap.id = "gmAppViewer";
+  wrap.className = "gm-app-viewer";
+  var bar = document.createElement("div");
+  bar.className = "gm-app-viewer-bar";
+  var close = document.createElement("button");
+  close.type = "button";
+  close.textContent = gmT("Fechar", "Close");
+  close.onclick = function() { wrap.parentNode.removeChild(wrap); };
+  bar.appendChild(close);
+  wrap.appendChild(bar);
+  var body;
+  if (isImage) { body = document.createElement("img"); body.alt = ""; }
+  else { body = document.createElement("iframe"); body.title = gmT("Documento", "Document"); }
+  body.className = "gm-app-viewer-body";
+  body.src = src;
+  wrap.appendChild(body);
+  document.body.appendChild(wrap);
+}
+// Owner preview links (contract, change order, acknowledgment). On the web
+// the link opens in a new tab as before; in the app a ?preview= link opens
+// the app's own copy of the page in the viewer. Returns false when handled,
+// so it can sit in an <a onclick="return ...">.
+function gmOpenDocLink(url) {
+  if (!url) { return false; }
+  if (gmInApp() && /[?&]preview=/.test(url)) {
+    var m = url.match(/\/([a-z-]+-view)(?:\.html)?(\?.*)$/);
+    if (m) { gmAppViewer(m[1] + ".html" + m[2]); return false; }
+  }
+  if (gmInApp()) { apexOpenExternal(url); return false; }
+  window.open(url, "_blank");
+  return false;
+}
+// An authenticated file (photo or PDF) fetched as a blob, shown in the viewer.
+function gmAppViewBlob(blob) {
+  gmAppViewer(URL.createObjectURL(blob), /^image\//.test(blob.type || ""));
+}
+
 // Opens an authenticated file in a new tab. An <a href> would arrive without
 // the Authorization header and 401, so the bytes are fetched as a blob and
 // handed to the browser as an object URL.
@@ -6155,6 +6210,13 @@ function gmFileRowHtml(f, openFn, deleteCall) {
 // The tab is opened BEFORE the fetch: Safari blocks a window.open() that does
 // not descend directly from the tap that triggered it.
 function gmOpenAuthedFile(fileUrl) {
+  if (gmInApp()) {
+    apiFetch(fileUrl)
+      .then(function(res) { return res.ok ? res.blob() : null; })
+      .then(function(blob) { if (blob) { gmAppViewBlob(blob); } else { gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file.")); } })
+      .catch(function() { gmToast(gmT("N\u00e3o foi poss\u00edvel abrir o arquivo.", "Could not open the file.")); });
+    return;
+  }
   var tab = window.open("", "_blank");
   apiFetch(fileUrl)
     .then(function(res) { return res.ok ? res.blob() : null; })

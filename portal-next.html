@@ -463,7 +463,9 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z'/%3E%3C/svg%3E");
     }
     .portal-gear-menu {
-      position: absolute; right: 0; top: calc(100% + 6px); z-index: 960;
+      /* fixed, placed from the button by portalGearToggle(): the hero clips
+         anything absolutely positioned inside it (overflow: hidden). */
+      position: fixed; z-index: 960;
       background: #fff; border: 1px solid var(--border); border-radius: 12px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.18); min-width: 190px; padding: 6px;
     }
@@ -4890,8 +4892,20 @@
       // One item (a seller's Preços): the gear opens it directly.
       if (gear.length === 1) { switchTab(gear[0].tab); return; }
       var menu = document.getElementById("portalGearMenu");
-      if (menu) { menu.hidden = !menu.hidden; }
+      var btn = document.getElementById("heroGearBtn");
+      if (!menu || !btn) { return; }
+      if (menu.hidden) {
+        var r = btn.getBoundingClientRect();
+        menu.style.top = Math.round(r.bottom + 6) + "px";
+        menu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + "px";
+      }
+      menu.hidden = !menu.hidden;
     }
+    // A fixed menu would float away from its button on scroll; close it.
+    window.addEventListener("scroll", function() {
+      var menu = document.getElementById("portalGearMenu");
+      if (menu && !menu.hidden) { menu.hidden = true; }
+    }, true);
     function portalGearGo(tab) {
       var menu = document.getElementById("portalGearMenu");
       if (menu) { menu.hidden = true; }

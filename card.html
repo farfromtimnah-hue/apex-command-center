@@ -6,10 +6,13 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Contact card</title>
   <!-- Hero follow-up, Part I (2026-09-27): the salesperson's contact card a
-       customer saves with one tap. PUBLIC, unguessable token (?t=), the
-       CLIENT's branding only (never Apex's), English (homeowner-facing).
+       customer saves to their phone. PUBLIC, unguessable token (?t=), the
+       CLIENT's branding only (never Apex's). Opens in English unless the
+       client's customer language is explicitly 'pt' (click-through fixes B1).
        "Save to contacts" is the Worker's vCard (/api/public/card/<t>.vcf):
-       its FIRST link is this customer's own referral link. -->
+       its FIRST link is this customer's own referral link. There is no
+       "send this contact" button: forwarding this page would pass THIS
+       customer's referral link to strangers (click-through fixes A1). -->
   <style>
     :root {
       --brand-bg: #2b2b2b;
@@ -22,12 +25,12 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; padding: 0 16px 40px; }
-    .band { background: var(--brand-bg); width: 100vw; margin-left: calc(50% - 50vw); padding: calc(18px + env(safe-area-inset-top, 0px)) 16px 64px; text-align: center; }
+    .band { background: var(--brand-bg); width: 100vw; margin-left: calc(50% - 50vw); padding: calc(18px + env(safe-area-inset-top, 0px)) 16px 108px; text-align: center; }
     .band img.logo { max-height: 64px; max-width: 200px; width: auto; display: none; margin: 0 auto; background: #fff; border-radius: 10px; padding: 6px 10px; }
     .band img.logo.on { display: block; }
     .band .company { color: #fff; font-weight: 800; font-size: 18px; margin-top: 8px; letter-spacing: 0.02em; }
-    .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; max-width: 440px; margin: -48px auto 0; padding: 20px 18px 22px; text-align: center; box-shadow: 0 4px 18px rgba(26,26,29,0.08); }
-    .photo { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 2px 10px rgba(26,26,29,0.15); margin-top: -70px; background: #eee; display: none; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; max-width: 440px; margin: -40px auto 0; padding: 20px 18px 22px; text-align: center; box-shadow: 0 4px 18px rgba(26,26,29,0.08); }
+    .photo { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #fff; box-shadow: 0 2px 10px rgba(26,26,29,0.15); margin-top: -72px; background: #eee; display: none; }
     .photo.on { display: inline-block; }
     .name { font-size: 22px; font-weight: 800; margin-top: 8px; }
     .title { color: var(--muted); font-size: 14px; margin-top: 2px; }
@@ -63,14 +66,12 @@
       <div class="title" id="title"></div>
       <div class="rows" id="rows"></div>
       <a class="btn" id="btnSave" href="#">Save to contacts</a>
-      <p class="hint">On iPhone this opens Add Contact: one tap and it is saved.</p>
-      <button type="button" class="btn secondary" id="btnShare" onclick="shareCard()">Send this contact to someone</button>
-      <p class="err" id="shareErr"></p>
+      <p class="hint" id="saveHint">Tap Save to contacts, then tap Create New Contact.</p>
     </div>
     <div class="refer">
-      <h2>Know someone who needs this?</h2>
+      <h2 id="referTitle">Know someone who needs this?</h2>
       <p class="hint" id="referHint"></p>
-      <button type="button" class="btn" onclick="shareReferral()">Share your link</button>
+      <button type="button" class="btn" id="btnRefer" onclick="shareReferral()">Share your link</button>
       <p class="err" id="referErr"></p>
     </div>
   </div>
@@ -78,6 +79,10 @@
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var card = null;
+    var lang = "en";   // the client's customer language; English unless explicitly 'pt'
+
+    function T(pt, en) { return lang === "pt" ? pt : en; }
+    function setText(id, txt) { var el = byId(id); if (el) { el.textContent = txt; } }
 
     function byId(id) { return document.getElementById(id); }
     function escHtml(s) { return String(s === null || s === undefined ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -91,6 +96,8 @@
 
     function render() {
       var c = card;
+      lang = c.language === "pt" ? "pt" : "en";
+      document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
       if (hexOk(c.brand_primary)) { document.documentElement.style.setProperty("--brand-bg", c.brand_primary); }
       if (hexOk(c.brand_accent)) { document.documentElement.style.setProperty("--brand-accent", c.brand_accent); }
       else if (hexOk(c.brand_primary)) { document.documentElement.style.setProperty("--brand-accent", c.brand_primary); }
@@ -103,14 +110,17 @@
       var nm = byId("name"); if (nm) { nm.textContent = [c.seller_first, c.company].filter(Boolean).join(" · "); }
       var tt = byId("title"); if (tt) { tt.textContent = c.title || ""; }
       var rows = [];
-      if (c.phone) { rows.push(["Phone", '<a href="tel:' + escHtml(String(c.phone).replace(/[^\d+]/g, "")) + '">' + escHtml(fmtPhone(c.phone)) + '</a>']); }
-      if (c.email) { rows.push(["Email", escHtml(c.email)]); }
-      if (c.website) { rows.push(["Website", '<a href="' + escHtml(c.website) + '" target="_blank" rel="noopener">' + escHtml(String(c.website).replace(/^https?:\/\//, "").replace(/\/$/, "")) + '</a>']); }
+      if (c.phone) { rows.push([T("Telefone", "Phone"), '<a href="tel:' + escHtml(String(c.phone).replace(/[^\d+]/g, "")) + '">' + escHtml(fmtPhone(c.phone)) + '</a>']); }
+      if (c.email) { rows.push([T("E-mail", "Email"), escHtml(c.email)]); }
+      if (c.website) { rows.push([T("Site", "Website"), '<a href="' + escHtml(c.website) + '" target="_blank" rel="noopener">' + escHtml(String(c.website).replace(/^https?:\/\//, "").replace(/\/$/, "")) + '</a>']); }
       var box = byId("rows");
       if (box) { box.innerHTML = rows.map(function(r) { return '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>'; }).join(""); }
-      var save = byId("btnSave"); if (save) { save.href = c.vcf_url; }
-      var hint = byId("referHint");
-      if (hint) { hint.textContent = "Your own link to " + (c.company || "us") + ". Friends who use it are sent straight to " + (c.seller_first || "the team") + "."; }
+      var save = byId("btnSave"); if (save) { save.href = c.vcf_url; save.textContent = T("Salvar nos contatos", "Save to contacts"); }
+      setText("saveHint", T("Toque em Salvar nos contatos e depois em Criar Novo Contato.", "Tap Save to contacts, then tap Create New Contact."));
+      setText("referTitle", T("Conhece alguém que precisa disso?", "Know someone who needs this?"));
+      setText("btnRefer", T("Compartilhar seu link", "Share your link"));
+      setText("referHint", T("O seu próprio link para " + (c.company || "nós") + ". Amigos que usarem o link falam direto com " + (c.seller_first || "a equipe") + ".",
+        "Your own link to " + (c.company || "us") + ". Friends who use it are sent straight to " + (c.seller_first || "the team") + "."));
       show("cardMain");
     }
 
@@ -118,23 +128,19 @@
       var err = byId(errId);
       if (err) { err.textContent = ""; }
       if (navigator.share) {
-        navigator.share(data).catch(function(e) { if (e && e.name !== "AbortError" && err) { err.textContent = "Could not open sharing: " + e.message; } });
+        navigator.share(data).catch(function(e) { if (e && e.name !== "AbortError" && err) { err.textContent = T("Não foi possível abrir o compartilhamento: ", "Could not open sharing: ") + e.message; } });
         return;
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(data.url).then(function() { if (err) { err.textContent = "Link copied."; } })
-          .catch(function(e) { if (err) { err.textContent = "Copy this link: " + data.url; } console.error(e); });
+        navigator.clipboard.writeText(data.url).then(function() { if (err) { err.textContent = T("Link copiado.", "Link copied."); } })
+          .catch(function(e) { if (err) { err.textContent = T("Copie este link: ", "Copy this link: ") + data.url; } console.error(e); });
         return;
       }
-      if (err) { err.textContent = "Copy this link: " + data.url; }
-    }
-    function shareCard() {
-      if (!card) { return; }
-      shareOrCopy({ title: document.title, text: "Contact: " + document.title, url: window.location.href }, "shareErr");
+      if (err) { err.textContent = T("Copie este link: ", "Copy this link: ") + data.url; }
     }
     function shareReferral() {
       if (!card || !card.referral_link) { return; }
-      shareOrCopy({ title: card.company || "Referral", text: "I used " + (card.company || "them") + " and recommend them:", url: card.referral_link }, "referErr");
+      shareOrCopy({ title: card.company || "Referral", text: T("Eu contratei a " + (card.company || "empresa") + " e recomendo:", "I used " + (card.company || "them") + " and recommend them:"), url: card.referral_link }, "referErr");
     }
 
     function load() {

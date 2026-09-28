@@ -2317,8 +2317,12 @@ async function handlePostClients(request, env) {
         var clientId = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO clients " +
-            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp, contacts, lead_stage) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "(id, name, owners, industry, location, logo_url, profile_pt, profile_en, package, status, phone, email, whatsapp, contacts, lead_stage, language) " +
+            // language 'en' explicitly: clients.language DEFAULT is 'pt' and SQLite
+            // cannot change a default; a client's customers are American, so the
+            // referral page and contact card open in English until the client
+            // chooses Portuguese (Nicole, click-through fixes B2).
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'en')"
         ).bind(
             clientId,
             body.name,
@@ -13133,7 +13137,7 @@ async function handleGetReferralSettings(id, request, env) {
         if (!row) { return jsonErr("Client not found", 404); }
 
         return jsonOk({
-            language: row.language === "en" ? "en" : "pt",
+            language: row.language === "pt" ? "pt" : "en",
             referral_bg_color:   referralHexOrNull(row.referral_bg_color),
             referral_text_color: referralHexOrNull(row.referral_text_color),
             has_logo: !!row.logo_url,
@@ -13191,7 +13195,7 @@ async function handlePutReferralSettings(id, request, env) {
 
         return jsonOk({
             saved: true,
-            language: row.language === "en" ? "en" : "pt",
+            language: row.language === "pt" ? "pt" : "en",
             referral_bg_color:   referralHexOrNull(row.referral_bg_color),
             referral_text_color: referralHexOrNull(row.referral_text_color),
             has_logo: !!row.logo_url
@@ -19378,7 +19382,7 @@ async function handleGetReferralInfo(slug, request, env) {
             business_name: partner.business_name,
             partner_name: (partner.name || "").split(/\s+/)[0],
             servicos: config.servicos,
-            language: partner.language === "en" ? "en" : "pt",
+            language: partner.language === "pt" ? "pt" : "en",
             referral_bg_color:   referralHexOrNull(partner.referral_bg_color)   || REFERRAL_DEFAULT_BG,
             referral_text_color: referralHexOrNull(partner.referral_text_color) || REFERRAL_DEFAULT_TEXT,
             has_logo: !!logoUrl,
@@ -19394,7 +19398,7 @@ async function handleGetReferralInfo(slug, request, env) {
 //
 // Nicole 2026-09-27: when a friend asks "who did your pool?" nobody looks for a
 // link. So right after first contact the salesperson sends the customer a
-// contact card they save with one tap; it carries THAT customer's own referral
+// contact card they save to their phone; it carries THAT customer's own referral
 // link, and the referral page shows the salesperson who gets the credit.
 // Reuses the partner referral machinery (gm_partners.referral_slug, parceiro_id
 // attribution by record, gm_referral_hits rate limits): a customer referrer is
@@ -19445,12 +19449,16 @@ function gmBytesToB64(buf) {
 }
 
 // vCard 3.0. opts: { company, first, title, phone, email, urls: [{label, url}],
-// note, logoKey }. N = "<Company>;<First>" so it shows as "<First> <Company>"
-// and stays findable years later; PHOTO = the company logo (as stored).
+// note, logoKey }. The name shows as "<First> (<Company>)" (Nicole approved the
+// parentheses, click-through fixes A4), carried whole in the given name so the
+// phone displays it exactly and a search for the company still finds it; with
+// no salesperson first name it is the company alone. ORG = the company.
+// PHOTO = the company logo (as stored).
 async function gmBuildVcard(env, opts) {
     var lines = ["BEGIN:VCARD", "VERSION:3.0"];
-    lines.push("N:" + gmVcardEsc(opts.company) + ";" + gmVcardEsc(opts.first) + ";;;");
-    lines.push("FN:" + gmVcardEsc([opts.first, opts.company].filter(Boolean).join(" ")));
+    var display = opts.first && opts.first !== opts.company ? opts.first + (opts.company ? " (" + opts.company + ")" : "") : (opts.company || "");
+    lines.push("N:;" + gmVcardEsc(display) + ";;;");
+    lines.push("FN:" + gmVcardEsc(display));
     lines.push("ORG:" + gmVcardEsc(opts.company));
     if (opts.title) { lines.push("TITLE:" + gmVcardEsc(opts.title)); }
     if (opts.phone) { lines.push("TEL;TYPE=CELL,VOICE:" + gmVcardEsc(opts.phone)); }
@@ -19516,15 +19524,22 @@ async function handlePostGmLeadContactCard(id, leadId, request, env) {
         var seller = sessionSellerName(user) || lead.vendedor || null;
         var partner = await gmEnsureCustomerPartner(env, id, lead, seller);
         if (!partner) { return jsonErr("Could not create the card", 500); }
-        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+        var client = await env.DB.prepare("SELECT name, language FROM clients WHERE id = ?").bind(id).first();
         var doc = await gmDocSettingsRow(env, id);
         var company = doc.legal_name || (client && client.name) || "";
         var credited = partner.seller_name || seller;
         var cardLink = DEFAULT_ORIGIN + "/card?t=" + partner.card_token;
         var refLink = DEFAULT_ORIGIN + "/referral.html?p=" + partner.referral_slug;
-        // English: the customer reads it (rule 4).
-        var msg = "Hi " + gmFirstName(lead.cliente) + ", it's " + (gmFirstName(credited) || company) + " from " + company + ". Save my contact with one tap: " + cardLink +
-            "\nIf a friend ever asks who did your project, the card has your own referral link.";
+        // The customer reads it: in the client's customer language, English
+        // unless explicitly 'pt'. Never "one tap": on iPhone a .vcf opens a
+        // preview first (click-through fixes A2, B1).
+        var msg = client && client.language === "pt"
+            ? "Oi " + gmFirstName(lead.cliente) + ", aqui é " + (gmFirstName(credited) || company) + " da " + company + ". Salve o meu contato: " + cardLink +
+              "\nToque em Salvar nos contatos e depois em Criar Novo Contato." +
+              "\nSe um amigo perguntar quem fez o seu projeto, o cartão tem o seu próprio link de indicação."
+            : "Hi " + gmFirstName(lead.cliente) + ", it's " + (gmFirstName(credited) || company) + " from " + company + ". Save my contact: " + cardLink +
+              "\nTap Save to contacts, then tap Create New Contact." +
+              "\nIf a friend ever asks who did your project, the card has your own referral link.";
         await gmLogLeadEvents(env, id, leadId, actorName(user), [{ action: "contact_card_sent", field: "contact_card", old_value: null, new_value: partner.card_token ? "card" : null, reason: credited ? "salesperson " + credited : null }]);
         return jsonOk({ message: msg, card_link: cardLink, referral_link: refLink, phone: lead.telefone || null, partner_id: partner.id, seller_name: credited || null });
     } catch (e) {
@@ -19535,7 +19550,7 @@ async function handlePostGmLeadContactCard(id, leadId, request, env) {
 async function gmPartnerByCardToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     return env.DB.prepare(
-        "SELECT p.*, l.cliente AS customer_name, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color " +
+        "SELECT p.*, l.cliente AS customer_name, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color, c.language " +
         "FROM gm_partners p JOIN clients c ON c.id = p.client_id LEFT JOIN gm_leads l ON l.id = p.lead_id WHERE p.card_token = ? AND p.lead_id IS NOT NULL"
     ).bind(token).first();
 }
@@ -19547,11 +19562,14 @@ async function gmCardContext(env, origin, p, withReferral) {
     var company = doc.legal_name || p.client_name || "";
     var links = gmDigitalPresenceLinks(p.digital_presence);
     var refLink = DEFAULT_ORIGIN + "/referral.html?p=" + p.referral_slug;
+    // English unless the client's customer language is explicitly 'pt'.
+    var pt = p.language === "pt";
     var urls = [];
-    if (withReferral) { urls.push({ label: "Refer a friend", url: refLink }); }
-    if (links.website) { urls.push({ label: "Website", url: links.website }); }
+    if (withReferral) { urls.push({ label: pt ? "Indique um amigo" : "Refer a friend", url: refLink }); }
+    if (links.website) { urls.push({ label: pt ? "Site" : "Website", url: links.website }); }
     links.socials.forEach(function(s) { urls.push(s); });
     return {
+        language: pt ? "pt" : "en",
         company: company,
         seller_first: gmFirstName(p.seller_name),
         seller_name: p.seller_name || null,
@@ -19582,12 +19600,12 @@ async function handleGetPublicCard(token, kind, request, env) {
         if (kind === "photo") { return gmSellerPhotoResponse(env, p.client_id, p.seller_name); }
         var ctx = await gmCardContext(env, origin, p, true);
         if (kind === "vcf") {
-            var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first || ctx.company, title: ctx.title, phone: ctx.phone, email: ctx.email,
-                urls: ctx.urls, note: "Know someone who needs this? Tap Refer a friend above.", logoKey: ctx.logo_key });
+            var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first, title: ctx.title, phone: ctx.phone, email: ctx.email,
+                urls: ctx.urls, note: ctx.language === "pt" ? "Conhece alguém que precisa disso? Toque em Indique um amigo acima." : "Know someone who needs this? Tap Refer a friend above.", logoKey: ctx.logo_key });
             return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
         }
         return jsonOk({ card: {
-            company: ctx.company, seller_first: ctx.seller_first, seller_name: ctx.seller_name, title: ctx.title, phone: ctx.phone, email: ctx.email,
+            language: ctx.language, company: ctx.company, seller_first: ctx.seller_first, seller_name: ctx.seller_name, title: ctx.title, phone: ctx.phone, email: ctx.email,
             photo_url: ctx.has_photo ? origin + "/api/public/card/" + token + "/photo" : null, logo_url: ctx.logo_url,
             customer_first: gmFirstName(p.customer_name), referral_link: ctx.referral_link, website: ctx.website,
             vcf_url: origin + "/api/public/card/" + token + ".vcf", brand_primary: ctx.brand_primary, brand_accent: ctx.brand_accent
@@ -19703,11 +19721,11 @@ async function handleGetReferralExtra(slug, kind, request, env) {
         var partner = await gmPartnerBySlug(env, slug);
         if (!partner) { return jsonErr("Not found", 404); }
         var full = await env.DB.prepare(
-            "SELECT p.*, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color FROM gm_partners p JOIN clients c ON c.id = p.client_id WHERE p.id = ?"
+            "SELECT p.*, c.name AS client_name, c.logo_url, c.digital_presence, c.phone AS client_phone, c.email AS client_email, c.referral_bg_color, c.referral_text_color, c.language FROM gm_partners p JOIN clients c ON c.id = p.client_id WHERE p.id = ?"
         ).bind(partner.id).first();
         if (kind === "photo") { return gmSellerPhotoResponse(env, full.client_id, full.seller_name); }
         var ctx = await gmCardContext(env, new URL(request.url).origin, full, false);
-        var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first || ctx.company, title: ctx.title, phone: ctx.phone, email: ctx.email,
+        var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first, title: ctx.title, phone: ctx.phone, email: ctx.email,
             urls: ctx.urls, note: null, logoKey: ctx.logo_key });
         return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
     } catch (e) {
@@ -20089,8 +20107,9 @@ async function handlePostApexReferralLead(slug, request, env) {
             // through a partner's own link is the least ambiguous partner
             // referral there is. referred_by_partner_id stays authoritative for
             // WHICH partner — the name is never copied into source_detail.
-            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type) " +
-            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner')"
+            // language 'en' explicitly (the column DEFAULT is 'pt'; click-through fixes B2).
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language) " +
+            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en')"
         ).bind(leadId, nome, telefone, email, partner.id).run();
 
         // Deliberately no id and no data in the public response.

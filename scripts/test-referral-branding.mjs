@@ -61,7 +61,7 @@ const base = {
   t("null accent falls back to Apex --gold", r.body.referral_text_color, "#C9A43A");
   t("fallbacks are the named constants, not duplicated literals",
     [REFERRAL_DEFAULT_BG, REFERRAL_DEFAULT_TEXT], ["#1a1a1d", "#C9A43A"]);
-  t("null language starts the page in PT", r.body.language, "pt");
+  t("null language starts the page in EN (click-through fixes B1)", r.body.language, "en");
   t("no logo reports has_logo false", r.body.has_logo, false);
   t("no logo sends no URL", r.body.logo_url, null);
   t("existing fields still returned", r.body.business_name, "LIRA Landscaping");
@@ -91,7 +91,7 @@ const base = {
   })));
   t("a non-hex bg falls back rather than breaking the page", r.body.referral_bg_color, "#1a1a1d");
   t("an invalid hex accent falls back", r.body.referral_text_color, "#C9A43A");
-  t("an unknown language falls back to PT", r.body.language, "pt");
+  t("an unknown language falls back to EN", r.body.language, "en");
 }
 t("hex validator accepts 6-digit hex", referralHexOrNull("#1A2b3C"), "#1A2b3C");
 t("hex validator rejects 3-digit shorthand", referralHexOrNull("#abc"), null);
@@ -123,14 +123,14 @@ globalThis.document = {
 eval(slice(referral, "function applyLanguage(lang)", "function showCard(id)") +
   "\n; Object.assign(globalThis, { applyLanguage, applyBranding });");
 
-applyLanguage("en");
-t("page opens in EN when the client set 'en'", document.body.classList.contains("lang-en"), true);
+applyLanguage("pt");
+t("page opens in PT only when the client set 'pt'", document.body.classList.contains("lang-pt"), true);
 applyLanguage(null);
-t("page opens in PT when language is null", document.body.classList.contains("lang-pt"), true);
+t("page opens in EN when language is null", document.body.classList.contains("lang-en"), true);
 applyLanguage("es");
-t("an unexpected language still opens in PT", document.body.classList.contains("lang-pt"), true);
+t("an unexpected language still opens in EN", document.body.classList.contains("lang-en"), true);
 t("the two language classes are mutually exclusive",
-  document.body.classList.contains("lang-en"), false);
+  document.body.classList.contains("lang-pt"), false);
 
 styleSet.length = 0;
 applyBranding({ referral_bg_color: "#0b3d2e", referral_text_color: "#e0b64c", has_logo: false });

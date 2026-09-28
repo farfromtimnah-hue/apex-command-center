@@ -3951,3 +3951,9 @@ kickoff payload), and two buttons — open the tab, and open CSV import via
 Sellers cannot reach any of it: a price list is the business's own asset, not
 the salesperson's pipeline, so it is absent from sellerRequestAllowed by
 construction.
+
+## 2026-09-27 — Click-through fixes after 89deffc: contact card, English by default
+
+- **Card page (card.html):** the "Send this contact to someone" button is gone: forwarding the page passed the first customer's referral link to strangers. No "one tap" claim anywhere: the page and the prefilled message say "Tap Save to contacts, then tap Create New Contact." (PT: "Toque em Salvar nos contatos e depois em Criar Novo Contato."). The round photo now sits fully below the band's logo and company name (band bottom padding 108px, card -40px, photo -72px).
+- **vCard name:** N = ";<First> (<Company>);;;" and FN = "<First> (<Company>)" (the whole display name in the given name, so the phone shows it exactly); ORG stays the company; no first name = the company alone.
+- **English unless the client's setting is explicitly 'pt':** referral.html, card.html, the card's vCard labels/note and the prefilled card message all follow clients.language with that rule; the referral-settings GET/PUT echo and /api/referral/<slug> send 'en' for anything but 'pt'. Both INSERT INTO clients now write language = 'en' (the column DEFAULT 'pt' from client_referral_branding.sql was never Nicole's decision; SQLite cannot change a default). The 51 'pt' rows were reset to 'en' in one UPDATE (Nicole agreed; nothing recorded that any was chosen on purpose).

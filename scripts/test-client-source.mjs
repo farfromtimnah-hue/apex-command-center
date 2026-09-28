@@ -243,7 +243,7 @@ asUser = ROLES.alice;
 {
   const insert = slice(worker, "async function handlePostApexReferralLead(", "async function handlePostReferralLead(");
   t("a lead from a partner's own link is stamped source_type='partner'",
-    /INSERT INTO clients \([^)]*source_type\)[\s\S]*?'partner'\)/.test(insert), true);
+    /INSERT INTO clients \([^)]*source_type[^)]*\)[\s\S]*?'partner'[,)]/.test(insert), true);
   t("that insert still sets referred_by_partner_id — the id stays authoritative",
     /referred_by_partner_id, source_type/.test(insert), true);
 }

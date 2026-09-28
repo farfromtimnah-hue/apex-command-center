@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
@@ -166,7 +166,7 @@
     .save-contact { display: block; text-align: center; min-height: 48px; line-height: 48px; margin-top: 12px; border-radius: 10px; border: 1px solid var(--brand-accent); color: var(--brand-accent); font-weight: 700; text-decoration: none; }
   </style>
 </head>
-<body class="lang-pt">
+<body class="lang-en">
   <button type="button" class="lang-btn" onclick="toggleLang()">
     <span class="show-pt">English</span><span class="show-en">Português</span>
   </button>
@@ -260,12 +260,14 @@
 
     // Set the STARTING language from the client's setting. The manual toggle
     // above is untouched — a visitor can always switch; this only decides
-    // which language the page opens in. Anything other than an explicit "en"
-    // keeps today's PT default, so a null/missing/garbage value is safe.
+    // which language the page opens in. English unless the client's setting
+    // is explicitly "pt": their customers are American, so a null/missing/
+    // unknown value opens English (Nicole, click-through fixes B1).
     function applyLanguage(lang) {
       var b = document.body;
       b.classList.remove("lang-pt", "lang-en");
-      b.classList.add(lang === "en" ? "lang-en" : "lang-pt");
+      b.classList.add(lang === "pt" ? "lang-pt" : "lang-en");
+      document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
     }
 
     // Client branding over the hardcoded Apex palette. The Worker already

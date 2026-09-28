@@ -453,8 +453,16 @@
       .portal-groups { display: none; }
       /* All the tools of a group stay visible on a phone: they wrap rather
          than scroll off the edge. */
-      .portal-steps { gap: 5px; }
-      .portal-step { padding: 6px 10px; font-size: 12.5px; gap: 5px; min-height: 36px; }
+      /* One row, equal columns, icon over label (a mini dock), so the
+         process reads left to right on one line even with five tools. */
+      .portal-steps { flex-wrap: nowrap; gap: 4px; }
+      .portal-step {
+        flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center;
+        gap: 3px; padding: 7px 2px; border-radius: 12px; min-height: 54px;
+        font-size: 10.5px; letter-spacing: -0.1px;
+      }
+      .portal-step svg { width: 18px; height: 18px; }
+      .portal-step .portal-nav-count, .portal-step .portal-nav-dot { position: absolute; top: 4px; right: 6px; }
     }
     .hero-gear-wrap { position: relative; flex-shrink: 0; }
     .hero-gear-ico {

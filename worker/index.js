@@ -19381,7 +19381,7 @@ async function handleGetReferralInfo(slug, request, env) {
         if (partner.logo_url) {
             // Served through the EXISTING logo-image route; no raw R2 key is
             // ever exposed to a public page.
-            logoUrl = new URL(request.url).origin + "/api/clients/" + partner.client_id + "/logo-image";
+            logoUrl = new URL(request.url).origin + "/api/clients/" + partner.client_id + "/logo-image" + logoVersionParam(partner.logo_url);
         }
         // Part I5: a CUSTOMER's link shows who they were referred to (the
         // salesperson's photo, first name and the company) and "Referred by".
@@ -19601,7 +19601,7 @@ async function gmCardContext(env, origin, p, withReferral) {
         urls: urls,
         referral_link: refLink,
         logo_key: p.logo_url || null,
-        logo_url: p.logo_url ? origin + "/api/clients/" + p.client_id + "/logo-image" : null,
+        logo_url: p.logo_url ? origin + "/api/clients/" + p.client_id + "/logo-image" + logoVersionParam(p.logo_url) : null,
         brand_primary: doc.brand_primary || referralHexOrNull(p.referral_bg_color) || null,
         brand_accent: doc.brand_accent || referralHexOrNull(p.referral_text_color) || null
     };

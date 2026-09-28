@@ -4300,7 +4300,21 @@ async function handleGetClientLogoImage(id, request, env) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
 
-        var obj = await env.ASSETS.get(client.logo_url);
+        // ?v=<key stem> asks for a SPECIFIC upload (every upload has its own key
+        // and old objects are never deleted), so a document frozen at send time
+        // keeps the exact logo it was sent with even after the logo is replaced.
+        var wantKey = client.logo_url;
+        var vParam = new URL(request.url).searchParams.get("v");
+        if (vParam && /^[A-Za-z0-9_-]+$/.test(vParam) && vParam.indexOf(id + "-") === 0) {
+            var extMatch = /\.(png|jpe?g|gif|webp)$/.exec(client.logo_url);
+            var candidates = ["jpg", "png", "webp", "gif", "jpeg"].map(function(x) { return "logos/" + vParam + "." + x; });
+            if (extMatch) { candidates.unshift("logos/" + vParam + "." + extMatch[1]); }
+            for (var ci = 0; ci < candidates.length; ci++) {
+                var head = await env.ASSETS.head(candidates[ci]);
+                if (head) { wantKey = candidates[ci]; break; }
+            }
+        }
+        var obj = await env.ASSETS.get(wantKey);
         if (!obj) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }

@@ -453,18 +453,34 @@
       .portal-groups { display: none; }
       /* All the tools of a group stay visible on a phone: they wrap rather
          than scroll off the edge. */
-      /* One row, equal columns, icon over label (a mini dock), so the
-         process reads left to right on one line even with five tools. */
-      .portal-steps { flex-wrap: nowrap; gap: 4px; }
-      .portal-step {
-        flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center;
-        gap: 3px; padding: 7px 2px; border-radius: 12px; min-height: 54px;
-        font-size: 10.5px; letter-spacing: -0.1px;
-      }
-      .portal-step svg { width: 18px; height: 18px; }
-      .portal-step .portal-nav-count, .portal-step .portal-nav-dot { position: absolute; top: 4px; right: 6px; }
+      /* Phone: no row on the screen (Nicole). Negócio and Apex open a small
+         pop-up of their tools from the dock instead (#portalGroupSheet). */
+      .portal-steps { display: none !important; }
     }
     .hero-gear-wrap { position: relative; flex-shrink: 0; }
+    /* Dock pop-up for a group's tools (phone). Sits just above the dock and
+       is only as tall as its list: not the old full-screen "Mais". */
+    /* Under the dock (950) so the dock stays tappable while it is open. */
+    .pg-sheet { position: fixed; inset: 0; z-index: 945; }
+    .pg-sheet[hidden] { display: none; }
+    .pg-backdrop { position: absolute; inset: 0; background: rgba(20,18,16,0.45); }
+    .pg-panel {
+      position: absolute; left: 10px; right: 10px;
+      bottom: calc(58px + 10px + env(safe-area-inset-bottom));
+      background: #fff; border-radius: 16px; padding: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .pg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
+    .pg-item {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      background: none; border: 0; border-radius: 10px; padding: 12px; min-height: 52px;
+      font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left;
+    }
+    .pg-item svg { width: 20px; height: 20px; color: var(--muted); flex-shrink: 0; }
+    .pg-item.active { background: var(--header); color: var(--gold); }
+    .pg-item.active svg { color: var(--gold); }
+    .pg-item .portal-nav-count, .pg-item .portal-nav-dot { margin-left: auto; }
     .hero-gear-ico {
       width: 17px; height: 17px; flex-shrink: 0;
       background-repeat: no-repeat; background-position: center; background-size: contain;
@@ -4895,6 +4911,27 @@
         }).join("");
       }
     }
+    // Dock tap. A group with several tools pops up its list (phone); a
+    // single-tool group, or a lead's plain tab, just opens.
+    function portalDockTap(key) {
+      var g = key.indexOf("grp-") === 0 ? portalGroupByKey(key) : null;
+      if (!g || g.tabs.length < 2) { portalGroupSheetClose(); switchTab(key); return; }
+      var sheet = document.getElementById("portalGroupSheet");
+      var panel = document.getElementById("portalGroupPanel");
+      if (!sheet || !panel) { switchTab(key); return; }
+      if (!sheet.hidden && sheet.getAttribute("data-group") === key) { portalGroupSheetClose(); return; }
+      panel.innerHTML = '<div class="pg-title">' + portalLabelHtml(g) + '</div>' + g.tabs.map(function(t) {
+        return '<button type="button" class="pg-item' + (t.tab === currentTab ? " active" : "") + '" role="menuitem" onclick="portalGroupSheetGo(\'' + t.tab + '\')">' +
+          window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalBadgeHtml(portalNavBadge(t)) + '</button>';
+      }).join("");
+      sheet.setAttribute("data-group", key);
+      sheet.hidden = false;
+    }
+    function portalGroupSheetClose() {
+      var sheet = document.getElementById("portalGroupSheet");
+      if (sheet) { sheet.hidden = true; }
+    }
+    function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
     function portalGearToggle() {
       var gear = portalGearTabs();
       // One item (a seller's Preços): the gear opens it directly.
@@ -4902,6 +4939,9 @@
       var menu = document.getElementById("portalGearMenu");
       var btn = document.getElementById("heroGearBtn");
       if (!menu || !btn) { return; }
+      // The hero's backdrop-filter makes it the containing block for fixed
+      // children, and it clips them. The menu lives on <body> instead.
+      if (menu.parentNode !== document.body) { document.body.appendChild(menu); }
       if (menu.hidden) {
         var r = btn.getBoundingClientRect();
         menu.style.top = Math.round(r.bottom + 6) + "px";
@@ -4922,7 +4962,7 @@
     document.addEventListener("click", function(e) {
       var menu = document.getElementById("portalGearMenu");
       if (!menu || menu.hidden) { return; }
-      if (e.target.closest && e.target.closest(".hero-gear-wrap")) { return; }
+      if (e.target.closest && (e.target.closest(".hero-gear-wrap") || e.target.closest("#portalGearMenu"))) { return; }
       menu.hidden = true;
     });
     // Início shows a line instead of a blank page when nothing is waiting.
@@ -5185,7 +5225,7 @@
       // Faturas count (A9); 0 wherever the attention loader is absent.
       var attnCount = typeof gmAttentionBadgeCount === "function" ? gmAttentionBadgeCount() : 0;
       portalDockTabs().forEach(function(t) {
-        html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="switchTab(\'' + t.tab + '\')">';
+        html += '<button type="button" class="m-tab" data-dock-tab="' + t.tab + '" onclick="portalDockTap(\'' + t.tab + '\')">';
         // Dots are state-derived, same rule as the desktop strip: Assigned dots
         // on an incomplete assessment, Ritmo dots on a pending daily backlog.
         var dot = (t.tab === "assigned" && anyIncompleteAssigned()) ||
@@ -7315,5 +7355,10 @@
   <!-- "Mais" full-screen menu — static container like the tab bar (never
        created at runtime; populateMobileDock() only fills it in). -->
   <div id="mobile-more-menu"></div>
+  <!-- Phone: Negócio / Apex tools pop-up (nav rebuild). Filled by portalDockTap(). -->
+  <div class="pg-sheet" id="portalGroupSheet" hidden>
+    <div class="pg-backdrop" onclick="portalGroupSheetClose()"></div>
+    <div class="pg-panel" id="portalGroupPanel" role="menu"></div>
+  </div>
 </body>
 </html>

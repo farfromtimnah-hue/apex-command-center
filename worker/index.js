@@ -40499,6 +40499,17 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/hero-gallery" && method === "GET") { return handleGetHeroGallery(request); }
         var heroGalleryMatch = path.match(/^\/api\/hero-gallery\/([a-z_]+(?:-[a-z_]+)*-[0-9]+)\.jpg$/);
         if (heroGalleryMatch && method === "GET") { return handleGetHeroGalleryImage(heroGalleryMatch[1], request, env); }
+        // PUBLIC pitch material for Pr. Rafa (2026-09-27): screenshots and the
+        // PDF of the resonateai.online pitch page. They carry JM's private
+        // header photos, so they live in R2 (pitch/<name>), never in the
+        // public website repo. Read-only, fixed name pattern.
+        var pitchMatch = path.match(/^\/api\/pitch\/([a-z0-9-]{1,60}\.(jpg|png|pdf))$/);
+        if (pitchMatch && method === "GET") {
+            var pObj = await env.ASSETS.get("pitch/" + pitchMatch[1]);
+            if (!pObj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+            var pType = pitchMatch[2] === "pdf" ? "application/pdf" : (pitchMatch[2] === "png" ? "image/png" : "image/jpeg");
+            return new Response(pObj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": pType, "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex", "Cache-Control": "public, max-age=300" }) });
+        }
 
         // PUBLIC intake for APEX'S OWN referral partners. Separate path and
         // separate handlers from /api/referral/ above: that one creates a

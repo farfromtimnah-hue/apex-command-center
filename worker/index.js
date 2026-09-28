@@ -13694,13 +13694,13 @@ function clientRequestAllowed(path, method, clientId) {
                 // Estimates (phase 2): create, send, mark accepted, void,
                 // revise; dismiss a commission review on their own lead.
                 if (gmRest === "estimates") { return true; }
-                if (/^estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|void|revise)$/.test(gmRest)) { return true; }
+                if (/^estimates\/[A-Za-z0-9-]+\/(send|send-link|mark-accepted|void|revise)$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/commission-review\/dismiss$/.test(gmRest)) { return true; }
                 // Invoices (phase 3): create from the accepted estimate, send,
                 // record a payment, void, credit/refund, late fee; verify /
                 // reject / reverse a payment; receipt message.
                 if (/^jobs\/[A-Za-z0-9-]+\/invoices-from-estimate$/.test(gmRest)) { return true; }
-                if (/^invoices\/[A-Za-z0-9-]+\/(send|payments|void|credits|late-fee)$/.test(gmRest)) { return true; }
+                if (/^invoices\/[A-Za-z0-9-]+\/(send|send-link|payments|void|credits|late-fee)$/.test(gmRest)) { return true; }
                 // Contracts: create on the project; sign / route / send / void / revise / custom clause.
                 if (/^jobs\/[A-Za-z0-9-]+\/contracts$/.test(gmRest)) { return true; }
                 if (/^homeowner-responses\/[A-Za-z0-9-]+\/seen$/.test(gmRest)) { return true; }
@@ -13915,7 +13915,7 @@ function sellerRequestAllowed(path, method, clientId) {
         // Estimates on their own leads: create, send, mark accepted, revise.
         // Void stays owner-only (absent here AND refused in the handler).
         if (rest === "gm/estimates") { return true; }
-        if (/^gm\/estimates\/[A-Za-z0-9-]+\/(send|mark-accepted|revise)$/.test(rest)) { return true; }
+        if (/^gm\/estimates\/[A-Za-z0-9-]+\/(send|send-link|mark-accepted|revise)$/.test(rest)) { return true; }
         // Part I: a seller sends a contact card for a lead they may see (the
         // handler's lead guard), and uploads their OWN photo (handler checks).
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contact-card$/.test(rest)) { return true; }
@@ -13925,7 +13925,7 @@ function sellerRequestAllowed(path, method, clientId) {
         // message. Verify / reject / reverse / void / credits / late fee are
         // owner-only: absent here AND refused in the handlers.
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/invoices-from-estimate$/.test(rest)) { return true; }
-        if (/^gm\/invoices\/[A-Za-z0-9-]+\/(send|payments)$/.test(rest)) { return true; }
+        if (/^gm\/invoices\/[A-Za-z0-9-]+\/(send|send-link|payments)$/.test(rest)) { return true; }
         // Contracts: a seller may build, sign (when an authorized signer), route and send on their own projects.
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/contracts$/.test(rest)) { return true; }
         if (/^gm\/contracts\/[A-Za-z0-9-]+\/(company-sign|route|send|signed-copy)$/.test(rest)) { return true; }

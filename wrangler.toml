@@ -4,6 +4,13 @@ compatibility_date = "2024-09-23"
 # Required by @cloudflare/puppeteer (docs PDF build, Part A).
 compatibility_flags = ["nodejs_compat"]
 
+# Readable customer document links (Nicole, 2026-09-27): the Worker answers
+# doc.resonateai.online directly (a Workers custom domain, so its DNS record is
+# created by deploy). apex.resonateai.online stays on GitHub Pages, untouched.
+routes = [
+  { pattern = "doc.resonateai.online", custom_domain = true }
+]
+
 [observability]
 enabled = true
 

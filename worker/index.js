@@ -24823,13 +24823,15 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
         var settings = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = await gmOwnedRow(env, "gm_leads", est.lead_id, id);
+        var estLink = await docPrettyLink(env, "estimate", est.public_token, id,
+            est.number + (est.revision > 1 ? "-R" + est.revision : ""), est.customer_name || (lead && lead.cliente) || "");
         var msg = gmDocFillMessage(settings.estimate_message || GM_DOC_DEFAULT_ESTIMATE_MESSAGE, {
             customer_first_name: String(est.customer_name || (lead && lead.cliente) || "").trim().split(/\s+/)[0] || "",
             job_name: est.job_name, business_name: settings.legal_name || (client && client.name) || "",
             seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)),
-            link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token
+            link: estLink
         });
-        return jsonOk({ sent: true, message: msg, link: DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token, phone: gmDocSendPhone(lead, est.customer_phone) });
+        return jsonOk({ sent: true, message: msg, link: estLink, phone: gmDocSendPhone(lead, est.customer_phone) });
     } catch (e) {
         return jsonErr("Error sending estimate: " + e.message, 500);
     }
@@ -25580,7 +25582,7 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
         var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
         var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
         var estPhone = await gmInvEstimatePhone(env, inv);
-        var link = DEFAULT_ORIGIN + "/invoice-view?t=" + inv.public_token;
+        var link = await docPrettyLink(env, "invoice", inv.public_token, id, inv.number, inv.customer_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage(settings.invoice_message || GM_DOC_DEFAULT_INVOICE_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
@@ -25877,7 +25879,7 @@ async function handlePostGmPaymentReceiptMessage(id, paymentId, request, env) {
         var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
         var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
         var estPhone = await gmInvEstimatePhone(env, inv);
-        var link = DEFAULT_ORIGIN + "/receipt-view?t=" + p.receipt_token;
+        var link = await docPrettyLink(env, "receipt", p.receipt_token, id, p.receipt_number, inv.customer_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage(settings.receipt_message || GM_DOC_DEFAULT_RECEIPT_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
@@ -27789,7 +27791,7 @@ async function handlePostGmContractSend(id, cid, request, env) {
             "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
         ).bind(actorName(user), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser enviado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be sent now (status " + c.status + ")", 409); }
-        var link = DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token;
+        var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage(ctx.doc.contract_message || CONTRACT_DEFAULT_MESSAGE, {
             customer_first_name: String((ctx.lead && ctx.lead.cliente) || (ctx.job && ctx.job.obra) || "").trim().split(/\s+/)[0] || "",
             job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
@@ -27821,7 +27823,7 @@ async function handlePostGmContractSignedCopy(id, cid, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var ctx = await contractContext(env, id, c);
-        var link = DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token;
+        var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         if (body.mark === true) {
             await gmContractEvent(env, id, cid, actorName(user), "signed_copy_sent", { link: link });
             if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_signed_copy_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
@@ -28475,7 +28477,7 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
         var job = await gmOwnedRow(env, "gm_jobs", co.job_id, id);
-        var link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token;
+        var link = await docPrettyLink(env, "change-order", co.public_token, id, co.number, (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage("Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is change order " + co.number + " for {job_name} to review and sign: {link}", {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
             business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
@@ -28498,7 +28500,7 @@ async function handlePostGmChangeOrderSignedCopy(id, coid, request, env) {
         if (co.status !== "completed") { return jsonErr2("Só um aditivo assinado pelos dois tem cópia assinada.", "Only a fully signed change order has a signed copy.", 409); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
-        var link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token;
+        var link = await docPrettyLink(env, "change-order", co.public_token, id, co.number, (typeof lead !== "undefined" && lead && lead.cliente) || "");
         if (body.mark === true) {
             if (co.lead_id) { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_signed_copy_sent", field: "change_order", old_value: null, new_value: co.number }]); }
             return jsonOk({ marked: true });
@@ -28976,7 +28978,7 @@ async function handlePostGmJobAck(id, jobId, request, env) {
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = job && job.lead_id ? await gmOwnedRow(env, "gm_leads", job.lead_id, id) : null;
         var row = await env.DB.prepare("SELECT public_token FROM gm_job_acks WHERE id = ?").bind(aid).first();
-        var link = DEFAULT_ORIGIN + "/ack-view?t=" + row.public_token;
+        var link = await docPrettyLink(env, "ack", row.public_token, id, "", (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var tpl = kind === "before_photos" ? "Hi {customer_first_name}, it's {seller_name} from {business_name}. Before we start on {job_name}, please look at the photos of the existing conditions and sign the acknowledgment: {link}"
                                             : "Hi {customer_first_name}, it's {seller_name} from {business_name}. The work on {job_name} is complete. Please review the walkthrough list and sign the completion acceptance: {link}";
         var msg = gmDocFillMessage(tpl, { customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "", business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
@@ -40025,6 +40027,97 @@ function docPdfAfterFinal(request, env, kind, token) {
     if (c && c.waitUntil) { c.waitUntil(job); }
 }
 
+
+// ── Readable customer document links (doc.resonateai.online) ──────────────
+// Nicole, 2026-09-27: customers get a link that reads as the business, the
+// document number and their own name, never a wall of hex, and WhatsApp /
+// iMessage show a picture card with the business's logo. The Worker answers
+// doc.resonateai.online (a Workers custom domain; apex.resonateai.online stays
+// on GitHub Pages untouched), serves the preview tags, then forwards to the
+// real page with the real token. The random tail keeps each link unguessable.
+// Any failure falls back to the long token link, so sending never breaks.
+var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view" };
+var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document" };
+
+function docLinkSlugPart(v, max) {
+    var t = String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+        .replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    if (t.length > max) { t = t.slice(0, max).replace(/-+$/g, ""); }
+    return t;
+}
+
+function docLinkRandom(n) {
+    var alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+    var bytes = new Uint8Array(n);
+    crypto.getRandomValues(bytes);
+    var out = "";
+    for (var i = 0; i < n; i++) { out += alphabet[bytes[i] % alphabet.length]; }
+    return out;
+}
+
+async function docPrettyLink(env, kind, token, clientId, docNumber, customerName) {
+    var fallback = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + "?t=" + token;
+    if (!token || !clientId || !DOC_LINK_PAGES[kind]) { return fallback; }
+    try {
+        var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
+        if (existing) { return DOC_LINK_ORIGIN + "/" + existing.slug; }
+        var biz = await env.DB.prepare(
+            "SELECT COALESCE(NULLIF(d.legal_name, ''), c.name) AS name FROM clients c LEFT JOIN gm_doc_settings d ON d.client_id = c.id WHERE c.id = ?"
+        ).bind(clientId).first();
+        var bizName = (biz && biz.name) || "";
+        var head = docLinkSlugPart(bizName, 40) || "document";
+        var tail = [docLinkSlugPart(docNumber, 20), docLinkSlugPart(customerName, 30)].filter(Boolean).join("-");
+        var title = bizName || "Your document";
+        var desc = (DOC_LINK_LABELS[kind] || "Document") + (docNumber ? " " + docNumber : "") + (customerName ? " for " + customerName : "");
+        for (var attempt = 0; attempt < 3; attempt++) {
+            var slug = head + "/" + (tail ? tail + "-" : "") + docLinkRandom(8);
+            var ins = await env.DB.prepare(
+                "INSERT OR IGNORE INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES (?, ?, ?, ?, ?, ?)"
+            ).bind(slug, kind, token, clientId, title, desc).run();
+            if (ins.meta && ins.meta.changes) { return DOC_LINK_ORIGIN + "/" + slug; }
+            var raced = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
+            if (raced) { return DOC_LINK_ORIGIN + "/" + raced.slug; }
+        }
+        return fallback;
+    } catch (e) {
+        console.error("[doc-link] " + (e && e.message));
+        return fallback;
+    }
+}
+
+function docLinkEsc(v) {
+    return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function docLinkServe(request, env) {
+    var url = new URL(request.url);
+    var slug = decodeURIComponent(url.pathname.replace(/^\/+|\/+$/g, "")).toLowerCase();
+    var row = slug ? await env.DB.prepare("SELECT kind, public_token, client_id, title, description FROM doc_links WHERE slug = ?").bind(slug).first() : null;
+    if (!row || !DOC_LINK_PAGES[row.kind]) {
+        return new Response("<!doctype html><meta charset=\"utf-8\"><title>Link not found</title><p style=\"font-family:sans-serif\">This link is not valid. Please ask the business to send it again.</p>",
+            { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
+    }
+    var target = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[row.kind] + "?t=" + row.public_token;
+    var image = APEX_API_BASE + "/api/clients/" + encodeURIComponent(row.client_id) + "/logo-image";
+    var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+        "<meta name=\"robots\" content=\"noindex, nofollow\">" +
+        "<title>" + docLinkEsc(row.title) + "</title>" +
+        "<meta property=\"og:type\" content=\"website\">" +
+        "<meta property=\"og:site_name\" content=\"" + docLinkEsc(row.title) + "\">" +
+        "<meta property=\"og:title\" content=\"" + docLinkEsc(row.title) + "\">" +
+        "<meta property=\"og:description\" content=\"" + docLinkEsc(row.description) + "\">" +
+        "<meta property=\"og:image\" content=\"" + docLinkEsc(image) + "\">" +
+        "<meta property=\"og:url\" content=\"" + docLinkEsc(DOC_LINK_ORIGIN + "/" + slug) + "\">" +
+        "<meta name=\"twitter:card\" content=\"summary\">" +
+        "<meta http-equiv=\"refresh\" content=\"0;url=" + docLinkEsc(target) + "\">" +
+        "</head><body style=\"font-family:sans-serif\"><script>location.replace(" + JSON.stringify(target) + ");</script>" +
+        "<p><a href=\"" + docLinkEsc(target) + "\">Open " + docLinkEsc(row.description) + "</a></p></body></html>";
+    return new Response(request.method === "HEAD" ? null : html,
+        { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
 export default {
     // Thin wrapper over the real handler. Every response leaving this Worker
     // passes through withCorsOrigin(), so the allowlisted Origin is echoed
@@ -40035,6 +40128,9 @@ export default {
     // to the app as a rejected one.
     fetch: async function(request, env, ctx) {
         try {
+            if (new URL(request.url).hostname === "doc.resonateai.online") {
+                return await docLinkServe(request, env);
+            }
             await gmLoadHiddenActors(env);
             var response = await handleFetch(request, env, ctx);
             return withCorsOrigin(response, request);

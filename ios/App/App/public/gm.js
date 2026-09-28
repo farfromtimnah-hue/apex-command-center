@@ -8586,6 +8586,10 @@ function gmDocSettingsSave() {
 
 // Logo goes through the EXISTING /logo route; the hero through the new
 // /gm/doc-hero one. Both are multipart (formData, never body).
+// Cache key for the hero preview's logo tile: bumped when a new logo is
+// uploaded so the preview never keeps showing the old one (Nicole, 2026-09-27).
+var gmDocLogoTs = Date.now();
+
 function gmDocUploadImage(input, kind) {
   var file = input && input.files && input.files[0];
   if (!file) { return; }
@@ -8598,7 +8602,7 @@ function gmDocUploadImage(input, kind) {
     : gmApi("doc-hero", { method: "POST", formData: fd });
   req.then(function() {
       input.value = "";
-      if (kind === "logo") { gmDocSettings.has_logo = true; if (typeof loadPortalLogo === "function") { loadPortalLogo(); } }
+      if (kind === "logo") { gmDocSettings.has_logo = true; gmDocLogoTs = Date.now(); if (typeof loadPortalLogo === "function") { loadPortalLogo(); } }
       else {
         // The Worker cleared the gallery pick and the framing; mirror it and
         // open the new photo with the framing tools.
@@ -8725,7 +8729,7 @@ function gmHeroPreviewHtml(url, hero) {
   if (accent) { vars += "--brand-accent:" + accent + ";--accent-on-dark:" + (gmHeroLum(accent) > 0.18 ? accent : "#ffffff") + ";"; }
   var name = d.legal_name || st.legal_name || pre.business_name || "";
   var tile = st.has_logo
-    ? '<img alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/logo-image") + '">'
+    ? '<img alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/logo-image?ts=" + gmDocLogoTs) + '">'
     : '<span class="client-name-mark' + (name.length > 22 ? " is-long" : "") + '">' + escHtml(name) + '</span>';
   var html = '<div class="gm-hero-preview" style="' + vars + '">' +
     '<div class="hero-band doc-screen' + docHeroToneClass(hero) + '" style="' + docHeroBandStyle(hero) + '">' +

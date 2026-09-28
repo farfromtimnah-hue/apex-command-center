@@ -23884,6 +23884,19 @@ function gmEasternToday() {
     }
 }
 
+// A D1 UTC stamp ("YYYY-MM-DD HH:MM:SS") as its Eastern calendar date. After
+// 8 PM Eastern the UTC date is already tomorrow (EST-0023 showed 09/28 when
+// made at 11:14 PM on 09/27), so a date a person reads never comes from slice.
+function gmUtcStampToEasternDate(stamp) {
+    if (!stamp) { return null; }
+    var t = String(stamp);
+    var d = new Date(t.indexOf("T") === -1 ? t.replace(" ", "T") + "Z" : t);
+    if (isNaN(d.getTime())) { return t.slice(0, 10); }
+    try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    } catch (e) { return t.slice(0, 10); }
+}
+
 function gmDateAddDays(ymd, days) {
     var p = String(ymd || "").split("-").map(Number);
     var d = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
@@ -24145,7 +24158,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
         number: est.number, revision: est.revision, display_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""),
         status: derived, mode: est.mode, job_name: est.job_name,
         customer_name: est.customer_name, customer_email: est.customer_email, customer_phone: est.customer_phone, customer_address: est.customer_address,
-        issued_on: est.sent_at ? est.sent_at.slice(0, 10) : est.created_at.slice(0, 10),
+        issued_on: gmUtcStampToEasternDate(est.sent_at || est.created_at),
         valid_until: est.valid_until,
         discount_type: est.discount_type, discount_value: est.discount_value,
         options: options,
@@ -24172,6 +24185,30 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
 // estimate carries brand_override_json, its name/logo/hero/colors/address win
 // over the business's live settings, so one test account can hold several
 // demo estimates that each keep their own business's look.
+// Freeze the business's current look onto a document the first time it is
+// sent (estimates since 7ac208a; contracts and invoices 2026-09-27, Nicole:
+// "what I approve and send stays that way"). Written only while empty.
+var GM_DOC_LOOK_TABLES = { estimate: "gm_estimates", contract: "gm_contracts", invoice: "gm_invoices" };
+async function gmDocFreezeLook(env, request, clientId, kind, rowId) {
+    var table = GM_DOC_LOOK_TABLES[kind];
+    if (!table || !rowId) { return; }
+    try {
+        var settings = await gmDocSettingsRow(env, clientId);
+        var lookClient = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(clientId).first();
+        var lookOrigin = new URL(request.url).origin;
+        var lookHero = gmDocHero(lookOrigin, clientId, settings);
+        var look = {
+            name: settings.legal_name || (lookClient && lookClient.name) || "",
+            address: settings.address || null, phone: settings.phone || null, email: settings.email || null,
+            logo_url: (lookClient && lookClient.logo_url) ? lookOrigin + "/api/clients/" + clientId + "/logo-image" + logoVersionParam(lookClient.logo_url) : null,
+            hero_url: lookHero.url, hero: lookHero.hero,
+            brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null
+        };
+        await env.DB.prepare("UPDATE " + table + " SET brand_override_json = ? WHERE id = ? AND client_id = ? AND brand_override_json IS NULL")
+            .bind(JSON.stringify(look), rowId, clientId).run();
+    } catch (e) { console.error("[doc-look] " + kind + " " + (e && e.message)); }
+}
+
 function gmEstApplyBrandOverride(est, business) {
     if (!est || !est.brand_override_json || !business) { return business; }
     var o = gmDocParseJsonObject(est.brand_override_json, null);
@@ -25672,6 +25709,7 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
             "UPDATE gm_invoices SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), changed_after_send_at = NULL, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('draft','sent')"
         ).bind(invId, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr("A void invoice cannot be sent", 409); }
+        await gmDocFreezeLook(env, request, id, "invoice", invId);
         var settings = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
@@ -26018,7 +26056,7 @@ async function gmInvPublicPayload(env, inv, origin) {
     }
     var customer = inv.lead_id ? await env.DB.prepare("SELECT cliente, address, city, telefone, email FROM gm_leads WHERE id = ?").bind(inv.lead_id).first() : null;
     var compAckPub = await env.DB.prepare("SELECT signer_name, signed_at FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'completion' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(inv.client_id, inv.job_id).first();
-    return {
+    var out = {
         completion_signed_at: compAckPub ? compAckPub.signed_at : null, completion_signer: compAckPub ? compAckPub.signer_name : null,
         number: inv.number, status: d.derived_status, awaiting_verification: d.awaiting_verification,
         step_label: inv.step_label, step_pct: inv.step_pct, job_name: job ? job.obra : null,
@@ -26041,6 +26079,8 @@ async function gmInvPublicPayload(env, inv, origin) {
             terms_days: settings.default_terms_days
         }
     };
+    gmEstApplyBrandOverride(inv, out.business);
+    return out;
 }
 
 async function handleGetPublicInvoice(token, request, env) {
@@ -26628,7 +26668,7 @@ function contractEstimateSums(ests) {
         var t = gmEstOptTotals(est, opt);
         total += t.total_cents;
         if (idx === 0) {
-            first = est; number = est.number; version = "R" + est.revision; date = (est.sent_at || est.created_at || "").slice(0, 10); accepted = (est.accepted_at || "").slice(0, 10);
+            first = est; number = est.number; version = "R" + est.revision; date = gmUtcStampToEasternDate(est.sent_at || est.created_at) || ""; accepted = gmUtcStampToEasternDate(est.accepted_at) || "";
             validUntil = est.valid_until || ""; jobName = est.job_name || "";
         }
         opt.items.forEach(function(it) {
@@ -27196,6 +27236,7 @@ async function contractBuildSignedRender(env, c, ctx) {
 // area titles (F5), also for snapshots frozen before the fix.
 async function contractPublicView(env, c, ctx, origin, opts) {
     var pub = await contractPublicPayload(env, c, ctx, origin, opts);
+    gmEstApplyBrandOverride(c, pub.business);
     var companyValid = !!(c.company_signed_at && !c.company_signature_voided_at);
     var frozen = null, signedRender = false;
     if (c.homeowner_signed_at && c.snapshot_r2_key) {
@@ -27237,13 +27278,15 @@ async function contractPublicView(env, c, ctx, origin, opts) {
 async function contractVoidPayload(env, c, origin) {
     var doc = await gmDocSettingsRow(env, c.client_id);
     var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(c.client_id).first();
-    return {
+    var out = {
         status: "void", number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), voided_at: c.voided_at || c.updated_at || null,
         business: { name: doc.legal_name || (client && client.name) || "", legal_name: doc.legal_name || (client && client.name) || "",
             logo_url: (client && client.logo_url) ? origin + "/api/clients/" + c.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null,
             hero_url: gmDocHero(origin, c.client_id, doc).url, hero: gmDocHero(origin, c.client_id, doc).hero,
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, license_numbers: doc.license_numbers || [], payment_methods: [] }
     };
+    gmEstApplyBrandOverride(c, out.business);
+    return out;
 }
 
 // D2: a before-work photo set the homeowner acknowledged BEFORE the contract
@@ -27886,6 +27929,7 @@ async function handlePostGmContractSend(id, cid, request, env) {
             "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
         ).bind(actorName(user), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode ser enviado agora (" + contractStatusPt(c.status) + ").", "This contract cannot be sent now (status " + c.status + ")", 409); }
+        await gmDocFreezeLook(env, request, id, "contract", cid);
         var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         var msg = gmDocFillMessage(ctx.doc.contract_message || CONTRACT_DEFAULT_MESSAGE, {
             customer_first_name: String((ctx.lead && ctx.lead.cliente) || (ctx.job && ctx.job.obra) || "").trim().split(/\s+/)[0] || "",
@@ -40200,8 +40244,8 @@ async function docLinkServe(request, env) {
     }
     if (wantsImage) {
         // An estimate sent with a frozen look previews with THAT logo.
-        if (row.kind === "estimate") {
-            var lookRow = await env.DB.prepare("SELECT brand_override_json FROM gm_estimates WHERE public_token = ?").bind(row.public_token).first();
+        if (GM_DOC_LOOK_TABLES[row.kind]) {
+            var lookRow = await env.DB.prepare("SELECT brand_override_json FROM " + GM_DOC_LOOK_TABLES[row.kind] + " WHERE public_token = ?").bind(row.public_token).first();
             var lookObj = lookRow ? gmDocParseJsonObject(lookRow.brand_override_json, null) : null;
             var lookLogo = lookObj && typeof lookObj.logo_url === "string" ? lookObj.logo_url : "";
             var m = /\/api\/clients\/([^\/?]+)\/logo-image/.exec(lookLogo);

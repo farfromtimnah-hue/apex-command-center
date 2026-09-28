@@ -19397,7 +19397,9 @@ async function handleGetReferralInfo(slug, request, env) {
         }
         return jsonOk({
             customer_referral: custRef,
-            business_name: partner.business_name,
+            // A customer's link carries the name on the business's documents
+            // (estimate, contract, contact card), not the account name.
+            business_name: (custRef && custRef.company) || partner.business_name,
             partner_name: (partner.name || "").split(/\s+/)[0],
             servicos: config.servicos,
             language: partner.language === "pt" ? "pt" : "en",

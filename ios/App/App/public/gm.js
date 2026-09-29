@@ -4736,30 +4736,49 @@ function gmConTabGroupRows(g) {
   var shown = g[3] ? list.filter(function(c) { return g[3].indexOf(c.status) !== -1; }) : list;
   return shown.length ? shown.map(gmConTabContractRow).join("") : '<div class="gm-stage-empty">' + gmT("Nenhum contrato neste estágio.", "No contracts in this stage.") + '</div>';
 }
+// Stacked view = one card per stage with a collapse control on the right,
+// the same section card as the rest of the app (Nicole, 2026-09-29: sections,
+// not sub-headers inside one card). Signed and Other start collapsed: they are
+// history, not work. Each viewer's open/closed choice is remembered.
+var GM_CON_TAB_COLLAPSED_DEFAULT = { signed: true, other: true };
+function gmConTabCollapsed(key) {
+  var v = null;
+  try { v = localStorage.getItem("apex_contracts_collapsed_" + key); } catch (e) { v = null; }
+  return v === null ? !!GM_CON_TAB_COLLAPSED_DEFAULT[key] : v === "1";
+}
+function gmConTabToggleSection(key) {
+  try { localStorage.setItem("apex_contracts_collapsed_" + key, gmConTabCollapsed(key) ? "0" : "1"); } catch (e) {}
+  gmRenderContractsTab();
+}
 function gmRenderContractsTab() {
   var body = document.getElementById("gmContractsBody");
   if (!body) { return; }
   var list = gmConTabList || [];
   var mode = gmConTabMode();
   var html = '<div class="gm-view-toggle"><span class="muted">' +
-    (mode === "stacked" ? gmT("Todos os estágios em uma rolagem", "Every stage in one scroll") : gmT("Toque em um estágio para filtrar", "Tap a stage to filter")) + '</span>' +
+    (mode === "stacked" ? gmT("Cada estágio na sua seção", "Each stage in its own section") : gmT("Toque em um estágio para filtrar", "Tap a stage to filter")) + '</span>' +
     '<button type="button" class="btn-outline" onclick="gmConTabToggleMode()">' +
-    (mode === "stacked" ? gmT("Ver por estágio", "View by stage") : gmT("Ver tudo empilhado", "View stacked")) + '</button></div>';
-  html += '<div class="content-card"><div class="card-title">' + gmT("Contratos", "Contracts") + '</div>';
+    (mode === "stacked" ? gmT("Ver por estágio", "View by stage") : gmT("Ver em seções", "View as sections")) + '</button></div>';
   if (!list.length) {
-    html += '<p class="muted">' + gmT("Nenhum contrato ainda. Crie o primeiro a partir de um projeto com orçamento aceito.", "No contracts yet. Create the first one from a project with an accepted estimate.") + '</p>';
+    html += '<div class="content-card"><p class="muted">' + gmT("Nenhum contrato ainda. Crie o primeiro a partir de um projeto com orçamento aceito.", "No contracts yet. Create the first one from a project with an accepted estimate.") + '</p></div>';
   }
   if (mode === "stacked") {
     GM_CON_TAB_GROUPS.forEach(function(g) {
       if (g[0] === "all") { return; }
       var n = gmConTabCount(g);
-      // "Outros" (void / replaced) only when there is something in it.
       if (g[0] === "other" && !n) { return; }
-      html += '<div class="gm-stage-section"><div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(gmT(g[1], g[2])) + '</span>' +
-        '<span class="gm-stage-count">' + n + '</span></div>' + gmConTabGroupRows(g) + '</div>';
+      var shut = gmConTabCollapsed(g[0]);
+      html += '<div class="content-card">' +
+        '<button type="button" class="kpi-section-head" style="margin:0;" aria-expanded="' + (shut ? "false" : "true") + '" onclick="gmConTabToggleSection(\'' + g[0] + '\')">' +
+        '<div class="card-title" style="margin:0;">' + escHtml(gmT(g[1], g[2])) + ' <span class="goal-pending-badge"' + (n ? "" : ' style="opacity:0.45;"') + '>' + n + '</span></div>' +
+        '<span class="section-head-right"><span class="section-chevron">' + (shut ? "&#9660;" : "&#9650;") + '</span></span></button>' +
+        (shut ? "" : '<div style="margin-top:12px;">' +
+          (g[0] === "unsigned" ? '<p class="muted" style="margin:0 0 8px;">' + gmT("Projetos em aberto sem contrato assinado pelo cliente.", "Open projects with no contract signed by the customer.") + '</p>' : "") +
+          gmConTabGroupRows(g) + '</div>') +
+        '</div>';
     });
   } else {
-    html += '<div class="gm-subnav" role="tablist">';
+    html += '<div class="content-card"><div class="card-title">' + gmT("Contratos", "Contracts") + '</div><div class="gm-subnav" role="tablist">';
     GM_CON_TAB_GROUPS.forEach(function(g) {
       var n = gmConTabCount(g);
       if (g[0] !== "all" && !n && gmConTabFilter !== g[0]) { return; }
@@ -4773,12 +4792,12 @@ function gmRenderContractsTab() {
       html += '<p class="muted" style="margin:4px 0 10px;">' + gmT("Projetos em aberto sem contrato assinado pelo cliente. Abra o projeto para criar ou acompanhar o contrato.", "Open projects with no contract signed by the customer. Open the project to create or follow up on the contract.") + '</p>';
     }
     if (list.length || grp[0] === "unsigned") { html += gmConTabGroupRows(grp); }
+    html += '</div>';
   }
   if (!gmIsSeller()) {
-    html += '<button type="button" class="gm-btn-secondary" style="margin-top:12px;" onclick="gmEstimatesSection = \'settings\'; switchTab(\'gmestimates\');">' +
+    html += '<button type="button" class="gm-btn-secondary" style="margin-top:4px;" onclick="gmEstimatesSection = \'settings\'; switchTab(\'gmestimates\');">' +
       gmT("Configurações de contrato", "Contract settings") + '</button>';
   }
-  html += '</div>';
   body.innerHTML = html;
 }
 function gmConPill(status) { var s = GM_CON_STATUS[status] || ["gm-muted", "○", status, status]; return '<span class="gm-pill ' + s[0] + '">' + s[1] + ' ' + escHtml(gmT(s[2], s[3])) + '</span>'; }

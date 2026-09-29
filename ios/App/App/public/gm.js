@@ -4659,16 +4659,29 @@ var GM_CON_STATUS = {
 // one. Rows open the same contract sheet the project opens. The list comes
 // from GET gm/contracts (a salesperson's rows are filtered there, in SQL).
 var gmConTabList = null, gmConTabFilter = "all";
+// Order = urgency, the same in both views: what needs the owner first, then
+// the jobs running without a signed contract, then the contracts in flight.
 var GM_CON_TAB_GROUPS = [
   ["all",      "Todos",                 "All",               null],
   ["action",   "Precisa de ação",       "Needs action",      ["changes_requested", "declined", "expired"]],
+  ["unsigned", "Sem contrato assinado", "No signed contract", null],
   ["draft",    "Rascunho",              "Draft",             ["draft"]],
   ["company",  "Com a empresa",         "With the company",  ["awaiting_company", "company_signed"]],
   ["customer", "Com o cliente",         "With the customer", ["sent", "viewed"]],
   ["signed",   "Assinados",             "Signed",            ["homeowner_signed", "completed"]],
-  ["unsigned", "Sem contrato assinado", "No signed contract", null],
   ["other",    "Outros",                "Other",             ["void", "superseded"]]
 ];
+// Two views, like the Pipeline (Nicole): every stage stacked in one scroll,
+// or the stage chips. Remembered per viewer; stacked by default.
+function gmConTabMode() {
+  var m = null;
+  try { m = localStorage.getItem("apex_contracts_view"); } catch (e) { m = null; }
+  return m === "rail" ? "rail" : "stacked";
+}
+function gmConTabToggleMode() {
+  try { localStorage.setItem("apex_contracts_view", gmConTabMode() === "stacked" ? "rail" : "stacked"); } catch (e) {}
+  gmRenderContractsTab();
+}
 function gmLoadContractsTab() {
   gmCurrentTab = "gmcontracts";
   var body = document.getElementById("gmContractsBody");
@@ -4692,53 +4705,74 @@ function gmConTabCount(g) {
   return list.filter(function(c) { return g[3].indexOf(c.status) !== -1; }).length;
 }
 function gmConTabSetFilter(f) { gmConTabFilter = f; gmRenderContractsTab(); }
+function gmConTabContractRow(c) {
+  var when = c.homeowner_signed_at ? gmT("assinado ", "signed ") + formatDateTimeUTC(c.homeowner_signed_at)
+    : (c.sent_at ? gmT("enviado ", "sent ") + formatDateTimeUTC(c.sent_at) : gmT("criado ", "created ") + formatDateTimeUTC(c.created_at));
+  var line2 = [c.vendedor, c.contract_amount_cents ? gmMoney(c.contract_amount_cents) : null, when].filter(function(v) { return !!v; }).map(escHtml).join(" · ");
+  var note = c.status === "changes_requested" && c.change_request_text ? gmT("Pediu mudanças: ", "Requested changes: ") + c.change_request_text
+    : (c.status === "declined" && c.decline_reason ? gmT("Motivo: ", "Reason: ") + c.decline_reason
+    : (c.status === "awaiting_company" && c.routed_to_name ? gmT("Aguardando: ", "Waiting on: ") + c.routed_to_name : ""));
+  return '<button type="button" class="gm-row" onclick="gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main">' +
+    '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number || "") + ' · ' + escHtml(c.job_name || "") + '</span>' +
+    '<div class="gm-lead-sub">' + line2 + '</div>' +
+    (note ? '<div class="gm-lead-sub gm-warn">' + escHtml(note) + '</div>' : "") +
+    '</span><span class="gm-lead-side">' + gmConPill(c.status) + '</span></button>';
+}
+function gmConTabJobRow(x) {
+  var j = x.job;
+  var has = (gmConTabList || []).filter(function(c) { return c.job_id === j.id && c.status !== "void" && c.status !== "superseded"; })[0];
+  return '<button type="button" class="gm-row" onclick="gmOpenJob(' + x.idx + ')"><span class="gm-lead-main">' +
+    '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(j.obra || "") + '</span>' +
+    '<div class="gm-lead-sub">' + [j.valor !== null && j.valor !== undefined ? fmtNum(j.valor, "currency") : null, j.status ? gmStatusLabel(j.status) : null].filter(function(v) { return !!v; }).map(escHtml).join(" · ") + '</div>' +
+    '</span><span class="gm-lead-side">' + (has ? gmConPill(has.status) : '<span class="gm-pill gm-red">! ' + escHtml(gmT("Sem contrato", "No contract")) + '</span>') + '</span></button>';
+}
+// The rows of one group, or its empty line.
+function gmConTabGroupRows(g) {
+  if (g[0] === "unsigned") {
+    var jobs = gmConTabUnsignedJobs();
+    return jobs.length ? jobs.map(gmConTabJobRow).join("") : '<div class="gm-stage-empty">' + gmT("Todos os projetos em aberto têm contrato assinado.", "Every open project has a signed contract.") + '</div>';
+  }
+  var list = gmConTabList || [];
+  var shown = g[3] ? list.filter(function(c) { return g[3].indexOf(c.status) !== -1; }) : list;
+  return shown.length ? shown.map(gmConTabContractRow).join("") : '<div class="gm-stage-empty">' + gmT("Nenhum contrato neste estágio.", "No contracts in this stage.") + '</div>';
+}
 function gmRenderContractsTab() {
   var body = document.getElementById("gmContractsBody");
   if (!body) { return; }
   var list = gmConTabList || [];
-  var html = '<div class="content-card"><div class="card-title">' + gmT("Contratos", "Contracts") + '</div>';
-  html += '<div class="gm-subnav" role="tablist">';
-  GM_CON_TAB_GROUPS.forEach(function(g) {
-    var n = gmConTabCount(g);
-    if (g[0] !== "all" && !n && gmConTabFilter !== g[0]) { return; }
-    html += '<button type="button" role="tab" aria-selected="' + (gmConTabFilter === g[0] ? "true" : "false") +
-      '" class="gm-stage-chip' + (gmConTabFilter === g[0] ? " gm-chip-active" : "") + '" onclick="gmConTabSetFilter(\'' + g[0] + '\')">' +
-      escHtml(gmT(g[1], g[2])) + ' <span class="gm-chip-count">' + n + '</span></button>';
-  });
-  html += '</div>';
-  if (gmConTabFilter === "unsigned") {
-    var jobs = gmConTabUnsignedJobs();
-    html += '<p class="muted" style="margin:4px 0 10px;">' + gmT("Projetos em aberto sem contrato assinado pelo cliente. Abra o projeto para criar ou acompanhar o contrato.", "Open projects with no contract signed by the customer. Open the project to create or follow up on the contract.") + '</p>';
-    if (!jobs.length) { html += '<p class="muted">' + gmT("Todos os projetos em aberto têm contrato assinado.", "Every open project has a signed contract.") + '</p>'; }
-    jobs.forEach(function(x) {
-      var j = x.job;
-      var has = list.filter(function(c) { return c.job_id === j.id && c.status !== "void" && c.status !== "superseded"; })[0];
-      html += '<button type="button" class="gm-row" onclick="gmOpenJob(' + x.idx + ')"><span class="gm-lead-main">' +
-        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(j.obra || "") + '</span>' +
-        '<div class="gm-lead-sub">' + [j.valor !== null && j.valor !== undefined ? fmtNum(j.valor, "currency") : null, j.status ? gmStatusLabel(j.status) : null].filter(function(v) { return !!v; }).map(escHtml).join(" · ") + '</div>' +
-        '</span><span class="gm-lead-side">' + (has ? gmConPill(has.status) : '<span class="gm-pill gm-red">! ' + escHtml(gmT("Sem contrato", "No contract")) + '</span>') + '</span></button>';
+  var mode = gmConTabMode();
+  var html = '<div class="gm-view-toggle"><span class="muted">' +
+    (mode === "stacked" ? gmT("Todos os estágios em uma rolagem", "Every stage in one scroll") : gmT("Toque em um estágio para filtrar", "Tap a stage to filter")) + '</span>' +
+    '<button type="button" class="btn-outline" onclick="gmConTabToggleMode()">' +
+    (mode === "stacked" ? gmT("Ver por estágio", "View by stage") : gmT("Ver tudo empilhado", "View stacked")) + '</button></div>';
+  html += '<div class="content-card"><div class="card-title">' + gmT("Contratos", "Contracts") + '</div>';
+  if (!list.length) {
+    html += '<p class="muted">' + gmT("Nenhum contrato ainda. Crie o primeiro a partir de um projeto com orçamento aceito.", "No contracts yet. Create the first one from a project with an accepted estimate.") + '</p>';
+  }
+  if (mode === "stacked") {
+    GM_CON_TAB_GROUPS.forEach(function(g) {
+      if (g[0] === "all") { return; }
+      var n = gmConTabCount(g);
+      // "Outros" (void / replaced) only when there is something in it.
+      if (g[0] === "other" && !n) { return; }
+      html += '<div class="gm-stage-section"><div class="gm-stage-head"><span class="gm-stage-name">' + escHtml(gmT(g[1], g[2])) + '</span>' +
+        '<span class="gm-stage-count">' + n + '</span></div>' + gmConTabGroupRows(g) + '</div>';
     });
   } else {
-    var grp = GM_CON_TAB_GROUPS.filter(function(g) { return g[0] === gmConTabFilter; })[0] || GM_CON_TAB_GROUPS[0];
-    var shown = grp[3] ? list.filter(function(c) { return grp[3].indexOf(c.status) !== -1; }) : list;
-    if (!list.length) {
-      html += '<p class="muted">' + gmT("Nenhum contrato ainda. Crie o primeiro a partir de um projeto com orçamento aceito.", "No contracts yet. Create the first one from a project with an accepted estimate.") + '</p>';
-    } else if (!shown.length) {
-      html += '<p class="muted">' + gmT("Nenhum contrato com esse status.", "No contracts with this status.") + '</p>';
-    }
-    shown.forEach(function(c) {
-      var when = c.homeowner_signed_at ? gmT("assinado ", "signed ") + formatDateTimeUTC(c.homeowner_signed_at)
-        : (c.sent_at ? gmT("enviado ", "sent ") + formatDateTimeUTC(c.sent_at) : gmT("criado ", "created ") + formatDateTimeUTC(c.created_at));
-      var line2 = [c.vendedor, c.contract_amount_cents ? gmMoney(c.contract_amount_cents) : null, when].filter(function(v) { return !!v; }).map(escHtml).join(" · ");
-      var note = c.status === "changes_requested" && c.change_request_text ? gmT("Pediu mudanças: ", "Requested changes: ") + c.change_request_text
-        : (c.status === "declined" && c.decline_reason ? gmT("Motivo: ", "Reason: ") + c.decline_reason
-        : (c.status === "awaiting_company" && c.routed_to_name ? gmT("Aguardando: ", "Waiting on: ") + c.routed_to_name : ""));
-      html += '<button type="button" class="gm-row" onclick="gmOpenContract(\'' + escHtml(c.id) + '\')"><span class="gm-lead-main">' +
-        '<span class="gm-lead-name" style="white-space:normal;">' + escHtml(c.display_number || "") + ' · ' + escHtml(c.job_name || "") + '</span>' +
-        '<div class="gm-lead-sub">' + line2 + '</div>' +
-        (note ? '<div class="gm-lead-sub gm-warn">' + escHtml(note) + '</div>' : "") +
-        '</span><span class="gm-lead-side">' + gmConPill(c.status) + '</span></button>';
+    html += '<div class="gm-subnav" role="tablist">';
+    GM_CON_TAB_GROUPS.forEach(function(g) {
+      var n = gmConTabCount(g);
+      if (g[0] !== "all" && !n && gmConTabFilter !== g[0]) { return; }
+      html += '<button type="button" role="tab" aria-selected="' + (gmConTabFilter === g[0] ? "true" : "false") +
+        '" class="gm-stage-chip' + (gmConTabFilter === g[0] ? " gm-chip-active" : "") + '" onclick="gmConTabSetFilter(\'' + g[0] + '\')">' +
+        escHtml(gmT(g[1], g[2])) + ' <span class="gm-chip-count">' + n + '</span></button>';
     });
+    html += '</div>';
+    var grp = GM_CON_TAB_GROUPS.filter(function(g) { return g[0] === gmConTabFilter; })[0] || GM_CON_TAB_GROUPS[0];
+    if (grp[0] === "unsigned") {
+      html += '<p class="muted" style="margin:4px 0 10px;">' + gmT("Projetos em aberto sem contrato assinado pelo cliente. Abra o projeto para criar ou acompanhar o contrato.", "Open projects with no contract signed by the customer. Open the project to create or follow up on the contract.") + '</p>';
+    }
+    if (list.length || grp[0] === "unsigned") { html += gmConTabGroupRows(grp); }
   }
   if (!gmIsSeller()) {
     html += '<button type="button" class="gm-btn-secondary" style="margin-top:12px;" onclick="gmEstimatesSection = \'settings\'; switchTab(\'gmestimates\');">' +
@@ -7502,6 +7536,9 @@ function gmOnLangChange() {
   // Faturas placeholder build all their text in JS.
   if (gmCurrentTab === "gmestimates") { gmRenderEstimatesTab(); }
   if (gmCurrentTab === "gminvoices") { gmRenderInvoicesTab(); }
+  // Contratos (2026-09-29): its stage names were missing from this list, so
+  // a language switch left them in Portuguese.
+  if (gmCurrentTab === "gmcontracts" && gmConTabList) { gmRenderContractsTab(); }
   // The calendar carries THREE kinds of translated text — event-type labels,
   // titles recomposed per language, and the derived "Início / Prazo / Entrega"
   // job labels — so it has to repaint like every other tab. It was missing

@@ -89,7 +89,7 @@
   <script src="datetime.js"></script>
   <script src="scheduling-queue.js?v=1787608441"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787608442"></script>
+  <script src="template-edit.js?v=1790693582"></script>
   <title>Apex Command Center</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2306,13 +2306,16 @@
       var tpl = (dashMessageTemplates && dashMessageTemplates.seller_login) ||
         "Olá! O acesso de vendedor para {sellerName} está pronto.\n\n" +
         "Repasse estes dados para {sellerName}:\n\n" +
-        "Link: {loginUrl}\n" +
+        "Link (web): {loginUrl}\n" +
+        "App para iPhone: {appUrl}\n" +
         "Usuário: {username}\n" +
         "Senha temporária: {tempPassword}\n\n" +
         "No primeiro acesso ele(a) vai criar uma senha nova.\n\n" +
         "Importante: {sellerName} verá apenas os leads do funil que ele(a) criar ou que estiverem no nome dele(a).";
       var msg = tpl
         .split("{loginUrl}").join(loginUrl)
+        // Same App Store link as client.html's APEX_APP_STORE_URL.
+        .split("{appUrl}").join("https://apps.apple.com/us/app/apex-business-leadership/id6808500506")
         .split("{sellerName}").join(pendingSellerCreds.seller_name || "")
         .split("{username}").join(pendingSellerCreds.username)
         .split("{tempPassword}").join(pendingSellerCreds.temp_password);

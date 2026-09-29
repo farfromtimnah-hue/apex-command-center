@@ -86,7 +86,7 @@
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
-  <script src="template-edit.js?v=1787608442"></script>
+  <script src="template-edit.js?v=1790693582"></script>
   <link rel="stylesheet" href="gm.css?v=1790606890">
   <script src="gm-labels.js?v=1790550443"></script>
   <script src="gm.js?v=1790606895"></script>
@@ -4323,13 +4323,15 @@
       var tpl = (messageTemplates && messageTemplates.seller_login) ||
         "Olá! O acesso de vendedor para {sellerName} está pronto.\n\n" +
         "Repasse estes dados para {sellerName}:\n\n" +
-        "Link: {loginUrl}\n" +
+        "Link (web): {loginUrl}\n" +
+        "App para iPhone: {appUrl}\n" +
         "Usuário: {username}\n" +
         "Senha temporária: {tempPassword}\n\n" +
         "No primeiro acesso ele(a) vai criar uma senha nova.\n\n" +
         "Importante: {sellerName} verá apenas os leads do funil que ele(a) criar ou que estiverem no nome dele(a).";
       var msg = tpl
         .split("{loginUrl}").join(loginUrl)
+        .split("{appUrl}").join(APEX_APP_STORE_URL)
         .split("{sellerName}").join(generatedSellerCredentials.seller_name || "")
         .split("{username}").join(generatedSellerCredentials.username)
         .split("{tempPassword}").join(generatedSellerCredentials.temp_password);
@@ -4443,11 +4445,22 @@
           ? '<span class="show-pt">Redefinir Senha</span><span class="show-en">Reset Password</span>'
           : '<span class="show-pt">Criar Login</span><span class="show-en">Create Login</span>') +
         '</button>' +
+        '<button class="btn-add" id="btnSendAppLink" onclick="sendAppLinkViaWhatsapp()">' +
+        '<span class="show-pt">Enviar link do app</span><span class="show-en">Send app link</span>' +
+        '</button>' +
         '<button class="btn-add" onclick="openFieldConfigModal()">' +
         '<span class="show-pt">Editar Campos</span><span class="show-en">Edit Fields</span>' +
         '</button></div>';
       html += clientSwitchesHtml();
       el.innerHTML = html;
+      // Rendered fresh each time, so the pencil / right-click is attached here.
+      var appBtn = document.getElementById("btnSendAppLink");
+      if (appBtn && window.TemplateEdit) {
+        window.TemplateEdit.attach({
+          button: appBtn, key: "app_download", apiFetch: apiFetch,
+          onSaved: function(saved) { if (!messageTemplates) { messageTemplates = {}; } messageTemplates[saved.template_key] = saved.template_text; }
+        });
+      }
     }
 
     // Pr. Rafa's per-client switches (hero build, E). OFF: that gate no longer
@@ -4543,6 +4556,28 @@
         .catch(function(e) { window.alert("Erro: " + e.message); });
     }
 
+    // The iPhone app on the App Store. Searching the store for "Apex" does
+    // not find it (a new app with no ratings under a crowded name), so the
+    // login messages carry this link and "Enviar link do app" sends it alone.
+    var APEX_APP_STORE_URL = "https://apps.apple.com/us/app/apex-business-leadership/id6808500506";
+
+    // The app link by itself (Nicole, 2026-09-29): for a client who already
+    // has a login. Same synchronous WhatsApp handoff and the same recipient
+    // precedence as the credentials send; template key app_download.
+    function sendAppLinkViaWhatsapp() {
+      var tpl = (messageTemplates && messageTemplates.app_download) ||
+        "Olá! O app da Apex para iPhone está disponível na App Store:\n{appUrl}\n\n" +
+        "Entre com o mesmo usuário e senha que você usa no portal.";
+      var msg = tpl.split("{appUrl}").join(APEX_APP_STORE_URL);
+      var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+                  "?text=" + encodeURIComponent(msg);
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
+      }
+    }
+
     function sendLoginViaWhatsapp() {
       if (!generatedCredentials) { return; }
       // window.open must run synchronously in the click handler — any await gap
@@ -4550,12 +4585,14 @@
       var loginUrl = "https://apex.resonateai.online/index.html";
       var tpl = (messageTemplates && messageTemplates.client_login) ||
         "Olá! Seu acesso ao Portal do Cliente Apex está pronto.\n\n" +
-        "Link: {loginUrl}\n" +
+        "Link (web): {loginUrl}\n" +
+        "App para iPhone: {appUrl}\n" +
         "Usuário: {username}\n" +
         "Senha temporária: {tempPassword}\n\n" +
         "No primeiro acesso você vai criar uma senha nova.";
       var msg = tpl
         .split("{loginUrl}").join(loginUrl)
+        .split("{appUrl}").join(APEX_APP_STORE_URL)
         .split("{username}").join(generatedCredentials.username)
         .split("{tempPassword}").join(generatedCredentials.temp_password);
       var digits = ((clientData && (clientData.whatsapp || clientData.phone)) || "").replace(/\D/g, "");

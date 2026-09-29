@@ -479,6 +479,9 @@
       background: #fff; border-radius: 16px; padding: 8px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
+    .pg-sheet.pg-dropdown { z-index: 960; }
+    .pg-sheet.pg-dropdown .pg-backdrop { background: transparent; }
+    .pg-sheet.pg-dropdown .pg-panel { bottom: auto; right: auto; width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 1px solid var(--border); }
     .pg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
     .pg-item {
       display: flex; align-items: center; gap: 12px; width: 100%;
@@ -1723,6 +1726,7 @@
       <div id="tabGmjobs" hidden><div class="content-card" id="gmSellerAwaitingJobs" hidden></div><div id="gmJobsBody"></div></div>
       <div id="tabGmpricing" hidden><div id="gmPricingBody"></div></div>
       <div id="tabGmestimates" hidden><div id="gmEstimatesBody"></div></div>
+      <div id="tabGmcontracts" hidden><div id="gmContractsBody"></div></div>
       <div id="tabGminvoices" hidden><div id="gmInvoicesBody"></div></div>
       <div id="tabGmcalendar" hidden><div id="gmCalendarBody"></div></div>
 
@@ -4700,6 +4704,9 @@
       // the tab exists only for the clients listed there until its phase
       // ships for everyone (then the gate is removed).
       { tab: "gmestimates", icon: "clipboard",   labelPt: "Or\u00e7amentos",            labelEn: "Estimates", gate: "estimates" },
+      // Contratos (Nicole, 2026-09-29): the owner's overview of every contract
+      // and of the jobs with none signed. Opened from here or from the project.
+      { tab: "gmcontracts", icon: "signature",   labelPt: "Contratos",              labelEn: "Contracts", gate: "contracts" },
       { tab: "gminvoices",  icon: "receipt",     labelPt: "Faturas",                labelEn: "Invoices",  gate: "invoices" },
       { tab: "gmcalendar", icon: "calendar",     labelPt: "Agenda",                 labelEn: "Calendar" },
       { tab: "gmfinance",  icon: "finance",      labelPt: "Financeiro",             labelEn: "Finances" },
@@ -4775,7 +4782,9 @@
     // list without costs or margins, and builds estimates on their own leads.
     // Read-only where the Worker says so: no seller write route exists for
     // gm/jobs or gm/pricing, and the handlers trim what a seller is sent.
-    var SELLER_TABS = ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcalendar", "documents"];
+    // "gmcontracts" (2026-09-29): the contracts on their own jobs, the same
+    // rows handleGetGmContracts already filters to vendedor / secundario.
+    var SELLER_TABS = ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcontracts", "gmcalendar", "documents"];
 
     function portalTabs() {
       var tabs = PORTAL_TABS.filter(portalTabEnabled);
@@ -4806,7 +4815,7 @@
     // only while something is waiting. Leads keep their own shape.
     var PORTAL_GROUPS = [
       { key: "grp-home",      icon: "home",      labelPt: "In\u00edcio",   labelEn: "Home",      tabs: ["home"] },
-      { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"] },
+      { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance"] },
       { key: "grp-agenda",    icon: "calendar",  labelPt: "Agenda",       labelEn: "Calendar",  tabs: ["gmcalendar"] },
       { key: "grp-analytics", icon: "bar-chart", labelPt: "Analytics",    labelEn: "Analytics", tabs: ["analytics"] },
       { key: "grp-apex",      icon: "peak",      labelPt: "Apex",         labelEn: "Apex",      tabs: ["assigned", "goals", "gmroadmap", "tasks", "documents"] }
@@ -4925,10 +4934,12 @@
       var curGroup = portalGroupOfTab(cur);
       groupNav.innerHTML = portalGroups().map(function(g) {
         return '<button type="button" class="portal-group-tab' + (curGroup && curGroup.tab === g.tab ? " active" : "") +
-          '" onclick="switchTab(\'' + g.tab + '\')">' + window.apexNavSvg(g.icon) + portalLabelHtml(g) + portalNewPillHtml(g.tab) + portalBadgeHtml(portalNavBadge(g)) + '</button>';
+          '" onclick="portalDockTap(\'' + g.tab + '\', this)">' + window.apexNavSvg(g.icon) + portalLabelHtml(g) + portalNewPillHtml(g.tab) + portalBadgeHtml(portalNavBadge(g)) + '</button>';
       }).join("");
       groupNav.hidden = false;
-      if (curGroup && curGroup.tabs.length > 1) {
+      // No row of tools under the five any more (Nicole, 2026-09-29: "pills on
+      // pills"). A group's tools open as a drop-down from its button instead.
+      if (false) {
         stepNav.innerHTML = curGroup.tabs.map(function(t) {
           return '<button type="button" class="portal-step' + (t.tab === cur ? " active" : "") +
             '" onclick="switchTab(\'' + t.tab + '\')">' + window.apexNavSvg(t.icon) + portalLabelHtml(t) + portalNewPillHtml(t.tab) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
@@ -4950,7 +4961,9 @@
     }
     // Dock tap. A group with several tools pops up its list (phone); a
     // single-tool group, or a lead's plain tab, just opens.
-    function portalDockTap(key) {
+    // anchor: the desktop group button. Given, the menu drops down under it;
+    // absent (the phone dock), it sits above the dock.
+    function portalDockTap(key, anchor) {
       var g = key.indexOf("grp-") === 0 ? portalGroupByKey(key) : null;
       if (!g || g.tabs.length < 2) { portalGroupSheetClose(); switchTab(key); return; }
       var sheet = document.getElementById("portalGroupSheet");
@@ -4962,8 +4975,21 @@
           window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalNewPillHtml(t.tab) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
       }).join("");
       sheet.setAttribute("data-group", key);
+      sheet.classList.toggle("pg-dropdown", !!anchor);
+      if (anchor) {
+        var r = anchor.getBoundingClientRect();
+        panel.style.top = Math.round(r.bottom + 6) + "px";
+        panel.style.left = Math.round(r.left) + "px";
+      } else {
+        panel.style.top = ""; panel.style.left = "";
+      }
       sheet.hidden = false;
     }
+    // A drop-down pinned under its button would float away on scroll.
+    window.addEventListener("scroll", function() {
+      var sheet = document.getElementById("portalGroupSheet");
+      if (sheet && !sheet.hidden && sheet.classList.contains("pg-dropdown")) { portalGroupSheetClose(); }
+    }, true);
     function portalGroupSheetClose() {
       var sheet = document.getElementById("portalGroupSheet");
       if (sheet) { sheet.hidden = true; }
@@ -5422,7 +5448,7 @@
       // GM_PIPELINE_ALIASES above.
       ["Home", "Analytics", "Goals", "Tasks", "Documents", "Invoices", "Xray", "Worksched",
        "Gmcrm", "Gmroadmap", "Gmfinance", "Gmjobs", "Gmpricing", "Gmcalendar",
-       "Gmestimates", "Gminvoices",
+       "Gmestimates", "Gmcontracts", "Gminvoices",
        "Assigned", "LockedPreview"]
         .concat(SINGLE_PAGE_ASSESSMENTS.map(function(t) {
           return t.key.charAt(0).toUpperCase() + t.key.slice(1);
@@ -5470,6 +5496,7 @@
         if (tab === "gmcalendar") { gmLoadCalendar(); }
         // Estimates & invoices build (gm.js TAB 8 / TAB 9).
         if (tab === "gmestimates") { gmLoadEstimates(); }
+        if (tab === "gmcontracts") { gmLoadContractsTab(); }
         if (tab === "gminvoices") { gmLoadInvoices(); }
       }
     }
@@ -7384,7 +7411,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1790606895"></script>
+  <script src="gm.js?v=1790697575"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

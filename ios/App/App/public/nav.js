@@ -136,6 +136,8 @@
       body = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
     } else if (type === "target") {
       body = '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>';
+    } else if (type === "signature") {
+      body = '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M7 17c1.5-2 2.5-2 3 0s1.5 2 3 0 2-1 3 0"/>';
     } else if (type === "funnel") {
       body = '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5L3 4z"/>';
     } else if (type === "clipboard") {

@@ -46,7 +46,7 @@ const groups = () => portalGroups().map(g => [g.tab, g.tabs.map(t => t.tab)]);
 ok(PORTAL_TABS.every(t => t.labelPt && t.labelEn && t.icon), "every tab carries PT + EN labels and an icon");
 eq(groups(), [
   ["grp-home", ["home"]],
-  ["grp-negocio", ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"]],
+  ["grp-negocio", ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance"]],
   ["grp-agenda", ["gmcalendar"]],
   ["grp-analytics", ["analytics"]],
   ["grp-apex", ["goals", "gmroadmap", "tasks", "documents"]]
@@ -81,19 +81,20 @@ ritmoDown = false;
 // ---- a real client (gates opened for everyone 2026-09-28) ----
 globalThis.clientId = "some-real-client";
 eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab),
-   ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"], "every client gets the full Negócio now");
+   ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance"], "every client gets the full Negócio now");
 PORTAL_TAB_GATES.estimates = ["test-client-temp-001"]; PORTAL_TAB_GATES.invoices = ["test-client-temp-001"];
+PORTAL_TAB_GATES.contracts = ["test-client-temp-001"];
 eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab), ["gmcrm", "gmjobs", "gmfinance"],
    "a gate list, if ever set again: Negócio has no Orçamentos / Faturas until the gates open");
-PORTAL_TAB_GATES.estimates = null; PORTAL_TAB_GATES.invoices = null;
+PORTAL_TAB_GATES.estimates = null; PORTAL_TAB_GATES.invoices = null; PORTAL_TAB_GATES.contracts = null;
 eq(portalGroups().find(g => g.tab === "grp-negocio").tabs.map(t => t.tab),
-   ["gmcrm", "gmestimates", "gmjobs", "gminvoices", "gmfinance"], "…and gets them back in process order once reopened");
+   ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance"], "…and gets them back in process order once reopened");
 globalThis.clientId = "test-client-temp-001";
 
 // ---- salesperson ----
 globalThis.isSeller = () => true;
 eq(groups(), [
-  ["grp-negocio", ["gmcrm", "gmestimates", "gmjobs"]],
+  ["grp-negocio", ["gmcrm", "gmestimates", "gmcontracts", "gmjobs"]],
   ["grp-agenda", ["gmcalendar"]],
   ["grp-apex", ["documents"]]
 ], "salesperson: Negócio (their tools), Agenda, Documentos; no Início, Analytics or Ritmo");

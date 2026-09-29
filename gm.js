@@ -4666,8 +4666,8 @@ var GM_CON_TAB_GROUPS = [
   ["action",   "Precisa de ação",       "Needs action",      ["changes_requested", "declined", "expired"]],
   ["unsigned", "Sem contrato assinado", "No signed contract", null],
   ["draft",    "Rascunho",              "Draft",             ["draft"]],
-  ["company",  "Com a empresa",         "With the company",  ["awaiting_company", "company_signed"]],
-  ["customer", "Com o cliente",         "With the customer", ["sent", "viewed"]],
+  ["company",  "Aguardando a empresa",  "Waiting on the company",  ["awaiting_company", "company_signed"]],
+  ["customer", "Aguardando o cliente",  "Waiting on the customer", ["sent", "viewed"]],
   ["signed",   "Assinados",             "Signed",            ["homeowner_signed", "completed"]],
   ["other",    "Outros",                "Other",             ["void", "superseded"]]
 ];

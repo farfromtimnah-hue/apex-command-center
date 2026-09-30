@@ -44847,9 +44847,10 @@ function apxFileName(r, comp) {
 }
 
 // Signed: the PDF is printed once and filed under the client's Documents,
-// hidden from the client (client_visible = 0) until Rafael turns it on, the
-// same rule as every other Apex document. Then Rafael, Alice and Nicole get
-// a push.
+// VISIBLE to the client (client_visible = 1). A signed contract is the one
+// document both parties must hold a copy of, so it is the exception to the
+// "hidden until Rafael switches it on" rule (Nicole, 2026-09-29). Then
+// Rafael, Alice and Nicole get a push.
 function apxAfterSigned(request, env, contractId) {
     var job = (async function() {
         try {
@@ -44863,7 +44864,7 @@ function apxAfterSigned(request, env, contractId) {
                     var docId = crypto.randomUUID();
                     var key = "client-documents/" + r.client_id + "/" + docId + ".pdf";
                     await env.ASSETS.put(key, result.bytes, { httpMetadata: { contentType: "application/pdf" } });
-                    await env.DB.prepare("INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) VALUES (?, ?, ?, ?, ?, 'application/pdf', ?, 'client', 0)")
+                    await env.DB.prepare("INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) VALUES (?, ?, ?, ?, ?, 'application/pdf', ?, 'client', 1)")
                         .bind(docId, r.client_id, "Contrato assinado " + r.number + " — " + (comp.program || ""), apxFileName(r, comp), key, "Contrato APEX").run();
                     await env.DB.prepare("UPDATE apex_contracts SET document_id = ? WHERE id = ? AND document_id IS NULL").bind(docId, r.id).run();
                 }

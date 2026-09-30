@@ -638,7 +638,16 @@
       var t = sigTotal();
       if (lienPending()) { b.textContent = "Next: sign the lien notice (1 of " + t + ")"; }
       else { b.textContent = t > 1 ? "Next: sign the contract (2 of 2)" : "Go to signature"; }
+      // Out of the way once the signature it points to is on screen, so it
+      // never covers the real Sign button.
+      var target = lienPending() ? byId("lienStep") : byId("cardActions");
+      var r = target ? target.getBoundingClientRect() : null;
+      var inView = !!r && r.top < window.innerHeight - 90 && r.bottom > 0;
+      b.classList.toggle("hidden", inView);
+      document.body.classList.toggle("has-next-sig", !inView);
     }
+    window.addEventListener("scroll", function() { if (con) { updateNextSig(); } }, { passive: true });
+    window.addEventListener("resize", function() { if (con) { updateNextSig(); } });
     function goNextSig() {
       var el = lienPending() ? byId("lienStep") : byId("mainSigStep");
       if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }

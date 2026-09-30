@@ -471,7 +471,13 @@
   }
 
   // Send: WhatsApp with the link, or copy it. Either marks it sent.
+  // Always re-reads the contract first: a page left open would otherwise send
+  // a link that has since changed (2026-09-29, a renamed test link went out
+  // dead, with no preview card).
   function sendOpen(id) {
+    return load().then(function() { sendRender(id); });
+  }
+  function sendRender(id) {
     var c = find(id); if (!c) { return; }
     var doc = c.contract || {};
     var first = ((doc.signers && doc.signers.client) || [])[0];

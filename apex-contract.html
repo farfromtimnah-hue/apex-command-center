@@ -23,7 +23,6 @@
     html { -webkit-text-size-adjust: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
     .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
-    .hero-band.doc-screen img.hero-img { object-position: 50% 42%; }
     .client-logo-tile img { max-height: 58px; }
     .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
     h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
@@ -99,7 +98,7 @@
 </head>
 <body>
   <div class="hero-band doc-screen" id="hero">
-    <img class="hero-img" id="heroImg" src="assets/contract-hero.jpg" alt="">
+    <img class="hero-img" id="heroImg" alt="" hidden>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
       <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
@@ -283,6 +282,12 @@
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
         .then(function(d) {
           con = d.contract; doc = con.contract;
+          // The hero is the package's own peak, the same photo it has on the
+          // pitch page (packages.html): START Picture5, GROWTH Picture3,
+          // ADVANCED Picture4 (Nicole, 2026-09-29). Framed on the peaks.
+          var HERO = { start: ["assets/contract-hero-start.jpg", "50% 30%"], growth: ["assets/contract-hero-growth.jpg", "50% 42%"], advanced: ["assets/contract-hero-advanced.jpg", "50% 38%"] };
+          var hh = HERO[doc.package_key] || HERO.advanced, hi = byId("heroImg");
+          hi.style.objectPosition = hh[1]; hi.onload = function() { hi.hidden = false; }; hi.src = hh[0];
           document.title = "Contrato " + con.number + (doc.company_name ? " - " + doc.company_name : "");
           if (con.status === "void") {
             byId("cardHead").innerHTML = '<div class="state"><h3>Contrato ' + esc(con.number) + '</h3><p>Este contrato foi cancelado pela APEX. N&atilde;o h&aacute; nada para assinar.</p></div>';

@@ -6515,6 +6515,37 @@
         .catch(function(e) { statusEl.textContent = "Erro: " + e.message; });
     }
 
+    var LEAD_TEMP = {
+      warm: { pt: "Morno", en: "Warm", bg: "#fdecd8", fg: "#9a4a0c", bd: "#f3c79a" },
+      cold: { pt: "Frio",  en: "Cold", bg: "#e3edfb", fg: "#1f4f99", bd: "#b9cff2" }
+    };
+    function leadTempPill(client, canEdit) {
+      var b = document.createElement(canEdit ? "button" : "span");
+      b.id = "leadTempPill";
+      var paint = function(tmp) {
+        var d = LEAD_TEMP[tmp];
+        b.style.cssText = "display:inline-flex;align-items:center;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:700;letter-spacing:0.03em;font-family:inherit;" +
+          (d ? "background:" + d.bg + ";color:" + d.fg + ";border:1px solid " + d.bd + ";" : "background:transparent;color:var(--muted);border:1px dashed var(--border);") +
+          (canEdit ? "cursor:pointer;" : "");
+        b.innerHTML = d ? '<span class="show-pt">' + d.pt + '</span><span class="show-en">' + d.en + '</span>'
+                        : '<span class="show-pt">Definir: morno ou frio</span><span class="show-en">Set: warm or cold</span>';
+        b.title = t("Toque para mudar", "Tap to change");
+      };
+      paint(client.lead_temperature);
+      if (canEdit) {
+        b.type = "button";
+        b.onclick = function() {
+          var next = client.lead_temperature === "warm" ? "cold" : "warm";
+          var prev = client.lead_temperature;
+          client.lead_temperature = next; paint(next);
+          apiFetch("/api/clients/" + CLIENT_ID + "/lead-temperature", { method: "PATCH", body: { temperature: next } })
+            .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } })
+            .catch(function(e) { client.lead_temperature = prev; paint(prev); alert(t("N\u00e3o foi poss\u00edvel salvar: ", "Could not save: ") + e.message); });
+        };
+      }
+      return b;
+    }
+
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
       document.title = "Apex — " + (client.name || t("Cliente", "Client"));
@@ -6629,6 +6660,10 @@
         statusWrap.appendChild(statusEditBtn);
       }
       badgesEl.appendChild(statusWrap);
+
+      // Lead temperature pill (Nicole, 2026-09-29): warm or cold at a glance.
+      // Tapping it switches warm <-> cold; unset reads "Definir".
+      if (statusVal === "lead") { badgesEl.appendChild(leadTempPill(client, canEdit)); }
 
       // Next meeting placeholder — no real data yet, show placeholder
       var nextEl = document.getElementById("nextMeetingLozenge");

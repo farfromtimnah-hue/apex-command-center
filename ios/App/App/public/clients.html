@@ -485,6 +485,10 @@
     .lead-row-name { font-weight: 600; color: var(--text); text-decoration: none; flex: 1; }
     .lead-row-name:hover { color: var(--gold); }
     .lead-row-meta { font-size: 12px; color: var(--muted); }
+    /* Lead temperature pill (2026-09-29): warm amber, cold blue. */
+    .lead-temp { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+    .lead-temp.warm { background: #fdecd8; color: #9a4a0c; border: 1px solid #f3c79a; }
+    .lead-temp.cold { background: #e3edfb; color: #1f4f99; border: 1px solid #b9cff2; }
 
     /* Chip rail — the automatic high-volume layout. Horizontal scroll is
        contained here so the page body never scrolls sideways. */
@@ -1711,6 +1715,17 @@
       renderClients(leads);
     }
 
+
+    // Warm / cold pill beside a lead's name (unset leads show nothing here;
+    // the lead page asks for it).
+    function appendLeadTemp(el, tmp, en) {
+      if (tmp !== "warm" && tmp !== "cold") { return; }
+      var p = document.createElement("span");
+      p.className = "lead-temp " + tmp;
+      p.textContent = tmp === "warm" ? (en ? "Warm" : "Morno") : (en ? "Cold" : "Frio");
+      el.appendChild(p);
+    }
+
     function renderLeadsTab(container, leads) {
       var auto     = leads.length > LEAD_CHIP_RAIL_THRESHOLD ? "rail" : "stacked";
       var override = leadLayoutOverride();
@@ -1766,6 +1781,7 @@
             chip.className = "lead-chip";
             chip.href = "client.html?id=" + encodeURIComponent(byStage[stage][q].id);
             chip.textContent = byStage[stage][q].name || "--";
+            appendLeadTemp(chip, byStage[stage][q].lead_temperature, en);
             col.appendChild(chip);
           }
           rail.appendChild(col);
@@ -1806,6 +1822,7 @@
             a.className = "lead-row-name";
             a.href = "client.html?id=" + encodeURIComponent(c2.id);
             a.textContent = c2.name || "--";
+            appendLeadTemp(a, c2.lead_temperature, en);
             row.appendChild(a);
             if (c2.phone || c2.whatsapp) {
               var meta = document.createElement("span");

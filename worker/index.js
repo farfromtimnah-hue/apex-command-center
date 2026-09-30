@@ -2177,7 +2177,7 @@ async function handleGetClients(request, env) {
         var includeArchived = listUrl.searchParams.get("include_archived") === "1";
         var res = await env.DB.prepare(
             "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
-            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, created_at, " +
+            "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, lead_temperature, created_at, " +
             "COALESCE(archived, 0) AS archived, archived_at, archived_by " +
             "FROM clients " +
             (includeArchived ? "" : "WHERE COALESCE(archived, 0) = 0 ") +
@@ -2399,7 +2399,7 @@ async function handleGetClient(id, request, env) {
             "c.daily_log_enabled, c.daily_log_enabled_set_by, c.daily_log_enabled_set_at, " +
             "c.goals_enabled, c.goals_enabled_set_by, c.goals_enabled_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
-            "c.created_at FROM clients c " +
+            "c.lead_temperature, c.created_at FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
             "WHERE c.id = ?"
         ).bind(id).first();
@@ -20133,8 +20133,9 @@ async function handlePostApexReferralLead(slug, request, env) {
             // referral there is. referred_by_partner_id stays authoritative for
             // WHICH partner — the name is never copied into source_detail.
             // language 'en' explicitly (the column DEFAULT is 'pt'; click-through fixes B2).
-            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language) " +
-            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en')"
+            // A lead that filled in a partner's link is warm (Nicole, 2026-09-29).
+            "INSERT INTO clients (id, name, status, lead_stage, stage_changed_at, phone, email, referred_by_partner_id, source_type, language, lead_temperature) " +
+            "VALUES (?, ?, 'lead', 'Lead', datetime('now'), ?, ?, ?, 'partner', 'en', 'warm')"
         ).bind(leadId, nome, telefone, email, partner.id).run();
 
         // Deliberately no id and no data in the public response.
@@ -40974,6 +40975,9 @@ async function handleFetch(request, env, ctx) {
             if (segs.length === 4 && segs[3] === "lead-stage" && method === "PATCH") {
                 return handlePatchLeadStage(cid, request, env);
             }
+            if (segs.length === 4 && segs[3] === "lead-temperature" && method === "PATCH") {
+                return handlePatchLeadTemperature(cid, request, env);
+            }
             if (segs.length === 4 && segs[3] === "lead-next-step" && method === "PATCH") {
                 return handlePatchLeadNextStep(cid, request, env);
             }
@@ -44931,5 +44935,26 @@ async function handleGetPublicApexContractPdf(token, request, env) {
     } catch (e) {
         console.error("[apex-contract] pdf route failed: " + (e && e.stack ? e.stack : e));
         return docPdfMessagePage("pt", "busy", 503);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: PATCH /api/clients/:id/lead-temperature   body { temperature }
+// Warm or cold, the pill on every lead (Nicole, 2026-09-29). null clears it.
+// alice / rafa / developer.
+// ---------------------------------------------------------------------------
+async function handlePatchLeadTemperature(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        var t = body.temperature === "warm" || body.temperature === "cold" ? body.temperature : null;
+        if (body.temperature && !t) { return jsonErr("temperature must be 'warm', 'cold' or null", 400); }
+        var r = await env.DB.prepare("UPDATE clients SET lead_temperature = ? WHERE id = ?").bind(t, id).run();
+        if (!r.meta || !r.meta.changes) { return jsonErr("Client not found", 404); }
+        return jsonOk({ lead_temperature: t });
+    } catch (e) {
+        return jsonErr("Error saving the lead temperature: " + e.message, 500);
     }
 }

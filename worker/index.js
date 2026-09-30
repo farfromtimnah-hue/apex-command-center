@@ -40178,7 +40178,7 @@ function docPdfAfterFinal(request, env, kind, token) {
 // real page with the real token. The random tail keeps each link unguessable.
 // Any failure falls back to the long token link, so sending never breaks.
 var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
-var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view" };
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract" };
 var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document" };
 
 function docLinkSlugPart(v, max) {
@@ -40260,7 +40260,11 @@ async function docLinkServe(request, env) {
     }
     // The logo this link previews with: the document's FROZEN logo (its exact
     // upload, via ?v=) when it has one, else the business's current logo.
-    var logoRes = await docLinkLogoResponse(env, row);
+    // Apex's own contract previews with Apex's card (navy, gold logo), never
+    // the client's logo: the sender is Apex.
+    var logoRes = row.kind === "apex-contract"
+        ? await fetch(DEFAULT_ORIGIN + "/assets/apex-og.jpg", { method: "GET" })
+        : await docLinkLogoResponse(env, row);
     var logoType = (logoRes && logoRes.ok && logoRes.headers.get("Content-Type")) || "image/jpeg";
     if (wantsImage) {
         var imgHeaders = new Headers(logoRes.headers);
@@ -40614,6 +40618,15 @@ async function handleFetch(request, env, ctx) {
             if (pubCon[3] && method === "GET") { return handleGetPublicContractSignature(pubCon[1], pubCon[3], request, env); }
             if (pubCon[4] && method === "GET") { return handleGetPublicContractPoolDoc(pubCon[1], pubCon[4], request, env); }
         }
+        // Apex's own consulting contract (Rafa's contract tool): the client's link.
+        var pubApx = path.match(/^\/api\/public\/apex-contracts\/([a-f0-9]{48})(?:\/(sign)|\/signature-image\/(company|c\d{1,2}))?$/);
+        if (pubApx) {
+            if (!pubApx[2] && !pubApx[3] && method === "GET") { return handleGetPublicApexContract(pubApx[1], request, env); }
+            if (pubApx[2] === "sign" && method === "POST") { return handlePostPublicApexContractSign(pubApx[1], request, env); }
+            if (pubApx[3] && method === "GET") { return handleGetPublicApexContractSignature(pubApx[1], pubApx[3], request, env); }
+        }
+        var pubApxPdf = path.match(/^\/api\/public\/pdf\/apex-contract\/([a-f0-9]{48})$/);
+        if (pubApxPdf && method === "GET") { return handleGetPublicApexContractPdf(pubApxPdf[1], request, env); }
         var pubCo = path.match(/^\/api\/public\/change-orders\/([a-f0-9]{48})(?:\/(sign|decline)|\/signature-image\/(company|homeowner))?$/);
         if (pubCo) {
             if (!pubCo[2] && !pubCo[3] && method === "GET") { return handleGetPublicChangeOrder(pubCo[1], request, env); }
@@ -40896,6 +40909,19 @@ async function handleFetch(request, env, ctx) {
             }
             if (segs.length === 5 && segs[3] === "contact-log" && method === "PUT") {
                 return handlePutLeadContactLog(cid, segs[4], request, env);
+            }
+            // Apex's own consulting contract (Rafa's contract tool, 2026-09-29).
+            if (segs[3] === "apex-contracts") {
+                if (segs.length === 4 && method === "GET") { return handleGetApexContracts(cid, request, env); }
+                if (segs.length === 4 && method === "POST") { return handlePostApexContract(cid, request, env); }
+                if (segs.length === 5 && method === "PUT") { return handlePutApexContract(cid, segs[4], request, env); }
+                if (segs.length === 6 && method === "POST") {
+                    if (segs[5] === "company-sign") { return handlePostApexContractCompanySign(cid, segs[4], request, env); }
+                    if (segs[5] === "ask-rafael") { return handlePostApexContractAskRafael(cid, segs[4], request, env); }
+                    if (segs[5] === "sent") { return handlePostApexContractSent(cid, segs[4], request, env); }
+                    if (segs[5] === "void") { return handlePostApexContractVoid(cid, segs[4], request, env); }
+                    if (segs[5] === "apply-terms") { return handlePostApexContractApplyTerms(cid, segs[4], request, env); }
+                }
             }
             if (segs.length === 4 && segs[3] === "lead-pipeline" && method === "GET") {
                 return handleGetLeadPipeline(cid, request, env);
@@ -43815,5 +43841,971 @@ async function handleGetXrayCompletedClients(request, env) {
     } catch (e) {
         if (isAuthError(e)) { return jsonErr("Unauthorized", 401); }
         return jsonErr("Error loading xray status: " + e.message, 500);
+    }
+}
+
+
+// ===========================================================================
+// APEX'S OWN CONSULTING CONTRACT (Rafa's contract tool, 2026-09-29)
+// ===========================================================================
+// Not the portal builder (gm_contracts is a client's contract with ITS
+// homeowners). This is Apex's contract with an Apex client, built from the
+// lead page and the X-Ray results meeting prep, signed first by Rafael and
+// then by each of the client's representatives on apex-contract.html.
+//
+// Sources for the clause text, all in rafa-vault:
+//   ADVANCED  templates id 29 + the Golden Home contract (29/09/2026), which
+//             Pra. Alice confirmed is the standard for every ADVANCED.
+//   START     the DCJ Multiservices contract (17/09/2026), entry 77.
+//   GROWTH    no Growth contract exists yet. Built on the ADVANCED skeleton
+//             with the Growth proposal's scope (entry 102: 4 months, weekly
+//             consulting through month 3, paid traffic months 2 to 4).
+// Rules carried from entry 48 / registro 45: the payment SCHEDULE is always
+// asked, never inherited; the TOTAL is what does not move. Vendor costs are
+// rolled into the total and never printed (Nicole, 2026-09-29).
+// ===========================================================================
+
+var APX_ZELLE = "rafaelprata@apexbusiness.pro";
+var APX_ORIGIN_PAGE = "/apex-contract";
+var APX_PACKAGES = {
+    start:    { key: "start",    pkgId: "pkg_start",    program: "APEX START™",    months: 0 },
+    growth:   { key: "growth",   pkgId: "pkg_growth",   program: "APEX Growth™",   months: 4 },
+    advanced: { key: "advanced", pkgId: "pkg_advanced", program: "APEX Advanced™", months: 6 }
+};
+var APX_MONTHS_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+// ── Portuguese number words ────────────────────────────────────────────────
+function apxWordsBelow1000(n, fem) {
+    var U = ["zero", fem ? "uma" : "um", fem ? "duas" : "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
+    var T = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+    var H = ["", "cento", fem ? "duzentas" : "duzentos", fem ? "trezentas" : "trezentos", fem ? "quatrocentas" : "quatrocentos", fem ? "quinhentas" : "quinhentos", fem ? "seiscentas" : "seiscentos", fem ? "setecentas" : "setecentos", fem ? "oitocentas" : "oitocentos", fem ? "novecentas" : "novecentos"];
+    if (n < 20) { return U[n]; }
+    if (n < 100) { return T[Math.floor(n / 10)] + (n % 10 ? " e " + U[n % 10] : ""); }
+    if (n === 100) { return "cem"; }
+    var rest = n % 100;
+    return H[Math.floor(n / 100)] + (rest ? " e " + apxWordsBelow1000(rest, fem) : "");
+}
+function apxWords(n, fem) {
+    n = Math.floor(Math.abs(Number(n) || 0));
+    if (n < 1000) { return apxWordsBelow1000(n, fem); }
+    if (n >= 1000000) {
+        var mi = Math.floor(n / 1000000), mrest = n % 1000000;
+        var mhead = mi === 1 ? "um milh\u00e3o" : apxWords(mi, false) + " milh\u00f5es";
+        if (!mrest) { return mhead; }
+        return mhead + ((mrest < 100 || (mrest < 1000 && mrest % 100 === 0) || (mrest % 1000 === 0 && mrest < 100000)) ? " e " : " ") + apxWords(mrest, fem);
+    }
+    var th = Math.floor(n / 1000), rest = n % 1000;
+    var head = th === 1 ? "mil" : apxWords(th, false) + " mil";
+    if (!rest) { return head; }
+    // "e" joins the last group only when it is below 100 or a round hundred.
+    var joiner = (rest < 100 || rest % 100 === 0) ? " e " : " ";
+    return head + joiner + apxWordsBelow1000(rest, fem);
+}
+function apxCount(n, fem) { return n + " (" + apxWords(n, fem) + ")"; }
+function apxMoney(cents) {
+    var v = Math.round(Number(cents) || 0);
+    var d = Math.floor(v / 100), c = v % 100;
+    return "US$ " + String(d).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + (c < 10 ? "0" : "") + c;
+}
+function apxMoneyWords(cents) {
+    var v = Math.round(Number(cents) || 0);
+    var d = Math.floor(v / 100), c = v % 100;
+    var s = apxWords(d, false) + (d === 1 ? " dólar americano" : " dólares americanos");
+    if (c) { s += " e " + apxWords(c, false) + (c === 1 ? " centavo" : " centavos"); }
+    return s;
+}
+function apxIsDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
+function apxDateLong(s) {
+    if (!apxIsDate(s)) { return ""; }
+    var p = s.split("-");
+    return Number(p[2]) + " de " + APX_MONTHS_PT[Number(p[1]) - 1] + " de " + p[0];
+}
+function apxDateShort(s) {
+    if (!apxIsDate(s)) { return ""; }
+    var p = s.split("-");
+    return p[2] + "/" + p[1] + "/" + p[0];
+}
+// Same day of the month, n months later; a month without that day uses its
+// last day (29 -> 28 in February), exactly as the Golden Home schedule does.
+function apxAddMonths(s, n, dayWanted) {
+    var p = s.split("-").map(Number);
+    var y = p[0], m = p[1] - 1 + n;
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    var d = Math.min(dayWanted || p[2], last);
+    return y + "-" + (m + 1 < 10 ? "0" : "") + (m + 1) + "-" + (d < 10 ? "0" : "") + d;
+}
+function apxAddDays(s, n) {
+    var d = new Date(s + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+function apxEsc(s) { return String(s == null ? "" : s).trim(); }
+function apxJoinNames(list) {
+    if (!list.length) { return ""; }
+    if (list.length === 1) { return list[0]; }
+    return list.slice(0, -1).join(", ") + " e " + list[list.length - 1];
+}
+
+// ── Normalise what the form sent ────────────────────────────────────────────
+function apxClean(body) {
+    var b = body || {};
+    var pk = APX_PACKAGES[b.package_key] ? b.package_key : null;
+    var reps = (Array.isArray(b.representatives) ? b.representatives : []).map(function(r) {
+        return { name: apxEsc(r && r.name).slice(0, 120), gender: (r && r.gender === "f") ? "f" : "m", title: apxEsc(r && r.title).slice(0, 80) };
+    }).filter(function(r) { return r.name; }).slice(0, 6);
+    var schedule = (Array.isArray(b.schedule) ? b.schedule : []).map(function(s) {
+        return { due_date: apxIsDate(s && s.due_date) ? s.due_date : null, amount_cents: Math.round(Number(s && s.amount_cents) || 0) };
+    }).slice(0, 36);
+    var addons = (Array.isArray(b.addons) ? b.addons : []).map(function(a) {
+        return {
+            vendor_id: apxEsc(a && a.vendor_id).slice(0, 80) || null,
+            vendor_name: apxEsc(a && a.vendor_name).slice(0, 120) || null,
+            label: apxEsc(a && a.label).slice(0, 120),
+            description: apxEsc(a && a.description).slice(0, 400),
+            recurrence: (a && a.recurrence === "once") ? "once" : "monthly",
+            months: Math.max(1, Math.min(36, parseInt(a && a.months, 10) || 1)),
+            client_price_cents: Math.max(0, Math.round(Number(a && a.client_price_cents) || 0)),
+            vendor_cost_cents: (a && a.vendor_cost_cents !== null && a.vendor_cost_cents !== undefined && a.vendor_cost_cents !== "") ? Math.max(0, Math.round(Number(a.vendor_cost_cents) || 0)) : null
+        };
+    }).filter(function(a) { return a.label; }).slice(0, 12);
+    var bonuses = (Array.isArray(b.bonuses) ? b.bonuses : []).map(function(x) { return apxEsc(x).slice(0, 400); }).filter(Boolean).slice(0, 12);
+    return {
+        package_key: pk,
+        pricing_option: b.pricing_option === "upfront" ? "upfront" : (b.pricing_option === "installment" ? "installment" : null),
+        company_name: apxEsc(b.company_name).slice(0, 160),
+        company_city: apxEsc(b.company_city).slice(0, 80),
+        company_state: apxEsc(b.company_state).slice(0, 40) || "Flórida",
+        segment: apxEsc(b.segment).slice(0, 80),
+        representatives: reps,
+        contract_date: apxIsDate(b.contract_date) ? b.contract_date : null,
+        start_date: apxIsDate(b.start_date) ? b.start_date : null,
+        end_date: apxIsDate(b.end_date) ? b.end_date : null,
+        package_price_cents: Math.max(0, Math.round(Number(b.package_price_cents) || 0)),
+        schedule: schedule,
+        payment_method: b.payment_method === "zelle" ? "zelle" : "card_zelle",
+        addons: addons,
+        bonuses: bonuses,
+        notes: apxEsc(b.notes).slice(0, 3000),
+        signing_city: apxEsc(b.signing_city).slice(0, 80)
+    };
+}
+function apxAddonTotal(a) { return a.recurrence === "once" ? a.client_price_cents : a.client_price_cents * a.months; }
+function apxTotalCents(d) {
+    var t = d.package_price_cents;
+    (d.addons || []).forEach(function(a) { t += apxAddonTotal(a); });
+    return t;
+}
+// Every problem at once, in Portuguese, so the builder can list them.
+function apxProblems(d) {
+    var p = [];
+    if (!d.package_key) { p.push("Escolha o pacote."); }
+    if (!d.company_name) { p.push("Informe o nome da empresa."); }
+    if (!d.company_city) { p.push("Informe a cidade da empresa."); }
+    if (!d.representatives.length) { p.push("Informe pelo menos um representante da empresa."); }
+    if (!d.contract_date) { p.push("Informe a data do contrato."); }
+    if (!d.start_date) { p.push("Informe a data de início."); }
+    if (d.package_key === "start" && !d.end_date) { p.push("Informe a data de término."); }
+    if (!d.package_price_cents) { p.push("Informe o valor do pacote."); }
+    if (!d.schedule.length) { p.push("Monte o cronograma de pagamento."); }
+    var sum = 0, missing = false;
+    d.schedule.forEach(function(s) { sum += s.amount_cents; if (!s.due_date || !s.amount_cents) { missing = true; } });
+    if (missing) { p.push("Cada parcela precisa de data e valor."); }
+    var total = apxTotalCents(d);
+    if (d.schedule.length && sum !== total) { p.push("As parcelas somam " + apxMoney(sum) + ", mas o total do contrato é " + apxMoney(total) + "."); }
+    return p;
+}
+function apxEndDate(d) {
+    var pk = APX_PACKAGES[d.package_key];
+    if (d.end_date) { return d.end_date; }
+    if (pk && pk.months && d.start_date) { return apxAddMonths(d.start_date, pk.months, Number(d.start_date.slice(8, 10))); }
+    return null;
+}
+
+// ── Compose the contract ───────────────────────────────────────────────────
+// Returns what apex-contract.html renders: a summary table, numbered clauses
+// made of blocks (p / list / table), and the signature blocks.
+function apxCompose(d) {
+    var pk = APX_PACKAGES[d.package_key] || APX_PACKAGES.advanced;
+    var isStart = pk.key === "start";
+    var total = apxTotalCents(d);
+    var sched = d.schedule || [];
+    var n = sched.length;
+    var equal = n > 0 && sched.every(function(s) { return s.amount_cents === sched[0].amount_cents; });
+    var day = d.start_date ? Number((sched[0] && sched[0].due_date ? sched[0].due_date : d.start_date).slice(8, 10)) : null;
+    var monthly = n > 1 && sched.every(function(s, i) { return i === 0 || s.due_date === apxAddMonths(sched[0].due_date, i, day); });
+    var end = apxEndDate(d);
+    var card = d.payment_method !== "zelle";
+    var methodShort = card ? "Cartão ou Zelle" : "Zelle";
+    var company = d.company_name;
+    var reps = d.representatives;
+    var repNames = reps.map(function(r) { return r.name; });
+    var contractDateLong = apxDateLong(d.contract_date);
+    var signingCity = d.signing_city || (isStart ? (d.company_city + ", Flórida") : "Zephyrhills, Florida");
+    var addonRows = (d.addons || []).map(function(a) { return [a.label, a.description || ""]; });
+
+    var clauses = [];
+    function clause(title, blocks) { clauses.push({ title: title, blocks: blocks }); }
+    function P(t) { return { type: "p", text: t }; }
+    function L(items, lettered) { return { type: "list", items: items, lettered: !!lettered }; }
+
+    // Payment table + sentence, shared by every package.
+    var payRows = sched.map(function(s, i) {
+        var label = n === 1 ? "Parcela única" : (i + 1) + "ª";
+        var status = (i === 0 && s.due_date === d.contract_date) ? "Na assinatura" : "Agendado";
+        return isStart ? [label, apxDateLong(s.due_date), apxMoney(s.amount_cents)] : [label, apxDateShort(s.due_date), apxMoney(s.amount_cents), methodShort, status];
+    });
+    var payTable = {
+        type: "table",
+        head: isStart ? ["Parcela", "Vencimento", "Valor"] : ["Parcela", "Vencimento", "Valor", "Forma", "Status"],
+        rows: payRows,
+        foot: isStart ? ["TOTAL", "", apxMoney(total)] : ["TOTAL", "", apxMoney(total), "", ""]
+    };
+    var totalSentence = apxMoney(total) + " (" + apxMoneyWords(total) + ")";
+    var splitSentence;
+    if (n === 1) {
+        splitSentence = "em parcela única" + (sched[0].due_date === d.contract_date ? ", à vista" : ", com vencimento em " + apxDateLong(sched[0].due_date)) + ".";
+    } else if (equal && monthly) {
+        splitSentence = "dividido em " + apxCount(n, true) + " parcelas mensais de " + apxMoney(sched[0].amount_cents) + " cada, com vencimento todo dia " + apxCount(day, false) + " de cada mês" +
+            (day > 28 ? " — ou no último dia do mês, quando este não tiver dia " + day + " —," : "") + " conforme cronograma abaixo:";
+    } else if (equal) {
+        splitSentence = "dividido em " + apxCount(n, true) + " parcelas de " + apxMoney(sched[0].amount_cents) + " cada, conforme cronograma abaixo:";
+    } else {
+        splitSentence = "dividido em " + apxCount(n, true) + " parcelas, conforme cronograma abaixo:";
+    }
+    var methodSentence = card
+        ? "Cada parcela poderá ser paga, a critério do CONTRATANTE, por cartão de crédito ou por Zelle, para a conta da APEX Business & Leadership: " + APX_ZELLE + "."
+        : "O pagamento será realizado via Zelle, para a chave " + APX_ZELLE + ".";
+
+    var bonusItems = (d.bonuses || []).map(function(b, i) { return String.fromCharCode(97 + i) + ") " + b; });
+
+    if (isStart) {
+        // ── START: the DCJ Multiservices contract, clause for clause ──────────
+        var repSentence;
+        if (reps.length === 1) {
+            var r0 = reps[0];
+            var t0 = r0.title || (r0.gender === "f" ? "sócia administradora" : "sócio administrador");
+            repSentence = "neste ato representada por " + (r0.gender === "f" ? "sua " : "seu ") + t0.toLowerCase() + ", " + r0.name;
+        } else {
+            repSentence = "neste ato representada por " + apxJoinNames(reps.map(function(r) { return r.name + (r.title ? " (" + r.title + ")" : ""); }));
+        }
+        clause("DAS PARTES", [
+            P("1.1. CONTRATADA: APEX BUSINESS & LEADERSHIP LLC, sociedade empresária constituída sob as leis do Estado da Flórida, Estados Unidos da América, com sede em Zephyrhills, Flórida, neste ato representada por seu fundador e CEO, Rafael Abner Prata Santos, doravante denominada APEX ou CONTRATADA."),
+            P("1.2. CONTRATANTE: " + company + ", sociedade empresária constituída sob as leis do Estado da " + d.company_state + ", com sede em " + d.company_city + ", " + d.company_state + (d.segment ? ", atuante no segmento de " + d.segment : "") + ", " + repSentence + ", doravante denominada CONTRATANTE."),
+            P("As partes acima identificadas têm entre si justo e acordado o presente Contrato de Prestação de Serviços de Consultoria Empresarial, que se regerá pelas cláusulas e condições a seguir.")
+        ]);
+        var startItems = [
+            "Reunião de Direcionamento Estratégico (RDE) — consultoria estratégica semanal, totalizando 4 (quatro) sessões ao longo da vigência;",
+            "Raio-X Estratégico APEX™ — diagnóstico completo da operação;",
+            "Plano de Crescimento de 30 dias — rota de execução com prazos e responsáveis;",
+            "Perfil Comportamental DISC — aplicação e leitura;",
+            "Diagnóstico de Marketing — leitura do posicionamento e dos canais atuais;",
+            "Diagnóstico inicial de Estruturação Comercial;",
+            "Levantamento inicial de Estruturação Financeira;",
+            "APEX HUB™ — acesso básico à plataforma durante toda a vigência."
+        ];
+        (d.addons || []).forEach(function(a) { startItems.push(a.label + (a.description ? " — " + a.description : "") + ";"); });
+        var objBlocks = [
+            P("2.1. Constitui objeto deste contrato a prestação, pela CONTRATADA à CONTRATANTE, dos serviços de consultoria empresarial estratégica compreendidos no programa APEX START™, com duração de 30 (trinta) dias de execução, mediante a aplicação da Metodologia APEX, que consiste em uma tríade de ferramentas de diagnóstico, direcionamento estratégico e acompanhamento de execução."),
+            P("2.2. O programa APEX START™ compreende os seguintes entregáveis:"),
+            L(startItems)
+        ];
+        if (bonusItems.length) {
+            objBlocks.push(P("2.3. Bônus concedidos a esta CONTRATANTE. Em caráter de bonificação e sem acréscimo ao valor pactuado na Cláusula 4, a CONTRATADA disponibilizará:"));
+            objBlocks.push(L(bonusItems, true));
+            objBlocks.push(P("2.4. Os bônus descritos na Cláusula 2.3 são concedidos exclusivamente no âmbito deste contrato, não são conversíveis em desconto, crédito ou valor pecuniário, e não se estendem automaticamente a eventual renovação ou contratação futura."));
+        }
+        clause("DO OBJETO E ESCOPO DE SERVIÇOS", objBlocks);
+        clause("DA VIGÊNCIA", [
+            P("3.1. O presente contrato vigorará de " + apxDateLong(d.start_date) + " a " + apxDateLong(end) + ", período dentro do qual serão executados os 30 (trinta) dias de programa e realizadas as 4 (quatro) Reuniões de Direcionamento Estratégico previstas na Cláusula 2.2."),
+            P("3.2. O contrato se extingue automaticamente ao término da vigência, independentemente de notificação, salvo manifestação expressa e por escrito das partes quanto à contratação de programa subsequente.")
+        ]);
+        clause("DA REMUNERAÇÃO E FORMA DE PAGAMENTO", [
+            P("4.1. Pelos serviços objeto deste contrato, a CONTRATANTE pagará à CONTRATADA o valor total de " + totalSentence + ", " + splitSentence),
+            payTable,
+            P("4.2. " + methodSentence),
+            P("4.3. O atraso no pagamento por prazo superior a 5 (cinco) dias úteis autoriza a CONTRATADA a suspender a prestação dos serviços, inclusive o acesso à plataforma APEX, até a regularização, sem que tal suspensão prorrogue a vigência prevista na Cláusula 3.1."),
+            P("4.4. O valor pactuado nesta cláusula já contempla a integralidade dos custos de execução dos serviços, não havendo cobranças adicionais a qualquer título.")
+        ]);
+        clause("DAS OBRIGAÇÕES DA CONTRATADA", [
+            P("5.1. Obriga-se a CONTRATADA a:"),
+            L([
+                "Efetuar a Metodologia APEX, que consiste em uma tríade de ferramentas de diagnóstico, direcionamento e acompanhamento, aplicada à realidade da CONTRATANTE;",
+                "Realizar as reuniões semanais de direcionamento estratégico durante os 30 (trinta) dias de programa;",
+                "Entregar os documentos e diagnósticos previstos na Cláusula 2.2 dentro da vigência;",
+                "Disponibilizar o acesso à plataforma APEX e manter a CONTRATANTE informada sobre as tarefas pactuadas;",
+                "Manter sigilo sobre todas as informações a que tiver acesso, nos termos da Cláusula 7."
+            ])
+        ]);
+        clause("DAS OBRIGAÇÕES DA CONTRATANTE", [
+            P("6.1. Obriga-se a CONTRATANTE a fornecer, de forma tempestiva e verdadeira, as informações operacionais, comerciais e financeiras necessárias à execução dos serviços."),
+            P("6.2. Obriga-se a CONTRATANTE a comparecer às reuniões agendadas, por si ou por seu representante com poder de decisão, e a executar as ações acordadas em cada reunião no prazo máximo de 72 (setenta e duas) horas, salvo prazo diverso expressamente registrado em ata."),
+            P("6.3. As partes reconhecem expressamente que a não execução, pela CONTRATANTE, das ações acordadas afeta de forma significativa os resultados do programa, não podendo a CONTRATADA ser responsabilizada por resultados não alcançados em razão da inexecução das tarefas sob responsabilidade da CONTRATANTE.")
+        ]);
+        clause("DA CONFIDENCIALIDADE", [
+            P("7.1. As partes obrigam-se a manter absoluto sigilo sobre todas as informações, dados, documentos, números, estratégias e métodos a que tiverem acesso em razão deste contrato, não podendo divulgá-los a terceiros sem autorização prévia e por escrito da outra parte."),
+            P("7.2. A obrigação de confidencialidade permanece em vigor por prazo indeterminado, mesmo após o término da vigência deste contrato, por qualquer motivo.")
+        ]);
+        clause("DA PROPRIEDADE INTELECTUAL", [
+            P("8.1. Todas as metodologias, ferramentas, marcas, formulários, planilhas, materiais e conteúdos disponibilizados pela CONTRATADA — inclusive, mas não se limitando a, Metodologia APEX, Raio-X Estratégico APEX™, APEX HUB™ e APEX START™ — são de propriedade exclusiva da CONTRATADA."),
+            P("8.2. É vedada à CONTRATANTE a reprodução, distribuição, comercialização, cessão ou utilização dos materiais fora do âmbito da própria empresa contratante, sob pena de responsabilização civil.")
+        ]);
+        clause("DO COMPROMISSO MÚTUO", [
+            P("9.1. As partes declaram que o resultado deste programa depende do compromisso recíproco de execução, e comprometem-se a manter comunicação direta, honesta e tempestiva durante toda a vigência."),
+            P("9.2. Eventuais divergências quanto ao escopo ou ao andamento dos trabalhos serão tratadas em reunião específica entre as partes, previamente a qualquer medida de outra natureza.")
+        ]);
+        if (d.notes) { clause("DAS DISPOSIÇÕES ESPECÍFICAS", [P(d.notes)]); }
+        var gen = clauses.length + 1;
+        clause("DAS DISPOSIÇÕES GERAIS", [
+            P(gen + ".1. Este contrato representa o acordo integral entre as partes quanto ao seu objeto, substituindo quaisquer entendimentos, propostas ou tratativas anteriores, verbais ou escritas."),
+            P(gen + ".2. Qualquer alteração deste contrato somente terá validade se formalizada por escrito e assinada por ambas as partes."),
+            P(gen + ".3. O presente contrato é regido pelas leis aplicáveis ao Estado da Flórida, Estados Unidos da América."),
+            P("E, por estarem assim justas e contratadas, as partes assinam o presente instrumento.")
+        ]);
+    } else {
+        // ── ADVANCED (Golden Home, the standard) and GROWTH (same skeleton) ─
+        var growth = pk.key === "growth";
+        var monthsTxt = apxCount(pk.months, false) + " meses";
+        clause("DAS PARTES", [
+            P("1.1 CONTRATADA: APEX Business & Leadership, representada por Rafael Prata, Founder & CEO, com atuação em Zephyrhills, Florida, EUA. E-mail: " + APX_ZELLE),
+            P("1.2 CONTRATANTE: " + company + ", com atuação em " + d.company_city + ", Florida, EUA, representada por " + apxJoinNames(repNames) + ", doravante denominada simplesmente CONTRATANTE.")
+        ]);
+        clause("DO OBJETO", [growth
+            ? P("O presente contrato tem por objeto a prestação de serviços de consultoria estratégica, gestão empresarial, marketing e tráfego pago pela CONTRATADA ao CONTRATANTE, por meio do programa APEX Growth™, com duração de " + monthsTxt + " a contar de " + apxDateLong(d.start_date) + ", voltado a empresas que precisam estruturar a gestão e gerar clientes ao mesmo tempo.")
+            : P("O presente contrato tem por objeto a prestação de serviços de consultoria estratégica, gestão empresarial e marketing pela CONTRATADA ao CONTRATANTE, por meio do programa APEX Advanced™, com duração de " + monthsTxt + " a contar de " + apxDateLong(d.start_date) + ", voltado a empresas que já possuem algum nível de estrutura e necessitam de um sistema completo de gestão e marketing consistente rodando ao longo do tempo.")
+        ]);
+        var scopeRows = growth ? [
+            ["Consultoria Semanal (RDE)", "Reuniões de Direcionamento Estratégico toda semana durante os 3 (três) primeiros meses"],
+            ["Perfil Comportamental DISC", "Aplicação e devolutiva individual para alinhamento de funções e liderança"],
+            ["Raio-X Estratégico 360°", "Levantamento completo da empresa: financeiro, comercial, operação, marketing e equipe"],
+            ["Direção Estratégica", "Missão, visão, valores, persona do cliente ideal e organograma estratégico"],
+            ["APEX HUB™ + BSC APEX™", "Plataforma de gestão com dashboard estratégico e Balanced Scorecard com leitura semanal"],
+            ["Oferta e Posicionamento", "Definição do que a empresa vende, para quem, com qual mensagem e por qual preço"],
+            ["Processo Comercial", "Script de atendimento, roteiro de follow-up, proposta padrão e etapas do funil"],
+            ["Gestão de Leads", "Funil no Sistema APEX, da entrada do lead ao fechamento"],
+            ["Tráfego Pago", "Criação, gestão e otimização de campanhas do mês 2 ao mês 4, com leads direcionados para o funil"],
+            ["Financeiro e Margem", "Fluxo de caixa, custos fixos e variáveis, precificação e margem por serviço"],
+            ["Gestão de Redes Sociais", "Planejamento, produção e publicação de conteúdo com linha editorial definida"],
+            ["8 Vídeos Roteirizados e Editados", "Produção, roteiro e edição de 8 vídeos para posicionamento, autoridade e anúncios"],
+            ["Site Estratégico", "Até 6 páginas, com copywriting estratégico, SEO e design responsivo"]
+        ] : [
+            ["APEX Business Sprint™ Completo", "90 dias de estruturação intensa com consultoria estendida ao longo dos 6 meses de vigência"],
+            ["Reuniões Estratégicas (RDE) Quinzenais", "Reuniões de Direcionamento Estratégico a cada 15 dias durante os 6 meses"],
+            ["Marketing Completo Semanal", "Gestão de conteúdo, redes sociais e marca rodando toda semana durante os 6 meses — sem tráfego pago neste momento"],
+            ["APEX HUB™ + BSC APEX™", "Plataforma de gestão com dashboard estratégico e Balanced Scorecard configurados"],
+            ["Perfil Comportamental DISC", "Análise comportamental dos proprietários e equipe para alinhamento de funções e liderança"],
+            ["Organograma Estratégico", "Estrutura organizacional desenhada e formalizada"],
+            ["Missão, Visão e Valores", "Definição e formalização dos pilares de identidade da empresa"],
+            ["Estruturação Comercial e Financeira", "Implantação de processos comerciais e financeiros com clareza operacional"],
+            ["Site Estratégico", "Até 6 páginas, com copywriting estratégico, SEO e design responsivo"],
+            ["8 Vídeos Roteirizados e Editados", "Produção, roteiro e edição de 8 vídeos para posicionamento e autoridade da marca"]
+        ];
+        var scopeBlocks = [P("As seguintes entregas estão inclusas no programa:"), { type: "table", head: ["Entrega", "Descrição"], rows: scopeRows.concat(addonRows) }];
+        if (bonusItems.length) {
+            scopeBlocks.push(P("Bônus concedidos a este CONTRATANTE. Em caráter de bonificação e sem acréscimo ao valor pactuado na Cláusula 4, a CONTRATADA disponibilizará:"));
+            scopeBlocks.push(L(bonusItems, true));
+            scopeBlocks.push(P("Os bônus descritos acima são concedidos exclusivamente no âmbito deste contrato, não são conversíveis em desconto, crédito ou valor pecuniário, e não se estendem automaticamente a eventual renovação ou contratação futura."));
+        }
+        clause("DO ESCOPO DE ENTREGAS — " + pk.program.toUpperCase(), scopeBlocks);
+        clause("DO VALOR E FORMA DE PAGAMENTO", [
+            P("O valor total pelos serviços prestados no programa " + pk.program + " é de " + totalSentence + ", " + splitSentence),
+            payTable,
+            P("Forma de pagamento: " + methodSentence),
+            P("Parágrafo único: Em caso de atraso no pagamento de qualquer parcela, o CONTRATANTE deverá regularizar o pagamento em até 5 (cinco) dias úteis, sob pena de suspensão temporária dos serviços até a quitação do valor em aberto. A suspensão dos serviços não suspende nem extingue a obrigação de pagamento das parcelas.")
+        ]);
+        clause("DOS ENCONTROS E RESPONSABILIDADES MÚTUAS", [
+            growth
+                ? P("As Reuniões Estratégicas (RDE) serão realizadas semanalmente em formato presencial ou remoto (videochamada) durante os 3 (três) primeiros meses de vigência, totalizando aproximadamente 12 encontros. No 4º mês, o tráfego pago e o marketing seguem em execução.")
+                : P("As Reuniões Estratégicas (RDE) serão realizadas quinzenalmente em formato presencial ou remoto (videochamada), totalizando aproximadamente 12 encontros ao longo dos 6 meses de vigência."),
+            P("Responsabilidades da CONTRATADA:"),
+            L(growth ? [
+                "Executar todas as entregas previstas na Cláusula 3 dentro dos prazos estabelecidos;",
+                "Realizar as RDEs semanais com pauta definida, revisão de indicadores e direcionamentos;",
+                "Criar, gerir e otimizar o tráfego pago do mês 2 ao mês 4 e entregar o marketing previsto na Cláusula 3;",
+                "Disponibilizar acesso ao APEX HUB™ e BSC APEX™ durante toda a vigência;",
+                "Manter sigilo absoluto sobre todas as informações da CONTRATANTE."
+            ] : [
+                "Executar todas as entregas previstas na Cláusula 3 dentro dos prazos estabelecidos;",
+                "Realizar as RDEs quinzenais com pauta definida, revisão de indicadores e direcionamentos;",
+                "Entregar e gerir o marketing semanal (conteúdo, redes sociais, gestão de marca) durante os 6 meses;",
+                "Disponibilizar acesso ao APEX HUB™ e BSC APEX™ durante toda a vigência;",
+                "Manter sigilo absoluto sobre todas as informações da CONTRATANTE."
+            ]),
+            P("Responsabilidades do CONTRATANTE:"),
+            L([
+                "Comparecer pontualmente às RDEs nos horários agendados;",
+                "Fornecer as informações e materiais necessários para execução do marketing e consultoria;",
+                "Executar as ações e diretrizes definidas em cada encontro dentro dos prazos acordados;",
+                "Efetuar os pagamentos nas datas estabelecidas na Cláusula 4;",
+                "Manter comunicação ativa e responsiva com a equipe APEX."
+            ]),
+            P("Parágrafo único: O resultado do programa está diretamente vinculado ao comprometimento e execução de ambas as partes. A CONTRATADA não se responsabiliza por resultados não atingidos em decorrência de inação ou omissão do CONTRATANTE em cumprir as ações acordadas nas reuniões.")
+        ]);
+        clause("DA VIGÊNCIA", [
+            P("O presente contrato terá vigência de " + monthsTxt + ", com início em " + apxDateLong(d.start_date) + " e término em " + apxDateLong(end) + ", podendo ser renovado por acordo mútuo entre as partes mediante novo instrumento escrito.")
+        ]);
+        clause("DA CONFIDENCIALIDADE", [
+            P("Ambas as partes comprometem-se a manter sigilo absoluto sobre todas as informações confidenciais compartilhadas durante a vigência deste contrato, incluindo dados financeiros, estratégias, metodologias, ferramentas proprietárias e informações de clientes. A obrigação de confidencialidade permanece em vigor por 24 (vinte e quatro) meses após o término do contrato.")
+        ]);
+        clause("DA PROPRIEDADE INTELECTUAL", [
+            P("Todas as metodologias, ferramentas, frameworks, sistemas e materiais desenvolvidos pela CONTRATADA (incluindo APEX HUB™, BSC APEX™, DNA APEX, Método Avance™ e demais sistemas proprietários) permanecem de titularidade exclusiva da APEX Business & Leadership. O CONTRATANTE terá direito de uso das ferramentas durante a vigência contratual, sem direito de reprodução, transferência ou licenciamento a terceiros.")
+        ]);
+        clause("DA IRREVOGABILIDADE E DA MULTA POR CANCELAMENTO", [
+            P("9.1 Contrato sem direito de cancelamento: O presente contrato é celebrado em caráter irrevogável e irretratável pelo prazo integral de " + monthsTxt + ". Não é facultado ao CONTRATANTE cancelar ou rescindir este contrato antes do término da vigência, uma vez que a CONTRATADA reserva agenda, equipe e recursos para a execução do programa completo desde a assinatura."),
+            P("9.2 Multa por cancelamento: Caso o CONTRATANTE, em descumprimento da cláusula 9.1, solicite o cancelamento, abandone o programa ou, por qualquer outro meio, deixe de pagar as parcelas, ficará obrigado ao pagamento de multa equivalente a 100% (cem por cento) do valor de todas as parcelas ainda não pagas até o fim da vigência. A multa vence em até 5 (cinco) dias úteis após a comunicação do cancelamento ou da inadimplência, e deverá ser paga " + (card ? "por cartão de crédito ou por Zelle" : "por Zelle") + " (" + APX_ZELLE + ")."),
+            P("9.3 Parcelas pagas: As parcelas já pagas não serão reembolsadas em nenhuma hipótese de cancelamento por iniciativa do CONTRATANTE. A ausência às RDEs ou a não execução das ações acordadas não dá direito a abatimento, suspensão ou devolução de valores."),
+            P("9.4 Rescisão pela CONTRATADA: Em caso de rescisão sem justificativa por iniciativa da CONTRATADA, o valor pago será devolvido proporcionalmente ao período não executado, no prazo de 15 (quinze) dias úteis, e nenhuma multa será devida pelo CONTRATANTE.")
+        ]);
+        if (d.notes) { clause("DAS DISPOSIÇÕES ESPECÍFICAS", [P(d.notes)]); }
+        clause("DO FORO", [
+            P("As partes elegem o Estado da Flórida, EUA, como foro competente para dirimir quaisquer divergências decorrentes deste contrato, comprometendo-se antes disso a buscar solução amigável por meio de comunicação direta entre as partes.")
+        ]);
+        clause("DO ACEITE E ASSINATURAS", [
+            P("As partes declaram ter lido, compreendido e concordado com todos os termos e condições deste contrato, em especial a Cláusula 9 (irrevogabilidade e multa por cancelamento), assinando-o em duas vias de igual teor e forma, reconhecendo sua plena validade jurídica.")
+        ]);
+    }
+
+    clauses.forEach(function(c, i) { c.title = "CLÁUSULA " + (i + 1) + " — " + c.title; });
+
+    var firstDue = sched[0] ? sched[0].due_date : null;
+    var summary = [
+        ["Data", contractDateLong],
+        ["Contratante", company + (repNames.length ? " — " + apxJoinNames(repNames) : "")],
+        ["Contratada", isStart ? "APEX Business & Leadership LLC — Rafael Abner Prata Santos, Founder & CEO" : "APEX Business & Leadership — Rafael Prata, Founder & CEO"],
+        ["Programa", pk.program],
+        ["Duração", isStart ? "30 (trinta) dias de programa — de " + apxDateShort(d.start_date) + " a " + apxDateShort(end) : monthsLabel(pk.months) + " — prazo fixo, sem direito de cancelamento"],
+        ["Valor Total", apxMoney(total) + (n === 1 ? " (parcela única)" : (equal ? " (" + apxWords(n, true) + " parcelas de " + apxMoney(sched[0].amount_cents) + ")" : " (" + apxWords(n, true) + " parcelas)"))],
+        ["Forma de Pgto", card ? "Cartão de crédito ou Zelle (" + APX_ZELLE + ")" : "Zelle (" + APX_ZELLE + ")"],
+        [n === 1 ? "Vencimento" : "1ª Parcela", apxDateLong(firstDue)]
+    ];
+    if (n > 1) {
+        summary.push(["Demais Parcelas", (equal && monthly)
+            ? "Todo dia " + day + " de cada mês subsequente" + (day > 28 ? " (ou no último dia do mês, quando este não tiver dia " + day + ")" : "")
+            : "Conforme o cronograma da Cláusula 4"]);
+    }
+    summary.push(["Local", isStart ? d.company_city + ", " + d.company_state + ", EUA" : "Zephyrhills, Florida, EUA"]);
+
+    function monthsLabel(m) { return apxCount(m, false) + " meses"; }
+
+    return {
+        program: pk.program,
+        package_key: pk.key,
+        heading: isStart ? "Contrato de Prestação de Serviços de Consultoria" : "Contrato de Prestação de Serviços",
+        subtitle: isStart ? pk.program + " — Clareza Empresarial em 30 Dias" : (pk.key === "growth" ? "APEX Growth™ — Estrutura de Gestão e Geração de Clientes por 4 Meses" : "APEX Advanced™ — Consistência de Gestão e Marketing por 6 Meses"),
+        company_name: company,
+        summary: summary,
+        clauses: clauses,
+        total_cents: total,
+        closing_line: signingCity + " — " + contractDateLong,
+        signers: {
+            company: isStart
+                ? { name: "Rafael Abner Prata Santos", title: "Founder & CEO", org: "APEX BUSINESS & LEADERSHIP LLC" }
+                : { name: "Rafael Prata", title: "Founder & CEO", org: "APEX Business & Leadership" },
+            client: reps.map(function(r, i) {
+                var title = r.title || (isStart ? (r.gender === "f" ? "Sócia Administradora" : "Sócio Administrador") : (r.gender === "f" ? "Proprietária / Representante Legal" : "Proprietário / Representante Legal"));
+                return { index: i, name: r.name, title: title, org: company };
+            })
+        },
+        footer: "APEX Business & Leadership — " + APX_ZELLE + " — Zephyrhills, Florida, EUA. Documento confidencial. Uso exclusivo das partes signatárias. Regido pelas leis do Estado da Flórida."
+    };
+}
+
+// ── Storage helpers ────────────────────────────────────────────────────────
+async function apxEvent(env, contractId, event, actor, detail) {
+    try {
+        await env.DB.prepare("INSERT INTO apex_contract_events (id, contract_id, event, actor, detail) VALUES (?, ?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), contractId, event, actor || null, detail ? JSON.stringify(detail) : null).run();
+    } catch (e) { console.error("[apex-contract] event failed", e && e.message); }
+}
+function apxParse(s, fallback) { try { return s ? JSON.parse(s) : fallback; } catch (e) { return fallback; } }
+function apxDisplay(r) { return r.number; }
+function apxPublicLink(r) { return DEFAULT_ORIGIN + APX_ORIGIN_PAGE + "?t=" + r.public_token; }
+// The link that goes out on WhatsApp: doc.resonateai.online/apex/..., which
+// serves Apex's preview card and a Portuguese description, then forwards to
+// the signing page. Made once per contract; any failure falls back to the
+// plain link so sending never breaks.
+async function apxShareLink(env, r) {
+    try {
+        var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'apex-contract' AND public_token = ?").bind(r.public_token).first();
+        if (existing) { return DOC_LINK_ORIGIN + "/" + existing.slug; }
+        var comp = apxComposed(r);
+        var company = comp.company_name || "";
+        var desc = "Contrato " + (comp.program || "APEX") + " " + r.number + (company ? " para " + company : "") + ". Toque para ler e assinar.";
+        for (var attempt = 0; attempt < 3; attempt++) {
+            var slug = "apex/" + [docLinkSlugPart(r.number, 20), docLinkSlugPart(company, 30)].filter(Boolean).join("-") + "-" + docLinkRandom(8);
+            var ins = await env.DB.prepare("INSERT OR IGNORE INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES (?, 'apex-contract', ?, ?, ?, ?)")
+                .bind(slug, r.public_token, r.client_id, "APEX Business & Leadership", desc).run();
+            if (ins.meta && ins.meta.changes) { return DOC_LINK_ORIGIN + "/" + slug; }
+        }
+    } catch (e) { console.error("[apex-contract] share link failed: " + (e && e.message)); }
+    return apxPublicLink(r);
+}
+function apxSigUrl(r, which) { return "https://apex-api.farfromtimnah.workers.dev/api/public/apex-contracts/" + r.public_token + "/signature-image/" + which; }
+
+// The composed contract: frozen snapshot once Rafael has signed, live before.
+function apxComposed(r) {
+    var snap = apxParse(r.snapshot_json, null);
+    if (snap) { return snap; }
+    return apxCompose(apxParse(r.data_json, {}));
+}
+
+function apxOut(r, forPublic) {
+    var data = apxParse(r.data_json, {});
+    var sigs = apxParse(r.client_signatures_json, []);
+    var comp = apxComposed(r);
+    var out = {
+        id: forPublic ? undefined : r.id,
+        number: apxDisplay(r),
+        status: r.status,
+        package_key: r.package_key,
+        total_cents: r.total_cents,
+        contract: comp,
+        company_signature: r.company_signed_at ? { signer_name: r.company_signer_name, signed_at: r.company_signed_at, kind: r.company_signature_kind, image_url: r.company_signature_kind === "drawn" ? apxSigUrl(r, "company") : null } : null,
+        client_signatures: sigs.map(function(s) { return { index: s.index, signer_name: s.signer_name, signed_at: s.signed_at, kind: s.kind, image_url: s.kind === "drawn" ? apxSigUrl(r, "c" + s.index) : null }; }),
+        signed_at: r.signed_at,
+        content_hash: r.content_hash,
+        void_reason: r.status === "void" ? r.void_reason : undefined
+    };
+    if (!forPublic) {
+        out.client_id = r.client_id;
+        out.data = data;
+        out.link = apxPublicLink(r);
+        out.problems = apxProblems(apxClean(data));
+        out.sent_at = r.sent_at; out.first_viewed_at = r.first_viewed_at; out.last_viewed_at = r.last_viewed_at;
+        out.document_id = r.document_id; out.terms_applied_at = r.terms_applied_at;
+        out.created_by = r.created_by; out.created_at = r.created_at; out.updated_at = r.updated_at;
+        out.vendor_cost_cents = (data.addons || []).reduce(function(t, a) { return t + (a.vendor_cost_cents ? (a.recurrence === "once" ? a.vendor_cost_cents : a.vendor_cost_cents * a.months) : 0); }, 0);
+    }
+    return out;
+}
+
+async function apxLoad(env, clientId, cid) {
+    return env.DB.prepare("SELECT * FROM apex_contracts WHERE id = ? AND client_id = ?").bind(cid, clientId).first();
+}
+async function apxAuthStaff(request, env, clientId) {
+    var user = await authenticate(request, env);
+    if (!user) { return { err: jsonErr("Unauthorized", 401) }; }
+    if (!isAdminRole(user)) { return { err: jsonErr2("Somente a equipe Apex.", "Apex staff only.", 403) }; }
+    var client = await env.DB.prepare("SELECT id, name, status, owners, industry, location, legal_entity_name, legal_entity_officers, contacts, package, phone, whatsapp FROM clients WHERE id = ?").bind(clientId).first();
+    if (!client) { return { err: jsonErr("Client not found", 404) }; }
+    return { user: user, client: client };
+}
+// Only blank lead fields are filled from the contract; nothing typed on the
+// lead is ever overwritten by the contract form.
+async function apxFillLead(env, client, d) {
+    try {
+        var sets = [], vals = [];
+        if (!client.location && d.company_city) { sets.push("location = ?"); vals.push(d.company_city); }
+        if (!client.industry && d.segment) { sets.push("industry = ?"); vals.push(d.segment); }
+        if (!client.owners && d.representatives.length) { sets.push("owners = ?"); vals.push(apxJoinNames(d.representatives.map(function(r) { return r.name; }))); }
+        if (!client.legal_entity_name && d.company_name && d.company_name !== client.name) { sets.push("legal_entity_name = ?"); vals.push(d.company_name); }
+        if (!sets.length) { return; }
+        vals.push(client.id);
+        var stmt = env.DB.prepare("UPDATE clients SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, vals).run();
+    } catch (e) { console.error("[apex-contract] lead fill failed", e && e.message); }
+}
+
+// ── GET /api/clients/:id/apex-contracts ─────────────────────────────────────
+// The contracts for this lead/client, plus everything the builder prefills
+// from the lead: company, city, segment, owners, package, prices, vendors.
+async function handleGetApexContracts(clientId, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var c = a.client;
+        var rows = (await env.DB.prepare("SELECT * FROM apex_contracts WHERE client_id = ? ORDER BY created_at DESC").bind(clientId).all()).results || [];
+        var reps = [];
+        var officers = apxParse(c.legal_entity_officers, []);
+        if (Array.isArray(officers)) { officers.forEach(function(o) { if (o && o.name) { reps.push({ name: o.name, title: "" }); } }); }
+        if (!reps.length) {
+            var contacts = apxParse(c.contacts, []);
+            if (Array.isArray(contacts)) { contacts.forEach(function(o) { if (o && o.name) { reps.push({ name: o.name, title: "" }); } }); }
+        }
+        if (!reps.length && c.owners) {
+            String(c.owners).split(/\s+e\s+|,|&|\//i).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(nm) { reps.push({ name: nm, title: "" }); });
+        }
+        var pkgRows = (await env.DB.prepare("SELECT id, short_name, upfront_price, installment_total_price, default_installment_count, default_installment_amount, duration_days FROM packages WHERE id IN ('pkg_start','pkg_growth','pkg_advanced')").all()).results || [];
+        var pk = {};
+        pkgRows.forEach(function(p) { pk[p.id] = p; });
+        var vendors = (await env.DB.prepare("SELECT id, name, vendor_type FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
+        var guess = String(c.package || "").toLowerCase();
+        return jsonOk({
+            contracts: await Promise.all(rows.map(async function(r) {
+                var o = apxOut(r, false);
+                o.share_link = (r.status === "draft" || r.status === "void") ? null : await apxShareLink(env, r);
+                return o;
+            })),
+            role: a.user.role,
+            phone: c.whatsapp || c.phone || (function() { var cs = apxParse(c.contacts, []); var hit = null; (Array.isArray(cs) ? cs : []).forEach(function(o) { if (!hit && o && (o.whatsapp || o.phone)) { hit = o.whatsapp || o.phone; } }); return hit; })(),
+            prefill: {
+                company_name: c.legal_entity_name || c.name || "",
+                company_city: c.location || "",
+                segment: c.industry || "",
+                representatives: reps.slice(0, 6),
+                package_key: APX_PACKAGES[guess] ? guess : null,
+                is_lead: String(c.status || "").toLowerCase() === "lead"
+            },
+            packages: {
+                start:    { price: pk.pkg_start ? pk.pkg_start.upfront_price : 997 },
+                growth:   { upfront: pk.pkg_growth ? pk.pkg_growth.upfront_price : 6997, installment_total: pk.pkg_growth ? pk.pkg_growth.installment_total_price : 8788, count: pk.pkg_growth ? pk.pkg_growth.default_installment_count : 4, amount: pk.pkg_growth ? pk.pkg_growth.default_installment_amount : 2197 },
+                advanced: { installment_total: pk.pkg_advanced ? pk.pkg_advanced.installment_total_price : 8382, count: pk.pkg_advanced ? pk.pkg_advanced.default_installment_count : 6, amount: pk.pkg_advanced ? pk.pkg_advanced.default_installment_amount : 1397 }
+            },
+            vendors: vendors
+        });
+    } catch (e) {
+        return jsonErr("Error loading contracts: " + e.message, 500);
+    }
+}
+
+// ── POST /api/clients/:id/apex-contracts ────────────────────────────────────
+async function handlePostApexContract(clientId, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var d = apxClean(await request.json().catch(function() { return {}; }));
+        if (!d.package_key) { return jsonErr2("Escolha o pacote.", "Choose the package.", 400); }
+        var id = crypto.randomUUID();
+        var token = gmEstNewToken();
+        var total = apxTotalCents(d);
+        for (var attempt = 0; attempt < 4; attempt++) {
+            var mx = await env.DB.prepare("SELECT COALESCE(MAX(seq), 0) AS m FROM apex_contracts").first();
+            var seq = (mx ? mx.m : 0) + 1;
+            var number = "APEX-" + String(seq).padStart(4, "0");
+            try {
+                await env.DB.prepare("INSERT INTO apex_contracts (id, client_id, seq, number, package_key, status, data_json, total_cents, public_token, created_by) VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)")
+                    .bind(id, clientId, seq, number, d.package_key, JSON.stringify(d), total, token, actorName(a.user)).run();
+                break;
+            } catch (eIns) {
+                if (attempt === 3 || !/UNIQUE/i.test(String(eIns && eIns.message))) { throw eIns; }
+            }
+        }
+        await apxEvent(env, id, "created", actorName(a.user), { package: d.package_key });
+        await apxFillLead(env, a.client, d);
+        var row = await apxLoad(env, clientId, id);
+        return jsonOk({ contract: apxOut(row, false) });
+    } catch (e) {
+        return jsonErr("Error creating the contract: " + e.message, 500);
+    }
+}
+
+// ── PUT /api/clients/:id/apex-contracts/:cid ────────────────────────────────
+// Only a draft changes. Editing a contract Rafael already signed first takes
+// his signature off (reopen), so a signature never sits on text he did not see.
+async function handlePutApexContract(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        var body = await request.json().catch(function() { return {}; });
+        if (body.reopen) {
+            if (r.status !== "ready" && r.status !== "sent" && r.status !== "viewed") { return jsonErr2("Este contrato não pode ser reaberto.", "This contract cannot be reopened.", 409); }
+            if (apxParse(r.client_signatures_json, []).length) { return jsonErr2("O cliente já começou a assinar. Cancele e crie um novo contrato.", "The client already started signing. Void it and create a new one.", 409); }
+            await env.DB.prepare("UPDATE apex_contracts SET status = 'draft', snapshot_json = NULL, content_hash = NULL, company_signer_name = NULL, company_signed_at = NULL, company_signature_kind = NULL, company_signature_r2_key = NULL, company_signed_by = NULL, updated_at = datetime('now') WHERE id = ?").bind(cid).run();
+            await apxEvent(env, cid, "reopened", actorName(a.user), null);
+            return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+        }
+        if (r.status !== "draft") { return jsonErr2("Só um rascunho pode ser editado. Toque em Editar para reabrir.", "Only a draft can be edited.", 409); }
+        var d = apxClean(body.data || body);
+        if (!d.package_key) { return jsonErr2("Escolha o pacote.", "Choose the package.", 400); }
+        await env.DB.prepare("UPDATE apex_contracts SET data_json = ?, package_key = ?, total_cents = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(JSON.stringify(d), d.package_key, apxTotalCents(d), cid).run();
+        await apxFillLead(env, a.client, d);
+        return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+    } catch (e) {
+        return jsonErr("Error saving the contract: " + e.message, 500);
+    }
+}
+
+async function apxStorePng(env, key, dataUrl) {
+    var m = String(dataUrl || "").match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) { return { error: "Desenhe a assinatura." }; }
+    var bin = atob(m[1]);
+    if (bin.length > 400000) { return { error: "Imagem da assinatura grande demais." }; }
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+    await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: "image/png" } });
+    return { key: key };
+}
+
+// ── POST /api/clients/:id/apex-contracts/:cid/company-sign ──────────────────
+// Rafael (or the developer, for testing) signs for Apex. Freezes the text.
+async function handlePostApexContractCompanySign(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        if (a.user.role !== "rafa" && a.user.role !== "developer") { return jsonErr2("Somente o Pr. Rafael assina pela Apex.", "Only Rafael signs for Apex.", 403); }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        if (r.status !== "draft") { return jsonErr2("Este contrato já foi assinado pela Apex.", "Already signed by Apex.", 409); }
+        var d = apxClean(apxParse(r.data_json, {}));
+        var problems = apxProblems(d);
+        if (problems.length) { return jsonErr2("Complete o contrato antes de assinar.", "Complete the contract first.", 400, { problems: problems }); }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.consent) { return jsonErr2("Confirme a assinatura eletrônica.", "Confirm electronic signing.", 400); }
+        var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
+        var comp = apxCompose(d);
+        var signer = apxEsc(body.signer_name) || comp.signers.company.name;
+        var key = null;
+        if (kind === "drawn") {
+            var st = await apxStorePng(env, "apex-contracts/" + cid + "/sig-company-" + Date.now() + ".png", body.signature_png);
+            if (st.error) { return jsonErr2(st.error, "Draw the signature.", 400); }
+            key = st.key;
+        }
+        var snapJson = JSON.stringify(comp);
+        var hash = await sha256Hex(snapJson);
+        await env.DB.prepare("UPDATE apex_contracts SET status = 'ready', snapshot_json = ?, content_hash = ?, total_cents = ?, company_signer_name = ?, company_signed_at = datetime('now'), company_signature_kind = ?, company_signature_r2_key = ?, company_signed_by = ?, updated_at = datetime('now') WHERE id = ? AND status = 'draft'")
+            .bind(snapJson, hash, comp.total_cents, signer, kind, key, actorName(a.user), cid).run();
+        await apxEvent(env, cid, "company_signed", actorName(a.user), { kind: kind, hash: hash });
+        return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+    } catch (e) {
+        return jsonErr("Error signing: " + e.message, 500);
+    }
+}
+
+// ── POST .../:cid/ask-rafael ── Alice built it; Rafael gets a push to sign.
+async function handlePostApexContractAskRafael(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        var problems = apxProblems(apxClean(apxParse(r.data_json, {})));
+        if (problems.length) { return jsonErr2("Complete o contrato antes de pedir a assinatura.", "Complete the contract first.", 400, { problems: problems }); }
+        // The test fixture never pings Rafael; the developer gets it instead.
+        var askRole = /^test-/.test(clientId) ? "developer" : "rafa";
+        var emails = ((await env.DB.prepare("SELECT email FROM users WHERE role = ?").bind(askRole).all()).results || []).map(function(x) { return x.email; }).filter(Boolean);
+        if (emails.length) {
+            await pushToUsers(env, emails, { title: "Contrato para assinar", body: r.number + " · " + a.client.name + ": abra o lead e toque em Assinar pela Apex", url: "/client.html?id=" + encodeURIComponent(clientId) });
+        }
+        await apxEvent(env, cid, "asked_rafael", actorName(a.user), { pushed: emails.length });
+        return jsonOk({ ok: true, pushed: emails.length });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ── POST .../:cid/sent ── the WhatsApp/copy action was used: mark it sent.
+async function handlePostApexContractSent(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        if (r.status === "draft") { return jsonErr2("O Pr. Rafael assina antes do envio.", "Rafael signs before sending.", 409); }
+        if (r.status === "ready") {
+            await env.DB.prepare("UPDATE apex_contracts SET status = 'sent', sent_at = datetime('now'), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND status = 'ready'").bind(actorName(a.user), cid).run();
+        }
+        await apxEvent(env, cid, "sent", actorName(a.user), null);
+        return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ── POST .../:cid/void ──
+async function handlePostApexContractVoid(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        if (r.status === "void") { return jsonOk({ contract: apxOut(r, false) }); }
+        var body = await request.json().catch(function() { return {}; });
+        var reason = apxEsc(body.reason).slice(0, 300);
+        if (!reason) { return jsonErr2("Informe o motivo.", "Give a reason.", 400); }
+        await env.DB.prepare("UPDATE apex_contracts SET status = 'void', void_reason = ?, voided_at = datetime('now'), voided_by = ?, updated_at = datetime('now') WHERE id = ?").bind(reason, actorName(a.user), cid).run();
+        await apxEvent(env, cid, "voided", actorName(a.user), { reason: reason });
+        return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ── POST .../:cid/apply-terms ──
+// After the client signs: the contract's total and schedule become the
+// client's payment plan through the SAME route the Condições de pagamento
+// modal uses (so recurring invoicing starts from it). Pressed, never automatic.
+async function handlePostApexContractApplyTerms(clientId, cid, request, env) {
+    try {
+        var a = await apxAuthStaff(request, env, clientId);
+        if (a.err) { return a.err; }
+        if (a.user.role !== "alice" && a.user.role !== "rafa" && a.user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var r = await apxLoad(env, clientId, cid);
+        if (!r) { return jsonErr("Not found", 404); }
+        if (r.status !== "signed") { return jsonErr2("O cliente ainda não assinou.", "The client has not signed yet.", 409); }
+        var d = apxClean(apxParse(r.data_json, {}));
+        var pk = APX_PACKAGES[d.package_key];
+        var sched = d.schedule;
+        var equal = sched.every(function(s) { return s.amount_cents === sched[0].amount_cents; });
+        var payload = {
+            package_id: pk.pkgId,
+            pricing_option: sched.length === 1 ? "upfront" : "installment",
+            base_total: r.total_cents / 100,
+            split_mode: equal ? "even" : "custom",
+            is_new_client: true,
+            payments_made_before: 0,
+            first_due_date: sched[0].due_date,
+            recurrence_unit: "months",
+            recurrence_interval: 1,
+            recurrence_never_ends: false
+        };
+        if (equal) { payload.installment_count = sched.length; payload.installment_amount = sched[0].amount_cents / 100; }
+        else { payload.custom_installments = sched.map(function(s, i) { return { amount: s.amount_cents / 100, label: (i + 1) + "ª parcela · " + apxDateShort(s.due_date) }; }); }
+        var innerHeaders = { "Content-Type": "application/json" };
+        if (request.headers.get("Authorization")) { innerHeaders["Authorization"] = request.headers.get("Authorization"); }
+        var inner = new Request(new URL("/api/clients/" + clientId + "/package-terms", request.url).toString(), { method: "PUT", headers: innerHeaders, body: JSON.stringify(payload) });
+        var res = await handlePutClientPackageTerms(clientId, inner, env);
+        if (res.status !== 200) { return res; }
+        await env.DB.prepare("UPDATE apex_contracts SET terms_applied_at = datetime('now'), terms_applied_by = ?, updated_at = datetime('now') WHERE id = ?").bind(actorName(a.user), cid).run();
+        await apxEvent(env, cid, "terms_applied", actorName(a.user), payload);
+        return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
+    } catch (e) {
+        return jsonErr("Error applying the terms: " + e.message, 500);
+    }
+}
+
+// ── PUBLIC (the client's link) ─────────────────────────────────────────────
+async function apxByToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    return env.DB.prepare("SELECT * FROM apex_contracts WHERE public_token = ?").bind(token).first();
+}
+
+async function handleGetPublicApexContract(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 60, 300);
+        if (limited) { return jsonErr("Too many requests", 429); }
+        var r = await apxByToken(env, token);
+        if (!r) { return jsonErr("Not found", 404); }
+        var url = new URL(request.url);
+        // Views are counted only for the client's own opening of a sent link
+        // (not the staff preview, not the PDF renderer).
+        if ((r.status === "sent" || r.status === "viewed") && !url.searchParams.get("preview") && !url.searchParams.get("render")) {
+            await env.DB.prepare("UPDATE apex_contracts SET status = CASE WHEN status = 'sent' THEN 'viewed' ELSE status END, first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now') WHERE id = ?").bind(r.id).run();
+            r.status = r.status === "sent" ? "viewed" : r.status;
+        }
+        return jsonOk({ contract: apxOut(r, true) });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+async function handlePostPublicApexContractSign(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 100);
+        if (limited) { return jsonErr("Muitas tentativas. Tente de novo em alguns minutos.", 429); }
+        var r = await apxByToken(env, token);
+        if (!r) { return jsonErr("Contrato não encontrado.", 404); }
+        if (["ready", "sent", "viewed"].indexOf(r.status) === -1) { return jsonErr("Este contrato não está disponível para assinatura.", 409); }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.consent) { return jsonErr("Confirme que concorda em assinar eletronicamente.", 400); }
+        var comp = apxParse(r.snapshot_json, null);
+        if (!comp) { return jsonErr("Este contrato ainda não foi assinado pela Apex.", 409); }
+        var idx = parseInt(body.signer_index, 10);
+        var signerDef = (comp.signers.client || [])[idx];
+        if (!signerDef) { return jsonErr("Escolha quem está assinando.", 400); }
+        var sigs = apxParse(r.client_signatures_json, []);
+        if (sigs.some(function(s) { return s.index === idx; })) { return jsonErr("Esta assinatura já foi feita.", 409); }
+        var name = apxEsc(body.signer_name) || signerDef.name;
+        var kind = body.signature_kind === "drawn" ? "drawn" : "typed";
+        var key = null;
+        if (kind === "drawn") {
+            var st = await apxStorePng(env, "apex-contracts/" + r.id + "/sig-c" + idx + "-" + Date.now() + ".png", body.signature_png);
+            if (st.error) { return jsonErr(st.error, 400); }
+            key = st.key;
+        }
+        sigs.push({ index: idx, signer_name: name, kind: kind, r2_key: key, signed_at: new Date().toISOString().replace("T", " ").slice(0, 19), ip: request.headers.get("CF-Connecting-IP") || null, ua: (request.headers.get("User-Agent") || "").slice(0, 300) });
+        var allDone = (comp.signers.client || []).every(function(s) { return sigs.some(function(x) { return x.index === s.index; }); });
+        await env.DB.prepare("UPDATE apex_contracts SET client_signatures_json = ?, status = ?, signed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE signed_at END, updated_at = datetime('now') WHERE id = ?")
+            .bind(JSON.stringify(sigs), allDone ? "signed" : (r.status === "ready" ? "viewed" : r.status), allDone ? 1 : 0, r.id).run();
+        await apxEvent(env, r.id, "client_signed", name, { index: idx, kind: kind, complete: allDone });
+        if (allDone) { apxAfterSigned(request, env, r.id); }
+        return jsonOk({ ok: true, complete: allDone });
+    } catch (e) {
+        return jsonErr("Erro ao assinar: " + e.message, 500);
+    }
+}
+
+async function handleGetPublicApexContractSignature(token, which, request, env) {
+    try {
+        var r = await apxByToken(env, token);
+        if (!r) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var key = null;
+        if (which === "company") { key = r.company_signature_r2_key; }
+        else {
+            var m = String(which).match(/^c(\d+)$/);
+            if (m) { apxParse(r.client_signatures_json, []).forEach(function(s) { if (s.index === Number(m[1])) { key = s.r2_key; } }); }
+        }
+        if (!key || key.indexOf("apex-contracts/" + r.id + "/") !== 0) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        var obj = await env.ASSETS.get(key);
+        if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" }) });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+function apxFileName(r, comp) {
+    return ("Contrato " + r.number + " - " + (comp.program || "APEX").replace(/™/g, "") + " - " + (comp.company_name || "")).replace(/[\\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) + ".pdf";
+}
+
+// Signed: the PDF is printed once and filed under the client's Documents,
+// hidden from the client (client_visible = 0) until Rafael turns it on, the
+// same rule as every other Apex document. Then Rafael, Alice and Nicole get
+// a push.
+function apxAfterSigned(request, env, contractId) {
+    var job = (async function() {
+        try {
+            var r = await env.DB.prepare("SELECT * FROM apex_contracts WHERE id = ?").bind(contractId).first();
+            if (!r || r.status !== "signed") { return; }
+            var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(r.client_id).first();
+            if (!r.document_id) {
+                var result = await docPdfRender(env, DEFAULT_ORIGIN + APX_ORIGIN_PAGE + "?t=" + r.public_token + "&noprint=1&render=1");
+                if (result && result.bytes) {
+                    var comp = apxParse(r.snapshot_json, {});
+                    var docId = crypto.randomUUID();
+                    var key = "client-documents/" + r.client_id + "/" + docId + ".pdf";
+                    await env.ASSETS.put(key, result.bytes, { httpMetadata: { contentType: "application/pdf" } });
+                    await env.DB.prepare("INSERT INTO client_documents (id, client_id, title, file_name, file_url, content_type, uploaded_by, visibility, client_visible) VALUES (?, ?, ?, ?, ?, 'application/pdf', ?, 'client', 0)")
+                        .bind(docId, r.client_id, "Contrato assinado " + r.number + " — " + (comp.program || ""), apxFileName(r, comp), key, "Contrato APEX").run();
+                    await env.DB.prepare("UPDATE apex_contracts SET document_id = ? WHERE id = ? AND document_id IS NULL").bind(docId, r.id).run();
+                }
+            }
+            var pushRoles = /^test-/.test(r.client_id) ? "('developer')" : "('rafa','alice','developer')";
+            var emails = ((await env.DB.prepare("SELECT email FROM users WHERE role IN " + pushRoles).all()).results || []).map(function(x) { return x.email; }).filter(Boolean);
+            if (emails.length) { await pushToUsers(env, emails, { title: "Contrato assinado", body: r.number + " · " + ((client && client.name) || "") + " assinou o contrato.", url: "/client.html?id=" + encodeURIComponent(r.client_id) }); }
+        } catch (e) {
+            console.error("[apex-contract] after-sign job failed: " + (e && e.message));
+        }
+    })();
+    var c = REQUEST_CTX.get(request);
+    if (c && c.waitUntil) { c.waitUntil(job); }
+}
+
+// GET /api/public/pdf/apex-contract/:token
+async function handleGetPublicApexContractPdf(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 30, 300);
+        if (limited) { return docPdfMessagePage("pt", "busy", 429); }
+        var r = await apxByToken(env, token);
+        if (!r || r.status === "void") { return docPdfMessagePage("pt", "notfound", 404); }
+        var comp = apxComposed(r);
+        var fileName = apxFileName(r, comp);
+        if (r.document_id) {
+            var doc = await env.DB.prepare("SELECT file_url FROM client_documents WHERE id = ?").bind(r.document_id).first();
+            if (doc && doc.file_url) {
+                var obj = await env.ASSETS.get(doc.file_url);
+                if (obj) { return docPdfResponse(obj.body, fileName, { source: "stored" }); }
+            }
+        }
+        var result;
+        try { result = await docPdfRender(env, DEFAULT_ORIGIN + APX_ORIGIN_PAGE + "?t=" + r.public_token + "&noprint=1&render=1"); }
+        catch (eR) { console.error("[apex-contract] pdf render failed: " + (eR && eR.message)); return docPdfMessagePage("pt", "busy", 503); }
+        if (result.notFound) { return docPdfMessagePage("pt", "notfound", 404); }
+        return docPdfResponse(result.bytes, fileName, { source: "live", pages: result.pages, ms: result.ms });
+    } catch (e) {
+        console.error("[apex-contract] pdf route failed: " + (e && e.stack ? e.stack : e));
+        return docPdfMessagePage("pt", "busy", 503);
     }
 }

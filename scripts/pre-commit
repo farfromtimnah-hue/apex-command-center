@@ -82,7 +82,7 @@ fi
 # header, referenced by the six homeowner pages, the six PDF templates (as
 # ../doc-hero.*) and portal.html. A stale copy would print last week's header
 # on a customer's PDF.
-VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js doc-hero.css doc-hero.js"
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js doc-hero.css doc-hero.js apex-contract.js"
 
 # The test below was once `grep -qx "$ASSET"` — an EXACT whole-line match. That
 # meant staging ios/App/App/public/gm.js matched nothing, the entire block was

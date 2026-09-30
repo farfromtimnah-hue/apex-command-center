@@ -90,6 +90,7 @@
   <link rel="stylesheet" href="gm.css?v=1790606890">
   <script src="gm-labels.js?v=1790550443"></script>
   <script src="gm.js?v=1790698633"></script>
+  <script src="apex-contract.js?v=1790734003"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2480,6 +2481,22 @@
         </div>
 
         <!-- Payment method -->
+        <!-- Apex's own consulting contract (Rafa's contract tool, 2026-09-29).
+             For a lead it is pinned right under the Lead Pipeline card. -->
+        <div class="content-card" id="sec-apexContract" data-section-id="apexContract" hidden>
+          <div class="content-card-header">
+            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
+            <h2 class="content-card-title">
+              <span class="show-pt">Contrato APEX</span>
+              <span class="show-en">APEX Contract</span>
+            </h2>
+            <button class="collapse-btn" onclick="toggleSection('apexContract')" id="collapseApexContract" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+          </div>
+          <div class="card-body-collapsible" id="apexContractBody">
+            <div id="apexContractMount" style="padding:14px 20px;"></div>
+          </div>
+        </div>
+
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
             <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
@@ -5509,6 +5526,7 @@
           initLogoDisplay(clientData);
           initPaymentMethod(clientData);
           initLeadPipeline(clientData);
+          initApexContract(clientData);
           // The plan card resolves its package name out of the live package
           // list, so load that first rather than racing it.
           loadLivePackageList().then(loadPaymentPlan);
@@ -5632,6 +5650,21 @@
     var leadFacts = null;          // system-known facts, for conflict detection
     var leadStageCurrent = null;   // last committed stage, to revert a cancel
     var pendingStage = null;       // stage awaiting conflict confirmation
+
+    // Rafa's contract tool (2026-09-29): Apex's own contract with this lead or
+    // client. Staff only; for a lead the card sits right under the pipeline.
+    function initApexContract(client) {
+      var card = document.getElementById("sec-apexContract");
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (!card || !window.ApexContract || ["alice", "rafa", "developer"].indexOf(role) === -1) { return; }
+      card.hidden = false;
+      if ((client.status || "").toLowerCase() === "lead") {
+        var lead = document.getElementById("sec-leadPipeline");
+        if (lead && lead.parentNode) { lead.parentNode.insertBefore(card, lead.nextSibling); }
+      }
+      ApexContract.init({ api: function(path, method, body) { return apiFetch(path, { method: method, body: body }); } });
+      ApexContract.mount(document.getElementById("apexContractMount"), CLIENT_ID);
+    }
 
     function initLeadPipeline(client) {
       var card = document.getElementById("sec-leadPipeline");
@@ -9799,6 +9832,7 @@
       { key: "gmfinance",      bodyId: "gmfinanceSecBody",   btnId: "collapseGmfinance"      },
       { key: "gmpricing",      bodyId: "gmpricingSecBody",   btnId: "collapseGmpricing"      },
       { key: "gmestimates",    bodyId: "gmestimatesSecBody", btnId: "collapseGmestimates"    },
+      { key: "apexContract",   bodyId: "apexContractBody",   btnId: "collapseApexContract"   },
       { key: "payment",        bodyId: "paymentBody",        btnId: "collapsePayment"        },
       { key: "vendors",        bodyId: "vendorsBody",        btnId: "collapseVendors"        },
       { key: "contacts",       bodyId: "contactsBody",       btnId: "collapseContacts"       },
@@ -9849,7 +9883,7 @@
       "overview", "sessions", "dp", "clientTasks", "consultantTasks",
       "contacts", "notes", "resources", "growth",
       "gmcrm", "gmjobs", "gmfinance", "gmpricing", "gmestimates",
-      "payment", "vendors", "docs"
+      "apexContract", "payment", "vendors", "docs"
     ];
 
     var dragSrcEl = null;

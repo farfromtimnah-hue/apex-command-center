@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Contrato APEX</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <style>
+    /* APEX'S OWN CONTRACT (Rafa's contract tool, 2026-09-29). The client's
+       page for signing Apex's consulting contract. Same layout and flow as
+       contract-view.html (hero band + logo tile + brand pill, meta card,
+       clauses, typed/drawn signature, server PDF), in Apex's own colours
+       (navy #13294B, gold #E0A526, from the ADVANCED template) and with the
+       mountain peak (assets/login/Picture3.jpg) as the hero, Nicole's pick.
+       Portuguese: every Apex contract is written in Portuguese. The same page
+       is what the Worker prints to PDF (?noprint=1&render=1). */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --navy: #13294B; --gold: #E0A526; --brand-bg: #13294B; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .hero-band.doc-screen img.hero-img { object-position: 50% 42%; }
+    .client-logo-tile img { max-height: 58px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .doc-head { text-align: center; padding: 6px 0 2px; }
+    .doc-head .org { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: var(--navy); }
+    .doc-head .tag { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .doc-head .rule { height: 2px; background: var(--gold); margin: 12px auto; width: 100%; }
+    .doc-head .title { font-size: 20px; font-weight: 800; text-transform: uppercase; color: var(--navy); line-height: 1.2; }
+    .doc-head .sub { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 4px; }
+    .doc-head .num { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 6px; letter-spacing: 0.04em; }
+    table.grid { width: 100%; border-collapse: collapse; margin: 10px 0 4px; font-size: 13.5px; }
+    table.grid th { background: var(--navy); color: #fff; font-weight: 700; text-align: left; padding: 7px 9px; font-size: 12.5px; }
+    table.grid td { padding: 7px 9px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    table.grid tr:nth-child(even) td { background: #f4f6f9; }
+    table.grid td.k { font-weight: 700; color: var(--navy); white-space: nowrap; width: 34%; }
+    table.grid tfoot td { font-weight: 800; border-top: 2px solid var(--navy); background: #fff !important; }
+    .amount-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--gold); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 14px auto 0; text-align: center; }
+    .amount-tile .l { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-tile .v { font-size: 21px; font-weight: 300; }
+    .clause { margin-top: 16px; break-inside: auto; }
+    .clause-title { font-weight: 800; font-size: 14.5px; color: var(--navy); padding: 8px 0 4px; border-bottom: 2px solid var(--gold); margin-bottom: 8px; break-after: avoid; }
+    .clause p { font-size: 14px; margin: 0 0 8px; line-height: 1.55; }
+    .clause ul { margin: 0 0 8px 20px; }
+    .clause ul.lettered { list-style: none; margin-left: 8px; }
+    .clause li { font-size: 14px; margin-bottom: 4px; line-height: 1.5; }
+    .closing { margin-top: 18px; font-size: 14px; font-weight: 600; text-align: center; }
+    .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; margin-top: 12px; }
+    @media (max-width: 520px) { .sig-grid { grid-template-columns: 1fr; } }
+    .sig-cell { min-width: 0; }
+    .sig-space { min-height: 58px; display: flex; align-items: flex-end; border-bottom: 1.5px solid var(--ink); padding-bottom: 4px; }
+    .sig-space img { max-height: 56px; max-width: 100%; }
+    .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; line-height: 1.1; }
+    .sig-name { font-weight: 700; font-size: 14px; margin-top: 6px; }
+    .sig-meta { font-size: 12.5px; color: var(--muted); }
+    .sig-when { font-size: 11.5px; color: var(--green); font-weight: 700; margin-top: 3px; }
+    .foot-note { font-size: 11.5px; color: var(--muted); text-align: center; border-top: 2px solid var(--gold); padding-top: 10px; margin-top: 18px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"] { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    input:focus { outline: none; border-color: var(--gold); }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--navy); color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .chips button { flex: 1 1 140px; min-height: 44px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; cursor: pointer; font-size: 15px; padding: 0 12px; }
+    .chips button.sel { border-color: var(--navy); background: var(--navy); color: #fff; }
+    canvas.sig { width: 100%; height: 160px; border: 2px dashed var(--border); border-radius: 10px; background: #fff; touch-action: none; display: block; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; font-size: 14px; min-height: 44px; }
+    .consent input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--navy); }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .ok { color: var(--green); }
+    .preview-banner { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; border-radius: 10px; padding: 10px 14px; font-weight: 700; text-align: center; margin-top: 14px; }
+    .muted { color: var(--muted); } .small { font-size: 12.5px; }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--muted); margin-top: 10px; }
+    .hidden { display: none !important; }
+    /* PDF: the Worker prints this page (letter). Buttons and the signing
+       form never print; the band keeps its colour. */
+    @page { size: letter; margin: 0.5in 0.5in 0.6in; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .hero-band.doc-screen { height: 1.6in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; }
+      .card { border: none; padding: 0; margin-top: 10px; }
+      table.grid th, table.grid tr:nth-child(even) td, .amount-tile { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.grid tr, .sig-cell, .amount-tile { break-inside: avoid; }
+      #cardSigs { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero">
+    <img class="hero-img" id="heroImg" src="assets/contract-hero.jpg" alt="">
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
+      <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="cardLoading"><div class="state"><p>Carregando...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Contrato n&atilde;o encontrado</h3><p>Este link n&atilde;o &eacute; v&aacute;lido ou n&atilde;o est&aacute; mais dispon&iacute;vel.</p></div></div>
+
+    <div id="doc" class="hidden">
+      <div class="preview-banner hidden no-print" id="previewBanner">PR&Eacute;-VISUALIZA&Ccedil;&Atilde;O &mdash; ainda n&atilde;o enviado. &Eacute; exatamente o que o cliente vai ver.</div>
+      <div class="card hidden no-print" id="cardState"></div>
+      <div class="card" id="cardHead"></div>
+      <div class="card" id="cardClauses"></div>
+      <div class="card" id="cardSigs"></div>
+      <div class="card hidden no-print" id="cardSign"></div>
+      <div class="card no-print" id="cardPdf" style="margin-top:24px;"><button type="button" class="btn secondary" id="btnPdf">Baixar contrato (PDF)</button><div class="err" id="pdfErr"></div></div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var qs = window.location.search;
+    var token = (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var isPreview = /[?&]preview=1/.test(qs);
+    var isRender = /[?&](render|noprint)=1/.test(qs);
+    var con = null, doc = null;
+    var sigKind = "typed", signerIdx = null;
+    var pad = { ctx: null, drew: false, drawing: false };
+
+    function byId(id) { return document.getElementById(id); }
+    function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function rich(s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>"); }
+    // D1 stores UTC; shown as Eastern, 12-hour.
+    function fmtWhen(v) {
+      if (!v) { return ""; }
+      var s = String(v).replace(" ", "T"); if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s); if (isNaN(d.getTime())) { return v; }
+      try {
+        var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+        return p.day + "/" + p.month + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " (horário de Nova York)";
+      } catch (e) { return v; }
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+    function sayErr(el, t) { el.textContent = t; if (el.scrollIntoView) { el.scrollIntoView({ block: "center" }); } }
+
+    function blockHtml(b) {
+      if (b.type === "p") { return "<p>" + rich(b.text) + "</p>"; }
+      if (b.type === "list") { return '<ul' + (b.lettered ? ' class="lettered"' : "") + '>' + b.items.map(function(i) { return "<li>" + rich(i) + "</li>"; }).join("") + "</ul>"; }
+      if (b.type === "table") {
+        return '<table class="grid"><thead><tr>' + b.head.map(function(h) { return "<th>" + esc(h) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+          b.rows.map(function(r) { return "<tr>" + r.map(function(c) { return "<td>" + esc(c) + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody>" +
+          (b.foot ? "<tfoot><tr>" + b.foot.map(function(c) { return "<td>" + esc(c) + "</td>"; }).join("") + "</tr></tfoot>" : "") + "</table>";
+      }
+      return "";
+    }
+
+    function renderHead() {
+      var total = doc.total_cents;
+      var money = "US$ " + String(Math.floor(total / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + String(total % 100).padStart(2, "0");
+      byId("cardHead").innerHTML =
+        '<div class="doc-head"><div class="org">APEX BUSINESS &amp; LEADERSHIP</div><div class="tag">Consultoria Estrat&eacute;gica para Empreendedores Brasileiros nos EUA</div>' +
+        '<div class="rule"></div><div class="title">' + esc(doc.heading) + '</div><div class="sub">' + esc(doc.subtitle) + '</div>' +
+        '<div class="num">' + esc(con.number) + (doc.company_name ? " &middot; " + esc(doc.company_name) : "") + '</div></div>' +
+        '<table class="grid"><thead><tr><th>Campo</th><th>Informa&ccedil;&atilde;o</th></tr></thead><tbody>' +
+        doc.summary.map(function(r) { return '<tr><td class="k">' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join("") + '</tbody></table>' +
+        '<div class="amount-tile"><div class="l">Valor total do contrato</div><div class="v">' + esc(money) + '</div></div>';
+    }
+
+    function renderClauses() {
+      byId("cardClauses").innerHTML = doc.clauses.map(function(c) {
+        return '<div class="clause"><div class="clause-title">' + esc(c.title) + '</div>' + c.blocks.map(blockHtml).join("") + '</div>';
+      }).join("") + '<div class="closing">' + esc(doc.closing_line) + '</div>';
+    }
+
+    function sigCell(who, sig) {
+      var visual = "";
+      if (sig) { visual = (sig.kind === "drawn" && sig.image_url) ? '<img src="' + esc(sig.image_url) + '" alt="Assinatura">' : '<span class="typed-sig">' + esc(sig.signer_name) + '</span>'; }
+      return '<div class="sig-cell"><div class="sig-space">' + visual + '</div>' +
+        '<div class="sig-name">' + esc(sig ? sig.signer_name : who.name) + '</div><div class="sig-meta">' + esc(who.title) + '</div><div class="sig-meta">' + esc(who.org) + '</div>' +
+        (sig ? '<div class="sig-when">Assinado eletronicamente em ' + esc(fmtWhen(sig.signed_at)) + '</div>' : '<div class="sig-meta" style="margin-top:3px;">Aguardando assinatura</div>') + '</div>';
+    }
+    function clientSig(idx) { var out = null; (con.client_signatures || []).forEach(function(s) { if (s.index === idx) { out = s; } }); return out; }
+    function renderSigs() {
+      var h = '<h2>Assinaturas</h2><div class="sig-grid">' + sigCell(doc.signers.company, con.company_signature);
+      doc.signers.client.forEach(function(s) { h += sigCell(s, clientSig(s.index)); });
+      h += '</div>';
+      if (con.content_hash) { h += '<p class="hash">C&oacute;digo de integridade do texto (SHA-256): ' + esc(con.content_hash) + '</p>'; }
+      h += '<p class="foot-note">' + esc(doc.footer) + '</p>';
+      byId("cardSigs").innerHTML = h;
+    }
+
+    function pending() { return doc.signers.client.filter(function(s) { return !clientSig(s.index); }); }
+    function renderState() {
+      var st = byId("cardState"); st.classList.add("hidden");
+      if (con.status === "signed") {
+        st.innerHTML = '<div class="state"><h3 class="ok">Contrato assinado por todas as partes</h3><p>Voc&ecirc; pode baixar uma c&oacute;pia assinada a qualquer momento.</p></div>';
+        st.classList.remove("hidden");
+      } else if (con.status === "draft" && !isPreview) {
+        st.innerHTML = '<div class="state"><h3>Contrato em prepara&ccedil;&atilde;o</h3><p>A APEX ainda est&aacute; preparando este contrato. Voc&ecirc; receber&aacute; o link para assinar.</p></div>';
+        st.classList.remove("hidden");
+      }
+    }
+    function renderSign() {
+      var card = byId("cardSign");
+      card.classList.add("hidden");
+      if (isPreview || isRender) { return; }
+      if (["ready", "sent", "viewed"].indexOf(con.status) === -1) { return; }
+      var left = pending();
+      if (!left.length) { return; }
+      if (signerIdx === null || !left.some(function(s) { return s.index === signerIdx; })) { signerIdx = left.length === 1 ? left[0].index : null; }
+      var h = '<h2>Assinar este contrato</h2>';
+      if (doc.signers.client.length > 1) {
+        h += '<p class="small muted">Cada representante assina separadamente, neste mesmo link. Escolha quem est&aacute; assinando agora.</p><div class="chips">' +
+          left.map(function(s) { return '<button type="button" class="' + (signerIdx === s.index ? "sel" : "") + '" onclick="pickSigner(' + s.index + ')">' + esc(s.name) + '</button>'; }).join("") + '</div>';
+      }
+      var me = null; doc.signers.client.forEach(function(s) { if (s.index === signerIdx) { me = s; } });
+      h += '<label for="signer">Seu nome completo</label><input type="text" id="signer" autocomplete="name" value="' + esc(me ? me.name : "") + '">' +
+        '<label>Assinatura</label><div class="chips"><button type="button" id="chipTyped" class="' + (sigKind === "typed" ? "sel" : "") + '" onclick="setSig(\'typed\')">Digitar meu nome</button><button type="button" id="chipDrawn" class="' + (sigKind === "drawn" ? "sel" : "") + '" onclick="setSig(\'drawn\')">Desenhar</button></div>' +
+        '<div id="sigTyped" class="' + (sigKind === "typed" ? "" : "hidden") + '" style="margin-top:8px;"><p class="muted small">O nome digitado acima ser&aacute; usado como sua assinatura.</p></div>' +
+        '<div id="sigDrawn" class="' + (sigKind === "drawn" ? "" : "hidden") + '" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad()">Limpar</button></div>' +
+        '<label class="consent"><input type="checkbox" id="consent"><span>Li o contrato, concordo com todos os termos' + (doc.package_key === "start" ? "" : ", em especial a Cl&aacute;usula 9 (irrevogabilidade e multa por cancelamento),") + ' e aceito assinar e receber este documento eletronicamente.</span></label>' +
+        '<div class="err" id="signErr"></div><button type="button" class="btn" id="btnSign" onclick="sign()">Assinar contrato</button>';
+      card.innerHTML = h;
+      card.classList.remove("hidden");
+      if (sigKind === "drawn") { setupCanvas(); }
+    }
+    function pickSigner(i) { signerIdx = i; renderSign(); }
+    function setSig(k) { sigKind = k; renderSign(); }
+    function setupCanvas() {
+      var c = byId("sigCanvas"); if (!c) { return; }
+      var ratio = window.devicePixelRatio || 1, w = c.clientWidth || 300, h = 160;
+      c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+      var ctx = c.getContext("2d"); ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#111";
+      pad = { ctx: ctx, drew: false, drawing: false };
+      function pos(ev) { var r = c.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+      c.onpointerdown = function(ev) { pad.drawing = true; pad.drew = true; var p = pos(ev); ctx.beginPath(); ctx.moveTo(p.x, p.y); ev.preventDefault(); };
+      c.onpointermove = function(ev) { if (!pad.drawing) { return; } var p = pos(ev); ctx.lineTo(p.x, p.y); ctx.stroke(); ev.preventDefault(); };
+      c.onpointerup = c.onpointerleave = function() { pad.drawing = false; };
+    }
+    function clearPad() { var c = byId("sigCanvas"); if (c && pad.ctx) { pad.ctx.clearRect(0, 0, c.width, c.height); pad.drew = false; } }
+
+    function sign() {
+      var err = byId("signErr"); err.textContent = "";
+      if (signerIdx === null) { sayErr(err, "Escolha quem está assinando."); return; }
+      var name = (byId("signer").value || "").trim();
+      if (!name) { sayErr(err, "Digite seu nome completo."); return; }
+      if (!byId("consent").checked) { sayErr(err, "Confirme que leu e concorda com o contrato."); return; }
+      var body = { signer_index: signerIdx, signer_name: name, signature_kind: sigKind, consent: true };
+      if (sigKind === "drawn") {
+        if (!pad.drew) { sayErr(err, "Desenhe sua assinatura."); return; }
+        body.signature_png = byId("sigCanvas").toDataURL("image/png");
+      }
+      var btn = byId("btnSign"); btn.disabled = true; btn.textContent = "Assinando...";
+      fetch(WORKER_URL + "/api/public/apex-contracts/" + token + "/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Não foi possível assinar."); } signerIdx = null; return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { btn.disabled = false; btn.textContent = "Assinar contrato"; sayErr(err, e.message); console.error(e); });
+    }
+
+    function openPdf() {
+      var url = WORKER_URL + "/api/public/pdf/apex-contract/" + token;
+      var w = window.open(url, "_blank");
+      if (!w) { window.location.href = url; }
+    }
+
+    function renderDone() {
+      // The Worker's PDF printer waits for this flag, then for every image.
+      var imgs = Array.prototype.slice.call(document.images);
+      Promise.all(imgs.map(function(im) { return im.complete ? null : new Promise(function(r) { im.onload = r; im.onerror = r; }); }))
+        .then(function() { document.body.setAttribute("data-render-done", "1"); });
+    }
+
+    function load() {
+      if (!token) { show("cardNotFound"); document.body.setAttribute("data-render-done", "0"); return Promise.resolve(); }
+      return fetch(WORKER_URL + "/api/public/apex-contracts/" + token + (isPreview ? "?preview=1" : (isRender ? "?render=1" : "")))
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) {
+          con = d.contract; doc = con.contract;
+          document.title = "Contrato " + con.number + (doc.company_name ? " - " + doc.company_name : "");
+          if (con.status === "void") {
+            byId("cardHead").innerHTML = '<div class="state"><h3>Contrato ' + esc(con.number) + '</h3><p>Este contrato foi cancelado pela APEX. N&atilde;o h&aacute; nada para assinar.</p></div>';
+            ["cardClauses", "cardSigs", "cardSign", "cardPdf", "cardState"].forEach(function(id) { byId(id).classList.add("hidden"); });
+            show("doc"); document.body.setAttribute("data-render-done", "0"); return;
+          }
+          byId("previewBanner").classList.toggle("hidden", !(isPreview && con.status === "draft"));
+          renderState(); renderHead(); renderClauses(); renderSigs(); renderSign();
+          byId("btnPdf").textContent = con.status === "signed" ? "Baixar contrato assinado (PDF)" : "Baixar contrato (PDF)";
+          byId("btnPdf").onclick = openPdf;
+          show("doc");
+          renderDone();
+        })
+        .catch(function(e) { console.error(e); show("cardNotFound"); document.body.setAttribute("data-render-done", "0"); });
+    }
+    window.onload = function() { load(); };
+  </script>
+</body>
+</html>

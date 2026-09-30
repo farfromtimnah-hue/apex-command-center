@@ -67,6 +67,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <script src="datetime.js"></script>
+  <link rel="stylesheet" href="gm.css?v=1790606890">
+  <script src="apex-contract.js?v=1790734003"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -773,6 +775,11 @@
       return Promise.reject(new Error("Not authenticated"));
     }
 
+    // Rafa's contract tool: the builder sheet calls the API through this page's session.
+    if (window.ApexContract) {
+      ApexContract.init({ api: function(path, method, body) { return apiFetch(path, { method: method, body: body ? JSON.stringify(body) : undefined }); } });
+    }
+
     function apiFetch(path, opts) {
       return getToken().then(function(token) {
         var o = opts || {};
@@ -869,6 +876,13 @@
            ptEn("Esta p&#225;gina &#233; apenas para o consultor. Qualquer material mostrado ao cliente abre em separado.",
                 "This page is consultant-only. Anything shown on screen opens separately.") +
            '</p>';
+      // Rafa's contract tool (2026-09-29): the X-Ray results meeting is where
+      // the package is chosen, so the contract is built right here, from the
+      // lead's data. Opens the existing contract when there is one.
+      if (d.meeting_type === "xray_results" && !IS_EXAMPLE && window.ApexContract) {
+        h += '<button type="button" class="gm-btn-primary" style="max-width:320px;" onclick="ApexContract.start(CLIENT_ID)">' +
+             ptEn("Montar contrato", "Build contract") + '</button>';
+      }
       h += '</div>';
       return h;
     }

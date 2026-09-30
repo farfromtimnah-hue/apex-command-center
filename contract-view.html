@@ -126,6 +126,12 @@
     .sigimg { max-width: 100%; max-height: 120px; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 6px; }
     .typed-sig { font-family: "Snell Roundhand", "Brush Script MT", cursive; font-size: 24px; padding: 6px 0; }
     .hidden { display: none !important; }
+    /* Signature counter and "next signature" jump (Nicole, 2026-09-29): like
+       DocuSign, the homeowner always sees which signature they are on and can
+       jump straight to the next one. */
+    .sig-count { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 999px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 12px; font-weight: 800; letter-spacing: 0; text-transform: none; vertical-align: middle; }
+    .next-sig { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; width: auto; max-width: calc(100% - 32px); min-height: 48px; padding: 0 22px; border: none; border-radius: 999px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 16px; font-weight: 800; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; }
+    body.has-next-sig { padding-bottom: 84px; }
     /* Signing tokens (F4): a real line before signing, the signature after. */
     .sigline { display: inline-block; min-width: 150px; max-width: 100%; height: 1.2em; border-bottom: 1.5px solid var(--ink); vertical-align: bottom; }
     .sigline.short { min-width: 80px; }
@@ -446,7 +452,7 @@
       if (!canRespond() || !req("lien_signature")) {
         return '<div class="lien-sign small muted">Owner signature and date: collected when the homeowner signs.</div>';
       }
-      return '<div class="lien-sign"><h3 style="font-size:15px;">Step 1: sign the lien notice</h3><p class="small muted" style="font-weight:400;text-transform:none;">This notice is signed and dated separately from the contract.</p>' +
+      return '<div class="lien-sign" id="lienStep"><h3 style="font-size:15px;">Step 1: sign the lien notice' + sigBadge(1) + '</h3><p class="small muted" style="font-weight:400;text-transform:none;">This notice is signed and dated separately from the contract.</p>' +
         '<div class="chips"><button type="button" id="lienTyped" class="sel" onclick="setLien(\'typed\')">Type my name</button><button type="button" id="lienDrawn" onclick="setLien(\'drawn\')">Draw</button></div>' +
         '<div id="lienTypedBox" style="margin-top:8px;"><div id="lienTypedForm"><label for="lienName" style="text-transform:none;">Your full name</label><input type="text" id="lienName" autocomplete="name" value="' + escHtml(con.customer_name || "") + '" style="text-transform:none;font-weight:400;">' +
         '<button type="button" class="btn" style="min-height:44px;" onclick="lienTypedSign()">Sign the lien notice</button></div>' +
@@ -464,12 +470,14 @@
       var fm = byId("lienTypedForm"), sd = byId("lienTypedSigned");
       if (fm) { fm.classList.add("hidden"); }
       if (sd) { sd.classList.remove("hidden"); }
+      updateNextSig();
     }
     function lienTypedUndo() {
       lienTypedDone = false;
       var fm = byId("lienTypedForm"), sd = byId("lienTypedSigned");
       if (fm) { fm.classList.remove("hidden"); }
       if (sd) { sd.classList.add("hidden"); }
+      updateNextSig();
     }
     function lienStepDone() {
       if (lienKind === "drawn") { var lp = pads["lienCanvas"]; return !!(lp && lp.drew); }
@@ -588,7 +596,7 @@
         h += '<div class="step"><h3>Photos</h3><label class="consent"><input type="checkbox" id="marketing"' + off + '><span>I allow the use of photos of the finished work as described in the Photos clause. I can withdraw this in writing at any time.</span></label></div>';
       }
       h += '<label for="signer">Your full name</label><input type="text" id="signer" autocomplete="name" value="' + escHtml(con.customer_name || "") + '"' + off + '>' +
-        '<label>Signature</label>' +
+        '<label id="mainSigStep">Signature' + sigBadge(sigTotal()) + '</label>' +
         '<div class="chips"><button type="button" id="chipTyped" class="sel" onclick="setSig(\'typed\')"' + off + '>Type my name</button><button type="button" id="chipDrawn" onclick="setSig(\'drawn\')"' + off + '>Draw</button></div>' +
         '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
         '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>';
@@ -607,6 +615,33 @@
       h += cancellationCopiesHtml();
       card.innerHTML = h;
       if (live) { setupCanvas("sigCanvas", "main"); }
+      updateNextSig();
+    }
+
+    // Signature N of M: the lien notice (when required) is 1, the contract is last.
+    function sigTotal() { return req("lien_signature") ? 2 : 1; }
+    function sigBadge(n) { var t = sigTotal(); return t > 1 ? ' <span class="sig-count">' + n + ' of ' + t + '</span>' : ""; }
+    function lienPending() { return req("lien_signature") && !con.lien_signature && !lienStepDone(); }
+    function updateNextSig() {
+      var b = byId("nextSig");
+      var show = !!con && canRespond() && con.status !== "homeowner_signed" && con.status !== "completed";
+      if (!b) {
+        if (!show) { return; }
+        b = document.createElement("button");
+        b.type = "button"; b.id = "nextSig"; b.className = "next-sig";
+        b.onclick = goNextSig;
+        document.body.appendChild(b);
+      }
+      b.classList.toggle("hidden", !show);
+      document.body.classList.toggle("has-next-sig", show);
+      if (!show) { return; }
+      var t = sigTotal();
+      if (lienPending()) { b.textContent = "Next: sign the lien notice (1 of " + t + ")"; }
+      else { b.textContent = t > 1 ? "Next: sign the contract (2 of 2)" : "Go to signature"; }
+    }
+    function goNextSig() {
+      var el = lienPending() ? byId("lienStep") : byId("mainSigStep");
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); }
     }
 
     // Two completed copies of the NOTICE OF CANCELLATION (16 CFR 429.1(b)).
@@ -638,6 +673,7 @@
       if (st) { st.classList.toggle("hidden", kind !== "typed"); }
       if (sd) { sd.classList.toggle("hidden", kind !== "drawn"); }
       if (kind === "drawn") { setupCanvas("lienCanvas", "lien"); }
+      updateNextSig();
     }
 
     // One pad per canvas id (the contract and the lien notice each have one).
@@ -655,9 +691,9 @@
       function pos(ev) { var r = c.getBoundingClientRect(); var t = ev.touches ? ev.touches[0] : ev; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
       c.onpointerdown = function(ev) { pad.drawing = true; pad.drew = true; var p = pos(ev); ctx.beginPath(); ctx.moveTo(p.x, p.y); ev.preventDefault(); };
       c.onpointermove = function(ev) { if (!pad.drawing) { return; } var p = pos(ev); ctx.lineTo(p.x, p.y); ctx.stroke(); ev.preventDefault(); };
-      c.onpointerup = c.onpointerleave = function() { pad.drawing = false; };
+      c.onpointerup = c.onpointerleave = function() { pad.drawing = false; updateNextSig(); };
     }
-    function clearPad(id) { var c = byId(id); var pad = pads[id]; if (c && pad && pad.ctx) { pad.ctx.clearRect(0, 0, c.width, c.height); pad.drew = false; } }
+    function clearPad(id) { var c = byId(id); var pad = pads[id]; if (c && pad && pad.ctx) { pad.ctx.clearRect(0, 0, c.width, c.height); pad.drew = false; } updateNextSig(); }
 
     // Every refusal is said next to the button that was pressed (F26).
     function sayErr(err, text) { err.textContent = text; if (err.scrollIntoView) { err.scrollIntoView({ block: "center" }); } }

@@ -27086,33 +27086,11 @@ var CONTRACT_READONLY_FIELDS = ["contract_price", "deposit_amount", "balance_amo
 function contractHomeownerHeading(areaTitle) { return String(areaTitle || "").replace(/\s*\([^)]*\)\s*$/, "").trim(); }
 
 // F14: the builder's blockers and missing fields, all of them, in both languages.
-// N14 GO-LIVE GUARD (docs PDF build). The Apex compliance data seeded for
-// testing ("Dados de conformidade (Apex)" on contract-review) still carries
-// "[UNVERIFIED - attorney question 4 open]" in the Recovery Fund block and
-// "PLACEHOLDER (test)" for both Chapter 515 pool documents. Verified text must
-// come from the attorney, so the data itself is left alone; instead, for any
-// client other than the test client, the company may not sign or send a
-// contract into which such a value would be inserted. Gated on the data: the
-// guard lifts by itself once Apex records the verified text.
-var CONTRACT_TEST_CLIENT_ID = "test-client-temp-001";
-function contractGoLiveBlock(clientId, ctx, comp) {
-    if (clientId === CONTRACT_TEST_CLIENT_ID) { return null; }
-    var rules = (comp && comp.rules) || {}, admin = (ctx && ctx.admin) || {};
-    var unverified = function(v) { return /UNVERIFIED|PLACEHOLDER/i.test(String(v || "")); };
-    var pt = [], en = [];
-    if (rules.L2 && rules.L2.on && unverified(admin.recovery_fund_contact_block)) {
-        pt.push("o aviso do Recovery Fund (§489.1425) ainda tem um contato não verificado");
-        en.push("the Recovery Fund notice (§489.1425) still has an unverified contact");
-    }
-    if (rules.L6 && rules.L6.on && (unverified(admin.ch515_doc_version) || unverified(admin.drowning_pub_version))) {
-        pt.push("os documentos de piscina (Capítulo 515) ainda são de teste");
-        en.push("the pool documents (Chapter 515) are still test placeholders");
-    }
-    if (!pt.length) { return null; }
-    console.log("[contract go-live guard] refused for client " + clientId + ": " + en.join("; "));
-    return jsonErr2("Este contrato ainda não pode ser assinado nem enviado: " + pt.join("; ") + ". A Apex precisa registrar o texto verificado pelo advogado. Fale com a Apex.",
-                    "This contract cannot be signed or sent yet: " + en.join("; ") + ". Apex has to record the attorney-verified text. Contact Apex.", 409, { code: "compliance_unverified" });
-}
+// The N14 go-live guard was removed 2026-09-29 at Nicole's direction (she had
+// not authorized it): the product does not wait on attorney review. The
+// Recovery Fund contact block and both Chapter 515 PDFs are recorded from
+// official state sources, and the compose blockers still refuse a contract
+// whose admin data is missing.
 function contractProblemsErr(comp) {
     var missing = comp.missing.map(function(m) { return m.field; });
     var pt = comp.blockers.map(function(b) { return b.pt; }), en = comp.blockers.map(function(b) { return b.en; });
@@ -27823,8 +27801,6 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         c.company_signed_at = prevSignedAt; c.company_signature_voided_at = prevVoided;
         // F14: every remaining problem at once, never one at a time.
         if (comp.blockers.length || comp.missing.length) { return contractProblemsErr(comp); }
-        var goLive = contractGoLiveBlock(id, ctx, comp);
-        if (goLive) { return goLive; }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         if (body.consent !== true) { return jsonErr2("Marque a caixa de consentimento.", "Please agree to sign electronically", 400); }
@@ -27931,8 +27907,6 @@ async function handlePostGmContractSend(id, cid, request, env) {
         var ctx = await contractContext(env, id, c);
         var comp = contractCompose(ctx, c, gmEasternToday());
         if (comp.blockers.length) { return contractProblemsErr({ blockers: comp.blockers, missing: [] }); }
-        var goLiveSend = contractGoLiveBlock(id, ctx, comp);
-        if (goLiveSend) { return goLiveSend; }
         var res = await env.DB.prepare(
             "UPDATE gm_contracts SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), sent_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')"
         ).bind(actorName(user), cid, id).run();

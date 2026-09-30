@@ -10068,16 +10068,21 @@ async function handleGetClientPackageTerms(id, request, env) {
 // alice / rafa / developer only.
 // ---------------------------------------------------------------------------
 
-async function handlePutClientPackageTerms(id, request, env) {
+// internalBody: a signed Apex contract applies its own terms from the
+// client's signing (no staff login in that request), with the body the
+// Worker built itself. Every HTTP caller still goes through the role check.
+async function handlePutClientPackageTerms(id, request, env, internalBody) {
     try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (!internalBody) {
+            var user = await authenticate(request, env);
+            if (!user) { return jsonErr("Unauthorized", 401); }
+            if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        }
 
         var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(id).first();
         if (!client) { return jsonErr("Client not found", 404); }
 
-        var body = await request.json();
+        var body = internalBody || await request.json();
 
         var baseTotal = Number(body.base_total);
         if (body.base_total === null || body.base_total === undefined || body.base_total === "" || isNaN(baseTotal)) {
@@ -44680,43 +44685,62 @@ async function handlePostApexContractVoid(clientId, cid, request, env) {
     }
 }
 
-// ── POST .../:cid/apply-terms ──
-// After the client signs: the contract's total and schedule become the
-// client's payment plan through the SAME route the Condições de pagamento
-// modal uses (so recurring invoicing starts from it). Pressed, never automatic.
+// ── Payment terms from the contract ──
+// The moment the last representative signs, the contract's total and
+// schedule become the client's payment plan (Nicole, 2026-09-29: the
+// contract is made in the system, so invoices generate from day one instead
+// of Pra. Alice typing terms from memory). Same route the Condicoes de
+// pagamento modal uses, so recurring invoicing starts from it. Test leads
+// (ids test-*) are skipped: their draft invoices would take real INV numbers.
+async function apxApplyTerms(env, r, actor) {
+    var d = apxClean(apxParse(r.data_json, {}));
+    var pk = APX_PACKAGES[d.package_key];
+    var sched = d.schedule || [];
+    if (!pk || !sched.length) { return { ok: false, error: "Contrato sem pacote ou sem parcelas." }; }
+    var equal = sched.every(function(x) { return x.amount_cents === sched[0].amount_cents; });
+    // Billing frequency from the schedule itself: months between the first
+    // two due dates (monthly = 1, quarterly = 3). One payment bills once.
+    var interval = 1;
+    if (sched.length > 1) {
+        var a = sched[0].due_date.split("-").map(Number), b = sched[1].due_date.split("-").map(Number);
+        interval = Math.max(1, (b[0] - a[0]) * 12 + (b[1] - a[1]));
+    }
+    var payload = {
+        package_id: pk.pkgId,
+        pricing_option: sched.length === 1 ? "upfront" : "installment",
+        base_total: r.total_cents / 100,
+        split_mode: equal ? "even" : "custom",
+        is_new_client: true,
+        payments_made_before: 0,
+        first_due_date: sched[0].due_date,
+        recurrence_unit: "months",
+        recurrence_interval: interval,
+        recurrence_never_ends: false
+    };
+    if (equal) { payload.installment_count = sched.length; payload.installment_amount = sched[0].amount_cents / 100; }
+    else { payload.custom_installments = sched.map(function(x, i) { return { amount: x.amount_cents / 100, label: (i + 1) + "\u00aa parcela \u00b7 " + apxDateShort(x.due_date) }; }); }
+    var res = await handlePutClientPackageTerms(r.client_id, null, env, payload);
+    if (res.status !== 200) {
+        var t = ""; try { t = (await res.json()).error || ""; } catch (e) { t = ""; }
+        await apxEvent(env, r.id, "terms_failed", actor, { status: res.status, error: t });
+        return { ok: false, error: t || ("Erro " + res.status) };
+    }
+    await env.DB.prepare("UPDATE apex_contracts SET terms_applied_at = datetime('now'), terms_applied_by = ?, updated_at = datetime('now') WHERE id = ?").bind(actor, r.id).run();
+    await apxEvent(env, r.id, "terms_applied", actor, payload);
+    return { ok: true };
+}
+
+// ── POST .../:cid/apply-terms ── the fallback button, shown only when the
+// automatic step did not run (a test lead, or an error at signing).
 async function handlePostApexContractApplyTerms(clientId, cid, request, env) {
     try {
         var a = await apxAuthStaff(request, env, clientId);
         if (a.err) { return a.err; }
-        if (a.user.role !== "alice" && a.user.role !== "rafa" && a.user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var r = await apxLoad(env, clientId, cid);
         if (!r) { return jsonErr("Not found", 404); }
-        if (r.status !== "signed") { return jsonErr2("O cliente ainda não assinou.", "The client has not signed yet.", 409); }
-        var d = apxClean(apxParse(r.data_json, {}));
-        var pk = APX_PACKAGES[d.package_key];
-        var sched = d.schedule;
-        var equal = sched.every(function(s) { return s.amount_cents === sched[0].amount_cents; });
-        var payload = {
-            package_id: pk.pkgId,
-            pricing_option: sched.length === 1 ? "upfront" : "installment",
-            base_total: r.total_cents / 100,
-            split_mode: equal ? "even" : "custom",
-            is_new_client: true,
-            payments_made_before: 0,
-            first_due_date: sched[0].due_date,
-            recurrence_unit: "months",
-            recurrence_interval: 1,
-            recurrence_never_ends: false
-        };
-        if (equal) { payload.installment_count = sched.length; payload.installment_amount = sched[0].amount_cents / 100; }
-        else { payload.custom_installments = sched.map(function(s, i) { return { amount: s.amount_cents / 100, label: (i + 1) + "ª parcela · " + apxDateShort(s.due_date) }; }); }
-        var innerHeaders = { "Content-Type": "application/json" };
-        if (request.headers.get("Authorization")) { innerHeaders["Authorization"] = request.headers.get("Authorization"); }
-        var inner = new Request(new URL("/api/clients/" + clientId + "/package-terms", request.url).toString(), { method: "PUT", headers: innerHeaders, body: JSON.stringify(payload) });
-        var res = await handlePutClientPackageTerms(clientId, inner, env);
-        if (res.status !== 200) { return res; }
-        await env.DB.prepare("UPDATE apex_contracts SET terms_applied_at = datetime('now'), terms_applied_by = ?, updated_at = datetime('now') WHERE id = ?").bind(actorName(a.user), cid).run();
-        await apxEvent(env, cid, "terms_applied", actorName(a.user), payload);
+        if (r.status !== "signed") { return jsonErr2("O cliente ainda n\u00e3o assinou.", "The client has not signed yet.", 409); }
+        var out = await apxApplyTerms(env, r, actorName(a.user));
+        if (!out.ok) { return jsonErr2(out.error, out.error, 400); }
         return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
     } catch (e) {
         return jsonErr("Error applying the terms: " + e.message, 500);
@@ -44815,6 +44839,9 @@ async function handlePostPublicApexContractSign(token, request, env) {
         await apxEvent(env, r.id, "client_signed", name, { index: idx, kind: kind, complete: allDone });
         if (allDone) {
             await apxWriteVendorLines(env, r);
+            if (!/^test-/.test(r.client_id)) {
+                try { await apxApplyTerms(env, r, "Contrato assinado"); } catch (eT) { console.error("[apex-contract] auto terms failed: " + (eT && eT.message)); }
+            }
             apxAfterSigned(request, env, r.id);
         }
         return jsonOk({ ok: true, complete: allDone });

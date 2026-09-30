@@ -44874,10 +44874,10 @@ function apxFileName(r, comp) {
 }
 
 // Signed: the PDF is printed once and filed under the client's Documents,
-// VISIBLE to the client (client_visible = 1). A signed contract is the one
-// document both parties must hold a copy of, so it is the exception to the
-// "hidden until Rafael switches it on" rule (Nicole, 2026-09-29). Then
-// Rafael, Alice and Nicole get a push.
+// VISIBLE to the client (client_visible = 1): both parties sign it and both
+// get a copy. Only what Rafael's Claude creates and auto-uploads starts
+// hidden until he switches it on; anything the system itself creates is
+// shown (Nicole, 2026-09-29). Then Rafael, Alice and Nicole get a push.
 function apxAfterSigned(request, env, contractId) {
     var job = (async function() {
         try {

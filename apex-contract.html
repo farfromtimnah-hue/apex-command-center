@@ -12,7 +12,7 @@
        contract-view.html (hero band + logo tile + brand pill, meta card,
        clauses, typed/drawn signature, server PDF), in Apex's own colours
        (navy #13294B, gold #E0A526, from the ADVANCED template) and with the
-       mountain peak (assets/login/Picture3.jpg) as the hero, Nicole's pick.
+       package's own login photo as the hero, the same one the pitch page uses.
        Portuguese: every Apex contract is written in Portuguese. The same page
        is what the Worker prints to PDF (?noprint=1&render=1). */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -285,7 +285,7 @@
           // The hero is the package's own peak, the same photo it has on the
           // pitch page (packages.html): START Picture5, GROWTH Picture3,
           // ADVANCED Picture4 (Nicole, 2026-09-29). Framed on the peaks.
-          var HERO = { start: ["assets/contract-hero-start.jpg", "50% 30%"], growth: ["assets/contract-hero-growth.jpg", "50% 42%"], advanced: ["assets/contract-hero-advanced.jpg", "50% 38%"] };
+          var HERO = { start: ["assets/login/Picture5.jpg", "50% 30%"], growth: ["assets/login/Picture3.jpg", "50% 42%"], advanced: ["assets/login/Picture4.jpg", "50% 38%"] };
           var hh = HERO[doc.package_key] || HERO.advanced, hi = byId("heroImg");
           hi.style.objectPosition = hh[1]; hi.onload = function() { hi.hidden = false; }; hi.src = hh[0];
           document.title = "Contrato " + con.number + (doc.company_name ? " - " + doc.company_name : "");

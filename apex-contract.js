@@ -30,7 +30,7 @@
     advanced: { label: "ADVANCED", program: "APEX Advanced™", months: 6 }
   };
   // Vendor services INSIDE a package's price (Nicole, 2026-09-29): ADVANCED
-  // carries social media at US$ 220/month and the site at US$ 300 once.
+  // carries social media at $220/month and the site at $300 once.
   // Never printed; once the client signs they land on the Fornecedores page
   // so Pra. Alice knows what to send to Brazil.
   var PKG_INCLUDED = {
@@ -245,14 +245,14 @@
         chip("Parcelado " + (g.count || 4) + "× " + money((g.amount || 2197) * 100), f.pricing_option !== "upfront", "ApexContract._opt('installment')") + '</div>';
     }
     if (f.package_key) {
-      pk += field("Valor do pacote (US$)", '<input class="gm-input" id="apxPrice" inputmode="decimal" value="' + centsInput(f.package_price_cents) + '" onchange="ApexContract._reprice()">');
+      pk += field("Valor do pacote ($)", '<input class="gm-input" id="apxPrice" inputmode="decimal" value="' + centsInput(f.package_price_cents) + '" onchange="ApexContract._reprice()">');
       pk += '<div class="gm-derived-note" style="margin-top:0;">O total é fixo. Se o cliente pedir desconto, mude a forma de pagar, não o valor.</div>';
       if ((f.included_services || []).length) {
         pk += '<div class="gm-field-label" style="margin:14px 0 4px;">Fornecedores inclu\u00eddos no pre\u00e7o (n\u00e3o aparecem no contrato; v\u00e3o para a p\u00e1gina de Fornecedores)</div>';
         f.included_services.forEach(function(x, i) {
           pk += '<div style="border:1px solid var(--border);border-radius:12px;padding:8px 12px 2px;margin-bottom:8px;"><div style="font-weight:700;font-size:14px;">' + esc(x.label) + ' <span class="gm-derived-note">' + (x.recurrence === "once" ? "uma vez" : "por m\u00eas, " + x.months + " meses") + '</span></div>' +
             field("Fornecedor", '<select class="gm-input" id="apxIncVendor' + i + '">' + vendorOptions(x.vendor_id) + '</select>') +
-            field("Custo do fornecedor (US$" + (x.recurrence === "once" ? "" : " por m\u00eas") + ")", '<input class="gm-input" id="apxIncCost' + i + '" inputmode="decimal" value="' + centsInput(x.vendor_cost_cents) + '">') + '</div>';
+            field("Custo do fornecedor ($" + (x.recurrence === "once" ? "" : " por m\u00eas") + ")", '<input class="gm-input" id="apxIncCost' + i + '" inputmode="decimal" value="' + centsInput(x.vendor_cost_cents) + '">') + '</div>';
         });
       }
     }
@@ -289,7 +289,7 @@
         field("Serviço (aparece no contrato)", '<input class="gm-input" id="apxAddLabel' + i + '" value="' + esc(a.label) + '" placeholder="ex: Gestão de tráfego pago">') +
         field("Descrição (aparece no contrato)", '<input class="gm-input" id="apxAddDesc' + i + '" value="' + esc(a.description) + '">') +
         '<div class="gm-chip-set" style="margin:4px 0 6px;">' + chip("Mensal", a.recurrence !== "once", "ApexContract._addRec(" + i + ",'monthly')") + chip("Uma vez", a.recurrence === "once", "ApexContract._addRec(" + i + ",'once')") + '</div>' +
-        field("Preço ao cliente (US$" + (a.recurrence === "once" ? "" : " por mês") + ")", '<input class="gm-input" id="apxAddPrice' + i + '" inputmode="decimal" value="' + centsInput(a.client_price_cents) + '" onchange="ApexContract._reprice()">') +
+        field("Preço ao cliente ($" + (a.recurrence === "once" ? "" : " por mês") + ")", '<input class="gm-input" id="apxAddPrice' + i + '" inputmode="decimal" value="' + centsInput(a.client_price_cents) + '" onchange="ApexContract._reprice()">') +
         (a.recurrence === "once" ? '<input type="hidden" id="apxAddMonths' + i + '" value="1">' : field("Quantos meses", '<input class="gm-input" id="apxAddMonths' + i + '" inputmode="numeric" value="' + (a.months || 1) + '" onchange="ApexContract._reprice()">')) +
         field("Custo do fornecedor (interno, não aparece)", '<input class="gm-input" id="apxAddCost' + i + '" inputmode="decimal" value="' + centsInput(a.vendor_cost_cents) + '">') +
         '<button type="button" class="gm-choice-chip" style="margin-bottom:10px;" onclick="ApexContract._addDel(' + i + ')">Remover</button></div>';

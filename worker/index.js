@@ -43945,7 +43945,9 @@ function apxCount(n, fem) { return n + " (" + apxWords(n, fem) + ")"; }
 function apxMoney(cents) {
     var v = Math.round(Number(cents) || 0);
     var d = Math.floor(v / 100), c = v % 100;
-    return "US$ " + String(d).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + (c < 10 ? "0" : "") + c;
+    // US format, site-wide rule (Nicole, 2026-09-29): Apex is in the US.
+    // USD with comma thousands and a decimal point, never 8.382,00.
+    return "$" + String(d).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + (c < 10 ? "0" : "") + c;
 }
 function apxMoneyWords(cents) {
     var v = Math.round(Number(cents) || 0);
@@ -43960,10 +43962,11 @@ function apxDateLong(s) {
     var p = s.split("-");
     return Number(p[2]) + " de " + APX_MONTHS_PT[Number(p[1]) - 1] + " de " + p[0];
 }
+// US date order, MM/DD/YYYY (site-wide rule).
 function apxDateShort(s) {
     if (!apxIsDate(s)) { return ""; }
     var p = s.split("-");
-    return p[2] + "/" + p[1] + "/" + p[0];
+    return p[1] + "/" + p[2] + "/" + p[0];
 }
 // Same day of the month, n months later; a month without that day uses its
 // last day (29 -> 28 in February), exactly as the Golden Home schedule does.

@@ -141,7 +141,7 @@
       var d = new Date(s); if (isNaN(d.getTime())) { return v; }
       try {
         var p = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", minute: "2-digit", hour12: true }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
-        return p.day + "/" + p.month + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " (horário de Nova York)";
+        return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase() + " (horário de Nova York)";
       } catch (e) { return v; }
     }
     function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
@@ -160,7 +160,8 @@
 
     function renderHead() {
       var total = doc.total_cents;
-      var money = "US$ " + String(Math.floor(total / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + String(total % 100).padStart(2, "0");
+      // US format (site-wide rule): $8,382.00.
+      var money = "$" + String(Math.floor(total / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + String(total % 100).padStart(2, "0");
       byId("cardHead").innerHTML =
         '<div class="doc-head"><div class="org">APEX BUSINESS &amp; LEADERSHIP</div><div class="tag">Consultoria Estrat&eacute;gica para Empreendedores Brasileiros nos EUA</div>' +
         '<div class="rule"></div><div class="title">' + esc(doc.heading) + '</div><div class="sub">' + esc(doc.subtitle) + '</div>' +

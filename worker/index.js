@@ -44427,7 +44427,7 @@ function apxOut(r, forPublic) {
         out.sent_at = r.sent_at; out.first_viewed_at = r.first_viewed_at; out.last_viewed_at = r.last_viewed_at;
         out.document_id = r.document_id; out.terms_applied_at = r.terms_applied_at;
         out.created_by = r.created_by; out.created_at = r.created_at; out.updated_at = r.updated_at;
-        out.vendor_cost_cents = (data.addons || []).reduce(function(t, a) { return t + (a.vendor_cost_cents ? (a.recurrence === "once" ? a.vendor_cost_cents : a.vendor_cost_cents * a.months) : 0); }, 0);
+        out.vendor_cost_cents = (data.addons || []).concat(data.included_services || []).reduce(function(t, a) { return t + (a.vendor_cost_cents ? (a.recurrence === "once" ? a.vendor_cost_cents : a.vendor_cost_cents * a.months) : 0); }, 0);
     }
     return out;
 }

@@ -8021,6 +8021,9 @@
           for (var j = 0; j < v.clients.length; j++) {
             var c = v.clients[j];
             items += '<li>' + esc(c.client_name) +
+              // A contract line names its service: one client can buy several
+              // services from the same vendor (Apex contract tool, 2026-09-29).
+              (c.source === "contract" ? ' <span style="color:var(--muted);">&mdash; ' + esc(c.label) + (c.vendor_amount_cents !== null ? " &middot; " + fmtCents(c.vendor_amount_cents) : "") + '</span>' : '') +
               (c.vendor_amount_cents === null
                 ? ' <span style="color:var(--muted);">(' + (isEn() ? "amount pending" : "valor pendente") + ')</span>'
                 : '') +

@@ -36885,6 +36885,17 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
         }
 
         var amountDollars = centsToDollars(inv.amount_cents);
+        // Add-ons sold in the client's signed Apex contract appear as their
+        // own lines with no price (Nicole, 2026-09-29): the client sees what
+        // is included; the one total above stays the only number.
+        var addonItens = [];
+        try {
+            var addonRows = (await env.DB.prepare(
+                "SELECT DISTINCT l.label FROM apex_contract_vendor_lines l JOIN apex_contracts k ON k.id = l.contract_id " +
+                "WHERE l.client_id = ? AND l.active = 1 AND l.source = 'addon' AND k.status = 'signed'"
+            ).bind(inv.client_id).all()).results || [];
+            addonItens = addonRows.map(function(a) { return { descricao: a.label, detalhes: "", quantidade: 1, valor_unitario: "Incluso", desconto: "---", subtotal: "Incluso" }; });
+        } catch (eAdd) { addonItens = []; }
         // Only point at the logo endpoint when a logo REALLY exists and is not
         // switched off for this client. Building the URL blindly meant the
         // template requested an image that 404s, flashed, then fell back --
@@ -36936,7 +36947,7 @@ async function handleGetFinanceNewInvoiceRenderData(invoiceId, request, env) {
                 valor_unitario: formatCurrency(amountDollars),
                 desconto:       "---",
                 subtotal:       formatCurrency(amountDollars)
-            }],
+            }].concat(addonItens),
             totais: {
                 subtotal:       formatCurrency(amountDollars),
                 desconto_total: null,
@@ -39011,9 +39022,38 @@ async function handleGetFinanceNewVendors(request, env) {
             });
         });
 
+        // Vendor services sold inside signed Apex contracts (2026-09-29): one
+        // line per service, with this client's vendor cost. They count toward
+        // "a pagar" only in the months they are owed, and are never added to
+        // an invoice (the contract price already contains them).
+        var today = gmEasternToday();
+        var clRes = await env.DB.prepare(
+            "SELECT l.*, c.name AS client_name, k.number AS contract_number FROM apex_contract_vendor_lines l " +
+            "JOIN clients c ON c.id = l.client_id JOIN apex_contracts k ON k.id = l.contract_id WHERE l.active = 1 ORDER BY c.name"
+        ).all();
+        (clRes.results || []).forEach(function(l) {
+            if (!byVendor[l.vendor_id]) { byVendor[l.vendor_id] = []; }
+            var due = apxLineDueThisMonth(l, today);
+            byVendor[l.vendor_id].push({
+                id: "contract-line-" + l.id,
+                client_id: l.client_id,
+                client_name: l.client_name,
+                vendor_amount_cents: l.vendor_cost_cents,
+                markup_cents: 0,
+                client_total_cents: l.vendor_cost_cents,
+                label: l.label + " (" + (l.recurrence === "once" ? "uma vez" : "mensal, " + l.months + " meses") + " \u00b7 contrato " + l.contract_number + ")",
+                service_note: null,
+                recurrence_unit: l.recurrence === "once" ? null : "month",
+                recurrence_interval: l.recurrence === "once" ? null : 1,
+                source: "contract",
+                due_this_month: due
+            });
+        });
+
         var vendors = (vendorsRes.results || []).map(function(v) {
             var clients = byVendor[v.id] || [];
             var owedCents = clients.reduce(function(sum, c) {
+                if (c.source === "contract" && !c.due_this_month) { return sum; }
                 return sum + (c.vendor_amount_cents || 0);   // markup is Apex revenue, not owed to the vendor
             }, 0);
             return {
@@ -43970,6 +44010,18 @@ function apxClean(body) {
         };
     }).filter(function(a) { return a.label; }).slice(0, 12);
     var bonuses = (Array.isArray(b.bonuses) ? b.bonuses : []).map(function(x) { return apxEsc(x).slice(0, 400); }).filter(Boolean).slice(0, 12);
+    // Vendor services INSIDE the package price (ADVANCED: social media and
+    // site). Never printed; they only feed the Fornecedores tally.
+    var included = (Array.isArray(b.included_services) ? b.included_services : []).map(function(a) {
+        return {
+            key: apxEsc(a && a.key).slice(0, 40),
+            label: apxEsc(a && a.label).slice(0, 120),
+            vendor_id: apxEsc(a && a.vendor_id).slice(0, 80) || null,
+            recurrence: (a && a.recurrence === "once") ? "once" : "monthly",
+            months: Math.max(1, Math.min(36, parseInt(a && a.months, 10) || 1)),
+            vendor_cost_cents: (a && a.vendor_cost_cents !== null && a.vendor_cost_cents !== undefined && a.vendor_cost_cents !== "") ? Math.max(0, Math.round(Number(a.vendor_cost_cents) || 0)) : null
+        };
+    }).filter(function(a) { return a.label; }).slice(0, 8);
     return {
         package_key: pk,
         pricing_option: b.pricing_option === "upfront" ? "upfront" : (b.pricing_option === "installment" ? "installment" : null),
@@ -43986,6 +44038,7 @@ function apxClean(body) {
         payment_method: b.payment_method === "zelle" ? "zelle" : "card_zelle",
         addons: addons,
         bonuses: bonuses,
+        included_services: included,
         notes: apxEsc(b.notes).slice(0, 3000),
         signing_city: apxEsc(b.signing_city).slice(0, 80)
     };
@@ -44616,6 +44669,7 @@ async function handlePostApexContractVoid(clientId, cid, request, env) {
         var reason = apxEsc(body.reason).slice(0, 300);
         if (!reason) { return jsonErr2("Informe o motivo.", "Give a reason.", 400); }
         await env.DB.prepare("UPDATE apex_contracts SET status = 'void', void_reason = ?, voided_at = datetime('now'), voided_by = ?, updated_at = datetime('now') WHERE id = ?").bind(reason, actorName(a.user), cid).run();
+        await env.DB.prepare("UPDATE apex_contract_vendor_lines SET active = 0 WHERE contract_id = ?").bind(cid).run();
         await apxEvent(env, cid, "voided", actorName(a.user), { reason: reason });
         return jsonOk({ contract: apxOut(await apxLoad(env, clientId, cid), false) });
     } catch (e) {
@@ -44664,6 +44718,42 @@ async function handlePostApexContractApplyTerms(clientId, cid, request, env) {
     } catch (e) {
         return jsonErr("Error applying the terms: " + e.message, 500);
     }
+}
+
+// ── Vendor lines (Fornecedores tally) ───────────────────────────────────────
+// Written once the client finishes signing: every add-on and included service
+// that has a vendor, with that vendor's cost for this client. Accounting is
+// excluded by type (referred; the client pays the accountant directly).
+async function apxWriteVendorLines(env, r) {
+    try {
+        var d = apxClean(apxParse(r.data_json, {}));
+        var vendors = (await env.DB.prepare("SELECT id, vendor_type FROM vendors").all()).results || [];
+        var vtype = {};
+        vendors.forEach(function(v) { vtype[v.id] = v.vendor_type || ""; });
+        var lines = [];
+        (d.included_services || []).forEach(function(a) { if (a.vendor_id) { lines.push({ src: "included", a: a }); } });
+        (d.addons || []).forEach(function(a) { if (a.vendor_id) { lines.push({ src: "addon", a: a }); } });
+        lines = lines.filter(function(x) { return vtype[x.a.vendor_id] !== undefined && !/contab/i.test(vtype[x.a.vendor_id]); });
+        var stmts = [env.DB.prepare("DELETE FROM apex_contract_vendor_lines WHERE contract_id = ?").bind(r.id)];
+        lines.forEach(function(x) {
+            stmts.push(env.DB.prepare("INSERT INTO apex_contract_vendor_lines (id, contract_id, client_id, vendor_id, label, source, recurrence, months, vendor_cost_cents, start_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                .bind(crypto.randomUUID(), r.id, r.client_id, x.a.vendor_id, x.a.label, x.src, x.a.recurrence, x.a.recurrence === "once" ? 1 : x.a.months, x.a.vendor_cost_cents, d.start_date || d.contract_date));
+        });
+        await env.DB.batch(stmts);
+        return lines.length;
+    } catch (e) {
+        console.error("[apex-contract] vendor lines failed: " + (e && e.message));
+        return 0;
+    }
+}
+// Is this line owed in the month of `today` (YYYY-MM-DD)? A monthly line runs
+// from its start month for `months` months; a one-time line falls in its start month.
+function apxLineDueThisMonth(l, today) {
+    var s = String(l.start_date || "").slice(0, 7), t = today.slice(0, 7);
+    if (!s) { return false; }
+    var sm = Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1, tm = Number(t.slice(0, 4)) * 12 + Number(t.slice(5, 7)) - 1;
+    if (l.recurrence === "once") { return sm === tm; }
+    return tm >= sm && tm < sm + (l.months || 1);
 }
 
 // ── PUBLIC (the client's link) ─────────────────────────────────────────────
@@ -44720,7 +44810,10 @@ async function handlePostPublicApexContractSign(token, request, env) {
         await env.DB.prepare("UPDATE apex_contracts SET client_signatures_json = ?, status = ?, signed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE signed_at END, updated_at = datetime('now') WHERE id = ?")
             .bind(JSON.stringify(sigs), allDone ? "signed" : (r.status === "ready" ? "viewed" : r.status), allDone ? 1 : 0, r.id).run();
         await apxEvent(env, r.id, "client_signed", name, { index: idx, kind: kind, complete: allDone });
-        if (allDone) { apxAfterSigned(request, env, r.id); }
+        if (allDone) {
+            await apxWriteVendorLines(env, r);
+            apxAfterSigned(request, env, r.id);
+        }
         return jsonOk({ ok: true, complete: allDone });
     } catch (e) {
         return jsonErr("Erro ao assinar: " + e.message, 500);

@@ -29,9 +29,23 @@
     growth:   { label: "GROWTH",   program: "APEX Growth™",   months: 4 },
     advanced: { label: "ADVANCED", program: "APEX Advanced™", months: 6 }
   };
-  // Vendor costs Nicole gave for ADVANCED (2026-09-29): inside the price,
-  // never printed. Shown to Rafa and Alice only as a reminder.
-  var PKG_INTERNAL = { advanced: "Custos de fornecedor já incluídos no preço (não aparecem no contrato): redes sociais US$ 220/mês e site US$ 300 (uma vez)." };
+  // Vendor services INSIDE a package's price (Nicole, 2026-09-29): ADVANCED
+  // carries social media at US$ 220/month and the site at US$ 300 once.
+  // Never printed; once the client signs they land on the Fornecedores page
+  // so Pra. Alice knows what to send to Brazil.
+  var PKG_INCLUDED = {
+    advanced: [
+      { key: "social", label: "Gest\u00e3o de redes sociais", recurrence: "monthly", months: 6, vendor_cost_cents: 22000 },
+      { key: "site",   label: "Site estrat\u00e9gico",        recurrence: "once",    months: 1, vendor_cost_cents: 30000 }
+    ]
+  };
+  // Accounting is a referral: the client pays the accountant directly, so it
+  // is never an add-on and never on the vendor tally.
+  function sellableVendors() { return S.vendors.filter(function(v) { return !/contab/i.test(v.vendor_type || ""); }); }
+  function defaultVendorId() { var m = sellableVendors().filter(function(v) { return /marketing/i.test(v.vendor_type || ""); }); return m.length === 1 ? m[0].id : null; }
+  function vendorOptions(sel) {
+    return '<option value="">&mdash; escolher &mdash;</option>' + sellableVendors().map(function(v) { return '<option value="' + esc(v.id) + '"' + (v.id === sel ? " selected" : "") + '>' + esc(v.name) + (v.vendor_type ? " (" + esc(v.vendor_type) + ")" : "") + '</option>'; }).join("");
+  }
   var STATUS = {
     draft:  { pt: "Rascunho",                cls: "gm-muted" },
     ready:  { pt: "Assinado pela Apex",      cls: "gm-gold" },
@@ -155,6 +169,8 @@
   function applyPackage(f, key, keepDates) {
     var P = S.packages || {};
     f.package_key = key;
+    var dv = defaultVendorId();
+    f.included_services = (PKG_INCLUDED[key] || []).map(function(x) { return { key: x.key, label: x.label, recurrence: x.recurrence, months: x.months, vendor_cost_cents: x.vendor_cost_cents, vendor_id: dv }; });
     if (key === "start") {
       f.package_price_cents = Math.round((P.start && P.start.price ? P.start.price : 997) * 100);
       f.pricing_option = "upfront"; f._count = 1; f.payment_method = "zelle";
@@ -209,6 +225,10 @@
       var vc = q("apxAddCost" + i); a.vendor_cost_cents = (vc === null || vc === "") ? null : toCents(vc);
     });
     F.bonuses = F.bonuses.map(function(b, i) { return (q("apxBonus" + i) || "").trim(); });
+    (F.included_services || []).forEach(function(x, i) {
+      if (byId("apxIncVendor" + i)) { x.vendor_id = q("apxIncVendor" + i) || null; }
+      if (byId("apxIncCost" + i)) { var v = q("apxIncCost" + i); x.vendor_cost_cents = v === "" ? null : toCents(v); }
+    });
     F.notes = (q("apxNotes") || "").trim();
     F._count = parseInt(q("apxCount"), 10) || 1; F._first = q("apxFirst") || F._first;
     F.schedule.forEach(function(s, i) { s.due_date = q("apxDue" + i) || s.due_date; s.amount_cents = toCents(q("apxAmt" + i)); });
@@ -227,7 +247,14 @@
     if (f.package_key) {
       pk += field("Valor do pacote (US$)", '<input class="gm-input" id="apxPrice" inputmode="decimal" value="' + centsInput(f.package_price_cents) + '" onchange="ApexContract._reprice()">');
       pk += '<div class="gm-derived-note" style="margin-top:0;">O total é fixo. Se o cliente pedir desconto, mude a forma de pagar, não o valor.</div>';
-      if (PKG_INTERNAL[f.package_key]) { pk += '<div class="gm-derived-note">' + PKG_INTERNAL[f.package_key] + '</div>'; }
+      if ((f.included_services || []).length) {
+        pk += '<div class="gm-field-label" style="margin:14px 0 4px;">Fornecedores inclu\u00eddos no pre\u00e7o (n\u00e3o aparecem no contrato; v\u00e3o para a p\u00e1gina de Fornecedores)</div>';
+        f.included_services.forEach(function(x, i) {
+          pk += '<div style="border:1px solid var(--border);border-radius:12px;padding:8px 12px 2px;margin-bottom:8px;"><div style="font-weight:700;font-size:14px;">' + esc(x.label) + ' <span class="gm-derived-note">' + (x.recurrence === "once" ? "uma vez" : "por m\u00eas, " + x.months + " meses") + '</span></div>' +
+            field("Fornecedor", '<select class="gm-input" id="apxIncVendor' + i + '">' + vendorOptions(x.vendor_id) + '</select>') +
+            field("Custo do fornecedor (US$" + (x.recurrence === "once" ? "" : " por m\u00eas") + ")", '<input class="gm-input" id="apxIncCost' + i + '" inputmode="decimal" value="' + centsInput(x.vendor_cost_cents) + '">') + '</div>';
+        });
+      }
     }
     h += section("1. Pacote", pk);
     if (!f.package_key) { return h; }
@@ -258,7 +285,7 @@
     var ad = "";
     f.addons.forEach(function(a, i) {
       ad += '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px 2px;margin-bottom:8px;">' +
-        field("Fornecedor", '<select class="gm-input" id="apxAddVendor' + i + '"><option value="">&mdash; nenhum &mdash;</option>' + S.vendors.map(function(v) { return '<option value="' + esc(v.id) + '"' + (v.id === a.vendor_id ? " selected" : "") + '>' + esc(v.name) + (v.vendor_type ? " (" + esc(v.vendor_type) + ")" : "") + '</option>'; }).join("") + '</select>') +
+        field("Fornecedor (vai para a p\u00e1gina de Fornecedores)", '<select class="gm-input" id="apxAddVendor' + i + '">' + vendorOptions(a.vendor_id) + '</select>') +
         field("Serviço (aparece no contrato)", '<input class="gm-input" id="apxAddLabel' + i + '" value="' + esc(a.label) + '" placeholder="ex: Gestão de tráfego pago">') +
         field("Descrição (aparece no contrato)", '<input class="gm-input" id="apxAddDesc' + i + '" value="' + esc(a.description) + '">') +
         '<div class="gm-chip-set" style="margin:4px 0 6px;">' + chip("Mensal", a.recurrence !== "once", "ApexContract._addRec(" + i + ",'monthly')") + chip("Uma vez", a.recurrence === "once", "ApexContract._addRec(" + i + ",'once')") + '</div>' +
@@ -317,7 +344,7 @@
     if (existing) {
       F = JSON.parse(JSON.stringify(existing.data || {}));
       F.representatives = F.representatives && F.representatives.length ? F.representatives : [{ name: "", gender: "m", title: "" }];
-      F.addons = F.addons || []; F.bonuses = F.bonuses || []; F.schedule = F.schedule || [];
+      F.addons = F.addons || []; F.bonuses = F.bonuses || []; F.schedule = F.schedule || []; F.included_services = F.included_services || [];
       F._count = F.schedule.length || 1; F._first = (F.schedule[0] && F.schedule[0].due_date) || F.contract_date; F._freq = 1;
       if (F.schedule.length > 1) {
         var d0 = F.schedule[0].due_date, day = Number(d0.slice(8, 10));

@@ -26153,6 +26153,24 @@ async function stripeApi(env, method, path, params, account) {
     return data;
 }
 
+// Accounts v2 (JSON). Stripe requires v2 for creating connected accounts on
+// new Connect platforms; everything else here stays on the v1 API.
+var STRIPE_V2_VERSION = "2026-09-30.endive";
+async function stripeApiV2(env, method, path, body) {
+    var init = { method: method, headers: { "Authorization": "Bearer " + (env.STRIPE_SECRET_KEY || "").trim(), "Stripe-Version": STRIPE_V2_VERSION } };
+    if (body && method !== "GET") { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
+    var res = await fetch("https://api.stripe.com" + path, init);
+    var data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) {
+        var msg = (data && data.error && data.error.message) || ("Stripe HTTP " + res.status);
+        var err = new Error(msg);
+        err.stripeStatus = res.status;
+        throw err;
+    }
+    return data;
+}
+
 async function gmStripeRow(env, clientId) {
     return env.DB.prepare("SELECT * FROM gm_stripe_accounts WHERE client_id = ?").bind(clientId).first();
 }
@@ -26166,8 +26184,9 @@ function gmStripeOwnerGuard(user, clientId) {
 }
 
 async function gmStripeRefresh(env, row) {
-    var acct = await stripeApi(env, "GET", "/v1/accounts/" + encodeURIComponent(row.stripe_account_id));
-    var ce = acct.charges_enabled ? 1 : 0, ds = acct.details_submitted ? 1 : 0;
+    var acct = await stripeApiV2(env, "GET", "/v2/core/accounts/" + encodeURIComponent(row.stripe_account_id) + "?include=configuration.merchant&include=requirements");
+    var cp = acct.configuration && acct.configuration.merchant && acct.configuration.merchant.capabilities && acct.configuration.merchant.capabilities.card_payments;
+    var ce = (cp && cp.status === "active") ? 1 : 0, ds = ce;
     if (ce !== row.charges_enabled || ds !== row.details_submitted) {
         await env.DB.prepare("UPDATE gm_stripe_accounts SET charges_enabled = ?, details_submitted = ?, updated_at = datetime('now') WHERE client_id = ?").bind(ce, ds, row.client_id).run();
     }
@@ -26202,12 +26221,22 @@ async function handlePostGmStripeConnect(id, request, env) {
         if (!row) {
             var settings = await gmDocSettingsRow(env, id);
             var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
-            var acct = await stripeApi(env, "POST", "/v1/accounts", {
-                country: "US",
-                controller: { fees: { payer: "account" }, losses: { payments: "stripe" }, stripe_dashboard: { type: "full" }, requirement_collection: "stripe" },
-                business_profile: { name: String(settings.legal_name || (client && client.name) || "").slice(0, 100) || null },
-                metadata: { apex_client_id: id }
-            });
+            // The business is the merchant: it takes card payments directly,
+            // pays Stripe's fee itself, Stripe carries the loss liability and
+            // collects the verification details, and it gets the full
+            // Stripe Dashboard (the v2 form of a "Standard" account).
+            var acctBody = {
+                display_name: String(settings.legal_name || (client && client.name) || "Business").slice(0, 100),
+                identity: { country: "us" },
+                configuration: { merchant: { capabilities: { card_payments: { requested: true } } } },
+                defaults: { responsibilities: { fees_collector: "stripe", losses_collector: "stripe" } },
+                dashboard: "full",
+                metadata: { apex_client_id: id },
+                include: ["configuration.merchant"]
+            };
+            var bizEmail = settings.email ? String(settings.email).trim() : "";
+            if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(bizEmail)) { acctBody.contact_email = bizEmail; }
+            var acct = await stripeApiV2(env, "POST", "/v2/core/accounts", acctBody);
             await env.DB.prepare(
                 "INSERT INTO gm_stripe_accounts (client_id, stripe_account_id, charges_enabled, details_submitted, livemode, connected_by, created_at, updated_at) " +
                 "VALUES (?, ?, 0, 0, ?, ?, datetime('now'), datetime('now')) ON CONFLICT (client_id) DO NOTHING"
@@ -26215,9 +26244,9 @@ async function handlePostGmStripeConnect(id, request, env) {
             row = await gmStripeRow(env, id);
         }
         var back = DEFAULT_ORIGIN + "/portal.html";
-        var link = await stripeApi(env, "POST", "/v1/account_links", {
-            account: row.stripe_account_id, type: "account_onboarding",
-            return_url: back + "?stripe=return", refresh_url: back + "?stripe=refresh"
+        var link = await stripeApiV2(env, "POST", "/v2/core/account_links", {
+            account: row.stripe_account_id,
+            use_case: { type: "account_onboarding", account_onboarding: { return_url: back + "?stripe=return", refresh_url: back + "?stripe=refresh" } }
         });
         return jsonOk({ url: link.url });
     } catch (e) {

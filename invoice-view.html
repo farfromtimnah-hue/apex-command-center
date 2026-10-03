@@ -134,6 +134,7 @@
     <div class="card" id="cardLoading"><div class="state"><p>Loading...</p></div></div>
     <div class="card hidden" id="cardNotFound"><div class="state"><h3>Invoice not found</h3><p>This link is not valid or is no longer available.</p></div></div>
     <div id="doc" class="hidden">
+      <div class="card hidden" id="cardPaidNote"></div>
       <div class="card" id="cardMeta"></div>
       <div class="card hidden" id="cardStateBanner"></div>
       <div class="card" id="cardLines"><h2>This invoice</h2><div id="lines"></div></div>
@@ -359,13 +360,60 @@
         var scard = byId("cardScope"); if (scard) { scard.classList.remove("hidden"); }
       }
       var pm = b.payment_methods || [];
-      if (pm.length) {
-        var pmEl = byId("payMethods"); if (pmEl) { pmEl.innerHTML = paymentTilesHtml(pm); }
+      // Pay by card (Stripe): the business connected its own Stripe account,
+      // so the button opens a payment page with this invoice's balance and
+      // number already filled in. It replaces the plain "Card" tile.
+      var canCard = !!inv.card_pay && (inv.balance_cents || 0) > 0;
+      if (inv.card_pay) { pm = pm.filter(function(m) { return m.key !== "card_link"; }); }
+      if (pm.length || canCard) {
+        var ph = "";
+        if (canCard) {
+          ph += '<button type="button" class="btn" id="btnCard" onclick="payByCard()" style="margin-top:0;">Pay ' + money(inv.balance_cents) + ' by card</button>' +
+            '<p class="muted small" style="margin-top:6px;">Secure card payment by Stripe. The amount and invoice number are already filled in.</p>' +
+            '<div class="err" id="cardErr"></div>';
+          if (pm.length) { ph += '<p class="muted small" style="margin:10px 0 6px;font-weight:700;">Other ways to pay</p>'; }
+        }
+        if (pm.length) { ph += paymentTilesHtml(pm); }
+        var pmEl = byId("payMethods"); if (pmEl) { pmEl.innerHTML = ph; }
         var payCard = byId("cardPay"); if (payCard) { payCard.classList.remove("hidden"); }
+      } else {
+        var payCardOff = byId("cardPay"); if (payCardOff) { payCardOff.classList.add("hidden"); }
       }
+      paidNote();
       var t = '<b>Payment terms</b><p>' + (b.terms_days ? "Net " + b.terms_days + " days" : "Due on receipt") + '. Please reference ' + escHtml(inv.number) + ' with your payment.</p>' + lateFeeTerms(b);
       var te = byId("terms"); if (te) { te.innerHTML = t; }
       var pdf = byId("btnPdf"); if (pdf) { pdf.onclick = function() { openPdf("invoice"); }; }
+    }
+    // Opens Stripe's payment page for exactly this invoice's balance.
+    function payByCard() {
+      var btn = byId("btnCard"), err = byId("cardErr");
+      if (err) { err.textContent = ""; }
+      if (btn) { btn.disabled = true; btn.textContent = "Opening secure payment..."; }
+      fetch(WORKER_URL + "/api/public/invoices/" + token + "/pay", { method: "POST" })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data.url) { throw new Error((r.data && r.data.error) || "Could not open the card payment page. Please try again."); }
+          window.location.href = r.data.url;
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; btn.textContent = "Pay " + money(inv.balance_cents) + " by card"; }
+          if (err) { err.textContent = e.message; }
+          console.error(e);
+        });
+    }
+    // Back from Stripe (?paid=1): thank the customer and refresh until the
+    // payment Stripe confirmed shows on the invoice (it arrives by webhook).
+    var paidReturn = /[?&]paid=1/.test(window.location.search), paidTries = 0;
+    function paidNote() {
+      var el = byId("cardPaidNote");
+      if (!el || !paidReturn) { return; }
+      if ((inv.balance_cents || 0) <= 0) {
+        el.innerHTML = '<div class="state"><h3>Thank you. Your card payment was received.</h3><p>Your receipt is under Payments received below.</p></div>';
+      } else {
+        el.innerHTML = '<div class="state"><h3>Thank you. Your card payment is being confirmed.</h3><p>This page updates by itself in a few seconds.</p></div>';
+        if (paidTries < 10) { paidTries++; window.setTimeout(load, 3000); }
+      }
+      el.classList.remove("hidden");
     }
     function load() {
       if (!token) { show("cardNotFound"); return; }

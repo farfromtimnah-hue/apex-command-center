@@ -26043,6 +26043,10 @@ async function gmInvPublicPayload(env, inv, origin) {
     var pm = settings.payment_methods || {};
     var methods = [];
     GM_DOC_PAYMENT_METHODS.forEach(function(k) { if (Object.prototype.hasOwnProperty.call(pm, k)) { methods.push({ key: k, detail: pm[k] || "" }); } });
+    // Card button: only when the business's own Stripe account is connected
+    // and able to take charges.
+    var stripeRow = stripeAvailableFor(env, inv.client_id) ? await gmStripeRow(env, inv.client_id) : null;
+    var cardPay = !!(stripeRow && stripeRow.charges_enabled);
     // Scope reference: the accepted estimate's frozen snapshot (a copy, never live).
     var scope = null;
     if (inv.estimate_id) {
@@ -26073,6 +26077,7 @@ async function gmInvPublicPayload(env, inv, origin) {
         items: inv.items.map(function(it) { return { description: it.description, qty: it.qty, unit: it.unit, rate_cents: it.rate_cents, amount_cents: it.amount_cents }; }),
         amount_cents: inv.amount_cents,
         paid_cents: d.paid_cents, credit_cents: d.credit_cents, refund_cents: d.refund_cents, balance_cents: d.balance_cents,
+        card_pay: cardPay,
         payments: inv.payments.filter(function(p) { return p.state === "verified"; }).map(function(p) { return { paid_date: p.paid_date, method: p.method, reference: p.reference, amount_cents: p.amount_cents, receipt_number: p.receipt_number }; }),
         credits: inv.credits.map(function(c) { return { kind: c.kind, number: c.number, amount_cents: c.amount_cents, reason: c.reason, created_at: c.created_at }; }),
         contract: { total_cents: contract.contract_total_cents, late_fee_cents: contract.late_fee_cents, paid_cents: contract.paid_cents, credit_cents: contract.credit_cents, refund_cents: contract.refund_cents, remaining_cents: contract.remaining_contract_cents },
@@ -26089,6 +26094,262 @@ async function gmInvPublicPayload(env, inv, origin) {
     };
     gmEstApplyBrandOverride(inv, out.business);
     return out;
+}
+
+// ── Card payments on client invoices: Stripe Connect (2026-10-03) ───────────
+// The business connects ITS OWN Stripe account once ("Conectar Stripe" in the
+// document settings). Apex then opens a Stripe Checkout page per invoice with
+// the exact balance and the invoice number already filled in (a direct charge
+// on the business's account: the customer pays the business, never Apex or
+// Resonate, and no platform fee is taken). Stripe's webhook records the
+// payment as verified, so the invoice marks itself paid (Nicole's decision).
+// Secrets: STRIPE_SECRET_KEY (the platform key) and STRIPE_WEBHOOK_SECRET.
+function stripeConfigured(env) { return !!((env.STRIPE_SECRET_KEY || "").trim()); }
+// While the platform key is a TEST key (Stripe sandbox), card payments exist
+// for the test client only, so no real business can connect a pretend account
+// or show its customers a button that takes no real money. A live key opens
+// it to every client by itself.
+var STRIPE_SANDBOX_CLIENT_ID = "test-client-temp-001";
+function stripeAvailableFor(env, clientId) {
+    if (!stripeConfigured(env)) { return false; }
+    if (/^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim())) { return true; }
+    return clientId === STRIPE_SANDBOX_CLIENT_ID;
+}
+
+function stripeFormEncode(obj, prefix, out) {
+    out = out || [];
+    Object.keys(obj).forEach(function(k) {
+        var v = obj[k], key = prefix ? prefix + "[" + k + "]" : k;
+        if (v === null || v === undefined) { return; }
+        if (typeof v === "object") { stripeFormEncode(v, key, out); }
+        else { out.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(v))); }
+    });
+    return out;
+}
+
+// One Stripe API call. account = the connected account to act on (direct charge).
+async function stripeApi(env, method, path, params, account) {
+    var headers = { "Authorization": "Bearer " + (env.STRIPE_SECRET_KEY || "").trim() };
+    if (account) { headers["Stripe-Account"] = account; }
+    var init = { method: method, headers: headers };
+    if (params && method !== "GET") {
+        headers["Content-Type"] = "application/x-www-form-urlencoded";
+        init.body = stripeFormEncode(params).join("&");
+    }
+    var res = await fetch("https://api.stripe.com" + path, init);
+    var data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) {
+        var msg = (data && data.error && data.error.message) || ("Stripe HTTP " + res.status);
+        var err = new Error(msg);
+        err.stripeStatus = res.status;
+        throw err;
+    }
+    return data;
+}
+
+async function gmStripeRow(env, clientId) {
+    return env.DB.prepare("SELECT * FROM gm_stripe_accounts WHERE client_id = ?").bind(clientId).first();
+}
+
+// The owner (never a salesperson) connects, checks or disconnects Stripe.
+function gmStripeOwnerGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user)) { return jsonErr2("Só o dono da empresa pode conectar o Stripe.", "Only the business owner can connect Stripe.", 403); }
+    return null;
+}
+
+async function gmStripeRefresh(env, row) {
+    var acct = await stripeApi(env, "GET", "/v1/accounts/" + encodeURIComponent(row.stripe_account_id));
+    var ce = acct.charges_enabled ? 1 : 0, ds = acct.details_submitted ? 1 : 0;
+    if (ce !== row.charges_enabled || ds !== row.details_submitted) {
+        await env.DB.prepare("UPDATE gm_stripe_accounts SET charges_enabled = ?, details_submitted = ?, updated_at = datetime('now') WHERE client_id = ?").bind(ce, ds, row.client_id).run();
+    }
+    row.charges_enabled = ce; row.details_submitted = ds;
+    return row;
+}
+
+async function handleGetGmStripeStatus(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (!stripeAvailableFor(env, id)) { return jsonOk({ available: false, connected: false }); }
+        var row = await gmStripeRow(env, id);
+        if (!row) { return jsonOk({ available: true, connected: false }); }
+        try { row = await gmStripeRefresh(env, row); } catch (e2) { console.error("[stripe status] " + id + ": " + e2.message); }
+        return jsonOk({ available: true, connected: true, charges_enabled: !!row.charges_enabled, details_submitted: !!row.details_submitted, livemode: !!row.livemode });
+    } catch (e) {
+        return jsonErr("Error loading Stripe status: " + e.message, 500);
+    }
+}
+
+// Creates the business's connected account on first use, then returns a
+// Stripe-hosted onboarding link. The owner finishes on Stripe's own pages.
+async function handlePostGmStripeConnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeOwnerGuard(user, id);
+        if (guard) { return guard; }
+        if (!stripeAvailableFor(env, id)) { return jsonErr2("O pagamento por cartão ainda não está disponível.", "Card payments are not available yet.", 503); }
+        var row = await gmStripeRow(env, id);
+        if (!row) {
+            var settings = await gmDocSettingsRow(env, id);
+            var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+            var acct = await stripeApi(env, "POST", "/v1/accounts", {
+                country: "US",
+                controller: { fees: { payer: "account" }, losses: { payments: "stripe" }, stripe_dashboard: { type: "full" }, requirement_collection: "stripe" },
+                business_profile: { name: String(settings.legal_name || (client && client.name) || "").slice(0, 100) || null },
+                metadata: { apex_client_id: id }
+            });
+            await env.DB.prepare(
+                "INSERT INTO gm_stripe_accounts (client_id, stripe_account_id, charges_enabled, details_submitted, livemode, connected_by, created_at, updated_at) " +
+                "VALUES (?, ?, 0, 0, ?, ?, datetime('now'), datetime('now')) ON CONFLICT (client_id) DO NOTHING"
+            ).bind(id, acct.id, /^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim()) ? 1 : 0, actorName(user)).run();
+            row = await gmStripeRow(env, id);
+        }
+        var back = DEFAULT_ORIGIN + "/portal.html";
+        var link = await stripeApi(env, "POST", "/v1/account_links", {
+            account: row.stripe_account_id, type: "account_onboarding",
+            return_url: back + "?stripe=return", refresh_url: back + "?stripe=refresh"
+        });
+        return jsonOk({ url: link.url });
+    } catch (e) {
+        return jsonErr("Error connecting Stripe: " + e.message, 500);
+    }
+}
+
+// Forgets the link on Apex's side only. The business's Stripe account and its
+// money are untouched; invoices simply stop showing the card button.
+async function handlePostGmStripeDisconnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeOwnerGuard(user, id);
+        if (guard) { return guard; }
+        await env.DB.prepare("DELETE FROM gm_stripe_accounts WHERE client_id = ?").bind(id).run();
+        return jsonOk({ disconnected: true });
+    } catch (e) {
+        return jsonErr("Error disconnecting Stripe: " + e.message, 500);
+    }
+}
+
+// PUBLIC: the customer taps "Pay by card" on the invoice page. Opens a Stripe
+// Checkout page for exactly the balance due, on the business's own account.
+async function handlePostPublicInvoicePay(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        if (!stripeConfigured(env)) { return jsonErr("Card payments are not available for this invoice.", 409); }
+        var rowInv = await env.DB.prepare("SELECT * FROM gm_invoices WHERE public_token = ?").bind(token).first();
+        if (!rowInv || rowInv.status === "void" || rowInv.status === "draft") { return jsonErr("Not found", 404); }
+        var sa = stripeAvailableFor(env, rowInv.client_id) ? await gmStripeRow(env, rowInv.client_id) : null;
+        if (!sa || !sa.charges_enabled) { return jsonErr("Card payments are not available for this invoice.", 409); }
+        var inv = await gmInvLoad(env, rowInv.client_id, rowInv.id);
+        var d = gmInvDerive(inv, inv.payments, inv.credits, gmEasternToday());
+        if (!(d.balance_cents > 0)) { return jsonErr("This invoice has no balance due.", 409); }
+        var settings = await gmDocSettingsRow(env, inv.client_id);
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(inv.client_id).first();
+        var job = await env.DB.prepare("SELECT obra FROM gm_jobs WHERE id = ?").bind(inv.job_id).first();
+        var customer = inv.lead_id ? await env.DB.prepare("SELECT email FROM gm_leads WHERE id = ?").bind(inv.lead_id).first() : null;
+        var bizName = settings.legal_name || (client && client.name) || "";
+        var label = "Invoice " + inv.number + (job && job.obra ? " - " + job.obra : "");
+        var page = DEFAULT_ORIGIN + "/invoice-view?t=" + token;
+        var meta = { apex_invoice_id: inv.id, apex_client_id: inv.client_id, apex_invoice_number: inv.number };
+        var params = {
+            mode: "payment",
+            line_items: { 0: { quantity: 1, price_data: { currency: "usd", unit_amount: d.balance_cents, product_data: { name: label.slice(0, 250) } } } },
+            client_reference_id: inv.id,
+            metadata: meta,
+            payment_intent_data: { description: (label + (bizName ? " (" + bizName + ")" : "")).slice(0, 500), metadata: meta },
+            success_url: page + "&paid=1",
+            cancel_url: page
+        };
+        var email = customer && customer.email ? String(customer.email).trim() : "";
+        if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { params.customer_email = email; }
+        var session = await stripeApi(env, "POST", "/v1/checkout/sessions", params, sa.stripe_account_id);
+        return jsonOk({ url: session.url });
+    } catch (e) {
+        console.error("[stripe pay] " + e.message);
+        return jsonErr("Could not open the card payment page. Please try again.", 502);
+    }
+}
+
+async function stripeVerifySignature(env, rawBody, header) {
+    var secret = (env.STRIPE_WEBHOOK_SECRET || "").trim();
+    if (!secret) { return false; }
+    var t = null, sigs = [];
+    String(header || "").split(",").forEach(function(part) {
+        var i = part.indexOf("=");
+        if (i === -1) { return; }
+        var k = part.slice(0, i).trim(), v = part.slice(i + 1).trim();
+        if (k === "t") { t = v; }
+        if (k === "v1") { sigs.push(v); }
+    });
+    if (!t || !sigs.length) { return false; }
+    if (Math.abs(Date.now() / 1000 - Number(t)) > 600) { return false; }
+    var key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    var mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(t + "." + rawBody));
+    var hex = Array.from(new Uint8Array(mac)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+    return sigs.indexOf(hex) !== -1;
+}
+
+// Stripe confirmed the money: record ONE verified payment on the invoice.
+// gm_stripe_events (event id PRIMARY KEY) makes a redelivered event a no-op.
+async function gmStripeRecordPaid(env, request, event) {
+    var session = event.data && event.data.object;
+    if (!session || session.payment_status !== "paid") { return "not paid"; }
+    var meta = session.metadata || {};
+    var invId = meta.apex_invoice_id, clientId = meta.apex_client_id;
+    if (!invId || !clientId) { return "not an Apex invoice"; }
+    var sa = await gmStripeRow(env, clientId);
+    // The event must come from the account this business connected.
+    if (!sa || !event.account || sa.stripe_account_id !== event.account) { return "account mismatch"; }
+    var inv = await gmInvLoad(env, clientId, invId);
+    if (!inv) { return "invoice not found"; }
+    var amount = Math.round(Number(session.amount_total));
+    if (!(amount > 0)) { return "no amount"; }
+    var claim = await env.DB.prepare("INSERT OR IGNORE INTO gm_stripe_events (event_id, client_id, invoice_id, created_at) VALUES (?, ?, ?, datetime('now'))").bind(event.id, clientId, invId).run();
+    if (!claim.meta || !claim.meta.changes) { return "already recorded"; }
+    var ref = String(session.payment_intent || session.id || "").slice(0, 120);
+    var dup = await env.DB.prepare("SELECT 1 AS x FROM gm_invoice_payments WHERE invoice_id = ? AND method = 'card' AND reference = ?").bind(invId, ref).first();
+    if (dup) { return "already recorded"; }
+    var pid = crypto.randomUUID();
+    var now = new Date().toISOString().slice(0, 19).replace("T", " ");
+    await env.DB.prepare(
+        "INSERT INTO gm_invoice_payments (id, invoice_id, client_id, amount_cents, paid_date, method, reference, note, state, recorded_by, recorded_by_role, verified_by, verified_at) " +
+        "VALUES (?, ?, ?, ?, ?, 'card', ?, ?, 'verified', 'Stripe', 'system', 'Stripe', ?)"
+    ).bind(pid, invId, clientId, amount, gmEasternToday(), ref, "Paid online by card (Stripe)", now).run();
+    await gmInvIssueReceipt(env, clientId, pid, request);
+    await gmFinancePostPayment(env, clientId, pid, "payment");
+    if (inv.lead_id) {
+        await gmLogLeadEvents(env, clientId, inv.lead_id, "Stripe", [{ action: "payment_recorded", field: inv.number, old_value: null, new_value: (amount / 100).toFixed(2), reason: "card " + ref }]);
+    }
+    return "recorded";
+}
+
+// Route: POST /api/stripe/webhook (no login; verified by Stripe's signature).
+async function handleStripeWebhook(request, env) {
+    try {
+        var rawBody = await request.text();
+        var ok = await stripeVerifySignature(env, rawBody, request.headers.get("Stripe-Signature"));
+        if (!ok) { console.log("[stripe webhook] bad signature"); return jsonErr("Invalid signature", 400); }
+        var event = JSON.parse(rawBody);
+        var result = "ignored";
+        if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+            result = await gmStripeRecordPaid(env, request, event);
+        } else if (event.type === "account.updated" && event.data && event.data.object) {
+            var a = event.data.object;
+            await env.DB.prepare("UPDATE gm_stripe_accounts SET charges_enabled = ?, details_submitted = ?, updated_at = datetime('now') WHERE stripe_account_id = ?")
+                .bind(a.charges_enabled ? 1 : 0, a.details_submitted ? 1 : 0, a.id).run();
+            result = "account updated";
+        }
+        console.log("[stripe webhook] " + event.type + " " + event.id + ": " + result);
+        return jsonOk({ received: true, result: result });
+    } catch (e) {
+        console.error("[stripe webhook] " + e.message);
+        return jsonErr("Webhook error: " + e.message, 500);
+    }
 }
 
 async function handleGetPublicInvoice(token, request, env) {
@@ -40498,6 +40759,10 @@ async function handleFetch(request, env, ctx) {
             }
         }
 
+        // PUBLIC: the invoice page's "Pay by card" button (Stripe Checkout).
+        var pubPayMatch = path.match(/^\/api\/public\/invoices\/([a-f0-9]{48})\/pay$/);
+        if (pubPayMatch && method === "POST") { return handlePostPublicInvoicePay(pubPayMatch[1], request, env); }
+
         // PUBLIC customer-facing invoice and receipt (phase 3).
         var pubInvMatch = path.match(/^\/api\/public\/(invoices|receipts)\/([a-f0-9]{48})$/);
         if (pubInvMatch && method === "GET") {
@@ -40696,6 +40961,7 @@ async function handleFetch(request, env, ctx) {
             return handleDeleteSessionClient(decodeURIComponent(scDelMatch[1]), decodeURIComponent(scDelMatch[2]), request, env);
         }
         if (path === "/api/fireflies/webhook"    && method === "POST") { return handleFirefliesWebhook(request, env); }
+        if (path === "/api/stripe/webhook"       && method === "POST") { return handleStripeWebhook(request, env); }
         if (path === "/api/fireflies/transcripts" && method === "GET")  { return handleGetFirefliesTranscripts(request, env); }
         if (path === "/api/fireflies/pull"        && method === "POST") { return handlePostFirefliesPull(request, env); }
         if (path === "/api/fireflies/dismiss"     && method === "POST") { return handlePostFirefliesDismiss(request, env); }
@@ -41162,6 +41428,12 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 6 && gmCol === "pricing" && method === "PUT") {
                     return handlePutGmPricing(cid, segs[5], request, env);
+                }
+                // Card payments: the business's own Stripe account (Connect).
+                if (segs.length === 6 && gmCol === "stripe") {
+                    if (segs[5] === "status" && method === "GET") { return handleGetGmStripeStatus(cid, request, env); }
+                    if (segs[5] === "connect" && method === "POST") { return handlePostGmStripeConnect(cid, request, env); }
+                    if (segs[5] === "disconnect" && method === "POST") { return handlePostGmStripeDisconnect(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

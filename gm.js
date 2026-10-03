@@ -8467,9 +8467,14 @@ function gmDocSettingsFormHtml() {
   d.payment_methods.forEach(function(m, i) {
     var def = GmLabels.DOC_PAYMENT_METHODS[i];
     var hint = isEn() ? def.hintEn : def.hintPt;
-    html += '<label class="gm-doc-check-line"><input type="checkbox"' + (m.on ? " checked" : "") +
+    // Card / Stripe is a connection, not a pasted link: a connected account
+    // keeps the box ticked, and the status block replaces the text field.
+    var stripeOn = def.key === "card_link" && gmStripeStatus && gmStripeStatus.connected;
+    html += '<label class="gm-doc-check-line"><input type="checkbox"' + ((m.on || stripeOn) ? " checked" : "") + (stripeOn ? " disabled" : "") +
       ' onchange="gmDocPmToggle(' + i + ', this.checked)"> <span>' + escHtml(isEn() ? def.en : def.pt) + '</span></label>';
-    if (m.on && hint) {
+    if (def.key === "card_link") {
+      if (m.on || stripeOn) { html += gmStripeBlockHtml(i, m, hint); }
+    } else if (m.on && hint) {
       html += '<input type="text" class="gm-input" value="' + escHtml(m.detail) + '" placeholder="' + escHtml(hint) + '" ' +
         'aria-label="' + escHtml(hint) + '" oninput="gmDocPmDetail(' + i + ', this.value)">';
     }
@@ -8696,6 +8701,60 @@ function gmDocPmToggle(i, on) {
   gmDocDraft.payment_methods[i].on = !!on;
   gmRenderEstimatesTab();
 }
+// ── Card payments: the business's own Stripe account (Stripe Connect) ──
+var gmStripeStatus = null;      // { available, connected, charges_enabled, details_submitted }
+var gmStripeLoading = false;
+function gmStripeLoad(force) {
+  if (gmStripeLoading || (gmStripeStatus && !force)) { return; }
+  gmStripeLoading = true;
+  gmApi("stripe/status").then(function(d) {
+    gmStripeLoading = false; gmStripeStatus = d || { available: false, connected: false };
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmStripeLoading = false; gmStripeStatus = { available: false, connected: false };
+    console.error(e); gmRenderEstimatesTab();
+  });
+}
+function gmStripeBlockHtml(i, m, hint) {
+  var st = gmStripeStatus;
+  if (!st) { gmStripeLoad(false); return '<p class="muted" style="margin:4px 0 8px;">' + gmT("Verificando o Stripe...", "Checking Stripe...") + '</p>'; }
+  // Card payments not switched on for Apex yet: keep the old pasted link.
+  if (!st.available) {
+    return '<input type="text" class="gm-input" value="' + escHtml(m.detail) + '" placeholder="' + escHtml(hint) + '" ' +
+      'aria-label="' + escHtml(hint) + '" oninput="gmDocPmDetail(' + i + ', this.value)">';
+  }
+  if (!st.connected) {
+    return '<p class="muted" style="margin:4px 0 8px;">' + gmT(
+      "Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos.",
+      "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments.") + '</p>' +
+      '<button type="button" class="gm-btn-primary" onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
+  }
+  if (!st.charges_enabled) {
+    return '<p class="gm-warn" style="margin:4px 0 8px;">' + gmT(
+      "O cadastro no Stripe ainda não terminou. Continue para liberar o pagamento com cartão.",
+      "Stripe setup is not finished yet. Continue to turn on card payments.") + '</p>' +
+      '<button type="button" class="gm-btn-primary" onclick="gmStripeConnect(this)">' + gmT("Continuar no Stripe", "Continue on Stripe") + '</button> ' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmStripeLoad(true)">' + gmT("Atualizar status", "Refresh status") + '</button>';
+  }
+  return '<p class="muted" style="margin:4px 0 8px;">✓ ' + gmT(
+    "Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente.",
+    "Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically.") + '</p>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>';
+}
+function gmStripeConnect(btn) {
+  if (btn) { btn.disabled = true; }
+  gmApi("stripe/connect", { method: "POST", body: {} }).then(function(d) {
+    if (!d || !d.url) { throw new Error(gmT("O Stripe não respondeu.", "Stripe did not answer.")); }
+    if (gmInApp()) { apexOpenExternal(d.url); gmStripeStatus = { available: true, connected: true, charges_enabled: false }; gmRenderEstimatesTab(); return; }
+    window.location.href = d.url;
+  }).catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
+}
+function gmStripeDisconnect() {
+  if (!window.confirm(gmT("Desconectar o Stripe? As faturas deixam de mostrar o botão de cartão. A sua conta Stripe não é apagada.",
+                          "Disconnect Stripe? Invoices stop showing the card button. Your Stripe account is not deleted."))) { return; }
+  gmApi("stripe/disconnect", { method: "POST", body: {} }).then(function() { gmStripeLoad(true); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
 function gmDocPmDetail(i, v) { if (gmDocDraft && gmDocDraft.payment_methods[i]) { gmDocDraft.payment_methods[i].detail = v; } }
 function gmDocPresetSet(pi, v) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].name = v; } }
 function gmDocAddPreset() { if (gmDocDraft) { gmDocDraft.presets.push({ name: "", steps: [] }); gmDocRepaintPresets(); } }
@@ -8755,7 +8814,10 @@ function gmDocSettingsSave() {
     }
   }
   var pm = {};
-  d.payment_methods.forEach(function(m) { if (m.on) { pm[m.key] = (m.detail || "").trim(); } });
+  d.payment_methods.forEach(function(m) {
+    var stripeOn = m.key === "card_link" && gmStripeStatus && gmStripeStatus.connected;
+    if (m.on || stripeOn) { pm[m.key] = stripeOn ? "" : (m.detail || "").trim(); }
+  });
   var payload = {
     brand_primary: d.brand_primary ? d.brand_primary.toLowerCase() : null,
     brand_accent:  d.brand_accent  ? d.brand_accent.toLowerCase()  : null,

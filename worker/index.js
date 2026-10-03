@@ -13627,6 +13627,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // settings and their audit trail. Owner only -- the seller
                 // list below deliberately never names these.
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
+                // Card payments: the owner's own Stripe connection status
+                // (owner only; the seller list never names it).
+                if (gmRest === "stripe/status") { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -13684,6 +13687,8 @@ function clientRequestAllowed(path, method, clientId) {
                 // The handler replays the document's own GET with this
                 // session, so it can never reach more than that GET does.
                 if (gmRest === "pdf-link") { return true; }
+                // Card payments: connect / disconnect the owner's Stripe account.
+                if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).

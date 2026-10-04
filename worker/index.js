@@ -31318,6 +31318,15 @@ async function syncPlaidTransactions(env) {
         // Uncategorized is a normal state. Nothing to report.
     }
 
+    // Apex Club: Zelle confirmation numbers guests sent before the bank feed
+    // had their deposit are tried again now that it may. Purely additive: it
+    // cannot change the summary and a failure here never fails the sync.
+    try {
+        await clubZelleRetry(env, null);
+    } catch (eZelle) {
+        // The next sync tries again.
+    }
+
     return summary;
 }
 
@@ -34315,6 +34324,13 @@ async function buildApexClubEventPL(env, event) {
         "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
     ).bind(event.id).all();
     var regs = regsRes.results || [];
+    // A guest waiting on Alice (Zelle number in review or mismatch) carries
+    // the deposit to look at. No extra query unless there is such a guest.
+    for (var zi = 0; zi < regs.length; zi++) {
+        if (!regs[zi].paid_at && regs[zi].zelle_conf && (regs[zi].zelle_state === "review" || regs[zi].zelle_state === "mismatch")) {
+            regs[zi].zelle_candidate = await clubZelleCandidateFor(env, regs[zi], event);
+        }
+    }
 
     // SEATS, not rows. A registration with a plus one is two people at the
     // table, and the food is ordered from this number -- counting rows would
@@ -40841,6 +40857,8 @@ async function handleFetch(request, env, ctx) {
         if (clubPayCardPub && method === "POST") { return handlePostClubPayCard(clubPayCardPub[1], request, env); }
         var clubPayRefreshPub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})\/refresh$/);
         if (clubPayRefreshPub && method === "POST") { return handlePostClubPayRefresh(clubPayRefreshPub[1], request, env); }
+        var clubPayZellePub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})\/zelle-conf$/);
+        if (clubPayZellePub && method === "POST") { return handlePostClubPayZelleConf(clubPayZellePub[1], request, env); }
         if (path.indexOf("/api/club/pay/") === 0) { return apxInvNoIndex(jsonErr("Not found", 404)); }
 
         // PUBLIC: Apex's OWN invoice, the client's link (the 48-hex token is
@@ -41978,9 +41996,10 @@ async function handleFetch(request, env, ctx) {
         var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
         if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
 
-        var clubRegPayMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)\/(pay-link|mark-paid)$/);
+        var clubRegPayMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)\/(pay-link|mark-paid|confirm-zelle|reject-zelle)$/);
         if (clubRegPayMatch && method === "POST") {
             if (clubRegPayMatch[2] === "pay-link") { return handlePostClubRegPayLink(clubRegPayMatch[1], request, env); }
+            if (clubRegPayMatch[2] === "confirm-zelle" || clubRegPayMatch[2] === "reject-zelle") { return handlePostClubRegZelleDecision(clubRegPayMatch[1], clubRegPayMatch[2], request, env); }
             return handlePostClubRegMarkPaid(clubRegPayMatch[1], request, env);
         }
         var clubRegMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)$/);
@@ -46453,7 +46472,7 @@ async function handlePostClubPayRefresh(token, request, env) {
             if (!g.reg.paid_at) {
                 await apxStripeRefreshCharges(env, "apex_club_registration_id", g.reg.id);
                 await applyStripeChargesToClubRegistrations(env, g.reg.id);
-                if (typeof clubZelleRetry === "function") { await clubZelleRetry(env, g.reg.id); }
+                await clubZelleRetry(env, g.reg.id);
             }
         } catch (eS) { console.error("[club-pay] refresh failed: " + (eS && eS.message)); }
         var fresh = await clubRegByToken(env, token);
@@ -46534,5 +46553,286 @@ async function handlePostClubRegMarkPaid(regId, request, env) {
         return jsonOk(await buildApexClubEventPL(env, ev));
     } catch (e) {
         return jsonErr("Error updating the payment: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// APEX CLUB: ZELLE CONFIRMATION NUMBER (2026-10-04)
+//
+// A guest who paid by Zelle can type the confirmation number from their bank
+// app. The bank writes the same number on the deposit ("... Conf# y8nhab2ly"),
+// and confNumber() already reads it. A deposit carrying that exact number is
+// the ONLY thing that can match: never a name alone, never an amount alone.
+// The box is optional and never blocks anything; Alice's "Belongs here" on
+// the event panel keeps working exactly as before.
+//
+// STILL UNPROVEN (2026-10-04): that the number a payer sees in their own bank
+// app is the number the receiving bank records. Until one real payment
+// settles that, a number that finds nothing simply stays "pending".
+// ===========================================================================
+
+// The guest's typed number, as confNumber() would read it off a deposit:
+// lowercase, letters and digits only (spaces and a leading # dropped), at
+// least 6 characters. null when it cannot be a confirmation number.
+function clubZelleNormalize(raw) {
+    var v = String(raw == null ? "" : raw).toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (v.length < 6 || v.length > 24) { return null; }
+    return v;
+}
+
+var CLUB_ZELLE_NOISE = { LLC: 1, INC: 1, CORP: 1, CO: 1, LTDA: 1, THE: 1, DBA: 1 };
+function clubZelleTokens(text) {
+    var out = [];
+    String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").split(" ").forEach(function(tk) {
+        if (tk.length >= 3 && !CLUB_ZELLE_NOISE[tk] && out.indexOf(tk) === -1) { out.push(tk); }
+    });
+    return out;
+}
+// Who paid, from the bank's own line: the text after "Zelle payment from" up
+// to " for " or " Conf#".
+function clubZellePayerName(description) {
+    var d = String(description || "");
+    var m = /zelle payment from\s+(.*)$/i.exec(d);
+    if (!m) { return ""; }
+    var rest = m[1];
+    var cut = rest.search(/\s+for\s+|;?\s*conf#/i);
+    return (cut === -1 ? rest : rest.slice(0, cut)).trim();
+}
+function clubZellePayerTokens(description) {
+    return clubZelleTokens(clubZellePayerName(description));
+}
+function clubZelleNameTokens(name, company) {
+    return clubZelleTokens(String(name || "") + " " + String(company || ""));
+}
+function clubZelleNamesOverlap(description, name, company) {
+    var payer = clubZellePayerTokens(description), mine = clubZelleNameTokens(name, company);
+    for (var i = 0; i < payer.length; i++) { if (mine.indexOf(payer[i]) !== -1) { return true; } }
+    return false;
+}
+
+// The decision for one deposit that carries the guest's number. Pure.
+//   review    the deposit is already spoken for (matched to an invoice, filed
+//             under an event, or categorized as something else), or the payer
+//             shares no name with the guest or their company. A relative or a
+//             company account paying for a guest is normal, so this is a
+//             question for Alice, never a rejection.
+//   mismatch  less than the Zelle price for the guest's seats.
+//   paid      everything agrees. More than the price is accepted.
+function clubZelleEvaluate(txn, reg, expectedCents, flags) {
+    var cat = txn.category_id || null;
+    if (flags.hasInvoicePayment) { return { state: "review", reason: "o depósito já está ligado a uma fatura" }; }
+    if (flags.inEventTxns) { return { state: "review", reason: "o depósito já está lançado em um evento do Apex Club" }; }
+    if (cat !== null && cat !== "cat_apex_club_receita" && cat !== "cat_receita_clientes") { return { state: "review", reason: "o depósito já tem outra categoria" }; }
+    if ((txn.amount_cents || 0) < expectedCents) { return { state: "mismatch", reason: "valor menor que o esperado" }; }
+    if (!clubZelleNamesOverlap(txn.description, reg.name, reg.company)) { return { state: "review", reason: "o nome de quem pagou não bate com o convidado nem com a empresa" }; }
+    return { state: "paid", reason: null, excess_cents: (txn.amount_cents || 0) - expectedCents };
+}
+
+// Business deposits in the event window (widened 3 days each side) whose
+// description carries this number. LIKE only narrows; confNumber() decides.
+async function clubZelleCandidates(env, ev, conf) {
+    var like = "%" + String(conf).replace(/[\\%_]/g, function(c) { return "\\" + c; }) + "%";
+    var rows = (await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.category_id, t.category_source " +
+        "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+        "WHERE a.purpose = 'business' AND t.amount_cents > 0 AND t.voided_at IS NULL " +
+        "AND t.date >= date(?, '-3 day') AND t.date <= date(?, '+3 day') " +
+        "AND LOWER(t.description) LIKE ? ESCAPE '\\' ORDER BY t.date LIMIT 10"
+    ).bind(ev.window_start, ev.window_end, like).all()).results || [];
+    return rows.filter(function(t) { return confNumber(t.description) === conf; });
+}
+
+// Mark the registration paid from this deposit and file the deposit under the
+// event. ONE batch. The first statement is the guard: the primary key on
+// apex_club_conf_used.conf means a number can only ever claim one
+// registration. Every later statement runs only if THIS registration owns the
+// number, so when someone else already used it nothing changes at all.
+// Returns "paid", "used" or "already" (the registration was paid meanwhile).
+async function clubZelleApply(env, reg, ev, txn, conf, seats, confirmedBy) {
+    var mine = "EXISTS (SELECT 1 FROM apex_club_conf_used u WHERE u.conf = ? AND u.registration_id = ?)";
+    var res = await env.DB.batch([
+        env.DB.prepare("INSERT OR IGNORE INTO apex_club_conf_used (conf, registration_id, transaction_id, used_at) VALUES (?, ?, ?, ?)")
+            .bind(conf, reg.id, txn.id, new Date().toISOString()),
+        env.DB.prepare(
+            "UPDATE apex_club_registrations SET paid_at = ?, paid_cents = ?, paid_method = 'zelle', paid_ref = ?, zelle_state = NULL " +
+            "WHERE id = ? AND paid_at IS NULL AND " + mine
+        ).bind(new Date().toISOString(), txn.amount_cents, txn.id, reg.id, conf, reg.id),
+        // From here down: the same writes handlePostFinanceNewClubConfirm makes
+        // when Alice taps "Belongs here" (that handler builds them inline, so
+        // they are repeated here, each behind the ownership guard). Keep equal.
+        env.DB.prepare("DELETE FROM apex_club_event_dismissed WHERE event_id = ? AND transaction_id = ? AND " + mine)
+            .bind(ev.id, txn.id, conf, reg.id),
+        env.DB.prepare(
+            "INSERT INTO apex_club_event_txns (event_id, transaction_id, side, people, confirmed_by) " +
+            "SELECT ?, ?, 'income', ?, ? WHERE " + mine + " " +
+            "ON CONFLICT(event_id, transaction_id) DO UPDATE SET side = excluded.side, people = excluded.people"
+        ).bind(ev.id, txn.id, seats, confirmedBy, conf, reg.id),
+        env.DB.prepare(
+            "UPDATE transactions SET category_id = 'cat_apex_club_receita', category_source = 'rule', " +
+            "categorized_at = datetime('now') " +
+            "WHERE id = ? AND COALESCE(category_source, '') != 'manual' AND " + mine
+        ).bind(txn.id, conf, reg.id)
+    ]);
+    if (res[1] && res[1].meta && res[1].meta.changes) { return "paid"; }
+    var owner = await env.DB.prepare("SELECT registration_id FROM apex_club_conf_used WHERE conf = ?").bind(conf).first();
+    return (owner && owner.registration_id === reg.id) ? "already" : "used";
+}
+
+// Try to match one registration's stored number. candidates may be handed in
+// (the retry reads them once for everyone). Returns the outcome word.
+async function matchClubZelleConf(env, reg, ev, candidates) {
+    var conf = reg.zelle_conf;
+    if (!conf || reg.paid_at) { return reg.paid_at ? "paid" : "pending"; }
+    var used = await env.DB.prepare("SELECT registration_id FROM apex_club_conf_used WHERE conf = ?").bind(conf).first();
+    if (used && used.registration_id !== reg.id) { return "used"; }
+    var found = candidates || await clubZelleCandidates(env, ev, conf);
+    if (!found.length) {
+        await env.DB.prepare("UPDATE apex_club_registrations SET zelle_state = 'pending' WHERE id = ? AND paid_at IS NULL AND zelle_state IS NULL").bind(reg.id).run();
+        return "pending";
+    }
+    var txn = found[0];
+    var price = clubPriceFor(ev, reg.plus_one === 1);
+    var flags = {
+        hasInvoicePayment: !!(await env.DB.prepare("SELECT 1 AS x FROM invoice_payments WHERE transaction_id = ? AND undone_at IS NULL LIMIT 1").bind(txn.id).first()),
+        inEventTxns: !!(await env.DB.prepare("SELECT 1 AS x FROM apex_club_event_txns WHERE transaction_id = ? LIMIT 1").bind(txn.id).first())
+    };
+    var verdict = clubZelleEvaluate(txn, reg, price.zelle_cents, flags);
+    if (verdict.state !== "paid") {
+        // The state change is the guard on the alert: it goes out once.
+        var set = await env.DB.prepare(
+            "UPDATE apex_club_registrations SET zelle_state = ? WHERE id = ? AND paid_at IS NULL AND COALESCE(zelle_state, '') != ?"
+        ).bind(verdict.state, reg.id, verdict.state).run();
+        if (set.meta && set.meta.changes) {
+            await notifyNicoleTelegram(env, "Apex Club: Zelle de " + reg.name + " (" + ev.name + ") precisa de conferência: " + verdict.reason +
+                ". Depósito " + apxUsd(txn.amount_cents) + " em " + txn.date + ", esperado " + apxUsd(price.zelle_cents) + ". Ver na lista de convidados.");
+        }
+        return verdict.state;
+    }
+    var done = await clubZelleApply(env, reg, ev, txn, conf, price.seats, "zelle-conf");
+    if (done === "paid" && verdict.excess_cents > 0) {
+        await notifyNicoleTelegram(env, "Apex Club: Zelle de " + reg.name + " (" + ev.name + ") confirmado com valor MAIOR que o esperado: recebido " +
+            apxUsd(txn.amount_cents) + ", esperado " + apxUsd(price.zelle_cents) + " (sobra " + apxUsd(verdict.excess_cents) + ").");
+    }
+    return done === "already" ? "paid" : done;
+}
+
+// Numbers still waiting for the bank feed, tried again: after every Plaid
+// sync and from the guest's refresh. At most 50 a run, and ONE transaction
+// query for all of them.
+async function clubZelleRetry(env, onlyRegId) {
+    var q = env.DB.prepare(
+        "SELECT r.id, r.event_id, r.name, r.company, r.plus_one, r.paid_at, r.zelle_conf, r.zelle_state, " +
+        "e.name AS ev_name, e.window_start, e.window_end, e.price_single_cents, e.price_couple_cents, e.price_card_single_cents, e.price_card_couple_cents " +
+        "FROM apex_club_registrations r JOIN apex_club_events e ON e.id = r.event_id " +
+        "WHERE r.zelle_conf IS NOT NULL AND r.paid_at IS NULL AND (r.zelle_state IS NULL OR r.zelle_state = 'pending') " +
+        (onlyRegId ? "AND r.id = ? " : "") + "ORDER BY r.zelle_conf_at LIMIT 50"
+    );
+    if (onlyRegId) { q = q.bind(onlyRegId); }
+    var waiting = (await q.all()).results || [];
+    if (!waiting.length) { return 0; }
+    var lo = waiting[0].window_start, hi = waiting[0].window_end;
+    waiting.forEach(function(w) { if (w.window_start < lo) { lo = w.window_start; } if (w.window_end > hi) { hi = w.window_end; } });
+    var txns = (await env.DB.prepare(
+        "SELECT t.id, t.amount_cents, t.date, t.description, t.category_id, t.category_source " +
+        "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
+        "WHERE a.purpose = 'business' AND t.amount_cents > 0 AND t.voided_at IS NULL " +
+        "AND t.date >= date(?, '-3 day') AND t.date <= date(?, '+3 day') AND LOWER(t.description) LIKE '%conf#%' ORDER BY t.date"
+    ).bind(lo, hi).all()).results || [];
+    var byConf = {};
+    txns.forEach(function(t) { var c = confNumber(t.description); if (c) { (byConf[c] = byConf[c] || []).push(t); } });
+    var matched = 0;
+    for (var i = 0; i < waiting.length; i++) {
+        var w = waiting[i];
+        var ev = { id: w.event_id, name: w.ev_name, window_start: w.window_start, window_end: w.window_end, price_single_cents: w.price_single_cents,
+                   price_couple_cents: w.price_couple_cents, price_card_single_cents: w.price_card_single_cents, price_card_couple_cents: w.price_card_couple_cents };
+        // Only deposits inside THIS event's own window count for it.
+        var mine = (byConf[w.zelle_conf] || []).filter(function(t) {
+            return t.date >= addInterval(ev.window_start, -3, "day") && t.date <= addInterval(ev.window_end, 3, "day");
+        });
+        if (!mine.length) { continue; }
+        try { if ((await matchClubZelleConf(env, w, ev, mine)) === "paid") { matched++; } }
+        catch (e) { console.error("[club-zelle] retry failed for " + w.id + ": " + (e && e.message)); }
+    }
+    return matched;
+}
+
+var CLUB_ZELLE_MESSAGES = {
+    paid: "Pagamento confirmado. Obrigado!",
+    pending: "Recebemos seu número. Vamos confirmar assim que o banco atualizar.",
+    review: "Recebemos seu número. A equipe vai conferir e confirmar.",
+    mismatch: "Recebemos seu número, mas o valor é diferente do esperado. A equipe vai conferir.",
+    used: "Este número de confirmação já foi usado."
+};
+
+// POST /api/club/pay/:token/zelle-conf   { conf }
+// 5 per token per hour, 120 per IP per hour. The guest is told only which of
+// the five outcomes applies: never who paid or how much was received.
+async function handlePostClubPayZelleConf(token, request, env) {
+    try {
+        var g = await clubPayGuard(env, request, token, "zc", 5);
+        if (g.res) { return apxInvNoIndex(g.res); }
+        var reg = g.reg, ev = g.ev;
+        var body = await request.json().catch(function() { return {}; });
+        var conf = clubZelleNormalize(body.conf);
+        if (!conf) { return apxInvNoIndex(jsonErr("Confira o número de confirmação.", 400)); }
+        if (reg.paid_at) { return apxInvNoIndex(jsonOk({ state: "paid", message: CLUB_ZELLE_MESSAGES.paid })); }
+        var used = await env.DB.prepare("SELECT registration_id FROM apex_club_conf_used WHERE conf = ?").bind(conf).first();
+        if (used && used.registration_id !== reg.id) { return apxInvNoIndex(jsonOk({ state: "used", message: CLUB_ZELLE_MESSAGES.used })); }
+        // Stored only while unpaid (guarded), and a new number starts clean.
+        var st = await env.DB.prepare(
+            "UPDATE apex_club_registrations SET zelle_conf = ?, zelle_conf_at = ?, zelle_state = NULL WHERE id = ? AND paid_at IS NULL"
+        ).bind(conf, new Date().toISOString(), reg.id).run();
+        if (!st.meta || !st.meta.changes) { return apxInvNoIndex(jsonOk({ state: "paid", message: CLUB_ZELLE_MESSAGES.paid })); }
+        reg.zelle_conf = conf; reg.zelle_state = null;
+        var outcome = await matchClubZelleConf(env, reg, ev, null);
+        return apxInvNoIndex(jsonOk({ state: outcome, message: CLUB_ZELLE_MESSAGES[outcome] || CLUB_ZELLE_MESSAGES.pending }));
+    } catch (e) {
+        return apxInvNoIndex(jsonErr("Não deu certo. Tente de novo.", 500));
+    }
+}
+
+// The deposit behind a guest waiting on Alice (review or mismatch), for the
+// guest list: who paid, how much, when, and what was expected.
+async function clubZelleCandidateFor(env, reg, ev) {
+    try {
+        var found = await clubZelleCandidates(env, ev, reg.zelle_conf);
+        if (!found.length) { return null; }
+        return { transaction_id: found[0].id, payer: clubZellePayerName(found[0].description), amount_cents: found[0].amount_cents, date: found[0].date,
+                 expected_cents: clubPriceFor(ev, reg.plus_one === 1).zelle_cents };
+    } catch (e) { return null; }
+}
+
+// POST /api/finance-new/club/registrations/:id/confirm-zelle   alice / rafa / developer
+// POST /api/finance-new/club/registrations/:id/reject-zelle
+// Alice's answer for a guest in review or mismatch. "Confirmar" runs the very
+// same batch as an automatic match, so the one-registration-per-number guard
+// is not bypassed. "Não é este" clears the guest's number and state (a number
+// already recorded in apex_club_conf_used stays recorded).
+async function handlePostClubRegZelleDecision(regId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var reg = await env.DB.prepare(
+            "SELECT id, event_id, name, company, plus_one, paid_at, zelle_conf, zelle_state FROM apex_club_registrations WHERE id = ?"
+        ).bind(regId).first();
+        if (!reg) { return jsonErr("Registration not found", 404); }
+        var ev = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(reg.event_id).first();
+        if (!ev) { return jsonErr("Event not found", 404); }
+        if (action === "reject-zelle") {
+            await env.DB.prepare(
+                "UPDATE apex_club_registrations SET zelle_conf = NULL, zelle_conf_at = NULL, zelle_state = NULL WHERE id = ? AND paid_at IS NULL"
+            ).bind(regId).run();
+            return jsonOk(await buildApexClubEventPL(env, ev));
+        }
+        if (reg.paid_at) { return jsonErr("Já está pago. / Already paid.", 409); }
+        if (!reg.zelle_conf) { return jsonErr("Este convidado não enviou um número de confirmação. / This guest has not sent a confirmation number.", 409); }
+        var found = await clubZelleCandidates(env, ev, reg.zelle_conf);
+        if (!found.length) { return jsonErr("Nenhum depósito com este número foi encontrado. / No deposit with this number was found.", 409); }
+        var done = await clubZelleApply(env, reg, ev, found[0], reg.zelle_conf, clubPriceFor(ev, reg.plus_one === 1).seats, actorName(user));
+        if (done === "used") { return jsonErr("Este número de confirmação já foi usado por outro convidado. / This confirmation number was already used by another guest.", 409); }
+        return jsonOk(await buildApexClubEventPL(env, ev));
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
     }
 }

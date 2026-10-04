@@ -1067,6 +1067,8 @@
     .guest-name .pay-badge.ok { background: #e3f1e6; color: #24693a; }
     .guest-name .pay-badge.warn { background: #fbefd9; color: #8a5a00; }
     .guest-tools { flex-wrap: wrap; justify-content: flex-end; }
+    .guest-name .zelle-review { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.9; }
+    .guest-name .zelle-review .gbtn { margin-left: 4px; }
     .guest-tools { display: flex; gap: 6px; flex: none; }
     .gbtn {
       font-family: inherit; font-size: 11.5px; font-weight: 600;
@@ -6030,6 +6032,7 @@
               (isNext ? ' <span class="tag-meta">(' + (isEn() ? "next time" : "pr&oacute;xima") + ")</span>" : "") +
               (g.company ? '<span class="guest-company">' + esc(g.company) + "</span>" : "") +
               clubPayBadge(g) +
+              clubZelleReview(g) +
             "</span>" +
             '<span class="guest-tools">' +
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
@@ -6559,6 +6562,29 @@
         else { label = t("Aguardando banco", "Waiting for bank"); }
       }
       return label ? '<span class="' + cls + '">' + label + "</span>" : "";
+    }
+    // A guest whose Zelle number needs Alice's eyes (review or mismatch): the
+    // deposit found for it, and the two answers.
+    function clubZelleReview(g) {
+      if (!clubPayVisible() || g.paid_at || (g.zelle_state !== "review" && g.zelle_state !== "mismatch")) { return ""; }
+      var c = g.zelle_candidate;
+      var info = c
+        ? esc(c.payer || "Zelle") + " &middot; " + fmtCents(c.amount_cents) + " &middot; " + fmtDate(c.date) +
+          (g.zelle_state === "mismatch" ? " (" + t("esperado", "expected") + " " + fmtCents(c.expected_cents) + ")" : "")
+        : "Conf# " + esc(g.zelle_conf || "");
+      return '<span class="zelle-review">' + info + " " +
+        '<button class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'confirm-zelle\')">' + t("Confirmar", "Confirm") + "</button>" +
+        '<button class="gbtn" onclick="clubZelleDecide(\'' + g.id + '\', \'reject-zelle\')">' + t("Não é este", "Not this one") + "</button>" +
+        "</span>";
+    }
+    function clubZelleDecide(regId, action) {
+      apiFetch("/api/finance-new/club/registrations/" + regId + "/" + action, { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (d && d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
     }
     function clubPayTools(g) {
       if (!clubPayVisible()) { return ""; }

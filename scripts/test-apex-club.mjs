@@ -86,9 +86,9 @@ const clubFns = ["normalizeUsPhone", "gmEstNewToken", "apexClubMemoHit", "addInt
   "clubCardPriceFromZelle", "clubPriceFor", "parseClubPrices", "parseClubCardPrices", "clubRegByToken", "clubPayPayload", "clubPayGuard", "clubRetirePayLinks", "clubCardTotals",
   "handlePostClubRegister", "handleGetClubPay", "handlePostClubPayCard", "applyStripeChargesToClubRegistrations", "buildApexClubEventPL",
   "handlePostFinanceNewClubEvent", "handlePutFinanceNewClubEvent", "handlePostClubRegPayLink", "handlePostClubRegMarkPaid"]
-  .concat(["clubZelleNormalize", "clubZellePayerTokens", "clubZelleNameTokens", "clubZelleNamesOverlap", "clubZelleEvaluate", "clubZelleCandidates", "clubZelleApply", "matchClubZelleConf", "clubZelleRetry",
+  .concat(["clubZelleNormalize", "clubZelleTokens", "clubZellePayerName", "clubZelleCandidateFor", "clubZellePayerTokens", "clubZelleNameTokens", "clubZelleNamesOverlap", "clubZelleEvaluate", "clubZelleCandidates", "clubZelleApply", "matchClubZelleConf", "clubZelleRetry",
     "handlePostClubPayZelleConf", "handlePostClubRegZelleDecision", "confNumber"].filter(hasFn));
-const clubVars = ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"];
+const clubVars = ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"].concat(workerSrc.indexOf("\nvar CLUB_ZELLE_NOISE =") >= 0 ? ["CLUB_ZELLE_NOISE", "CLUB_ZELLE_MESSAGES"] : []);
 function clubWorld(extraStubs) {
   const d = makeDb(MIGS); const st = fakeStripe();
   d.raw.exec("INSERT INTO business_settings (id, zelle_handle, zelle_qr_r2_key, club_pay_enabled) VALUES (1, 'pay@apex.test', 'business/zelle-qr.png', 1)");
@@ -248,6 +248,129 @@ const setCard = (d, id, single, couple) => d.raw.prepare("UPDATE apex_club_event
   r = await F.handlePostClubRegMarkPaid("old1", req({ paid: false }), env);
   ok(r.status === 200 && regRow("old1").paid === 0 && regRow("old1").paid_method === null, "paid:false clears a manual mark");
   ok((await F.handlePostClubRegMarkPaid(regId, req({ paid: false }), env)).status === 409 && regRow(regId).paid === 1, "a card payment cannot be cleared from here");
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Phase 6: Zelle confirmation number
+// ════════════════════════════════════════════════════════════════════════
+{
+  const { d, env, st, F } = clubWorld();
+  // Pure functions.
+  ok(F.clubZelleNormalize(" #Y8NHAB2LY ") === "y8nhab2ly" && F.clubZelleNormalize("y8n hab-2ly") === "y8nhab2ly" && F.clubZelleNormalize("Conf# y8nhab2ly") === "confy8nhab2ly", "normalize: lowercase, letters and digits only, spaces and a leading # dropped");
+  ok(F.clubZelleNormalize("abc12") === null && F.clubZelleNormalize("") === null && F.clubZelleNormalize(null) === null && F.clubZelleNormalize("#####") === null, "shorter than 6 characters is not a confirmation number");
+  ok(F.confNumber('Zelle payment from TIGERS FLOORING SOLUTIONS LLC for "Site tgr"; Conf# y8nhab2ly') === "y8nhab2ly" && F.clubZelleNormalize("Y8NHAB2LY") === F.confNumber("x Conf# y8nhab2ly"), "the guest's typed number normalizes to exactly what confNumber reads off the deposit");
+  const D1 = 'Zelle payment from TIGERS FLOORING SOLUTIONS LLC for "Site tgr"; Conf# y8nhab2ly';
+  ok(JSON.stringify(F.clubZellePayerTokens(D1)) === JSON.stringify(["TIGERS", "FLOORING", "SOLUTIONS"]), "payer tokens: the name after 'Zelle payment from' up to ' for ', LLC dropped");
+  ok(JSON.stringify(F.clubZellePayerTokens("Zelle payment from THE PRIME GROUP BUILDS, INC. Conf# abc123def")) === JSON.stringify(["PRIME", "GROUP", "BUILDS"]), "THE and INC dropped, punctuation removed, cut at Conf#");
+  ok(JSON.stringify(F.clubZellePayerTokens("Zelle payment from JO LI CO DBA AB Conf# abc123def")) === "[]", "tokens shorter than 3 characters and CO / DBA are dropped");
+  ok(F.clubZelleNamesOverlap(D1, "Carlos Souza", "Tigers Flooring") === true, "a company-account payer overlaps the guest's COMPANY");
+  ok(F.clubZelleNamesOverlap("Zelle payment from MARIA DA SILVA Conf# abc123def", "Maria Silva", null) === true, "a personal payer overlaps the guest's name");
+  ok(F.clubZelleNamesOverlap("Zelle payment from JOSE ANTONIO Conf# abc123def", "José Pereira", null) === true, "accents do not stop a match (JOSE and José)");
+  ok(F.clubZelleNamesOverlap("Zelle payment from PEDRO ALMEIDA Conf# abc123def", "Maria Silva", "Silva Flooring LLC") === false, "a payer who shares no token with the guest or company does not overlap");
+  ok(F.clubZelleNamesOverlap("Zelle payment from ACME LLC Conf# abc123def", "Maria Silva", "Other LLC") === false, "LLC alone is never an overlap");
+  const T = (o) => Object.assign({ id: "t", amount_cents: 5000, description: "Zelle payment from MARIA SILVA Conf# abc123def", category_id: null }, o);
+  const G = { name: "Maria Silva", company: null }, NO = { hasInvoicePayment: false, inEventTxns: false };
+  ok(F.clubZelleEvaluate(T({}), G, 5000, NO).state === "paid" && F.clubZelleEvaluate(T({ amount_cents: 6000 }), G, 5000, NO).excess_cents === 1000, "exact amount is paid; a higher amount is accepted and the excess noted");
+  ok(F.clubZelleEvaluate(T({ amount_cents: 4999 }), G, 5000, NO).state === "mismatch", "one cent short is a mismatch, not paid");
+  ok(F.clubZelleEvaluate(T({}), { name: "Pedro Almeida", company: null }, 5000, NO).state === "review", "no shared name goes to review (not rejected)");
+  ok(F.clubZelleEvaluate(T({}), G, 5000, { hasInvoicePayment: true, inEventTxns: false }).state === "review" && F.clubZelleEvaluate(T({}), G, 5000, { hasInvoicePayment: false, inEventTxns: true }).state === "review", "a deposit already matched to an invoice or filed under an event goes to review");
+  ok(F.clubZelleEvaluate(T({ category_id: "cat_apex_club_receita" }), G, 5000, NO).state === "paid" && F.clubZelleEvaluate(T({ category_id: "cat_receita_clientes" }), G, 5000, NO).state === "paid" && F.clubZelleEvaluate(T({ category_id: "cat_outra" }), G, 5000, NO).state === "review", "category: NULL, Apex Club income or client income may match; anything else is review");
+
+  // The routes, with an in-memory bank.
+  d.raw.exec("INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, price_single_cents, price_couple_cents, price_card_single_cents, price_card_couple_cents) VALUES ('ev1', 'Jantar de novembro', '2026-11-20', '2026-11-06', '2026-11-27', 5000, 7500, 5200, 7800)");
+  const regs = {};
+  for (const [phone, name, company, plus] of [["8135550100", "Maria Silva", "Silva Flooring LLC", false], ["8135550101", "Carlos Souza", "Tigers Flooring", true], ["8135550102", "Ana Lima", null, false], ["8135550103", "Pedro Almeida", null, false], ["8135550104", "Duda Paz", null, false]]) {
+    await F.handlePostClubRegister("ev1", req({ name, phone, company, plus_one: plus }), env);
+    regs[name.split(" ")[0]] = d.q("SELECT id, pay_token FROM apex_club_registrations WHERE phone = ?", "1" + phone)[0];
+  }
+  const send = (who, conf) => F.handlePostClubPayZelleConf(regs[who].pay_token, req({ conf }), env);
+  const row = (who) => d.q("SELECT paid_at IS NOT NULL AS paid, paid_cents, paid_method, paid_ref, zelle_conf, zelle_state FROM apex_club_registrations WHERE id = ?", regs[who].id)[0];
+  const txn = (id, cents, date, desc, extra) => { const e = extra || {}; d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description, category_id, category_source) VALUES (?,?,?,?,?,?,?)").run(id, e.account || "acct_biz", cents, date, desc, e.category || null, e.source || null); };
+
+  let r = await send("Maria", "abc12");
+  ok(r.status === 400 && r.error === "Confira o número de confirmação.", "an invalid number is a 400 with the exact message");
+  r = await send("Maria", " #MAR111aaa ");
+  ok(r.status === 200 && r.data.state === "pending" && r.data.message === "Recebemos seu número. Vamos confirmar assim que o banco atualizar." && row("Maria").zelle_conf === "mar111aaa" && row("Maria").zelle_state === "pending" && row("Maria").paid === 0, "a valid number with no deposit yet: pending, stored normalized");
+
+  // The deposit arrives; the deferred matcher (after the Plaid sync) pays it.
+  txn("z1", 5000, "2026-11-19", "Zelle payment from MARIA SILVA Conf# mar111aaa");
+  ok((await F.clubZelleRetry(env, null)) === 1 && row("Maria").paid === 1 && row("Maria").paid_cents === 5000 && row("Maria").paid_method === "zelle" && row("Maria").paid_ref === "z1" && row("Maria").zelle_state === null, "the retry after a bank sync finds the deposit and marks the guest paid by Zelle");
+  ok(d.q("SELECT side, people, confirmed_by FROM apex_club_event_txns WHERE event_id = 'ev1' AND transaction_id = 'z1'")[0].confirmed_by === "zelle-conf" && d.q("SELECT category_id, category_source FROM transactions WHERE id = 'z1'")[0].category_id === "cat_apex_club_receita",
+    "the deposit is filed under the event and categorized as Apex Club income, exactly as 'Belongs here' does");
+  let pl = await F.buildApexClubEventPL(env, d.q("SELECT * FROM apex_club_events WHERE id = 'ev1'")[0]);
+  ok(pl.confirmed.income_cents === 5000 && pl.confirmed.people === 1 && !pl.suggestions.some(x => x.transaction_id === "z1"), "the P&L counts it once and the suggester no longer offers it");
+  ok(pl.rsvp.going === 6 && pl.rsvp.going_rows === 5 && pl.rsvp.next_time === 0, "paid status changes nothing in the RSVP seat counts");
+  ok((await F.clubZelleRetry(env, null)) === 0, "a second retry does nothing");
+
+  // Someone else submits the same number (a screenshot): used, nothing changes.
+  r = await send("Ana", "mar111aaa");
+  ok(r.data.state === "used" && r.data.message === "Este número de confirmação já foi usado." && row("Ana").paid === 0 && row("Ana").zelle_conf === null, "a second guest submitting the same number is told 'used' and nothing is stored or changed");
+
+  // Immediate match: company account, couple.
+  txn("z2", 7500, "2026-11-20", 'Zelle payment from TIGERS FLOORING SOLUTIONS LLC for "apex club"; Conf# tig222bbb');
+  r = await send("Carlos", "TIG222BBB");
+  ok(r.data.state === "paid" && r.data.message === "Pagamento confirmado. Obrigado!" && row("Carlos").paid_cents === 7500 && d.q("SELECT people FROM apex_club_event_txns WHERE transaction_id = 'z2'")[0].people === 2, "a deposit already in the feed matches at once (company name overlap), two seats");
+
+  // Review: a payer who shares no name.
+  let alerts = st.alerts.length;
+  txn("z3", 5000, "2026-11-20", "Zelle payment from JOAO PEREIRA Conf# ped333ccc");
+  r = await send("Pedro", "ped333ccc");
+  ok(r.data.state === "review" && r.data.message === "Recebemos seu número. A equipe vai conferir e confirmar." && row("Pedro").paid === 0 && row("Pedro").zelle_state === "review" && st.alerts.length === alerts + 1, "no shared name: review, not paid, one alert");
+  ok(!/JOAO|PEREIRA|5000|50\.00/.test(JSON.stringify(r.data)), "the guest's answer never says who paid or how much");
+  await F.clubZelleRetry(env, null);
+  ok(st.alerts.length === alerts + 1 && row("Pedro").zelle_state === "review", "review is not retried and not alerted again");
+  pl = await F.buildApexClubEventPL(env, d.q("SELECT * FROM apex_club_events WHERE id = 'ev1'")[0]);
+  const pg = pl.registrations.find(g => g.id === regs.Pedro.id);
+  ok(pg.zelle_candidate && pg.zelle_candidate.payer === "JOAO PEREIRA" && pg.zelle_candidate.amount_cents === 5000 && pg.zelle_candidate.date === "2026-11-20" && pg.zelle_candidate.expected_cents === 5000, "Alice's guest list gets the candidate deposit: payer, amount, date");
+  r = await F.handlePostClubRegZelleDecision(regs.Pedro.id, "confirm-zelle", req({}), env);
+  ok(r.status === 200 && row("Pedro").paid === 1 && row("Pedro").paid_method === "zelle" && d.q("SELECT confirmed_by FROM apex_club_event_txns WHERE transaction_id = 'z3'")[0].confirmed_by === "test", "Alice's Confirmar runs the same batch and marks the guest paid");
+
+  // Mismatch: less than the price.
+  alerts = st.alerts.length;
+  txn("z4", 4000, "2026-11-20", "Zelle payment from DUDA PAZ Conf# dud444ddd");
+  r = await send("Duda", "dud444ddd");
+  ok(r.data.state === "mismatch" && r.data.message === "Recebemos seu número, mas o valor é diferente do esperado. A equipe vai conferir." && row("Duda").paid === 0 && row("Duda").zelle_state === "mismatch" && st.alerts.length === alerts + 1, "a lower amount: mismatch, not paid, alert");
+  r = await F.handlePostClubRegZelleDecision(regs.Duda.id, "reject-zelle", req({}), env);
+  ok(r.status === 200 && row("Duda").zelle_conf === null && row("Duda").zelle_state === null && row("Duda").paid === 0, "Não é este clears the guest's number and state");
+
+  // Never matched: other account purpose, outside the window, voided, negative, a number inside another word.
+  txn("z5", 5000, "2026-11-20", "Zelle payment from ANA LIMA Conf# ana555eee", { account: "acct_personal" });
+  txn("z6", 5000, "2026-12-15", "Zelle payment from ANA LIMA Conf# ana555eee");
+  txn("z7", -5000, "2026-11-20", "Zelle payment to ANA LIMA Conf# ana555eee");
+  txn("z8", 5000, "2026-11-20", "Zelle payment from ANA LIMA Conf# xana555eeex");
+  r = await send("Ana", "ana555eee");
+  ok(r.data.state === "pending" && row("Ana").paid === 0, "a personal-account, out-of-window, outgoing or merely similar deposit never matches");
+  // LIKE wildcards in the typed number are escaped (they cannot widen the search).
+  ok((await F.clubZelleCandidates(env, d.q("SELECT * FROM apex_club_events WHERE id = 'ev1'")[0], "mar%aaa")).length === 0, "LIKE wildcards are escaped");
+  // A deposit already matched to an invoice goes to review even with the right name and amount.
+  txn("z9", 5000, "2026-11-21", "Zelle payment from ANA LIMA Conf# ana666fff");
+  d.raw.exec("INSERT INTO invoices (id, client_id, number, amount_cents, status) VALUES ('iv1', NULL, 'INV-900900', 5000, 'paid')");
+  d.raw.exec("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type) VALUES ('ipz', 'iv1', 'z9', 5000, 'manual')");
+  r = await send("Ana", "ana666fff");
+  ok(r.data.state === "review" && row("Ana").paid === 0, "a deposit already matched to an invoice is never taken automatically");
+  // Paid guests: a number sent afterwards changes nothing.
+  r = await send("Maria", "zzz999zzz");
+  ok(r.data.state === "paid" && row("Maria").zelle_conf === "mar111aaa", "a guest who is already paid cannot overwrite anything");
+  ok((await F.handlePostClubRegZelleDecision(regs.Maria.id, "confirm-zelle", req({}), env)).status === 409, "confirm-zelle on a paid guest is refused");
+  // Switch off: the route does not exist.
+  d.raw.exec("UPDATE business_settings SET club_pay_enabled = 0");
+  ok((await send("Ana", "ana555eee")).status === 404, "switch OFF: the confirmation route is 404");
+}
+
+// The Plaid sync calls the retry once, wrapped so it can never fail the sync.
+{
+  const i = workerSrc.indexOf("async function syncPlaidTransactions("), j = workerSrc.indexOf("\n}", i);
+  const body = workerSrc.slice(i, j);
+  ok((body.match(/clubZelleRetry\(/g) || []).length === 1 && /try \{\s*await clubZelleRetry\(env, null\);\s*\} catch \(eZelle\) \{[\s\S]*?\}\s*return summary;\s*$/.test(body), "syncPlaidTransactions: ONE additive call, in its own try and catch, just before the unchanged return");
+  const club = readFileSync(new URL("club.html", root), "utf8");
+  ok(["Copiar valor: ", "Valor copiado: ", ". Cole no campo de valor do Zelle no app do seu banco.", "Toque e segure o valor para copiar.", "Envie para:", "Coloque seu nome no memo", "Copiar contato do Zelle", "Contato copiado.",
+      "Número de confirmação do Zelle (opcional)", "Ex.: y8nhab2ly", "Fica no comprovante do app do seu banco. Ajuda a confirmar seu pagamento mais rápido.", "Enviar confirmação", "Pagar com Zelle: ",
+      "Pagamento confirmado. Obrigado!", "Recebemos seu número. Vamos confirmar assim que o banco atualizar.", "Recebemos seu número. A equipe vai conferir e confirmar.", "Recebemos seu número, mas o valor é diferente do esperado. A equipe vai conferir.", "Este número de confirmação já foi usado."].every(x => club.includes(x)),
+    "club.html: every Zelle block and confirmation string");
+  ok(!/required/.test(club.slice(club.indexOf('id="zConf"') - 40, club.indexOf('id="zConf"') + 200)), "the confirmation input is not required");
+  ok(!/href="[^"]*zelle/i.test(club) && !/enroll\.zellepay\.com/.test(club.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\/[^\n]*/g, "")), "no tappable Zelle link anywhere");
+  const fin = readFileSync(new URL("finance-new.html", root), "utf8");
+  ok(fin.includes('t("Confirmar", "Confirm")') && fin.includes('t("Não é este", "Not this one")'), "finance-new.html: Confirmar and Não é este, bilingual");
 }
 
 // The staff bilingual pairs are on the pages exactly as specified.

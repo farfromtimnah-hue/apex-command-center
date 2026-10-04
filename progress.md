@@ -4020,3 +4020,13 @@ construction.
 - NOTE (found, not changed): `buildClubWhatsAppText` quotes the SINGLE price for a guest with a plus one when the event has no couple rate; `club.html` and `clubPriceFor` say twice the single price. Left as is per the brief.
 - Test: `node scripts/test-apex-club.mjs`. `scripts/test-apex-invoice-regression.mjs` now loads `clubCardTotals` when present; its output is unchanged.
 - Files: worker/index.js, club.html, finance-new.html, calendar.html (+ iOS copies), migrations/apex_club_pay.sql, scripts/test-apex-club.mjs, scripts/test-apex-invoice-regression.mjs.
+
+### Checkpoint 6: Apex Club Zelle copy button and confirmation number (switch OFF)
+- `club.html` (payments switch ON only): "Pagar com Zelle: $50.00", "Copiar valor" (copies the plain 50.00 with the clipboard fallback chain, message for 6 seconds, press-and-hold field when the clipboard is blocked), "Envie para: handle", the QR as a picture, "Coloque seu nome no memo", "Copiar contato do Zelle", and the optional box "Número de confirmação do Zelle (opcional)" with "Enviar confirmação". Never a Zelle link, never a decline option, nothing required.
+- Worker (new): `POST /api/club/pay/:token/zelle-conf` (5 per token and 120 per IP per hour), `clubZelleNormalize`, `clubZellePayerTokens / clubZelleNameTokens / clubZelleNamesOverlap`, `clubZelleEvaluate` (review, mismatch, paid), `clubZelleCandidates` (business deposits in the event window +/- 3 days whose `confNumber(description)` equals the number), `clubZelleApply` (ONE batch: INSERT OR IGNORE into `apex_club_conf_used` first, every later statement guarded on this registration owning the number; then the same writes as "Belongs here"), `matchClubZelleConf`, `clubZelleRetry` (at most 50 a run, one transaction query), admin `POST /api/finance-new/club/registrations/:id/confirm-zelle` and `/reject-zelle`.
+- The ONE additive call in `syncPlaidTransactions`: `try { await clubZelleRetry(env, null); } catch` just before the unchanged `return summary`.
+- `finance-new.html`: guests in review or mismatch show the candidate deposit (payer, amount, date) with "Confirmar" and "Não é este"; badge "Confirmação não encontrada" after 5 days pending.
+- UNPROVEN, by design: whether the confirmation number a payer sees equals the Conf# the receiving bank records. Until one real $1.00 Zelle settles it, a number that finds nothing stays pending and the existing name and amount suggester keeps working.
+- STILL IN PLACE, TO REMOVE: the temporary developer-only `POST /api/finance-new/stripe/diag` (needed to turn off the test Stripe links in Phase 7).
+- Test: `node scripts/test-apex-club.mjs`.
+- Files: worker/index.js, club.html, finance-new.html (+ iOS copies), scripts/test-apex-club.mjs.

@@ -617,21 +617,142 @@
     wireZelleBlock();
   }
 
-  // Zelle: the QR and the handle as text, never a link.
+  // Zelle: a button that copies the amount, the handle as text and the QR as
+  // a picture (never a link: the QR only works from a bank app's scanner),
+  // then the optional confirmation number. Nothing here is required and
+  // nothing blocks the guest.
+  var ZELLE_STATE_MSG = {
+    paid: "Pagamento confirmado. Obrigado!",
+    pending: "Recebemos seu número. Vamos confirmar assim que o banco atualizar.",
+    review: "Recebemos seu número. A equipe vai conferir e confirmar.",
+    mismatch: "Recebemos seu número, mas o valor é diferente do esperado. A equipe vai conferir.",
+    used: "Este número de confirmação já foi usado."
+  };
   function zelleBlockHtml() {
-    return '<div class="pay-sub">Pagar com Zelle: ' + money2(PAY.zelle_cents) + "</div>" +
-      '<img id="zelleQrNew" alt="Zelle QR" class="hidden">' +
+    var amt = money2(PAY.zelle_cents);
+    var waiting = PAY.zelle_state ? ZELLE_STATE_MSG[PAY.zelle_state] : (PAY.zelle_conf_sent ? ZELLE_STATE_MSG.pending : "");
+    return '<div class="pay-sub">Pagar com Zelle: ' + amt + "</div>" +
+      '<button type="button" class="cta" id="btnZCopy">Copiar valor: ' + amt + "</button>" +
+      '<div class="pay-msg" id="zCopyMsg" aria-live="polite"></div>' +
+      '<input type="text" readonly inputmode="decimal" class="copy-field hidden" id="zCopyField">' +
       (PAY.zelle_handle
         ? '<div class="handle"><span class="handle-lbl">Envie para:</span><span>' + esc(PAY.zelle_handle) + "</span></div>"
         : "") +
-      '<div class="memo">Envie pelo app do seu banco, no Zelle.<br><b>Coloque seu nome no memo</b> para identificarmos seu pagamento.</div>';
+      '<div style="margin-top:14px;"><img id="zelleQrNew" alt="Zelle QR" class="hidden"></div>' +
+      '<div class="memo">Envie pelo app do seu banco, no Zelle.<br><b>Coloque seu nome no memo</b> para identificarmos seu pagamento.</div>' +
+      (PAY.zelle_handle
+        ? '<button type="button" class="quiet" id="btnZContact">Copiar contato do Zelle</button>' +
+          '<div class="pay-msg" id="zContactMsg" aria-live="polite"></div>' +
+          '<input type="text" readonly class="copy-field hidden" id="zContactField">'
+        : "") +
+      '<hr class="pay-sep">' +
+      '<form id="zConfForm" novalidate>' +
+        '<label for="zConf">Número de confirmação do Zelle (opcional)</label>' +
+        '<input id="zConf" name="zConf" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ex.: y8nhab2ly">' +
+        '<div class="hint">Fica no comprovante do app do seu banco. Ajuda a confirmar seu pagamento mais rápido.</div>' +
+        '<button type="submit" class="ghost" id="btnZConf" style="margin-bottom:0;">Enviar confirmação</button>' +
+        '<div class="pay-msg" id="zConfMsg" aria-live="polite">' + esc(waiting) + "</div>" +
+      "</form>";
   }
+
+  // Clipboard, three ways: the async API inside the tap; a temporary readonly
+  // textarea with execCommand (WhatsApp's in-app browser, older iOS Safari);
+  // and when both fail the caller shows the value in a field to press and hold.
+  function copyText(text, done) {
+    function fallback() {
+      var ok = false;
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", "");
+        ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0"; ta.style.fontSize = "16px";
+        var host = $("payBoxNew");
+        host.appendChild(ta);
+        ta.focus(); ta.select();
+        try { ta.setSelectionRange(0, text.length); } catch (e1) {}
+        ok = document.execCommand("copy");
+        host.removeChild(ta);
+      } catch (e2) { ok = false; }
+      done(ok);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+        return;
+      }
+    } catch (e) {}
+    fallback();
+  }
+  var flashTimers = {};
+  function flash(id, text) {
+    var el = $(id);
+    if (!el) { return; }
+    el.textContent = text;
+    if (flashTimers[id]) { window.clearTimeout(flashTimers[id]); }
+    flashTimers[id] = window.setTimeout(function () { var e2 = $(id); if (e2) { e2.textContent = ""; } }, 6000);
+  }
+
   function wireZelleBlock() {
     var qr = $("zelleQrNew");
-    if (!qr) { return; }
-    qr.onerror = function () { qr.classList.add("hidden"); };
-    qr.onload  = function () { qr.classList.remove("hidden"); };
-    qr.src = WORKER_URL + "/api/business/qr-image";
+    if (qr) {
+      qr.onerror = function () { qr.classList.add("hidden"); };
+      qr.onload  = function () { qr.classList.remove("hidden"); };
+      qr.src = WORKER_URL + "/api/business/qr-image";
+    }
+    var copy = $("btnZCopy");
+    if (copy) {
+      copy.addEventListener("click", function () {
+        // The plain number, two decimals, no symbol: what a bank's amount box takes.
+        var plain = ((Number(PAY.zelle_cents) || 0) / 100).toFixed(2), shown = money2(PAY.zelle_cents);
+        copyText(plain, function (ok) {
+          if (ok) { flash("zCopyMsg", "Valor copiado: " + shown + ". Cole no campo de valor do Zelle no app do seu banco."); return; }
+          var f = $("zCopyField");
+          if (f) { f.value = plain; f.classList.remove("hidden"); try { f.focus(); f.select(); } catch (e) {} }
+          var m = $("zCopyMsg"); if (m) { m.textContent = "Toque e segure o valor para copiar."; }
+        });
+      });
+    }
+    var contact = $("btnZContact");
+    if (contact) {
+      contact.addEventListener("click", function () {
+        copyText(PAY.zelle_handle || "", function (ok) {
+          if (ok) { flash("zContactMsg", "Contato copiado."); return; }
+          var f = $("zContactField");
+          if (f) { f.value = PAY.zelle_handle || ""; f.classList.remove("hidden"); try { f.focus(); f.select(); } catch (e) {} }
+        });
+      });
+    }
+    var form = $("zConfForm");
+    if (form) { form.addEventListener("submit", sendZelleConf); }
+  }
+
+  // The confirmation number: optional, and it never blocks anything. The
+  // answer is one of five plain messages; the guest never learns who paid or
+  // how much arrived.
+  function sendZelleConf(e) {
+    e.preventDefault();
+    var input = $("zConf"), msg = $("zConfMsg"), btn = $("btnZConf");
+    var raw = (input.value || "").trim();
+    if (raw.replace(/[^A-Za-z0-9]/g, "").length < 6) { msg.textContent = "Confira o número de confirmação."; return; }
+    btn.disabled = true;
+    fetch(WORKER_URL + "/api/club/pay/" + PAY_TOKEN + "/zelle-conf", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conf: raw })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (!res.ok || !res.d) { msg.textContent = (res.d && res.d.error) || "Não deu certo. Tente de novo."; return; }
+        if (res.d.state === "paid") {
+          PAY.paid = true; PAY.paid_method = "zelle"; PAY.paid_cents = PAY.zelle_cents;
+          renderPayBox($("payBoxNew").parentNode === $("screenPay") ? null : $("payBox"));
+          var done = document.createElement("div");
+          done.className = "pay-msg"; done.textContent = res.d.message;
+          $("payBoxNew").appendChild(done);
+          return;
+        }
+        if (res.d.state !== "used") { PAY.zelle_state = res.d.state; }
+        msg.textContent = res.d.message || "";
+      })
+      .catch(function () { btn.disabled = false; msg.textContent = "Sem conexão. Tente de novo."; });
   }
 
   // Opens Stripe's page for exactly this guest's card price, in this tab.

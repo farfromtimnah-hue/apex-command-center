@@ -102,9 +102,15 @@
       body { background: #fff; }
       .no-print { display: none !important; }
       .wrap { max-width: none; padding: 0; }
-      .hero-band.doc-screen { height: 1.6in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .hero-band.doc-screen .header-tile-row { margin-left: 16px; }
-      .card { border: none; padding: 0; margin-top: 12px; break-inside: avoid; }
+      .hero-band.doc-screen { height: 1.25in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 5px; }
+      .hero-band.doc-screen .client-logo-tile { height: 62px; }
+      .hero-band.doc-screen .client-logo-tile img { max-height: 46px; }
+      /* Tightened so a one-line invoice and its footer stay on one page. */
+      .card { border: none; padding: 0; margin-top: 9px; break-inside: avoid; }
+      .amount-due-tile { margin-top: 8px; padding: 6px 24px; }
+      .zelle-qr { width: 84px; height: 84px; }
+      .foot { margin-top: 10px; }
       .amount-due-tile, .banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       table.items tr, .payment-tile { break-inside: avoid; }
     }
@@ -157,7 +163,7 @@
         notes: "Observações", ways: "Formas de pagamento",
         included: "Incluso", defaultLine: "Serviços de consultoria",
         draftBanner: "Rascunho: esta fatura ainda não foi enviada.",
-        zCopy: "Copiar valor: {amt}", zCopied: "Valor copiado: {amt}. Cole no campo de valor do Zelle no app do seu banco.",
+        zCopy: "Copiar valor: {amt}", zCopiedBtn: "Valor copiado: {amt}", zCopied: "Valor copiado: {amt}. Cole no campo de valor do Zelle no app do seu banco.",
         zSendTo: "Envie para: {handle}", zMemo: "Escreva {num} na mensagem do Zelle.",
         zCopyContact: "Copiar contato do Zelle", zContactCopied: "Contato copiado.", zHold: "Toque e segure o valor para copiar.",
         ach: "Pagar por transferência ACH", achNote: "Pode levar até 4 dias úteis para compensar.", card: "Pagar com cartão",
@@ -176,7 +182,7 @@
         notes: "Notes", ways: "Ways to pay",
         included: "Included", defaultLine: "Consulting services",
         draftBanner: "Draft: this invoice has not been sent yet.",
-        zCopy: "Copy amount: {amt}", zCopied: "Amount copied: {amt}. Paste it into the amount box in your bank's Zelle screen.",
+        zCopy: "Copy amount: {amt}", zCopiedBtn: "Amount copied: {amt}", zCopied: "Amount copied: {amt}. Paste it into the amount box in your bank's Zelle screen.",
         zSendTo: "Send to: {handle}", zMemo: "Write {num} in the Zelle message.",
         zCopyContact: "Copy Zelle contact", zContactCopied: "Contact copied.", zHold: "Press and hold the amount to copy.",
         ach: "Pay by ACH bank transfer", achNote: "Can take up to 4 business days to clear.", card: "Pay by card",
@@ -281,7 +287,17 @@
     function copyAmount() {
       var plain = plainAmount(inv.balance_cents), shown = money(inv.balance_cents);
       copyText(plain, function(ok) {
-        if (ok) { flash("zAmtMsg", T("zCopied", { amt: shown })); return; }
+        if (ok) {
+          flash("zAmtMsg", T("zCopied", { amt: shown }));
+          // The label changes with the message and goes back with it.
+          var b = byId("btnZAmt");
+          if (b) {
+            b.textContent = T("zCopiedBtn", { amt: shown });
+            if (copyTimers.btn) { window.clearTimeout(copyTimers.btn); }
+            copyTimers.btn = window.setTimeout(function() { var b2 = byId("btnZAmt"); if (b2) { b2.textContent = T("zCopy", { amt: shown }); } }, 6000);
+          }
+          return;
+        }
         // Clipboard blocked: the amount in a field the client can press and hold.
         var f = byId("zAmtField"), hint = byId("zAmtMsg");
         if (f) { f.value = plain; f.classList.remove("hidden"); try { f.focus(); f.select(); } catch (e) {} }

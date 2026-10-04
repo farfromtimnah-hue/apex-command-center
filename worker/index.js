@@ -36331,6 +36331,10 @@ async function syncStripe(env) {
                 typeof ch.invoice === "string" ? ch.invoice : null, metaClient
             );
         });
+        // Apex invoice / Apex Club payment links stamp what a charge is for.
+        // Extra statements exist ONLY for charges carrying that metadata; every
+        // other charge is written exactly as before.
+        apxStripeChargeTagStatements(env, charges).forEach(function(st) { stmts.push(st); });
         for (var i = 0; i < stmts.length; i += 50) { await env.DB.batch(stmts.slice(i, i + 50)); }
         summary.charges = charges.length;
 
@@ -36408,6 +36412,9 @@ async function syncStripe(env) {
         await env.DB.prepare(
             "INSERT INTO stripe_sync_runs (ok, charges, payouts, linked) VALUES (1, ?, ?, ?)"
         ).bind(summary.charges, summary.payouts, summary.linked).run();
+        // Record what the synced charges paid (invoices, Apex Club). Never
+        // throws, so it cannot fail a sync that succeeded.
+        await apxAfterStripeSync(env);
         return summary;
     } catch (e) {
         await env.DB.prepare(
@@ -40779,6 +40786,8 @@ async function handleFetch(request, env, ctx) {
         // a plain 404, so a malformed token never reaches a later route.
         var pubApxInv = path.match(/^\/api\/public\/apex-invoices\/([a-f0-9]{48})$/);
         if (pubApxInv && method === "GET") { return handleGetPublicApexInvoice(pubApxInv[1], request, env); }
+        var pubApxInvRefresh = path.match(/^\/api\/public\/apex-invoices\/([a-f0-9]{48})\/refresh$/);
+        if (pubApxInvRefresh && method === "POST") { return handlePostPublicApexInvoiceRefresh(pubApxInvRefresh[1], request, env); }
         var pubApxInvPdf = path.match(/^\/api\/public\/pdf\/apex-invoice\/([a-f0-9]{48})$/);
         if (pubApxInvPdf && method === "GET") { return handleGetPublicApexInvoicePdf(pubApxInvPdf[1], request, env); }
         if (path.indexOf("/api/public/apex-invoices/") === 0 || path.indexOf("/api/public/pdf/apex-invoice/") === 0) {
@@ -41953,6 +41962,7 @@ async function handleFetch(request, env, ctx) {
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "clients" && segs[3] && segs[4] === "invoice-card" && !segs[5] && method === "PATCH") {
             return handlePatchApexClientInvoiceCard(decodeURIComponent(segs[3]), request, env);
         }
+        if (path === "/api/finance-new/stripe/diag" && method === "POST") { return handlePostApexStripeDiag(request, env); }
         if (path === "/api/finance-new/settings/switches" && method === "GET") { return handleGetApexSwitches(request, env); }
         if (path === "/api/finance-new/settings/client-invoice-link" && method === "PATCH") { return handlePatchApexSwitch("client_invoice_link_enabled", request, env); }
         if (path === "/api/finance-new/settings/club-pay" && method === "PATCH") { return handlePatchApexSwitch("club_pay_enabled", request, env); }
@@ -45471,8 +45481,13 @@ async function apxInvPayBlock(env, inv, balanceCents, sw) {
 }
 
 // Whether Apex's Stripe account accepts us_bank_account on a payment link.
-// Set from the one-time probe (see the pay-links section below).
-var APX_STRIPE_ACH_ENABLED = false;
+// PROBED ON THE LIVE ACCOUNT 2026-10-04 with the restricted key: a $1.00
+// one-time price and two payment links (us_bank_account, card) were all
+// accepted, then deactivated and archived. So ACH Direct Debit is enabled and
+// the key can write prices and payment links. If ACH is ever switched off in
+// the Stripe Dashboard, link creation returns Stripe's own error as a warning
+// and the page simply shows no ACH button.
+var APX_STRIPE_ACH_ENABLED = true;
 
 // GET /api/public/apex-invoices/:token
 async function handleGetPublicApexInvoice(token, request, env) {
@@ -45480,7 +45495,17 @@ async function handleGetPublicApexInvoice(token, request, env) {
         var limited = await gmEstPublicRateLimit(env, request, token, 60, 300);
         if (limited) { return apxInvNoIndex(jsonErr("Too many requests", 429)); }
         var inv = await apxInvByToken(env, token);
-        if (!inv) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        if (!inv) {
+            // A voided invoice answers 404, and any pay link it still has is
+            // turned off in Stripe on the way out.
+            var gone = /^[a-f0-9]{48}$/.test(token) ? await env.DB.prepare("SELECT id FROM invoices WHERE public_token = ? AND status IN ('void','voided_mistake')").bind(token).first() : null;
+            if (gone) {
+                var cx = REQUEST_CTX.get(request);
+                var retire = apxInvRetireLinks(env, gone.id, true).catch(function() {});
+                if (cx && cx.waitUntil) { cx.waitUntil(retire); }
+            }
+            return apxInvNoIndex(jsonErr("Not found", 404));
+        }
         // Views are the client's own openings, not the PDF printer's.
         if (!new URL(request.url).searchParams.get("render")) {
             await env.DB.prepare(
@@ -45489,7 +45514,9 @@ async function handleGetPublicApexInvoice(token, request, env) {
             ).bind(inv.id).run();
         }
         var sw = await apxInvSwitches(env);
-        return apxInvNoIndex(jsonOk({ invoice: await apxInvPayload(env, inv, sw) }));
+        var payload = await apxInvPayload(env, inv, sw);
+        apxInvAfterView(request, env, inv, payload, sw);
+        return apxInvNoIndex(jsonOk({ invoice: payload }));
     } catch (e) {
         return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
     }
@@ -45580,7 +45607,7 @@ async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
         var link = await apxInvShareLink(env, inv, inv.client_name || "");
         var sw = await apxInvSwitches(env);
         var warnings = [];
-        if (sw.invoice_link && typeof apxInvEnsurePayLinks === "function") {
+        if (sw.invoice_link) {
             var made = await apxInvEnsurePayLinks(env, inv);
             warnings = made.warnings || [];
         }
@@ -45645,5 +45672,433 @@ async function handlePatchApexSwitch(column, request, env) {
         return jsonOk(out);
     } catch (e) {
         return jsonErr("Error saving the switch: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// APEX INVOICES: STRIPE PAY LINKS AND PAYMENT RECORDING (2026-10-04)
+//
+// Apex's own Stripe account, through STRIPE_RESTRICTED_KEY (write on
+// products, prices and payment links only; it cannot create Checkout
+// sessions, refund or move money). There is no webhook for this account: the
+// 4-hourly syncStripe plus the page's targeted refresh is how a payment is
+// noticed. STRIPE_SECRET_KEY and the Connect feature are a different product
+// and are not used here.
+//
+// A link charges the invoice's EXACT balance. No fee line, no surcharge:
+// Apex absorbs the card and ACH fees.
+// ===========================================================================
+
+async function apxStripePost(env, path, params) {
+    if (!env.STRIPE_RESTRICTED_KEY) { throw new Error("STRIPE_RESTRICTED_KEY is not set"); }
+    var form = [];
+    (params || []).forEach(function(p) { form.push(encodeURIComponent(p[0]) + "=" + encodeURIComponent(p[1])); });
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 15000);
+    var res;
+    try {
+        res = await fetch("https://api.stripe.com/v1/" + path, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + env.STRIPE_RESTRICTED_KEY,
+                "Stripe-Version": STRIPE_API_VERSION,
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: form.join("&"),
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+    var body = await res.json().catch(function() { return {}; });
+    if (!res.ok) {
+        // Stripe's message names the missing permission or the payment method
+        // that is not enabled, and never echoes the key.
+        var msg = (body && body.error && body.error.message) || ("HTTP " + res.status);
+        var err = new Error("Stripe " + path.split("/")[0] + " failed: " + msg);
+        err.status = res.status;
+        throw err;
+    }
+    return body;
+}
+
+// Take the regeneration lock for key (about 2 minutes). The guard is in the
+// database: one upsert on the primary key that only wins when the previous
+// lock has run out. Returns true when this caller holds it.
+async function apxPayLockTake(env, key) {
+    var r = await env.DB.prepare(
+        "INSERT INTO apex_pay_link_locks (lock_key, locked_until) VALUES (?, datetime('now', '+2 minutes')) " +
+        "ON CONFLICT(lock_key) DO UPDATE SET locked_until = excluded.locked_until " +
+        "WHERE apex_pay_link_locks.locked_until < datetime('now')"
+    ).bind(key).run();
+    return !!(r.meta && r.meta.changes);
+}
+async function apxPayLockRelease(env, key) {
+    try { await env.DB.prepare("UPDATE apex_pay_link_locks SET locked_until = datetime('now', '-1 second') WHERE lock_key = ?").bind(key).run(); }
+    catch (e) { /* it runs out by itself */ }
+}
+
+// Turn off, in Stripe, every link of this invoice that is no longer the
+// active one (all of them when retireAll: the invoice is paid or void).
+// deactivated_at is stamped only once Stripe confirmed, so a failure is
+// simply tried again on a later view.
+async function apxInvRetireLinks(env, invoiceId, retireAll) {
+    var rows = (await env.DB.prepare(
+        "SELECT id, stripe_link_id FROM apex_invoice_pay_links WHERE invoice_id = ? AND deactivated_at IS NULL" +
+        (retireAll ? "" : " AND active = 0") + " LIMIT 10"
+    ).bind(invoiceId).all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        try {
+            if (rows[i].stripe_link_id) { await apxStripePost(env, "payment_links/" + rows[i].stripe_link_id, [["active", "false"]]); }
+            await env.DB.prepare("UPDATE apex_invoice_pay_links SET active = 0, deactivated_at = ? WHERE id = ?")
+                .bind(new Date().toISOString(), rows[i].id).run();
+        } catch (e) { console.error("[apex-invoice] could not deactivate link " + rows[i].stripe_link_id + ": " + (e && e.message)); }
+    }
+    return rows.length;
+}
+
+// Make sure a SENT invoice with a balance has a fresh link of each kind it
+// should have: ACH when the account supports it, card when this client's
+// switch is on. Called ONLY with the master switch ON. Never for a draft, a
+// void or a zero balance. Returns { warnings, created }.
+async function apxInvEnsurePayLinks(env, inv) {
+    var out = { warnings: [], created: [] };
+    if (!inv || inv.status !== "sent" || !inv.public_token) { return out; }
+    var money = await apxInvMoney(env, inv);
+    var bal = money.balance_cents;
+    if (bal <= 0) { return out; }
+    var want = [];
+    if (APX_STRIPE_ACH_ENABLED) { want.push("ach"); }
+    else { out.warnings.push("ACH is not enabled on the Stripe account yet, so the page shows Zelle" + (inv.invoice_card_enabled === 1 ? " and card" : "") + " only. / O ACH ainda não está ativado no Stripe, então a página mostra só Zelle" + (inv.invoice_card_enabled === 1 ? " e cartão" : "") + "."); }
+    if (inv.invoice_card_enabled === 1) { want.push("card"); }
+
+    var lockKey = "inv:" + inv.id;
+    if (!(await apxPayLockTake(env, lockKey))) {
+        out.warnings.push("The payment links are being prepared. Try again in a minute. / Os links de pagamento estão sendo preparados. Tente de novo em um minuto.");
+        return out;
+    }
+    try {
+        var active = {};
+        ((await env.DB.prepare(
+            "SELECT id, kind, url, amount_cents FROM apex_invoice_pay_links WHERE invoice_id = ? AND active = 1"
+        ).bind(inv.id).all()).results || []).forEach(function(l) { active[l.kind] = l; });
+        var need = want.filter(function(kind) { return !(active[kind] && active[kind].url && active[kind].amount_cents === bal); });
+        // A kind that is no longer wanted (the card switch went off) stops
+        // being offered at once; Stripe is told below.
+        var kinds = Object.keys(active);
+        for (var k = 0; k < kinds.length; k++) {
+            if (want.indexOf(kinds[k]) === -1) {
+                await env.DB.prepare("UPDATE apex_invoice_pay_links SET active = 0 WHERE id = ?").bind(active[kinds[k]].id).run();
+            }
+        }
+        if (need.length) {
+            var price = await apxStripePost(env, "prices", [
+                ["currency", "usd"], ["unit_amount", String(bal)],
+                ["product_data[name]", "Fatura " + inv.number + " Apex Business & Leadership"]
+            ]);
+            var meta = [["apex_invoice_id", inv.id], ["apex_client_id", inv.client_id || ""], ["client_id", inv.client_id || ""], ["apex_invoice_number", inv.number || ""]];
+            for (var n = 0; n < need.length; n++) {
+                var kind = need[n];
+                try {
+                    var params = [
+                        ["line_items[0][price]", price.id], ["line_items[0][quantity]", "1"],
+                        ["payment_method_types[0]", kind === "ach" ? "us_bank_account" : "card"],
+                        ["after_completion[type]", "redirect"],
+                        ["after_completion[redirect][url]", DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token + "&paid=1&lang=pt"]
+                    ];
+                    meta.forEach(function(m) {
+                        params.push(["metadata[" + m[0] + "]", m[1]]);
+                        params.push(["payment_intent_data[metadata][" + m[0] + "]", m[1]]);
+                    });
+                    var link = await apxStripePost(env, "payment_links", params);
+                    // The old row steps down and the new one takes its place in
+                    // one batch (one active link per invoice and kind).
+                    await env.DB.batch([
+                        env.DB.prepare("UPDATE apex_invoice_pay_links SET active = 0 WHERE invoice_id = ? AND kind = ? AND active = 1").bind(inv.id, kind),
+                        env.DB.prepare(
+                            "INSERT INTO apex_invoice_pay_links (invoice_id, kind, stripe_link_id, stripe_price_id, url, amount_cents, active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)"
+                        ).bind(inv.id, kind, link.id, price.id, link.url, bal, new Date().toISOString())
+                    ]);
+                    out.created.push({ kind: kind, amount_cents: bal, stripe_link_id: link.id });
+                } catch (eK) {
+                    out.warnings.push((kind === "ach" ? "ACH" : "Card") + ": " + (eK && eK.message));
+                }
+            }
+        }
+        // The replaced links are turned off in Stripe only now, after the new
+        // ones exist.
+        await apxInvRetireLinks(env, inv.id, false);
+    } catch (e) {
+        out.warnings.push(String(e && e.message));
+    } finally {
+        await apxPayLockRelease(env, lockKey);
+    }
+    return out;
+}
+
+// What the charge was for, written beside the row the sync upserts. Returns
+// statements ONLY for charges that carry Apex invoice or Apex Club metadata,
+// so a charge without them is written exactly as before.
+function apxStripeChargeTagStatements(env, charges) {
+    var out = [];
+    (charges || []).forEach(function(ch) {
+        var md = ch.metadata || {};
+        var invId = md.apex_invoice_id ? String(md.apex_invoice_id) : null;
+        var regId = md.apex_club_registration_id ? String(md.apex_club_registration_id) : null;
+        if (!invId && !regId) { return; }
+        var pm = (ch.payment_method_details && ch.payment_method_details.type) ? String(ch.payment_method_details.type) : null;
+        out.push(env.DB.prepare(
+            "UPDATE stripe_charges SET metadata_invoice_id = ?, metadata_club_reg_id = ?, pm_type = ? WHERE id = ?"
+        ).bind(invId, regId, pm, ch.id));
+    });
+    return out;
+}
+
+// The sync's own charge upsert, for the targeted refresh. THE STATEMENT IS
+// COPIED VERBATIM FROM syncStripe (which builds it inline and cannot be
+// called for a handful of charges): keep the two identical.
+function apxStripeUpsertStatements(env, charges) {
+    var stmts = (charges || []).map(function(ch) {
+        var cust = (ch.customer && typeof ch.customer === "object") ? ch.customer : null;
+        var bt = (ch.balance_transaction && typeof ch.balance_transaction === "object") ? ch.balance_transaction : null;
+        var bd = ch.billing_details || {};
+        var metaClient = (ch.metadata && ch.metadata.client_id) ? String(ch.metadata.client_id) : null;
+        return env.DB.prepare(
+            "INSERT INTO stripe_charges (id, payment_intent_id, customer_id, customer_name, customer_email, " +
+            "billing_name, description, amount_cents, amount_refunded_cents, fee_cents, net_cents, currency, " +
+            "status, created_at, invoice_id, metadata_client_id, synced_at) " +
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')) " +
+            "ON CONFLICT(id) DO UPDATE SET customer_id=excluded.customer_id, customer_name=excluded.customer_name, " +
+            "customer_email=excluded.customer_email, billing_name=excluded.billing_name, " +
+            "description=excluded.description, amount_cents=excluded.amount_cents, " +
+            "amount_refunded_cents=excluded.amount_refunded_cents, fee_cents=excluded.fee_cents, " +
+            "net_cents=excluded.net_cents, status=excluded.status, invoice_id=excluded.invoice_id, " +
+            "metadata_client_id=excluded.metadata_client_id, synced_at=datetime('now')"
+        ).bind(
+            ch.id, ch.payment_intent || null,
+            cust ? cust.id : (typeof ch.customer === "string" ? ch.customer : null),
+            cust && !cust.deleted ? (cust.name || null) : null,
+            cust && !cust.deleted ? (cust.email || null) : (ch.receipt_email || null),
+            bd.name || null, ch.description || null,
+            ch.amount || 0, ch.amount_refunded || 0,
+            bt ? bt.fee : null, bt ? bt.net : null,
+            ch.currency || null, ch.status || null, stripeTs(ch.created),
+            typeof ch.invoice === "string" ? ch.invoice : null, metaClient
+        );
+    });
+    return stmts.concat(apxStripeChargeTagStatements(env, charges));
+}
+
+// The latest charges, straight from Stripe, narrowed to the ones stamped for
+// one invoice or one Club registration, and written to stripe_charges. The
+// restricted key cannot filter a list by metadata, so the newest 30 are read
+// and matched here. Returns how many matched.
+async function apxStripeRefreshCharges(env, metaKey, metaValue) {
+    var body = await stripeGet(env, "charges", [["limit", "30"], ["expand[]", "data.customer"], ["expand[]", "data.balance_transaction"]]);
+    var mine = (body.data || []).filter(function(ch) { return ch.metadata && String(ch.metadata[metaKey] || "") === String(metaValue); });
+    if (mine.length) { await env.DB.batch(apxStripeUpsertStatements(env, mine)); }
+    return mine.length;
+}
+
+function apxUsd(cents) {
+    return "$" + ((Number(cents) || 0) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Record Stripe payments against Apex invoices. Runs after every sync and
+// from the page's refresh (then for one invoice).
+//
+// EXACTLY ONCE: the INSERT OR IGNORE into apex_stripe_applied comes first and
+// its primary key (charge_id) is the guard. Only the caller whose insert
+// really inserted writes the payment row, so the cron and a refresh arriving
+// together cannot both record it.
+//
+// The invoice is marked paid by the SAME rule handlePostFinanceNewMatchApprove
+// uses (payments cover the total, or fall short by at most min($2, 0.5%)),
+// evaluated in SQL inside one guarded UPDATE. A pending charge (ACH not
+// cleared) is never applied. Nothing here refunds, voids or reopens anything:
+// those cases only send an alert for a person to reconcile.
+async function applyStripeChargesToApexInvoices(env, onlyInvoiceId) {
+    var summary = { applied: 0, paid: 0, alerts: 0 };
+    var todo = env.DB.prepare(
+        "SELECT sc.id, sc.amount_cents, sc.amount_refunded_cents, sc.created_at, sc.metadata_invoice_id, sc.metadata_client_id, sc.pm_type " +
+        "FROM stripe_charges sc WHERE sc.metadata_invoice_id IS NOT NULL AND sc.status = 'succeeded' " +
+        (onlyInvoiceId ? "AND sc.metadata_invoice_id = ? " : "") +
+        "AND NOT EXISTS (SELECT 1 FROM apex_stripe_applied a WHERE a.charge_id = sc.id) ORDER BY sc.created_at LIMIT 50"
+    );
+    if (onlyInvoiceId) { todo = todo.bind(onlyInvoiceId); }
+    var rows = (await todo.all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        var ch = rows[i];
+        var net = (ch.amount_cents || 0) - (ch.amount_refunded_cents || 0);
+        var inv = await env.DB.prepare("SELECT id, client_id, number, amount_cents, status FROM invoices WHERE id = ?").bind(ch.metadata_invoice_id).first();
+        var problem = null;
+        if (!inv) { problem = "fatura não encontrada (" + ch.metadata_invoice_id + ")"; }
+        else if ((ch.metadata_client_id || "") !== (inv.client_id || "")) { problem = "o cliente do pagamento não confere com o da fatura " + inv.number; }
+        else if (net <= 0) { problem = "pagamento totalmente reembolsado antes de ser registrado na fatura " + inv.number; }
+        // applied_cents 0 = seen and deliberately NOT applied, so the alert goes out once.
+        var ins = await env.DB.prepare(
+            "INSERT OR IGNORE INTO apex_stripe_applied (charge_id, invoice_id, applied_cents, applied_at) VALUES (?, ?, ?, ?)"
+        ).bind(ch.id, ch.metadata_invoice_id, problem ? 0 : net, new Date().toISOString()).run();
+        if (!ins.meta || !ins.meta.changes) { continue; }
+        if (problem) {
+            summary.alerts++;
+            await notifyNicoleTelegram(env, "Stripe: pagamento NÃO aplicado, conferir à mão. " + ch.id + " " + apxUsd(net) + ": " + problem + ".");
+            continue;
+        }
+        var isAch = ch.pm_type === "us_bank_account";
+        await env.DB.prepare(
+            "INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, note, approved_by) " +
+            "VALUES (?, ?, NULL, ?, 'manual_no_txn', ?, 'stripe-sync')"
+        ).bind(crypto.randomUUID(), inv.id, net, (isAch ? "Stripe ACH " : "Stripe card ") + ch.id).run();
+        summary.applied++;
+        if (inv.status !== "sent") {
+            // Already paid (or no longer open): the money is recorded, the
+            // status is left alone, and someone is told.
+            summary.alerts++;
+            await notifyNicoleTelegram(env, inv.status === "paid"
+                ? "Stripe recebeu pagamento em fatura já paga: " + inv.number + ", " + apxUsd(net) + " (" + ch.id + "). Conferir se é pagamento em dobro."
+                : "Stripe recebeu pagamento em fatura que não está em aberto (" + inv.status + "): " + inv.number + ", " + apxUsd(net) + " (" + ch.id + ").");
+            continue;
+        }
+        var paidSum = "(SELECT COALESCE(SUM(p.amount_cents), 0) FROM invoice_payments p WHERE p.invoice_id = invoices.id AND p.undone_at IS NULL)";
+        var upd = await env.DB.prepare(
+            "UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'sent' AND (" +
+            paidSum + " >= COALESCE(amount_cents, 0) OR " +
+            "(COALESCE(amount_cents, 0) - " + paidSum + ") <= MIN(200, CAST(ROUND(COALESCE(amount_cents, 0) * 0.005) AS INTEGER)))"
+        ).bind(apxInvEasternDate(ch.created_at) || easternDateStr(), inv.id).run();
+        if (upd.meta && upd.meta.changes) { summary.paid++; }
+    }
+
+    // A refund on a charge already recorded: nothing is changed automatically.
+    // applied_cents is moved to the new net only so the alert is not repeated
+    // every four hours; the payment row keeps what was recorded.
+    var refQ = env.DB.prepare(
+        "SELECT a.charge_id, a.invoice_id, a.applied_cents, (sc.amount_cents - sc.amount_refunded_cents) AS net " +
+        "FROM apex_stripe_applied a JOIN stripe_charges sc ON sc.id = a.charge_id " +
+        "WHERE a.applied_cents > 0 AND (sc.amount_cents - sc.amount_refunded_cents) < a.applied_cents " +
+        (onlyInvoiceId ? "AND a.invoice_id = ? " : "") + "LIMIT 20"
+    );
+    if (onlyInvoiceId) { refQ = refQ.bind(onlyInvoiceId); }
+    var refunded = (await refQ.all()).results || [];
+    for (var r = 0; r < refunded.length; r++) {
+        var rf = refunded[r];
+        var upd2 = await env.DB.prepare("UPDATE apex_stripe_applied SET applied_cents = ? WHERE charge_id = ? AND applied_cents = ?")
+            // -1 = refunded in full (0 already means "seen, not applied").
+            .bind(rf.net > 0 ? rf.net : -1, rf.charge_id, rf.applied_cents).run();
+        if (upd2.meta && upd2.meta.changes) {
+            summary.alerts++;
+            var invR = await env.DB.prepare("SELECT number FROM invoices WHERE id = ?").bind(rf.invoice_id).first();
+            await notifyNicoleTelegram(env, "Stripe: reembolso em pagamento já registrado na fatura " + ((invR && invR.number) || rf.invoice_id) +
+                " (" + rf.charge_id + "): registrado " + apxUsd(rf.applied_cents) + ", agora " + apxUsd(rf.net) + ". Nada foi alterado, reconciliar à mão.");
+        }
+    }
+    return summary;
+}
+
+// Everything that follows a Stripe sync. It NEVER throws: a failure here must
+// not turn a good sync into a failed one.
+async function apxAfterStripeSync(env) {
+    try { await applyStripeChargesToApexInvoices(env, null); }
+    catch (e) { await notifyNicoleTelegram(env, "Stripe: falha ao registrar pagamentos de faturas: " + (e && e.message)).catch(function() {}); }
+    try { if (typeof applyStripeChargesToClubRegistrations === "function") { await applyStripeChargesToClubRegistrations(env, null); } }
+    catch (e2) { await notifyNicoleTelegram(env, "Stripe: falha ao registrar pagamentos do Apex Club: " + (e2 && e2.message)).catch(function() {}); }
+}
+
+// What a public view does besides answering, after the response is sent:
+// retire the links of a paid invoice, or (master switch ON) replace a stale
+// or missing link on a SENT invoice.
+function apxInvAfterView(request, env, inv, payload, sw) {
+    var job = null;
+    if (inv.status === "paid") {
+        job = apxInvRetireLinks(env, inv.id, true);
+    } else if (sw.invoice_link && inv.status === "sent" && payload.payment &&
+               ((payload.payment.card.enabled && !payload.payment.card.url) || (payload.payment.ach.available && !payload.payment.ach.url))) {
+        job = apxInvEnsurePayLinks(env, inv);
+    } else if (inv.status === "sent" && payload.payment) {
+        // A link whose kind was switched off, or a replaced one Stripe has not
+        // been told about yet.
+        job = apxInvRetireLinks(env, inv.id, false);
+    }
+    if (!job) { return; }
+    job = job.catch(function(e) { console.error("[apex-invoice] after-view job failed: " + (e && e.message)); });
+    var c = REQUEST_CTX.get(request);
+    if (c && c.waitUntil) { c.waitUntil(job); }
+}
+
+// POST /api/public/apex-invoices/:token/refresh
+// The page calls this when Stripe sends the client back (?paid=1): look at
+// Stripe for this one invoice, record what was paid, answer the fresh invoice.
+// Works with the master switch ON or OFF, so a payment made is always seen.
+async function handlePostPublicApexInvoiceRefresh(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, "rf" + token, 6, 300);
+        if (limited) { return apxInvNoIndex(jsonErr("Too many requests", 429)); }
+        var inv = await apxInvByToken(env, token);
+        if (!inv) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        try {
+            await apxStripeRefreshCharges(env, "apex_invoice_id", inv.id);
+            await applyStripeChargesToApexInvoices(env, inv.id);
+        } catch (eS) { console.error("[apex-invoice] refresh failed: " + (eS && eS.message)); }
+        inv = await apxInvByToken(env, token);
+        if (!inv) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        var sw = await apxInvSwitches(env);
+        var payload = await apxInvPayload(env, inv, sw);
+        apxInvAfterView(request, env, inv, payload, sw);
+        return apxInvNoIndex(jsonOk({ invoice: payload }));
+    } catch (e) {
+        return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
+    }
+}
+
+// POST /api/finance-new/stripe/diag   developer ONLY.  TEMPORARY (build aid).
+// The one-time probe of what the restricted key and the account accept, plus
+// reading back and turning off the test objects this build creates. Removed
+// before the build is finished.
+async function handlePostApexStripeDiag(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        var out = {};
+        async function attempt(label, fn) {
+            try { out[label] = { ok: true, result: await fn() }; } catch (e) { out[label] = { ok: false, status: e.status || null, error: e.message }; }
+            return out[label].ok ? out[label].result : null;
+        }
+        if (body.action === "probe") {
+            var price = await attempt("price", function() {
+                return apxStripePost(env, "prices", [["currency", "usd"], ["unit_amount", "100"], ["product_data[name]", "Teste de integração Apex (pode arquivar)"]]);
+            });
+            if (price) {
+                var kinds = [["ach", "us_bank_account"], ["card", "card"]];
+                for (var i = 0; i < kinds.length; i++) {
+                    var kd = kinds[i];
+                    var link = await attempt("link_" + kd[0], function() {
+                        return apxStripePost(env, "payment_links", [["line_items[0][price]", price.id], ["line_items[0][quantity]", "1"], ["payment_method_types[0]", kd[1]],
+                            ["metadata[apex_probe]", "1"], ["payment_intent_data[metadata][apex_probe]", "1"]]);
+                    });
+                    if (link) { await attempt("deactivate_" + kd[0], function() { return apxStripePost(env, "payment_links/" + link.id, [["active", "false"]]); }); }
+                }
+                await attempt("archive_price", function() { return apxStripePost(env, "prices/" + price.id, [["active", "false"]]); });
+                await attempt("archive_product", function() { return apxStripePost(env, "products/" + (typeof price.product === "string" ? price.product : price.product.id), [["active", "false"]]); });
+            }
+        } else if (body.action === "get" && /^(payment_links|prices|products)\/[A-Za-z0-9_]+$/.test(body.path || "")) {
+            await attempt("get", function() { return stripeGet(env, body.path, []); });
+        } else if (body.action === "off" && /^(payment_links|prices|products)\/[A-Za-z0-9_]+$/.test(body.path || "")) {
+            await attempt("off", function() { return apxStripePost(env, body.path, [["active", "false"]]); });
+        } else {
+            return jsonErr("Unknown action", 400);
+        }
+        // Only what is needed to read the outcome.
+        Object.keys(out).forEach(function(k) {
+            var r = out[k].result;
+            if (r && typeof r === "object") {
+                out[k].result = { id: r.id, object: r.object, active: r.active, url: r.url, unit_amount: r.unit_amount, product: typeof r.product === "string" ? r.product : (r.product && r.product.id),
+                    payment_method_types: r.payment_method_types, metadata: r.metadata, payment_intent_data: r.payment_intent_data, after_completion: r.after_completion, name: r.name };
+            }
+        });
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Diag failed: " + e.message, 500);
     }
 }

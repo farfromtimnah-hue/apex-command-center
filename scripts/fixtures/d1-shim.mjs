@@ -12,18 +12,21 @@ export const workerSrc = readFileSync(new URL("worker/index.js", root), "utf8");
 
 // "function name(" or "async function name(" at column 0, to its closing brace
 // at column 0.
-export function fnSrc(name) {
-  let i = workerSrc.indexOf("\nasync function " + name + "(");
-  if (i < 0) { i = workerSrc.indexOf("\nfunction " + name + "("); }
+export function fnSrc(name, src) {
+  src = src || workerSrc;
+  let i = src.indexOf("\nasync function " + name + "(");
+  if (i < 0) { i = src.indexOf("\nfunction " + name + "("); }
   if (i < 0) { throw new Error("function not found in worker/index.js: " + name); }
-  const j = workerSrc.indexOf("\n}", i + 1);
-  return workerSrc.slice(i + 1, j + 2);
+  const j = src.indexOf("\n}", i + 1);
+  return src.slice(i + 1, j + 2);
 }
+function workerSrcDefault() { return workerSrc; }
 export function hasFn(name) {
   return workerSrc.indexOf("\nasync function " + name + "(") >= 0 || workerSrc.indexOf("\nfunction " + name + "(") >= 0;
 }
 // A top-level "var NAME = ...;" (may span lines).
-export function varSrc(name) {
+export function varSrc(name, src) {
+  const workerSrc = src || workerSrcDefault();
   const i = workerSrc.indexOf("\nvar " + name + " =");
   if (i < 0) { throw new Error("var not found in worker/index.js: " + name); }
   // The statement ends at the first ";" that closes a line (a trailing
@@ -53,13 +56,14 @@ export function makeDb(extraMigrations) {
     });
   });
   const log = [];
+  const writes = [];   // every run()/batch statement with its bound values
   function prepared(sql, args) {
     return {
       bind: function () { return prepared(sql, Array.prototype.slice.call(arguments).map(clean)); },
       first: async function () { log.push(sql); const r = db.prepare(sql).get.apply(db.prepare(sql), args); return r === undefined ? null : Object.assign({}, r); },
       all: async function () { log.push(sql); const st = db.prepare(sql); return { results: st.all.apply(st, args).map(function (r) { return Object.assign({}, r); }) }; },
-      run: async function () { log.push(sql); const st = db.prepare(sql); const r = st.run.apply(st, args); return { meta: { changes: Number(r.changes) } }; },
-      _sync: function () { log.push(sql); const st = db.prepare(sql); const r = st.run.apply(st, args); return { meta: { changes: Number(r.changes) } }; }
+      run: async function () { log.push(sql); writes.push([sql, args]); const st = db.prepare(sql); const r = st.run.apply(st, args); return { meta: { changes: Number(r.changes) } }; },
+      _sync: function () { log.push(sql); writes.push([sql, args]); const st = db.prepare(sql); const r = st.run.apply(st, args); return { meta: { changes: Number(r.changes) } }; }
     };
   }
   const DB = {
@@ -70,14 +74,15 @@ export function makeDb(extraMigrations) {
       catch (e) { db.exec("ROLLBACK"); throw e; }
     }
   };
-  return { DB: DB, raw: db, log: log, q: function (sql) { const st = db.prepare(sql); return st.all.apply(st, Array.prototype.slice.call(arguments, 1)).map(function (r) { return Object.assign({}, r); }); } };
+  return { DB: DB, raw: db, log: log, writes: writes, q: function (sql) { const st = db.prepare(sql); return st.all.apply(st, Array.prototype.slice.call(arguments, 1)).map(function (r) { return Object.assign({}, r); }); } };
 }
 
 // Builds the named Worker functions into one scope with the given stubs and
 // returns them. names: functions to cut from the Worker; vars: top-level vars.
-export function build(names, vars, stubs) {
+// src: another version of the Worker source (for a before and after run).
+export function build(names, vars, stubs, src) {
   const stubNames = Object.keys(stubs || {});
-  const body = (vars || []).map(varSrc).concat(names.map(fnSrc)).join("\n") +
+  const body = (vars || []).map(function (v) { return varSrc(v, src); }).concat(names.map(function (n) { return fnSrc(n, src); })).join("\n") +
     "\nreturn { " + names.join(", ") + " };";
   return new Function(...stubNames, body)(...stubNames.map(function (k) { return stubs[k]; }));
 }

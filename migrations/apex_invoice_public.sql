@@ -49,3 +49,11 @@ CREATE TABLE IF NOT EXISTS apex_stripe_applied (
   applied_cents INTEGER NOT NULL,
   applied_at    TEXT NOT NULL
 );
+
+-- A short lock so two requests never regenerate the same pay links at once.
+-- One row per invoice (or Club registration), reused: taking the lock is one
+-- guarded upsert on the primary key, releasing it is an UPDATE. Never deleted.
+CREATE TABLE IF NOT EXISTS apex_pay_link_locks (
+  lock_key     TEXT PRIMARY KEY,
+  locked_until TEXT NOT NULL
+);

@@ -1123,15 +1123,21 @@ async function handleFirefliesWebhook(request, env) {
         var sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
         var sigHex = "sha256=" + Array.from(new Uint8Array(sig))
             .map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
-        if (sigHex !== sigHeader) {
-            console.log("Fireflies webhook signature mismatch — expected " + sigHex + " got " + sigHeader);
+        // Compared in constant time. The log never carries the expected
+        // signature (anyone who can read logs could then forge a webhook) and
+        // never the raw payload.
+        if (!stripeConstantTimeEqual(sigHeader, sigHex)) {
+            var mismatchId = null;
+            try {
+                var mm = JSON.parse(rawBody);
+                mismatchId = (mm && (mm.meetingId || mm.meeting_id || mm.id)) || null;
+            } catch (eMm) { mismatchId = null; }
+            console.log("Fireflies webhook: signature mismatch, transcript " + String(mismatchId || "unknown").slice(0, 64));
             return jsonErr("Signature mismatch", 401);
         }
 
         var payload;
         try { payload = JSON.parse(rawBody); } catch(e) { return jsonErr("Invalid JSON", 400); }
-
-        console.log("Fireflies webhook raw payload: " + JSON.stringify(payload));
 
         // Fireflies "Transcription completed" webhooks carry only
         // { meetingId, eventType, clientReferenceId } — never the transcript itself.
@@ -25187,6 +25193,63 @@ async function handlePutGmDocMessages(id, request, env) {
     }
 }
 
+// Rate limits for the public routes that had none (2026-10-04): Apex Club
+// registration, the scheduling link, change order and acknowledgment decline,
+// and the readable link resolver on doc.resonateai.online.
+//
+// A WRITE route counts in gm_referral_hits like gmEstPublicRateLimit does: two
+// indexed reads and ONE small insert per request. A GET never writes: it is
+// counted in this isolate's memory only (best effort; a second isolate keeps
+// its own count), because a database row per page view is not worth it.
+//
+// Window: 10 minutes. perKey 0 means no per-key limit (Apex Club: a whole room
+// registers for ONE event from ONE venue network, so only the IP is limited,
+// and generously).
+var PUBLIC_LIMIT_MESSAGE = "Muitas tentativas. Tente novamente em alguns minutos. / Too many attempts. Please try again in a few minutes.";
+
+async function publicWriteRateLimit(env, request, bucket, key, perIp, perKey) {
+    var ip = request.headers.get("CF-Connecting-IP") || "";
+    var slug = "pw:" + bucket + ":" + String(key || "").slice(0, 40);
+    var kHits = perKey ? await env.DB.prepare(
+        "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-10 minutes')"
+    ).bind(slug).first() : { c: 0 };
+    var ipHits = ip ? await env.DB.prepare(
+        "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE ip = ? AND slug LIKE ? AND created_at > datetime('now', '-10 minutes')"
+    ).bind(ip, "pw:" + bucket + ":%").first() : { c: 0 };
+    if ((perKey && kHits && kHits.c >= perKey) || (ipHits && ipHits.c >= perIp)) {
+        return jsonErr(PUBLIC_LIMIT_MESSAGE, 429);
+    }
+    await env.DB.prepare("INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, ?)").bind(crypto.randomUUID(), slug, ip || null).run();
+    return null;
+}
+
+var PUBLIC_READ_HITS = {};
+var PUBLIC_READ_HITS_SWEPT = 0;
+
+// true when this request is over the limit. Writes nothing anywhere.
+function publicReadRateLimited(request, bucket, key, perIp, perKey) {
+    var now = Date.now();
+    var windowMs = 600000;
+    if (now - PUBLIC_READ_HITS_SWEPT > windowMs) {
+        PUBLIC_READ_HITS_SWEPT = now;
+        Object.keys(PUBLIC_READ_HITS).forEach(function(k) {
+            if (now - PUBLIC_READ_HITS[k].start > windowMs) { delete PUBLIC_READ_HITS[k]; }
+        });
+    }
+    function over(k, limit) {
+        if (!limit) { return false; }
+        var h = PUBLIC_READ_HITS[k];
+        if (!h || now - h.start > windowMs) { h = PUBLIC_READ_HITS[k] = { start: now, n: 0 }; }
+        if (h.n >= limit) { return true; }
+        h.n++;
+        return false;
+    }
+    var ip = request.headers.get("CF-Connecting-IP") || "";
+    var ipOver  = ip ? over(bucket + "|ip|" + ip, perIp) : false;
+    var keyOver = key ? over(bucket + "|k|" + String(key).slice(0, 80), perKey) : false;
+    return ipOver || keyOver;
+}
+
 // ── PUBLIC: the customer's view (2f) ───────────────────────────────────
 // The token IS the credential (same contract as /api/scheduling/link). Rate
 // limited like the referral intake, in gm_referral_hits, keyed by token.
@@ -41318,6 +41381,14 @@ export default {
     fetch: async function(request, env, ctx) {
         try {
             if (new URL(request.url).hostname === "doc.resonateai.online") {
+                var docPath = new URL(request.url).pathname.toLowerCase();
+                var docIsImage = /\/preview\.(jpg|png|webp|gif)$/.test(docPath);
+                // The preview picture is counted apart from the page, so a
+                // chat app fetching the card never uses up the page's allowance.
+                if (publicReadRateLimited(request, docIsImage ? "docimg" : "doc", docPath.replace(/\/preview\.(jpg|png|webp|gif)$/, ""), 30, 20)) {
+                    return new Response("Muitas tentativas. Tente novamente em alguns minutos. / Too many attempts. Please try again in a few minutes.",
+                        { status: 429, headers: { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex", "Retry-After": "600" } });
+                }
                 return await docLinkServe(request, env);
             }
             await gmLoadHiddenActors(env);
@@ -41452,7 +41523,12 @@ async function handleFetch(request, env, ctx) {
         var clubRegPub = path.match(/^\/api\/club\/register\/([A-Za-z0-9-]+)$/);
         if (clubRegPub) {
             if (method === "GET")  { return handleGetClubRegisterInfo(clubRegPub[1], request, env); }
-            if (method === "POST") { return handlePostClubRegister(clubRegPub[1], request, env); }
+            if (method === "POST") {
+                // 60 per 10 minutes per IP: a whole room registers from one venue network.
+                var clubLimited = await publicWriteRateLimit(env, request, "club", clubRegPub[1], 60, 0);
+                if (clubLimited) { return clubLimited; }
+                return handlePostClubRegister(clubRegPub[1], request, env);
+            }
         }
         var clubFlyerPub = path.match(/^\/api\/club\/flyer\/([A-Za-z0-9-]+)$/);
         if (clubFlyerPub && method === "GET") { return handleGetClubFlyer(clubFlyerPub[1], request, env); }
@@ -41490,6 +41566,13 @@ async function handleFetch(request, env, ctx) {
         // IS the credential). Declared here, with the other public routes and
         // BEFORE the client-role gate, because the client opening this link is
         // not logged in to anything — that is the entire point of the feature.
+        var schedAny = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)(?:\/(suggest|book|reopen|none))?$/);
+        if (schedAny && method === "POST" && schedAny[2]) {
+            var schedLimited = await publicWriteRateLimit(env, request, "sched", schedAny[1], 30, 20);
+            if (schedLimited) { return schedLimited; }
+        } else if (schedAny && method === "GET" && !schedAny[2]) {
+            if (publicReadRateLimited(request, "sched", schedAny[1], 30, 20)) { return jsonErr(PUBLIC_LIMIT_MESSAGE, 429); }
+        }
         var schedLink = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)$/);
         if (schedLink && method === "GET") { return handleGetSchedulingLink(schedLink[1], request, env); }
         var schedSuggest = path.match(/^\/api\/scheduling\/link\/([A-Za-z0-9]+)\/suggest$/);
@@ -41680,14 +41763,22 @@ async function handleFetch(request, env, ctx) {
         if (pubCo) {
             if (!pubCo[2] && !pubCo[3] && method === "GET") { return handleGetPublicChangeOrder(pubCo[1], request, env); }
             if (pubCo[2] === "sign" && method === "POST") { return handlePostPublicChangeOrderSign(pubCo[1], request, env); }
-            if (pubCo[2] === "decline" && method === "POST") { return handlePostPublicChangeOrderDecline(pubCo[1], request, env); }
+            if (pubCo[2] === "decline" && method === "POST") {
+                var coLimited = await publicWriteRateLimit(env, request, "codecline", pubCo[1], 30, 20);
+                if (coLimited) { return coLimited; }
+                return handlePostPublicChangeOrderDecline(pubCo[1], request, env);
+            }
             if (pubCo[3] && method === "GET") { return handleGetPublicChangeOrderSignature(pubCo[1], pubCo[3], request, env); }
         }
         var pubAck = path.match(/^\/api\/public\/acks\/([a-f0-9]{48})(?:\/(sign|decline|signature-image)|\/(photo|punch-photo)\/([A-Za-z0-9-]+))?$/);
         if (pubAck) {
             if (!pubAck[2] && !pubAck[3] && method === "GET") { return handleGetPublicAck(pubAck[1], request, env); }
             if (pubAck[2] === "sign" && method === "POST") { return handlePostPublicAckSign(pubAck[1], request, env); }
-            if (pubAck[2] === "decline" && method === "POST") { return handlePostPublicAckDecline(pubAck[1], request, env); }
+            if (pubAck[2] === "decline" && method === "POST") {
+                var ackLimited = await publicWriteRateLimit(env, request, "ackdecline", pubAck[1], 30, 20);
+                if (ackLimited) { return ackLimited; }
+                return handlePostPublicAckDecline(pubAck[1], request, env);
+            }
             if (pubAck[2] === "signature-image" && method === "GET") { return handleGetPublicAckFile(pubAck[1], "signature-image", null, request, env); }
             if (pubAck[3] && method === "GET") { return handleGetPublicAckFile(pubAck[1], pubAck[3], pubAck[4], request, env); }
         }

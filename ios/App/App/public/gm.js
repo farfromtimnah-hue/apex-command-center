@@ -8732,9 +8732,10 @@ function gmStripeBlockHtml(i, m, hint) {
       "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices so they mark themselves paid.") + '</p>' +
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
       '<input type="checkbox" id="gmStripeAccept" style="margin-top:3px;" onchange="document.getElementById(\'gmStripeConnectBtn\').disabled = !this.checked">' +
-      '<span>' + gmT("Entendi que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex para marcá-las como pagas. ",
-                     "I understand the Apex system reads the payments made on my Apex invoices to mark them paid. ") +
-      '<a href="terms.html" target="_blank" rel="noopener">' + gmT("Ver os Termos de Uso", "Read the Terms") + '</a></span></label>' +
+      '<span>' + gmT("Concordo com os ", "I agree to the ") +
+      '<a href="terms.html" target="_blank" rel="noopener">' + gmT("Termos de Uso", "Terms") + '</a>' +
+      gmT(", incluindo a seção 6 (pagamentos com cartão pelo Stripe), e que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex para marcá-las como pagas.",
+          ", including section 6 (card payments through Stripe), and that the Apex system reads the payments made on my Apex invoices to mark them paid.") + '</span></label>' +
       '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
   }
   if (!st.charges_enabled) {

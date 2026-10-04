@@ -26454,11 +26454,45 @@ async function stripeVerifySignature(env, rawBody, header) {
         if (k === "v1") { sigs.push(v); }
     });
     if (!t || !sigs.length) { return false; }
-    if (Math.abs(Date.now() / 1000 - Number(t)) > 600) { return false; }
+    // 5 minutes either way (was 10): an old capture cannot be replayed later.
+    if (!/^\d{1,12}$/.test(t)) { return false; }
+    if (Math.abs(Date.now() / 1000 - Number(t)) > STRIPE_WEBHOOK_TOLERANCE_S) { return false; }
     var key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     var mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(t + "." + rawBody));
     var hex = Array.from(new Uint8Array(mac)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
-    return sigs.indexOf(hex) !== -1;
+    // Every v1 signature is compared, each in constant time, with no early
+    // exit: how long this takes says nothing about how close a guess was.
+    var matched = 0;
+    for (var s = 0; s < sigs.length; s++) { matched |= stripeConstantTimeEqual(sigs[s], hex) ? 1 : 0; }
+    return matched === 1;
+}
+
+var STRIPE_WEBHOOK_TOLERANCE_S = 300;
+
+function stripeConstantTimeEqual(a, b) {
+    a = String(a || ""); b = String(b || "");
+    var diff = a.length ^ b.length;
+    for (var i = 0; i < b.length; i++) { diff |= (a.charCodeAt(i % (a.length || 1)) || 0) ^ b.charCodeAt(i); }
+    return diff === 0;
+}
+
+// After the signature: is this event one this Worker should act on?
+// Returns null to proceed, or { status, reason }.
+//   - an event whose livemode does not match the key's mode is REJECTED (400):
+//     a test event must never write a payment while the key is live, or the
+//     other way round.
+//   - an event for an account this system does not know is ACKNOWLEDGED (200)
+//     and ignored. Not a 400: a business that disconnected keeps sending
+//     account events, and a wall of 400s makes Stripe disable the endpoint,
+//     which would stop card payments being recorded for everyone.
+async function stripeWebhookGate(env, event) {
+    if (!event || typeof event !== "object" || !event.id || !event.type) { return { status: 400, reason: "malformed event" }; }
+    var keyLive = /^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim());
+    if (typeof event.livemode === "boolean" && event.livemode !== keyLive) { return { status: 400, reason: "livemode mismatch" }; }
+    if (!event.account) { return { status: 200, reason: "no connected account on the event" }; }
+    var known = await env.DB.prepare("SELECT 1 AS x FROM gm_stripe_accounts WHERE stripe_account_id = ?").bind(String(event.account)).first();
+    if (!known) { return { status: 200, reason: "unknown account" }; }
+    return null;
 }
 
 // Stripe confirmed the money: record ONE verified payment on the invoice.
@@ -26501,7 +26535,14 @@ async function handleStripeWebhook(request, env) {
         var rawBody = await request.text();
         var ok = await stripeVerifySignature(env, rawBody, request.headers.get("Stripe-Signature"));
         if (!ok) { console.log("[stripe webhook] bad signature"); return jsonErr("Invalid signature", 400); }
-        var event = JSON.parse(rawBody);
+        var event = null;
+        try { event = JSON.parse(rawBody); } catch (parseErr) { return jsonErr("Invalid payload", 400); }
+        var gate = await stripeWebhookGate(env, event);
+        if (gate) {
+            console.log("[stripe webhook] " + (event && event.type) + " " + (event && event.id) + ": " + gate.reason);
+            if (gate.status !== 200) { return jsonErr("Rejected: " + gate.reason, gate.status); }
+            return jsonOk({ received: true, result: "ignored: " + gate.reason });
+        }
         var result = "ignored";
         if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
             result = await gmStripeRecordPaid(env, request, event);
@@ -41156,6 +41197,33 @@ async function docLinkServe(request, env) {
         { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }
 
+// PUBLIC DOCUMENT RESPONSES ARE NEVER INDEXED AND NEVER STORED (2026-10-04).
+//
+// A customer's estimate, contract, invoice or receipt is reached by a token in
+// the address. Those answers must not be kept by a shared cache or listed by a
+// search engine. Done once at the fetch boundary, for every route under the
+// public document prefixes, instead of in each of the handlers:
+//   X-Robots-Tag: noindex, nofollow     on everything under those prefixes
+//   Cache-Control: private, no-store    on every answer that is not an image
+// Images (signatures, photos) keep whatever caching their handler chose.
+var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf)|club\/pay)\//;
+function publicDocHeaders(response, request) {
+    try {
+        if (!PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return response; }
+        var type = String(response.headers.get("Content-Type") || "").toLowerCase();
+        // Everything except an image: JSON, PDF, and the plain-text or HTML
+        // answer a PDF route gives when the token is unknown.
+        var noStore = type.indexOf("image/") !== 0;
+        var headers = new Headers(response.headers);
+        headers.set("X-Robots-Tag", "noindex, nofollow");
+        if (noStore) { headers.set("Cache-Control", "private, no-store"); }
+        var body = (response.status === 204 || response.status === 304) ? null : response.body;
+        return new Response(body, { status: response.status, statusText: response.statusText, headers: headers });
+    } catch (e) {
+        return response;
+    }
+}
+
 export default {
     // Thin wrapper over the real handler. Every response leaving this Worker
     // passes through withCorsOrigin(), so the allowlisted Origin is echoed
@@ -41171,7 +41239,7 @@ export default {
             }
             await gmLoadHiddenActors(env);
             var response = await handleFetch(request, env, ctx);
-            return withCorsOrigin(response, request);
+            return withCorsOrigin(publicDocHeaders(response, request), request);
         } catch (err) {
             // A rejected credential answers 401, never 500. Classified on the
             // typed flag only -- never on message text, so a D1 outage or a

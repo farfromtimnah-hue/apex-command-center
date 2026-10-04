@@ -9,9 +9,11 @@
 
   Two rules shape the whole file:
 
-  1. TWO FIELDS. Name and WhatsApp, nothing else. Every extra field is a
-     reason to close the tab. Couple-vs-single, email, company -- all
-     deliberately absent. Alice fills in what she needs later.
+  1. FEW FIELDS. Name, company and WhatsApp, plus the plus-one switch. Every
+     extra field is a reason to close the tab, so email and anything else
+     stay absent. All three fill from iOS AutoFill in one tap. The company
+     was added 2026-10-04: Apex Club is a room of business owners, and the
+     guest list needs to say whose business each guest runs.
 
   2. THE MONEY IS ON SCREEN TWO. Of nine confirmed July payments, six landed
      on the day of the dinner and one after it -- people pay at the door. So
@@ -208,7 +210,7 @@
           AUTOFILL. Four things must hold together or iOS never offers
           "AutoFill Contact" above the keyboard, and the whole friction
           argument for this page collapses:
-            1. standard autocomplete tokens (name / tel) -- not invented ones
+            1. standard autocomplete tokens (name / organization / tel) -- not invented ones
             2. a real <form> WITH a submit button
             3. real <label> elements (Safari reads label text, undocumented)
             4. type="tel" -- also gives the numeric keypad
@@ -220,6 +222,11 @@
           <input id="nome" name="nome" type="text"
                  autocomplete="name" autocapitalize="words"
                  placeholder="Seu nome" required>
+
+          <label for="empresa">Empresa</label>
+          <input id="empresa" name="empresa" type="text"
+                 autocomplete="organization" autocapitalize="words"
+                 placeholder="Nome da sua empresa" required>
 
           <label for="tel">WhatsApp</label>
           <input id="tel" name="tel" type="tel"
@@ -412,10 +419,12 @@
     e.preventDefault();
     var btn = $("submitBtn");
     var nome = $("nome").value.trim();
+    var empresa = $("empresa").value.trim();
     var tel  = $("tel").value.trim();
 
     hide("formErr");
     if (nome.length < 2) { return fail("Escreva seu nome."); }
+    if (empresa.length < 2) { return fail("Escreva o nome da empresa."); }
     if (tel.replace(/\D/g, "").length < 10) { return fail("Escreva um número de WhatsApp válido."); }
 
     btn.disabled = true;
@@ -424,7 +433,7 @@
     fetch(WORKER_URL + "/api/club/register/" + encodeURIComponent(EVENT_ID), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: nome, phone: tel, plus_one: $("plusOne").checked })
+      body: JSON.stringify({ name: nome, phone: tel, plus_one: $("plusOne").checked, company: empresa })
     })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {

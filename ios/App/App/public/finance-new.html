@@ -1060,6 +1060,8 @@
     .guest-row.is-next { opacity: 0.6; }
     .guest-name { flex: 1 1 auto; min-width: 120px; }
     .guest-name .plus { color: var(--gold); font-weight: 600; font-size: 12px; margin-left: 5px; }
+    /* The guest's business name, a quiet second line under the name. */
+    .guest-name .guest-company { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
     .guest-tools { display: flex; gap: 6px; flex: none; }
     .gbtn {
       font-family: inherit; font-size: 11.5px; font-weight: 600;
@@ -5835,6 +5837,7 @@
             '<span class="guest-name">' + esc(g.name) +
               (g.plus_one ? '<span class="plus">+1</span>' : "") +
               (isNext ? ' <span class="tag-meta">(' + (isEn() ? "next time" : "pr&oacute;xima") + ")</span>" : "") +
+              (g.company ? '<span class="guest-company">' + esc(g.company) + "</span>" : "") +
             "</span>" +
             '<span class="guest-tools">' +
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +

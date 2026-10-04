@@ -34304,7 +34304,7 @@ async function buildApexClubEventPL(env, event) {
     // before any money does, which is the whole point: of nine confirmed July
     // payments, six landed on the day of the dinner and one after it.
     var regsRes = await env.DB.prepare(
-        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at " +
+        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company " +
         "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
     ).bind(event.id).all();
     var regs = regsRes.results || [];
@@ -34619,7 +34619,7 @@ async function handleGetClubFlyer(eventId, request, env) {
 // PUBLIC registration — no auth by design.
 //
 // Route: GET  /api/club/register/:id — what the page needs to render itself
-// Route: POST /api/club/register/:id — { name, phone }
+// Route: POST /api/club/register/:id — { name, phone, plus_one, company }
 //
 // This is the top of Apex's own funnel: Apex Club draws more than clients, and
 // people who get value from it tend to become clients, so the link is meant to
@@ -34715,16 +34715,23 @@ async function handlePostClubRegister(eventId, request, env) {
         // registration -- one phone, one person to message.
         var plusOne = (body.plus_one === true || body.plus_one === 1) ? 1 : 0;
 
+        // The guest's business name. NEVER a reason to refuse the RSVP: the
+        // RSVP is the food count, and an old cached page still posts without
+        // this key. Empty is stored as NULL, and a re-registration with a
+        // blank keeps the company already on the row (the COALESCE below).
+        var company = String(body.company == null ? "" : body.company).trim().slice(0, 120) || null;
+
         // Re-registering is not an error. Someone tapping twice, or coming
         // back to add a plus one they forgot, must never see a failure -- the
         // UNIQUE constraint makes it idempotent and the page just says
         // "you're in".
         await env.DB.prepare(
-            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source) " +
-            "VALUES (?, ?, ?, ?, ?, 'public') " +
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company) " +
+            "VALUES (?, ?, ?, ?, ?, 'public', ?) " +
             "ON CONFLICT(event_id, phone) DO UPDATE SET " +
-            "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going'"
-        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne).run();
+            "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going', " +
+            "company = COALESCE(NULLIF(excluded.company, ''), company)"
+        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company).run();
 
         return jsonOk({ registered: true, plus_one: plusOne === 1 });
     } catch (e) {
@@ -34760,7 +34767,9 @@ async function handleGetClubBySession(sessionId, request, env) {
         if (!ev) { return jsonErr("No Apex Club event linked to this session", 404); }
 
         var regsRes = await env.DB.prepare(
-            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at " +
+            // company is the guest's business name. Still no price, paid or
+            // payment column here: this view is money-free.
+            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company " +
             "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
         ).bind(ev.id).all();
         var regs = regsRes.results || [];

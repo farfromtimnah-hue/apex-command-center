@@ -6419,6 +6419,7 @@
               '<span style="flex:1;">' + escHtml(g.name) +
                 (g.plus_one ? ' <span style="color:var(--gold);font-weight:600;font-size:12px;">+1</span>' : "") +
                 (isNext ? ' <span style="color:var(--muted);font-size:12px;">(' + (en ? "next time" : "próxima") + ")</span>" : "") +
+                (g.company ? '<span style="display:block;color:var(--muted);font-size:12px;line-height:1.3;">' + escHtml(g.company) + "</span>" : "") +
               "</span>" +
               '<a href="https://wa.me/' + escHtml(g.phone) + '" target="_blank" rel="noopener" ' +
                 'style="font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;border:1.5px solid #25d366;color:#128c3e;text-decoration:none;">WhatsApp</a>' +

@@ -8,7 +8,7 @@
 // real table definitions in an in-memory SQLite. No network, no production
 // database. Only existing figures are printed, so additive payload fields a
 // later build introduces do not alter the output.
-import { makeDb, build, baseStubs, req } from "./fixtures/d1-shim.mjs";
+import { makeDb, build, baseStubs, req, hasFn } from "./fixtures/d1-shim.mjs";
 
 const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql"];
 const out = (label, v) => console.log(label + " " + JSON.stringify(v));
@@ -150,7 +150,9 @@ const paySum = (d, id) => d.q("SELECT COALESCE(SUM(amount_cents),0) AS s, COUNT(
 // ── 5. Apex Club P&L: an event with no card prices and no payments ─────────
 {
   const d = makeDb(MIGS); const env = { DB: d.DB };
-  const F = build(["apexClubMemoHit", "buildApexClubEventPL", "parseClubPrices"], ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"], baseStubs);
+  // clubCardTotals is a helper the P&L gained in the Club payments build; it
+  // is loaded when it exists so the same script runs before and after.
+  const F = build(["apexClubMemoHit", "buildApexClubEventPL", "parseClubPrices"].concat(hasFn("clubCardTotals") ? ["clubCardTotals"] : []), ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"], baseStubs);
   seedAccounts(d);
   const ev = (id, single, couple) => {
     d.raw.prepare("INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, price_single_cents, price_couple_cents) VALUES (?, ?, '2026-07-20', '2026-07-06', '2026-07-27', ?, ?)").run(id, "Apex Club " + id, single, couple);

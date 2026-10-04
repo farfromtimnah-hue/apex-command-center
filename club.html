@@ -184,6 +184,26 @@
       background: rgba(201,164,58,0.10); border: 1px solid rgba(201,164,58,0.32);
       font-size: 13.5px; line-height: 1.6; text-align: left;
     }
+    /* ── Apex Club payments (only with the payments switch on) ───────── */
+    .pay .pay-line { color: var(--muted); font-size: 13.5px; margin: 2px 0 16px; line-height: 1.5; }
+    .pay .pay-fine { color: var(--muted); font-size: 12px; margin: 8px 0 0; line-height: 1.5; }
+    .pay .pay-sep { border: 0; border-top: 1px solid var(--border); margin: 20px 0 18px; }
+    .pay .pay-sub { font-size: 15px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+    .pay .pay-msg { font-size: 13px; line-height: 1.5; color: var(--green); margin: 8px 0 0; min-height: 18px; }
+    .pay .pay-state { font-size: 16px; font-weight: 700; color: var(--green); margin: 6px 0 2px; }
+    .pay button.cta { margin: 0; }
+    .pay button.quiet {
+      background: none; border: 0; padding: 8px 0; margin: 4px 0 0; cursor: pointer;
+      color: var(--muted); font-family: inherit; font-size: 13px; text-decoration: underline;
+    }
+    .pay .copy-field { margin: 8px 0 0; text-align: center; }
+    .pay label { text-align: left; margin-top: 16px; }
+    .pay .hint { color: var(--muted); font-size: 12px; line-height: 1.5; text-align: left; margin: -10px 0 12px; }
+    .notice {
+      background: rgba(76,175,109,0.12); border: 1px solid rgba(76,175,109,0.45);
+      color: var(--text); font-size: 14.5px; font-weight: 600; line-height: 1.5;
+      padding: 14px 16px; border-radius: 11px; margin: 0 0 20px; text-align: center;
+    }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -308,6 +328,24 @@
         <p class="fine">Nos vemos lá! Qualquer dúvida, é só chamar no WhatsApp.</p>
       </div>
 
+      <!-- ══ The guest's own payment screen (club.html?e=...&p=<token>) ══
+           Opened from the link Alice copies on the guest list, and where
+           Stripe sends the guest back after a card payment. Only exists with
+           the Apex Club payments switch on; with it off this link simply
+           shows the registration page. -->
+      <div id="screenPay" class="hidden">
+        <h1 id="payEvName">Apex Club</h1>
+        <p class="sub" id="payGuest"></p>
+        <div id="payNotice" class="notice hidden"></div>
+        <div class="facts" id="payFacts"></div>
+      </div>
+
+      <!-- The payment box used when Apex Club payments are on and the event
+           has a card price. It replaces #payBox on the thank-you screen and
+           is the body of the pay screen. Built by renderPayBox(). There is no
+           "no" or decline anywhere in it, by rule. -->
+      <div class="pay hidden" id="payBoxNew"></div>
+
       <div id="screenClosed" class="hidden">
         <h1>Inscrições encerradas</h1>
         <p class="sub">As inscrições para este evento já foram encerradas. Fale com a equipe do Apex Club para saber do próximo.</p>
@@ -336,6 +374,21 @@
   function money(cents) {
     return "$" + (cents / 100).toFixed(2).replace(/\.00$/, "");
   }
+  // Always with cents and the thousands comma ($1,250.00): the payment box
+  // shows exact amounts.
+  function money2(cents) {
+    var p = ((Number(cents) || 0) / 100).toFixed(2).split(".");
+    return "$" + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + p[1];
+  }
+
+  // Apex Club payments. PAY_TOKEN is the guest's own pay token (from the
+  // registration answer, or the p= parameter of a pay link); PAY is what
+  // /api/club/pay/<token> said. Both stay null while payments are switched
+  // off, and then nothing below runs.
+  var qsAll = new URLSearchParams(location.search);
+  var PAY_TOKEN = /^[a-f0-9]{48}$/.test(qsAll.get("p") || "") ? qsAll.get("p") : null;
+  var PAID_RETURN = qsAll.get("paid") === "1";
+  var PAY = null;
 
   // "2026-07-20" -> "20 de julho de 2026". Built from parts, never from
   // new Date("YYYY-MM-DD"), which parses as UTC and lands on the 19th for
@@ -406,13 +459,21 @@
         show("flyerFallback");
       }
 
-      if (!EV.registration_open) { show("screenClosed"); return; }
+      // A pay link (p=<token>). If the Worker does not answer for it
+      // (payments switched off, or an unknown token) the page carries on as
+      // the plain registration page.
+      if (PAY_TOKEN) { loadPayScreen(); return; }
 
-      $("evName").textContent = EV.name;
-      $("facts").innerHTML = factsHtml(EV);
-      show("screenForm");
+      showForm();
     })
     .catch(function () { show("flyerFallback"); show("screenMissing"); });
+
+  function showForm() {
+    if (!EV.registration_open) { show("screenClosed"); return; }
+    $("evName").textContent = EV.name;
+    $("facts").innerHTML = factsHtml(EV);
+    show("screenForm");
+  }
 
   // ── Submit ──────────────────────────────────────────────────────────
   $("regForm").addEventListener("submit", function (e) {
@@ -442,6 +503,17 @@
           return fail((res.d && res.d.error) || "Não deu certo. Tente de novo.");
         }
         done(nome, $("plusOne").checked);
+        // Payments on and a card price on this event: the Worker sends the
+        // guest's pay token and prices, and the payment box changes. With
+        // payments off res.d.pay is null and the screen is what done() built.
+        if (res.d.pay && res.d.pay_token) {
+          PAY_TOKEN = res.d.pay_token;
+          PAY = {
+            zelle_cents: res.d.pay.zelle_cents, card_cents: res.d.pay.card_cents, discount_cents: res.d.pay.discount_cents,
+            paid: false, paid_method: null, zelle_state: null, zelle_handle: EV.zelle_handle, has_qr: true
+          };
+          renderPayBox($("payBox"));
+        }
       })
       .catch(function () {
         btn.disabled = false; btn.textContent = "Eu vou";
@@ -506,6 +578,107 @@
 
     show("screenDone");
     window.scrollTo(0, 0);
+  }
+
+  // ── Apex Club payments ──────────────────────────────────────────────
+  // The Zelle prices here follow the same seat rules as done() above; the
+  // Worker's clubPriceFor() is the one source of truth and sends the numbers.
+
+  // Builds #payBoxNew from PAY and puts it where `anchor` is (the old #payBox
+  // on the thank-you screen), or at the end of the pay screen.
+  function renderPayBox(anchor) {
+    var box = $("payBoxNew");
+    var h = "<h2>Pagamento</h2>";
+    if (PAY.paid) {
+      var how = PAY.paid_method === "card" ? " no cartão" : (PAY.paid_method === "zelle" ? " no Zelle" : "");
+      h += '<div class="pay-state">Pago: ' + money2(PAY.paid_cents) + how + "</div>";
+    } else {
+      if (PAY.card_cents !== null && PAY.card_cents !== undefined) {
+        h += '<div class="price">Valor: ' + money2(PAY.card_cents) + "</div>" +
+          '<div class="pay-line">Pagando com Zelle: ' + money2(PAY.zelle_cents) +
+            (PAY.discount_cents > 0 ? " (desconto de " + money2(PAY.discount_cents) + ")" : "") + "</div>" +
+          '<button type="button" class="cta" id="btnCard">Pagar com cartão: ' + money2(PAY.card_cents) + "</button>" +
+          '<div class="pay-fine">Cartão ou Apple Pay. O preço do cartão já inclui a taxa de processamento.</div>' +
+          '<div id="cardErr" class="err hidden" style="margin:12px 0 0;"></div>' +
+          '<hr class="pay-sep">';
+      }
+      h += zelleBlockHtml();
+    }
+    box.innerHTML = h;
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(box, anchor);
+      anchor.classList.add("hidden");
+    } else {
+      $("screenPay").appendChild(box);
+    }
+    box.classList.remove("hidden");
+    var card = $("btnCard");
+    if (card) { card.addEventListener("click", payByCard); }
+    wireZelleBlock();
+  }
+
+  // Zelle: the QR and the handle as text, never a link.
+  function zelleBlockHtml() {
+    return '<div class="pay-sub">Pagar com Zelle: ' + money2(PAY.zelle_cents) + "</div>" +
+      '<img id="zelleQrNew" alt="Zelle QR" class="hidden">' +
+      (PAY.zelle_handle
+        ? '<div class="handle"><span class="handle-lbl">Envie para:</span><span>' + esc(PAY.zelle_handle) + "</span></div>"
+        : "") +
+      '<div class="memo">Envie pelo app do seu banco, no Zelle.<br><b>Coloque seu nome no memo</b> para identificarmos seu pagamento.</div>';
+  }
+  function wireZelleBlock() {
+    var qr = $("zelleQrNew");
+    if (!qr) { return; }
+    qr.onerror = function () { qr.classList.add("hidden"); };
+    qr.onload  = function () { qr.classList.remove("hidden"); };
+    qr.src = WORKER_URL + "/api/business/qr-image";
+  }
+
+  // Opens Stripe's page for exactly this guest's card price, in this tab.
+  function payByCard() {
+    var btn = $("btnCard"), err = $("cardErr");
+    if (err) { err.classList.add("hidden"); }
+    if (btn) { btn.disabled = true; }
+    fetch(WORKER_URL + "/api/club/pay/" + PAY_TOKEN + "/card", { method: "POST" })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d || !res.d.url) { throw new Error((res.d && res.d.error) || "Não deu certo. Tente de novo."); }
+        window.location.href = res.d.url;
+      })
+      .catch(function (e) {
+        if (btn) { btn.disabled = false; }
+        if (err) { err.textContent = e.message || "Não deu certo. Tente de novo."; err.classList.remove("hidden"); }
+      });
+  }
+
+  // The pay screen. Back from Stripe (paid=1) it first asks the Worker to
+  // check this registration with Stripe.
+  var payTries = 0;
+  function loadPayScreen() {
+    var base = WORKER_URL + "/api/club/pay/" + PAY_TOKEN;
+    var first = PAID_RETURN
+      ? fetch(base + "/refresh", { method: "POST" }).then(function (r) { if (!r.ok) { throw new Error("refresh"); } return r; })
+          .catch(function () { return fetch(base); })
+      : fetch(base);
+    first
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d || res.d.error) { PAY_TOKEN = null; showForm(); return; }
+        PAY = res.d;
+        $("payEvName").textContent = EV.name;
+        $("payGuest").textContent = PAY.name || "";
+        $("payFacts").innerHTML = factsHtml(EV);
+        var note = $("payNotice");
+        if (PAID_RETURN) {
+          note.textContent = PAY.paid ? "Pagamento recebido. Obrigado!" : "Estamos confirmando seu pagamento.";
+          note.classList.remove("hidden");
+          // One more look a few seconds later; the Worker limits how often.
+          if (!PAY.paid && payTries < 2) { payTries++; window.setTimeout(loadPayScreen, 6000); }
+        }
+        renderPayBox(null);
+        show("screenPay");
+      })
+      .catch(function () { PAY_TOKEN = null; showForm(); });
   }
 
   // ── Add to calendar ─────────────────────────────────────────────────

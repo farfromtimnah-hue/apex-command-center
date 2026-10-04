@@ -1862,18 +1862,49 @@
 
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <div class="field-group" style="flex:1 1 140px;">
-              <div class="field-label">
+              <div class="field-label" id="nsClubLblSingle">
                 <span class="show-pt">Valor por pessoa</span>
                 <span class="show-en">Price per person</span>
               </div>
-              <input type="text" id="nsClubPriceSingle" inputmode="decimal" placeholder="50.00">
+              <input type="text" id="nsClubPriceSingle" inputmode="decimal" placeholder="50.00" oninput="nsClubCardPrefill(false)">
             </div>
             <div class="field-group" style="flex:1 1 140px;">
-              <div class="field-label">
+              <div class="field-label" id="nsClubLblCouple">
                 <span class="show-pt">Valor por casal</span>
                 <span class="show-en">Price per couple</span>
               </div>
-              <input type="text" id="nsClubPriceCouple" inputmode="decimal" placeholder="75.00">
+              <input type="text" id="nsClubPriceCouple" inputmode="decimal" placeholder="75.00" oninput="nsClubCardPrefill(false)">
+            </div>
+          </div>
+
+          <!-- Apex Club payments: the card price is the POSTED price, Zelle is
+               the discount. Unticked = card not offered at this event. -->
+          <div class="field-group">
+            <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;">
+              <input type="checkbox" id="nsClubCardOn" onchange="nsClubCardToggle()" style="width:auto;">
+              <span><span class="show-pt">Aceitar cartão neste evento</span><span class="show-en">Accept card at this event</span></span>
+            </label>
+          </div>
+          <div id="nsClubCardRow" hidden>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div class="field-group" style="flex:1 1 140px;">
+                <div class="field-label">
+                  <span class="show-pt">Preço no cartão (individual)</span>
+                  <span class="show-en">Card price (single)</span>
+                </div>
+                <input type="text" id="nsClubPriceCardSingle" inputmode="decimal" placeholder="52.00" oninput="this.setAttribute('data-touched','1')">
+              </div>
+              <div class="field-group" style="flex:1 1 140px;">
+                <div class="field-label">
+                  <span class="show-pt">Preço no cartão (casal)</span>
+                  <span class="show-en">Card price (couple)</span>
+                </div>
+                <input type="text" id="nsClubPriceCardCouple" inputmode="decimal" placeholder="78.00" oninput="this.setAttribute('data-touched','1')">
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;line-height:1.5;">
+              <span class="show-pt">O preço do cartão é o preço divulgado. O flyer e todo anúncio devem mostrar o preço do cartão, e o Zelle é um desconto. Nunca divulgue o preço do Zelle como preço normal.</span>
+              <span class="show-en">The card price is the posted price. The flyer and every announcement must show the card price, and Zelle is a discount. Never advertise the Zelle price as the regular price.</span>
             </div>
           </div>
 
@@ -3887,6 +3918,51 @@
       return NS_MEETING_TYPE === "personal";
     }
 
+    // The default card price for a Zelle price (Stripe's 2.9% + 30 cents
+    // grossed up, rounded UP to a whole dollar). MIRRORS clubCardPriceFromZelle
+    // in the Worker and in finance-new.html; keep the three equal.
+    function clubCardPriceFromZelle(zelleCents) {
+      var z = Number(zelleCents) || 0;
+      if (z <= 0) { return null; }
+      return Math.ceil((z + 30) / 0.971 / 100) * 100;
+    }
+    function nsClubCardPrefill(force) {
+      var on = document.getElementById("nsClubCardOn");
+      if (!on || !on.checked) { return; }
+      var pairs = [["nsClubPriceSingle", "nsClubPriceCardSingle"], ["nsClubPriceCouple", "nsClubPriceCardCouple"]];
+      for (var i = 0; i < pairs.length; i++) {
+        var card = document.getElementById(pairs[i][1]);
+        var src = document.getElementById(pairs[i][0]);
+        if (!card || !src) { continue; }
+        if (!force && card.getAttribute("data-touched") === "1") { continue; }
+        if (force && card.value.trim()) { continue; }
+        var raw = (src.value || src.getAttribute("placeholder") || "").trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+        var n = parseFloat(raw);
+        var c = (isFinite(n) && n > 0) ? clubCardPriceFromZelle(Math.round(n * 100)) : null;
+        card.value = c === null ? "" : (c / 100).toFixed(2);
+      }
+    }
+    // Shows the card fields and relabels the two existing prices as the Zelle
+    // prices while card is ticked.
+    function nsClubCardToggle() {
+      var onEl = document.getElementById("nsClubCardOn");
+      var row = document.getElementById("nsClubCardRow");
+      var on = !!(onEl && onEl.checked);
+      if (row) { row.hidden = !on; }
+      var l1 = document.getElementById("nsClubLblSingle"), l2 = document.getElementById("nsClubLblCouple");
+      if (l1) {
+        l1.innerHTML = on
+          ? '<span class="show-pt">Preço no Zelle (individual)</span><span class="show-en">Zelle price (single)</span>'
+          : '<span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span>';
+      }
+      if (l2) {
+        l2.innerHTML = on
+          ? '<span class="show-pt">Preço no Zelle (casal)</span><span class="show-en">Zelle price (couple)</span>'
+          : '<span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span>';
+      }
+      nsClubCardPrefill(true);
+    }
+
     // Set by applyNsMeetingType/onNsApexClubToggle; read after the session
     // saves, to decide whether
     // an apex_club_events row should be created and linked.
@@ -3925,6 +4001,10 @@
       var pc = dollars("nsClubPriceCouple");
       if (ps !== null) { body.price_single_cents = ps; }
       if (pc !== null) { body.price_couple_cents = pc; }
+      // Card prices only when "accept card" is ticked; otherwise NULL.
+      var cardOn = document.getElementById("nsClubCardOn");
+      body.price_card_single_cents = (cardOn && cardOn.checked) ? dollars("nsClubPriceCardSingle") : null;
+      body.price_card_couple_cents = (cardOn && cardOn.checked) ? dollars("nsClubPriceCardCouple") : null;
 
       return apiFetch("/api/finance-new/club/events", { method: "POST", body: body })
         .then(function(r) { return r.json(); })

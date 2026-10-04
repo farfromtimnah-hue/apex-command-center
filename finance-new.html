@@ -1062,6 +1062,11 @@
     .guest-name .plus { color: var(--gold); font-weight: 600; font-size: 12px; margin-left: 5px; }
     /* The guest's business name, a quiet second line under the name. */
     .guest-name .guest-company { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
+    /* Apex Club payment state on the guest row. */
+    .guest-name .pay-badge { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eeece6; color: var(--muted); }
+    .guest-name .pay-badge.ok { background: #e3f1e6; color: #24693a; }
+    .guest-name .pay-badge.warn { background: #fbefd9; color: #8a5a00; }
+    .guest-tools { flex-wrap: wrap; justify-content: flex-end; }
     .guest-tools { display: flex; gap: 6px; flex: none; }
     .gbtn {
       font-family: inherit; font-size: 11.5px; font-weight: 600;
@@ -3203,18 +3208,40 @@
         <!-- The whole reason this modal exists. These drive the transaction
              matching: a fixed $50/$75 in the code meant an $80 night matched
              nothing at all and never said why. -->
+        <!-- With "accept card" ticked these two read "Zelle price": the
+             number itself keeps its meaning (what a guest pays by Zelle or
+             cash, and what the bank-deposit matching runs on). -->
         <label class="ev-f">
-          <span class="ev-lbl"><span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span></span>
-          <input type="text" id="evPriceSingle" inputmode="decimal" placeholder="50.00">
+          <span class="ev-lbl" id="evLblSingle"><span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span></span>
+          <input type="text" id="evPriceSingle" inputmode="decimal" placeholder="50.00" oninput="evCardPrefill(false)">
         </label>
 
         <label class="ev-f">
           <span class="ev-lbl">
-            <span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span>
+            <span id="evLblCouple"><span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span></span>
             <span class="ev-opt"><span class="show-pt">opcional</span><span class="show-en">optional</span></span>
           </span>
-          <input type="text" id="evPriceCouple" inputmode="decimal" placeholder="75.00">
+          <input type="text" id="evPriceCouple" inputmode="decimal" placeholder="75.00" oninput="evCardPrefill(false)">
         </label>
+
+        <!-- Apex Club payments: the card price is the POSTED price, Zelle is
+             the discount. Unticked = card not offered (saved as NULL). -->
+        <label class="ev-f ev-wide" style="flex-direction:row;align-items:center;gap:9px;cursor:pointer;">
+          <input type="checkbox" id="evCardOn" onchange="evCardToggle()" style="width:auto;">
+          <span><span class="show-pt">Aceitar cart&atilde;o neste evento</span><span class="show-en">Accept card at this event</span></span>
+        </label>
+        <label class="ev-f" id="evCardSingleWrap" hidden>
+          <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (individual)</span><span class="show-en">Card price (single)</span></span>
+          <input type="text" id="evPriceCardSingle" inputmode="decimal" placeholder="52.00" oninput="this.setAttribute('data-touched','1')">
+        </label>
+        <label class="ev-f" id="evCardCoupleWrap" hidden>
+          <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (casal)</span><span class="show-en">Card price (couple)</span></span>
+          <input type="text" id="evPriceCardCouple" inputmode="decimal" placeholder="78.00" oninput="this.setAttribute('data-touched','1')">
+        </label>
+        <div class="ev-f ev-wide" id="evCardHelp" hidden style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+          <span class="show-pt">O pre&ccedil;o do cart&atilde;o &eacute; o pre&ccedil;o divulgado. O flyer e todo an&uacute;ncio devem mostrar o pre&ccedil;o do cart&atilde;o, e o Zelle &eacute; um desconto. Nunca divulgue o pre&ccedil;o do Zelle como pre&ccedil;o normal.</span>
+          <span class="show-en">The card price is the posted price. The flyer and every announcement must show the card price, and Zelle is a discount. Never advertise the Zelle price as the regular price.</span>
+        </div>
 
         <label class="ev-f ev-wide">
           <span class="ev-lbl">
@@ -5906,7 +5933,15 @@
             '<span class="show-en">In ' + fmtCents(c.income_cents) +
               " from " + c.people + " " + (c.people === 1 ? "person" : "people") +
               " &middot; out " + fmtCents(c.expense_cents) + "</span>" +
-          "</div>";
+          "</div>" +
+          // Card receipts, their own labeled lines (already inside the
+          // in / out figures above). Absent when nobody paid by card.
+          (e.card_count
+            ? '<div class="club-detail">' +
+                t("Cartão (Stripe)", "Card (Stripe)") + ": " + fmtCents(e.card_received_cents) + " (" + e.card_count + ")" +
+                " &middot; " + t("Taxa do Stripe", "Stripe fee") + ": " + fmtCents(e.card_fee_cents) +
+              "</div>"
+            : "");
 
         // Outstanding suggestions, with what the number would become. Framed
         // as a question, never applied on her behalf.
@@ -5994,6 +6029,7 @@
               (g.plus_one ? '<span class="plus">+1</span>' : "") +
               (isNext ? ' <span class="tag-meta">(' + (isEn() ? "next time" : "pr&oacute;xima") + ")</span>" : "") +
               (g.company ? '<span class="guest-company">' + esc(g.company) + "</span>" : "") +
+              clubPayBadge(g) +
             "</span>" +
             '<span class="guest-tools">' +
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
@@ -6006,6 +6042,7 @@
                 'title="' + (isEn() ? "Came" : "Veio") + '">&check;</button>' +
               '<button class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
                 'title="' + (isEn() ? "No-show" : "N&atilde;o veio") + '">&times;</button>' +
+              clubPayTools(g) +
             "</span></div>";
         }).join("");
 
@@ -6288,6 +6325,17 @@
         ? centsToInput(e.price_couple_cents)
         : "75.00";
 
+      // Card prices: ticked only when this event already has one.
+      var hasCard = !!(e && e.price_card_single_cents !== null && e.price_card_single_cents !== undefined);
+      var cs = document.getElementById("evPriceCardSingle"), cc = document.getElementById("evPriceCardCouple");
+      document.getElementById("evCardOn").checked = hasCard;
+      cs.value = hasCard ? centsToInput(e.price_card_single_cents) : "";
+      cc.value = hasCard ? centsToInput(e.price_card_couple_cents) : "";
+      // A stored price counts as typed: it is never overwritten by the prefill.
+      if (hasCard) { cs.setAttribute("data-touched", "1"); cc.setAttribute("data-touched", "1"); }
+      else { cs.removeAttribute("data-touched"); cc.removeAttribute("data-touched"); }
+      evCardApply();
+
       document.getElementById("evDeleteBtn").hidden = !e;
       document.getElementById("clubEvErr").hidden = true;
       document.getElementById("evWindowRow").hidden = true;
@@ -6320,6 +6368,47 @@
       return (c / 100).toFixed(2);
     }
 
+    // The default card price for a Zelle price: Stripe's 2.9% + 30 cents
+    // grossed up, rounded UP to a whole dollar (5000 gives 5200, 7500 gives
+    // 7800). MIRRORS clubCardPriceFromZelle in the Worker; keep them equal.
+    function clubCardPriceFromZelle(zelleCents) {
+      var z = Number(zelleCents) || 0;
+      if (z <= 0) { return null; }
+      return Math.ceil((z + 30) / 0.971 / 100) * 100;
+    }
+    // Shows or hides the card fields and relabels the two existing price
+    // fields as "Zelle price" while card is ticked.
+    function evCardApply() {
+      var on = document.getElementById("evCardOn").checked;
+      document.getElementById("evCardSingleWrap").hidden = !on;
+      document.getElementById("evCardCoupleWrap").hidden = !on;
+      document.getElementById("evCardHelp").hidden = !on;
+      setHtml("evLblSingle", on
+        ? '<span class="show-pt">Pre&ccedil;o no Zelle (individual)</span><span class="show-en">Zelle price (single)</span>'
+        : '<span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span>');
+      setHtml("evLblCouple", on
+        ? '<span class="show-pt">Pre&ccedil;o no Zelle (casal)</span><span class="show-en">Zelle price (couple)</span>'
+        : '<span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span>');
+    }
+    // Fills the card prices from the Zelle prices. force = she just ticked
+    // the box; otherwise only a field she has not typed in follows along.
+    function evCardPrefill(force) {
+      if (!document.getElementById("evCardOn").checked) { return; }
+      var pairs = [["evPriceSingle", "evPriceCardSingle"], ["evPriceCouple", "evPriceCardCouple"]];
+      for (var i = 0; i < pairs.length; i++) {
+        var card = document.getElementById(pairs[i][1]);
+        if (!force && card.getAttribute("data-touched") === "1") { continue; }
+        if (force && card.value.trim()) { continue; }
+        var z = dollarsToCents(document.getElementById(pairs[i][0]).value);
+        var c = (z === null || isNaN(z)) ? null : clubCardPriceFromZelle(z);
+        card.value = c === null ? "" : centsToInput(c);
+      }
+    }
+    function evCardToggle() {
+      evCardApply();
+      evCardPrefill(true);
+    }
+
     // "80", "80.00", "$80", "80,00" -> 8000. Returns null for blank, which
     // is meaningful for the couple price (this event has no couple rate).
     function dollarsToCents(raw) {
@@ -6346,6 +6435,19 @@
         return evErr(t("Valor por casal precisa ser um número, ou vazio.", "Price per couple must be a number, or blank."));
       }
 
+      // Card prices: sent as NULL when the box is unticked (card not offered).
+      var cardSingle = null, cardCouple = null;
+      if (document.getElementById("evCardOn").checked) {
+        cardSingle = dollarsToCents(document.getElementById("evPriceCardSingle").value);
+        if (cardSingle === null || isNaN(cardSingle)) {
+          return evErr(t("Preço no cartão (individual) precisa ser um número.", "Card price (single) must be a number."));
+        }
+        cardCouple = dollarsToCents(document.getElementById("evPriceCardCouple").value);
+        if (isNaN(cardCouple)) {
+          return evErr(t("Preço no cartão (casal) precisa ser um número, ou vazio.", "Card price (couple) must be a number, or blank."));
+        }
+      }
+
       var body = {
         name: name,
         event_date: date,
@@ -6354,7 +6456,9 @@
         speakers: document.getElementById("evSpeakers").value.trim() || null,
         notes: document.getElementById("evNotes").value.trim() || null,
         price_single_cents: single,
-        price_couple_cents: couple
+        price_couple_cents: couple,
+        price_card_single_cents: cardSingle,
+        price_card_couple_cents: cardCouple
       };
       var ws = document.getElementById("evWinStart").value.trim();
       var we = document.getElementById("evWinEnd").value.trim();
@@ -6432,11 +6536,67 @@
 
     // Fills the Settings template. Falls back to a plain message if none is
     // set, so a missing template never produces an empty WhatsApp draft.
+    // ── Apex Club payments on the guest list ─────────────────────────────
+    // Shown only with the Apex Club payments switch ON, or to the developer.
+    function clubPayVisible() {
+      return APX_SWITCHES.club_pay_enabled === true || APX_SWITCHES.role === "developer";
+    }
+    // One badge per guest, or nothing.
+    function clubPayBadge(g) {
+      if (!clubPayVisible()) { return ""; }
+      var label = "", cls = "pay-badge";
+      if (g.paid_at) {
+        cls += " ok";
+        label = g.paid_method === "card" ? t("Pago cartão", "Paid by card")
+              : g.paid_method === "zelle" ? t("Pago Zelle", "Paid by Zelle")
+              : t("Pago manual", "Paid manually");
+      } else if (g.zelle_state === "review") { cls += " warn"; label = t("Conferir Zelle", "Check Zelle"); }
+      else if (g.zelle_state === "mismatch") { cls += " warn"; label = t("Valor diferente", "Different amount"); }
+      else if (g.zelle_conf) {
+        // Waiting for the bank feed; after 5 days it is called out.
+        var days = g.zelle_conf_at ? (Date.now() - new Date(String(g.zelle_conf_at).replace(" ", "T") + (/[Zz]$/.test(g.zelle_conf_at) ? "" : "Z")).getTime()) / 86400000 : 0;
+        if (days > 5) { cls += " warn"; label = t("Confirmação não encontrada", "Confirmation not found"); }
+        else { label = t("Aguardando banco", "Waiting for bank"); }
+      }
+      return label ? '<span class="' + cls + '">' + label + "</span>" : "";
+    }
+    function clubPayTools(g) {
+      if (!clubPayVisible()) { return ""; }
+      var h = '<button class="gbtn" onclick="copyClubPayLink(\'' + g.id + '\')">' + t("Copiar link de pagamento", "Copy payment link") + "</button>";
+      if (!g.paid_at) {
+        h += '<button class="gbtn" onclick="markClubPaid(\'' + g.id + '\', true)">' + t("Marcar como pago", "Mark as paid") + "</button>";
+      } else if (g.paid_method === "manual") {
+        // The same button, lit: tapping it again takes the manual mark back.
+        h += '<button class="gbtn on" onclick="markClubPaid(\'' + g.id + '\', false)">' + t("Marcar como pago", "Mark as paid") + "</button>";
+      }
+      return h;
+    }
+    function copyClubPayLink(regId) {
+      apiFetch("/api/finance-new/club/registrations/" + regId + "/pay-link", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error || !d.url) { throw new Error((d && d.error) || "erro"); }
+          return copyTextToClipboard(d.url).then(function() { toast(t("Link copiado.", "Link copied.")); });
+        })
+        .catch(function(e) { toast(t("Não foi possível copiar o link: ", "Could not copy the link: ") + (e.message || "")); });
+    }
+    function markClubPaid(regId, paid) {
+      apiFetch("/api/finance-new/club/registrations/" + regId + "/mark-paid", { method: "POST", body: { paid: paid } })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (d && d.error) { toast(d.error); return; }
+          loadClub();
+        })
+        .catch(function() { toast(t("Erro", "Error")); });
+    }
+
     function buildClubWhatsAppText(ev, guest) {
       var tpl = (BUSINESS_SETTINGS && BUSINESS_SETTINGS.club_confirm_template) || "";
       if (!tpl) {
         tpl = "Oi {nome}! Confirmando sua presença no {evento}, dia {data} às {hora}, em {local}.";
       }
+      // The Zelle side, worked out here as it always was. The Worker's
+      // clubPriceFor() is the one source of truth for what a guest owes.
       var price = fmtCents(ev.price_single_cents || 5000);
       if (guest && guest.plus_one && ev.price_couple_cents) { price = fmtCents(ev.price_couple_cents); }
 

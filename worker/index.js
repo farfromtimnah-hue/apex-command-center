@@ -34249,7 +34249,11 @@ async function buildApexClubEventPL(env, event) {
         "FROM transactions t JOIN accounts a ON a.id = t.account_id " +
         "WHERE a.purpose = 'business' AND t.date >= ? AND t.date <= ? " +
         "AND t.voided_at IS NULL " +
-        "AND t.transfer_status NOT IN ('suspected','confirmed')"
+        "AND t.transfer_status NOT IN ('suspected','confirmed') " +
+        // Card money reaches the bank as Stripe payout lumps. A payout is
+        // never offered as Club income: the card receipts are counted from
+        // the registrations below, and offering the lump would count twice.
+        "AND t.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL)"
     ).bind(event.window_start, event.window_end).all();
 
     var suggestions = [];
@@ -34304,7 +34308,10 @@ async function buildApexClubEventPL(env, event) {
     // before any money does, which is the whole point: of nine confirmed July
     // payments, six landed on the day of the dinner and one after it.
     var regsRes = await env.DB.prepare(
-        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company " +
+        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company, " +
+        // Payment state for the finance guest list only (never the calendar
+        // view, never the client portal). No pay_token here.
+        "paid_at, paid_cents, paid_method, zelle_conf, zelle_conf_at, zelle_state " +
         "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
     ).bind(event.id).all();
     var regs = regsRes.results || [];
@@ -34321,6 +34328,13 @@ async function buildApexClubEventPL(env, event) {
         if (r.attended === 1) { attendedCount++; attendedPeople += seats; }
         else if (r.attended === 0) { noShowCount++; }
     });
+
+    // Card receipts (Apex Club payments). All zero for an event nobody paid
+    // by card, so every figure below is what it always was for those.
+    var card = await clubCardTotals(env, event.id);
+    incomeCents += card.received;
+    expenseCents += card.fee;
+    people += card.seats;
 
     // What the number WOULD be if she accepted everything suggested. Kept
     // strictly separate from the confirmed figure so the headline never
@@ -34348,6 +34362,11 @@ async function buildApexClubEventPL(env, event) {
             net_cents: projIncome - projExpense,
             people: projPeople
         },
+        // Card money, already inside confirmed.income_cents; the Stripe fee is
+        // already inside confirmed.expense_cents. Shown as their own lines.
+        card_received_cents: card.received,
+        card_fee_cents: card.fee,
+        card_count: card.count,
         suggestions: suggestions,
         // Not part of the P&L in any direction -- these are transactions that
         // are simply not this event, still uncategorized, still waiting to be
@@ -34415,12 +34434,16 @@ async function handlePostFinanceNewClubEvent(request, env) {
 
         var prices = parseClubPrices(body);
         if (prices.error) { return jsonErr(prices.error, 400); }
+        // The card (posted) prices. NULL = card not offered at this event.
+        var cardPrices = parseClubCardPrices(body, prices, null);
+        if (cardPrices.error) { return jsonErr(cardPrices.error, 400); }
 
         var id = crypto.randomUUID();
         await env.DB.prepare(
             "INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, notes, created_by, " +
-            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open, session_id) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "price_single_cents, price_couple_cents, venue, start_time, speakers, registration_open, session_id, " +
+            "price_card_single_cents, price_card_couple_cents) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(
             id, body.name, body.event_date, start, end, body.notes || null, actorName(user),
             prices.single, prices.couple,
@@ -34428,7 +34451,8 @@ async function handlePostFinanceNewClubEvent(request, env) {
             body.registration_open === false ? 0 : 1,
             // Set when the calendar's "+ Apex Club" creates both records at
             // once, so the money-free calendar view resolves immediately.
-            body.session_id || null
+            body.session_id || null,
+            cardPrices.single, cardPrices.couple
         ).run();
 
         var row = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(id).first();
@@ -34485,6 +34509,9 @@ async function handlePutFinanceNewClubEvent(eventId, request, env) {
 
         var prices = parseClubPrices(body);
         if (prices.error) { return jsonErr(prices.error, 400); }
+        // Card prices: an edit that does not mention them keeps what is stored.
+        var cardPrices = parseClubCardPrices(body, prices, existing);
+        if (cardPrices.error) { return jsonErr(cardPrices.error, 400); }
 
         var start = body.window_start || addInterval(body.event_date, -14, "day");
         var end   = body.window_end   || addInterval(body.event_date, 7, "day");
@@ -34492,12 +34519,18 @@ async function handlePutFinanceNewClubEvent(eventId, request, env) {
         await env.DB.prepare(
             "UPDATE apex_club_events SET name = ?, event_date = ?, window_start = ?, window_end = ?, " +
             "notes = ?, price_single_cents = ?, price_couple_cents = ?, venue = ?, start_time = ?, " +
-            "speakers = ?, registration_open = ? WHERE id = ?"
+            "speakers = ?, registration_open = ?, price_card_single_cents = ?, price_card_couple_cents = ? WHERE id = ?"
         ).bind(
             body.name, body.event_date, start, end, body.notes || null,
             prices.single, prices.couple,
             body.venue || null, body.start_time || null, body.speakers || null,
-            body.registration_open === false ? 0 : 1,
+            // BUG FIXED 2026-10-04: this was `body.registration_open === false
+            // ? 0 : 1`, and the event modal never sends registration_open, so
+            // EVERY edit of a closed event silently re-opened its
+            // registration. An edit that does not mention it now keeps what
+            // is stored.
+            body.registration_open === undefined ? existing.registration_open : (body.registration_open === false ? 0 : 1),
+            cardPrices.single, cardPrices.couple,
             eventId
         ).run();
 
@@ -34697,7 +34730,8 @@ async function handleGetClubRegisterInfo(eventId, request, env) {
 async function handlePostClubRegister(eventId, request, env) {
     try {
         var ev = await env.DB.prepare(
-            "SELECT id, registration_open FROM apex_club_events WHERE id = ?"
+            "SELECT id, registration_open, price_single_cents, price_couple_cents, price_card_single_cents, price_card_couple_cents " +
+            "FROM apex_club_events WHERE id = ?"
         ).bind(eventId).first();
         if (!ev) { return jsonErr("Event not found", 404); }
         if (ev.registration_open !== 1) { return jsonErr("Registration is closed for this event", 403); }
@@ -34726,14 +34760,33 @@ async function handlePostClubRegister(eventId, request, env) {
         // UNIQUE constraint makes it idempotent and the page just says
         // "you're in".
         await env.DB.prepare(
-            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company) " +
-            "VALUES (?, ?, ?, ?, ?, 'public', ?) " +
+            // pay_token: minted with the row; a re-registration KEEPS the
+            // token it has (and only fills one that is still empty).
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company, pay_token) " +
+            "VALUES (?, ?, ?, ?, ?, 'public', ?, ?) " +
             "ON CONFLICT(event_id, phone) DO UPDATE SET " +
             "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going', " +
-            "company = COALESCE(NULLIF(excluded.company, ''), company)"
-        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company).run();
+            "company = COALESCE(NULLIF(excluded.company, ''), company), " +
+            "pay_token = COALESCE(pay_token, excluded.pay_token)"
+        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company, gmEstNewToken()).run();
 
-        return jsonOk({ registered: true, plus_one: plusOne === 1 });
+        // The payment offer on the thank-you screen: only with the Club
+        // payments switch ON and a card price on this event. Otherwise null,
+        // and the page shows exactly what it always has. Never blocks the RSVP.
+        var payToken = null, pay = null;
+        try {
+            var sw = await apxInvSwitches(env);
+            if (sw.club_pay && APX_CLUB_CARD_AVAILABLE && ev.price_card_single_cents !== null && ev.price_card_single_cents !== undefined) {
+                var mine = await env.DB.prepare("SELECT pay_token FROM apex_club_registrations WHERE event_id = ? AND phone = ?").bind(eventId, phone).first();
+                var pr = clubPriceFor(ev, plusOne === 1);
+                if (mine && mine.pay_token && pr.card_cents !== null) {
+                    payToken = mine.pay_token;
+                    pay = { zelle_cents: pr.zelle_cents, card_cents: pr.card_cents, discount_cents: pr.discount_cents };
+                }
+            }
+        } catch (ePay) { payToken = null; pay = null; }
+
+        return jsonOk({ registered: true, plus_one: plusOne === 1, pay_token: payToken, pay: pay });
     } catch (e) {
         return jsonErr("Error registering: " + e.message, 500);
     }
@@ -40780,6 +40833,16 @@ async function handleFetch(request, env, ctx) {
         var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
         if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
 
+        // PUBLIC Apex Club payments: the guest's own pay token (48 hex) is the
+        // credential. 404 for everything while club_pay_enabled is 0.
+        var clubPayPub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})$/);
+        if (clubPayPub && method === "GET") { return handleGetClubPay(clubPayPub[1], request, env); }
+        var clubPayCardPub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})\/card$/);
+        if (clubPayCardPub && method === "POST") { return handlePostClubPayCard(clubPayCardPub[1], request, env); }
+        var clubPayRefreshPub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})\/refresh$/);
+        if (clubPayRefreshPub && method === "POST") { return handlePostClubPayRefresh(clubPayRefreshPub[1], request, env); }
+        if (path.indexOf("/api/club/pay/") === 0) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+
         // PUBLIC: Apex's OWN invoice, the client's link (the 48-hex token is
         // the credential). Each route has its own anchored pattern and its own
         // rate limit in the handler. Anything else under these two prefixes is
@@ -41915,6 +41978,11 @@ async function handleFetch(request, env, ctx) {
         var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
         if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
 
+        var clubRegPayMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)\/(pay-link|mark-paid)$/);
+        if (clubRegPayMatch && method === "POST") {
+            if (clubRegPayMatch[2] === "pay-link") { return handlePostClubRegPayLink(clubRegPayMatch[1], request, env); }
+            return handlePostClubRegMarkPaid(clubRegPayMatch[1], request, env);
+        }
         var clubRegMatch = path.match(/^\/api\/finance-new\/club\/registrations\/([A-Za-z0-9-]+)$/);
         if (clubRegMatch && method === "POST") { return handlePostClubRegistrationUpdate(clubRegMatch[1], request, env); }
 
@@ -46102,5 +46170,369 @@ async function handlePostApexStripeDiag(request, env) {
         return jsonOk(out);
     } catch (e) {
         return jsonErr("Diag failed: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// APEX CLUB PAYMENTS (2026-10-04)
+//
+// DECISIONS (Nicole and Pr. Rafa; do not change without them):
+//   · The CARD price is the posted, regular price. The ZELLE price is the
+//     discount price. It is a cash discount, not a surcharge: no fee line,
+//     nothing extra added at payment. The flyer shows the card price.
+//   · Registration stays RSVP only. Payment is offered after it, never
+//     required, and is also reachable later through a per-guest link.
+//   · No screen for guests ever offers a "no" (the only graceful state is
+//     "Vou na próxima", which Alice sets on the guest list).
+//   · Zelle is the QR and the handle as text, never a link.
+// Everything is behind business_settings.club_pay_enabled (default 0): with
+// it OFF the public pay routes answer 404 and the registration answers with
+// no pay block, so the Club page behaves exactly as before.
+// ===========================================================================
+
+// The default card price for a Zelle price: Stripe's 2.9% + 30 cents grossed
+// up, rounded UP to a whole dollar. 5000 gives 5200, 7500 gives 7800.
+// Mirrored in the event forms (finance-new.html, calendar.html).
+function clubCardPriceFromZelle(zelleCents) {
+    var z = Number(zelleCents) || 0;
+    if (z <= 0) { return null; }
+    return Math.ceil((z + 30) / 0.971 / 100) * 100;
+}
+
+// THE price for a registration: one source of truth for the Worker.
+// club.html done() and buildClubWhatsAppText (finance-new.html) work the
+// Zelle side out themselves with the same seat rules.
+function clubPriceFor(event, plusOne) {
+    var seats = plusOne ? 2 : 1;
+    var single = event.price_single_cents || APEX_CLUB_PRICE_SINGLE;
+    var hasCouple = event.price_couple_cents !== null && event.price_couple_cents !== undefined;
+    var zelle = (seats === 2 && hasCouple) ? event.price_couple_cents : single * seats;
+    var card = null;
+    if (event.price_card_single_cents !== null && event.price_card_single_cents !== undefined) {
+        var hasCardCouple = event.price_card_couple_cents !== null && event.price_card_couple_cents !== undefined;
+        card = (seats === 2 && hasCardCouple) ? event.price_card_couple_cents : event.price_card_single_cents * seats;
+    }
+    return { seats: seats, zelle_cents: zelle, card_cents: card, discount_cents: card === null ? 0 : card - zelle };
+}
+
+// Card prices from an event create or edit. Absent keys (an older cached
+// form) keep what is stored; blank or null means "card not offered". A card
+// price below the Zelle price is refused: the card price is the posted one.
+function parseClubCardPrices(body, prices, existing) {
+    var hasSingle = Object.prototype.hasOwnProperty.call(body, "price_card_single_cents");
+    var hasCouple = Object.prototype.hasOwnProperty.call(body, "price_card_couple_cents");
+    if (!hasSingle && !hasCouple) {
+        return { single: existing ? (existing.price_card_single_cents === undefined ? null : existing.price_card_single_cents) : null,
+                 couple: existing ? (existing.price_card_couple_cents === undefined ? null : existing.price_card_couple_cents) : null };
+    }
+    function one(v, label) {
+        if (v === undefined || v === null || v === "") { return null; }
+        var n = Number(v);
+        if (!isFinite(n) || n <= 0 || Math.floor(n) !== n) { return { error: label + " must be a positive whole number of cents, or blank" }; }
+        return n;
+    }
+    var single = one(body.price_card_single_cents, "price_card_single_cents");
+    if (single && single.error) { return single; }
+    var couple = one(body.price_card_couple_cents, "price_card_couple_cents");
+    if (couple && couple.error) { return couple; }
+    if (single === null) { return { single: null, couple: null }; }
+    var ev = { price_single_cents: prices.single, price_couple_cents: prices.couple, price_card_single_cents: single, price_card_couple_cents: couple };
+    var p1 = clubPriceFor(ev, false), p2 = clubPriceFor(ev, true);
+    if (p1.card_cents < p1.zelle_cents || p2.card_cents < p2.zelle_cents) {
+        return { error: "O preço no cartão precisa ser igual ou maior que o preço no Zelle (o cartão é o preço divulgado; o Zelle é o desconto). / The card price must be greater than or equal to the Zelle price (card is the posted price; Zelle is the discount)." };
+    }
+    return { single: single, couple: couple };
+}
+
+async function clubRegByToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    var reg = await env.DB.prepare(
+        "SELECT id, event_id, name, company, plus_one, rsvp_state, pay_token, paid_at, paid_cents, paid_method, paid_ref, zelle_conf, zelle_conf_at, zelle_state " +
+        "FROM apex_club_registrations WHERE pay_token = ?"
+    ).bind(token).first();
+    if (!reg) { return null; }
+    var ev = await env.DB.prepare(
+        "SELECT id, name, event_date, start_time, venue, window_start, window_end, price_single_cents, price_couple_cents, price_card_single_cents, price_card_couple_cents " +
+        "FROM apex_club_events WHERE id = ?"
+    ).bind(reg.event_id).first();
+    if (!ev) { return null; }
+    return { reg: reg, ev: ev };
+}
+
+// What the guest's pay screen shows. Never who paid or how much the bank
+// received: a paid guest sees the price that applied to them.
+async function clubPayPayload(env, reg, ev) {
+    var price = clubPriceFor(ev, reg.plus_one === 1);
+    var s = await env.DB.prepare("SELECT zelle_handle, zelle_qr_r2_key FROM business_settings WHERE id = 1").first();
+    return {
+        name: reg.name,
+        event: { id: ev.id, name: ev.name, date: ev.event_date, start_time: ev.start_time, venue: ev.venue },
+        seats: price.seats,
+        zelle_cents: price.zelle_cents,
+        card_cents: (APX_CLUB_CARD_AVAILABLE ? price.card_cents : null),
+        discount_cents: (APX_CLUB_CARD_AVAILABLE ? price.discount_cents : 0),
+        paid: !!reg.paid_at,
+        paid_method: reg.paid_at ? (reg.paid_method || "manual") : null,
+        paid_cents: reg.paid_at ? (reg.paid_method === "card" ? reg.paid_cents : price.zelle_cents) : null,
+        zelle_state: reg.paid_at ? null : (reg.zelle_state || null),
+        zelle_conf_sent: !reg.paid_at && !!reg.zelle_conf,
+        zelle_handle: (s && s.zelle_handle) || null,
+        has_qr: !!(s && s.zelle_qr_r2_key)
+    };
+}
+
+// Card payment links were accepted by the live probe (2026-10-04).
+var APX_CLUB_CARD_AVAILABLE = true;
+
+// The per-IP limit is deliberately wide (120 an hour): a whole room of guests
+// shares the venue's WiFi and so one address.
+async function clubPayGuard(env, request, token, prefix, perToken) {
+    if (!(await apxInvSwitches(env)).club_pay) { return { res: jsonErr("Not found", 404) }; }
+    var limited = await gmEstPublicRateLimit(env, request, prefix + token, perToken, 120);
+    if (limited) { return { res: jsonErr("Muitas tentativas. Tente mais tarde.", 429) }; }
+    var found = await clubRegByToken(env, token);
+    if (!found) { return { res: jsonErr("Not found", 404) }; }
+    return found;
+}
+
+// GET /api/club/pay/:token
+async function handleGetClubPay(token, request, env) {
+    try {
+        var g = await clubPayGuard(env, request, token, "", 60);
+        if (g.res) { return apxInvNoIndex(g.res); }
+        return apxInvNoIndex(jsonOk(await clubPayPayload(env, g.reg, g.ev)));
+    } catch (e) {
+        return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
+    }
+}
+
+// POST /api/club/pay/:token/card  ->  { url }
+// A Stripe Payment Link for exactly this guest's CURRENT card price (the
+// restricted key cannot create Checkout sessions). Apple Pay shows on the
+// Stripe page by itself. One active link per registration; a link for an old
+// amount (the seat count changed) is replaced, the new one first.
+async function handlePostClubPayCard(token, request, env) {
+    try {
+        var g = await clubPayGuard(env, request, token, "cd", 20);
+        if (g.res) { return apxInvNoIndex(g.res); }
+        var reg = g.reg, ev = g.ev;
+        if (reg.paid_at) { return apxInvNoIndex(jsonErr("Este ingresso já está pago.", 409)); }
+        var price = clubPriceFor(ev, reg.plus_one === 1);
+        if (!APX_CLUB_CARD_AVAILABLE || price.card_cents === null) { return apxInvNoIndex(jsonErr("Pagamento por cartão não disponível neste evento.", 409)); }
+        var existing = await env.DB.prepare(
+            "SELECT id, url, amount_cents, stripe_link_id FROM apex_club_pay_links WHERE registration_id = ? AND active = 1"
+        ).bind(reg.id).first();
+        if (existing && existing.url && existing.amount_cents === price.card_cents) { return apxInvNoIndex(jsonOk({ url: existing.url })); }
+
+        var lockKey = "club:" + reg.id;
+        if (!(await apxPayLockTake(env, lockKey))) { return apxInvNoIndex(jsonErr("Um momento. Tente de novo em instantes.", 409)); }
+        try {
+            var stripePrice = await apxStripePost(env, "prices", [
+                ["currency", "usd"], ["unit_amount", String(price.card_cents)],
+                ["product_data[name]", "Apex Club: " + ev.name]
+            ]);
+            var params = [
+                ["line_items[0][price]", stripePrice.id], ["line_items[0][quantity]", "1"],
+                ["payment_method_types[0]", "card"],
+                ["after_completion[type]", "redirect"],
+                ["after_completion[redirect][url]", DEFAULT_ORIGIN + "/club.html?e=" + ev.id + "&p=" + reg.pay_token + "&paid=1"]
+            ];
+            [["apex_club_registration_id", reg.id], ["apex_club_event_id", ev.id], ["apex_club_seats", String(price.seats)]].forEach(function(m) {
+                params.push(["metadata[" + m[0] + "]", m[1]]);
+                params.push(["payment_intent_data[metadata][" + m[0] + "]", m[1]]);
+            });
+            var link = await apxStripePost(env, "payment_links", params);
+            await env.DB.batch([
+                env.DB.prepare("UPDATE apex_club_pay_links SET active = 0 WHERE registration_id = ? AND active = 1").bind(reg.id),
+                env.DB.prepare(
+                    "INSERT INTO apex_club_pay_links (registration_id, stripe_link_id, stripe_price_id, url, amount_cents, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)"
+                ).bind(reg.id, link.id, stripePrice.id, link.url, price.card_cents, new Date().toISOString())
+            ]);
+            // The old link is turned off only now that the new one exists.
+            await clubRetirePayLinks(env, reg.id, false);
+            return apxInvNoIndex(jsonOk({ url: link.url }));
+        } finally {
+            await apxPayLockRelease(env, lockKey);
+        }
+    } catch (e) {
+        console.error("[club-pay] card link failed: " + (e && e.message));
+        return apxInvNoIndex(jsonErr("Não foi possível abrir o pagamento por cartão agora. Tente de novo.", 502));
+    }
+}
+
+// Same contract as apxInvRetireLinks, for a registration's card links.
+async function clubRetirePayLinks(env, regId, retireAll) {
+    var rows = (await env.DB.prepare(
+        "SELECT id, stripe_link_id FROM apex_club_pay_links WHERE registration_id = ? AND deactivated_at IS NULL" +
+        (retireAll ? "" : " AND active = 0") + " LIMIT 10"
+    ).bind(regId).all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        try {
+            if (rows[i].stripe_link_id) { await apxStripePost(env, "payment_links/" + rows[i].stripe_link_id, [["active", "false"]]); }
+            await env.DB.prepare("UPDATE apex_club_pay_links SET active = 0, deactivated_at = ? WHERE id = ?").bind(new Date().toISOString(), rows[i].id).run();
+        } catch (e) { console.error("[club-pay] could not deactivate link " + rows[i].stripe_link_id + ": " + (e && e.message)); }
+    }
+    return rows.length;
+}
+
+// Mark registrations paid from Stripe card charges. Runs after every sync
+// and from the guest's refresh (then for one registration).
+// EXACTLY ONCE: INSERT OR IGNORE into apex_club_stripe_applied first (primary
+// key on charge_id), then ONE guarded UPDATE (paid_at IS NULL). A charge
+// below the guest's current card price (a stale link after the seat count
+// changed) does not mark paid and alerts. Refunds only alert.
+async function applyStripeChargesToClubRegistrations(env, onlyRegId) {
+    var summary = { paid: 0, alerts: 0 };
+    var todo = env.DB.prepare(
+        "SELECT sc.id, sc.amount_cents, sc.amount_refunded_cents, sc.metadata_club_reg_id FROM stripe_charges sc " +
+        "WHERE sc.metadata_club_reg_id IS NOT NULL AND sc.status = 'succeeded' " +
+        (onlyRegId ? "AND sc.metadata_club_reg_id = ? " : "") +
+        "AND NOT EXISTS (SELECT 1 FROM apex_club_stripe_applied a WHERE a.charge_id = sc.id) ORDER BY sc.created_at LIMIT 50"
+    );
+    if (onlyRegId) { todo = todo.bind(onlyRegId); }
+    var rows = (await todo.all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        var ch = rows[i];
+        var net = (ch.amount_cents || 0) - (ch.amount_refunded_cents || 0);
+        var reg = await env.DB.prepare("SELECT id, event_id, name, plus_one, paid_at FROM apex_club_registrations WHERE id = ?").bind(ch.metadata_club_reg_id).first();
+        var ev = reg ? await env.DB.prepare(
+            "SELECT id, name, price_single_cents, price_couple_cents, price_card_single_cents, price_card_couple_cents FROM apex_club_events WHERE id = ?"
+        ).bind(reg.event_id).first() : null;
+        var expected = (reg && ev) ? clubPriceFor(ev, reg.plus_one === 1).card_cents : null;
+        var problem = null;
+        if (!reg || !ev) { problem = "Apex Club: pagamento no cartão para uma inscrição que não existe (" + ch.metadata_club_reg_id + "), " + apxUsd(net) + " (" + ch.id + ")."; }
+        else if (expected === null || net < expected) {
+            problem = "Apex Club: pagamento no cartão de valor diferente do esperado. " + reg.name + " (" + ev.name + "): recebido " + apxUsd(net) +
+                ", esperado " + (expected === null ? "sem preço de cartão" : apxUsd(expected)) + " (" + ch.id + "). Não foi marcado como pago.";
+        }
+        var ins = await env.DB.prepare(
+            "INSERT OR IGNORE INTO apex_club_stripe_applied (charge_id, registration_id, applied_cents, applied_at) VALUES (?, ?, ?, ?)"
+        ).bind(ch.id, ch.metadata_club_reg_id, problem ? 0 : net, new Date().toISOString()).run();
+        if (!ins.meta || !ins.meta.changes) { continue; }
+        if (problem) { summary.alerts++; await notifyNicoleTelegram(env, problem); continue; }
+        var upd = await env.DB.prepare(
+            "UPDATE apex_club_registrations SET paid_at = ?, paid_cents = ?, paid_method = 'card', paid_ref = ?, zelle_state = NULL WHERE id = ? AND paid_at IS NULL"
+        ).bind(new Date().toISOString(), net, ch.id, reg.id).run();
+        if (upd.meta && upd.meta.changes) { summary.paid++; }
+        else {
+            summary.alerts++;
+            await notifyNicoleTelegram(env, "Apex Club: pagamento no cartão para quem já estava pago. " + reg.name + " (" + ev.name + "), " + apxUsd(net) + " (" + ch.id + "). Conferir se é pagamento em dobro.");
+        }
+    }
+    var refQ = env.DB.prepare(
+        "SELECT a.charge_id, a.registration_id, a.applied_cents, (sc.amount_cents - sc.amount_refunded_cents) AS net " +
+        "FROM apex_club_stripe_applied a JOIN stripe_charges sc ON sc.id = a.charge_id " +
+        "WHERE a.applied_cents > 0 AND (sc.amount_cents - sc.amount_refunded_cents) < a.applied_cents " +
+        (onlyRegId ? "AND a.registration_id = ? " : "") + "LIMIT 20"
+    );
+    if (onlyRegId) { refQ = refQ.bind(onlyRegId); }
+    var refunded = (await refQ.all()).results || [];
+    for (var r = 0; r < refunded.length; r++) {
+        var rf = refunded[r];
+        // -1 = refunded in full (0 already means "seen, not applied").
+        var upd2 = await env.DB.prepare("UPDATE apex_club_stripe_applied SET applied_cents = ? WHERE charge_id = ? AND applied_cents = ?")
+            .bind(rf.net > 0 ? rf.net : -1, rf.charge_id, rf.applied_cents).run();
+        if (upd2.meta && upd2.meta.changes) {
+            summary.alerts++;
+            var regR = await env.DB.prepare("SELECT name FROM apex_club_registrations WHERE id = ?").bind(rf.registration_id).first();
+            await notifyNicoleTelegram(env, "Apex Club: reembolso em pagamento de cartão já registrado (" + ((regR && regR.name) || rf.registration_id) + ", " + rf.charge_id +
+                "): registrado " + apxUsd(rf.applied_cents) + ", agora " + apxUsd(rf.net) + ". Nada foi alterado, reconciliar à mão.");
+        }
+    }
+    return summary;
+}
+
+// POST /api/club/pay/:token/refresh
+// The guest is back from Stripe (?paid=1): look at Stripe for this one
+// registration, record a payment, answer the fresh pay screen.
+async function handlePostClubPayRefresh(token, request, env) {
+    try {
+        var g = await clubPayGuard(env, request, token, "rf", 6);
+        if (g.res) { return apxInvNoIndex(g.res); }
+        try {
+            if (!g.reg.paid_at) {
+                await apxStripeRefreshCharges(env, "apex_club_registration_id", g.reg.id);
+                await applyStripeChargesToClubRegistrations(env, g.reg.id);
+                if (typeof clubZelleRetry === "function") { await clubZelleRetry(env, g.reg.id); }
+            }
+        } catch (eS) { console.error("[club-pay] refresh failed: " + (eS && eS.message)); }
+        var fresh = await clubRegByToken(env, token);
+        if (!fresh) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        if (fresh.reg.paid_at) {
+            var cx = REQUEST_CTX.get(request);
+            var job = clubRetirePayLinks(env, fresh.reg.id, true).catch(function() {});
+            if (cx && cx.waitUntil) { cx.waitUntil(job); }
+        }
+        return apxInvNoIndex(jsonOk(await clubPayPayload(env, fresh.reg, fresh.ev)));
+    } catch (e) {
+        return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
+    }
+}
+
+// Card receipts of one event, for the P&L: what guests paid by card, what
+// Stripe kept, how many payments and how many seats they cover.
+async function clubCardTotals(env, eventId) {
+    var paid = await env.DB.prepare(
+        "SELECT COALESCE(SUM(paid_cents), 0) AS received, COUNT(*) AS n, COALESCE(SUM(CASE WHEN plus_one = 1 THEN 2 ELSE 1 END), 0) AS seats " +
+        "FROM apex_club_registrations WHERE event_id = ? AND paid_at IS NOT NULL AND paid_method = 'card'"
+    ).bind(eventId).first();
+    var fee = await env.DB.prepare(
+        "SELECT COALESCE(SUM(sc.fee_cents), 0) AS fee FROM apex_club_stripe_applied a " +
+        "JOIN apex_club_registrations r ON r.id = a.registration_id JOIN stripe_charges sc ON sc.id = a.charge_id " +
+        "WHERE r.event_id = ? AND a.applied_cents > 0"
+    ).bind(eventId).first();
+    return { received: (paid && paid.received) || 0, count: (paid && paid.n) || 0, seats: (paid && paid.seats) || 0, fee: (fee && fee.fee) || 0 };
+}
+
+// POST /api/finance-new/club/registrations/:id/pay-link   alice / rafa / developer
+// The guest's own payment page. The token is minted here for a registration
+// made before tokens existed (lazily, one row; never backfilled).
+async function handlePostClubRegPayLink(regId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var reg = await env.DB.prepare("SELECT id, event_id, pay_token FROM apex_club_registrations WHERE id = ?").bind(regId).first();
+        if (!reg) { return jsonErr("Registration not found", 404); }
+        if (!reg.pay_token) {
+            await env.DB.prepare("UPDATE apex_club_registrations SET pay_token = ? WHERE id = ? AND pay_token IS NULL").bind(gmEstNewToken(), regId).run();
+            reg = await env.DB.prepare("SELECT id, event_id, pay_token FROM apex_club_registrations WHERE id = ?").bind(regId).first();
+        }
+        return jsonOk({ url: DEFAULT_ORIGIN + "/club.html?e=" + reg.event_id + "&p=" + reg.pay_token });
+    } catch (e) {
+        return jsonErr("Error creating the payment link: " + e.message, 500);
+    }
+}
+
+// POST /api/finance-new/club/registrations/:id/mark-paid   { paid }   alice / rafa / developer
+// Cash at the door, or a Zelle Alice saw herself. paid_cents is the Zelle
+// price for the guest's seats. Un-marking only undoes a MANUAL mark: a card
+// or confirmed-Zelle payment is tied to real money and is not cleared here.
+async function handlePostClubRegMarkPaid(regId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        if (body.paid !== true && body.paid !== false) { return jsonErr("paid must be true or false", 400); }
+        var reg = await env.DB.prepare("SELECT id, event_id, plus_one, paid_at, paid_method FROM apex_club_registrations WHERE id = ?").bind(regId).first();
+        if (!reg) { return jsonErr("Registration not found", 404); }
+        var ev = await env.DB.prepare("SELECT * FROM apex_club_events WHERE id = ?").bind(reg.event_id).first();
+        if (!ev) { return jsonErr("Event not found", 404); }
+        var r;
+        if (body.paid) {
+            r = await env.DB.prepare(
+                "UPDATE apex_club_registrations SET paid_at = ?, paid_cents = ?, paid_method = 'manual', paid_ref = ?, zelle_state = NULL WHERE id = ? AND paid_at IS NULL"
+            ).bind(new Date().toISOString(), clubPriceFor(ev, reg.plus_one === 1).zelle_cents, actorName(user), regId).run();
+            if (!r.meta || !r.meta.changes) { return jsonErr("Já está marcado como pago. / Already marked as paid.", 409); }
+        } else {
+            r = await env.DB.prepare(
+                "UPDATE apex_club_registrations SET paid_at = NULL, paid_cents = NULL, paid_method = NULL, paid_ref = NULL WHERE id = ? AND paid_at IS NOT NULL AND paid_method = 'manual'"
+            ).bind(regId).run();
+            if (!r.meta || !r.meta.changes) { return jsonErr("Só um pagamento marcado à mão pode ser desmarcado aqui. / Only a manually marked payment can be cleared here.", 409); }
+        }
+        return jsonOk(await buildApexClubEventPL(env, ev));
+    } catch (e) {
+        return jsonErr("Error updating the payment: " + e.message, 500);
     }
 }

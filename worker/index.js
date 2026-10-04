@@ -37620,6 +37620,19 @@ async function invoicePaidCents(env, invoiceId) {
     return (row && row.paid) || 0;
 }
 
+// A STRIPE PAYOUT IS NEVER A CUSTOMER PAYMENT.
+//
+// Card money reaches the bank as one lump that reads "Transfer STRIPE ; APEX
+// BUSINESS", with no customer name. Who paid is known only from the Stripe
+// API (syncStripe and applyStripeChargesToApexInvoices), so the bank line must
+// never be matched to a customer by name and amount. This is the same text
+// test step 4 of syncStripe uses to pair a payout with its deposit
+// (UPPER(description) LIKE '%STRIPE%'), applied to the description and to the
+// normalized payer key.
+function isStripeTransferText(text) {
+    return String(text || "").toUpperCase().indexOf("STRIPE") !== -1;
+}
+
 async function buildMatchCandidates(env) {
     // Open invoices only: paid, void and voided_mistake are never candidates.
     var invRes = await env.DB.prepare(
@@ -37681,9 +37694,14 @@ async function buildMatchCandidates(env) {
         // invoice payment ever matched is either 'cat_receita_clientes' or
         // uncategorized, so nothing legitimate is excluded by this.
         "AND (t.category_id IS NULL OR t.category_id = 'cat_receita_clientes') " +
-        "AND t.date >= date('now', '-120 day')"
+        "AND t.date >= date('now', '-120 day') " +
+        // A Stripe payout already paired with its bank deposit.
+        "AND t.id NOT IN (SELECT bank_transaction_id FROM stripe_payouts WHERE bank_transaction_id IS NOT NULL)"
     ).all();
-    var deposits = depRes.results || [];
+    // And one not paired yet: excluded by its own text (isStripeTransferText).
+    var deposits = (depRes.results || []).filter(function(t) {
+        return !isStripeTransferText(t.description) && !isStripeTransferText(t.merchant_normalized);
+    });
 
     var out = [];
     for (var d = 0; d < deposits.length; d++) {
@@ -37967,7 +37985,7 @@ async function handlePostFinanceNewMatchApprove(request, env) {
             // the Zelle confirmation refs stopped shattering it. OR IGNORE:
             // one payer maps to at most one client, and an existing alias is
             // never silently repointed by a later match.
-            if (inv.client_id && txn.merchant_normalized) {
+            if (inv.client_id && txn.merchant_normalized && !isStripeTransferText(txn.merchant_normalized)) {
                 await env.DB.prepare(
                     "INSERT OR IGNORE INTO client_payer_aliases (id, client_id, payer_key, source, created_by) " +
                     "VALUES (?, ?, ?, 'approved', ?)"

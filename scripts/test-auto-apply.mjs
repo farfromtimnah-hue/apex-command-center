@@ -18,7 +18,7 @@ function day(offset) {
   return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate());
 }
 
-const FNS = ["nameFragments", "nameFragmentFrequency", "descriptionHasClientSignal", "invoicePaidCents", "depositAgeDays", "buildMatchCandidates",
+const FNS = ["isStripeTransferText", "nameFragments", "nameFragmentFrequency", "descriptionHasClientSignal", "invoicePaidCents", "depositAgeDays", "buildMatchCandidates",
   "autoApplyMoney", "autoApplyUsDate", "autoApplyPayerLabel", "autoApplyRow", "autoApplySwitchOn", "selectKnownPayerMatches", "applyKnownPayerMatches", "autoApplyAlertText",
   "handlePostFinanceNewMatchApprove"];
 const VARS = ["AUTO_APPLY_APPROVER", "AUTO_APPLY_RUN_CAP", "AUTO_APPLY_CLIENT_CAP", "MATCH_BATCH_CAP", "MATCH_FORCE_REVIEW_CENTS"];
@@ -190,6 +190,52 @@ function liraWorld(extraStubs) {
     await s.manual.F.handlePostFinanceNewMatchApprove(req({ matches: [{ invoice_id: "i1", transaction_id: "t", match_type: "auto" }] }), s.manual.env);
     ok(same(strip(inv(s.auto, "i1"), ["created_at"]), strip(inv(s.manual, "i1"), ["created_at"])), "(l) " + label + ", identical to the approve handler (" + inv(s.auto, "i1").status + ")");
   }
+}
+
+// (m) a Stripe payout lump is never matched by the bank name (2026-10-04).
+// The deposit reads "Transfer STRIPE ; APEX BUSINESS"; who paid is known only
+// from the Stripe API, never from this line.
+{
+  const lump = (w, id, cents, date) => w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description, merchant_normalized, transfer_status) VALUES (?,?,?,?,?,?, 'none')").run(id, "acct_biz", cents, date, "Transfer STRIPE ; APEX BUSINESS", "TRANSFER STRIPE APEX BUSINESS");
+  const tile = () => { const w = world(); client(w, "gts", "GENERAL TILE SERVICES"); alias(w, "gts", "TRANSFER STRIPE APEX BUSINESS"); alias(w, "gts", "ZELLE PAYMENT FROM GENERAL TILE SERVICES LLC"); invoice(w, "ig", "gts", "INV-000050", 99700, day(-6)); return w; };
+
+  // exact amount, aliased client, payout already paired in stripe_payouts
+  let w = tile(); lump(w, "t_po", 99700, day(-2));
+  w.d.raw.prepare("INSERT INTO stripe_payouts (id, amount_cents, arrival_date, status, created_at, bank_transaction_id) VALUES ('po_1', 99700, ?, 'paid', 0, 't_po')").run(day(-2));
+  let cands = await w.F.buildMatchCandidates(w.env);
+  let r = await w.F.applyKnownPayerMatches(w.env);
+  ok(cands.length === 0, "(m) a paired Stripe payout equal to an aliased client's open invoice produces no candidate at any tier");
+  ok(r.applied.length === 0 && r.skipped.length === 0 && inv(w, "ig").status === "sent" && pays(w, "ig").length === 0 && w.alerts.length === 0, "(m) and nothing is applied or alerted");
+
+  // not yet paired in stripe_payouts: still excluded, by its name
+  w = tile(); lump(w, "t_po2", 99700, day(-2));
+  cands = await w.F.buildMatchCandidates(w.env);
+  r = await w.F.applyKnownPayerMatches(w.env);
+  ok(w.d.q("SELECT COUNT(*) AS n FROM stripe_payouts")[0].n === 0 && cands.length === 0 && r.applied.length === 0 && inv(w, "ig").status === "sent", "(m) a payout NOT yet linked in stripe_payouts is still excluded by its name");
+
+  // a paired payout whose bank text does not say Stripe is excluded by its id
+  w = tile(); deposit(w, "t_po3", 99700, day(-2), "GENERAL TILE SERVICES LLC");
+  w.d.raw.prepare("INSERT INTO stripe_payouts (id, amount_cents, arrival_date, status, created_at, bank_transaction_id) VALUES ('po_3', 99700, ?, 'paid', 0, 't_po3')").run(day(-2));
+  cands = await w.F.buildMatchCandidates(w.env);
+  ok(cands.length === 0, "(m) a transaction id present in stripe_payouts is excluded whatever its text says");
+
+  // partial-by-payer and amount-only tiers do not fire for a lump either
+  w = tile(); lump(w, "t_po4", 40000, day(-2)); lump(w, "t_po5", 99000, day(-2));
+  cands = await w.F.buildMatchCandidates(w.env);
+  ok(cands.length === 0, "(m) no partial, suggest or ambiguous candidate from a Stripe lump");
+
+  // the same client's Zelle deposit from a learned payer still auto-applies
+  w = tile(); lump(w, "t_po6", 99700, day(-3)); deposit(w, "t_z", 99700, day(-2), "GENERAL TILE SERVICES LLC");
+  r = await w.F.applyKnownPayerMatches(w.env);
+  ok(r.applied.length === 1 && r.applied[0].transaction_id === "t_z" && inv(w, "ig").status === "paid" && pays(w, "ig").length === 1 && pays(w, "ig")[0].transaction_id === "t_z", "(m) a Zelle deposit from a learned payer still auto-applies, next to a lump of the same amount");
+
+  // approving a lump by hand never teaches the Stripe name as a payer
+  w = world(); client(w, "gts", "GENERAL TILE SERVICES"); invoice(w, "ig", "gts", "INV-000050", 99700, day(-6)); lump(w, "t_po7", 99700, day(-2));
+  await w.F.handlePostFinanceNewMatchApprove(req({ matches: [{ invoice_id: "ig", transaction_id: "t_po7", match_type: "manual" }] }), w.env);
+  ok(pays(w, "ig").length === 1 && inv(w, "ig").status === "paid" && aliasCount(w) === 0, "(m) the approve path still applies a hand-picked match but saves NO alias for a Stripe transfer key");
+  const wz = world(); client(wz, "gts", "GENERAL TILE SERVICES"); invoice(wz, "ig", "gts", "INV-000050", 99700, day(-6)); deposit(wz, "t_z2", 99700, day(-2), "SOMEBODY ELSE INC");
+  await wz.F.handlePostFinanceNewMatchApprove(req({ matches: [{ invoice_id: "ig", transaction_id: "t_z2", match_type: "manual" }] }), wz.env);
+  ok(aliasCount(wz) === 1 && wz.d.q("SELECT payer_key FROM client_payer_aliases")[0].payer_key === "ZELLE PAYMENT FROM SOMEBODY ELSE INC", "(m) and still learns an ordinary payer exactly as before");
 }
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");

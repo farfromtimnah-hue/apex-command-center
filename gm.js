@@ -8464,6 +8464,9 @@ function gmDocSettingsFormHtml() {
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Formas de pagamento aceitas", "Accepted payment methods") +
     ' <span class="gm-sheet-section-note">' + gmT("só as marcadas aparecem nos documentos", "only ticked ones print on documents") + '</span></p>';
+  // The Stripe connection is known before the boxes draw, so a connected
+  // business sees Card / Stripe ticked without having to tick it first.
+  if (!gmStripeStatus) { gmStripeLoad(false); }
   d.payment_methods.forEach(function(m, i) {
     var def = GmLabels.DOC_PAYMENT_METHODS[i];
     var hint = isEn() ? def.hintEn : def.hintPt;

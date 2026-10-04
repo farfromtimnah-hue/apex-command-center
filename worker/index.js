@@ -13766,6 +13766,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // revise; dismiss a commission review on their own lead.
                 if (gmRest === "estimates") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+\/(send|send-link|mark-accepted|void|revise)$/.test(gmRest)) { return true; }
+                // Customer link control: switch a document's public link off
+                // and on (owner only; the handler refuses a salesperson).
+                if (/^(estimates|invoices|receipts|contracts|change-orders|acks)\/[A-Za-z0-9-]+\/(disable-link|enable-link)$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/commission-review\/dismiss$/.test(gmRest)) { return true; }
                 // Invoices (phase 3): create from the accepted estimate, send,
                 // record a payment, void, credit/refund, late fee; verify /
@@ -24308,6 +24311,9 @@ async function gmEstimateInternalPayload(env, est, settings, client, lead, origi
     pub.min_margin_pct = settings.min_margin_pct;
     pub.deposit_over_ten = gmEstDepositOverTen(est.schedule);
     pub.link = DEFAULT_ORIGIN + "/estimate-view?t=" + est.public_token;
+    // Customer link control: is the public link switched off, or expired?
+    pub.link_disabled_at = est.link_disabled_at || null;
+    pub.link_expired = !est.link_disabled_at && gmEstLinkDead(est);
     pub.pdf_link = APEX_API_BASE + "/api/public/pdf/estimate/" + est.public_token;
     pub.options.forEach(function(o, i) {
         var src = est.options[i];
@@ -25269,6 +25275,7 @@ async function gmEstByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     var est = await env.DB.prepare("SELECT * FROM gm_estimates WHERE public_token = ?").bind(token).first();
     if (!est || est.status === "void") { return null; }
+    if (gmEstLinkDead(est)) { return null; }
     return gmEstAttach(env, est);
 }
 
@@ -25449,8 +25456,8 @@ async function handlePostPublicEstimateRespond(token, kind, request, env) {
 
 async function handleGetPublicEstimateSignature(token, request, env) {
     try {
-        var est = await env.DB.prepare("SELECT accepted_signature_r2_key FROM gm_estimates WHERE public_token = ?").bind(token).first();
-        if (!est || !est.accepted_signature_r2_key || !/^estimates\/[A-Za-z0-9-]+\/signature-r\d+\.png$/.test(est.accepted_signature_r2_key)) {
+        var est = await env.DB.prepare("SELECT * FROM gm_estimates WHERE public_token = ?").bind(token).first();
+        if (!est || gmEstLinkDead(est) || !est.accepted_signature_r2_key || !/^estimates\/[A-Za-z0-9-]+\/signature-r\d+\.png$/.test(est.accepted_signature_r2_key)) {
             return new Response(null, { status: 404, headers: CORS_HEADERS });
         }
         var obj = await env.ASSETS.get(est.accepted_signature_r2_key);
@@ -26527,7 +26534,7 @@ async function handlePostPublicInvoicePay(token, request, env) {
         if (limited) { return limited; }
         if (!stripeConfigured(env)) { return jsonErr("Card payments are not available for this invoice.", 409); }
         var rowInv = await env.DB.prepare("SELECT * FROM gm_invoices WHERE public_token = ?").bind(token).first();
-        if (!rowInv || rowInv.status === "void" || rowInv.status === "draft") { return jsonErr("Not found", 404); }
+        if (!rowInv || rowInv.status === "void" || rowInv.status === "draft" || rowInv.link_disabled_at) { return jsonErr("Not found", 404); }
         var sa = stripeAvailableFor(env, rowInv.client_id) ? await gmStripeRow(env, rowInv.client_id) : null;
         if (!sa || !sa.charges_enabled) { return jsonErr("Card payments are not available for this invoice.", 409); }
         var inv = await gmInvLoad(env, rowInv.client_id, rowInv.id);
@@ -26684,7 +26691,7 @@ async function handleGetPublicInvoice(token, request, env) {
         if (limited) { return limited; }
         if (!/^[a-f0-9]{48}$/.test(token)) { return jsonErr("Not found", 404); }
         var row = await env.DB.prepare("SELECT * FROM gm_invoices WHERE public_token = ?").bind(token).first();
-        if (!row || row.status === "void" || row.status === "draft") { return jsonErr("Not found", 404); }
+        if (!row || row.status === "void" || row.status === "draft" || row.link_disabled_at) { return jsonErr("Not found", 404); }
         var inv = await gmInvLoad(env, row.client_id, row.id);
         await env.DB.prepare("UPDATE gm_invoices SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')) WHERE id = ?").bind(inv.id).run();
         return jsonOk({ invoice: await gmInvPublicPayload(env, inv, new URL(request.url).origin) });
@@ -26699,7 +26706,7 @@ async function handleGetPublicReceipt(token, request, env) {
         if (limited) { return limited; }
         if (!/^[a-f0-9]{48}$/.test(token)) { return jsonErr("Not found", 404); }
         var p = await env.DB.prepare("SELECT * FROM gm_invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL").bind(token).first();
-        if (!p) { return jsonErr("Not found", 404); }
+        if (!p || p.link_disabled_at) { return jsonErr("Not found", 404); }
         var inv = await gmInvLoad(env, p.client_id, p.invoice_id);
         if (!inv) { return jsonErr("Not found", 404); }
         var today = gmEasternToday();
@@ -28187,6 +28194,7 @@ async function contractInternalOut(env, id, c, user, request) {
         lien_signed_at: c.lien_signed_at, pool_ack_at: c.pool_ack_at, cancellation_deadline: c.cancellation_deadline, content_hash: c.content_hash,
         change_request_text: c.change_request_text, decline_reason: c.decline_reason, void_reason: c.void_reason, voided_by: c.voided_by,
         custom_clauses: c.custom_clauses, offer_expiry_date: c.offer_expiry_date, contract_date: c.contract_date,
+        link_disabled_at: c.link_disabled_at || null,
         link: DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token, pdf_link: pub.pdf_link, preview_link: DEFAULT_ORIGIN + "/contract-view?preview=" + c.id,
         send_phone: gmDocSendPhone(ctx.lead, null), customer_name: pub.customer_name, job_name: pub.job_name,
         attorney_question_pending: comp.rules.L5.on ? "Whether work may start and deposits be spent before the cancellation deadline is pending attorney review (library question 9)." : null,
@@ -28727,7 +28735,7 @@ async function handlePostGmHomeownerResponseSeen(id, rid, request, env) {
 // ── Public: the homeowner ────────────────────────────────────────────────
 async function contractByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token)) { return null; }
-    var row = await env.DB.prepare("SELECT id, client_id FROM gm_contracts WHERE public_token = ?").bind(token).first();
+    var row = await env.DB.prepare("SELECT id, client_id FROM gm_contracts WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
     return row ? gmContractLoad(env, row.client_id, row.id) : null;
 }
 
@@ -29095,6 +29103,7 @@ async function handleGetGmChangeOrder(id, coid, request, env) {
         var pub = await coPublicPayload(env, co, new URL(request.url).origin);
         pub.id = co.id; pub.job_id = co.job_id; pub.contract_id = co.contract_id; pub.can_sign_as_company = signer.ok; pub.signer_name = signer.name; pub.signers = settings.signers; pub.owner_signer_name = settings.owner_signer_name;
         pub.link = DEFAULT_ORIGIN + "/change-order-view?t=" + co.public_token; pub.pdf_link = APEX_API_BASE + "/api/public/pdf/change-order/" + co.public_token;
+        pub.link_disabled_at = co.link_disabled_at || null;
         pub.applied = gmDocParseJsonObject(co.applied_json, null); pub.applied_at = co.applied_at; pub.sent_at = co.sent_at; pub.first_viewed_at = co.first_viewed_at;
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
         pub.send_phone = gmDocSendPhone(lead, null);
@@ -29343,7 +29352,7 @@ async function coApply(env, co, request) {
 
 async function coByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token)) { return null; }
-    var row = await env.DB.prepare("SELECT id, client_id FROM gm_change_orders WHERE public_token = ?").bind(token).first();
+    var row = await env.DB.prepare("SELECT id, client_id FROM gm_change_orders WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
     return row ? gmChangeOrderLoad(env, row.client_id, row.id) : null;
 }
 async function handleGetPublicChangeOrder(token, request, env) {
@@ -29729,7 +29738,7 @@ async function handleGetGmAck(id, ackId, request, env) {
 }
 async function dAckByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token)) { return null; }
-    return env.DB.prepare("SELECT * FROM gm_job_acks WHERE public_token = ?").bind(token).first();
+    return env.DB.prepare("SELECT * FROM gm_job_acks WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
 }
 async function handleGetPublicAck(token, request, env) {
     try {
@@ -40866,7 +40875,7 @@ async function docPdfByToken(env, kind, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     var r;
     if (kind === "contract") {
-        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE public_token = ?").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
         if (!r || r.status === "draft" || r.status === "awaiting_company") { return null; }
         if (r.status === "superseded") {
             r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
@@ -40875,8 +40884,8 @@ async function docPdfByToken(env, kind, token) {
         return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed", token: r.public_token };
     }
     if (kind === "estimate") {
-        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_estimates WHERE public_token = ?").bind(token).first();
-        if (!r || r.status === "draft" || r.status === "void") { return null; }
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token, valid_until, link_disabled_at, link_enabled_at FROM gm_estimates WHERE public_token = ?").bind(token).first();
+        if (!r || r.status === "draft" || r.status === "void" || gmEstLinkDead(r)) { return null; }
         if (r.status === "superseded") {
             r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_estimates WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
             if (!r) { return null; }
@@ -40884,22 +40893,22 @@ async function docPdfByToken(env, kind, token) {
         return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "accepted", token: r.public_token };
     }
     if (kind === "invoice") {
-        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_invoices WHERE public_token = ?").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_invoices WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
         if (!r || r.status === "void" || r.status === "draft") { return null; }
         return { kind: kind, id: r.id, client_id: r.client_id, number: r.number, status: r.status, final: false, token: r.public_token };
     }
     if (kind === "receipt") {
-        r = await env.DB.prepare("SELECT id, client_id, receipt_number, state, receipt_token FROM gm_invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, receipt_number, state, receipt_token FROM gm_invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL AND link_disabled_at IS NULL").bind(token).first();
         if (!r) { return null; }
         return { kind: kind, id: r.id, client_id: r.client_id, number: r.receipt_number, status: r.state, final: r.state === "verified", token: r.receipt_token };
     }
     if (kind === "change-order") {
-        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_change_orders WHERE public_token = ?").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, number, status, public_token FROM gm_change_orders WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
         if (!r || r.status === "draft") { return null; }
         return { kind: kind, id: r.id, client_id: r.client_id, number: r.number, status: r.status, final: r.status === "completed", token: r.public_token };
     }
     if (kind === "ack") {
-        r = await env.DB.prepare("SELECT id, client_id, kind AS ack_kind, status, public_token FROM gm_job_acks WHERE public_token = ?").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, kind AS ack_kind, status, public_token FROM gm_job_acks WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
         if (!r) { return null; }
         return { kind: kind, id: r.id, client_id: r.client_id, number: null, ack_kind: r.ack_kind, status: r.status, final: r.status === "signed", token: r.public_token };
     }
@@ -41244,6 +41253,144 @@ function docLinkRandom(n) {
     return out;
 }
 
+// ── Customer link control (2026-10-04) ───────────────────────────────────
+// A document's public link can be switched off by the people who manage the
+// document. Disabling ROTATES the token, so a link somebody already copied
+// stays dead even after the document is enabled again; staff then send the
+// new one. While link_disabled_at is set, every public GET, PDF and sign
+// route answers exactly what an unknown token gets (404).
+//
+// kind -> where its token lives. receipt: gm_invoice_payments.receipt_token.
+var LINK_CONTROL = {
+    "estimate":      { table: "gm_estimates",        col: "public_token" },
+    "invoice":       { table: "gm_invoices",         col: "public_token" },
+    "receipt":       { table: "gm_invoice_payments", col: "receipt_token" },
+    "contract":      { table: "gm_contracts",        col: "public_token" },
+    "change-order":  { table: "gm_change_orders",    col: "public_token" },
+    "ack":           { table: "gm_job_acks",         col: "public_token" },
+    "apex-contract": { table: "apex_contracts",      col: "public_token" },
+    "apex-invoice":  { table: "invoices",            col: "public_token" }
+};
+var EST_LINK_EXPIRY_DAYS = 90;
+
+// An estimate link is dead when it was disabled, or when today is more than
+// 90 days past valid_until. Staff enabling it again gives it 90 days from
+// that moment (link_enabled_at). An ACCEPTED estimate is a signed document
+// and never expires, like a signed contract.
+function gmEstLinkDead(est, today) {
+    if (!est) { return true; }
+    if (est.link_disabled_at) { return true; }
+    if (est.status === "accepted") { return false; }
+    if (!est.valid_until || !/^\d{4}-\d{2}-\d{2}$/.test(String(est.valid_until))) { return false; }
+    today = today || gmEasternToday();
+    if (today <= gmDateAddDays(est.valid_until, EST_LINK_EXPIRY_DAYS)) { return false; }
+    if (est.link_enabled_at && /^\d{4}-\d{2}-\d{2}/.test(String(est.link_enabled_at)) &&
+        today <= gmDateAddDays(String(est.link_enabled_at).slice(0, 10), EST_LINK_EXPIRY_DAYS)) { return false; }
+    return true;
+}
+
+// Is the document behind this token switched off (or, for an estimate,
+// expired)? Used by the readable link resolver. An unknown token is not this
+// function's business: the page it forwards to answers that itself.
+async function linkControlTokenDead(env, kind, token) {
+    var def = LINK_CONTROL[kind];
+    if (!def || !token) { return false; }
+    var row = await env.DB.prepare("SELECT * FROM " + def.table + " WHERE " + def.col + " = ?").bind(token).first();
+    if (!row) { return false; }
+    if (kind === "estimate") { return gmEstLinkDead(row); }
+    return !!row.link_disabled_at;
+}
+
+// The one writer for disable and enable. scopeClientId null = Apex's own
+// documents (the caller has already checked the role).
+async function linkControlApply(env, kind, docId, scopeClientId, action) {
+    var def = LINK_CONTROL[kind];
+    if (!def) { return { error: "Unknown document kind", status: 400 }; }
+    var scopeSql = scopeClientId ? " AND client_id = ?" : "";
+    function withScope(stmt, args) { return scopeClientId ? stmt.bind.apply(stmt, args.concat([scopeClientId])) : stmt.bind.apply(stmt, args); }
+    var row = await withScope(env.DB.prepare("SELECT * FROM " + def.table + " WHERE id = ?" + scopeSql), [docId]).first();
+    if (!row) { return { error: "Document not found", status: 404 }; }
+    var oldToken = row[def.col];
+    if (!oldToken) { return { error: "This document has no customer link yet", status: 409 }; }
+    var token = oldToken;
+    var disabledAt = row.link_disabled_at || null;
+
+    if (action === "disable") {
+        if (!disabledAt) {
+            var fresh = gmEstNewToken();
+            // The guard IS the write: only the caller who still sees the old
+            // token and an enabled link rotates it. A racing second click
+            // changes nothing and reads the winner's state below.
+            var upd = await withScope(env.DB.prepare(
+                "UPDATE " + def.table + " SET link_disabled_at = datetime('now'), " + def.col + " = ? " +
+                "WHERE id = ? AND " + def.col + " = ? AND link_disabled_at IS NULL" + scopeSql
+            ), [fresh, docId, oldToken]).run();
+            if (upd.meta && upd.meta.changes === 1) {
+                // The readable link follows the document to its new token, so
+                // it resolves again (to the new token) once enabled.
+                await env.DB.prepare("UPDATE doc_links SET public_token = ? WHERE kind = ? AND public_token = ?").bind(fresh, kind, oldToken).run();
+            }
+        }
+    } else if (action === "enable") {
+        var extra = kind === "estimate" ? ", link_enabled_at = datetime('now')" : "";
+        // An estimate that is only EXPIRED (never disabled) is enabled too.
+        var where = kind === "estimate" ? "" : " AND link_disabled_at IS NOT NULL";
+        await withScope(env.DB.prepare(
+            "UPDATE " + def.table + " SET link_disabled_at = NULL" + extra + " WHERE id = ?" + where + scopeSql
+        ), [docId]).run();
+    } else {
+        return { error: "Unknown action", status: 400 };
+    }
+
+    var now = await withScope(env.DB.prepare("SELECT * FROM " + def.table + " WHERE id = ?" + scopeSql), [docId]).first();
+    token = now[def.col];
+    var pretty = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
+    var direct = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + "?t=" + token;
+    return {
+        ok: true,
+        kind: kind,
+        id: docId,
+        link_disabled: !!now.link_disabled_at,
+        link_disabled_at: now.link_disabled_at || null,
+        link_expired: kind === "estimate" ? (!now.link_disabled_at && gmEstLinkDead(now)) : false,
+        link: pretty ? DOC_LINK_ORIGIN + "/" + pretty.slug : direct,
+        direct_url: direct
+    };
+}
+
+// POST /api/clients/:id/gm/(estimates|invoices|receipts|contracts|change-orders|acks)/:docId/(disable-link|enable-link)
+// The business owner and Apex staff (alice, rafa, developer), the same people
+// who may void these documents. A salesperson may not.
+async function handlePostGmDocLinkControl(id, kind, docId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        var out = await linkControlApply(env, kind, docId, id, action);
+        if (out.error) { return jsonErr(out.error, out.status); }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error changing the link: " + e.message, 500);
+    }
+}
+
+// POST /api/clients/:id/apex-contracts/:cid/(disable-link|enable-link)
+// POST /api/finance-new/invoices/:id/(disable-link|enable-link)
+// Apex's own documents: alice, rafa, developer.
+async function handlePostApexDocLinkControl(kind, docId, scopeClientId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var out = await linkControlApply(env, kind, docId, scopeClientId, action);
+        if (out.error) { return jsonErr(out.error, out.status); }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error changing the link: " + e.message, 500);
+    }
+}
+
 async function docPrettyLink(env, kind, token, clientId, docNumber, customerName) {
     var fallback = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + "?t=" + token;
     if (!token || !clientId || !DOC_LINK_PAGES[kind]) { return fallback; }
@@ -41301,6 +41448,9 @@ async function docLinkServe(request, env) {
     var wantsImage = /\/preview\.(jpg|png|webp|gif)$/.test(slug);
     if (wantsImage) { slug = slug.replace(/\/preview\.(jpg|png|webp|gif)$/, ""); }
     var row = slug ? await env.DB.prepare("SELECT kind, public_token, client_id, title, description FROM doc_links WHERE slug = ?").bind(slug).first() : null;
+    // A disabled document (or an expired estimate) stops resolving, exactly
+    // like a link that never existed.
+    if (row && DOC_LINK_PAGES[row.kind] && await linkControlTokenDead(env, row.kind, row.public_token)) { row = null; }
     if (!row || !DOC_LINK_PAGES[row.kind]) {
         return new Response("<!doctype html><meta charset=\"utf-8\"><title>Link not found</title><p style=\"font-family:sans-serif\">This link is not valid. Please ask the business to send it again.</p>",
             { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex" } });
@@ -42057,6 +42207,9 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 4 && method === "POST") { return handlePostApexContract(cid, request, env); }
                 if (segs.length === 5 && method === "PUT") { return handlePutApexContract(cid, segs[4], request, env); }
                 if (segs.length === 6 && method === "POST") {
+                    if (segs[5] === "disable-link" || segs[5] === "enable-link") {
+                        return handlePostApexDocLinkControl("apex-contract", segs[4], cid, segs[5] === "disable-link" ? "disable" : "enable", request, env);
+                    }
                     if (segs[5] === "company-sign") { return handlePostApexContractCompanySign(cid, segs[4], request, env); }
                     if (segs[5] === "ask-rafael") { return handlePostApexContractAskRafael(cid, segs[4], request, env); }
                     if (segs[5] === "sent") { return handlePostApexContractSent(cid, segs[4], request, env); }
@@ -42307,6 +42460,13 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 5 && gmCol === "hero-gallery-private" && method === "GET") {
                     return handleGetGmHeroGalleryPrivate(cid, request, env);
+                }
+                // Customer link control, every document kind.
+                if (segs.length === 7 && method === "POST" && (segs[6] === "disable-link" || segs[6] === "enable-link")) {
+                    var linkKinds = { "estimates": "estimate", "invoices": "invoice", "receipts": "receipt", "contracts": "contract", "change-orders": "change-order", "acks": "ack" };
+                    if (linkKinds[gmCol]) {
+                        return handlePostGmDocLinkControl(cid, linkKinds[gmCol], segs[5], segs[6] === "disable-link" ? "disable" : "enable", request, env);
+                    }
                 }
                 // Estimates (phase 2).
                 if (segs.length === 5 && gmCol === "estimates") {
@@ -42750,6 +42910,9 @@ async function handleFetch(request, env, ctx) {
             return handlePostFinanceNewInvoiceMarkMistake(segs[3], request, env);
         }
         // Public Apex invoice page: the staff side (all new routes).
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && (segs[4] === "disable-link" || segs[4] === "enable-link") && !segs[5] && method === "POST") {
+            return handlePostApexDocLinkControl("apex-invoice", segs[3], null, segs[4] === "disable-link" ? "disable" : "enable", request, env);
+        }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "client-link" && !segs[5] && method === "POST") {
             return handlePostApexInvoiceClientLink(segs[3], request, env);
         }
@@ -45631,6 +45794,7 @@ function apxOut(r, forPublic) {
         out.client_id = r.client_id;
         out.data = data;
         out.link = apxPublicLink(r);
+        out.link_disabled_at = r.link_disabled_at || null;
         out.problems = apxProblems(apxClean(data));
         out.sent_at = r.sent_at; out.first_viewed_at = r.first_viewed_at; out.last_viewed_at = r.last_viewed_at;
         out.document_id = r.document_id; out.terms_applied_at = r.terms_applied_at;
@@ -45986,7 +46150,9 @@ function apxLineDueThisMonth(l, today) {
 // ── PUBLIC (the client's link) ─────────────────────────────────────────────
 async function apxByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
-    return env.DB.prepare("SELECT * FROM apex_contracts WHERE public_token = ?").bind(token).first();
+    var apxRow = await env.DB.prepare("SELECT * FROM apex_contracts WHERE public_token = ?").bind(token).first();
+    // A disabled link reads exactly like an unknown token.
+    return (apxRow && apxRow.link_disabled_at) ? null : apxRow;
 }
 
 async function handleGetPublicApexContract(token, request, env) {
@@ -46208,6 +46374,8 @@ async function apxInvByToken(env, token) {
         "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.public_token = ?"
     ).bind(token).first();
     if (!inv || inv.status === "void" || inv.status === "voided_mistake") { return null; }
+    // A disabled link reads exactly like an unknown token.
+    if (inv.link_disabled_at) { return null; }
     return inv;
 }
 
@@ -46486,6 +46654,7 @@ async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
         return jsonOk({
             link: link,
             direct_url: DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token,
+            link_disabled: !!inv.link_disabled_at,
             card_enabled: inv.invoice_card_enabled === 1,
             ach_available: sw.invoice_link && APX_STRIPE_ACH_ENABLED,
             link_enabled: sw.invoice_link,

@@ -4969,6 +4969,7 @@ function gmRenderContractSheet() {
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(c.preview_link) + '" target="_blank" rel="noopener" onclick="return gmOpenDocLink(this.href)">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (c.status !== "draft" && c.status !== "awaiting_company") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(c.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (!c.routed_only && ["draft", "awaiting_company", "void"].indexOf(c.status) === -1) { body += gmLinkControlBtn("contract", c.id, !!c.link_disabled_at); }
   if (!c.routed_only && c.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'contract\', \'' + escHtml(c.id) + '\', \'' + escHtml(c.display_number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!c.routed_only && ["changes_requested", "declined", "expired", "sent", "viewed", "company_signed"].indexOf(c.status) !== -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConRevise()">' + gmT("Criar revisão", "Create revision") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed", "superseded"].indexOf(c.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmConVoid()">' + gmT("Anular", "Void") + '</button>'; }
@@ -5435,6 +5436,34 @@ function gmDAckSub(a) {
   if (a.status === "declined") { t += (t ? " · " : "") + gmT("motivo: ", "reason: ") + (a.decline_reason ? '"' + escHtml(a.decline_reason) + '"' : gmT("nenhum", "none")); }
   if (a.status === "void" && a.void_reason === "list_changed") { t += (t ? " · " : "") + gmT("anulado: a lista mudou", "void: the list changed"); }
   return t;
+}
+// ── Customer link control ────────────────────────────────────────────────
+// Switch a document's public link off and on. Disabling replaces the
+// document's address for good; the short link the customer received works
+// again (pointing at the new address) only if the link is enabled later.
+// Owner and Apex staff only: a salesperson never sees the button.
+var GM_LINK_KIND_PATH = { "estimate": "estimates", "invoice": "invoices", "contract": "contracts", "change-order": "change-orders" };
+function gmLinkControlBtn(kind, id, off) {
+  if (gmIsSeller() || !id || !GM_LINK_KIND_PATH[kind]) { return ""; }
+  return '<button type="button" class="gm-btn-secondary" onclick="gmLinkControl(\'' + kind + '\', \'' + escHtml(id) + '\', ' + (off ? "false" : "true") + ')">' +
+    (off ? gmT("Ativar link", "Enable link") : gmT("Desativar link", "Disable link")) + '</button>';
+}
+function gmLinkControl(kind, id, disable) {
+  var msg = disable
+    ? gmT("Desativar o link deste documento?\n\nEnquanto estiver desativado, quem abrir o link vê que ele não é válido e não consegue ver, assinar nem pagar.\n\nO endereço antigo do documento deixa de funcionar para sempre. Se você ativar de novo, envie o link outra vez ao cliente.",
+          "Disable this document's link?\n\nWhile it is disabled, anyone who opens the link sees that it is not valid and cannot view, sign or pay.\n\nThe document's old address stops working for good. If you enable it again, send the link to the customer again.")
+    : gmT("Ativar o link deste documento?\n\nO documento volta a abrir, em um endereço novo. Envie o link outra vez ao cliente.",
+          "Enable this document's link?\n\nThe document opens again, at a new address. Send the link to the customer again.");
+  if (!window.confirm(msg)) { return; }
+  gmApi(GM_LINK_KIND_PATH[kind] + "/" + encodeURIComponent(id) + "/" + (disable ? "disable-link" : "enable-link"), { method: "POST" })
+    .then(function(d) {
+      gmToast(d && d.link_disabled ? gmT("Link desativado", "Link disabled") : gmT("Link ativado", "Link enabled"));
+      if (kind === "estimate") { gmOpenEstimate(id); }
+      else if (kind === "invoice") { gmOpenInvoice(id); }
+      else if (kind === "contract") { gmOpenContract(id); }
+      else if (kind === "change-order") { gmOpenChangeOrder(id); }
+    })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmDCopyLink(link) {
   if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(function() { gmToast(gmT("Link copiado", "Link copied")); }).catch(function() { gmToast(link); }); } else { gmToast(link); }
@@ -6011,6 +6040,7 @@ function gmRenderChangeOrderSheet() {
   if (["company_signed", "sent", "viewed"].indexOf(co.status) !== -1) { body += '<button type="button" class="gm-btn-primary" onclick="gmCOSendOpen()">' + gmT("Enviar ao cliente", "Send to the homeowner") + '</button>'; }
   body += '<a class="gm-btn-secondary" href="' + escHtml(co.status === "draft" ? (DEFAULT_ORIGIN_PORTAL() + "/change-order-view?preview=" + co.id) : co.link) + '" target="_blank" rel="noopener" onclick="return gmOpenDocLink(this.href)">' + gmT("Ver como o cliente", "Preview as customer") + '</a>';
   if (co.status !== "draft") { body += '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(co.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>'; }
+  if (co.status !== "draft" && co.status !== "void") { body += gmLinkControlBtn("change-order", co.id, !!co.link_disabled_at); }
   if (co.status === "completed") { body += '<button type="button" class="gm-btn-primary" onclick="gmSignedCopyOpen(\'co\', \'' + escHtml(co.id) + '\', \'' + escHtml(co.number) + '\')">' + gmT("Enviar cópia assinada", "Send signed copy") + '</button>'; }
   if (!gmIsSeller() && ["void", "completed"].indexOf(co.status) === -1) { body += '<button type="button" class="gm-btn-secondary" onclick="gmCOVoid()">' + gmT("Anular", "Void") + '</button>'; }
   body += '</div></div>';
@@ -9509,6 +9539,7 @@ function gmRenderEstimateSheet() {
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(est.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(est.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
+  if (est.stored_status !== "draft" && est.stored_status !== "void") { body += gmLinkControlBtn("estimate", est.id, !!est.link_disabled_at || !!est.link_expired); }
   if (gmEstCanEdit(est)) {
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstEditOpen()">' + (est.stored_status === "draft" ? gmT("Editar", "Edit") : gmT("Criar revisão", "Create revision")) + '</button>';
     body += '<button type="button" class="gm-btn-secondary" onclick="gmEstMarkAcceptedOpen()">' + gmT("Marcar como aceito", "Mark accepted") + '</button>';
@@ -10689,6 +10720,7 @@ function gmRenderInvoiceSheet() {
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(inv.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
+  if (inv.status !== "draft" && inv.status !== "void") { body += gmLinkControlBtn("invoice", inv.id, !!inv.link_disabled_at); }
   if (!ro && inv.status !== "void") {
     if (inv.late_fee_available) { body += '<button type="button" class="gm-btn-secondary" onclick="gmInvLateFee()">' + gmT("Adicionar juros de atraso", "Add late fee") + (inv.late_fee_preview ? " (" + gmMoney(inv.late_fee_preview.cents) + ")" : "") + '</button>'; }
     body += '<button type="button" class="gm-btn-secondary" onclick="gmInvCreditOpen(\'credit\')">' + gmT("Crédito", "Credit") + '</button>';

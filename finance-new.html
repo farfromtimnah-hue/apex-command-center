@@ -3438,6 +3438,7 @@
           <span class="show-pt">Copiar link</span>
           <span class="show-en">Copy link</span>
         </button>
+        <button class="btn" id="apxLinkToggleBtn" onclick="apxToggleInvoiceLink()"></button>
         <span id="apxLinkMsg" style="font-size:13px;color:var(--muted);"></span>
       </div>
       <label style="display:flex;align-items:flex-start;gap:9px;margin-top:18px;font-size:14px;cursor:pointer;">
@@ -3837,6 +3838,41 @@
           if (f) { f.focus(); f.select(); }
         });
     }
+    // Customer link control: switch the invoice's public link off and on.
+    // Disabling replaces the invoice's address for good.
+    function apxPaintLinkToggle() {
+      var b = document.getElementById("apxLinkToggleBtn");
+      if (!b) { return; }
+      b.innerHTML = APX_LINK_STATE.disabled
+        ? '<span class="show-pt">Ativar link</span><span class="show-en">Enable link</span>'
+        : '<span class="show-pt">Desativar link</span><span class="show-en">Disable link</span>';
+    }
+    function apxToggleInvoiceLink() {
+      if (!APX_LINK_STATE.invoiceId) { return; }
+      var disable = !APX_LINK_STATE.disabled;
+      var msg = disable
+        ? t("Desativar o link desta fatura?\n\nEnquanto estiver desativado, quem abrir o link vê que ele não é válido e não consegue ver nem pagar a fatura.\n\nO endereço antigo da fatura deixa de funcionar para sempre. Se você ativar de novo, envie o link outra vez ao cliente.",
+            "Disable this invoice's link?\n\nWhile it is disabled, anyone who opens the link sees that it is not valid and cannot view or pay the invoice.\n\nThe invoice's old address stops working for good. If you enable it again, send the link to the client again.")
+        : t("Ativar o link desta fatura?\n\nA fatura volta a abrir, em um endereço novo. Envie o link outra vez ao cliente.",
+            "Enable this invoice's link?\n\nThe invoice opens again, at a new address. Send the link to the client again.");
+      if (!confirm(msg)) { return; }
+      apiFetch("/api/finance-new/invoices/" + APX_LINK_STATE.invoiceId + "/" + (disable ? "disable-link" : "enable-link"), { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error) { throw new Error((d && d.error) || "erro"); }
+          APX_LINK_STATE.disabled = d.link_disabled === true;
+          APX_LINK_STATE.link = d.link || APX_LINK_STATE.link;
+          var f = document.getElementById("apxLinkField");
+          if (f) { f.value = APX_LINK_STATE.link; }
+          apxPaintLinkToggle();
+          apxLinkSay(APX_LINK_STATE.disabled
+            ? t("Link desativado. O cliente não consegue abrir.", "Link disabled. The client cannot open it.")
+            : t("Link ativado. Envie o link outra vez ao cliente.", "Link enabled. Send the link to the client again."));
+        })
+        .catch(function(e) {
+          toast(t("Não foi possível mudar o link: ", "Could not change the link: ") + (e.message || ""));
+        });
+    }
     // "Copiar link do cliente": asks the Worker for this invoice's public
     // link (minted on first use), copies it and shows it.
     function copyClientInvoiceLink(invoiceId) {
@@ -3848,7 +3884,8 @@
         .then(function(r) { return r.json().catch(function() { return {}; }); })
         .then(function(d) {
           if (!d || d.error || !d.link) { throw new Error((d && d.error) || "erro"); }
-          APX_LINK_STATE = { invoiceId: invoiceId, clientId: inv ? inv.client_id : null, link: d.link };
+          APX_LINK_STATE = { invoiceId: invoiceId, clientId: inv ? inv.client_id : null, link: d.link, disabled: d.link_disabled === true };
+          apxPaintLinkToggle();
           var f = document.getElementById("apxLinkField");
           if (f) { f.value = d.link; }
           var who = document.getElementById("apxLinkWho");
@@ -3860,7 +3897,12 @@
           apxLinkSay("");
           var ov = document.getElementById("apxLinkOverlay");
           if (ov) { ov.hidden = false; }
-          apxCopyLinkAgain();
+          // A disabled link is shown, never copied: it does not open.
+          if (APX_LINK_STATE.disabled) {
+            apxLinkSay(t("Este link está desativado: o cliente não consegue abrir.", "This link is disabled: the client cannot open it."));
+          } else {
+            apxCopyLinkAgain();
+          }
         })
         .catch(function(e) {
           toast(t("Não foi possível criar o link: ", "Could not create the link: ") + (e.message || ""));

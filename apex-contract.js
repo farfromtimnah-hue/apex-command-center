@@ -489,6 +489,9 @@
     var h = field("Mensagem", '<textarea class="gm-input" id="apxMsg">' + esc(msg) + '</textarea>') +
       '<a class="gm-btn-primary" style="text-align:center;text-decoration:none;" id="apxWa" href="' + esc(wa) + '" target="_blank" rel="noopener" onclick="ApexContract._sent(\'' + id + '\', true)">Enviar pelo WhatsApp</a>' +
       '<button type="button" class="gm-btn-secondary" onclick="ApexContract._copy(\'' + id + '\')">Copiar link</button>' +
+      '<button type="button" class="gm-btn-secondary" onclick="ApexContract._linkToggle(\'' + id + '\')">' +
+        (c.link_disabled_at ? '<span class="show-pt">Ativar link</span><span class="show-en">Enable link</span>' : '<span class="show-pt">Desativar link</span><span class="show-en">Disable link</span>') + '</button>' +
+      (c.link_disabled_at ? '<div class="gm-derived-note" style="color:var(--red);"><span class="show-pt">O link deste contrato está desativado: o cliente não consegue abrir.</span><span class="show-en">This contract\'s link is disabled: the client cannot open it.</span></div>' : "") +
       '<div class="gm-derived-note" id="apxCopyNote"></div>' +
       (doc.signers && doc.signers.client && doc.signers.client.length > 1 ? '<div class="gm-derived-note">Os ' + doc.signers.client.length + ' representantes assinam no mesmo link, um de cada vez.</div>' : "") +
       '<button type="button" class="gm-btn-secondary" onclick="ApexContract.open(\'' + id + '\')">Voltar</button>';
@@ -506,6 +509,24 @@
     var l = c.share_link || c.link;
     if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(l).then(done).catch(function() { window.prompt("Copie o link:", l); done(); }); }
     else { window.prompt("Copie o link:", l); done(); }
+  }
+
+  // Customer link control: switch the contract's public link off and on.
+  // Disabling replaces the contract's address for good.
+  function linkEn() { return window.apexIsEn ? window.apexIsEn() : (document.body && document.body.classList.contains("lang-en")); }
+  function linkToggle(id) {
+    var c = find(id); if (!c) { return; }
+    var disable = !c.link_disabled_at;
+    var msg = disable
+      ? (linkEn() ? "Disable this contract's link?\n\nWhile it is disabled, anyone who opens the link sees that it is not valid and cannot read or sign.\n\nThe contract's old address stops working for good. If you enable it again, send the link to the client again."
+                  : "Desativar o link deste contrato?\n\nEnquanto estiver desativado, quem abrir o link vê que ele não é válido e não consegue ler nem assinar.\n\nO endereço antigo do contrato deixa de funcionar para sempre. Se você ativar de novo, envie o link outra vez ao cliente.")
+      : (linkEn() ? "Enable this contract's link?\n\nThe contract opens again, at a new address. Send the link to the client again."
+                  : "Ativar o link deste contrato?\n\nO contrato volta a abrir, em um endereço novo. Envie o link outra vez ao cliente.");
+    if (!window.confirm(msg)) { return; }
+    call(base() + "/" + id + "/" + (disable ? "disable-link" : "enable-link"), "POST", {})
+      .then(function() { return load(); })
+      .then(function() { sendRender(id); })
+      .catch(actErr);
   }
 
   function voidOpen(id) {
@@ -556,6 +577,7 @@
     _sendOpen: sendOpen,
     _sent: function(id) { markSent(id, true); },
     _copy: copy,
+    _linkToggle: linkToggle,
     _reopen: function(id) { call(base() + "/" + id, "PUT", { reopen: true }).then(function() { return load(); }).then(function() { openBuilder(find(id)); }).catch(actErr); },
     _voidOpen: voidOpen,
     _void: function(id) { var r = (byId("apxVoidReason").value || "").trim(); call(base() + "/" + id + "/void", "POST", { reason: r }).then(after(id)).catch(actErr); },

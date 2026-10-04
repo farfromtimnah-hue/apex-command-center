@@ -26223,6 +26223,10 @@ async function handlePostGmStripeConnect(id, request, env) {
         if (!stripeAvailableFor(env, id)) { return jsonErr2("O pagamento por cartão ainda não está disponível.", "Card payments are not available yet.", 503); }
         var row = await gmStripeRow(env, id);
         if (!row) {
+            // First connect: the owner must have ticked that Apex reads the
+            // Stripe payment history to mark invoices paid. Stored with the row.
+            var reqBody = await request.json().catch(function() { return {}; });
+            if (!reqBody || reqBody.accepted !== true) { return jsonErr2("Confirme a caixa antes de conectar o Stripe.", "Tick the confirmation box before connecting Stripe.", 400); }
             var settings = await gmDocSettingsRow(env, id);
             var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
             // The business is the merchant: it takes card payments directly,
@@ -26242,8 +26246,8 @@ async function handlePostGmStripeConnect(id, request, env) {
             if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(bizEmail)) { acctBody.contact_email = bizEmail; }
             var acct = await stripeApiV2(env, "POST", "/v2/core/accounts", acctBody);
             await env.DB.prepare(
-                "INSERT INTO gm_stripe_accounts (client_id, stripe_account_id, charges_enabled, details_submitted, livemode, connected_by, created_at, updated_at) " +
-                "VALUES (?, ?, 0, 0, ?, ?, datetime('now'), datetime('now')) ON CONFLICT (client_id) DO NOTHING"
+                "INSERT INTO gm_stripe_accounts (client_id, stripe_account_id, charges_enabled, details_submitted, livemode, connected_by, created_at, updated_at, accepted_at) " +
+                "VALUES (?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'), datetime('now')) ON CONFLICT (client_id) DO NOTHING"
             ).bind(id, acct.id, /^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim()) ? 1 : 0, actorName(user)).run();
             row = await gmStripeRow(env, id);
         }

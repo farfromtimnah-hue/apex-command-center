@@ -369,7 +369,7 @@
         var ph = "";
         if (canCard) {
           ph += '<button type="button" class="btn" id="btnCard" onclick="payByCard()" style="margin-top:0;">Pay ' + money(inv.balance_cents) + ' by card</button>' +
-            '<p class="muted small" style="margin-top:6px;">Secure card payment by Stripe. The amount and invoice number are already filled in.</p>' +
+            '<p class="muted small" style="margin-top:6px;">Secure card payment by Stripe. The amount and invoice number are already filled in. <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a></p>' +
             '<div class="err" id="cardErr"></div>';
           if (pm.length) { ph += '<p class="muted small" style="margin:10px 0 6px;font-weight:700;">Other ways to pay</p>'; }
         }

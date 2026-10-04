@@ -45648,7 +45648,9 @@ async function handleGetApexSwitches(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var sw = await apxInvSwitches(env);
-        return jsonOk({ client_invoice_link_enabled: sw.invoice_link, club_pay_enabled: sw.club_pay, ach_available: APX_STRIPE_ACH_ENABLED });
+        // role: the pages show the developer-only controls from it. The gate
+        // itself is on the PATCH routes, not on this answer.
+        return jsonOk({ client_invoice_link_enabled: sw.invoice_link, club_pay_enabled: sw.club_pay, ach_available: APX_STRIPE_ACH_ENABLED, role: user.role });
     } catch (e) {
         return jsonErr("Error loading the switches: " + e.message, 500);
     }

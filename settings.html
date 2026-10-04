@@ -1208,6 +1208,28 @@
             <div id="bizZelleHandleStatus" style="margin-top:6px;font-size:13px;"></div>
           </div>
 
+          <!-- Developer only (shown from the caller's role; the gate itself is
+               on the Worker's PATCH routes). Both ship OFF: with a box
+               unticked the system behaves exactly as it did before the public
+               invoice page and the Apex Club payments were built. -->
+          <div id="apxSwitchesBlock" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;">
+              <input type="checkbox" id="apxSwitchInvoiceLink" onchange="apxSaveSwitch('client-invoice-link', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Enviar o link novo da fatura aos clientes (ativar)</span>
+                <span class="show-en">Send the new invoice link to clients (turn on)</span>
+              </span>
+            </label>
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;margin-top:12px;">
+              <input type="checkbox" id="apxSwitchClubPay" onchange="apxSaveSwitch('club-pay', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Pagamentos do Apex Club (cartão e Zelle com confirmação)</span>
+                <span class="show-en">Apex Club payments (card and Zelle with confirmation)</span>
+              </span>
+            </label>
+            <div id="apxSwitchStatus" style="margin-top:8px;font-size:13px;"></div>
+          </div>
+
 
         </div>
       </div>
@@ -3093,6 +3115,52 @@
           if (tpl) { tpl.value = s.club_confirm_template || ""; }
         })
         .catch(function() {});
+      loadApxSwitches();
+    }
+
+    // The two master switches (public invoice link, Apex Club payments).
+    // The block is shown to the developer only; anyone else never sees it and
+    // the Worker refuses their PATCH anyway.
+    function loadApxSwitches() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/switches", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var block = document.getElementById("apxSwitchesBlock");
+          if (!block || !d || d.error || d.role !== "developer") { return; }
+          var a = document.getElementById("apxSwitchInvoiceLink");
+          var b = document.getElementById("apxSwitchClubPay");
+          if (a) { a.checked = d.client_invoice_link_enabled === true; }
+          if (b) { b.checked = d.club_pay_enabled === true; }
+          block.hidden = false;
+        })
+        .catch(function() {});
+    }
+    function apxSaveSwitch(which, box) {
+      var want = box.checked;
+      var en = document.body.classList.contains("lang-en");
+      var statusEl = document.getElementById("apxSwitchStatus");
+      if (statusEl) { statusEl.textContent = en ? "Saving..." : "Salvando..."; statusEl.className = ""; }
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/" + which, {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: want })
+        });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          if (statusEl) {
+            statusEl.textContent = en ? "Saved." : "Salvo.";
+            statusEl.className = "template-status ok";
+            setTimeout(function() { statusEl.textContent = ""; statusEl.className = ""; }, 2000);
+          }
+        })
+        .catch(function(e) {
+          // Back to what is stored: the box never shows a state the Worker does not have.
+          box.checked = !want;
+          if (statusEl) { statusEl.textContent = (en ? "Error: " : "Erro: ") + e.message; statusEl.className = "template-status err"; }
+        });
     }
 
     function handleBizQrFileSelected(input) {

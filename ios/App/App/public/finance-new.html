@@ -3367,6 +3367,46 @@
   </div>
 
   <!-- ═══════════════ NEW INVOICE ═════════════════════════════════════════ -->
+  <!-- ═══════════════ CLIENT INVOICE LINK (public Apex invoice page) ══════
+       A plain modal that can ALWAYS be closed: the Close button, the dark
+       backdrop and Escape all close it, and nothing in it is required. -->
+  <div id="apxLinkOverlay" class="overlay" hidden onclick="if (event.target === this) { closeApxLinkModal(); }">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:520px">
+      <div class="modal-title">
+        <span class="show-pt">Link da fatura para o cliente</span>
+        <span class="show-en">Invoice link for the client</span>
+      </div>
+      <div class="modal-sub" id="apxLinkWho"></div>
+      <input type="text" id="apxLinkField" readonly onclick="this.select()"
+             style="width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:inherit;">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="apxCopyLinkAgain()">
+          <span class="show-pt">Copiar link</span>
+          <span class="show-en">Copy link</span>
+        </button>
+        <span id="apxLinkMsg" style="font-size:13px;color:var(--muted);"></span>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:9px;margin-top:18px;font-size:14px;cursor:pointer;">
+        <input type="checkbox" id="apxLinkCard" onchange="apxToggleClientCard()" style="margin-top:3px;">
+        <span>
+          <span class="show-pt">Mostrar pagamento por cart&atilde;o neste cliente</span>
+          <span class="show-en">Show card payment for this client</span>
+        </span>
+      </label>
+      <div class="modal-sub" style="margin:6px 0 0 26px;">
+        <span class="show-pt">A Apex absorve a taxa do cart&atilde;o (cerca de 2.9% + $0.30). Transfer&ecirc;ncia ACH e Zelle aparecem sempre.</span>
+        <span class="show-en">Apex absorbs the card fee (about 2.9% + $0.30). ACH transfer and Zelle always show.</span>
+      </div>
+      <div id="apxLinkWarn" style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.5;white-space:pre-wrap;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeApxLinkModal()">
+          <span class="show-pt">Fechar</span>
+          <span class="show-en">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="invOverlay" class="overlay" hidden>
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-title">
@@ -3692,6 +3732,122 @@
       return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
     }
     function t(pt, en) { return isEn() ? en : pt; }
+
+    // ── Public Apex invoice page: the staff side ─────────────────────────
+    // The two master switches and the caller's role, from the Worker. Until
+    // this answers (or if it fails) everything reads OFF, which is the proven
+    // behaviour: no new button for Alice or Rafa, the old link on WhatsApp.
+    var APX_SWITCHES = { client_invoice_link_enabled: false, club_pay_enabled: false, role: null };
+    function loadApxSwitches() {
+      return apiFetch("/api/finance-new/settings/switches")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || d.error) { return; }
+          APX_SWITCHES = {
+            client_invoice_link_enabled: d.client_invoice_link_enabled === true,
+            club_pay_enabled: d.club_pay_enabled === true,
+            role: d.role || null
+          };
+          if (typeof renderInvoices === "function" && typeof INVOICES !== "undefined" && INVOICES && INVOICES.length) { renderInvoices(); }
+          if (typeof renderClub === "function" && typeof CLUB_EVENTS !== "undefined" && CLUB_EVENTS && CLUB_EVENTS.length) { renderClub(); }
+        })
+        .catch(function() {});
+    }
+    // The developer always sees the new invoice button (to proof it before
+    // turning it on); Alice and Rafa see it only once the switch is ON.
+    function apxCanCopyClientLink() {
+      return APX_SWITCHES.role === "developer" || APX_SWITCHES.client_invoice_link_enabled === true;
+    }
+
+    var APX_LINK_STATE = { invoiceId: null, clientId: null, link: "" };
+    function apxLinkSay(text) {
+      var el = document.getElementById("apxLinkMsg");
+      if (el) { el.textContent = text || ""; }
+    }
+    function closeApxLinkModal() {
+      var ov = document.getElementById("apxLinkOverlay");
+      if (ov) { ov.hidden = true; }
+    }
+    document.addEventListener("keydown", function(e) {
+      if (e.key !== "Escape") { return; }
+      var ov = document.getElementById("apxLinkOverlay");
+      if (ov && !ov.hidden) { closeApxLinkModal(); }
+    });
+    function apxCopyLinkAgain() {
+      if (!APX_LINK_STATE.link) { return; }
+      copyTextToClipboard(APX_LINK_STATE.link)
+        .then(function() { apxLinkSay(t("Link copiado.", "Link copied.")); })
+        .catch(function() {
+          // Clipboard blocked: the link stays selected in the field to copy by hand.
+          var f = document.getElementById("apxLinkField");
+          if (f) { f.focus(); f.select(); }
+        });
+    }
+    // "Copiar link do cliente": asks the Worker for this invoice's public
+    // link (minted on first use), copies it and shows it.
+    function copyClientInvoiceLink(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < (INVOICES || []).length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; break; }
+      }
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/client-link", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error || !d.link) { throw new Error((d && d.error) || "erro"); }
+          APX_LINK_STATE = { invoiceId: invoiceId, clientId: inv ? inv.client_id : null, link: d.link };
+          var f = document.getElementById("apxLinkField");
+          if (f) { f.value = d.link; }
+          var who = document.getElementById("apxLinkWho");
+          if (who) { who.textContent = inv ? (inv.number + " · " + (inv.client_name || "")) : ""; }
+          var cb = document.getElementById("apxLinkCard");
+          if (cb) { cb.checked = d.card_enabled === true; cb.disabled = !APX_LINK_STATE.clientId; }
+          var warn = document.getElementById("apxLinkWarn");
+          if (warn) { warn.textContent = (d.warnings || []).join("\n"); }
+          apxLinkSay("");
+          var ov = document.getElementById("apxLinkOverlay");
+          if (ov) { ov.hidden = false; }
+          apxCopyLinkAgain();
+        })
+        .catch(function(e) {
+          toast(t("Não foi possível criar o link: ", "Could not create the link: ") + (e.message || ""));
+        });
+    }
+    // The per-client card switch. On failure the box goes back to what is
+    // stored, so it never shows a state the Worker does not have.
+    function apxToggleClientCard() {
+      var cb = document.getElementById("apxLinkCard");
+      if (!cb || !APX_LINK_STATE.clientId) { return; }
+      var want = cb.checked;
+      apiFetch("/api/finance-new/clients/" + encodeURIComponent(APX_LINK_STATE.clientId) + "/invoice-card", {
+        method: "PATCH", body: { enabled: want }
+      })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error) { throw new Error((d && d.error) || "erro"); }
+          // Ask again so the pay links follow the new setting (only when the
+          // master switch is on; otherwise this just re-reads the link).
+          return apiFetch("/api/finance-new/invoices/" + APX_LINK_STATE.invoiceId + "/client-link", { method: "POST" })
+            .then(function(r2) { return r2.json().catch(function() { return {}; }); })
+            .then(function(d2) {
+              var warn = document.getElementById("apxLinkWarn");
+              if (warn && d2 && !d2.error) { warn.textContent = (d2.warnings || []).join("\n"); }
+            });
+        })
+        .catch(function(e) {
+          cb.checked = !want;
+          toast(t("Não foi possível salvar: ", "Could not save: ") + (e.message || ""));
+        });
+    }
+    // For sendInvoiceWhatsApp: the client's link when the master switch is ON,
+    // null when it is OFF or anything fails (the caller then keeps the link it
+    // always used).
+    function apxClientLinkForSend(invoiceId) {
+      if (APX_SWITCHES.client_invoice_link_enabled !== true) { return Promise.resolve(null); }
+      return apiFetch("/api/finance-new/invoices/" + invoiceId + "/client-link", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) { return (d && !d.error && d.link_enabled === true && d.link) ? d.link : null; })
+        .catch(function() { return null; });
+    }
 
     // Placeholders can't hold spans; they carry both languages as data
     // attributes and are swapped on load and on every language toggle.
@@ -8908,6 +9064,12 @@
         actions +=
           '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
             '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ';
+        // The client's public page (no login). Never on a voided invoice.
+        if (apxCanCopyClientLink() && inv.status !== "void" && inv.status !== "voided_mistake") {
+          actions +=
+            '<button class="btn btn-sm" onclick="copyClientInvoiceLink(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Copiar link do cliente</span><span class="show-en">Copy client link</span></button> ';
+        }
         if (inv.status === "draft" || inv.status === "sent") {
           actions +=
             '<button class="btn btn-sm btn-gold" id="waBtn' + inv.id + '" onclick="sendInvoiceWhatsApp(\'' + inv.id + '\')">' +
@@ -9119,6 +9281,19 @@
         .then(function(r) { return r.json().catch(function() { return {}; }); })
         .then(function(d) {
           if (d && d.error) { throw new Error(d.error); }
+          // Master switch ON (and only then): the message carries the
+          // client's public link in place of the staff one. Asked for AFTER
+          // mark-sent, because pay links exist only for a sent invoice. With
+          // the switch OFF this resolves null at once and nothing changes.
+          return apxClientLinkForSend(invoiceId);
+        })
+        .then(function(clientLink) {
+          if (clientLink) {
+            message = tpl.split("{invoiceLink}").join(clientLink);
+            waUrl = "https://wa.me/" +
+              (inv.client_whatsapp ? String(inv.client_whatsapp).replace(/[^0-9]/g, "") : "") +
+              "?text=" + encodeURIComponent(message);
+          }
           openWhatsApp();
           loadInvoices();
         })
@@ -10696,6 +10871,7 @@ names,
       // Templates and clients are fetched up front so the WhatsApp click
       // handler never has to await before opening its window.
       loadMessageTemplates();
+      loadApxSwitches();
       applyFinBilingualAttrs();
       loadClients();
       switchInvoiceTab("draft");

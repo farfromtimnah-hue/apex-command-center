@@ -4002,3 +4002,9 @@ construction.
 - Verified live with the switch temporarily ON (INV-000043, test client): ACH only with card off, both with card on, regeneration after a $5.00 test partial payment with the old links deactivated in Stripe, draft INV-000045 got no link; switch OFF again: no card, no ACH, no Stripe url.
 - Test: `node scripts/test-apex-invoice-public.mjs` (stand-in Stripe, no network).
 - Files: worker/index.js, apex-invoice-view.html, migrations/apex_invoice_public.sql, scripts/test-apex-invoice-public.mjs, scripts/fixtures/d1-shim.mjs.
+
+### Checkpoint 4: invoice admin button and the switches (both OFF)
+- `finance-new.html`: new row button "Copiar link do cliente / Copy client link" on every invoice that is not void (developer always; Alice and Rafa only when `client_invoice_link_enabled = 1`), a plain closable modal `#apxLinkOverlay` (Close button, backdrop, Escape) with the link, "Copiar link", and the per-client card checkbox wired to `PATCH /api/finance-new/clients/:id/invoice-card`. `sendInvoiceWhatsApp` asks for the client link AFTER mark-sent and swaps it into the same message template only when the switch is ON; OFF resolves null and the old link goes out unchanged. `viewInvoice`, `markInvoiceSentOnly`, `invoiceLinkFor` untouched.
+- `settings.html`: developer-only block under the Zelle handle with the two master checkboxes (invoice link, Apex Club payments), wired to the developer-only PATCH routes. `GET /api/finance-new/settings/switches` now also returns the caller's role.
+- All new staff strings bilingual through the pages' existing `show-pt` / `show-en` spans and `t(pt, en)`.
+- Files: finance-new.html, settings.html (+ iOS copies), worker/index.js.

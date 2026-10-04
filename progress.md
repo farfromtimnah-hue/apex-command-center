@@ -4030,3 +4030,11 @@ construction.
 - STILL IN PLACE, TO REMOVE: the temporary developer-only `POST /api/finance-new/stripe/diag` (needed to turn off the test Stripe links in Phase 7).
 - Test: `node scripts/test-apex-club.mjs`.
 - Files: worker/index.js, club.html, finance-new.html (+ iOS copies), scripts/test-apex-club.mjs.
+
+### Phase 7 close-out (same build, a seventh small commit)
+- Removed the temporary developer-only `POST /api/finance-new/stripe/diag` now that every test Stripe object is off: 9 payment links inactive, 7 prices and 7 products archived (a price can only be archived after its product, because it is the product's default price).
+- Baseline rerun: `scripts/test-apex-invoice-regression.mjs` output identical; the 10 older scripts identical except the LINE NUMBERS that `test-local-date-seeds.mjs` prints for the 12 pre-existing `toISOString()` lines in finance-new.html (same lines, shifted by the code added above them; no new offender).
+- Test Club event "TESTE Apex Club (pode apagar)" deleted through the admin DELETE route (its 5 test registrations went with it; "Jantar de julho" unchanged).
+- Final state: `client_invoice_link_enabled = 0`, `club_pay_enabled = 0`, `invoice_card_enabled = 0` for every client (the test client was switched on for the tests and back off).
+- Test data left on test-client-temp-001: INV-000043 ($25.00, sent, with one undone $5.00 test payment row), INV-000044 and INV-000045 (voided_mistake). INV-000043 counts $25.00 in the outstanding total until it is voided.
+- OPEN for Nicole: the three optional real-money tests (a $1.00 Zelle to settle whether the payer's confirmation number equals the bank's Conf#, a $1.00 card invoice, a Club event priced $1.00 Zelle / $2.00 card), then turning the switches on in Settings.

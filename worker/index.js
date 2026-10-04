@@ -42049,7 +42049,6 @@ async function handleFetch(request, env, ctx) {
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "clients" && segs[3] && segs[4] === "invoice-card" && !segs[5] && method === "PATCH") {
             return handlePatchApexClientInvoiceCard(decodeURIComponent(segs[3]), request, env);
         }
-        if (path === "/api/finance-new/stripe/diag" && method === "POST") { return handlePostApexStripeDiag(request, env); }
         if (path === "/api/finance-new/settings/switches" && method === "GET") { return handleGetApexSwitches(request, env); }
         if (path === "/api/finance-new/settings/client-invoice-link" && method === "PATCH") { return handlePatchApexSwitch("client_invoice_link_enabled", request, env); }
         if (path === "/api/finance-new/settings/club-pay" && method === "PATCH") { return handlePatchApexSwitch("club_pay_enabled", request, env); }
@@ -46136,59 +46135,6 @@ async function handlePostPublicApexInvoiceRefresh(token, request, env) {
         return apxInvNoIndex(jsonOk({ invoice: payload }));
     } catch (e) {
         return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
-    }
-}
-
-// POST /api/finance-new/stripe/diag   developer ONLY.  TEMPORARY (build aid).
-// The one-time probe of what the restricted key and the account accept, plus
-// reading back and turning off the test objects this build creates. Removed
-// before the build is finished.
-async function handlePostApexStripeDiag(request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
-        var body = await request.json().catch(function() { return {}; });
-        var out = {};
-        async function attempt(label, fn) {
-            try { out[label] = { ok: true, result: await fn() }; } catch (e) { out[label] = { ok: false, status: e.status || null, error: e.message }; }
-            return out[label].ok ? out[label].result : null;
-        }
-        if (body.action === "probe") {
-            var price = await attempt("price", function() {
-                return apxStripePost(env, "prices", [["currency", "usd"], ["unit_amount", "100"], ["product_data[name]", "Teste de integração Apex (pode arquivar)"]]);
-            });
-            if (price) {
-                var kinds = [["ach", "us_bank_account"], ["card", "card"]];
-                for (var i = 0; i < kinds.length; i++) {
-                    var kd = kinds[i];
-                    var link = await attempt("link_" + kd[0], function() {
-                        return apxStripePost(env, "payment_links", [["line_items[0][price]", price.id], ["line_items[0][quantity]", "1"], ["payment_method_types[0]", kd[1]],
-                            ["metadata[apex_probe]", "1"], ["payment_intent_data[metadata][apex_probe]", "1"]]);
-                    });
-                    if (link) { await attempt("deactivate_" + kd[0], function() { return apxStripePost(env, "payment_links/" + link.id, [["active", "false"]]); }); }
-                }
-                await attempt("archive_price", function() { return apxStripePost(env, "prices/" + price.id, [["active", "false"]]); });
-                await attempt("archive_product", function() { return apxStripePost(env, "products/" + (typeof price.product === "string" ? price.product : price.product.id), [["active", "false"]]); });
-            }
-        } else if (body.action === "get" && /^(payment_links|prices|products)\/[A-Za-z0-9_]+$/.test(body.path || "")) {
-            await attempt("get", function() { return stripeGet(env, body.path, []); });
-        } else if (body.action === "off" && /^(payment_links|prices|products)\/[A-Za-z0-9_]+$/.test(body.path || "")) {
-            await attempt("off", function() { return apxStripePost(env, body.path, [["active", "false"]]); });
-        } else {
-            return jsonErr("Unknown action", 400);
-        }
-        // Only what is needed to read the outcome.
-        Object.keys(out).forEach(function(k) {
-            var r = out[k].result;
-            if (r && typeof r === "object") {
-                out[k].result = { id: r.id, object: r.object, active: r.active, url: r.url, unit_amount: r.unit_amount, product: typeof r.product === "string" ? r.product : (r.product && r.product.id),
-                    payment_method_types: r.payment_method_types, metadata: r.metadata, payment_intent_data: r.payment_intent_data, after_completion: r.after_completion, name: r.name };
-            }
-        });
-        return jsonOk(out);
-    } catch (e) {
-        return jsonErr("Diag failed: " + e.message, 500);
     }
 }
 

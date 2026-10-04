@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Fatura</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <style>
+    /* APEX'S OWN INVOICE, the client's page (2026-10-04). Public, no login:
+       the ?t= token is the credential. The look is invoice-view.html's, kept
+       as it is (tokens, system font stack, 720 column, cards, amount tile,
+       payment tiles, the PDF card last); only the content is Apex's own, in
+       Apex's colours (navy #13294B, gold #E0A526, as on apex-contract.html)
+       and in two languages (?lang=pt default, ?lang=en).
+       The same page is what the Worker prints to PDF (?noprint=1&render=1). */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --navy: #13294B; --gold: #E0A526;
+      --brand-bg: #13294B; --brand-accent: #13294B; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .client-logo-tile img { max-height: 58px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .meta-left { flex: 1; min-width: 0; font-size: 14px; }
+    .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-left .who { font-size: 17px; font-weight: 700; }
+    .meta-left .from { margin-top: 10px; font-size: 13px; color: #444; line-height: 1.55; }
+    .meta-right { flex: 0 1 260px; text-align: right; }
+    .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
+    .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
+    .meta-right table { width: 100%; border-collapse: collapse; margin-left: auto; }
+    .meta-right td { padding: 2px 6px; font-size: 13px; vertical-align: top; }
+    .meta-right td.fl { font-weight: 600; color: #444; white-space: normal; text-align: left; }
+    .meta-right td.fv { text-align: right; }
+    .stamp { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+    .stamp.ok { color: var(--green); } .stamp.bad { color: var(--red); } .stamp.plain { color: var(--muted); }
+    /* SOFT PRICES, as on invoice-view.html: a light weight in a contained
+       pill; every other amount is weight 400. Comma and cents kept. */
+    .amount-due-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--gold); border-radius: 999px; padding: 10px 24px; max-width: 360px; margin: 12px auto 0; text-align: center; }
+    .amount-due-tile .adt-label { font-size: 10px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .amount-due-tile .adt-value { font-size: 21px; font-weight: 300; letter-spacing: 0; color: #2b2b2b; }
+    @media (max-width: 520px) { .meta-area { flex-direction: column; } .meta-right { flex-basis: auto; width: 100%; text-align: left; } .meta-right td.fv { text-align: right; } }
+    @media (max-width: 480px) { .meta-area { align-items: stretch; } .meta-left, .meta-right { width: 100%; } }
+    .head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
+    @media (max-width: 520px) { .head-row { justify-content: flex-start; } }
+    .lang-toggle { display: inline-block; min-width: 44px; min-height: 32px; line-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: var(--navy); text-decoration: none; text-align: center; background: #fff; }
+    .subject { font-size: 16px; font-weight: 700; }
+    .descr { font-size: 14px; color: #444; white-space: pre-wrap; margin-top: 4px; }
+    table.items { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.items th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: right; padding: 6px 4px; border-bottom: 2px solid var(--brand-accent); }
+    table.items th:first-child { text-align: left; }
+    table.items td { padding: 10px 4px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: right; font-weight: 400; white-space: nowrap; }
+    table.items td:first-child { text-align: left; white-space: normal; font-weight: 600; overflow-wrap: anywhere; }
+    table.items .desc { display: block; font-size: 13px; font-weight: 400; color: var(--muted); white-space: pre-wrap; }
+    .totals { margin-top: 10px; }
+    .totals .row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .totals .grand { font-size: 17px; font-weight: 500; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px; }
+    .totals .grand span:last-child { font-weight: 300; }
+    .line { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .line .name { font-weight: 600; }
+    .line .amt { font-weight: 400; white-space: nowrap; text-align: right; }
+    .notes p { white-space: pre-wrap; font-size: 14px; }
+    /* invoice-view .payment-tiles / .payment-tile: one per method. */
+    .payment-tiles { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+    .payment-tile { background: #fff; border: 1px solid #e0ddd5; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 120px; max-width: 100%; flex: 1 1 100%; }
+    .payment-tile .pt-label { font-size: 10px; font-weight: 700; color: #444; text-transform: uppercase; letter-spacing: 0.05em; }
+    .payment-tile .pt-detail { font-size: 14px; color: #111; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .payment-tile .btn { margin-top: 2px; }
+    .zelle-row { display: flex; gap: 14px; align-items: flex-start; width: 100%; }
+    .zelle-row .zelle-text { flex: 1; min-width: 0; }
+    .zelle-qr { width: 104px; height: 104px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px; flex: none; }
+    .copy-msg { font-size: 13px; color: var(--green); font-weight: 600; min-height: 18px; }
+    .copy-field { width: 100%; min-height: 44px; padding: 8px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    .linkbtn { background: none; border: none; padding: 6px 0; min-height: 32px; color: var(--navy); font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; font-family: inherit; }
+    .btn { width: 100%; min-height: 52px; margin-top: 12px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .btn[disabled] { opacity: 0.6; }
+    a.btn { display: flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; padding: 0 12px; }
+    .err { color: var(--red); font-size: 14px; margin-top: 8px; min-height: 18px; font-weight: 600; }
+    .ok { color: var(--green); font-weight: 700; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; font-weight: 700; text-align: center; }
+    .banner.draft { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; }
+    .foot { margin-top: 18px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .foot a { color: var(--muted); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .hidden { display: none !important; }
+    /* PDF: the Worker prints this page (letter). Buttons never print; the
+       band keeps its colour. */
+    @page { size: letter; margin: 0.5in 0.5in 0.6in; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .hero-band.doc-screen { height: 1.6in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; }
+      .card { border: none; padding: 0; margin-top: 12px; break-inside: avoid; }
+      .amount-due-tile, .banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      table.items tr, .payment-tile { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
+      <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="cardLoading"><div class="state"><p id="loadingText">Carregando...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><p id="notFoundText">Esta fatura n&atilde;o est&aacute; dispon&iacute;vel.</p></div></div>
+    <div id="doc" class="hidden">
+      <div class="card hidden no-print" id="cardPaidNote"></div>
+      <div class="card hidden" id="cardDraft"></div>
+      <div class="card" id="cardMeta"></div>
+      <div class="card hidden" id="cardSubject"></div>
+      <div class="card" id="cardLines"></div>
+      <div class="card" id="cardTotals"></div>
+      <div class="card hidden" id="cardNotes"></div>
+      <div class="card hidden" id="cardPay"></div>
+      <div class="foot" id="foot"></div>
+      <div class="card no-print" id="cardPdf"><button type="button" class="btn secondary" id="btnPdf" style="margin-top:0;"></button><div class="err hidden" id="pdfErr"></div><button type="button" class="btn secondary hidden" id="btnPrint"></button></div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var qs = window.location.search;
+    var token = (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var LANG = /[?&]lang=en(&|$)/.test(qs) ? "en" : "pt";
+    var isRender = /[?&](render|noprint)=1/.test(qs);
+    var paidReturn = /[?&]paid=1/.test(qs), paidTries = 0;
+    var inv = null;
+
+    // Every string on the page, PT (default) and EN.
+    var STR = {
+      pt: {
+        title: "Fatura", loading: "Carregando...", notAvailable: "Esta fatura não está disponível.",
+        stDraft: "Rascunho", stOpen: "Em aberto", stOverdue: "Vencida", stPartial: "Parcialmente paga", stPaid: "Paga",
+        billedTo: "Faturado para", invoiceDate: "Data da fatura", due: "Vencimento",
+        thDesc: "Descrição", thQty: "Qtd", thUnit: "Valor unitário", thSub: "Subtotal",
+        subtotal: "Subtotal", total: "Total", paid: "Pago", balance: "Saldo",
+        tileDue: "Saldo a pagar agora", tilePaid: "Paga integralmente",
+        notes: "Observações", ways: "Formas de pagamento",
+        included: "Incluso", defaultLine: "Serviços de consultoria",
+        draftBanner: "Rascunho: esta fatura ainda não foi enviada.",
+        zCopy: "Copiar valor: {amt}", zCopied: "Valor copiado: {amt}. Cole no campo de valor do Zelle no app do seu banco.",
+        zSendTo: "Envie para: {handle}", zMemo: "Escreva {num} na mensagem do Zelle.",
+        zCopyContact: "Copiar contato do Zelle", zContactCopied: "Contato copiado.", zHold: "Toque e segure o valor para copiar.",
+        ach: "Pagar por transferência ACH", achNote: "Pode levar até 4 dias úteis para compensar.", card: "Pagar com cartão",
+        payReceived: "Pagamento recebido. Obrigado!", payProcessing: "Pagamento em processamento. Atualizaremos esta fatura quando for confirmado.",
+        pdf: "Baixar fatura (PDF)", pdfFail: "Não foi possível gerar o PDF agora. Use Imprimir.", print: "Imprimir",
+        foot: "Fatura gerada por Apex Command Center", privacy: "Política de Privacidade", terms: "Termos de Uso",
+        other: "EN"
+      },
+      en: {
+        title: "Invoice", loading: "Loading...", notAvailable: "This invoice is not available.",
+        stDraft: "Draft", stOpen: "Open", stOverdue: "Overdue", stPartial: "Partially paid", stPaid: "Paid",
+        billedTo: "Billed to", invoiceDate: "Invoice date", due: "Due date",
+        thDesc: "Description", thQty: "Qty", thUnit: "Unit price", thSub: "Subtotal",
+        subtotal: "Subtotal", total: "Total", paid: "Paid", balance: "Balance",
+        tileDue: "Balance due now", tilePaid: "Paid in full",
+        notes: "Notes", ways: "Ways to pay",
+        included: "Included", defaultLine: "Consulting services",
+        draftBanner: "Draft: this invoice has not been sent yet.",
+        zCopy: "Copy amount: {amt}", zCopied: "Amount copied: {amt}. Paste it into the amount box in your bank's Zelle screen.",
+        zSendTo: "Send to: {handle}", zMemo: "Write {num} in the Zelle message.",
+        zCopyContact: "Copy Zelle contact", zContactCopied: "Contact copied.", zHold: "Press and hold the amount to copy.",
+        ach: "Pay by ACH bank transfer", achNote: "Can take up to 4 business days to clear.", card: "Pay by card",
+        payReceived: "Payment received. Thank you!", payProcessing: "Payment processing. This invoice will update when it is confirmed.",
+        pdf: "Download your invoice (PDF)", pdfFail: "Could not generate the PDF right now. Use Print.", print: "Print",
+        foot: "Invoice generated by Apex Command Center", privacy: "Privacy Policy", terms: "Terms",
+        other: "PT"
+      }
+    };
+    function T(key, vars) {
+      var s = (STR[LANG] && STR[LANG][key]) || STR.pt[key] || "";
+      if (vars) { Object.keys(vars).forEach(function(k) { s = s.split("{" + k + "}").join(vars[k]); }); }
+      return s;
+    }
+
+    function byId(id) { return document.getElementById(id); }
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    // US formats in BOTH languages: $1,234.56 and MM/DD/YYYY.
+    function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
+    function plainAmount(c) { return ((Number(c) || 0) / 100).toFixed(2); }
+    function fmtDate(v) {
+      if (!v) { return ""; }
+      var s = String(v).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { var p = s.split("-"); return p[1] + "/" + p[2] + "/" + p[0]; }
+      return String(v);
+    }
+    function show(id) { ["cardLoading", "cardNotFound", "doc"].forEach(function(c) { var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); } }); }
+
+    // iPhone Safari prints the page URL in its print header and footer, and
+    // this URL carries the private ?t= token. It is taken out of the address
+    // bar for the duration of the print and put back afterwards (same
+    // handling as invoice-view.html).
+    var printUrlSaved = null;
+    function printUrlHide() {
+      if (printUrlSaved !== null) { return; }
+      try {
+        var href = window.location.href;
+        if (!/[?&]t=[a-f0-9]{48}/.test(href)) { return; }
+        var q = window.location.search.replace(/([?&])t=[a-f0-9]{48}&?/, "$1").replace(/[?&]$/, "");
+        printUrlSaved = href;
+        history.replaceState(history.state, "", window.location.pathname + q + window.location.hash);
+      } catch (e) { printUrlSaved = null; console.error(e); }
+    }
+    function printUrlRestore() {
+      if (printUrlSaved === null) { return; }
+      try { history.replaceState(history.state, "", printUrlSaved); } catch (e) { console.error(e); }
+      printUrlSaved = null;
+    }
+    function printWithoutToken() { printUrlHide(); window.print(); }
+    window.addEventListener("beforeprint", printUrlHide);
+    window.addEventListener("afterprint", printUrlRestore);
+    if (window.matchMedia) {
+      try {
+        var printMql = window.matchMedia("print");
+        var onPrintMql = function(m) { if (m.matches) { printUrlHide(); } else { printUrlRestore(); } };
+        if (printMql.addEventListener) { printMql.addEventListener("change", onPrintMql); } else if (printMql.addListener) { printMql.addListener(onPrintMql); }
+      } catch (e) { console.error(e); }
+    }
+
+    // The other language: same URL, lang swapped. No storage of any kind.
+    function langHref() {
+      var other = LANG === "pt" ? "en" : "pt";
+      var q = window.location.search.replace(/([?&])lang=[^&]*&?/g, "$1").replace(/[?&]$/, "");
+      return window.location.pathname + q + (q ? "&" : "?") + "lang=" + other;
+    }
+
+    // Copy to the clipboard, three ways: the async API inside the tap, then a
+    // temporary readonly textarea with execCommand (WhatsApp's in-app browser,
+    // older iOS Safari). done(true|false) says whether either one worked.
+    function copyText(text, done) {
+      function fallback() {
+        var ok = false;
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.setAttribute("readonly", "");
+          ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "0"; ta.style.opacity = "0"; ta.style.fontSize = "16px";
+          var host = byId("doc") || document.documentElement;
+          host.appendChild(ta);
+          ta.focus(); ta.select();
+          try { ta.setSelectionRange(0, text.length); } catch (e1) {}
+          ok = document.execCommand("copy");
+          host.removeChild(ta);
+        } catch (e2) { ok = false; }
+        done(ok);
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() { done(true); }, fallback);
+          return;
+        }
+      } catch (e) {}
+      fallback();
+    }
+    var copyTimers = {};
+    function flash(msgId, text) {
+      var el = byId(msgId);
+      if (!el) { return; }
+      el.textContent = text;
+      if (copyTimers[msgId]) { window.clearTimeout(copyTimers[msgId]); }
+      copyTimers[msgId] = window.setTimeout(function() { el.textContent = ""; }, 6000);
+    }
+    function copyAmount() {
+      var plain = plainAmount(inv.balance_cents), shown = money(inv.balance_cents);
+      copyText(plain, function(ok) {
+        if (ok) { flash("zAmtMsg", T("zCopied", { amt: shown })); return; }
+        // Clipboard blocked: the amount in a field the client can press and hold.
+        var f = byId("zAmtField"), hint = byId("zAmtMsg");
+        if (f) { f.value = plain; f.classList.remove("hidden"); try { f.focus(); f.select(); } catch (e) {} }
+        if (hint) { hint.textContent = T("zHold"); }
+      });
+    }
+    function copyContact() {
+      var handle = (inv.payment && inv.payment.zelle_handle) || "";
+      copyText(handle, function(ok) {
+        if (ok) { flash("zContactMsg", T("zContactCopied")); return; }
+        var f = byId("zContactField");
+        if (f) { f.value = handle; f.classList.remove("hidden"); try { f.focus(); f.select(); } catch (e) {} }
+      });
+    }
+
+    function statusLabel(st) {
+      return { draft: T("stDraft"), open: T("stOpen"), overdue: T("stOverdue"), partial: T("stPartial"), paid: T("stPaid") }[st] || T("stOpen");
+    }
+    function statusClass(st) { return st === "paid" ? "ok" : (st === "overdue" ? "bad" : "plain"); }
+
+    function render() {
+      var b = inv.business || {};
+      document.documentElement.lang = LANG === "en" ? "en" : "pt-BR";
+      document.title = T("title") + " " + inv.number;
+      var rows = [[T("invoiceDate"), escHtml(fmtDate(inv.issue_date))], [T("due"), escHtml(fmtDate(inv.due_date))]];
+      var fromLines = [];
+      if (b.name) { fromLines.push("<strong>" + escHtml(b.name) + "</strong>"); }
+      if (b.address) { fromLines.push(escHtml(b.address)); }
+      if (b.website) { fromLines.push(escHtml(b.website)); }
+      var meta = byId("cardMeta");
+      if (meta) {
+        meta.innerHTML =
+          '<div class="meta-area"><div class="meta-left"><div class="k">' + escHtml(T("billedTo")) + '</div><div class="who">' + escHtml(inv.client_name || "") + '</div>' +
+          '<div class="from">' + fromLines.join("<br>") + '</div></div>' +
+          '<div class="meta-right"><div class="title">' + escHtml(T("title")) + '</div><div class="num">' + escHtml(inv.number) + '</div>' +
+          '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + escHtml(r[0]) + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>' +
+          '<div class="head-row"><span class="stamp ' + statusClass(inv.status) + '">' + escHtml(statusLabel(inv.status)) + '</span>' +
+          '<a class="lang-toggle no-print" id="langToggle" href="' + escHtml(langHref()) + '">' + escHtml(T("other")) + '</a></div></div></div>';
+      }
+      var draft = byId("cardDraft");
+      if (draft) {
+        if (inv.draft) { draft.innerHTML = '<div class="banner draft">' + escHtml(T("draftBanner")) + '</div>'; draft.classList.remove("hidden"); }
+        else { draft.classList.add("hidden"); }
+      }
+      var subj = byId("cardSubject");
+      if (subj) {
+        if (inv.subject || inv.description) {
+          subj.innerHTML = (inv.subject ? '<div class="subject">' + escHtml(inv.subject) + '</div>' : "") + (inv.description ? '<div class="descr">' + escHtml(inv.description) + '</div>' : "");
+          subj.classList.remove("hidden");
+        } else { subj.classList.add("hidden"); }
+      }
+      var lines = byId("cardLines");
+      if (lines) {
+        lines.innerHTML = '<table class="items"><thead><tr><th>' + escHtml(T("thDesc")) + '</th><th>' + escHtml(T("thQty")) + '</th><th>' + escHtml(T("thUnit")) + '</th><th>' + escHtml(T("thSub")) + '</th></tr></thead><tbody>' +
+          (inv.items || []).map(function(it) {
+            var det = (it.details && it.details !== inv.description) ? '<span class="desc">' + escHtml(it.details) + '</span>' : "";
+            return '<tr><td>' + escHtml(it.description || T("defaultLine")) + det + '</td><td>' + escHtml(String(it.qty == null ? 1 : it.qty)) + '</td><td>' +
+              (it.included ? escHtml(T("included")) : money(it.unit_price_cents)) + '</td><td>' + (it.included ? escHtml(T("included")) : money(it.subtotal_cents)) + '</td></tr>';
+          }).join("") + '</tbody></table>';
+      }
+      var isPaid = inv.status === "paid";
+      var totals = byId("cardTotals");
+      if (totals) {
+        totals.innerHTML = '<div class="totals" style="margin-top:0;">' +
+          '<div class="row"><span>' + escHtml(T("subtotal")) + '</span><span>' + money(inv.subtotal_cents) + '</span></div>' +
+          '<div class="row"><span>' + escHtml(T("total")) + '</span><span>' + money(inv.total_cents) + '</span></div>' +
+          (inv.paid_cents ? '<div class="row"><span>' + escHtml(T("paid")) + '</span><span>-' + money(inv.paid_cents) + '</span></div>' : "") +
+          ((inv.payments || []).length > 1 ? (inv.payments || []).map(function(p) { return '<div class="row small muted"><span>' + escHtml(fmtDate(p.date)) + '</span><span>' + money(p.amount_cents) + '</span></div>'; }).join("") : "") +
+          '<div class="row grand"><span>' + escHtml(T("balance")) + '</span><span>' + money(inv.balance_cents) + '</span></div></div>' +
+          '<div class="amount-due-tile"><div class="adt-label">' + escHtml(isPaid ? T("tilePaid") : T("tileDue")) + '</div><div class="adt-value">' + money(inv.balance_cents) + '</div></div>';
+      }
+      var notes = byId("cardNotes");
+      if (notes) {
+        if (inv.notes) { notes.innerHTML = '<h2>' + escHtml(T("notes")) + '</h2><div class="notes"><p>' + escHtml(inv.notes) + '</p></div>'; notes.classList.remove("hidden"); }
+        else { notes.classList.add("hidden"); }
+      }
+      renderPay();
+      var foot = byId("foot");
+      if (foot) {
+        foot.innerHTML = escHtml(T("foot")) + '<br><span class="no-print"><a href="privacy.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("privacy")) + '</a> &middot; <a href="terms.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("terms")) + '</a></span>';
+      }
+      var pdf = byId("btnPdf"); if (pdf) { pdf.textContent = T("pdf"); pdf.onclick = openPdf; }
+      var pr = byId("btnPrint"); if (pr) { pr.textContent = T("print"); pr.onclick = printWithoutToken; }
+      paidNote();
+    }
+
+    // Ways to pay: Zelle (the handle as text and the QR as a picture, never a
+    // link), then ACH and card when the Worker sends a link for them. A draft
+    // or a paid invoice has no payment block at all.
+    function renderPay() {
+      var card = byId("cardPay");
+      if (!card) { return; }
+      var p = inv.payment;
+      if (!p || inv.draft || (inv.balance_cents || 0) <= 0) { card.classList.add("hidden"); card.innerHTML = ""; return; }
+      var amt = money(inv.balance_cents);
+      var h = '<h2>' + escHtml(T("ways")) + '</h2><div class="payment-tiles">';
+      if (p.zelle_handle) {
+        h += '<div class="payment-tile"><div class="pt-label">Zelle</div>' +
+          '<button type="button" class="btn no-print" id="btnZAmt" onclick="copyAmount()">' + escHtml(T("zCopy", { amt: amt })) + '</button>' +
+          '<div class="copy-msg no-print" id="zAmtMsg" aria-live="polite"></div>' +
+          '<input type="text" readonly class="copy-field hidden no-print" id="zAmtField" inputmode="decimal">' +
+          '<div class="zelle-row"><div class="zelle-text"><div class="pt-detail">' + escHtml(T("zSendTo", { handle: p.zelle_handle })) + '</div>' +
+          '<div class="pt-detail">' + escHtml(T("zMemo", { num: inv.number })) + '</div>' +
+          '<button type="button" class="linkbtn no-print" onclick="copyContact()">' + escHtml(T("zCopyContact")) + '</button>' +
+          '<div class="copy-msg no-print" id="zContactMsg" aria-live="polite"></div>' +
+          '<input type="text" readonly class="copy-field hidden no-print" id="zContactField"></div>' +
+          (p.zelle_qr_url ? '<img class="zelle-qr" id="zelleQr" alt="Zelle QR" src="' + escHtml(p.zelle_qr_url) + '">' : "") + '</div></div>';
+      }
+      if (p.ach && p.ach.available && p.ach.url) {
+        h += '<div class="payment-tile no-print"><div class="pt-label">ACH</div><a class="btn" href="' + escHtml(p.ach.url) + '">' + escHtml(T("ach")) + '</a>' +
+          '<div class="pt-detail small muted">' + escHtml(T("achNote")) + '</div></div>';
+      }
+      if (p.card && p.card.enabled && p.card.url) {
+        h += '<div class="payment-tile no-print"><a class="btn" href="' + escHtml(p.card.url) + '">' + escHtml(T("card")) + '</a></div>';
+      }
+      h += '</div>';
+      card.innerHTML = h;
+      card.classList.remove("hidden");
+      var qr = byId("zelleQr");
+      if (qr) { qr.addEventListener("error", function() { qr.classList.add("hidden"); }); }
+    }
+
+    // Back from Stripe (?paid=1): say what happened. The page asked the
+    // Worker to check this invoice with Stripe before rendering.
+    function paidNote() {
+      var el = byId("cardPaidNote");
+      if (!el) { return; }
+      if (!paidReturn && !(inv.payment && inv.payment.processing)) { el.classList.add("hidden"); return; }
+      if (inv.status === "paid") {
+        if (!paidReturn) { el.classList.add("hidden"); return; }
+        el.innerHTML = '<div class="state"><h3 class="ok">' + escHtml(T("payReceived")) + '</h3></div>';
+      } else {
+        el.innerHTML = '<div class="state"><h3>' + escHtml(T("payProcessing")) + '</h3></div>';
+        // One more look a few seconds later: a card payment usually shows on
+        // the second check. The Worker limits how often this can be asked.
+        if (paidReturn && paidTries < 2) { paidTries++; window.setTimeout(function() { load(true); }, 6000); }
+      }
+      el.classList.remove("hidden");
+    }
+
+    // The PDF is printed on the server from this same page. The first request
+    // decides: a real PDF opens in this tab (on iPhone, Safari's own viewer,
+    // where Share and Save to Files work); a failure shows the message and a
+    // Print button, so the client is never stuck.
+    function openPdf() {
+      var btn = byId("btnPdf"), err = byId("pdfErr"), pr = byId("btnPrint");
+      var url = WORKER_URL + "/api/public/pdf/apex-invoice/" + token + "?lang=" + LANG;
+      if (err) { err.textContent = ""; err.classList.add("hidden"); }
+      if (btn) { btn.disabled = true; }
+      fetch(url)
+        .then(function(res) {
+          var ct = res.headers.get("Content-Type") || "";
+          if (!res.ok || ct.indexOf("application/pdf") === -1) { throw new Error("pdf " + res.status); }
+          if (btn) { btn.disabled = false; }
+          window.location.href = url;
+        })
+        .catch(function(e) {
+          console.error(e);
+          if (btn) { btn.disabled = false; }
+          if (err) { err.textContent = T("pdfFail"); err.classList.remove("hidden"); }
+          if (pr) { pr.classList.remove("hidden"); }
+        });
+    }
+
+    function renderDone(flag) {
+      if (flag !== "1") { document.body.setAttribute("data-render-done", flag); return; }
+      // The Worker's PDF printer waits for this flag, then for every image.
+      var imgs = Array.prototype.slice.call(document.images);
+      Promise.all(imgs.map(function(im) { return im.complete ? null : new Promise(function(r) { im.addEventListener("load", r); im.addEventListener("error", r); }); }))
+        .then(function() { document.body.setAttribute("data-render-done", "1"); });
+    }
+
+    function notFound() {
+      var nf = byId("notFoundText"); if (nf) { nf.textContent = T("notAvailable"); }
+      show("cardNotFound");
+      renderDone("0");
+    }
+
+    function load(refresh) {
+      if (!token) { notFound(); return; }
+      var base = WORKER_URL + "/api/public/apex-invoices/" + token;
+      var first = refresh
+        ? fetch(base + "/refresh", { method: "POST" }).then(function(res) { if (!res.ok) { throw new Error("refresh"); } return res; })
+            .catch(function() { return fetch(base); })
+        : fetch(base + (isRender ? "?render=1" : ""));
+      first
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) { inv = d.invoice; render(); show("doc"); renderDone("1"); })
+        .catch(function(e) { console.error(e); if (!inv) { notFound(); } });
+    }
+
+    window.onload = function() {
+      var lt = byId("loadingText"); if (lt) { lt.textContent = T("loading"); }
+      var hi = byId("heroImg");
+      if (hi) { hi.style.objectPosition = "50% 38%"; hi.addEventListener("load", function() { hi.hidden = false; }); hi.src = "assets/login/Picture4.jpg"; }
+      load(paidReturn && !isRender);
+    };
+  </script>
+</body>
+</html>

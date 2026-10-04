@@ -40510,7 +40510,7 @@ function docPdfAfterFinal(request, env, kind, token) {
 // real page with the real token. The random tail keeps each link unguessable.
 // Any failure falls back to the long token link, so sending never breaks.
 var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
-var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract" };
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html" };
 var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document" };
 
 function docLinkSlugPart(v, max) {
@@ -40594,7 +40594,7 @@ async function docLinkServe(request, env) {
     // upload, via ?v=) when it has one, else the business's current logo.
     // Apex's own contract previews with Apex's card (navy, gold logo), never
     // the client's logo: the sender is Apex.
-    var logoRes = row.kind === "apex-contract"
+    var logoRes = (row.kind === "apex-contract" || row.kind === "apex-invoice")
         ? await fetch(DEFAULT_ORIGIN + "/assets/apex-og.jpg", { method: "GET" })
         : await docLinkLogoResponse(env, row);
     var logoType = (logoRes && logoRes.ok && logoRes.headers.get("Content-Type")) || "image/jpeg";
@@ -40772,6 +40772,18 @@ async function handleFetch(request, env, ctx) {
 
         var clubCalPub = path.match(/^\/api\/club\/calendar-click\/([A-Za-z0-9-]+)$/);
         if (clubCalPub && method === "POST") { return handlePostClubCalendarClick(clubCalPub[1], request, env); }
+
+        // PUBLIC: Apex's OWN invoice, the client's link (the 48-hex token is
+        // the credential). Each route has its own anchored pattern and its own
+        // rate limit in the handler. Anything else under these two prefixes is
+        // a plain 404, so a malformed token never reaches a later route.
+        var pubApxInv = path.match(/^\/api\/public\/apex-invoices\/([a-f0-9]{48})$/);
+        if (pubApxInv && method === "GET") { return handleGetPublicApexInvoice(pubApxInv[1], request, env); }
+        var pubApxInvPdf = path.match(/^\/api\/public\/pdf\/apex-invoice\/([a-f0-9]{48})$/);
+        if (pubApxInvPdf && method === "GET") { return handleGetPublicApexInvoicePdf(pubApxInvPdf[1], request, env); }
+        if (path.indexOf("/api/public/apex-invoices/") === 0 || path.indexOf("/api/public/pdf/apex-invoice/") === 0) {
+            return apxInvNoIndex(jsonErr("Not found", 404));
+        }
 
         // PUBLIC client booking links (no auth by design: the token in the URL
         // IS the credential). Declared here, with the other public routes and
@@ -41934,6 +41946,16 @@ async function handleFetch(request, env, ctx) {
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-mistake" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkMistake(segs[3], request, env);
         }
+        // Public Apex invoice page: the staff side (all new routes).
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "client-link" && !segs[5] && method === "POST") {
+            return handlePostApexInvoiceClientLink(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "clients" && segs[3] && segs[4] === "invoice-card" && !segs[5] && method === "PATCH") {
+            return handlePatchApexClientInvoiceCard(decodeURIComponent(segs[3]), request, env);
+        }
+        if (path === "/api/finance-new/settings/switches" && method === "GET") { return handleGetApexSwitches(request, env); }
+        if (path === "/api/finance-new/settings/client-invoice-link" && method === "PATCH") { return handlePatchApexSwitch("client_invoice_link_enabled", request, env); }
+        if (path === "/api/finance-new/settings/club-pay" && method === "PATCH") { return handlePatchApexSwitch("club_pay_enabled", request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "mark-sent" && method === "POST") {
             return handlePostFinanceNewInvoiceMarkSent(segs[3], request, env);
         }
@@ -45253,5 +45275,375 @@ async function handlePatchLeadTemperature(id, request, env) {
         return jsonOk({ lead_temperature: t });
     } catch (e) {
         return jsonErr("Error saving the lead temperature: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// APEX'S OWN INVOICES: THE CLIENT'S PUBLIC PAGE (2026-10-04)
+//
+// Until this build an Apex invoice (D1 table invoices, managed in
+// finance-new.html) could only be opened by staff: the template needs a
+// Firebase login, so Alice exported a PDF by hand and sent that. This adds a
+// tokenized page the client opens with no login (apex-invoice-view.html),
+// its PDF, and a readable share link. The PDF export keeps working as the
+// fallback and nothing in the existing invoice code is touched: every function
+// here is new and only READS what the existing flows write, except for the
+// token and view columns this section owns.
+//
+// TWO SWITCHES, BOTH OFF BY DEFAULT (business_settings):
+//   client_invoice_link_enabled  0: the page shows the invoice, Zelle and the
+//                                PDF only. No card, no ACH, no Stripe link is
+//                                created or returned.
+//   clients.invoice_card_enabled per client: 1 adds a card button.
+// Zelle here is the handle as text plus the QR image, never a link (see
+// buildInvoicePaymentBlock for why a Zelle link cannot exist).
+// ===========================================================================
+
+var APX_INV_PAGE = "/apex-invoice-view.html";
+
+async function apxInvSwitches(env) {
+    try {
+        var s = await env.DB.prepare(
+            "SELECT client_invoice_link_enabled, club_pay_enabled FROM business_settings WHERE id = 1"
+        ).first();
+        return { invoice_link: !!(s && s.client_invoice_link_enabled === 1), club_pay: !!(s && s.club_pay_enabled === 1) };
+    } catch (e) {
+        // A failed read means OFF: the proven behaviour.
+        return { invoice_link: false, club_pay: false };
+    }
+}
+
+// Every public Apex invoice answer tells crawlers to stay away.
+function apxInvNoIndex(res) {
+    try { res.headers.set("X-Robots-Tag", "noindex, nofollow"); } catch (e) {}
+    return res;
+}
+
+async function apxInvByToken(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    var inv = await env.DB.prepare(
+        "SELECT i.*, c.name AS client_name, c.package, c.invoice_card_enabled " +
+        "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.public_token = ?"
+    ).bind(token).first();
+    if (!inv || inv.status === "void" || inv.status === "voided_mistake") { return null; }
+    return inv;
+}
+
+// D1 stores UTC ("YYYY-MM-DD HH:MM:SS"); Apex's calendar date is Eastern.
+// A plain YYYY-MM-DD passes through untouched.
+function apxInvEasternDate(v) {
+    if (!v) { return null; }
+    var s = String(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s; }
+    var iso = s.replace(" ", "T");
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(iso)) { iso += "Z"; }
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) { return s.slice(0, 10); }
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+// What has been paid and what is still owed. Only invoice_payments rows that
+// are not undone count; the sticky paid claim (claimed_paid_*) is a note and
+// is never money.
+async function apxInvMoney(env, inv) {
+    var rows = (await env.DB.prepare(
+        "SELECT p.amount_cents, p.matched_at, t.date AS txn_date FROM invoice_payments p " +
+        "LEFT JOIN transactions t ON t.id = p.transaction_id " +
+        "WHERE p.invoice_id = ? AND p.undone_at IS NULL ORDER BY COALESCE(t.date, p.matched_at)"
+    ).bind(inv.id).all()).results || [];
+    var paid = 0;
+    var payments = rows.map(function(p) {
+        paid += (p.amount_cents || 0);
+        return { date: p.txn_date || apxInvEasternDate(p.matched_at), amount_cents: p.amount_cents || 0 };
+    });
+    var total = inv.amount_cents || 0;
+    // A paid invoice owes nothing, whatever the rows add up to: the match
+    // rule closes an invoice a rounding difference short, and Zoho-era paid
+    // invoices have no payment rows at all.
+    var balance = inv.status === "paid" ? 0 : Math.max(0, total - paid);
+    if (inv.status === "paid" && paid < total) { paid = total; }
+    return { paid_cents: paid, balance_cents: balance, payments: payments };
+}
+
+// The JSON the page renders. Client name only: no email, phone, address or
+// banking details. Lines are built the way handleGetFinanceNewInvoiceRenderData
+// builds them (the package line, then signed-contract add-ons with no price).
+async function apxInvPayload(env, inv, sw) {
+    var subject = "";
+    if (inv.package) {
+        var pkgRow = await env.DB.prepare("SELECT full_name FROM packages WHERE short_name = ?").bind(inv.package).first();
+        if (pkgRow && pkgRow.full_name) { subject = pkgRow.full_name; }
+    }
+    subject = inv.line_description || subject;
+    var total = inv.amount_cents || 0;
+    var items = [{
+        // null lets the page print its own "consulting services" line in the
+        // reader's language.
+        description: subject || null,
+        details: inv.notes || "",
+        qty: 1, included: false,
+        unit_price_cents: total, subtotal_cents: total
+    }];
+    try {
+        var addonRows = (await env.DB.prepare(
+            "SELECT DISTINCT l.label FROM apex_contract_vendor_lines l JOIN apex_contracts k ON k.id = l.contract_id " +
+            "WHERE l.client_id = ? AND l.active = 1 AND l.source = 'addon' AND k.status = 'signed'"
+        ).bind(inv.client_id).all()).results || [];
+        addonRows.forEach(function(a) {
+            items.push({ description: a.label, details: "", qty: 1, included: true, unit_price_cents: null, subtotal_cents: null });
+        });
+    } catch (eAdd) { /* add-on lines are a courtesy; the total is the invoice */ }
+
+    var money = await apxInvMoney(env, inv);
+    var isDraft = inv.status === "draft";
+    var status = "open";
+    if (isDraft) { status = "draft"; }
+    else if (inv.status === "paid") { status = "paid"; }
+    // Overdue is derived on Apex's own (Eastern) calendar, never stored.
+    else if (inv.due_at && String(inv.due_at).slice(0, 10) < easternDateStr() && money.balance_cents > 0) { status = "overdue"; }
+    else if (money.paid_cents > 0) { status = "partial"; }
+
+    return {
+        number: inv.number || "",
+        status: status,
+        draft: isDraft,
+        issue_date: inv.issued_at ? String(inv.issued_at).slice(0, 10) : null,
+        due_date: inv.due_at ? String(inv.due_at).slice(0, 10) : null,
+        client_name: inv.client_name || "",
+        subject: subject || "",
+        description: inv.notes || "",
+        notes: inv.notes || "",
+        items: items,
+        subtotal_cents: total,
+        total_cents: total,
+        paid_cents: money.paid_cents,
+        balance_cents: money.balance_cents,
+        payments: money.payments,
+        business: {
+            name: "Apex Business & Leadership",
+            address: "Tampa, FL",
+            website: "apexbusiness.pro",
+            logo_url: DEFAULT_ORIGIN + "/assets/apex-logo.png"
+        },
+        // A draft carries no way to pay: Alice proofs it before sending.
+        payment: (isDraft || money.balance_cents <= 0) ? null : await apxInvPayBlock(env, inv, money.balance_cents, sw)
+    };
+}
+
+// Zelle always; card and ACH only with the master switch ON, on a SENT
+// invoice, and only a link whose amount still equals the balance.
+async function apxInvPayBlock(env, inv, balanceCents, sw) {
+    var out = { zelle_handle: null, zelle_qr_url: null, card: { enabled: false }, ach: { available: false }, processing: false };
+    try {
+        var s = await env.DB.prepare("SELECT zelle_handle, zelle_qr_r2_key FROM business_settings WHERE id = 1").first();
+        if (s) {
+            out.zelle_handle = s.zelle_handle || null;
+            out.zelle_qr_url = s.zelle_qr_r2_key ? (APEX_API_BASE + "/api/business/qr-image") : null;
+        }
+    } catch (e) { /* a missing payment block never breaks the invoice */ }
+    try {
+        // A payment the bank has not cleared yet (ACH). Shown in both switch
+        // states, so a client who already paid is never asked twice.
+        var pend = await env.DB.prepare(
+            "SELECT 1 AS x FROM stripe_charges WHERE metadata_invoice_id = ? AND status = 'pending' LIMIT 1"
+        ).bind(inv.id).first();
+        out.processing = !!pend;
+    } catch (e2) { out.processing = false; }
+    if (!sw || !sw.invoice_link || inv.status !== "sent") { return out; }
+    try {
+        var links = (await env.DB.prepare(
+            "SELECT kind, url, amount_cents FROM apex_invoice_pay_links WHERE invoice_id = ? AND active = 1"
+        ).bind(inv.id).all()).results || [];
+        var byKind = {};
+        links.forEach(function(l) { byKind[l.kind] = l; });
+        if (inv.invoice_card_enabled === 1) {
+            out.card = { enabled: true };
+            if (byKind.card && byKind.card.url && byKind.card.amount_cents === balanceCents) { out.card.url = byKind.card.url; }
+            else { out.card.stale = true; }
+        }
+        if (APX_STRIPE_ACH_ENABLED) {
+            out.ach = { available: true };
+            if (byKind.ach && byKind.ach.url && byKind.ach.amount_cents === balanceCents) { out.ach.url = byKind.ach.url; }
+            else { out.ach.stale = true; }
+        }
+    } catch (e3) { out.card = { enabled: false }; out.ach = { available: false }; }
+    return out;
+}
+
+// Whether Apex's Stripe account accepts us_bank_account on a payment link.
+// Set from the one-time probe (see the pay-links section below).
+var APX_STRIPE_ACH_ENABLED = false;
+
+// GET /api/public/apex-invoices/:token
+async function handleGetPublicApexInvoice(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 60, 300);
+        if (limited) { return apxInvNoIndex(jsonErr("Too many requests", 429)); }
+        var inv = await apxInvByToken(env, token);
+        if (!inv) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        // Views are the client's own openings, not the PDF printer's.
+        if (!new URL(request.url).searchParams.get("render")) {
+            await env.DB.prepare(
+                "UPDATE invoices SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')), " +
+                "last_viewed_at = datetime('now'), view_count = COALESCE(view_count, 0) + 1 WHERE id = ?"
+            ).bind(inv.id).run();
+        }
+        var sw = await apxInvSwitches(env);
+        return apxInvNoIndex(jsonOk({ invoice: await apxInvPayload(env, inv, sw) }));
+    } catch (e) {
+        return apxInvNoIndex(jsonErr("Error: " + e.message, 500));
+    }
+}
+
+// GET /api/public/pdf/apex-invoice/:token?lang=pt|en
+// The page itself, printed by headless Chrome. Browser Rendering on this plan
+// is tight (about 10 browser minutes a day), so a render is kept in R2 under a
+// hash of exactly what it shows: the same invoice in the same language is
+// printed once, and any change (a payment, the amount, the due date, the day
+// it turns overdue) changes the hash and prints again. A failure answers JSON
+// so the page can offer Print instead of leaving the client stuck.
+async function handleGetPublicApexInvoicePdf(token, request, env) {
+    try {
+        var lang = new URL(request.url).searchParams.get("lang") === "en" ? "en" : "pt";
+        var limited = await gmEstPublicRateLimit(env, request, token, 30, 300);
+        if (limited) { return apxInvNoIndex(jsonErr("Too many requests", 429)); }
+        var inv = await apxInvByToken(env, token);
+        if (!inv) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        var payload = await apxInvPayload(env, inv, { invoice_link: false, club_pay: false });
+        // Pay buttons never print, so they are not part of what the PDF shows.
+        if (payload.payment) { payload.payment = { zelle_handle: payload.payment.zelle_handle, zelle_qr_url: payload.payment.zelle_qr_url }; }
+        var sha = await docPdfSha256(new TextEncoder().encode(JSON.stringify(payload) + "|" + lang));
+        var key = "doc-pdfs/apex/invoices/" + inv.id + "-" + sha.slice(0, 16) + ".pdf";
+        var fileName = "apex-invoice-" + String(inv.number || "").replace(/[^A-Za-z0-9-]/g, "") + ".pdf";
+        var cached = await env.ASSETS.get(key);
+        if (cached) { return apxInvNoIndex(docPdfResponse(cached.body, fileName, { source: "stored" })); }
+        var result;
+        try {
+            result = await docPdfRender(env, DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token + "&noprint=1&render=1&lang=" + lang);
+        } catch (eR) {
+            console.error("[apex-invoice] pdf render failed: " + (eR && eR.message));
+            return apxInvNoIndex(jsonErr("PDF unavailable right now", 503));
+        }
+        if (!result || result.notFound || !result.bytes) { return apxInvNoIndex(jsonErr("PDF unavailable right now", 503)); }
+        try { await env.ASSETS.put(key, result.bytes, { httpMetadata: { contentType: "application/pdf" } }); }
+        catch (eP) { console.error("[apex-invoice] pdf cache write failed: " + (eP && eP.message)); }
+        return apxInvNoIndex(docPdfResponse(result.bytes, fileName, { source: "live", pages: result.pages, ms: result.ms }));
+    } catch (e) {
+        console.error("[apex-invoice] pdf route failed: " + (e && e.stack ? e.stack : e));
+        return apxInvNoIndex(jsonErr("PDF unavailable right now", 503));
+    }
+}
+
+// The link that goes out on WhatsApp: doc.resonateai.online/apex/..., Apex's
+// preview card and a Portuguese description, then on to the invoice page.
+// Made once per invoice (follows apxShareLink); any failure falls back to the
+// plain link so sending never breaks.
+async function apxInvShareLink(env, inv, clientName) {
+    var direct = DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token;
+    try {
+        var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'apex-invoice' AND public_token = ?").bind(inv.public_token).first();
+        if (existing) { return DOC_LINK_ORIGIN + "/" + existing.slug; }
+        var desc = "Fatura " + inv.number + (clientName ? " para " + clientName : "") + ". Toque para ver.";
+        for (var attempt = 0; attempt < 3; attempt++) {
+            var slug = "apex/" + [docLinkSlugPart(inv.number, 20), docLinkSlugPart(clientName, 30)].filter(Boolean).join("-") + "-" + docLinkRandom(8);
+            var ins = await env.DB.prepare("INSERT OR IGNORE INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES (?, 'apex-invoice', ?, ?, ?, ?)")
+                .bind(slug, inv.public_token, inv.client_id || "apex", "APEX Business & Leadership", desc).run();
+            if (ins.meta && ins.meta.changes) { return DOC_LINK_ORIGIN + "/" + slug; }
+            var raced = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'apex-invoice' AND public_token = ?").bind(inv.public_token).first();
+            if (raced) { return DOC_LINK_ORIGIN + "/" + raced.slug; }
+        }
+    } catch (e) { console.error("[apex-invoice] share link failed: " + (e && e.message)); }
+    return direct;
+}
+
+// POST /api/finance-new/invoices/:id/client-link   alice / rafa / developer
+// Mints the invoice's token on first use (never backfilled) and returns the
+// link to send. Stripe pay links are made here too, only with the master
+// switch ON.
+async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var inv = await env.DB.prepare(
+            "SELECT i.*, c.name AS client_name, c.package, c.invoice_card_enabled FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (inv.status === "void" || inv.status === "voided_mistake") { return jsonErr("Invoice is voided", 409); }
+        if (!inv.public_token) {
+            // Guarded in the WHERE: two people asking at once end with one token.
+            await env.DB.prepare("UPDATE invoices SET public_token = ? WHERE id = ? AND public_token IS NULL").bind(gmEstNewToken(), inv.id).run();
+            var again = await env.DB.prepare("SELECT public_token FROM invoices WHERE id = ?").bind(inv.id).first();
+            inv.public_token = again && again.public_token;
+            if (!inv.public_token) { return jsonErr("Could not create the link", 500); }
+        }
+        var link = await apxInvShareLink(env, inv, inv.client_name || "");
+        var sw = await apxInvSwitches(env);
+        var warnings = [];
+        if (sw.invoice_link && typeof apxInvEnsurePayLinks === "function") {
+            var made = await apxInvEnsurePayLinks(env, inv);
+            warnings = made.warnings || [];
+        }
+        return jsonOk({
+            link: link,
+            direct_url: DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token,
+            card_enabled: inv.invoice_card_enabled === 1,
+            ach_available: sw.invoice_link && APX_STRIPE_ACH_ENABLED,
+            link_enabled: sw.invoice_link,
+            warnings: warnings
+        });
+    } catch (e) {
+        return jsonErr("Error creating the client link: " + e.message, 500);
+    }
+}
+
+// PATCH /api/finance-new/clients/:id/invoice-card   { enabled }   alice / rafa / developer
+async function handlePatchApexClientInvoiceCard(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        if (body.enabled !== true && body.enabled !== false) { return jsonErr("enabled must be true or false", 400); }
+        var r = await env.DB.prepare("UPDATE clients SET invoice_card_enabled = ? WHERE id = ?").bind(body.enabled ? 1 : 0, clientId).run();
+        if (!r.meta || !r.meta.changes) { return jsonErr("Client not found", 404); }
+        return jsonOk({ client_id: clientId, invoice_card_enabled: body.enabled });
+    } catch (e) {
+        return jsonErr("Error saving the card setting: " + e.message, 500);
+    }
+}
+
+// GET /api/finance-new/settings/switches   alice / rafa / developer
+// What the staff pages need to decide which of the new controls to show.
+async function handleGetApexSwitches(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var sw = await apxInvSwitches(env);
+        return jsonOk({ client_invoice_link_enabled: sw.invoice_link, club_pay_enabled: sw.club_pay, ach_available: APX_STRIPE_ACH_ENABLED });
+    } catch (e) {
+        return jsonErr("Error loading the switches: " + e.message, 500);
+    }
+}
+
+// PATCH /api/finance-new/settings/client-invoice-link   { enabled }   developer ONLY
+// PATCH /api/finance-new/settings/club-pay              { enabled }   developer ONLY
+async function handlePatchApexSwitch(column, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        if (column !== "client_invoice_link_enabled" && column !== "club_pay_enabled") { return jsonErr("Not found", 404); }
+        var body = await request.json().catch(function() { return {}; });
+        if (body.enabled !== true && body.enabled !== false) { return jsonErr("enabled must be true or false", 400); }
+        await env.DB.prepare(
+            "UPDATE business_settings SET " + column + " = ?, updated_at = ? WHERE id = 1"
+        ).bind(body.enabled ? 1 : 0, new Date().toISOString()).run();
+        var out = {};
+        out[column] = body.enabled;
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error saving the switch: " + e.message, 500);
     }
 }

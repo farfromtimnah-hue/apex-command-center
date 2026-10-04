@@ -7330,7 +7330,7 @@ async function handleGoogleOAuthCallback(request, env) {
         if (isDrive) {
             await env.DB.prepare(
                 "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_drive', ?, ?, datetime('now'))"
-            ).bind(refreshToken, scope).run();
+            ).bind(await tokenSeal(env, refreshToken), scope).run();
 
             // Baseline every watched file now, so "changed since we started watching"
             // is answerable from this moment rather than from the next cron run.
@@ -7344,7 +7344,7 @@ async function handleGoogleOAuthCallback(request, env) {
 
         await env.DB.prepare(
             "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_calendar', ?, ?, datetime('now'))"
-        ).bind(refreshToken, scope).run();
+        ).bind(await tokenSeal(env, refreshToken), scope).run();
 
         return jsonOk({ ok: true, message: "Google Calendar connected successfully" });
     } catch (e) {
@@ -7394,6 +7394,61 @@ async function handleGoogleOAuthStatus(request, env) {
 // Returns the access token string, or throws with a descriptive message.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stored credentials are sealed (2026-10-04).
+//
+// plaid_items.access_token and the Google refresh tokens in oauth_tokens were
+// plain text columns, so anyone who could read the database could read the
+// bank and Google credentials. They are used only inside this Worker, so they
+// are now sealed with AES-GCM 256 under the Worker secret TOKEN_ENC_KEY (32
+// random bytes, base64). Stored form: "enc:v1:" + base64(iv) + ":" + base64(ct).
+//
+// tokenOpen passes a value that is not sealed straight through. That dual
+// read is PERMANENT: it is what lets a row written before this change, or
+// restored from an old backup, keep working.
+//
+// ⚠️ TOKEN_ENC_KEY exists only as a Worker secret. Deleting or replacing it
+// makes every sealed token unreadable, and Alice then relinks every bank by
+// hand. Never rotate it without re-sealing the rows first.
+// ---------------------------------------------------------------------------
+var TOKEN_SEAL_PREFIX = "enc:v1:";
+
+async function tokenEncKey(env) {
+    var raw = String((env && env.TOKEN_ENC_KEY) || "").trim();
+    if (!raw) { throw new Error("TOKEN_ENC_KEY secret is not set"); }
+    var bytes = b64ToBytes(raw);
+    if (bytes.length !== 32) { throw new Error("TOKEN_ENC_KEY must be 32 bytes in base64"); }
+    return crypto.subtle.importKey("raw", bytes, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function tokenIsSealed(stored) {
+    return typeof stored === "string" && stored.indexOf(TOKEN_SEAL_PREFIX) === 0;
+}
+
+// Throws when the key is missing: a caller then fails loudly instead of
+// storing a credential in plain text.
+async function tokenSeal(env, plain) {
+    if (plain === null || plain === undefined || plain === "") { throw new Error("tokenSeal: nothing to seal"); }
+    var key = await tokenEncKey(env);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(String(plain)));
+    return TOKEN_SEAL_PREFIX + bytesToB64(iv) + ":" + bytesToB64(new Uint8Array(ct));
+}
+
+async function tokenOpen(env, stored) {
+    if (!tokenIsSealed(stored)) { return stored; }
+    var key = await tokenEncKey(env);
+    var parts = stored.slice(TOKEN_SEAL_PREFIX.length).split(":");
+    if (parts.length !== 2) { throw new Error("Sealed token is malformed"); }
+    var pt;
+    try {
+        pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(parts[0]) }, key, b64ToBytes(parts[1]));
+    } catch (e) {
+        throw new Error("Sealed token could not be opened (wrong key or altered value)");
+    }
+    return new TextDecoder().decode(pt);
+}
+
 async function getGoogleAccessToken(env) {
     var tokenRow = await env.DB.prepare(
         "SELECT refresh_token FROM oauth_tokens WHERE id = 'google_calendar'"
@@ -7411,7 +7466,7 @@ async function getGoogleAccessToken(env) {
             body:    new URLSearchParams({
                 client_id:     env.GOOGLE_CALENDAR_CLIENT_ID,
                 client_secret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
-                refresh_token: tokenRow.refresh_token,
+                refresh_token: await tokenOpen(env, tokenRow.refresh_token),
                 grant_type:    "refresh_token"
             }).toString(),
             signal: controller.signal
@@ -30736,7 +30791,7 @@ async function handlePostFinanceNewLinkTokenUpdate(request, env) {
             products:      [],
             country_codes: ["US"],
             language:      "en",
-            access_token:  item.access_token
+            access_token:  await tokenOpen(env, item.access_token)
         });
 
         if (!result.ok) { return jsonErr(plaidErrMessage(result), 502); }
@@ -30828,13 +30883,13 @@ async function handlePostFinanceNewExchange(request, env) {
             // reauth flag, but keep the cursor so sync resumes where it left off.
             await env.DB.prepare(
                 "UPDATE plaid_items SET access_token = ?, institution = ?, status = 'good' WHERE id = ?"
-            ).bind(accessToken, institution, itemRowId).run();
+            ).bind(await tokenSeal(env, accessToken), institution, itemRowId).run();
         } else {
             itemRowId = crypto.randomUUID();
             await env.DB.prepare(
                 "INSERT INTO plaid_items (id, plaid_item_id, access_token, institution, status) " +
                 "VALUES (?, ?, ?, ?, 'good')"
-            ).bind(itemRowId, plaidItemId, accessToken, institution).run();
+            ).bind(itemRowId, plaidItemId, await tokenSeal(env, accessToken), institution).run();
         }
 
         // Per-account purpose overrides sent by the tagging step.
@@ -31309,6 +31364,16 @@ async function syncPlaidTransactions(env) {
     for (var i = 0; i < items.results.length; i++) {
         var item = items.results[i];
         summary.items++;
+
+        // The stored credential is sealed (see tokenSeal). Opened once per
+        // Item, in memory only. An Item that cannot be opened is reported
+        // and skipped; the other banks still sync.
+        try {
+            item.access_token = await tokenOpen(env, item.access_token);
+        } catch (sealErr) {
+            summary.errors.push((item.plaid_item_id || item.id) + ": " + sealErr.message);
+            continue;
+        }
 
         // ⚠️ HIDDEN ACCOUNTS ARE NOT SYNCED. The 2026-09-16 merge hid the old
         // BofA ...2545 row but its Plaid Item stayed live, so from 09-18 it
@@ -42506,6 +42571,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
+        if (path === "/api/admin/seal-tokens"             && method === "POST") { return handlePostAdminSealTokens(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }
         if (path === "/api/finance-new/bills"             && method === "GET")  { return handleGetFinanceNewBills(request, env); }
@@ -42723,7 +42789,7 @@ async function getGoogleDriveAccessToken(env) {
             body:    new URLSearchParams({
                 client_id:     env.GOOGLE_DRIVE_CLIENT_ID || env.GOOGLE_CALENDAR_CLIENT_ID,
                 client_secret: env.GOOGLE_DRIVE_CLIENT_SECRET || env.GOOGLE_CALENDAR_CLIENT_SECRET,
-                refresh_token: tokenRow.refresh_token,
+                refresh_token: await tokenOpen(env, tokenRow.refresh_token),
                 grant_type:    "refresh_token"
             }).toString(),
             signal: controller.signal
@@ -42826,7 +42892,7 @@ async function handleGoogleDriveOAuthCallback(request, env) {
 
         await env.DB.prepare(
             "INSERT OR REPLACE INTO oauth_tokens (id, refresh_token, scope, updated_at) VALUES ('google_drive', ?, ?, datetime('now'))"
-        ).bind(tokenData.refresh_token, DRIVE_SCOPE).run();
+        ).bind(await tokenSeal(env, tokenData.refresh_token), DRIVE_SCOPE).run();
 
         // Baseline every watched file immediately, so "changed since we started
         // watching" is answerable from this moment rather than from the next cron.
@@ -43272,6 +43338,80 @@ async function handlePostWatchedFileAck(id, request, env) {
         return jsonOk({ acknowledged: true });
     } catch (e) {
         return jsonErr("Error acknowledging: " + e.message, 500);
+    }
+}
+
+// POST /api/admin/seal-tokens   developer ONLY
+//
+// Converts the stored bank and Google credentials to their sealed form (see
+// tokenSeal), one row at a time. For each value: skip it if already sealed,
+// seal it, open the sealed result and confirm it equals the original, then
+// write with a guard that binds the original value, so a row that changed in
+// the meantime (a relink racing this call) is left alone.
+//
+// Body { check: true } converts nothing: it opens each stored credential and
+// makes one read-only call with it (Plaid /item/get, a Google token refresh).
+//
+// Returns counts and booleans only. Never a credential, sealed or not.
+async function handlePostAdminSealTokens(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+
+        var targets = [];
+        var items = await env.DB.prepare("SELECT id FROM plaid_items").all();
+        (items.results || []).forEach(function(r) {
+            targets.push({ table: "plaid_items", col: "access_token", id: r.id });
+        });
+        ["google_calendar", "google_drive"].forEach(function(id) {
+            targets.push({ table: "oauth_tokens", col: "refresh_token", id: id });
+            targets.push({ table: "oauth_tokens", col: "access_token", id: id });
+        });
+
+        if (body && body.check === true) {
+            var checks = { plaid_items: [], google_calendar: null, google_drive: null };
+            var rows = await env.DB.prepare("SELECT id, institution, status, access_token FROM plaid_items").all();
+            for (var c = 0; c < (rows.results || []).length; c++) {
+                var it = rows.results[c];
+                var entry = { institution: it.institution, status: it.status, sealed: tokenIsSealed(it.access_token), plaid_ok: false };
+                try {
+                    var res = await plaidFetch(env, "/item/get", { access_token: await tokenOpen(env, it.access_token) });
+                    entry.plaid_ok = !!res.ok;
+                    if (!res.ok) { entry.error = plaidErrMessage(res); }
+                } catch (e1) { entry.error = e1.message; }
+                checks.plaid_items.push(entry);
+            }
+            try { checks.google_calendar = { refresh_ok: !!(await getGoogleAccessToken(env)) }; }
+            catch (e2) { checks.google_calendar = { refresh_ok: false, error: e2.message }; }
+            try { checks.google_drive = { refresh_ok: !!(await getGoogleDriveAccessToken(env)) }; }
+            catch (e3) { checks.google_drive = { refresh_ok: false, error: e3.message }; }
+            return jsonOk({ check: true, results: checks });
+        }
+
+        var out = { examined: 0, sealed: 0, already_sealed: 0, empty: 0, changed_meanwhile: 0, failed: 0 };
+        for (var i = 0; i < targets.length; i++) {
+            var t = targets[i];
+            var row = await env.DB.prepare(
+                "SELECT " + t.col + " AS v FROM " + t.table + " WHERE id = ?"
+            ).bind(t.id).first();
+            if (!row) { continue; }
+            out.examined++;
+            var original = row.v;
+            if (original === null || original === undefined || original === "") { out.empty++; continue; }
+            if (tokenIsSealed(original)) { out.already_sealed++; continue; }
+            var sealed = await tokenSeal(env, original);
+            var reopened = await tokenOpen(env, sealed);
+            if (reopened !== original) { out.failed++; continue; }
+            var upd = await env.DB.prepare(
+                "UPDATE " + t.table + " SET " + t.col + " = ? WHERE id = ? AND " + t.col + " = ?"
+            ).bind(sealed, t.id, original).run();
+            if (upd.meta && upd.meta.changes === 1) { out.sealed++; } else { out.changed_meanwhile++; }
+        }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error sealing tokens: " + e.message, 500);
     }
 }
 

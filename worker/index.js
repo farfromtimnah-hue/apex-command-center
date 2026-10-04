@@ -45396,6 +45396,11 @@ async function handlePatchLeadTemperature(id, request, env) {
 // ===========================================================================
 
 var APX_INV_PAGE = "/apex-invoice-view.html";
+// Part of the PDF cache key. BUMP IT whenever apex-invoice-view.html changes
+// what prints (layout, wording, styles): the cache is keyed on the invoice's
+// data, so without this an already printed invoice would keep serving the old
+// layout from R2.
+var APX_INV_PDF_REV = "2";
 
 async function apxInvSwitches(env) {
     try {
@@ -45625,7 +45630,7 @@ async function handleGetPublicApexInvoicePdf(token, request, env) {
         var payload = await apxInvPayload(env, inv, { invoice_link: false, club_pay: false });
         // Pay buttons never print, so they are not part of what the PDF shows.
         if (payload.payment) { payload.payment = { zelle_handle: payload.payment.zelle_handle, zelle_qr_url: payload.payment.zelle_qr_url }; }
-        var sha = await docPdfSha256(new TextEncoder().encode(JSON.stringify(payload) + "|" + lang));
+        var sha = await docPdfSha256(new TextEncoder().encode(JSON.stringify(payload) + "|" + lang + "|" + APX_INV_PDF_REV));
         var key = "doc-pdfs/apex/invoices/" + inv.id + "-" + sha.slice(0, 16) + ".pdf";
         var fileName = "apex-invoice-" + String(inv.number || "").replace(/[^A-Za-z0-9-]/g, "") + ".pdf";
         var cached = await env.ASSETS.get(key);

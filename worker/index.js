@@ -26112,13 +26112,17 @@ async function gmInvPublicPayload(env, inv, origin) {
 function stripeConfigured(env) { return !!((env.STRIPE_SECRET_KEY || "").trim()); }
 // While the platform key is a TEST key (Stripe sandbox), card payments exist
 // for the test client only, so no real business can connect a pretend account
-// or show its customers a button that takes no real money. A live key opens
-// it to every client by itself.
+// or show its customers a button that takes no real money.
 var STRIPE_SANDBOX_CLIENT_ID = "test-client-temp-001";
+// A live key alone does not open it: Stripe reviews a new Connect platform
+// before it may create live connected accounts ("Your application is in
+// review"), and until then a real client tapping Conectar Stripe would only
+// get an error. STRIPE_CONNECT_OPEN = "1" (a Worker secret) opens it to every
+// client once the test client has been through a live connect.
 function stripeAvailableFor(env, clientId) {
     if (!stripeConfigured(env)) { return false; }
-    if (/^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim())) { return true; }
-    return clientId === STRIPE_SANDBOX_CLIENT_ID;
+    if (clientId === STRIPE_SANDBOX_CLIENT_ID) { return true; }
+    return /^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim()) && String(env.STRIPE_CONNECT_OPEN || "").trim() === "1";
 }
 
 function stripeFormEncode(obj, prefix, out) {

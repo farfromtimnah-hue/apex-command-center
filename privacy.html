@@ -19,9 +19,9 @@
 </head>
 <body>
 <h1>Privacy Policy</h1>
-<p class="updated">Apex Command Center &middot; Last updated 7 September 2026</p>
+<p class="updated">Apex Command Center &middot; Last updated October 4, 2026</p>
 
-<p>Apex Command Center is a private business-management tool operated by Resonate LLC
+<p>Apex Command Center is a private business-management tool operated by Resonate Business Systems LLC
 for Apex Consultoria and its consulting clients. It is not offered to the general
 public and there is no public sign-up.</p>
 
@@ -35,6 +35,7 @@ operator.</p>
   <li><strong>Account data</strong> — name, email address, and role, so we know who is signed in.</li>
   <li><strong>Business records the user enters</strong> — clients, leads, meetings, invoices, documents, and notes.</li>
   <li><strong>Financial data</strong> — where a user connects a bank account through Plaid, transaction records used for bookkeeping and reporting.</li>
+  <li><strong>Stripe payment records</strong> — if you connect Stripe, the amount, date, payment reference and status of each invoice paid by card through Apex, and whether your Stripe account is ready to accept payments. We never see card numbers; Stripe handles those.</li>
 </ul>
 
 <h2>Google account data</h2>
@@ -59,6 +60,15 @@ narrowest permissions it needs, and each is used for one purpose:</p>
 <a href="https://developers.google.com/terms/api-services-user-data-policy"
    target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the
 Limited Use requirements.</strong></p>
+
+<h2>Stripe</h2>
+<p>If you connect Stripe, we use these records only to mark your invoices paid, issue
+receipts and update your financial records. They are shown to your business, and the paid
+status appears on the invoice your customer sees. To create a checkout page we send Stripe
+the invoice amount, the invoice description and your customer's email address, so the page
+can be filled in. Stripe's use of data is described in the
+<a href="https://stripe.com/privacy" target="_blank" rel="noopener">Stripe Privacy Policy</a>.
+Disconnecting Stripe stops all of this.</p>
 
 <h2>What we never do</h2>
 <ul>

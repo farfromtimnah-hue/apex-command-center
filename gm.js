@@ -8728,12 +8728,13 @@ function gmStripeBlockHtml(i, m, hint) {
   }
   if (!st.connected) {
     return '<p class="muted" style="margin:4px 0 8px;">' + gmT(
-      "Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê o histórico de pagamentos do seu Stripe para que as suas faturas sejam marcadas como pagas automaticamente.",
-      "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads your Stripe payment history so your invoices mark themselves paid.") + '</p>' +
+      "Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex para que elas sejam marcadas como pagas automaticamente.",
+      "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices so they mark themselves paid.") + '</p>' +
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
       '<input type="checkbox" id="gmStripeAccept" style="margin-top:3px;" onchange="document.getElementById(\'gmStripeConnectBtn\').disabled = !this.checked">' +
-      '<span>' + gmT("Entendi que o sistema da Apex lê o histórico de pagamentos do meu Stripe para marcar as faturas como pagas.",
-                     "I understand the Apex system reads my Stripe payment history to mark my invoices paid.") + '</span></label>' +
+      '<span>' + gmT("Entendi que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex para marcá-las como pagas. ",
+                     "I understand the Apex system reads the payments made on my Apex invoices to mark them paid. ") +
+      '<a href="terms.html" target="_blank" rel="noopener">' + gmT("Ver os Termos de Uso", "Read the Terms") + '</a></span></label>' +
       '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
   }
   if (!st.charges_enabled) {

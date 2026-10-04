@@ -1227,6 +1227,13 @@
                 <span class="show-en">Apex Club payments (card and Zelle with confirmation)</span>
               </span>
             </label>
+            <label style="display:flex;align-items:flex-start;gap:9px;font-size:14px;cursor:pointer;margin-top:12px;">
+              <input type="checkbox" id="apxSwitchAutoApply" onchange="apxSaveSwitch('auto-apply', this)" style="margin-top:3px;">
+              <span>
+                <span class="show-pt">Aplicar automaticamente pagamentos de pagadores conhecidos</span>
+                <span class="show-en">Apply payments from known payers automatically</span>
+              </span>
+            </label>
             <div id="apxSwitchStatus" style="margin-top:8px;font-size:13px;"></div>
           </div>
 
@@ -3133,6 +3140,18 @@
           if (a) { a.checked = d.client_invoice_link_enabled === true; }
           if (b) { b.checked = d.club_pay_enabled === true; }
           block.hidden = false;
+          loadAutoApplySwitch();
+        })
+        .catch(function() {});
+    }
+    // The stored value of the known-payer auto-apply switch (ships ON).
+    function loadAutoApplySwitch() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/finance-new/settings/auto-apply", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var c = document.getElementById("apxSwitchAutoApply");
+          if (c && d && !d.error) { c.checked = d.auto_apply_known_payers === true; }
         })
         .catch(function() {});
     }

@@ -35958,6 +35958,11 @@ async function handlePostFinanceNewSync(request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
         var result = await syncPlaidTransactions(env);
+        // Known payers are applied right after the sync (2026-10-04). Its own
+        // try: it can never change or fail what the sync reports.
+        try { await applyKnownPayerMatches(env); } catch (autoErr) {
+            console.log("auto-apply after manual sync failed: " + (autoErr && autoErr.message));
+        }
         return jsonOk(result);
     } catch (e) {
         return jsonErr("Error syncing: " + e.message, 500);
@@ -37392,19 +37397,45 @@ async function buildInvoicePaymentBlock(env) {
 //               amount -- which is exactly the live two-Gator-$1,500 case
 // ---------------------------------------------------------------------------
 
-function nameFragments(clientName) {
+// A WORD SHARED BY TWO CLIENTS IS NOT EVIDENCE OF EITHER (2026-10-04).
+//
+// LIRA OUTDOOR LIVING and GATOR OUTDOOR LIVING share OUTDOOR and LIVING, so a
+// Zelle from GATOR OUTDOOR LIVING LLC carried a "name signal" for Lira's
+// invoice and was suggested against it: a human approving that would have
+// credited Lira with Gator's money. When fragFreq is given (how many clients'
+// names carry each fragment, built once per buildMatchCandidates call), a
+// fragment counts only if no OTHER client's name carries it too. Without
+// fragFreq the behaviour is the old one, for any caller that has no map.
+function nameFragments(clientName, fragFreq) {
     var parts = String(clientName || "").toUpperCase().split(/[^A-Z0-9]+/);
     var out = [];
     for (var i = 0; i < parts.length; i++) {
-        if (parts[i].length >= 4) { out.push(parts[i]); }
+        if (parts[i].length < 4) { continue; }
+        if (fragFreq && fragFreq[parts[i]] > 1) { continue; }
+        out.push(parts[i]);
     }
     return out;
 }
 
-function descriptionHasClientSignal(description, clientName, invoiceNumber) {
+// Fragment -> number of client names that carry it. One pass over the names.
+function nameFragmentFrequency(clientNames) {
+    var freq = {};
+    for (var i = 0; i < (clientNames || []).length; i++) {
+        var frags = nameFragments(clientNames[i]);
+        var seen = {};
+        for (var j = 0; j < frags.length; j++) {
+            if (seen[frags[j]]) { continue; }
+            seen[frags[j]] = true;
+            freq[frags[j]] = (freq[frags[j]] || 0) + 1;
+        }
+    }
+    return freq;
+}
+
+function descriptionHasClientSignal(description, clientName, invoiceNumber, fragFreq) {
     var d = String(description || "").toUpperCase();
     if (invoiceNumber && d.indexOf(String(invoiceNumber).toUpperCase()) !== -1) { return true; }
-    var frags = nameFragments(clientName);
+    var frags = nameFragments(clientName, fragFreq);
     for (var i = 0; i < frags.length; i++) {
         if (d.indexOf(frags[i]) !== -1) { return true; }
     }
@@ -37441,6 +37472,13 @@ async function buildMatchCandidates(env) {
     ).all();
     var aliasByKey = {};
     (aliasRes.results || []).forEach(function(a) { aliasByKey[a.payer_key] = a.client_id; });
+
+    // Which name fragments belong to exactly one client (see nameFragments).
+    // Computed once per call across every non-archived client's name.
+    var fragNameRes = await env.DB.prepare(
+        "SELECT name FROM clients WHERE archived = 0"
+    ).all();
+    var fragFreq = nameFragmentFrequency((fragNameRes.results || []).map(function(c) { return c.name; }));
 
     // Remaining balance per open invoice, so a second instalment matches
     // against what is still owed rather than the original face value.
@@ -37544,7 +37582,7 @@ async function buildMatchCandidates(env) {
                 var candAge = Math.abs(candSigned);
                 if (candAge > 45) { continue; }
 
-                var byName  = descriptionHasClientSignal(dep.description, cand.client_name, cand.number);
+                var byName  = descriptionHasClientSignal(dep.description, cand.client_name, cand.number, fragFreq);
                 var byAlias = aliasClient !== null && aliasClient === cand.client_id;
                 if (!byName && !byAlias) { continue; }
 
@@ -37588,7 +37626,7 @@ async function buildMatchCandidates(env) {
         // The name test, plus the aliases she has already taught it. An alias
         // is a signal she confirmed herself, so it counts at least as strongly
         // as finding the client's name in the text.
-        var signal = descriptionHasClientSignal(dep.description, inv.client_name, inv.number) ||
+        var signal = descriptionHasClientSignal(dep.description, inv.client_name, inv.number, fragFreq) ||
                      (aliasClient !== null && aliasClient === inv.client_id);
 
         var tier = null;
@@ -37839,6 +37877,295 @@ async function handlePostFinanceNewMatchUndo(request, env) {
         return jsonOk({ undone: true });
     } catch (e) {
         return jsonErr("Error undoing match: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AUTO-APPLY KNOWN PAYERS (2026-10-04).
+//
+// Alice confirms a payer ONCE; from then on that payer's payments are applied
+// without her. The approve handler above already learned the alias ("Tedious
+// once, never again") but only the RECOGNITION half was built: nothing applied
+// a match without a click, so Lira's INV-000034 read overdue although
+// BRAZILIAN INC had paid it in full by Zelle five days after the due date.
+//
+// This runs after every Plaid sync. It applies ONLY the narrowest matches:
+// tier auto, the payer is a learned alias of the SAME client that owns the
+// invoice, exact amount, not partial, not force_review. A name fragment alone
+// is never enough. It never learns an alias (those come from a human only).
+//
+// One switch, business_settings.auto_apply_known_payers (ships ON). At 0 this
+// returns at once and the system is suggest-only again.
+//
+// Nothing here calls or changes the approve handler; the writes are the same
+// rows it writes, in new code, each guarded in SQL so two runs racing over the
+// same deposit apply it once.
+// ---------------------------------------------------------------------------
+
+var AUTO_APPLY_APPROVER = "auto (pagador conhecido)";
+var AUTO_APPLY_RUN_CAP = 20;
+var AUTO_APPLY_CLIENT_CAP = 5;
+
+function autoApplyMoney(cents) {
+    var n = Math.round(Number(cents) || 0);
+    var neg = n < 0;
+    n = Math.abs(n);
+    var whole = String(Math.floor(n / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    var frac = String(n % 100);
+    if (frac.length < 2) { frac = "0" + frac; }
+    return (neg ? "-$" : "$") + whole + "." + frac;
+}
+
+// YYYY-MM-DD (the bank's own date) -> MM/DD/YYYY. No Date object: a calendar
+// date must never pass through a timezone.
+function autoApplyUsDate(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+    return m ? (m[2] + "/" + m[3] + "/" + m[1]) : String(iso || "");
+}
+
+function autoApplyPayerLabel(key) {
+    return String(key || "").replace(/^ZELLE PAYMENT FROM /, "") || "(sem pagador)";
+}
+
+function autoApplyRow(c) {
+    return {
+        invoice_id: c.invoice.id,
+        invoice_number: c.invoice.number,
+        client_id: c.invoice.client_id,
+        client_name: c.invoice.client_name,
+        transaction_id: c.transaction.id,
+        amount_cents: c.transaction.amount_cents,
+        deposit_date: c.transaction.date,
+        payer: autoApplyPayerLabel(c.transaction.merchant_normalized)
+    };
+}
+
+async function autoApplySwitchOn(env) {
+    var row = await env.DB.prepare(
+        "SELECT auto_apply_known_payers AS v FROM business_settings WHERE id = 1"
+    ).first();
+    // The column ships DEFAULT 1. A missing row reads as ON for the same reason.
+    return !row || row.v === null || row.v === undefined || Number(row.v) !== 0;
+}
+
+// Pure selection: which candidates may be applied, and why each other one may
+// not. clientsById: id -> { status, archived }. undoneTxnIds: deposits a human
+// has already undone a match on (never re-applied automatically, or an undo
+// would silently come back at the next sync).
+function selectKnownPayerMatches(candidates, clientsById, undoneTxnIds) {
+    var eligible = [];
+    var skipped = [];
+    var alerts = [];
+    function skip(c, reason) {
+        skipped.push({
+            transaction_id: c.transaction ? c.transaction.id : null,
+            deposit_date: c.transaction ? c.transaction.date : null,
+            amount_cents: c.transaction ? c.transaction.amount_cents : null,
+            payer: c.transaction ? autoApplyPayerLabel(c.transaction.merchant_normalized) : null,
+            invoice_number: c.invoice ? c.invoice.number : null,
+            client_name: c.invoice ? c.invoice.client_name : null,
+            tier: c.tier,
+            reason: reason
+        });
+    }
+    for (var i = 0; i < (candidates || []).length; i++) {
+        var c = candidates[i];
+        if (c.tier !== "auto")            { skip(c, "tier is " + c.tier + ", only auto is applied"); continue; }
+        if (!c.invoice || !c.transaction) { skip(c, "no single invoice"); continue; }
+        if (c.via_alias !== true)         { skip(c, "payer is not a learned payer of this client (a human approves it once)"); continue; }
+        if (c.exact !== true)             { skip(c, "amount is not exact"); continue; }
+        if (c.force_review !== false)     { skip(c, "forced individual review"); continue; }
+        if (c.partial !== false)          { skip(c, "partial payment"); continue; }
+        var cl = clientsById[c.invoice.client_id];
+        if (!cl)                          { skip(c, "client not found"); continue; }
+        if (cl.status === "closed" || Number(cl.archived) === 1) { skip(c, "client is closed or archived"); continue; }
+        if (undoneTxnIds && undoneTxnIds[c.transaction.id]) { skip(c, "a match on this deposit was undone by a person"); continue; }
+        eligible.push(c);
+    }
+    // Oldest deposit first; the id breaks ties so two runs agree on the order.
+    eligible.sort(function(a, b) {
+        var da = String(a.transaction.date || ""), db = String(b.transaction.date || "");
+        if (da !== db) { return da < db ? -1 : 1; }
+        return String(a.transaction.id) < String(b.transaction.id) ? -1 : 1;
+    });
+    // Valve: more than 5 for one client in one run is not a routine payment,
+    // it is something wrong. Apply none for that client and say so.
+    var perClient = {};
+    eligible.forEach(function(c) { perClient[c.invoice.client_id] = (perClient[c.invoice.client_id] || 0) + 1; });
+    var keep = [];
+    var alerted = {};
+    for (var k = 0; k < eligible.length; k++) {
+        var e = eligible[k];
+        var cid = e.invoice.client_id;
+        if (perClient[cid] > AUTO_APPLY_CLIENT_CAP) {
+            skip(e, "more than " + AUTO_APPLY_CLIENT_CAP + " matches for this client in one run, none applied");
+            if (!alerted[cid]) {
+                alerted[cid] = true;
+                alerts.push({ client_id: cid, client_name: e.invoice.client_name, count: perClient[cid], payer: autoApplyPayerLabel(e.transaction.merchant_normalized) });
+            }
+            continue;
+        }
+        if (keep.length >= AUTO_APPLY_RUN_CAP) { skip(e, "run cap of " + AUTO_APPLY_RUN_CAP + " reached, waits for the next run"); continue; }
+        keep.push(e);
+    }
+    return { keep: keep, skipped: skipped, alerts: alerts };
+}
+
+// opts.dryRun: select and report, write nothing, alert nobody.
+async function applyKnownPayerMatches(env, opts) {
+    var dryRun = !!(opts && opts.dryRun);
+    var enabled = await autoApplySwitchOn(env);
+    if (!enabled && !dryRun) { return { enabled: false, applied: [], skipped: [] }; }
+
+    var candidates = await buildMatchCandidates(env);
+    var clientRes = await env.DB.prepare("SELECT id, status, archived FROM clients").all();
+    var clientsById = {};
+    (clientRes.results || []).forEach(function(c) { clientsById[c.id] = c; });
+    var undoneRes = await env.DB.prepare(
+        "SELECT DISTINCT transaction_id FROM invoice_payments WHERE undone_at IS NOT NULL AND transaction_id IS NOT NULL"
+    ).all();
+    var undoneTxnIds = {};
+    (undoneRes.results || []).forEach(function(u) { undoneTxnIds[u.transaction_id] = true; });
+
+    var sel = selectKnownPayerMatches(candidates, clientsById, undoneTxnIds);
+    var skipped = sel.skipped;
+
+    if (dryRun) {
+        return { enabled: enabled, dry_run: true, would_apply: sel.keep.map(autoApplyRow), skipped: skipped, alerts: sel.alerts };
+    }
+
+    var applied = [];
+    for (var i = 0; i < sel.keep.length; i++) {
+        var c = sel.keep[i];
+        var inv = c.invoice;
+        var txn = c.transaction;
+        var payId = crypto.randomUUID();
+        // The guard IS the write: the row lands only while the deposit is
+        // free and the invoice is still open, so a racing run inserts nothing.
+        var ins = await env.DB.prepare(
+            "INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, approved_by) " +
+            "SELECT ?, ?, ?, ?, 'auto', ? " +
+            "WHERE NOT EXISTS (SELECT 1 FROM invoice_payments WHERE transaction_id = ?) " +
+            "AND EXISTS (SELECT 1 FROM invoices WHERE id = ? AND status = 'sent')"
+        ).bind(payId, inv.id, txn.id, txn.amount_cents, AUTO_APPLY_APPROVER, txn.id, inv.id).run();
+        if (!ins.meta || ins.meta.changes !== 1) {
+            skipped.push({
+                transaction_id: txn.id, deposit_date: txn.date, amount_cents: txn.amount_cents,
+                payer: autoApplyPayerLabel(txn.merchant_normalized), invoice_number: inv.number,
+                client_name: inv.client_name, tier: c.tier,
+                reason: "already applied or the invoice is no longer open"
+            });
+            continue;
+        }
+
+        // Same fully-paid rule as the approve handler: covered in full, or
+        // short by no more than min($2.00, 0.5% of the total).
+        var coveredNow = await invoicePaidCents(env, inv.id);
+        var invTotal   = inv.amount_cents || 0;
+        var shortfall  = invTotal - coveredNow;
+        var slack      = Math.min(200, Math.round(invTotal * 0.005));
+        var fullyPaid  = coveredNow >= invTotal || (shortfall > 0 && shortfall <= slack);
+        if (fullyPaid) {
+            // paid_at is the bank's date for the deposit, never the run time.
+            await env.DB.prepare(
+                "UPDATE invoices SET status = 'paid', paid_at = COALESCE(?, datetime('now')) WHERE id = ? AND status = 'sent'"
+            ).bind(txn.date || null, inv.id).run();
+        }
+
+        var row = autoApplyRow(c);
+        row.payment_id = payId;
+        row.fully_paid = fullyPaid;
+        applied.push(row);
+    }
+
+    for (var a = 0; a < sel.alerts.length; a++) {
+        await notifyNicoleTelegram(env,
+            "Apex auto-apply HELD: " + sel.alerts[a].count + " matches for " + sel.alerts[a].client_name +
+            " in one run (payer " + sel.alerts[a].payer + "). More than " + AUTO_APPLY_CLIENT_CAP +
+            " is not routine, so none were applied. They wait in Aprovar todos for a person."
+        );
+    }
+    if (applied.length) {
+        await notifyNicoleTelegram(env, autoApplyAlertText(applied));
+    }
+    return { enabled: true, applied: applied, skipped: skipped };
+}
+
+function autoApplyAlertText(applied) {
+    var lines = applied.map(function(r) {
+        return r.client_name + ", " + r.invoice_number + ", " + autoApplyMoney(r.amount_cents) +
+               ", deposit " + autoApplyUsDate(r.deposit_date) + ", payer " + r.payer +
+               (r.fully_paid ? "" : " (invoice still open)");
+    });
+    return "Apex auto-applied " + applied.length + " payment" + (applied.length === 1 ? "" : "s") +
+           " from known payers:\n\n" + lines.join("\n") +
+           "\n\nUndo: Financeiro, Faturas, Aplicados automaticamente.";
+}
+
+// GET /api/finance-new/matches/auto-preview   alice / rafa / developer
+// Read-only: what the next run WOULD apply, and why each other candidate
+// would not be. Writes nothing and alerts nobody.
+async function handleGetFinanceNewAutoPreview(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        return jsonOk(await applyKnownPayerMatches(env, { dryRun: true }));
+    } catch (e) {
+        return jsonErr("Error building the auto-apply preview: " + e.message, 500);
+    }
+}
+
+// GET /api/finance-new/matches/auto-applied   alice / rafa / developer
+// Live payments the auto path applied in the last 7 days, for the staff
+// section that carries the Undo button (the EXISTING undo route).
+async function handleGetFinanceNewAutoApplied(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var res = await env.DB.prepare(
+            "SELECT p.id AS payment_id, p.amount_cents, p.matched_at, i.id AS invoice_id, i.number AS invoice_number, " +
+            "c.name AS client_name, t.date AS deposit_date, t.merchant_normalized " +
+            "FROM invoice_payments p " +
+            "JOIN invoices i ON i.id = p.invoice_id " +
+            "LEFT JOIN clients c ON c.id = i.client_id " +
+            "LEFT JOIN transactions t ON t.id = p.transaction_id " +
+            "WHERE p.approved_by = ? AND p.undone_at IS NULL AND p.matched_at >= datetime('now', '-7 day') " +
+            "ORDER BY p.matched_at DESC"
+        ).bind(AUTO_APPLY_APPROVER).all();
+        var rows = (res.results || []).map(function(r) {
+            return {
+                payment_id: r.payment_id, amount_cents: r.amount_cents, matched_at: r.matched_at,
+                invoice_id: r.invoice_id, invoice_number: r.invoice_number, client_name: r.client_name,
+                deposit_date: r.deposit_date, payer: autoApplyPayerLabel(r.merchant_normalized)
+            };
+        });
+        return jsonOk({ applied: rows, enabled: await autoApplySwitchOn(env) });
+    } catch (e) {
+        return jsonErr("Error loading auto-applied payments: " + e.message, 500);
+    }
+}
+
+// GET   /api/finance-new/settings/auto-apply   alice / rafa / developer
+// PATCH /api/finance-new/settings/auto-apply   { enabled }   developer ONLY
+async function handleAutoApplySetting(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (request.method === "GET") {
+            if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+            return jsonOk({ auto_apply_known_payers: await autoApplySwitchOn(env), role: user.role });
+        }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        if (body.enabled !== true && body.enabled !== false) { return jsonErr("enabled must be true or false", 400); }
+        await env.DB.prepare(
+            "UPDATE business_settings SET auto_apply_known_payers = ?, updated_at = ? WHERE id = 1"
+        ).bind(body.enabled ? 1 : 0, new Date().toISOString()).run();
+        return jsonOk({ auto_apply_known_payers: body.enabled });
+    } catch (e) {
+        return jsonErr("Error saving the auto-apply switch: " + e.message, 500);
     }
 }
 
@@ -40752,7 +41079,15 @@ export default {
         // Drift watch on imported spreadsheets. Independent of the health
         // check above: a Drive failure must not suppress the Zoho/Calendar alert.
         ctx.waitUntil(pollWatchedFiles(env, false));
-        ctx.waitUntil(syncPlaidTransactions(env).then(function(sum) {
+        var plaidSyncRun = syncPlaidTransactions(env);
+        // Known payers are applied once the sync has finished (2026-10-04), in
+        // a waitUntil of its own so it can never change or fail the sync.
+        ctx.waitUntil(plaidSyncRun.then(function() {
+            return applyKnownPayerMatches(env);
+        }).catch(function(e) {
+            console.log("auto-apply after cron sync did not run: " + (e && e.message));
+        }));
+        ctx.waitUntil(plaidSyncRun.then(function(sum) {
             // An orphan is a transaction Plaid retired that we deliberately did
             // NOT delete, because a bill match or Apex Club confirmation still
             // points at it. The sync succeeded; a human has to decide what the
@@ -42028,6 +42363,9 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/matches"           && method === "GET")  { return handleGetFinanceNewMatches(request, env); }
         if (path === "/api/finance-new/matches/approve"   && method === "POST") { return handlePostFinanceNewMatchApprove(request, env); }
         if (path === "/api/finance-new/matches/undo"      && method === "POST") { return handlePostFinanceNewMatchUndo(request, env); }
+        if (path === "/api/finance-new/matches/auto-preview" && method === "GET") { return handleGetFinanceNewAutoPreview(request, env); }
+        if (path === "/api/finance-new/matches/auto-applied" && method === "GET") { return handleGetFinanceNewAutoApplied(request, env); }
+        if (path === "/api/finance-new/settings/auto-apply" && (method === "GET" || method === "PATCH")) { return handleAutoApplySetting(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "GET")  { return handleGetFinanceNewRecurrences(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "POST") { return handlePostFinanceNewRecurrence(request, env); }
         if (path === "/api/finance-new/vendors"           && method === "GET")  { return handleGetFinanceNewVendors(request, env); }

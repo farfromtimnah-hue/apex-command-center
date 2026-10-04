@@ -8718,6 +8718,36 @@ function gmStripeLoad(force) {
     console.error(e); gmRenderEstimatesTab();
   });
 }
+// The agreement sentence. The Worker keeps the same words (STRIPE_ACCEPT_TEXT)
+// and stores THEM as the evidence, so change both together.
+function gmStripeAgreeHtml() {
+  return gmT("Concordo com os ", "I agree to the ") +
+    '<a href="terms.html" target="_blank" rel="noopener">' + gmT("Termos de Uso", "Terms") + '</a>' +
+    gmT(" e a ", " and the ") +
+    '<a href="privacy.html" target="_blank" rel="noopener">' + gmT("Política de Privacidade", "Privacy Policy") + '</a>' +
+    gmT(", incluindo a seção 6 dos Termos (pagamentos com cartão pelo Stripe), e que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex e o status da minha conta Stripe para marcá-las como pagas.",
+        ", including section 6 of the Terms (card payments through Stripe), and that the Apex system reads the payments made on my Apex invoices and the status of my Stripe account to mark invoices paid.");
+}
+// The Terms changed since this business agreed: ask again, above everything
+// that is already there. It never disconnects, blocks or hides anything.
+function gmStripeReacceptHtml(st) {
+  if (!st || !st.reaccept_needed) { return ""; }
+  return '<div id="gmStripeReacceptBox" style="margin:4px 0 12px;">' +
+    '<p class="gm-warn" style="margin:0 0 8px;">' + gmT("Os Termos foram atualizados. Revise e concorde novamente.", "The Terms were updated. Please review and agree again.") + '</p>' +
+    '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
+    '<input type="checkbox" id="gmStripeReaccept" style="margin-top:3px;" onchange="var b = document.getElementById(\'gmStripeReacceptBtn\'); if (b) { b.disabled = !this.checked; }">' +
+    '<span>' + gmStripeAgreeHtml() + '</span></label>' +
+    '<button type="button" id="gmStripeReacceptBtn" class="gm-btn-primary" disabled onclick="gmStripeReacceptSend(this)">' + gmT("Concordo", "I agree") + '</button></div>';
+}
+function gmStripeReacceptSend(btn) {
+  var box = document.getElementById("gmStripeReaccept");
+  if (!box || !box.checked) { return; }
+  if (btn) { btn.disabled = true; }
+  gmApi("stripe/reaccept", { method: "POST", body: { accepted: true, language: isEn() ? "en" : "pt" } }).then(function() {
+    gmToast(gmT("Registrado. Obrigado.", "Recorded. Thank you."));
+    gmStripeLoad(true);
+  }).catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
+}
 function gmStripeBlockHtml(i, m, hint) {
   var st = gmStripeStatus;
   if (!st) { gmStripeLoad(false); return '<p class="muted" style="margin:4px 0 8px;">' + gmT("Verificando o Stripe...", "Checking Stripe...") + '</p>'; }
@@ -8728,24 +8758,21 @@ function gmStripeBlockHtml(i, m, hint) {
   }
   if (!st.connected) {
     return '<p class="muted" style="margin:4px 0 8px;">' + gmT(
-      "Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex para que elas sejam marcadas como pagas automaticamente.",
-      "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices so they mark themselves paid.") + '</p>' +
+      "Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex e o status da sua conta Stripe, para que as faturas se marquem como pagas.",
+      "Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices and the status of your Stripe account, so invoices mark themselves paid.") + '</p>' +
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
       '<input type="checkbox" id="gmStripeAccept" style="margin-top:3px;" onchange="document.getElementById(\'gmStripeConnectBtn\').disabled = !this.checked">' +
-      '<span>' + gmT("Concordo com os ", "I agree to the ") +
-      '<a href="terms.html" target="_blank" rel="noopener">' + gmT("Termos de Uso", "Terms") + '</a>' +
-      gmT(", incluindo a seção 6 (pagamentos com cartão pelo Stripe), e que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex para marcá-las como pagas.",
-          ", including section 6 (card payments through Stripe), and that the Apex system reads the payments made on my Apex invoices to mark them paid.") + '</span></label>' +
+      '<span>' + gmStripeAgreeHtml() + '</span></label>' +
       '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
   }
   if (!st.charges_enabled) {
-    return '<p class="gm-warn" style="margin:4px 0 8px;">' + gmT(
+    return gmStripeReacceptHtml(st) + '<p class="gm-warn" style="margin:4px 0 8px;">' + gmT(
       "O cadastro no Stripe ainda não terminou. Continue para liberar o pagamento com cartão.",
       "Stripe setup is not finished yet. Continue to turn on card payments.") + '</p>' +
       '<button type="button" class="gm-btn-primary" onclick="gmStripeConnect(this)">' + gmT("Continuar no Stripe", "Continue on Stripe") + '</button> ' +
       '<button type="button" class="gm-btn-secondary" onclick="gmStripeLoad(true)">' + gmT("Atualizar status", "Refresh status") + '</button>';
   }
-  return '<p class="muted" style="margin:4px 0 8px;">✓ ' + gmT(
+  return gmStripeReacceptHtml(st) + '<p class="muted" style="margin:4px 0 8px;">✓ ' + gmT(
     "Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente.",
     "Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically.") + '</p>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>';
@@ -8753,7 +8780,7 @@ function gmStripeBlockHtml(i, m, hint) {
 function gmStripeConnect(btn) {
   if (btn) { btn.disabled = true; }
   var acc = document.getElementById("gmStripeAccept");
-  gmApi("stripe/connect", { method: "POST", body: { accepted: !!(acc && acc.checked) } }).then(function(d) {
+  gmApi("stripe/connect", { method: "POST", body: { accepted: !!(acc && acc.checked), language: isEn() ? "en" : "pt" } }).then(function(d) {
     if (!d || !d.url) { throw new Error(gmT("O Stripe não respondeu.", "Stripe did not answer.")); }
     if (gmInApp()) { apexOpenExternal(d.url); gmStripeStatus = { available: true, connected: true, charges_enabled: false }; gmRenderEstimatesTab(); return; }
     window.location.href = d.url;

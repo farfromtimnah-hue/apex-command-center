@@ -13688,7 +13688,7 @@ function clientRequestAllowed(path, method, clientId) {
                 // session, so it can never reach more than that GET does.
                 if (gmRest === "pdf-link") { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
-                if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect") { return true; }
+                if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -26198,6 +26198,126 @@ async function gmStripeRefresh(env, row) {
     return row;
 }
 
+// ---------------------------------------------------------------------------
+// STRIPE ACCEPTANCE EVIDENCE (2026-10-04).
+//
+// Until now only the TIME of the tick was kept (gm_stripe_accounts.accepted_at)
+// and the connecting user's name. A record of agreement needs who, when, from
+// where, the exact words shown, and WHICH version of the Terms and the Privacy
+// Policy were live. gm_stripe_acceptances holds that, one row per agreement.
+//
+// APPEND-ONLY: this section INSERTs and never UPDATEs or DELETEs a row. The
+// Stripe account id is known by the time the row is written (the account is
+// created first), so no later fill-in is needed.
+//
+// The words are rebuilt HERE from these constants. The page posts only the
+// language it showed, so a client cannot forge the text it agreed to. gm.js
+// (gmStripeBlockHtml) renders the same sentences; change both together.
+// ---------------------------------------------------------------------------
+var STRIPE_ACCEPT_TEXT = {
+    en: "I agree to the Terms and the Privacy Policy, including section 6 of the Terms (card payments through Stripe), and that the Apex system reads the payments made on my Apex invoices and the status of my Stripe account to mark invoices paid.",
+    pt: "Concordo com os Termos de Uso e a Política de Privacidade, incluindo a seção 6 dos Termos (pagamentos com cartão pelo Stripe), e que o sistema da Apex lê os pagamentos feitos nas minhas faturas da Apex e o status da minha conta Stripe para marcá-las como pagas."
+};
+var STRIPE_REACCEPT_LINE = {
+    en: "The Terms were updated. Please review and agree again.",
+    pt: "Os Termos foram atualizados. Revise e concorde novamente."
+};
+var LEGAL_DOC_CACHE = { at: 0, value: null };
+var LEGAL_DOC_CACHE_MS = 600000;
+
+// The Terms and Privacy pages as published right now: the version each page
+// declares (meta doc-version) and the SHA-256 of its body. Cached in memory
+// for 10 minutes. Never throws: a failed fetch returns nulls and a note, and
+// the caller carries on.
+async function gmLegalDocIdentity(env) {
+    var now = Date.now();
+    if (LEGAL_DOC_CACHE.value && (now - LEGAL_DOC_CACHE.at) < LEGAL_DOC_CACHE_MS) { return LEGAL_DOC_CACHE.value; }
+    var out = { terms_version: null, privacy_version: null, terms_sha256: null, privacy_sha256: null, note: null };
+    var notes = [];
+    async function one(file, vKey, hKey) {
+        try {
+            var res = await fetch(DEFAULT_ORIGIN + "/" + file, { cf: { cacheTtl: 0 } });
+            if (!res.ok) { notes.push(file + " HTTP " + res.status); return; }
+            var body = await res.text();
+            out[hKey] = await sha256Hex(body);
+            var m = /<meta\s+name="doc-version"\s+content="([^"]{1,60})"/i.exec(body);
+            if (m) { out[vKey] = m[1]; } else { notes.push(file + " has no doc-version"); }
+        } catch (e) {
+            notes.push(file + " fetch failed: " + (e && e.message));
+        }
+    }
+    await one("terms.html", "terms_version", "terms_sha256");
+    await one("privacy.html", "privacy_version", "privacy_sha256");
+    out.note = notes.length ? notes.join("; ").slice(0, 300) : null;
+    // Only a complete answer is cached, so a transient failure is retried.
+    if (!notes.length) { LEGAL_DOC_CACHE = { at: now, value: out }; }
+    return out;
+}
+
+// One evidence row. Never throws and never blocks a connect: a failure here
+// is logged and the caller continues.
+async function gmStripeRecordAcceptance(env, request, user, clientId, language, stripeAccountId, reaccept) {
+    try {
+        var lang = language === "en" ? "en" : "pt";
+        var text = (reaccept ? STRIPE_REACCEPT_LINE[lang] + " " : "") + STRIPE_ACCEPT_TEXT[lang];
+        var doc = await gmLegalDocIdentity(env);
+        await env.DB.prepare(
+            "INSERT INTO gm_stripe_acceptances (id, client_id, user_name, user_role, accepted_at, terms_version, privacy_version, terms_sha256, privacy_sha256, " +
+            "shown_language, shown_text, ip, user_agent, stripe_account_id, note) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(
+            crypto.randomUUID(), clientId, actorName(user), (user && user.role) || null,
+            doc.terms_version, doc.privacy_version, doc.terms_sha256, doc.privacy_sha256,
+            lang, text,
+            request.headers.get("CF-Connecting-IP") || null,
+            String(request.headers.get("User-Agent") || "").slice(0, 400) || null,
+            stripeAccountId || null, doc.note
+        ).run();
+        return true;
+    } catch (e) {
+        console.error("[stripe acceptance] " + clientId + ": " + (e && e.message));
+        return false;
+    }
+}
+
+// Additive fields for stripe/status: the Terms version live now, the version
+// this business last agreed to, and whether to ask again. Asking again NEVER
+// disconnects, blocks or hides anything: it is a prompt only.
+async function gmStripeTermsState(env, clientId) {
+    var out = { terms_version: null, accepted_terms_version: null, reaccept_needed: false };
+    try {
+        var doc = await gmLegalDocIdentity(env);
+        out.terms_version = doc.terms_version;
+        var last = await env.DB.prepare(
+            "SELECT terms_version FROM gm_stripe_acceptances WHERE client_id = ? ORDER BY accepted_at DESC, created_at DESC LIMIT 1"
+        ).bind(clientId).first();
+        out.accepted_terms_version = last ? (last.terms_version || null) : null;
+        out.reaccept_needed = !!out.terms_version && out.accepted_terms_version !== out.terms_version;
+    } catch (e) {
+        console.error("[stripe terms state] " + clientId + ": " + (e && e.message));
+    }
+    return out;
+}
+
+// POST /api/client/:id/gm/stripe/reaccept   { accepted: true, language }
+// The owner of an already connected business agrees to the updated Terms.
+// Writes one evidence row and nothing else.
+async function handlePostGmStripeReaccept(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeOwnerGuard(user, id);
+        if (guard) { return guard; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body || body.accepted !== true) { return jsonErr2("Marque a caixa para concordar.", "Tick the box to agree.", 400); }
+        var row = await gmStripeRow(env, id);
+        if (!row) { return jsonErr2("O Stripe não está conectado.", "Stripe is not connected.", 409); }
+        var ok = await gmStripeRecordAcceptance(env, request, user, id, body.language, row.stripe_account_id, true);
+        if (!ok) { return jsonErr2("Não foi possível registrar. Tente novamente.", "Could not record it. Please try again.", 500); }
+        return jsonOk({ recorded: true });
+    } catch (e) {
+        return jsonErr("Error recording the agreement: " + e.message, 500);
+    }
+}
+
 async function handleGetGmStripeStatus(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -26207,7 +26327,9 @@ async function handleGetGmStripeStatus(id, request, env) {
         var row = await gmStripeRow(env, id);
         if (!row) { return jsonOk({ available: true, connected: false }); }
         try { row = await gmStripeRefresh(env, row); } catch (e2) { console.error("[stripe status] " + id + ": " + e2.message); }
-        return jsonOk({ available: true, connected: true, charges_enabled: !!row.charges_enabled, details_submitted: !!row.details_submitted, livemode: !!row.livemode });
+        var ts = await gmStripeTermsState(env, id);
+        return jsonOk({ available: true, connected: true, charges_enabled: !!row.charges_enabled, details_submitted: !!row.details_submitted, livemode: !!row.livemode,
+            terms_version: ts.terms_version, accepted_terms_version: ts.accepted_terms_version, reaccept_needed: ts.reaccept_needed });
     } catch (e) {
         return jsonErr("Error loading Stripe status: " + e.message, 500);
     }
@@ -26249,6 +26371,9 @@ async function handlePostGmStripeConnect(id, request, env) {
                 "INSERT INTO gm_stripe_accounts (client_id, stripe_account_id, charges_enabled, details_submitted, livemode, connected_by, created_at, updated_at, accepted_at) " +
                 "VALUES (?, ?, 0, 0, ?, ?, datetime('now'), datetime('now'), datetime('now')) ON CONFLICT (client_id) DO NOTHING"
             ).bind(id, acct.id, /^sk_live_/.test((env.STRIPE_SECRET_KEY || "").trim()) ? 1 : 0, actorName(user)).run();
+            // Evidence of the agreement (who, when, where, which words, which
+            // document versions). Never blocks the connect.
+            await gmStripeRecordAcceptance(env, request, user, id, reqBody.language, acct.id, false);
             row = await gmStripeRow(env, id);
         }
         var back = DEFAULT_ORIGIN + "/portal.html";
@@ -41921,6 +42046,7 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 6 && gmCol === "stripe") {
                     if (segs[5] === "status" && method === "GET") { return handleGetGmStripeStatus(cid, request, env); }
                     if (segs[5] === "connect" && method === "POST") { return handlePostGmStripeConnect(cid, request, env); }
+                    if (segs[5] === "reaccept" && method === "POST") { return handlePostGmStripeReaccept(cid, request, env); }
                     if (segs[5] === "disconnect" && method === "POST") { return handlePostGmStripeDisconnect(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.

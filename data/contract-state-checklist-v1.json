@@ -1,7 +1,72 @@
 {
- "version": 1,
+ "version": 2,
  "source": "Sorted by reading data/contract-state-riders-v1.json. Edit scripts/make-state-checklist-data.mjs, not this file.",
- "note": "c: A = action (a tick-box line on the Before you send card), H = handled by the builder, B = background. A line with no entry is background. No lawyer has reviewed this sorting.",
+ "note": "c: A = action (a line on the Before you send card), H = handled by the builder, B = background. A line with no entry is background. An action line with sys is done or seen by the system (sys_kinds says which); without sys it is ticked by a person. fact = the one-question fact the line depends on. No lawyer has reviewed this sorting.",
+ "sys_kinds": {
+  "print": "does",
+  "deliver": "does",
+  "signed_copy": "does",
+  "language": "does",
+  "second_signer": "sees",
+  "photos": "sees",
+  "signed": "sees",
+  "sent": "sees",
+  "license": "sees",
+  "deposit": "sees"
+ },
+ "facts": {
+  "homestead": {
+   "en": "Is this the customer's homestead (the home they own and live in)?",
+   "pt": "Este imóvel é o homestead do cliente (a casa própria onde ele mora)?"
+  },
+  "married": {
+   "en": "Is the customer married?",
+   "pt": "O cliente é casado?"
+  },
+  "subs": {
+   "en": "Will subcontractors or suppliers work on this job?",
+   "pt": "Subempreiteiros ou fornecedores vão participar deste serviço?",
+   "known": "The project already has a subcontractor assigned."
+  },
+  "big_build": {
+   "en": "Is this a new home, or a remodel that costs more than half of the home's assessed value?",
+   "pt": "É uma casa nova, ou uma reforma que custa mais da metade do valor avaliado da casa?"
+  },
+  "sale_english": {
+   "en": "Was the sale made in English?",
+   "pt": "A venda foi feita em inglês?"
+  },
+  "credit": {
+   "en": "Is the customer paying on credit (in installments or with a finance charge)?",
+   "pt": "O cliente vai pagar a crédito (parcelado ou com juros)?"
+  },
+  "age65": {
+   "en": "Is the customer 65 or older?",
+   "pt": "O cliente tem 65 anos ou mais?"
+  },
+  "age62": {
+   "en": "Is the customer 62 or older?",
+   "pt": "O cliente tem 62 anos ou mais?"
+  },
+  "insurance_paid": {
+   "en": "Is an insurance claim paying for this job?",
+   "pt": "Um seguro vai pagar este serviço?"
+  },
+  "note": {
+   "en": "Is the customer signing a promissory note?",
+   "pt": "O cliente vai assinar uma nota promissória?"
+  },
+  "secured": {
+   "en": "Is payment secured by the customer's home (a lien or mortgage)?",
+   "pt": "O pagamento é garantido pela casa do cliente (gravame ou hipoteca)?"
+  },
+  "arbitration": {
+   "known": "Read from the dispute clause chosen in this contract."
+  },
+  "arb_or_jury": {
+   "known": "Read from the dispute clause chosen in this contract."
+  }
+ },
  "ref_fallback": {
   "en": "details",
   "pt": "detalhes"
@@ -34,7 +99,10 @@
    "en": "Add your license or registration number in the document settings",
    "pt": "Cadastre o número da sua licença ou registro nas configurações dos documentos",
    "ref_from": "license_ref",
-   "unless": "license_local"
+   "unless": "license_local",
+   "sys": "license",
+   "sys_en": "Your license or registration number printed in the contract",
+   "sys_pt": "O número da sua licença ou registro impresso no contrato"
   },
   "written_contract": {
    "c": "H",
@@ -62,7 +130,11 @@
    "c": "A",
    "en": "Give the contract and the cancellation notice in the language you used to make the sale",
    "pt": "Entregue o contrato e o aviso de cancelamento no idioma usado na venda",
-   "ref_from": "cancel_ref"
+   "ref_from": "cancel_ref",
+   "flag": "The builder writes contracts in English only. The system does this line only when the sale was made in English; otherwise a person must give a translation.",
+   "sys": "language",
+   "sys_en": "Contract and cancellation notice in the language of the sale",
+   "sys_pt": "Contrato e aviso de cancelamento no idioma da venda"
   },
   "cancellation_window": {
    "c": "A",
@@ -78,7 +150,10 @@
    "c": "A",
    "en": "Lower the first payment to {cap} or less: it is over this state's deposit limit",
    "pt": "Reduza o primeiro pagamento para {cap} ou menos: ele passa do limite de sinal deste estado",
-   "ref_from": "deposit_ref"
+   "ref_from": "deposit_ref",
+   "sys": "deposit",
+   "sys_en": "First payment within this state's deposit limit ({cap})",
+   "sys_pt": "Primeiro pagamento dentro do limite de sinal deste estado ({cap})"
   },
   "notice": {
    "c": "A",
@@ -165,14 +240,20 @@
    "en": "Take dated photos before work starts and get the condition acknowledgment signed",
    "pt": "Tire fotos com data antes de começar e pegue a assinatura no termo de condição do imóvel",
    "ref": "good practice",
-   "ref_pt": "boa prática"
+   "ref_pt": "boa prática",
+   "sys": "photos",
+   "sys_en": "Dated photos and the signed condition acknowledgment",
+   "sys_pt": "Fotos com data e o termo de condição do imóvel assinado"
   },
   "fixed:2": {
    "c": "A",
    "en": "Send the customer the complete signed copy as soon as both of you have signed",
    "pt": "Envie ao cliente a cópia completa e assinada assim que os dois tiverem assinado",
    "ref": "good practice",
-   "ref_pt": "boa prática"
+   "ref_pt": "boa prática",
+   "sys": "signed_copy",
+   "sys_en": "Complete signed copy for the customer",
+   "sys_pt": "Cópia completa e assinada para o cliente"
   },
   "fixed:3": {
    "c": "H",
@@ -219,7 +300,9 @@
     "notice:AK-defect-notice": {
      "c": "A",
      "en": "For a home build or a large remodel, attach the page \"Notice of Potential Claims Must Be Provided within One Year\" and get it signed",
-     "pt": "Para construção ou reforma grande de casa, anexe a página \"Notice of Potential Claims Must Be Provided within One Year\" e pegue a assinatura"
+     "pt": "Para construção ou reforma grande de casa, anexe a página \"Notice of Potential Claims Must Be Provided within One Year\" e pegue a assinatura",
+     "fact": "big_build",
+     "needs": "A separate page that the buyer must sign. The builder has no separate signed page for a state notice yet."
     },
     "item:1": {
      "c": "H",
@@ -253,7 +336,9 @@
      "c": "A",
      "en": "If the customer signs a promissory note, put the required statement on the face of the note",
      "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
-     "flag": "Applies only when a note is taken."
+     "flag": "Applies only when a note is taken.",
+     "fact": "note",
+     "needs": "The statement goes on the face of the note, which is not a document the builder makes."
     },
     "notice:AZ-new-dwelling": {
      "c": "A",
@@ -323,7 +408,8 @@
      "en": "If the customer is a senior citizen, allow five business days to cancel, not three",
      "pt": "Se o cliente for idoso, dê cinco dias úteis para cancelar, não três",
      "ref": "B&P 7159",
-     "flag": "The builder counts three business days. It does not know the customer's age."
+     "flag": "The builder counts three business days. It does not know the customer's age.",
+     "fact": "age65"
     },
     "notice:CA-insurance": {
      "c": "B",
@@ -333,13 +419,17 @@
      "c": "A",
      "en": "If the contract is secured by a lien on the home, give the WARNING TO BUYER on a separate signed page",
      "pt": "Se o contrato for garantido por gravame sobre a casa, entregue o WARNING TO BUYER em página separada e assinada",
-     "flag": "Applies only when the home secures the contract."
+     "flag": "Applies only when the home secures the contract.",
+     "fact": "secured",
+     "needs": "18 point type on a separate page that the buyer signs and dates. The builder has no separate signed page for a state notice yet."
     },
     "notice:CA-7191": {
      "c": "A",
      "en": "If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and add the NOTICE by the initials line",
      "pt": "Se o contrato tiver cláusula de arbitragem, use o título ARBITRATION OF DISPUTES e inclua o NOTICE junto à linha de iniciais",
-     "flag": "Applies only with an arbitration clause."
+     "flag": "Applies only with an arbitration clause.",
+     "fact": "arbitration",
+     "needs": "The notice must sit right by the initials line of the arbitration clause, which the builder does not lay out."
     },
     "notice:CA-1689.7": {
      "c": "B",
@@ -381,7 +471,9 @@
     "notice:CA-subs-disclaimer": {
      "c": "A",
      "en": "If you will use a subcontractor, add the subcontractor statement to the contract and to each change order",
-     "pt": "Se for usar subempreiteiro, inclua a declaração de subempreiteiro no contrato e em cada aditivo"
+     "pt": "Se for usar subempreiteiro, inclua a declaração de subempreiteiro no contrato e em cada aditivo",
+     "fact": "subs",
+     "needs": "The statute wants a Yes/No box in the contract and the same words on every change order. Not built."
     },
     "notice:CA-cgl-none": {
      "c": "A",
@@ -492,7 +584,9 @@
      "c": "A",
      "en": "If the customer signs a promissory note, put the required statement on the face of the note",
      "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
-     "flag": "Applies only when a note is taken."
+     "flag": "Applies only when a note is taken.",
+     "fact": "note",
+     "needs": "The statement goes on the face of the note, which is not a document the builder makes."
     },
     "item:1": {
      "c": "A",
@@ -632,7 +726,11 @@
      "c": "A",
      "en": "Get the contract signed before any work starts",
      "pt": "Pegue o contrato assinado antes de começar qualquer serviço",
-     "ref": "HRS 444-25.5"
+     "ref": "HRS 444-25.5",
+     "flag": "The system sees the two signatures and their times. It does not see when the work started or when a payment was taken.",
+     "sys": "signed",
+     "sys_en": "Contract signed by the company and the customer",
+     "sys_pt": "Contrato assinado pela empresa e pelo cliente"
     },
     "notice:HI-lien-bond": {
      "c": "A",
@@ -673,7 +771,8 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
+     "fact": "credit"
     },
     "item:1": {
      "c": "H",
@@ -683,7 +782,9 @@
      "c": "A",
      "en": "Give the list of subcontractors and suppliers before the final payment",
      "pt": "Entregue a lista de subempreiteiros e fornecedores antes do pagamento final",
-     "ref": "45-525"
+     "ref": "45-525",
+     "fact": "subs",
+     "needs": "Apex has no supplier records and no address or telephone for a subcontractor, so the system cannot build the list yet (it needs a database change)."
     },
     "item:3": {
      "c": "B",
@@ -698,14 +799,19 @@
      "c": "A",
      "en": "Give the customer the contract to sign before work starts",
      "pt": "Entregue o contrato para o cliente assinar antes de começar o serviço",
-     "ref": "815 ILCS 513/15"
+     "ref": "815 ILCS 513/15",
+     "flag": "The system sees the two signatures and their times. It does not see when the work started or when a payment was taken.",
+     "sys": "signed",
+     "sys_en": "Contract signed by the company and the customer",
+     "sys_pt": "Contrato assinado pela empresa e pelo cliente"
     },
     "cancellation_days": {
      "c": "A",
      "en": "If the customer is 65 or older and you came uninvited, allow 15 business days to cancel",
      "pt": "Se o cliente tiver 65 anos ou mais e você veio sem ser chamado, dê 15 dias úteis para cancelar",
      "ref": "815 ILCS 513/22",
-     "flag": "The builder counts three business days. It does not know the customer's age."
+     "flag": "The builder counts three business days. It does not know the customer's age.",
+     "fact": "age65"
     },
     "notice:IL-pamphlet": {
      "c": "A",
@@ -726,13 +832,16 @@
      "c": "A",
      "en": "If the contract has an arbitration or jury waiver clause, have the customer sign and write \"accept\" or \"reject\" beside it",
      "pt": "Se o contrato tiver cláusula de arbitragem ou de renúncia a júri, peça ao cliente para assinar e escrever \"accept\" ou \"reject\" ao lado",
-     "flag": "Applies only with one of those clauses."
+     "flag": "Applies only with one of those clauses.",
+     "fact": "arb_or_jury"
     },
     "notice:IL-insurance-cancel": {
      "c": "A",
      "en": "If insurance money pays for the job, add the insurance cancellation statement and form",
      "pt": "Se o seguro pagar o serviço, inclua a declaração e o formulário de cancelamento de seguro",
-     "flag": "Applies only to a job paid from an insurance claim."
+     "flag": "Applies only to a job paid from an insurance claim.",
+     "fact": "insurance_paid",
+     "needs": "A statement plus a duplicate cancellation form with blanks to fill. Not built."
     },
     "notice:IL-insurance-cancel-form": {
      "c": "B",
@@ -776,7 +885,14 @@
      "c": "A",
      "en": "For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects",
      "pt": "Para construção ou reforma grande de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos",
-     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+     "flag": "A remodel counts only when it costs more than half the home's assessed value.",
+     "sys": "print",
+     "sys_en": "Notice of the contractor's right to offer to cure defects printed in the contract",
+     "sys_pt": "Aviso do direito do empreiteiro de propor o reparo de defeitos impresso no contrato",
+     "fact": "big_build",
+     "style": {
+      "bold": true
+     }
     },
     "item:1": {
      "c": "A",
@@ -789,7 +905,11 @@
      "c": "A",
      "en": "Sign the contract yourself before the customer does, and give them the fully signed copy right away",
      "pt": "Assine o contrato antes do cliente e entregue a cópia totalmente assinada na hora",
-     "ref": "IC 24-5-11"
+     "ref": "IC 24-5-11",
+     "flag": "The system sees the two signatures and their times. It does not see when the work started or when a payment was taken.",
+     "sys": "signed",
+     "sys_en": "Contract signed by the company and the customer",
+     "sys_pt": "Contrato assinado pela empresa e pelo cliente"
     },
     "item:3": {
      "c": "B",
@@ -805,7 +925,9 @@
      "c": "A",
      "en": "If you use a subcontractor, add the mechanics lien owner notice and post the job on the state registry within 10 days",
      "pt": "Se usar subempreiteiro, inclua o aviso de gravame ao proprietário e registre o serviço no cadastro do estado em até 10 dias",
-     "flag": "Applies only when a subcontractor is used."
+     "flag": "Applies only when a subcontractor is used.",
+     "fact": "subs",
+     "needs": "The copy on file carries one sentence that is an instruction, not part of the notice, and the job must also be posted on the state registry, which only a person can do."
     },
     "item:1": {
      "c": "B",
@@ -827,7 +949,14 @@
     "notice:KS-60-4706": {
      "c": "A",
      "en": "For building or remodeling a home, add the notice of the contractor's right to offer to repair construction defects",
-     "pt": "Para construção ou reforma de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos de construção"
+     "pt": "Para construção ou reforma de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos de construção",
+     "flag": "Printed on every residential job. The research is not sure the Kansas act reaches a business that only remodels; printing the notice where it is not required does no harm.",
+     "sys": "print",
+     "sys_en": "Notice of the contractor's right to offer to repair construction defects printed in the contract",
+     "sys_pt": "Aviso do direito do empreiteiro de propor o reparo de defeitos impresso no contrato",
+     "style": {
+      "bold": true
+     }
     },
     "item:1": {
      "c": "B",
@@ -850,7 +979,13 @@
      "c": "A",
      "en": "If you are building a home, add the builder's right to cure notice",
      "pt": "Se estiver construindo uma casa, inclua o aviso do direito do construtor de reparar defeitos",
-     "flag": "The research does not say whether a remodel, a pool or a tile job counts."
+     "flag": "The research does not say whether a remodel, a pool or a tile job counts, so the system prints the notice on every residential job (the safe side).",
+     "sys": "print",
+     "sys_en": "Builder's right to cure notice printed in the contract",
+     "sys_pt": "Aviso do direito do construtor de reparar defeitos impresso no contrato",
+     "style": {
+      "bold": true
+     }
     },
     "item:1": {
      "c": "B",
@@ -873,7 +1008,11 @@
      "c": "A",
      "en": "Get the contract signed before any work starts",
      "pt": "Pegue o contrato assinado antes de começar qualquer serviço",
-     "ref": "R.S. 37:2159"
+     "ref": "R.S. 37:2159",
+     "flag": "The system sees the two signatures and their times. It does not see when the work started or when a payment was taken.",
+     "sys": "signed",
+     "sys_en": "Contract signed by the company and the customer",
+     "sys_pt": "Contrato assinado pela empresa e pelo cliente"
     },
     "item:1": {
      "c": "A",
@@ -955,7 +1094,8 @@
      "en": "If the customer is 65 or older, allow seven business days to cancel",
      "pt": "Se o cliente tiver 65 anos ou mais, dê sete dias úteis para cancelar",
      "ref": "CL 14-302.1",
-     "flag": "The builder counts five business days. It does not know the customer's age."
+     "flag": "The builder counts five business days. It does not know the customer's age.",
+     "fact": "age65"
     },
     "notice:MD-mhic": {
      "c": "A",
@@ -971,7 +1111,9 @@
      "c": "A",
      "en": "If payment is secured by the home, add the security and rescission notice on the first page and get initials",
      "pt": "Se o pagamento for garantido pela casa, inclua o aviso de garantia e rescisão na primeira página e pegue as iniciais",
-     "flag": "Applies only when the home secures payment."
+     "flag": "Applies only when the home secures payment.",
+     "fact": "secured",
+     "needs": "Must be on the first page with the owner's initials beside it. The builder does not place a state notice on page one or collect initials for it."
     },
     "notice:MD-oral-ack": {
      "c": "A",
@@ -1077,13 +1219,23 @@
     "notice:MN-lien": {
      "c": "A",
      "en": "If you use subcontractors or suppliers, add the mechanics lien notice to the contract",
-     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato"
+     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato",
+     "sys": "print",
+     "sys_en": "Mechanics lien notice printed in the contract",
+     "sys_pt": "Aviso de gravame impresso no contrato",
+     "fact": "subs",
+     "style": {
+      "bold": true,
+      "min_pt": 10
+     }
     },
     "notice:MN-roofing-cancel": {
      "c": "A",
      "en": "For roofing paid by insurance, give the 72 hour cancellation statement and form before signing",
      "pt": "Para telhado pago por seguro, entregue a declaração e o formulário de cancelamento de 72 horas antes da assinatura",
-     "flag": "Applies only to roofing paid from an insurance claim."
+     "flag": "Applies only to roofing paid from an insurance claim.",
+     "fact": "insurance_paid",
+     "needs": "A statement plus a cancellation form, given before the contract. Not built."
     },
     "notice:MN-roofing-cancel-form": {
      "c": "B",
@@ -1136,7 +1288,8 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
+     "fact": "credit"
     },
     "notice:MO-consent": {
      "c": "A",
@@ -1147,7 +1300,14 @@
      "c": "A",
      "en": "For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects",
      "pt": "Para construção ou reforma grande de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos",
-     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+     "flag": "A remodel counts only when it costs more than half the home's assessed value.",
+     "sys": "print",
+     "sys_en": "Notice of the contractor's right to offer to cure defects printed in the contract",
+     "sys_pt": "Aviso do direito do empreiteiro de propor o reparo de defeitos impresso no contrato",
+     "fact": "big_build",
+     "style": {
+      "bold": true
+     }
     },
     "item:1": {
      "c": "B",
@@ -1215,12 +1375,22 @@
     "notice:NV-sub-list": {
      "c": "A",
      "en": "Give the owner the list of subcontractors and suppliers in writing",
-     "pt": "Entregue ao proprietário, por escrito, a lista de subempreiteiros e fornecedores"
+     "pt": "Entregue ao proprietário, por escrito, a lista de subempreiteiros e fornecedores",
+     "fact": "subs",
+     "needs": "Apex has no supplier records and no address or telephone for a subcontractor, so the system cannot build the list yet (it needs a database change)."
     },
     "notice:NV-info-liens": {
      "c": "A",
      "en": "Give the owner the two state information forms (liens and contractors)",
-     "pt": "Entregue ao proprietário os dois formulários informativos do estado (gravames e empreiteiros)"
+     "pt": "Entregue ao proprietário os dois formulários informativos do estado (gravames e empreiteiros)",
+     "flag": "The rule is for a general building contractor and the owner of a single-family home. The system hands the two forms over on every residential job (the safe side).",
+     "sys": "deliver",
+     "sys_en": "The two state information forms (liens and contractors) given to the owner",
+     "sys_pt": "Os dois formulários informativos do estado (gravames e empreiteiros) entregues ao proprietário",
+     "docs": [
+      "NV-info-liens",
+      "NV-info-contractors"
+     ]
     },
     "notice:NV-info-contractors": {
      "c": "B",
@@ -1343,7 +1513,11 @@
      "c": "A",
      "en": "Give the customer a copy you have signed before work starts",
      "pt": "Entregue ao cliente uma cópia assinada por você antes de começar o serviço",
-     "ref": "GBL 771"
+     "ref": "GBL 771",
+     "flag": "The system sees the company signature and the send. It does not see when the work started.",
+     "sys": "sent",
+     "sys_en": "Copy signed by the company sent to the customer",
+     "sys_pt": "Cópia assinada pela empresa enviada ao cliente"
     },
     "deposit": {
      "c": "A",
@@ -1386,7 +1560,8 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
+     "fact": "credit"
     },
     "notice:NC-cancel-credit-form": {
      "c": "B",
@@ -1420,7 +1595,8 @@
      "en": "If the customer is 65 or older, check whether the 15 business day period applies",
      "pt": "Se o cliente tiver 65 anos ou mais, confira se vale o prazo de 15 dias úteis",
      "ref": "N.D.C.C. 51-18-04",
-     "flag": "The statute says \"product\", not services, so the research is unsure it reaches a service job."
+     "flag": "The statute says \"product\", not services, so the research is unsure it reaches a service job.",
+     "fact": "age65"
     },
     "notice:ND-completion": {
      "c": "A",
@@ -1477,7 +1653,8 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
+     "fact": "credit"
     },
     "item:1": {
      "c": "H",
@@ -1579,7 +1756,9 @@
      "c": "A",
      "en": "If the customer is 62 or older, give the separate notice for buyers age 62 or older",
      "pt": "Se o cliente tiver 62 anos ou mais, entregue o aviso separado para compradores com 62 anos ou mais",
-     "flag": "The builder does not know the customer's age."
+     "flag": "The builder does not know the customer's age.",
+     "fact": "age62",
+     "needs": "A separate cancellation notice with a blank to fill. Not built."
     },
     "notice:RI-board": {
      "c": "A",
@@ -1619,7 +1798,8 @@
      "c": "A",
      "en": "If the contract has an arbitration clause, put the arbitration notice on the first page in underlined capital letters",
      "pt": "Se o contrato tiver cláusula de arbitragem, coloque o aviso de arbitragem na primeira página em maiúsculas sublinhadas",
-     "flag": "Applies only with an arbitration clause. The research gives no law number."
+     "flag": "Applies only with an arbitration clause. The research gives no law number.",
+     "fact": "arbitration"
     }
    }
   },
@@ -1685,31 +1865,57 @@
      "c": "A",
      "en": "Get both spouses to sign before work starts, if the customer is married",
      "pt": "Pegue a assinatura dos dois cônjuges antes de começar o serviço, se o cliente for casado",
-     "ref": "Tex. Prop. Code 53.254"
+     "ref": "Tex. Prop. Code 53.254",
+     "flag": "The system sees the two customer signatures and their times. It does not see when the work started.",
+     "sys": "second_signer",
+     "sys_en": "Both spouses sign the contract",
+     "sys_pt": "Os dois cônjuges assinam o contrato",
+     "fact": "married"
     },
     "notice:TX-homestead": {
      "c": "A",
      "en": "Add the homestead IMPORTANT NOTICE to the contract (10 point bold)",
      "pt": "Inclua no contrato o IMPORTANT NOTICE de homestead (negrito, corpo 10)",
-     "ref": "Tex. Prop. Code 41.007"
+     "ref": "Tex. Prop. Code 41.007",
+     "sys": "print",
+     "sys_en": "Homestead IMPORTANT NOTICE printed in the contract (10 point bold)",
+     "sys_pt": "IMPORTANT NOTICE de homestead impresso no contrato (negrito, corpo 10)",
+     "fact": "homestead",
+     "style": {
+      "bold": true,
+      "min_pt": 10
+     }
     },
     "notice:TX-defect": {
      "c": "A",
      "en": "Add the construction defect notice to the contract (10 point bold)",
      "pt": "Inclua no contrato o aviso de defeitos de construção (negrito, corpo 10)",
-     "ref": "Tex. Prop. Code 27.007"
+     "ref": "Tex. Prop. Code 27.007",
+     "flag": "Printed on every residential job. The research does not narrow which jobs chapter 27 reaches; a lawyer should confirm.",
+     "sys": "print",
+     "sys_en": "Construction defect notice (Chapter 27) printed in the contract (10 point bold)",
+     "sys_pt": "Aviso de defeitos de construção (Chapter 27) impresso no contrato (negrito, corpo 10)",
+     "style": {
+      "bold": true,
+      "min_pt": 10
+     }
     },
     "notice:TX-disclosure": {
      "c": "A",
      "en": "Hand the owner the disclosure statement before they sign",
      "pt": "Entregue ao proprietário a declaração de informações antes de ele assinar",
-     "ref": "Tex. Prop. Code 53.255"
+     "ref": "Tex. Prop. Code 53.255",
+     "sys": "deliver",
+     "sys_en": "Disclosure statement given to the owner before they sign",
+     "sys_pt": "Declaração de informações entregue ao proprietário antes de ele assinar"
     },
     "notice:TX-sublist": {
      "c": "A",
      "en": "Give the owner the list of subcontractors and suppliers before work starts",
      "pt": "Entregue ao proprietário a lista de subempreiteiros e fornecedores antes de começar o serviço",
-     "ref": "Tex. Prop. Code 53.256"
+     "ref": "Tex. Prop. Code 53.256",
+     "fact": "subs",
+     "needs": "The list needs each subcontractor's and supplier's name, address and telephone number. Apex keeps a subcontractor's name, trade and license only, and has no supplier records, so the system cannot build the list yet (it needs a database change)."
     },
     "notice:TX-sublist-waiver": {
      "c": "B",
@@ -1801,7 +2007,11 @@
      "c": "A",
      "en": "Get the contract signed by both sides before any work or payment",
      "pt": "Pegue o contrato assinado pelas duas partes antes de qualquer serviço ou pagamento",
-     "ref": "18VAC50-22-260"
+     "ref": "18VAC50-22-260",
+     "flag": "The system sees the two signatures and their times. It does not see when the work started or when a payment was taken.",
+     "sys": "signed",
+     "sys_en": "Contract signed by the company and the customer",
+     "sys_pt": "Contrato assinado pela empresa e pelo cliente"
     },
     "notice:VA-dpor": {
      "c": "A",
@@ -1843,7 +2053,14 @@
      "c": "A",
      "en": "For a home build or a large remodel, add the notice of the construction defect process",
      "pt": "Para construção ou reforma grande de casa, inclua o aviso do processo de defeitos de construção",
-     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+     "flag": "A remodel counts only when it costs more than half the home's assessed value.",
+     "sys": "print",
+     "sys_en": "Construction defect process notice printed in the contract",
+     "sys_pt": "Aviso do processo de defeitos de construção impresso no contrato",
+     "fact": "big_build",
+     "style": {
+      "bold": true
+     }
     },
     "notice:WA-lien-info": {
      "c": "A",
@@ -1878,7 +2095,8 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
+     "fact": "credit"
     },
     "notice:WV-cancel-caption": {
      "c": "B",
@@ -1912,7 +2130,15 @@
     "notice:WI-lien": {
      "c": "A",
      "en": "If you use subcontractors or suppliers, add the lien notice to the contract",
-     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato"
+     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato",
+     "sys": "print",
+     "sys_en": "Lien notice printed in the contract",
+     "sys_pt": "Aviso de gravame impresso no contrato",
+     "fact": "subs",
+     "style": {
+      "bold": true,
+      "min_pt": 8
+     }
     },
     "notice:WI-defect": {
      "c": "A",
@@ -1931,7 +2157,9 @@
      "c": "A",
      "en": "If the customer signs a promissory note, put the required legend on the note",
      "pt": "Se o cliente assinar uma nota promissória, coloque a legenda exigida na nota",
-     "flag": "Applies only when a note is taken."
+     "flag": "Applies only when a note is taken.",
+     "fact": "note",
+     "needs": "The legend goes on the note, which is not a document the builder makes."
     },
     "notice:WI-waterproof-noguarantee": {
      "c": "A",

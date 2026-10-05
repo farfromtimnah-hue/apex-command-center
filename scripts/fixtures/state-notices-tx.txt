@@ -1,7 +1,7 @@
 State notices a customer would see: Texas (TX), residential job, $12,500.00, sold at the customer's home.
 Status: draft rider ready
 
-== PRINTED IN THE CONTRACT (2) ==
+== PRINTED IN THE CONTRACT (4) ==
 
 --- State cancellation statement in immediate proximity to the signature space (B&C 601.052 to 601.054) ---
 YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
@@ -19,11 +19,17 @@ I HEREBY CANCEL THIS TRANSACTION.
 (date)
 (buyer's signature)
 
+--- IMPORTANT NOTICE (homestead) (Prop. Code 41.007) ---
+IMPORTANT NOTICE:  You and your contractor are responsible for meeting the terms and conditions of this contract.  If you sign this contract and you fail to meet the terms and conditions of this contract, you may lose your legal ownership rights in your home.  KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.
+
+--- Defect notice (Prop. Code 27.007) ---
+This contract is subject to Chapter 27 of the Texas Property Code.  The provisions of that chapter may affect your right to recover damages arising from a construction defect.  If you have a complaint concerning a construction defect and that defect has not been corrected as may be required by law or by contract, you must provide the notice required by Chapter 27 of the Texas Property Code to the contractor by certified mail, return receipt requested, not later than the 60th day before the date you file suit to recover damages in a court of law or initiate arbitration.  The notice must refer to Chapter 27 of the Texas Property Code and must describe the construction defect.  If requested by the contractor, you must provide the contractor an opportunity to inspect and cure the defect as provided by Section 27.004 of the Texas Property Code.
+
 == OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
 
-- [warn] Texas requires this notice: IMPORTANT NOTICE (homestead) (Prop. Code 41.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Contracts for improvements to an existing residence that are homestead lien contracts. Format: 10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW..
-- [warn] Texas requires this notice: Defect notice (Prop. Code 27.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential. Format: 10 point bold; $500 penalty for omission.
-- [warn] Texas requires this notice: Owner disclosure statement (Prop. Code 53.255). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, delivered to the owner before the residential construction contract is executed by the owner. Format: A separate statement handed over before signing; no type size stated; must read substantially similar to the statute.
+- [info] This notice prints in the contract: IMPORTANT NOTICE (homestead) (Prop. Code 41.007). When: Contracts for improvements to an existing residence that are homestead lien contracts. Format: 10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW..
+- [info] This notice prints in the contract: Defect notice (Prop. Code 27.007). When: Residential. Format: 10 point bold; $500 penalty for omission.
+- [info] This document is given to the customer with the contract, before they sign: Owner disclosure statement (Prop. Code 53.255). When: Original contractor, delivered to the owner before the residential construction contract is executed by the owner. Format: A separate statement handed over before signing; no type size stated; must read substantially similar to the statute.
 - [warn] Texas requires this notice: Subcontractor and supplier list: the 10 point bold NOTICE that the list must carry (Prop. Code 53.256). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, before construction starts, on a residential construction contract. Format: Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold.
 - [warn] Texas requires this notice: Optional owner waiver of the subcontractor and supplier list (Prop. Code 53.256(d)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Only if the owner chooses to waive the list; the waiver may be in the residential construction contract or a separate signed statement. Format: Conspicuously printed in at least 10-point bold-faced type; substantially similar to the statute; if not in the contract, signed by the owner.
 - [info] This notice prints in the contract: State cancellation statement in immediate proximity to the signature space (B&C 601.052 to 601.054). When: Door-to-door sale or a sale made away from the seller's place of business, over $25. Format: Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation.

@@ -32,6 +32,10 @@ function fx(base, patch) {
 function stateFx(base, code, patch) { return fx(base, Object.assign({ flags: { job_state: code } }, patch || {})); }
 function cut(src, name) { const i = src.indexOf("\nfunction " + name + "("); if (i < 0) { throw new Error("not in gm.js: " + name); } const j = src.indexOf("\n}", i + 1); return src.slice(i + 1, j + 2); }
 function card(r) { return F.contractStateActionCard(r.comp.state, r.comp.checklist, r.c.flags); }
+// Since "the system does it" (RES-35) a line is hand-ticked only when its kind is "person".
+function hand(c) { return c.actions.filter(function (a) { return (a.kind || "person") === "person"; }); }
+function handDone(c) { return hand(c).filter(function (a) { return a.done; }).length; }
+function sysDone(c) { return c.actions.filter(function (a) { return a.sys && a.sys.done; }).length; }
 const NON_FL = riders.states.map(function (s) { return s.code; }).filter(function (c) { return c !== "FL"; });
 const PICKS = ["TX", "CA", "MA"];
 
@@ -39,7 +43,7 @@ const PICKS = ["TX", "CA", "MA"];
 {
   for (const code of PICKS) {
     const r = await h.compose(stateFx("residential-in-home-deposit", code)), c = card(r);
-    ok(c && c.state === code && c.actions.length >= 3 && c.total === c.actions.length && c.done_count === 0, code + ": the card has action lines (" + (c && c.actions.length) + "), none ticked on a new contract");
+    ok(c && c.state === code && c.actions.length >= 3 && c.total === c.actions.length && handDone(c) === 0 && c.done_count === sysDone(c), code + ": the card has action lines (" + (c && c.actions.length) + "), none hand-ticked on a new contract");
     ok(c.actions.every(function (a) { return a.en && a.pt && a.en !== a.pt && a.context_en && a.context_pt && a.key; }), code + ": every action line has a sentence in English and Portuguese and the full text behind it");
     ok(c.actions.filter(function (a) { return a.ref; }).length >= 3 && c.actions.every(function (a) { return a.ref === null || typeof a.ref === "string"; }), code + ": action lines carry a law reference");
     ok(c.actions.every(function (a) { return r.comp.checklist.some(function (l) { return l.key === a.key && l.en === a.context_en && l.pt === a.context_pt; }); }), code + ": the full text behind each line is the existing prose for that item, word for word");
@@ -126,22 +130,23 @@ const PICKS = ["TX", "CA", "MA"];
   // Reload: the stored JSON goes back through the same card builder.
   const reloaded = await h.compose(stateFx("residential-in-home-deposit", "TX", { flags: saved }));
   const after = card(reloaded), line = after.actions.filter(function (a) { return a.key === key; })[0];
-  ok(after.done_count === 1 && after.total === before.total && line.done.by === "Maria" && line.done.at === "2026-10-05 20:12:00" && after.actions.filter(function (a) { return a.done; }).length === 1, "after a reload the line is ticked, with who and when; the others are not");
-  const second = F.contractStateCheckApply(saved, after, "notice:TX-homestead", true, "Pat Owner", "2026-10-06 13:00:00");
-  ok(Object.keys(second.done).length === 2 && second.done[key].by === "Maria" && second.done["notice:TX-homestead"].by === "Pat Owner", "a second person's tick is added beside the first: the owner sees who ticked what");
+  ok(after.done_count === 1 + sysDone(after) && after.total === before.total && line.done.by === "Maria" && line.done.at === "2026-10-05 20:12:00" && handDone(after) === 1, "after a reload the line is ticked, with who and when; the other hand-ticked lines are not");
+  const second = F.contractStateCheckApply(saved, after, "cancellation_oral", true, "Pat Owner", "2026-10-06 13:00:00");
+  ok(Object.keys(second.done).length === 2 && second.done[key].by === "Maria" && second.done["cancellation_oral"].by === "Pat Owner", "a second person's tick is added beside the first: the owner sees who ticked what");
   const unticked = F.contractStateCheckApply(saved, after, key, false, "Pat Owner", "2026-10-06 13:05:00");
-  ok(Object.keys(unticked.done).length === 0 && card(await h.compose(stateFx("residential-in-home-deposit", "TX", { flags: Object.assign({}, saved, { state_checks: unticked }) }))).done_count === 0, "unticking removes the record");
+  ok(Object.keys(unticked.done).length === 0 && handDone(card(await h.compose(stateFx("residential-in-home-deposit", "TX", { flags: Object.assign({}, saved, { state_checks: unticked }) })))) === 0, "unticking removes the record");
 
   // ── 4. Changing the state does not carry ticks over ──
   const moved = await h.compose(stateFx("residential-in-home-deposit", "MA", { flags: Object.assign({}, saved, { job_state: "MA" }) }));
   const movedCard = card(moved);
-  ok(movedCard.state === "MA" && movedCard.done_count === 0 && movedCard.actions.every(function (a) { return a.done === null; }) && movedCard.actions.some(function (a) { return a.key === "fixed:1"; }) && saved.state_checks.done[key],
+  ok(movedCard.state === "MA" && handDone(movedCard) === 0 && hand(movedCard).every(function (a) { return a.done === null; }) && movedCard.actions.some(function (a) { return a.key === "written_contract" || a.key === "fixed:1"; }) && saved.state_checks.done[key],
     "a contract moved from Texas to Massachusetts shows nothing ticked, even for a line both states share");
   ok(Object.keys(F.contractStateChecks(saved, "MA")).length === 0 && Object.keys(F.contractStateChecks(saved, "TX")).length === 1 && Object.keys(F.contractStateChecks({ state_checks: { state: "TX", done: [1] } }, "TX")).length === 0, "ticks are read for the state they were made in only");
   const put = fnSrc("handlePutGmContract", workerSrc);
   ok(/if \(flags\.state_checks && flags\.state_checks\.state !== comp\.state\.code\) \{ delete flags\.state_checks; \}/.test(put) && put.indexOf("delete flags.state_checks") < put.indexOf("UPDATE gm_contracts SET selections_json"), "saving a contract in another state drops the old state's ticks before the write");
-  const tickBack = F.contractStateCheckApply(Object.assign({}, saved, { job_state: "MA" }), movedCard, "fixed:1", true, "Maria", "2026-10-07 10:00:00");
-  ok(tickBack.state === "MA" && Object.keys(tickBack.done).length === 1 && tickBack.done["fixed:1"], "the first tick in the new state starts a fresh record for that state");
+  const maKey = hand(movedCard)[0].key;
+  const tickBack = F.contractStateCheckApply(Object.assign({}, saved, { job_state: "MA" }), movedCard, maKey, true, "Maria", "2026-10-07 10:00:00");
+  ok(tickBack.state === "MA" && Object.keys(tickBack.done).length === 1 && tickBack.done[maKey], "the first tick in the new state starts a fresh record for that state");
   const revise = fnSrc("handlePostGmContractRevise", workerSrc);
   ok(/state_checks: undefined/.test(revise), "a revision starts with nothing ticked");
 }
@@ -154,12 +159,12 @@ const PICKS = ["TX", "CA", "MA"];
     const all = { state: code, done: {} };
     c.actions.forEach(function (a) { all.done[a.key] = { by: "Maria", at: "2026-10-05 20:12:00" }; });
     const ticked = await h.compose(stateFx("residential-in-home-deposit", code, { flags: { job_state: code, state_checks: all } }));
-    ok(none.comp.blockers.length === 0 && c.done_count === 0 && c.total > 0, code + ": with every line unticked the contract has no blocker");
+    ok(none.comp.blockers.length === 0 && handDone(c) === 0 && c.total > 0, code + ": with every line unticked the contract has no blocker");
     ok(JSON.stringify(goldenView(none.comp)) === JSON.stringify(goldenView(ticked.comp)) && JSON.stringify(none.comp.checklist) === JSON.stringify(ticked.comp.checklist), code + ": the composed contract (every printed word, rule, blocker and amount) is the same with nothing ticked and with everything ticked");
   }
   const gates = ["handlePostGmContractSend", "handlePostGmContractCompanySign", "handlePostGmContractRoute", "handlePostPublicContractSign", "handleGetGmContractPreview", "handlePostGmContractSignedCopy", "contractPublicPayload", "contractPublicView", "contractCompose", "contractCleaningCompose"];
   ok(gates.every(function (n) { const s = fnSrc(n, workerSrc); return !/state_checks|state_card|contractStateActionCard|contractStateCheckApply|contractStateChecks\(|contractStateCheckEntry/.test(s); }), "send, company sign, route, customer sign, preview, signed copy, the customer's view and the composer never read the ticks");
-  ok((workerSrc.match(/state_card:/g) || []).length === 1 && /state_card: contractStateActionCard\(comp\.state, comp\.checklist, c\.flags\)/.test(fnSrc("contractInternalOut", workerSrc)), "the card goes out in one place only: the builder's own payload");
+  ok((workerSrc.match(/state_card:/g) || []).length === 1 && /state_card: contractStateActionCard\(comp\.state, comp\.checklist, c\.flags, comp\.state\.florida \? null : await contractStateSysLoad\(env, c\)\)/.test(fnSrc("contractInternalOut", workerSrc)), "the card goes out in one place only: the builder's own payload");
   const put = fnSrc("handlePutGmContract", workerSrc);
   ok(/var tickOnly = /.test(put) && /contractSellerGuard\(env, user, id, c, tickOnly\)/.test(put) && put.indexOf("if (tickOnly) {") < put.indexOf("Create a revision to change it"), "a tick is its own small save: the seller guard still runs (a routed seller may tick), and it is handled before the \"already signed\" refusal");
 }
@@ -186,9 +191,12 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
   const r = await h.compose(stateFx("residential-in-home-deposit", "TX"));
   const payload = function (flags, status) { return { status: status || "draft", job_state_name: "Texas", state_checklist: r.comp.checklist, state_card: F.contractStateActionCard(r.comp.state, r.comp.checklist, flags) }; };
   const n = payload({}).state_card.total;
+  // sd = the lines the system has already done on a new Texas contract (the
+  // notices it prints); sn = every line the system does or sees; hn = hand-ticked lines.
+  const sd = sysDone(payload({}).state_card), hn = hand(payload({}).state_card).length, sn = n - hn;
   const en = draw(payload({}), true), pt = draw(payload({}), false);
-  ok(en.indexOf("Before you send: Texas (0 of " + n + " done)") !== -1 && pt.indexOf("Antes de enviar: Texas (0 de " + n + " feitos)") !== -1, "heading shows progress in both languages: \"Before you send: Texas (0 of " + n + " done)\"");
-  ok((en.match(/<input type="checkbox"/g) || []).length === n && (en.match(/ checked/g) || []).length === 0 && (en.match(/onchange="gmConStateCheck\(\d+, this\.checked\)"/g) || []).length === n, "one tick box per action line, none ticked, each saving on change");
+  ok(sd >= 2 && sn > sd && en.indexOf("Before you send: Texas (" + sd + " of " + n + " done)") !== -1 && pt.indexOf("Antes de enviar: Texas (" + sd + " de " + n + " feitos)") !== -1, "heading shows progress in both languages and counts the system's lines: \"Before you send: Texas (" + sd + " of " + n + " done)\"");
+  ok((en.match(/<input type="checkbox"/g) || []).length === n && (en.match(/ checked/g) || []).length === sd && (en.match(/onchange="gmConStateCheck\(\d+, this\.checked\)"/g) || []).length === hn, "one box per action line; only the system's done lines are ticked; only hand-ticked lines save on change");
   ok(/<label for="gmConStChk\d+">Get both spouses to sign before work starts, if the customer is married<\/label> <a href="#" role="button" aria-expanded="false" aria-controls="gmConStCtx\d+" onclick="return gmConStateCtx\(this, 'gmConStCtx\d+'\)">\(Tex\. Prop\. Code 53\.254\)<\/a>/.test(en), "a line ends with its law reference in parentheses, and the reference is the clickable part");
   ok(/<label for="gmConStChk\d+">Pegue a assinatura dos dois cônjuges antes de começar o serviço, se o cliente for casado<\/label>/.test(pt), "the action sentence is in Portuguese on the Portuguese screen");
   ok((en.match(/<div id="gmConStCtx\d+" hidden>/g) || []).length === n && /<div id="gmConStCtx\d+" hidden><p class="muted"[^>]*>Written contract: Writing for homestead lien contracts/.test(en), "the full text sits under each line, closed by default");
@@ -197,11 +205,11 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
   ok(!/Leave no blank spaces[^<]*<\/label>/.test(en) && !/Cancellation: Three business days[^<]*<\/label>/.test(en), "handled and background text is never a tick-box line");
   const ticked = { state_checks: { state: "TX", done: { written_contract: { by: "Maria", at: "2026-10-05 20:12:00" } } } };
   const en2 = draw(payload(ticked), true), pt2 = draw(payload(ticked), false);
-  ok(en2.indexOf("(1 of " + n + " done)") !== -1 && pt2.indexOf("(1 de " + n + " feitos)") !== -1 && (en2.match(/ checked/g) || []).length === 1, "after one tick the heading reads 1 of " + n + " done");
+  ok(en2.indexOf("(" + (sd + 1) + " of " + n + " done)") !== -1 && pt2.indexOf("(" + (sd + 1) + " de " + n + " feitos)") !== -1 && (en2.match(/ checked/g) || []).length === sd + 1, "after one hand tick the heading reads " + (sd + 1) + " of " + n + " done");
   ok(en2.indexOf("Maria, 10/05/2026 4:12 PM") !== -1 && pt2.indexOf("Maria, 10/05/2026 4:12 PM") !== -1, "a ticked line shows \"Maria, 10/05/2026 4:12 PM\" (month first, 12-hour, Eastern) in both languages");
   const winter = draw(payload({ state_checks: { state: "TX", done: { written_contract: { by: "Maria", at: "2026-12-05 20:12:00" } } } }), true);
   ok(winter.indexOf("Maria, 12/05/2026 3:12 PM") !== -1, "the time is Eastern in winter too (3:12 PM for 20:12 UTC)");
-  ok((draw(payload(ticked, "void"), true).match(/ disabled/g) || []).length === n && !/ disabled/.test(en2) && !/ disabled/.test(draw(payload(ticked, "sent"), true)), "the boxes stay usable on a sent contract; only a void contract shows them locked");
+  ok((draw(payload(ticked, "void"), true).match(/ disabled/g) || []).length === n && (en2.match(/ disabled/g) || []).length === sn && (draw(payload(ticked, "sent"), true).match(/ disabled/g) || []).length === sn, "the hand-ticked boxes stay usable on a sent contract; a void contract shows every box locked; the system's boxes are always locked");
   const noActs = draw({ status: "draft", job_state_name: "Texas", state_card: { actions: [], more: [{ key: "status", level: "info", en: "Research status.", pt: "Situação da pesquisa." }] } }, true);
   ok(!/Before you send/.test(noActs) && !/type="checkbox"/.test(noActs) && /<summary[^>]*>More about Texas<\/summary>/.test(noActs), "a state with no action lines shows no checklist, only the closed More line");
   ok(draw({ status: "draft", job_state_name: "Texas", state_card: { actions: [], more: [] } }, true) === "", "no action lines and no prose: nothing is drawn");

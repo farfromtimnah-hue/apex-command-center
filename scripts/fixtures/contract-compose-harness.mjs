@@ -12,7 +12,7 @@ export const GOLDEN_DIR = new URL("scripts/fixtures/", root);
 
 // The helper functions outside the contract* family that the composer calls.
 const GM_HELPERS = ["gmDocParseJsonObject", "gmFmtUsDate", "gmUtcStampToEasternDate", "gmEstLineAmountCents", "gmEstOptDiscount", "gmEstOptTotals",
-  "gmEstDiscountCents", "gmEstOptionTotals", "gmEstScheduleAmounts", "GmLabelsPaymentMethodEn", "gmNum", "gmCents", "gmStr"];
+  "gmEstDiscountCents", "gmEstOptionTotals", "gmEstScheduleAmounts", "GmLabelsPaymentMethodEn", "gmNum", "gmCents", "gmStr", "gmDisplayActor", "actorName"];
 
 // extra: more migration files to load after the seed (the cleaning library).
 function libraryDb(extra) {
@@ -45,6 +45,8 @@ export async function buildComposer(src, opts) {
   const vars = [];
   const rv = /\nvar (CONTRACT_[A-Z0-9_]+) =/g;
   while ((m = rv.exec(src)) !== null) { if (vars.indexOf(m[1]) === -1) { vars.push(m[1]); } }
+  // The names that never reach a screen (gmDisplayActor reads this).
+  if (src.indexOf("\nvar GM_HIDDEN_ACTORS =") >= 0) { vars.push("GM_HIDDEN_ACTORS"); }
   const stubs = {};
   // The riders data file is an import in the Worker; here it is read from disk.
   const ridersUrl = new URL("data/contract-state-riders-v1.json", root);

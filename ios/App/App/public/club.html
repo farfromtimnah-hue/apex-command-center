@@ -210,7 +210,7 @@
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap" role="main">
 
     <img id="flyer" class="flyer hidden" alt="Apex Club">
     <div id="flyerFallback" class="flyer-fallback hidden">
@@ -226,7 +226,7 @@
 
         <div class="facts" id="facts"></div>
 
-        <div id="formErr" class="err hidden"></div>
+        <div id="formErr" class="err hidden" role="alert"></div>
 
         <!--
           AUTOFILL. Four things must hold together or iOS never offers
@@ -602,7 +602,7 @@
             (PAY.discount_cents > 0 ? " (desconto de " + money2(PAY.discount_cents) + ")" : "") + "</div>" +
           '<button type="button" class="cta" id="btnCard">Pagar com cartão: ' + money2(PAY.card_cents) + "</button>" +
           '<div class="pay-fine">Cartão ou Apple Pay. O preço do cartão já inclui a taxa de processamento.</div>' +
-          '<div id="cardErr" class="err hidden" style="margin:12px 0 0;"></div>' +
+          '<div id="cardErr" class="err hidden" role="alert" style="margin:12px 0 0;"></div>' +
           '<hr class="pay-sep">';
       }
       h += zelleBlockHtml();

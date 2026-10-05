@@ -98,7 +98,7 @@
   </style>
 </head>
 <body>
-  <div class="hero-band doc-screen" id="hero">
+  <div class="hero-band doc-screen" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
@@ -106,9 +106,9 @@
     </div>
   </div>
 
-  <div class="wrap">
-    <div class="card" id="cardLoading"><div class="state"><p>Carregando...</p></div></div>
-    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Contrato n&atilde;o encontrado</h3><p>Este link n&atilde;o &eacute; v&aacute;lido ou n&atilde;o est&aacute; mais dispon&iacute;vel.</p></div></div>
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p>Carregando...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3 role="heading" aria-level="1">Contrato n&atilde;o encontrado</h3><p>Este link n&atilde;o &eacute; v&aacute;lido ou n&atilde;o est&aacute; mais dispon&iacute;vel.</p></div></div>
 
     <div id="doc" class="hidden">
       <div class="preview-banner hidden no-print" id="previewBanner">PR&Eacute;-VISUALIZA&Ccedil;&Atilde;O &mdash; ainda n&atilde;o enviado. &Eacute; exatamente o que o cliente vai ver.</div>
@@ -117,7 +117,7 @@
       <div class="card" id="cardClauses"></div>
       <div class="card" id="cardSigs"></div>
       <div class="card hidden no-print" id="cardSign"></div>
-      <div class="card no-print" id="cardPdf" style="margin-top:24px;"><button type="button" class="btn secondary" id="btnPdf">Baixar contrato (PDF)</button><div class="err" id="pdfErr"></div></div>
+      <div class="card no-print" id="cardPdf" style="margin-top:24px;"><button type="button" class="btn secondary" id="btnPdf">Baixar contrato (PDF)</button><div class="err" role="alert" id="pdfErr"></div></div>
     </div>
     <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Pol&iacute;tica de Privacidade</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Termos de Uso</a></footer>
   </div>
@@ -165,7 +165,7 @@
       var money = "$" + String(Math.floor(total / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + String(total % 100).padStart(2, "0");
       byId("cardHead").innerHTML =
         '<div class="doc-head"><div class="org">APEX BUSINESS &amp; LEADERSHIP</div><div class="tag">Consultoria Estrat&eacute;gica para Empreendedores Brasileiros nos EUA</div>' +
-        '<div class="rule"></div><div class="title">' + esc(doc.heading) + '</div><div class="sub">' + esc(doc.subtitle) + '</div>' +
+        '<div class="rule"></div><div class="title" role="heading" aria-level="1">' + esc(doc.heading) + '</div><div class="sub">' + esc(doc.subtitle) + '</div>' +
         '<div class="num">' + esc(con.number) + (doc.company_name ? " &middot; " + esc(doc.company_name) : "") + '</div></div>' +
         '<table class="grid"><thead><tr><th>Campo</th><th>Informa&ccedil;&atilde;o</th></tr></thead><tbody>' +
         doc.summary.map(function(r) { return '<tr><td class="k">' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join("") + '</tbody></table>' +
@@ -225,7 +225,7 @@
         '<div id="sigTyped" class="' + (sigKind === "typed" ? "" : "hidden") + '" style="margin-top:8px;"><p class="muted small">O nome digitado acima ser&aacute; usado como sua assinatura.</p></div>' +
         '<div id="sigDrawn" class="' + (sigKind === "drawn" ? "" : "hidden") + '" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad()">Limpar</button></div>' +
         '<label class="consent"><input type="checkbox" id="consent"><span>Li o contrato, concordo com todos os termos' + (doc.package_key === "start" ? "" : ", em especial a Cl&aacute;usula 9 (irrevogabilidade e multa por cancelamento),") + ' e aceito assinar e receber este documento eletronicamente.</span></label>' +
-        '<div class="err" id="signErr"></div><button type="button" class="btn" id="btnSign" onclick="sign()">Assinar contrato</button>';
+        '<div class="err" role="alert" id="signErr"></div><button type="button" class="btn" id="btnSign" onclick="sign()">Assinar contrato</button>';
       card.innerHTML = h;
       card.classList.remove("hidden");
       if (sigKind === "drawn") { setupCanvas(); }

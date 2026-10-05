@@ -173,7 +173,7 @@
   </style>
 </head>
 <body>
-  <div class="hero-band doc-screen" id="hero">
+  <div class="hero-band doc-screen" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
@@ -181,9 +181,9 @@
     </div>
   </div>
 
-  <div class="wrap">
-    <div class="card" id="cardLoading"><div class="state"><p>Loading...</p></div></div>
-    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Page not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p>Loading...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3 role="heading" aria-level="1">Page not found</h3><p>This link is not valid or is no longer available.</p></div></div>
 
     <div id="doc" class="hidden">
       <div class="preview-banner hidden" id="previewBanner">PREVIEW - not sent. This is exactly what the homeowner will see.</div>
@@ -191,7 +191,7 @@
       <div class="card hidden" id="cardStateBanner"></div>
       <div class="card" id="cardBody"></div>
       <div class="card" id="cardActions"></div>
-      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary no-print" id="btnPdf">Download (PDF)</button><div class="err no-print" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
+      <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary no-print" id="btnPdf">Download (PDF)</button><div class="err no-print" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
     <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></footer>
   </div>
@@ -349,7 +349,7 @@
       var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
       return '<div class="meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
         (whoLines.length ? '<div class="small muted">' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
-        '<div class="meta-right"><div class="title">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
+        '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
         (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "");
     }
     function paymentTilesHtml(methods) {
@@ -407,7 +407,7 @@
             var done = !!it.done_at;
             return '<li><span class="mark' + (done ? " done" : "") + '">' + (done ? "&#10003;" : "") + '</span><span style="flex:1;min-width:0;">' + escHtml(it.text || "") +
               (done ? '<div class="when">Done ' + escHtml(fmtDateTime(it.done_at)) + '</div>' : '<div class="when">Not done</div>') +
-              (it.photo_url ? '<a href="' + escHtml(it.photo_url) + '" target="_blank" rel="noopener"><img src="' + escHtml(it.photo_url) + '" alt=""></a>' : "") + '</span></li>';
+              (it.photo_url ? '<a href="' + escHtml(it.photo_url) + '" target="_blank" rel="noopener" aria-label="Open photo full size"><img src="' + escHtml(it.photo_url) + '" alt=""></a>' : "") + '</span></li>';
           }).join("") + '</ul>';
         }
       } else {
@@ -417,7 +417,7 @@
         if (!photos.length) { h += '<p class="muted">No photos were attached.</p>'; }
         else {
           h += '<div class="photo-grid">' + photos.map(function(p) {
-            return '<div class="photo-cell"><a href="' + escHtml(p.url) + '" target="_blank" rel="noopener"><img src="' + escHtml(p.url) + '" alt=""></a>' +
+            return '<div class="photo-cell"><a href="' + escHtml(p.url) + '" target="_blank" rel="noopener" aria-label="' + escHtml("Open photo full size" + (p.note ? ": " + p.note : "")) + '"><img src="' + escHtml(p.url) + '" alt=""></a>' +
               '<div class="cap">' + (p.note ? escHtml(p.note) : "") + (p.taken_at ? '<div class="when">' + escHtml(fmtDateTime(p.taken_at)) + '</div>' : "") + '</div></div>';
           }).join("") + '</div>';
         }
@@ -472,12 +472,12 @@
         '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
         '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>' +
         esignConsentHtml(ack.business, "", "btnSign") +
-        '<div class="err" id="signErr"></div>' +
+        '<div class="err" role="alert" id="signErr"></div>' +
         '<button type="button" class="btn" id="btnSign" onclick="sign()" disabled>Sign</button>' + disc +
         '<h2 style="margin-top:22px;">Or</h2>' +
         '<label for="declineReason">Decline (optional reason)</label><input type="text" id="declineReason">' +
         '<button type="button" class="btn secondary" id="btnDecline" onclick="respond(\'decline\')">Decline</button>' +
-        '<div class="err" id="respondErr"></div>';
+        '<div class="err" role="alert" id="respondErr"></div>';
       card.innerHTML = h;
       setupCanvas("sigCanvas", "main");
     }

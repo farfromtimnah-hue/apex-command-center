@@ -117,7 +117,7 @@
   </style>
 </head>
 <body>
-  <div class="hero-band doc-screen" id="hero">
+  <div class="hero-band doc-screen" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
@@ -125,9 +125,9 @@
     </div>
   </div>
 
-  <div class="wrap">
-    <div class="card" id="cardLoading"><div class="state"><p>Loading...</p></div></div>
-    <div class="card hidden" id="cardNotFound"><div class="state"><h3>Estimate not found</h3><p>This link is not valid or is no longer available.</p></div></div>
+  <div class="wrap" role="main">
+    <div class="card" id="cardLoading" role="status"><div class="state"><p>Loading...</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><h3 role="heading" aria-level="1">Estimate not found</h3><p>This link is not valid or is no longer available.</p></div></div>
 
     <div id="doc" class="hidden">
       <div class="card" id="cardMeta"></div>
@@ -259,7 +259,7 @@
       var t = '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + r[0] + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>';
       return '<div class="meta-area"><div class="meta-left"><div class="k">' + leftLabel + '</div><div class="who">' + escHtml(who || "") + '</div>' +
         (whoLines.length ? '<div class="small muted">' + whoLines.map(escHtml).join("<br>") + '</div>' : "") + fromHtml(b) + '</div>' +
-        '<div class="meta-right"><div class="title">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
+        '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + title + '</div><div class="num">' + escHtml(num) + '</div>' + t + (stamp || "") + '</div></div>' +
         (tile ? '<div class="amount-due-tile"><div class="adt-label">' + tile.label + '</div><div class="adt-value">' + tile.value + '</div></div>' : "");
     }
     function paymentTilesHtml(methods) {
@@ -416,7 +416,7 @@
         return;
       }
       if (est.status === "expired") {
-        banner.innerHTML = '<div class="state"><h3>This estimate has expired.</h3><p>Request an updated estimate.</p><button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated estimate</button><div class="err" id="renewErr"></div></div>';
+        banner.innerHTML = '<div class="state"><h3>This estimate has expired.</h3><p>Request an updated estimate.</p><button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated estimate</button><div class="err" role="alert" id="renewErr"></div></div>';
         banner.classList.remove("hidden");
         card.innerHTML = "";
         return;
@@ -440,14 +440,14 @@
         '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
         '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearSig()">Clear</button></div>' +
         esignConsentHtml(est.business, "", "btnAccept") +
-        '<div class="err" id="acceptErr"></div>' +
+        '<div class="err" role="alert" id="acceptErr"></div>' +
         '<button type="button" class="btn" id="btnAccept" onclick="accept()" disabled>Accept and sign</button>' +
         '<h2 style="margin-top:22px;">Or</h2>' +
         '<label for="changes">Request changes</label><textarea id="changes" placeholder="Tell us what you would like changed"></textarea>' +
         '<button type="button" class="btn secondary" id="btnChanges" onclick="respond(\'changes\')">Send change request</button>' +
         '<label for="declineReason">Decline (optional reason)</label><input type="text" id="declineReason">' +
         '<button type="button" class="btn secondary" id="btnDecline" onclick="respond(\'decline\')">Decline this estimate</button>' +
-        '<div class="err" id="respondErr"></div>';
+        '<div class="err" role="alert" id="respondErr"></div>';
       setupCanvas();
     }
 

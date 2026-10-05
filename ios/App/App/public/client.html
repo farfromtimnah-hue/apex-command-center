@@ -316,21 +316,6 @@
       font-size: 13px;
     }
 
-    /* Meeting Prep links. Position is decided by role in setupPage. */
-    .prep-links-card {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-      background: var(--card, #fff); border: 1px solid var(--border, #e8e2d9);
-      border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
-    }
-    .prep-link {
-      display: inline-flex; align-items: center;
-      border: 1px solid #C9A43A; color: #C9A43A; background: transparent;
-      border-radius: 6px; padding: 6px 14px;
-      font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: background 0.15s, color 0.15s;
-    }
-    .prep-link:hover { background: #C9A43A; color: #fff; }
-
     .role-badge {
       background: var(--gold-dim);
       border: 1px solid rgba(201,164,58,0.4);
@@ -559,6 +544,10 @@
       white-space: nowrap;
     }
     .btn-add:hover { border-color: var(--gold); color: var(--gold); }
+    /* A link drawn as a section-header button (View client portal). The
+       hidden attribute must still win, so no inline display on those. */
+    a.btn-add { display: inline-block; text-decoration: none; }
+    a.btn-add[hidden] { display: none; }
 
     .pull-status {
       font-size: 12px;
@@ -1966,12 +1955,6 @@
               <img id="headerLogoImg" src="" alt="" style="display:none;">
             </div>
             <input type="file" id="logoFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleLogoFileSelected(this)">
-            <button id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;background:rgba(26,22,18,0.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;transition:border-color 0.12s,color 0.12s;">
-              <span id="btnHeroLogoLabel">
-                <span class="show-pt">Adicionar Logo</span>
-                <span class="show-en">Add Logo</span>
-              </span>
-            </button>
             <div class="pull-status" id="logoStatus" style="color:rgba(255,255,255,0.7);font-size:11px;min-height:0;"></div>
           </div>
           <div class="profile-header-meta">
@@ -1988,39 +1971,14 @@
             </div>
           </div>
           <div class="profile-header-actions">
-            <button class="btn-action" onclick="openNewSessionModal()">
-              <span class="show-pt">Nova Sess&#227;o</span>
-              <span class="show-en">New Session</span>
-            </button>
-            <button class="btn-action" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;color:#000;">
-              <span class="show-pt">Agendar Sess&#227;o</span>
-              <span class="show-en">Schedule Session</span>
-            </button>
-            <button class="btn-action" id="btnAttachResource" onclick="openAttachResourceModal()">
-              <span class="show-pt">Anexar Recurso</span>
-              <span class="show-en">Attach Resource</span>
-            </button>
-            <!-- Straight into THIS client's analytics, pre-selected. The
-                 meeting case: Rafa is on the profile and clicks over to the
-                 numbers the client is looking at. Admin-only page. -->
-            <a class="btn-action" id="btnClientAnalytics" href="#"
+            <!-- The one hero action, for every staff role and for clients and
+                 leads alike. No ?type=: the prep page asks which meeting this
+                 is first. href is set by setupPrepLink(). -->
+            <a class="btn-action" id="btnMeetingPrep" href="#"
                style="text-decoration:none;display:inline-flex;align-items:center;">
-              <span class="show-pt">Ver An&#225;lise</span>
-              <span class="show-en">View Analytics</span>
+              <span class="show-pt">Prepara&ccedil;&atilde;o da reuni&atilde;o</span>
+              <span class="show-en">Meeting prep</span>
             </a>
-            <!-- THIS client's portal exactly as they see it, read-only. The
-                 meeting case: Rafa opens the client's own view without asking
-                 them to share a screen. New tab so the profile stays put.
-                 Read-only is enforced Worker-side, not by hiding controls. -->
-            <a class="btn-action" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
-               style="text-decoration:none;display:inline-flex;align-items:center;">
-              <span class="show-pt">Ver portal do cliente</span>
-              <span class="show-en">View client portal</span>
-            </a>
-            <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
-              <span class="show-pt">Gerar PDF</span>
-              <span class="show-en">Generate PDF</span>
-            </button>
           </div>
         </div>
       </div>
@@ -2053,7 +2011,15 @@
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;">
+                <span id="btnHeroLogoLabel">
+                  <span class="show-pt">Adicionar Logo</span>
+                  <span class="show-en">Add Logo</span>
+                </span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
           </div>
           <div class="card-body-collapsible" id="overviewBody">
             <div class="overview-grid" id="overviewGrid">
@@ -2062,12 +2028,6 @@
           </div>
         </div>
 
-        <!-- Meeting Prep links. Two mount points exist; setupPage fills exactly
-             one, by role. Rafa runs the meetings, so his sits at the top where
-             it cannot be missed; Alice schedules but does not run them, so hers
-             sits lower down. -->
-        <div id="prepLinksTop" hidden></div>
-
         <!-- Sessions section -->
         <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
@@ -2075,7 +2035,21 @@
               <span class="show-pt">Sessoes</span>
               <span class="show-en">Sessions</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+              <button class="btn-add" id="btnNewSession" onclick="openNewSessionModal()">
+                <span class="show-pt">Nova Sess&#227;o</span>
+                <span class="show-en">New Session</span>
+              </button>
+              <button class="btn-add" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;border-color:#C9A84C;color:#000;">
+                <span class="show-pt">Agendar Sess&#227;o</span>
+                <span class="show-en">Schedule Session</span>
+              </button>
+              <button class="btn-add" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
+                <span class="show-pt">Gerar PDF</span>
+                <span class="show-en">Generate PDF</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
           </div>
           <div class="card-body-collapsible" id="sessionsBody">
             <div id="sessionsSection">
@@ -2083,8 +2057,6 @@
             </div>
           </div>
         </div>
-
-        <div id="prepLinksLower" hidden></div>
 
         <!-- Digital Presence section -->
         <div class="content-card" id="sec-dp" data-section-id="dp">
@@ -2357,7 +2329,7 @@
               <span class="show-en">Resources</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" onclick="openAttachResourceModal()">
+              <button class="btn-add" id="btnAttachResource" onclick="openAttachResourceModal()">
                 + <span class="show-pt">Anexar Recurso</span><span class="show-en">Attach Resource</span>
               </button>
               <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
@@ -2664,6 +2636,15 @@
               <span class="show-pt">Portal do Cliente</span>
               <span class="show-en">Client Portal</span>
             </h2>
+            <!-- THIS client's portal exactly as they see it, read-only. The
+                 meeting case: Rafa opens the client's own view without asking
+                 them to share a screen. New tab so the profile stays put.
+                 Read-only is enforced Worker-side, not by hiding controls. -->
+            <a class="btn-add" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
+               style="text-decoration:none;">
+              <span class="show-pt">Ver portal do cliente</span>
+              <span class="show-en">View client portal</span>
+            </a>
           </div>
           <div id="portalAccessBody" style="padding:16px 20px;">
             <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
@@ -4078,35 +4059,16 @@
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
-      renderPrepLinks(role);
+      setupPrepLink();
       loadClientPage();
     }
 
-    // Fill exactly ONE of the two mount points, by role. Rafa runs the X-Ray
-    // results meetings, so his link goes at the top of the page; Alice
-    // schedules them but does not run them, so hers goes lower down.
-    function renderPrepLinks(role) {
-      if (!CLIENT_ID) { return; }
-      var mount = null;
-      if (role === "rafa") {
-        mount = document.getElementById("prepLinksTop");
-      } else if (role === "alice") {
-        mount = document.getElementById("prepLinksLower");
-      } else {
-        mount = document.getElementById("prepLinksLower");
-      }
-      if (!mount) { return; }
-
-      // No ?type=: the prep page asks which meeting this is first. The
-      // example now lives on that picker, next to the type it illustrates.
-      var h = '<div class="prep-links-card">';
-      h += '<a class="prep-link" href="meeting-prep.html?client=' +
-           encodeURIComponent(CLIENT_ID) + '">' +
-           '<span class="show-pt">Preparacao da reuniao</span>' +
-           '<span class="show-en">Meeting prep</span></a>';
-      h += '</div>';
-      mount.innerHTML = h;
-      mount.hidden = false;
+    // The hero's one button. Same destination the old link card had. No
+    // ?type=: the prep page asks which meeting this is first.
+    function setupPrepLink() {
+      var link = document.getElementById("btnMeetingPrep");
+      if (!link || !CLIENT_ID) { return; }
+      link.href = "meeting-prep.html?client=" + encodeURIComponent(CLIENT_ID);
     }
 
     function init() {
@@ -6596,12 +6558,6 @@
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
       document.title = "Apex — " + (client.name || t("Cliente", "Client"));
-
-      // Deep link into this client's analytics with them pre-selected.
-      var caBtn = document.getElementById("btnClientAnalytics");
-      if (caBtn) {
-        caBtn.href = "client-analytics.html?client=" + encodeURIComponent(CLIENT_ID || "");
-      }
 
       // Read-only preview of this client's own portal. Admin roles only; the
       // Worker rejects previewAs from anyone else, so this is convenience, not
@@ -10177,7 +10133,9 @@
       }
       // Not a section: this client's analytics live on their own page.
       if (g.analyticsLink) {
-        html += '<a class="cg-item" role="menuitem" href="client-analytics.html?client=' +
+        // Straight into THIS client's analytics, pre-selected (it was the
+        // hero's View Analytics button).
+        html += '<a class="cg-item" role="menuitem" id="btnClientAnalytics" href="client-analytics.html?client=' +
           encodeURIComponent(CLIENT_ID || "") + '" onclick="cgSheetClose()"><span>' +
           cgLabelHtml("An\u00e1lise do cliente", "Client Analytics") + '</span></a>';
       }

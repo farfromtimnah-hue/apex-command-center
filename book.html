@@ -524,9 +524,12 @@
 
     function doneRow(label, value) { return '<div class="done-row"><div class="dl">' + label + '</div><div class="dv">' + escHtml(value) + '</div></div>'; }
 
+    var doneBk = null;            // the booking the summary is showing
+
     function renderDone(bk) {
       var el = byId("stepDone");
       if (!el) { return; }
+      doneBk = bk;
       var canChange = !!leadToken;
       var when = viewWall(bk.slot_date, bk.slot_time);
       var html = '<div class="card"><div class="state" style="padding-bottom:6px;"><h3 role="heading" aria-level="1">' + T("Visita agendada!", "Your visit is booked!") + '</h3></div>' +
@@ -542,14 +545,53 @@
       }
       el.innerHTML = html;
       var ch = byId("btnChange"); if (ch) { ch.onclick = function() { changing = true; chosenDate = null; chosenTime = null; renderDays(); }; }
-      var ca = byId("btnCancel"); if (ca) { ca.onclick = doCancel; }
+      var ca = byId("btnCancel"); if (ca) { ca.onclick = askCancel; }
       show("stepDone");
+    }
+
+    // The "are you sure" step, on the page in the page's own style. Focus moves
+    // to it, Escape means "keep my visit". Nothing is sent until "Yes".
+    function askCancel() {
+      if (busy || !doneBk) { return; }
+      var el = byId("stepDone");
+      if (!el) { return; }
+      var when = viewWall(doneBk.slot_date, doneBk.slot_time);
+      el.innerHTML = '<div class="card" id="cancelBox" role="alertdialog" aria-modal="false" aria-labelledby="cancelTitle" aria-describedby="cancelWhen" tabindex="-1">' +
+        '<div class="state" style="padding-bottom:6px;"><h3 id="cancelTitle" role="heading" aria-level="1">' + T("Cancelar esta visita?", "Cancel this visit?") + '</h3></div>' +
+        '<div id="cancelWhen">' +
+        doneRow(T("Data", "Date"), weekday(when.date) + ", " + fmtDate(when.date)) +
+        doneRow(T("Hor\u00e1rio", "Time"), fmtTime(when.time) + (when.label ? " " + when.label : "")) +
+        '</div>' +
+        '<button type="button" class="btn danger" id="btnCancelYes">' + T("Sim, cancelar minha visita", "Yes, cancel my visit") + '</button>' +
+        '<button type="button" class="btn secondary" id="btnCancelKeep">' + T("Manter minha visita", "Keep my visit") + '</button>' +
+        '<div class="err" id="doneErr" role="alert"></div></div>';
+      var box = byId("cancelBox");
+      var yes = byId("btnCancelYes");
+      var keep = byId("btnCancelKeep");
+      if (yes) { yes.onclick = doCancel; }
+      if (keep) { keep.onclick = keepVisit; }
+      if (box) {
+        box.onkeydown = function(ev) { if (ev && (ev.key === "Escape" || ev.key === "Esc")) { keepVisit(); } };
+      }
+      show("stepDone");
+      if (box && typeof box.focus === "function") { box.focus(); }
+    }
+
+    function keepVisit() {
+      if (busy || !doneBk) { return; }
+      renderDone(doneBk);
+      var ca = byId("btnCancel"); if (ca && typeof ca.focus === "function") { ca.focus(); }
+    }
+
+    function setCancelButtons(off) {
+      var y = byId("btnCancelYes"); if (y) { y.disabled = off; }
+      var k = byId("btnCancelKeep"); if (k) { k.disabled = off; }
     }
 
     function doCancel() {
       if (busy) { return; }
-      if (!window.confirm(T("Cancelar esta visita?", "Cancel this visit?"))) { return; }
       busy = true;
+      setCancelButtons(true);
       postJson(base() + "/cancel", {}).then(function(r) {
         busy = false;
         if (r.status === 200) {
@@ -558,8 +600,9 @@
           show("stepDone");
           return;
         }
+        setCancelButtons(false);
         var e = byId("doneErr"); if (e) { e.textContent = friendlyError(r); }
-      }).catch(function() { busy = false; var e = byId("doneErr"); if (e) { e.textContent = T("Sem conex\u00e3o. Tente de novo.", "No connection. Please try again."); } });
+      }).catch(function() { busy = false; setCancelButtons(false); var e = byId("doneErr"); if (e) { e.textContent = T("Sem conex\u00e3o. Tente de novo.", "No connection. Please try again."); } });
     }
 
     // ---- flow ----

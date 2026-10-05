@@ -46404,7 +46404,7 @@ var APX_INV_PAGE = "/apex-invoice-view.html";
 // what prints (layout, wording, styles): the cache is keyed on the invoice's
 // data, so without this an already printed invoice would keep serving the old
 // layout from R2.
-var APX_INV_PDF_REV = "3";
+var APX_INV_PDF_REV = "4";
 
 async function apxInvSwitches(env) {
     try {

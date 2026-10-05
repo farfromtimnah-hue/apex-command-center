@@ -25,39 +25,18 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
     .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
     .client-logo-tile img { max-height: 58px; }
-    /* TWO-LOGO HERO, as on the staff invoice (templates/apex-invoice-template-
-       DRAFT.html): Apex's tile and the client's tile side by side, each with
-       its name under it; the client's name is the gold bar. The tile and pill
-       styles are doc-hero.css's; only the side-by-side layout is here. The
-       client's tile shows the client's logo, or the client's name when there
-       is no logo or it does not load. */
-    .header-tile-row.apx-pair { flex-direction: row; align-items: flex-start; gap: 16px; max-width: min(688px, calc(100% - 32px)); }
-    .apx-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 220px; }
-    .apx-col:first-child { flex-shrink: 0; }
-    .apx-col[hidden] { display: none; }
-    .apx-col .brand-pill { text-align: center; }
-    .brand-pill.gold-bar-label { color: var(--gold); border-color: rgba(224, 165, 38, 0.25); }
-    .brand-pill.gold-bar-label.is-long { font-size: 12px; }
-    /* A narrow screen: the two tiles share the width equally and the names
-       wrap inside their own half. (Side by side at full size needs about
-       610px.) */
-    @media (max-width: 640px) {
-      .header-tile-row.apx-pair { gap: 10px; width: calc(100% - 32px); }
-      .apx-col, .apx-col:first-child { flex: 1 1 0; min-width: 0; }
-      .hero-band.doc-screen .apx-col .client-logo-tile { width: 100%; min-width: 0; max-width: 220px; }
-      .hero-band.doc-screen .apx-col .client-logo-tile img, .apx-col .client-logo-tile .client-name-mark { max-width: 100%; }
-      .hero-band.doc-screen .apx-col .brand-pill { font-size: 13px; padding: 4px 12px; }
-    }
-    @media (max-width: 480px) {
-      .hero-band.doc-screen .apx-col .brand-pill { font-size: 11px; padding: 4px 10px; }
-    }
     .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
     h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
     .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
     .meta-left { flex: 1; min-width: 0; font-size: 14px; }
     .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
     .meta-left .who { font-size: 17px; font-weight: 700; }
-    .meta-left .from { margin-top: 10px; font-size: 13px; color: #444; line-height: 1.55; }
+    /* The client's logo, straight on the white box under "Billed to" and
+       above the name: no tile, no border, never stretched, never wider than
+       the left column. It is only in the page when there is a logo, so no
+       logo (or one that does not load) leaves no gap. */
+    .meta-left .who-logo { display: block; width: auto; height: auto; max-width: min(100%, 220px); max-height: 56px; object-fit: contain; margin: 6px 0 4px; }
+    .meta-left .who-logo[hidden] { display: none; }
     .meta-right { flex: 0 1 260px; text-align: right; }
     .meta-right .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.1; }
     .meta-right .num { font-size: 15px; font-weight: 700; color: var(--brand-accent); margin-bottom: 6px; }
@@ -140,10 +119,7 @@
       .no-print { display: none !important; }
       .wrap { max-width: none; padding: 0; }
       .hero-band.doc-screen { height: 1.25in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 16px; }
-      .apx-col { gap: 5px; }
-      /* A long client name may take two lines and still fit the band. */
-      .brand-pill.gold-bar-label.is-long { font-size: 11px; line-height: 1.3; padding: 3px 14px; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 5px; }
       .hero-band.doc-screen .client-logo-tile { height: 62px; }
       .hero-band.doc-screen .client-logo-tile img { max-height: 46px; }
       /* Tightened so a one-line invoice and its footer stay on one page. */
@@ -159,20 +135,9 @@
 <body>
   <div class="hero-band doc-screen" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
-    <div class="header-tile-row apx-pair">
-      <div class="apx-col">
-        <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
-        <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
-      </div>
-      <!-- The client's tile. The name is always loaded first; the logo, when
-           there is one and it loads, takes its place. -->
-      <div class="apx-col" id="clientCol" hidden>
-        <div class="client-logo-tile">
-          <img id="clientLogo" alt="" hidden>
-          <span id="clientLogoFallback" class="client-name-mark"></span>
-        </div>
-        <span class="brand-pill gold-bar-label" id="goldBarClientName" hidden></span>
-      </div>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
+      <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
     </div>
   </div>
 
@@ -406,25 +371,19 @@
     function statusClass(st) { return st === "paid" ? "ok" : (st === "overdue" ? "bad" : "plain"); }
 
     function render() {
-      var b = inv.business || {};
       document.documentElement.lang = LANG === "en" ? "en" : "pt-BR";
       document.title = T("title") + " " + inv.number;
       var rows = [[T("invoiceDate"), escHtml(fmtDate(inv.issue_date))], [T("due"), escHtml(fmtDate(inv.due_date))]];
-      var fromLines = [];
-      if (b.name) { fromLines.push("<strong>" + escHtml(b.name) + "</strong>"); }
-      if (b.address) { fromLines.push(escHtml(b.address)); }
-      if (b.website) { fromLines.push(escHtml(b.website)); }
       var meta = byId("cardMeta");
       if (meta) {
         meta.innerHTML =
-          '<div class="meta-area"><div class="meta-left"><div class="k">' + escHtml(T("billedTo")) + '</div><div class="who">' + escHtml(inv.client_name || "") + '</div>' +
-          '<div class="from">' + fromLines.join("<br>") + '</div></div>' +
+          '<div class="meta-area"><div class="meta-left">' + billedToHtml() + '</div>' +
           '<div class="meta-right"><div class="title" role="heading" aria-level="1">' + escHtml(T("title")) + '</div><div class="num">' + escHtml(inv.number) + '</div>' +
           '<table>' + rows.map(function(r) { return '<tr><td class="fl">' + escHtml(r[0]) + '</td><td class="fv">' + r[1] + '</td></tr>'; }).join("") + '</table>' +
           '<div class="head-row"><span class="stamp ' + statusClass(inv.status) + '">' + escHtml(statusLabel(inv.status)) + '</span>' +
           '<a class="lang-toggle no-print" id="langToggle" href="' + escHtml(langHref()) + '">' + escHtml(T("other")) + '</a></div></div></div>';
       }
-      renderHero();
+      watchClientLogo();
       // Staff reviewing a draft see the preview banner in place of the yellow
       // draft one; everyone else sees the draft banner as before.
       var reviewing = reviewDraft();
@@ -489,47 +448,33 @@
       paidNote();
     }
 
-    // The client's tile and the gold bar, as the staff invoice does it
-    // (templates/apex-invoice-template-DRAFT.html):
-    //   - the client's NAME is always loaded into the tile first, so every path
-    //     that hides the image lands on the name and never on empty space;
-    //   - with a logo, the image shows and the name hides;
-    //   - with no logo, or when the image fails to load, the name shows;
-    //   - a name over 22 characters takes the smaller size (is-long);
-    //   - the gold bar carries the client's name in every case.
-    // The logo address comes from the Worker only when a logo really exists;
-    // /logo-image needs no login.
+    // The "Billed to" box: the label, the client's logo, then the client's
+    // name in bold.
+    //   - the logo is only put in the page when the Worker sent an address for
+    //     it (it does so only when a logo really exists; /logo-image needs no
+    //     login), so a client with no logo gets the name alone and no gap;
+    //   - when the image fails to load it is hidden and the name stays;
+    //   - a logo that failed once is not tried again on a later redraw.
+    // The image is decorative (alt empty): the name is right under it.
     var clientLogoFailed = null;
-    function renderHero() {
-      var col = byId("clientCol"), logo = byId("clientLogo"), fb = byId("clientLogoFallback"), gold = byId("goldBarClientName");
-      var name = inv.client_name || "";
+    function clientLogoUrl() {
       var url = inv.client_logo_url || "";
-      if (url && url === clientLogoFailed) { url = ""; }
-      if (fb) {
-        fb.textContent = name;
-        fb.classList.toggle("is-long", name.length > 22);
-      }
-      if (logo && url) {
-        logo.onerror = function() {
-          clientLogoFailed = url;
-          logo.hidden = true;
-          if (fb) { fb.hidden = false; }
-        };
-        logo.alt = name;
-        if (logo.getAttribute("src") !== url) { logo.src = url; }
-        logo.hidden = false;
-        if (fb) { fb.hidden = true; }
-      } else {
-        if (logo) { logo.hidden = true; }
-        if (fb) { fb.hidden = false; }
-      }
-      if (gold) {
-        gold.textContent = name;
-        gold.classList.toggle("is-long", name.length > 22);
-        gold.hidden = !name;
-      }
-      // No name and no logo: nothing to show, so no empty tile.
-      if (col) { col.hidden = !(name || url); }
+      return (url && url === clientLogoFailed) ? "" : url;
+    }
+    function billedToHtml() {
+      var url = clientLogoUrl();
+      return '<div class="k">' + escHtml(T("billedTo")) + '</div>' +
+        (url ? '<img class="who-logo" id="clientLogo" alt="" src="' + escHtml(url) + '">' : "") +
+        '<div class="who">' + escHtml(inv.client_name || "") + '</div>';
+    }
+    // Called right after the box is drawn, before the image can report back.
+    function watchClientLogo() {
+      var logo = byId("clientLogo"), url = clientLogoUrl();
+      if (!logo) { return; }
+      logo.onerror = function() {
+        clientLogoFailed = url;
+        logo.hidden = true;
+      };
     }
 
     // Ways to pay: Zelle (the handle as text and the QR as a picture, never a

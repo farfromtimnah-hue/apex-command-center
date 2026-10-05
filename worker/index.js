@@ -14229,6 +14229,10 @@ function clientRequestAllowed(path, method, clientId) {
                 // settings and their audit trail. Owner only -- the seller
                 // list below deliberately never names these.
                 if (gmRest === "doc-settings" || gmRest === "doc-settings/history") { return true; }
+                // Online booking setup (owner only: handler refuses sellers).
+                if (gmRest === "booking-settings") { return true; }
+                // A lead's booking block (the handler scopes a seller to their own leads).
+                if (/^leads\/[A-Za-z0-9-]+\/booking$/.test(gmRest)) { return true; }
                 // Card payments: the owner's own Stripe connection status
                 // (owner only; the seller list never names it).
                 if (gmRest === "stripe/status") { return true; }
@@ -14297,6 +14301,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^jobs\/[A-Za-z0-9-]+\/make-lead$/.test(gmRest)) { return true; }
                 // Part I: send a contact card; a salesperson photo upload.
                 if (/^leads\/[A-Za-z0-9-]+\/contact-card$/.test(gmRest)) { return true; }
+                // Online booking: send a lead the booking link, mark it sent.
+                if (/^leads\/[A-Za-z0-9-]+\/booking-(link|sent)$/.test(gmRest)) { return true; }
                 if (/^seller-profiles\/[^\/]+\/photo$/.test(gmRest)) { return true; }
                 if (/^leads\/[A-Za-z0-9-]+\/files$/.test(gmRest)) { return true; }
                 if (/^(leads|jobs)\/[A-Za-z0-9-]+\/notes$/.test(gmRest)) { return true; }
@@ -14354,6 +14360,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^seller-profiles\/[^\/]+$/.test(gmRest)) { return true; }
                 // Document settings for the client's own estimates/invoices.
                 if (gmRest === "doc-settings") { return true; }
+                if (gmRest === "booking-settings") { return true; }
                 // Hero build: pick a gallery hero, or frame an uploaded one
                 // (owner only; the handler refuses sellers too).
                 if (gmRest === "doc-hero-choice") { return true; }
@@ -14480,6 +14487,9 @@ function sellerRequestAllowed(path, method, clientId) {
         // it is history on rows they can already read. Read-only; there is
         // deliberately no POST counterpart anywhere.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/events$/.test(rest)) { return true; }
+        // The lead's online-booking block. handleGetGmLeadBooking re-checks the
+        // lead is this seller's (bkPortalLead) before returning anything.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/booking$/.test(rest)) { return true; }
         // Notes and attachments on a lead. A salesperson owns their lead end
         // to end -- they carry the customer relationship and are paid
         // commission on it -- so they read and write the whole record, not a
@@ -14534,6 +14544,9 @@ function sellerRequestAllowed(path, method, clientId) {
         // Part I: a seller sends a contact card for a lead they may see (the
         // handler's lead guard), and uploads their OWN photo (handler checks).
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contact-card$/.test(rest)) { return true; }
+        // Online booking: send the link for a lead they can already see
+        // (bkPortalLead re-checks in the handler). Settings stay owner-only.
+        if (/^gm\/leads\/[A-Za-z0-9-]+\/booking-(link|sent)$/.test(rest)) { return true; }
         if (/^gm\/seller-profiles\/[^\/]+\/photo$/.test(rest)) { return true; }
         // Invoices on their own projects: create from the accepted estimate,
         // send, report a payment (pending until the owner verifies), receipt
@@ -39048,6 +39061,988 @@ async function handleAutoApplySetting(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// "Agendamento online" -- a client business's public booking page.
+//
+// A lead (or anyone with the business's general link) picks a day and time and
+// answers a few questions. The visit lands on the business's OWN calendar
+// (gm_events) and on the lead (data_estimate). It is OFF for every business
+// until its owner switches it on, and it never touches Apex staff's own
+// scheduling link below (scheduling_* tables, Google Calendar).
+//
+// The slot function is NEW (bkComputeSlots) instead of schedComputeSlots: that
+// one is built around Apex staff -- Eastern time only, a weekly window, travel
+// and buffer minutes, Google busy blocks. This one works in the BUSINESS's own
+// time zone and offers 30-minute starts. The small pure helpers (schedMinutes,
+// schedHHMM, schedAddDays, schedDayOfWeek, fmtTime12, tzOffsetMs,
+// tzShortLabel) are reused as they are.
+//
+// Core functions return { status, data } or { status, pt, en, extra } so the
+// tests can run them against an in-memory database; the bkHandle* wrappers
+// turn that into a Response.
+// ---------------------------------------------------------------------------
+
+var BK_STEP_MIN = 30;
+var BK_ACTOR = "customer (booking link)";
+var BK_QTYPES = ["text", "number", "yesno", "choice"];
+
+var BK_PRESETS = {
+    cleaning: [
+        { key: "bedrooms", label_pt: "Quartos", label_en: "Bedrooms", type: "number" },
+        { key: "bathrooms", label_pt: "Banheiros", label_en: "Bathrooms", type: "number" },
+        { key: "sqft", label_pt: "Metragem aproximada (sq ft)", label_en: "Approximate square feet", type: "number" },
+        { key: "clean_type", label_pt: "Tipo de limpeza", label_en: "Type of cleaning", type: "choice", options: [
+            { key: "standard", pt: "Padrão", en: "Standard" },
+            { key: "deep", pt: "Limpeza pesada", en: "Deep clean" },
+            { key: "move", pt: "Mudança (entrada ou saída)", en: "Move in or move out" } ] },
+        { key: "frequency", label_pt: "Com que frequência", label_en: "How often", type: "choice", options: [
+            { key: "once", pt: "Uma vez", en: "One time" },
+            { key: "weekly", pt: "Toda semana", en: "Weekly" },
+            { key: "biweekly", pt: "A cada duas semanas", en: "Every two weeks" },
+            { key: "monthly", pt: "Todo mês", en: "Monthly" } ] },
+        { key: "pets", label_pt: "Animais em casa", label_en: "Pets at home", type: "yesno" }
+    ],
+    general: [
+        { key: "need_done", label_pt: "O que você precisa?", label_en: "What do you need done?", type: "text", maps_to: "servico_desc" }
+    ]
+};
+
+function bkPresetItems(name) {
+    var src = BK_PRESETS[name] || [];
+    return src.map(function(q) {
+        var o = { key: q.key, label_pt: q.label_pt, label_en: q.label_en, type: q.type, enabled: true };
+        if (q.options) { o.options = q.options.slice(); }
+        if (q.maps_to) { o.maps_to = q.maps_to; }
+        return o;
+    });
+}
+
+// ---- settings ------------------------------------------------------------
+
+function bkParseQuestions(json) {
+    var out = { preset: null, items: [] };
+    try {
+        var v = JSON.parse(json || "null");
+        if (v && Array.isArray(v.items)) {
+            out.preset = (v.preset === "cleaning" || v.preset === "general") ? v.preset : null;
+            out.items = v.items;
+        }
+    } catch (e) { /* unset or unreadable: no questions */ }
+    return out;
+}
+
+// What the owner sent, cleaned. Returns { value } or { error }.
+function bkSanitizeQuestions(input) {
+    var preset = (input && (input.preset === "cleaning" || input.preset === "general")) ? input.preset : null;
+    var src = (input && Array.isArray(input.items)) ? input.items : [];
+    if (src.length > 20) { return { error: "At most 20 questions" }; }
+    var seen = {};
+    var items = [];
+    for (var i = 0; i < src.length; i++) {
+        var q = src[i] || {};
+        var key = String(q.key || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 40);
+        var lp = gmStr(q.label_pt, 120);
+        var le = gmStr(q.label_en, 120);
+        if (!lp) { lp = le; }
+        if (!le) { le = lp; }
+        if (!key || !lp) { return { error: "Every question needs a label" }; }
+        if (seen[key]) { return { error: "Two questions share the same key" }; }
+        seen[key] = true;
+        var type = BK_QTYPES.indexOf(q.type) !== -1 ? q.type : "text";
+        var item = { key: key, label_pt: lp, label_en: le, type: type, enabled: q.enabled !== false };
+        if (type === "choice") {
+            var opts = [];
+            var os = Array.isArray(q.options) ? q.options.slice(0, 12) : [];
+            for (var j = 0; j < os.length; j++) {
+                var o = os[j] || {};
+                var okey = String(o.key || "").toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 40);
+                var op = gmStr(o.pt, 80);
+                var oe = gmStr(o.en, 80);
+                if (!op) { op = oe; }
+                if (!oe) { oe = op; }
+                if (okey && op) { opts.push({ key: okey, pt: op, en: oe }); }
+            }
+            if (!opts.length) { return { error: "A choice question needs options" }; }
+            item.options = opts;
+        }
+        // Only the preset "What do you need done?" question feeds the lead's
+        // description; an owner cannot point a custom question at a lead field.
+        if (key === "need_done" && q.maps_to === "servico_desc") { item.maps_to = "servico_desc"; }
+        items.push(item);
+    }
+    return { value: { preset: preset, items: items } };
+}
+
+function bkNormTime(v, dflt) {
+    var t = gmTimeStr(v);
+    return t || dflt;
+}
+
+function bkIntIn(v, lo, hi, dflt) {
+    var n = gmNum(v);
+    if (n === null) { return dflt; }
+    n = Math.round(n);
+    if (n < lo) { return lo; }
+    if (n > hi) { return hi; }
+    return n;
+}
+
+function bkWorkDays(v) {
+    var days = [];
+    String(v == null ? "1,2,3,4,5" : v).split(",").forEach(function(p) {
+        var n = parseInt(p, 10);
+        if (n >= 0 && n <= 6 && days.indexOf(n) === -1) { days.push(n); }
+    });
+    days.sort();
+    return days;
+}
+
+// The row as the code uses it: defaults for a business with no row, numbers as
+// numbers, questions parsed.
+function bkNormSettings(row) {
+    var r = row || {};
+    var q = bkParseQuestions(r.questions_json);
+    return {
+        exists: !!row,
+        enabled: !!(r.enabled),
+        public_slug: r.public_slug || null,
+        work_days: bkWorkDays(r.work_days),
+        day_start: bkNormTime(r.day_start, "09:00"),
+        day_end: bkNormTime(r.day_end, "17:00"),
+        duration_min: bkIntIn(r.duration_min, 15, 480, 60),
+        min_notice_hours: bkIntIn(r.min_notice_hours, 0, 720, 24),
+        daily_cap: bkIntIn(r.daily_cap, 1, 50, 4),
+        window_days: bkIntIn(r.window_days, 1, 90, 14),
+        event_type: r.event_type || null,
+        preset: q.preset,
+        questions: q.items,
+        updated_by: r.updated_by || null,
+        updated_at: r.updated_at || null
+    };
+}
+
+async function bkSettingsRow(env, clientId) {
+    return env.DB.prepare("SELECT * FROM gm_booking_settings WHERE client_id = ?").bind(clientId).first();
+}
+
+// The general link's slug is made once, when the row is first written, and
+// never changes afterwards (a posted link must keep working).
+async function bkEnsureSettingsRow(env, clientId, actor) {
+    var row = await bkSettingsRow(env, clientId);
+    if (row) { return row; }
+    for (var attempt = 0; attempt < 4; attempt++) {
+        try {
+            await env.DB.prepare(
+                "INSERT INTO gm_booking_settings (client_id, public_slug, updated_by, updated_at) VALUES (?, ?, ?, datetime('now'))"
+            ).bind(clientId, gmReferralSlug(), actor || null).run();
+            break;
+        } catch (e) {
+            var again = await bkSettingsRow(env, clientId);
+            if (again) { return again; }
+        }
+    }
+    return bkSettingsRow(env, clientId);
+}
+
+async function bkClientInfo(env, clientId) {
+    var c = await env.DB.prepare("SELECT name, phone, logo_url, language, timezone FROM clients WHERE id = ?").bind(clientId).first();
+    c = c || {};
+    return {
+        name: c.name || "",
+        phone: c.phone || null,
+        logo_url: c.logo_url || null,
+        language: c.language === "pt" ? "pt" : "en",
+        timezone: c.timezone || APEX_TIMEZONE
+    };
+}
+
+// The business's public face: name, phone, logo, hero, colours. Nothing else.
+async function bkBusiness(env, clientId, client, origin) {
+    var ds = await gmDocSettingsRow(env, clientId);
+    var h = gmDocHero(origin, clientId, ds);
+    return {
+        name: ds.legal_name || client.name || "",
+        phone: ds.phone || client.phone || null,
+        logo_url: client.logo_url ? origin + "/api/clients/" + clientId + "/logo-image" + logoVersionParam(client.logo_url) : null,
+        hero_url: h.url,
+        hero: h.hero,
+        brand_primary: ds.brand_primary || null,
+        brand_accent: ds.brand_accent || null
+    };
+}
+
+// ---- time helpers (business time zone) ------------------------------------
+
+function bkTodayIn(tz, nowMs) {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(nowMs));
+}
+
+// A wall-clock date and time in a zone as an instant (epoch ms). Two passes so
+// the answer is right on both sides of a daylight-saving change.
+function bkTzInstant(dateStr, hhmm, tz) {
+    var asUtc = new Date(dateStr + "T" + hhmm + ":00Z").getTime();
+    var inst = asUtc - tzOffsetMs(asUtc, tz);
+    return asUtc - tzOffsetMs(inst, tz);
+}
+
+function bkFmtDate(dateStr) {
+    var p = String(dateStr || "").split("-");
+    return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : String(dateStr || "");
+}
+
+function bkIcsStamp(dateStr, hhmm, tz) {
+    var iso = new Date(bkTzInstant(dateStr, hhmm, tz)).toISOString();
+    return iso.replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+// The open starting times. PURE: nothing here reads the clock or the database.
+//   settings  { work_days:[0..6], day_start, day_end, duration_min, min_notice_hours, daily_cap, window_days }
+//   busy      { blocks:[{start,end}] (epoch ms), perDay:{ "YYYY-MM-DD": booked count } }
+//   nowMs     the moment "now" means
+//   tz        the business's IANA zone
+// Returns [{ date, times:["09:00","09:30",...] }], days with no time left out.
+function bkComputeSlots(settings, busy, nowMs, tz) {
+    var out = [];
+    var blocks = (busy && busy.blocks) || [];
+    var perDay = (busy && busy.perDay) || {};
+    var dur = settings.duration_min;
+    var startMin = schedMinutes(settings.day_start);
+    var endMin = schedMinutes(settings.day_end);
+    var earliest = nowMs + settings.min_notice_hours * 3600000;
+    var today = bkTodayIn(tz, nowMs);
+    for (var d = 0; d <= settings.window_days; d++) {
+        var date = schedAddDays(today, d);
+        if (settings.work_days.indexOf(schedDayOfWeek(date)) === -1) { continue; }
+        if ((perDay[date] || 0) >= settings.daily_cap) { continue; }
+        var times = [];
+        for (var m = startMin; m + dur <= endMin; m += BK_STEP_MIN) {
+            var hhmm = schedHHMM(m);
+            var s = bkTzInstant(date, hhmm, tz);
+            if (s < earliest) { continue; }
+            var e = s + dur * 60000;
+            var clash = false;
+            for (var i = 0; i < blocks.length; i++) {
+                if (s < blocks[i].end && e > blocks[i].start) { clash = true; break; }
+            }
+            if (!clash) { times.push(hhmm); }
+        }
+        if (times.length) { out.push({ date: date, times: times }); }
+    }
+    return out;
+}
+
+// What already occupies the business's calendar between two dates. Timed
+// gm_events rows, other booked requests and other leads' visit dates block;
+// all-day events and job dates do not. `skip` leaves out the booking being
+// changed: { request_id, lead_id }.
+async function bkBusy(env, clientId, tz, fromDate, toDate, durationMin, skip) {
+    skip = skip || {};
+    var blocks = [];
+    var perDay = {};
+    var durMs = durationMin * 60000;
+    var ev = (await env.DB.prepare(
+        "SELECT id, event_date, start_time, end_time FROM gm_events WHERE client_id = ? AND event_date >= ? AND event_date <= ? " +
+        "AND COALESCE(all_day, 0) = 0 AND start_time IS NOT NULL AND start_time <> ''"
+    ).bind(clientId, fromDate, toDate).all()).results || [];
+    ev.forEach(function(r) {
+        if (skip.event_id && r.id === skip.event_id) { return; }
+        var s = bkTzInstant(r.event_date, String(r.start_time).slice(0, 5), tz);
+        var e = r.end_time ? bkTzInstant(r.event_date, String(r.end_time).slice(0, 5), tz) : s + durMs;
+        if (e <= s) { e = s + durMs; }
+        blocks.push({ start: s, end: e });
+    });
+    var rq = (await env.DB.prepare(
+        "SELECT id, slot_date, slot_time, end_time FROM gm_booking_requests WHERE client_id = ? AND status = 'booked' AND slot_date >= ? AND slot_date <= ?"
+    ).bind(clientId, fromDate, toDate).all()).results || [];
+    rq.forEach(function(r) {
+        if (skip.request_id && r.id === skip.request_id) { return; }
+        var s = bkTzInstant(r.slot_date, r.slot_time, tz);
+        var e = r.end_time ? bkTzInstant(r.slot_date, r.end_time, tz) : s + durMs;
+        blocks.push({ start: s, end: e });
+        perDay[r.slot_date] = (perDay[r.slot_date] || 0) + 1;
+    });
+    var ld = (await env.DB.prepare(
+        "SELECT id, data_estimate FROM gm_leads WHERE client_id = ? AND data_estimate >= ? AND data_estimate < ? AND COALESCE(estagio, '') <> 'perdido'"
+    ).bind(clientId, fromDate, schedAddDays(toDate, 1)).all()).results || [];
+    ld.forEach(function(r) {
+        if (skip.lead_id && r.id === skip.lead_id) { return; }
+        var m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(String(r.data_estimate || ""));
+        if (!m) { return; }
+        var s = bkTzInstant(m[1], m[2], tz);
+        blocks.push({ start: s, end: s + durMs });
+    });
+    return { blocks: blocks, perDay: perDay };
+}
+
+async function bkOpenSlots(env, clientId, settings, tz, skip, nowMs) {
+    nowMs = nowMs || Date.now();
+    var today = bkTodayIn(tz, nowMs);
+    var busy = await bkBusy(env, clientId, tz, today, schedAddDays(today, settings.window_days + 1), settings.duration_min, skip);
+    return bkComputeSlots(settings, busy, nowMs, tz);
+}
+
+function bkSlotIsOpen(slots, date, time) {
+    for (var i = 0; i < slots.length; i++) {
+        if (slots[i].date === date && slots[i].times.indexOf(time) !== -1) { return true; }
+    }
+    return false;
+}
+
+// ---- small helpers ---------------------------------------------------------
+
+function bkFirstName(full) {
+    var w = String(full || "").trim().split(/\s+/)[0] || "";
+    if (w && w === w.toUpperCase() && w !== w.toLowerCase()) { w = w.charAt(0) + w.slice(1).toLowerCase(); }
+    return w;
+}
+
+function bkDigits(s) { return String(s || "").replace(/\D/g, ""); }
+
+function bkEmpty(v) { return v === null || v === undefined || String(v).trim() === ""; }
+
+function bkIsUniqueErr(e) { return /UNIQUE|constraint/i.test(String((e && e.message) || e || "")); }
+
+function bkErr(status, pt, en, extra) { return { status: status, pt: pt, en: en, extra: extra || null }; }
+
+var BK_INACTIVE = { pt: "Este link não está mais ativo.", en: "This link is no longer active." };
+
+// A Response from a core result.
+function bkRes(r) {
+    if (r.status === 200) { return jsonOk(r.data); }
+    return jsonErr2(r.pt, r.en, r.status, r.extra);
+}
+
+function bkValueText(q, value) {
+    var v = value == null ? "" : String(value);
+    if (q.type === "yesno") { return { pt: v === "yes" ? "Sim" : (v === "no" ? "Não" : ""), en: v === "yes" ? "Yes" : (v === "no" ? "No" : "") }; }
+    if (q.type === "choice") {
+        var o = (q.options || []).filter(function(x) { return x.key === v; })[0];
+        return o ? { pt: o.pt, en: o.en } : { pt: v, en: v };
+    }
+    return { pt: v, en: v };
+}
+
+// Check the customer's answers against the enabled questions. Returns
+// { answers:[{key,label_pt,label_en,type,value}] } or { error }.
+function bkCleanAnswers(settings, given) {
+    var out = [];
+    var g = (given && typeof given === "object") ? given : {};
+    for (var i = 0; i < settings.questions.length; i++) {
+        var q = settings.questions[i];
+        if (q.enabled === false) { continue; }
+        var raw = g[q.key];
+        if (raw === undefined || raw === null || String(raw).trim() === "") { continue; }
+        var val = String(raw).trim();
+        if (q.type === "number") {
+            var n = Number(val);
+            if (!isFinite(n) || n < 0 || n > 1000000) { return { error: bkErr(400, "Confira o número em: " + q.label_pt, "Please check the number for: " + q.label_en) }; }
+            val = String(n);
+        } else if (q.type === "yesno") {
+            if (val !== "yes" && val !== "no") { return { error: bkErr(400, "Responda sim ou não: " + q.label_pt, "Please answer yes or no: " + q.label_en) }; }
+        } else if (q.type === "choice") {
+            var ok = (q.options || []).some(function(o) { return o.key === val; });
+            if (!ok) { return { error: bkErr(400, "Escolha uma opção: " + q.label_pt, "Please choose an option: " + q.label_en) }; }
+        } else {
+            val = val.slice(0, 500);
+        }
+        out.push({ key: q.key, label_pt: q.label_pt, label_en: q.label_en, type: q.type, value: val });
+    }
+    return { answers: out };
+}
+
+// The answers as business-readable lines (both languages).
+function bkAnswersView(answers, settings) {
+    var qs = {};
+    settings.questions.forEach(function(q) { qs[q.key] = q; });
+    return (answers || []).map(function(a) {
+        var t = bkValueText(qs[a.key] || { type: a.type, options: [] }, a.value);
+        return { label_pt: a.label_pt, label_en: a.label_en, value_pt: t.pt, value_en: t.en };
+    });
+}
+
+// Lines "Question: answer" for the calendar entry, in the business's language.
+function bkAnswersLines(answers, settings, lang) {
+    return bkAnswersView(answers, settings).map(function(a) {
+        return (lang === "pt" ? a.label_pt : a.label_en) + ": " + (lang === "pt" ? a.value_pt : a.value_en);
+    }).join("\n");
+}
+
+function bkParseAnswers(json) {
+    try { var v = JSON.parse(json || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+
+// What the customer typed that differs from what the business has on the lead.
+// Computed when read, so it follows later edits by the business.
+function bkCustomerUpdates(req, lead) {
+    var out = [];
+    if (!req || !lead) { return out; }
+    var pairs = [["name", "customer_name", "cliente"], ["phone", "customer_phone", "telefone"], ["email", "customer_email", "email"],
+        ["address", "customer_address", "address"], ["city", "customer_city", "city"]];
+    pairs.forEach(function(p) {
+        var cv = req[p[1]];
+        var bv = lead[p[2]];
+        if (bkEmpty(cv) || bkEmpty(bv)) { return; }
+        var same = p[0] === "phone" ? bkDigits(cv) === bkDigits(bv)
+            : String(cv).trim().toLowerCase() === String(bv).trim().toLowerCase();
+        if (!same) { out.push({ field: p[0], business_value: String(bv), customer_value: String(cv) }); }
+    });
+    return out;
+}
+
+function bkEventType(settings, config) {
+    var keys = (config.event_types || []).map(function(t) { return t && t.key; }).filter(Boolean);
+    if (settings.event_type && (!keys.length || keys.indexOf(settings.event_type) !== -1)) { return settings.event_type; }
+    if (keys.indexOf("visita_tecnica") !== -1) { return "visita_tecnica"; }
+    return keys[0] || settings.event_type || "visita_tecnica";
+}
+
+async function bkPush(env, clientId, lead, lang, ptTitle, enTitle, who, date, time) {
+    try {
+        var targets = await gmClientPushTargets(env, clientId, { owner: true, seller_name: (lead && lead.vendedor) || null });
+        if (!targets.length) { return; }
+        await pushToUsers(env, targets, {
+            title: lang === "pt" ? ptTitle : enTitle,
+            body: who + " · " + bkFmtDate(date) + " " + fmtTime12(time),
+            url: "/portal.html?tab=gmcalendar",
+            tag: "booking-" + clientId
+        });
+    } catch (e) { console.error("booking push failed", e && e.message); }
+}
+
+// ---- resolving a link ------------------------------------------------------
+
+// kind "lead": key is the 48-hex token. kind "site": key is the business slug.
+// Returns null when nothing matches.
+async function bkResolve(env, kind, key) {
+    var req = null;
+    var settingsRow = null;
+    var clientId = null;
+    if (kind === "lead") {
+        req = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE token = ?").bind(key).first();
+        if (!req) { return null; }
+        clientId = req.client_id;
+        settingsRow = await bkSettingsRow(env, clientId);
+    } else {
+        settingsRow = await env.DB.prepare("SELECT * FROM gm_booking_settings WHERE public_slug = ?").bind(key).first();
+        if (!settingsRow) { return null; }
+        clientId = settingsRow.client_id;
+    }
+    var client = await bkClientInfo(env, clientId);
+    var lead = (req && req.lead_id)
+        ? await env.DB.prepare("SELECT * FROM gm_leads WHERE id = ? AND client_id = ?").bind(req.lead_id, clientId).first()
+        : null;
+    return {
+        kind: kind === "lead" ? "lead" : "general",
+        req: req, lead: lead, clientId: clientId, client: client,
+        settings: bkNormSettings(settingsRow)
+    };
+}
+
+function bkIsActive(ctx) {
+    if (!ctx.settings.enabled) { return false; }
+    if (ctx.kind === "general") { return true; }
+    if (!ctx.req || !ctx.lead) { return false; }
+    return ctx.req.status === "waiting" || ctx.req.status === "booked";
+}
+
+function bkSkipFor(ctx) {
+    return { request_id: ctx.req ? ctx.req.id : null, lead_id: ctx.lead ? ctx.lead.id : null, event_id: ctx.req ? ctx.req.event_id : null };
+}
+
+function bkBookingView(req, tz) {
+    return {
+        slot_date: req.slot_date, slot_time: req.slot_time, end_time: req.end_time,
+        address: req.customer_address || null,
+        start_utc: bkIcsStamp(req.slot_date, req.slot_time, tz),
+        end_utc: bkIcsStamp(req.slot_date, req.end_time || req.slot_time, tz)
+    };
+}
+
+// What the customer's page is given. ONLY what the page shows: the business's
+// public face, the customer's own details, the questions, the open times.
+// Never the lead's notes, value, costs, seller, stage or any other lead.
+async function bkPublicView(env, ctx, origin, nowMs) {
+    nowMs = nowMs || Date.now();
+    var tz = ctx.client.timezone;
+    var business = await bkBusiness(env, ctx.clientId, ctx.client, origin);
+    var base = { active: false, kind: ctx.kind, language: ctx.client.language, business: business };
+    if (!bkIsActive(ctx)) { return base; }
+    var s = ctx.settings;
+    var req = ctx.req;
+    var lead = ctx.lead;
+    var booked = !!(req && req.status === "booked");
+    var customer = { name: "", first_name: "", phone: "", email: "", address: "", city: "" };
+    var service = "";
+    if (booked) {
+        customer = { name: req.customer_name || "", first_name: bkFirstName(req.customer_name), phone: req.customer_phone || "",
+            email: req.customer_email || "", address: req.customer_address || "", city: req.customer_city || "" };
+    } else if (lead) {
+        customer = { name: lead.cliente || "", first_name: bkFirstName(lead.cliente), phone: lead.telefone || "",
+            email: lead.email || "", address: lead.address || "", city: lead.city || "" };
+    }
+    if (lead) { service = lead.servico || ""; }
+    var prior = {};
+    if (booked) { bkParseAnswers(req.answers_json).forEach(function(a) { prior[a.key] = a.value; }); }
+    var questions = [];
+    s.questions.forEach(function(q) {
+        if (q.enabled === false) { return; }
+        var value = "";
+        if (booked && prior[q.key] !== undefined) { value = prior[q.key]; }
+        else if (!booked && q.maps_to === "servico_desc" && lead && lead.servico_desc) { value = lead.servico_desc; }
+        var o = { key: q.key, label_pt: q.label_pt, label_en: q.label_en, type: q.type, value: value };
+        if (q.options) { o.options = q.options; }
+        questions.push(o);
+    });
+    var slots = await bkOpenSlots(env, ctx.clientId, s, tz, bkSkipFor(ctx), nowMs);
+    return {
+        active: true,
+        kind: ctx.kind,
+        language: ctx.client.language,
+        status: booked ? "booked" : "waiting",
+        business: business,
+        tz: tz,
+        tz_label: tzShortLabel(nowMs, tz),
+        duration_min: s.duration_min,
+        customer: customer,
+        service: service,
+        questions: questions,
+        booking: booked ? bkBookingView(req, tz) : null,
+        slots: slots
+    };
+}
+
+// ---- confirm, change, cancel -------------------------------------------------
+
+// The lead's update statements for a booked slot. `fills` are only used for
+// fields that are empty on the lead.
+async function bkApplyToLead(env, ctx, lead, req, date, time, fills) {
+    var sets = [];
+    var binds = [];
+    var events = [];
+    fills.forEach(function(f) {
+        if (bkEmpty(lead[f[0]]) && !bkEmpty(f[1])) {
+            sets.push(f[0] + " = ?"); binds.push(f[1]);
+            events.push({ action: "updated", field: f[0], old_value: null, new_value: f[1] });
+        }
+    });
+    var est = date + "T" + time;
+    if (lead.data_estimate !== est) {
+        sets.push("data_estimate = ?"); binds.push(est);
+        events.push({ action: "updated", field: "data_estimate", old_value: lead.data_estimate, new_value: est });
+    }
+    if (lead.estagio === "novo_lead" || lead.estagio === "contato_feito") {
+        sets.push("estagio = ?"); binds.push("visita_agendada");
+        sets.push("stage_changed_at = datetime('now')");
+        events.unshift({ action: "stage_changed", field: "estagio", old_value: lead.estagio, new_value: "visita_agendada" });
+    }
+    sets.push("updated_by = ?"); binds.push(BK_ACTOR);
+    sets.push("updated_at = datetime('now')");
+    binds.push(lead.id, ctx.clientId);
+    await env.DB.prepare("UPDATE gm_leads SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?").bind(...binds).run();
+    await gmLogLeadEvents(env, ctx.clientId, lead.id, BK_ACTOR, events);
+}
+
+async function bkCreateEvent(env, ctx, lead, req, date, time, endTime, answersText) {
+    var config = await gmGetConfig(env, ctx.clientId);
+    var eventId = crypto.randomUUID();
+    await env.DB.prepare(
+        "INSERT INTO gm_events (id, client_id, event_type, title, title_overridden, event_date, start_time, end_time, " +
+        "all_day, location, description, lead_id, created_by, updated_by) VALUES (?, ?, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+    ).bind(eventId, ctx.clientId, bkEventType(ctx.settings, config), req.customer_name, date, time, endTime,
+        req.customer_address || null, answersText || null, lead.id, BK_ACTOR, BK_ACTOR).run();
+    return eventId;
+}
+
+function bkQuietFake(date, time, endTime, address) {
+    return { status: 200, data: { booked: true, booking: { slot_date: date, slot_time: time, end_time: endTime, address: address || null } } };
+}
+
+// The customer taps Confirm. All or nothing for the customer: the time is
+// claimed through the unique index first, and if anything after it fails the
+// claim is released again.
+async function bkConfirm(env, ctx, body, nowMs) {
+    body = body || {};
+    nowMs = nowMs || Date.now();
+    if (!bkIsActive(ctx)) { return bkErr(410, BK_INACTIVE.pt, BK_INACTIVE.en, { inactive: true }); }
+    if (ctx.kind === "lead" && ctx.req.status !== "waiting") { return bkErr(409, "Esta visita já está agendada.", "This visit is already booked."); }
+    var s = ctx.settings;
+    var tz = ctx.client.timezone;
+    var c = (body.customer && typeof body.customer === "object") ? body.customer : {};
+    var date = gmDateStr(body.slot_date);
+    var time = gmTimeStr(body.slot_time);
+
+    // Spam defences, general link only: a hidden field real people never fill,
+    // and a form filled faster than a person can. Refused with a normal-looking
+    // success so a bot does not learn anything.
+    if (ctx.kind === "general") {
+        var elapsed = gmNum(body.elapsed_ms);
+        if (gmStr(body.website, 200) !== null || (elapsed !== null && elapsed >= 0 && elapsed < 3000)) {
+            return bkQuietFake(date, time, date && time ? schedHHMM(schedMinutes(time) + s.duration_min) : null, gmStr(c.address, 300));
+        }
+    }
+
+    var lead = ctx.lead;
+    var name = gmStr(c.name, 120) || (lead && lead.cliente) || null;
+    var phone = gmStr(c.phone, 60) || (lead && lead.telefone) || null;
+    var email = gmStr(c.email, 200) || (lead && lead.email) || null;
+    var address = gmStr(c.address, 300) || (lead && lead.address) || null;
+    var city = gmStr(c.city, 120) || (lead && lead.city) || null;
+    if (!name) { return bkErr(400, "Informe seu nome.", "Please enter your name."); }
+    if (ctx.kind === "general" && !phone) { return bkErr(400, "Informe seu telefone.", "Please enter your phone number."); }
+    if (phone && !/^[0-9+()\-.\s]{7,60}$/.test(phone)) { return bkErr(400, "Telefone inválido.", "That phone number does not look right."); }
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { return bkErr(400, "E-mail inválido.", "That email does not look right."); }
+    if (!address) { return bkErr(400, "Informe o endereço da visita.", "Please enter the address for the visit."); }
+    if (!date || !time) { return bkErr(400, "Escolha um dia e um horário.", "Please choose a day and a time."); }
+    var cleaned = bkCleanAnswers(s, body.answers);
+    if (cleaned.error) { return cleaned.error; }
+
+    var open = await bkOpenSlots(env, ctx.clientId, s, tz, bkSkipFor(ctx), nowMs);
+    var takenResult = function() { return bkErr(409, "Esse horário acabou de ser ocupado. Escolha outro.", "Sorry, that time was just taken. Please pick another.",
+        { error: "taken", taken: true, slots: null }); };
+    if (!bkSlotIsOpen(open, date, time)) {
+        var fresh = takenResult();
+        fresh.extra.slots = open;
+        return fresh;
+    }
+    var endTime = schedHHMM(schedMinutes(time) + s.duration_min);
+    var answersJson = JSON.stringify(cleaned.answers);
+
+    // Claim the time. The unique index decides a lost race.
+    var reqId = ctx.req ? ctx.req.id : crypto.randomUUID();
+    try {
+        if (ctx.kind === "lead") {
+            var upd = await env.DB.prepare(
+                "UPDATE gm_booking_requests SET status = 'booked', slot_date = ?, slot_time = ?, end_time = ?, answers_json = ?, " +
+                "customer_name = ?, customer_phone = ?, customer_email = ?, customer_address = ?, customer_city = ?, booked_at = datetime('now') " +
+                "WHERE id = ? AND status = 'waiting'"
+            ).bind(date, time, endTime, answersJson, name, phone, email, address, city, reqId).run();
+            if (!upd.meta || !upd.meta.changes) { return bkErr(409, "Esta visita já está agendada.", "This visit is already booked."); }
+        } else {
+            await env.DB.prepare(
+                "INSERT INTO gm_booking_requests (id, token, client_id, lead_id, kind, status, answers_json, slot_date, slot_time, end_time, " +
+                "customer_name, customer_phone, customer_email, customer_address, customer_city, created_by, booked_at) " +
+                "VALUES (?, ?, ?, NULL, 'general', 'booked', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+            ).bind(reqId, gmEstNewToken(), ctx.clientId, answersJson, date, time, endTime, name, phone, email, address, city, BK_ACTOR).run();
+        }
+    } catch (e) {
+        if (bkIsUniqueErr(e)) {
+            var again = await bkOpenSlots(env, ctx.clientId, s, tz, bkSkipFor(ctx), nowMs);
+            var lost = takenResult();
+            lost.extra.slots = again;
+            return lost;
+        }
+        throw e;
+    }
+
+    try {
+        var lang = ctx.client.language;
+        if (ctx.kind === "general") {
+            var config = await gmGetConfig(env, ctx.clientId);
+            var now = gmNyNowParts();
+            var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
+            if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+            var newLeadId = await gmInsertLead(env, ctx.clientId, {
+                cliente: name, telefone: phone, email: email, address: address, city: city,
+                origem: "Site", estagio: "novo_lead",
+                data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
+                mes_lead: mesLead
+            }, BK_ACTOR);
+            await env.DB.prepare("UPDATE gm_booking_requests SET lead_id = ? WHERE id = ?").bind(newLeadId, reqId).run();
+            lead = await env.DB.prepare("SELECT * FROM gm_leads WHERE id = ? AND client_id = ?").bind(newLeadId, ctx.clientId).first();
+        }
+        var reqRow = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(reqId).first();
+        var need = null;
+        s.questions.forEach(function(q) {
+            if (q.enabled !== false && q.maps_to === "servico_desc") {
+                cleaned.answers.forEach(function(a) { if (a.key === q.key) { need = a.value; } });
+            }
+        });
+        await bkApplyToLead(env, ctx, lead, reqRow, date, time, [["telefone", phone], ["email", email], ["address", address], ["city", city], ["servico_desc", need]]);
+        var eventId = await bkCreateEvent(env, ctx, lead, reqRow, date, time, endTime, bkAnswersLines(cleaned.answers, s, lang));
+        await env.DB.prepare("UPDATE gm_booking_requests SET event_id = ? WHERE id = ?").bind(eventId, reqId).run();
+        await bkPush(env, ctx.clientId, lead, lang, "Visita agendada", "Visit booked", name, date, time);
+        var done = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(reqId).first();
+        return { status: 200, data: { booked: true, token: done.token, booking: bkBookingView(done, tz) } };
+    } catch (e2) {
+        // Nothing half-done for the customer: release the time.
+        try {
+            if (ctx.kind === "lead") {
+                await env.DB.prepare("UPDATE gm_booking_requests SET status = 'waiting', slot_date = NULL, slot_time = NULL, end_time = NULL, booked_at = NULL WHERE id = ?").bind(reqId).run();
+            } else {
+                await env.DB.prepare("UPDATE gm_booking_requests SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").bind(reqId).run();
+            }
+        } catch (e3) { /* the original error is the one to report */ }
+        console.error("booking confirm failed", e2 && e2.message);
+        return bkErr(500, "Não foi possível agendar agora. Tente de novo.", "We could not book that just now. Please try again.");
+    }
+}
+
+// The customer picks a different time. The old time is released by the same
+// statement that takes the new one.
+async function bkChange(env, ctx, body, nowMs) {
+    body = body || {};
+    nowMs = nowMs || Date.now();
+    if (!bkIsActive(ctx)) { return bkErr(410, BK_INACTIVE.pt, BK_INACTIVE.en, { inactive: true }); }
+    var req = ctx.req;
+    if (!req || req.status !== "booked") { return bkErr(409, "Esta visita ainda não foi agendada.", "This visit is not booked yet."); }
+    var s = ctx.settings;
+    var tz = ctx.client.timezone;
+    var date = gmDateStr(body.slot_date);
+    var time = gmTimeStr(body.slot_time);
+    if (!date || !time) { return bkErr(400, "Escolha um dia e um horário.", "Please choose a day and a time."); }
+    var open = await bkOpenSlots(env, ctx.clientId, s, tz, bkSkipFor(ctx), nowMs);
+    if (!bkSlotIsOpen(open, date, time)) {
+        return bkErr(409, "Esse horário acabou de ser ocupado. Escolha outro.", "Sorry, that time was just taken. Please pick another.", { error: "taken", taken: true, slots: open });
+    }
+    var endTime = schedHHMM(schedMinutes(time) + s.duration_min);
+    try {
+        await env.DB.prepare("UPDATE gm_booking_requests SET slot_date = ?, slot_time = ?, end_time = ? WHERE id = ? AND status = 'booked'")
+            .bind(date, time, endTime, req.id).run();
+    } catch (e) {
+        if (bkIsUniqueErr(e)) {
+            var again = await bkOpenSlots(env, ctx.clientId, s, tz, bkSkipFor(ctx), nowMs);
+            return bkErr(409, "Esse horário acabou de ser ocupado. Escolha outro.", "Sorry, that time was just taken. Please pick another.", { error: "taken", taken: true, slots: again });
+        }
+        throw e;
+    }
+    var lead = ctx.lead;
+    try {
+        if (req.event_id) {
+            await env.DB.prepare("UPDATE gm_events SET event_date = ?, start_time = ?, end_time = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+                .bind(date, time, endTime, BK_ACTOR, req.event_id, ctx.clientId).run();
+        }
+        var est = date + "T" + time;
+        await env.DB.prepare("UPDATE gm_leads SET data_estimate = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+            .bind(est, BK_ACTOR, lead.id, ctx.clientId).run();
+        await gmLogLeadEvents(env, ctx.clientId, lead.id, BK_ACTOR, [{ action: "updated", field: "data_estimate", old_value: lead.data_estimate, new_value: est }]);
+        await bkPush(env, ctx.clientId, lead, ctx.client.language, "Horário da visita alterado", "Visit time changed", req.customer_name || lead.cliente, date, time);
+    } catch (e2) { console.error("booking change follow-up failed", e2 && e2.message); }
+    var done = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(req.id).first();
+    return { status: 200, data: { booked: true, booking: bkBookingView(done, tz) } };
+}
+
+// The customer cancels. The calendar entry is deleted, the lead's visit date is
+// cleared only if it still is this time, and the stage stays where it is.
+async function bkCancel(env, ctx) {
+    if (!bkIsActive(ctx)) { return bkErr(410, BK_INACTIVE.pt, BK_INACTIVE.en, { inactive: true }); }
+    var req = ctx.req;
+    if (!req || (req.status !== "booked" && req.status !== "waiting")) { return bkErr(409, "Nada para cancelar.", "Nothing to cancel."); }
+    var wasBooked = req.status === "booked";
+    await env.DB.prepare("UPDATE gm_booking_requests SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?").bind(req.id).run();
+    if (wasBooked) {
+        try {
+            if (req.event_id) { await env.DB.prepare("DELETE FROM gm_events WHERE id = ? AND client_id = ?").bind(req.event_id, ctx.clientId).run(); }
+            var lead = ctx.lead;
+            var est = req.slot_date + "T" + req.slot_time;
+            if (lead && lead.data_estimate === est) {
+                await env.DB.prepare("UPDATE gm_leads SET data_estimate = NULL, updated_by = ?, updated_at = datetime('now') WHERE id = ? AND client_id = ?")
+                    .bind(BK_ACTOR, lead.id, ctx.clientId).run();
+                await gmLogLeadEvents(env, ctx.clientId, lead.id, BK_ACTOR, [{ action: "updated", field: "data_estimate", old_value: est, new_value: null }]);
+            }
+            await bkPush(env, ctx.clientId, lead, ctx.client.language, "Visita cancelada", "Visit cancelled", req.customer_name || (lead && lead.cliente) || "", req.slot_date, req.slot_time);
+        } catch (e) { console.error("booking cancel follow-up failed", e && e.message); }
+    }
+    return { status: 200, data: { cancelled: true } };
+}
+
+// ---- public routes -------------------------------------------------------------
+// /api/public/booking/lead/:token            GET   the page's data
+// /api/public/booking/lead/:token/book       POST  confirm
+// /api/public/booking/lead/:token/change     POST  pick a different time
+// /api/public/booking/lead/:token/cancel     POST  cancel
+// /api/public/booking/site/:slug             GET   the general link's page data
+// /api/public/booking/site/:slug/book        POST  confirm (creates the lead)
+// The token or slug is the only credential. Rate limited here; no-store and
+// noindex come from PUBLIC_DOC_PATH_RE.
+
+async function handlePublicBooking(kind, key, action, request, env) {
+    try {
+        var method = request.method;
+        if (method === "GET" && !action) {
+            if (publicReadRateLimited(request, "booking", key, 40, 30)) { return jsonErr(PUBLIC_LIMIT_MESSAGE, 429); }
+            var ctx = await bkResolve(env, kind, key);
+            if (!ctx) { return jsonErr("Not found", 404); }
+            return jsonOk(await bkPublicView(env, ctx, new URL(request.url).origin));
+        }
+        if (method !== "POST" || !action) { return jsonErr("Not found", 404); }
+        var limited = await publicWriteRateLimit(env, request, "booking", key, 30, 20);
+        if (limited) { return limited; }
+        var ctx2 = await bkResolve(env, kind, key);
+        if (!ctx2) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (action === "book") { return bkRes(await bkConfirm(env, ctx2, body)); }
+        if (kind === "lead" && action === "change") { return bkRes(await bkChange(env, ctx2, body)); }
+        if (kind === "lead" && action === "cancel") { return bkRes(await bkCancel(env, ctx2)); }
+        return jsonErr("Not found", 404);
+    } catch (e) {
+        return jsonErr("Error loading booking", 500);
+    }
+}
+
+// ---- portal routes ------------------------------------------------------------------
+
+// GET /api/clients/:id/gm/booking-settings  (owner only)
+async function handleGetGmBookingSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var row = await bkSettingsRow(env, id);
+        var s = bkNormSettings(row);
+        var config = await gmGetConfig(env, id);
+        var out = {
+            settings: s,
+            presets: { cleaning: bkPresetItems("cleaning"), general: bkPresetItems("general") },
+            event_types: config.event_types,
+            link: s.public_slug ? DEFAULT_ORIGIN + "/book.html?b=" + s.public_slug : null
+        };
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error loading booking settings: " + e.message, 500);
+    }
+}
+
+// PUT /api/clients/:id/gm/booking-settings  (owner only)
+async function handlePutGmBookingSettings(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = gmDocSettingsOwnerOnly(user, id);
+        if (block) { return block; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var cur = bkNormSettings(await bkSettingsRow(env, id));
+        function has(k) { return Object.prototype.hasOwnProperty.call(body, k); }
+        var next = {
+            enabled: has("enabled") ? (body.enabled ? 1 : 0) : (cur.enabled ? 1 : 0),
+            work_days: has("work_days") ? (Array.isArray(body.work_days) ? body.work_days.join(",") : String(body.work_days)) : cur.work_days.join(","),
+            day_start: has("day_start") ? gmTimeStr(body.day_start) : cur.day_start,
+            day_end: has("day_end") ? gmTimeStr(body.day_end) : cur.day_end,
+            duration_min: has("duration_min") ? gmNum(body.duration_min) : cur.duration_min,
+            min_notice_hours: has("min_notice_hours") ? gmNum(body.min_notice_hours) : cur.min_notice_hours,
+            daily_cap: has("daily_cap") ? gmNum(body.daily_cap) : cur.daily_cap,
+            window_days: has("window_days") ? gmNum(body.window_days) : cur.window_days,
+            event_type: has("event_type") ? gmStr(body.event_type, 80) : cur.event_type
+        };
+        if (!next.day_start || !next.day_end) { return jsonErr2("Horário inválido.", "Invalid time", 400); }
+        if (schedMinutes(next.day_end) <= schedMinutes(next.day_start)) { return jsonErr2("O fim precisa ser depois do início.", "The end time must be after the start time", 400); }
+        var days = bkWorkDays(next.work_days);
+        if (!days.length) { return jsonErr2("Escolha pelo menos um dia de trabalho.", "Choose at least one working day", 400); }
+        next.work_days = days.join(",");
+        next.duration_min = bkIntIn(next.duration_min, 15, 480, 60);
+        next.min_notice_hours = bkIntIn(next.min_notice_hours, 0, 720, 24);
+        next.daily_cap = bkIntIn(next.daily_cap, 1, 50, 4);
+        next.window_days = bkIntIn(next.window_days, 1, 90, 14);
+        var qjson;
+        if (has("questions")) {
+            var qs = bkSanitizeQuestions(body.questions);
+            if (qs.error) { return jsonErr2("Confira as perguntas.", qs.error, 400); }
+            qjson = JSON.stringify(qs.value);
+        } else {
+            qjson = JSON.stringify({ preset: cur.preset, items: cur.questions });
+        }
+        await bkEnsureSettingsRow(env, id, actorName(user));
+        await env.DB.prepare(
+            "UPDATE gm_booking_settings SET enabled = ?, work_days = ?, day_start = ?, day_end = ?, duration_min = ?, min_notice_hours = ?, " +
+            "daily_cap = ?, window_days = ?, event_type = ?, questions_json = ?, updated_by = ?, updated_at = datetime('now') WHERE client_id = ?"
+        ).bind(next.enabled, next.work_days, next.day_start, next.day_end, next.duration_min, next.min_notice_hours,
+            next.daily_cap, next.window_days, next.event_type, qjson, actorName(user), id).run();
+        var saved = bkNormSettings(await bkSettingsRow(env, id));
+        return jsonOk({ saved: true, settings: saved, link: saved.public_slug ? DEFAULT_ORIGIN + "/book.html?b=" + saved.public_slug : null });
+    } catch (e) {
+        return jsonErr("Error saving booking settings: " + e.message, 500);
+    }
+}
+
+// The lead for a portal booking route, with the seller guard. Returns
+// { lead } or { res } (a Response to send back).
+async function bkPortalLead(env, user, clientId, leadId) {
+    var lead = await gmOwnedRow(env, "gm_leads", leadId, clientId);
+    if (!lead) { return { res: jsonErr("Lead not found", 404) }; }
+    var seller = sessionSellerName(user);
+    if (seller && !sellerCanActOnLead(lead, seller)) { return { res: jsonErr("Forbidden", 403) }; }
+    return { lead: lead };
+}
+
+function bkRequestView(req, lead, settings) {
+    if (!req) { return null; }
+    return {
+        id: req.id, status: req.status, kind: req.kind,
+        sent_at: req.sent_at || null, created_at: req.created_at || null,
+        slot_date: req.slot_date || null, slot_time: req.slot_time || null, end_time: req.end_time || null,
+        booked_at: req.booked_at || null, cancelled_at: req.cancelled_at || null,
+        answers: bkAnswersView(bkParseAnswers(req.answers_json), settings),
+        customer_updates: bkCustomerUpdates(req, lead),
+        url: DEFAULT_ORIGIN + "/book.html?t=" + req.token
+    };
+}
+
+// GET /api/clients/:id/gm/leads/:leadId/booking  (owner, or the lead's seller)
+// Tells the lead sheet whether to show the button and what the block says.
+async function handleGetGmLeadBooking(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await bkPortalLead(env, user, id, leadId);
+        if (g.res) { return g.res; }
+        var s = bkNormSettings(await bkSettingsRow(env, id));
+        var client = await bkClientInfo(env, id);
+        var req = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE client_id = ? AND lead_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").bind(id, leadId).first();
+        return jsonOk({ enabled: s.enabled, language: client.language, request: bkRequestView(req, g.lead, s) });
+    } catch (e) {
+        return jsonErr("Error loading booking: " + e.message, 500);
+    }
+}
+
+// POST /api/clients/:id/gm/leads/:leadId/booking-link  (owner, or the lead's seller)
+// Creates the request for this lead, or reuses the one still open.
+async function handlePostGmLeadBookingLink(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await bkPortalLead(env, user, id, leadId);
+        if (g.res) { return g.res; }
+        var s = bkNormSettings(await bkSettingsRow(env, id));
+        if (!s.enabled) { return jsonErr2("O agendamento online está desligado.", "Online booking is switched off.", 409); }
+        var req = await env.DB.prepare(
+            "SELECT * FROM gm_booking_requests WHERE client_id = ? AND lead_id = ? AND status IN ('waiting','booked') ORDER BY created_at DESC, rowid DESC LIMIT 1"
+        ).bind(id, leadId).first();
+        if (!req) {
+            var rid = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO gm_booking_requests (id, token, client_id, lead_id, kind, status, created_by) VALUES (?, ?, ?, ?, 'lead', 'waiting', ?)"
+            ).bind(rid, gmEstNewToken(), id, leadId, actorName(user)).run();
+            req = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE id = ?").bind(rid).first();
+        }
+        var client = await bkClientInfo(env, id);
+        return jsonOk({
+            request: bkRequestView(req, g.lead, s), url: DEFAULT_ORIGIN + "/book.html?t=" + req.token, language: client.language,
+            lead: { cliente: g.lead.cliente, telefone: g.lead.telefone || null }
+        });
+    } catch (e) {
+        return jsonErr("Error creating booking link: " + e.message, 500);
+    }
+}
+
+// POST /api/clients/:id/gm/leads/:leadId/booking-sent  (owner, or the lead's seller)
+async function handlePostGmLeadBookingSent(id, leadId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var g = await bkPortalLead(env, user, id, leadId);
+        if (g.res) { return g.res; }
+        await env.DB.prepare(
+            "UPDATE gm_booking_requests SET sent_at = datetime('now') WHERE client_id = ? AND lead_id = ? AND status = 'waiting'"
+        ).bind(id, leadId).run();
+        return jsonOk({ marked: true });
+    } catch (e) {
+        return jsonErr("Error marking booking link sent: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // "Enviar horarios" — client-driven scheduling links.
 //
 // Alice spends ~2 hours every Friday negotiating meeting times with consulting
@@ -42106,7 +43101,7 @@ async function docLinkServe(request, env) {
 //   X-Robots-Tag: noindex, nofollow     on everything under those prefixes
 //   Cache-Control: private, no-store    on every answer that is not an image
 // Images (signatures, photos) keep whatever caching their handler chose.
-var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf)|club\/pay)\//;
+var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf|booking)|club\/pay)\//;
 function publicDocHeaders(response, request) {
     try {
         if (!PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return response; }
@@ -42315,6 +43310,14 @@ async function handleFetch(request, env, ctx) {
         if (path.indexOf("/api/public/apex-invoices/") === 0 || path.indexOf("/api/public/pdf/apex-invoice/") === 0) {
             return apxInvNoIndex(jsonErr("Not found", 404));
         }
+
+        // PUBLIC online booking page of a client business (book.html). The 48-hex
+        // token of a lead link, or the business's slug, is the only credential.
+        var pubBook = path.match(/^\/api\/public\/booking\/(lead|site)\/([A-Za-z0-9]{10,64})(?:\/(book|change|cancel))?$/);
+        if (pubBook && ((pubBook[1] === "lead" && /^[a-f0-9]{48}$/.test(pubBook[2])) || (pubBook[1] === "site" && gmReferralSlugValid(pubBook[2])))) {
+            return handlePublicBooking(pubBook[1], pubBook[2], pubBook[3] || null, request, env);
+        }
+        if (path.indexOf("/api/public/booking/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC client booking links (no auth by design: the token in the URL
         // IS the credential). Declared here, with the other public routes and
@@ -43251,6 +44254,20 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 9 && gmCol === "leads" && segs[6] === "files" &&
                     segs[8] === "file" && method === "GET") {
                     return handleGetGmLeadFileContent(cid, segs[5], segs[7], request, env);
+                }
+                // Online booking (bk* block above "Enviar horarios").
+                if (segs.length === 5 && gmCol === "booking-settings") {
+                    if (method === "GET") { return handleGetGmBookingSettings(cid, request, env); }
+                    if (method === "PUT") { return handlePutGmBookingSettings(cid, request, env); }
+                }
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "booking" && method === "GET") {
+                    return handleGetGmLeadBooking(cid, segs[5], request, env);
+                }
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "booking-link" && method === "POST") {
+                    return handlePostGmLeadBookingLink(cid, segs[5], request, env);
+                }
+                if (segs.length === 7 && gmCol === "leads" && segs[6] === "booking-sent" && method === "POST") {
+                    return handlePostGmLeadBookingSent(cid, segs[5], request, env);
                 }
                 // /gm/events — the client's own company calendar. The GET
                 // also carries derived gm_jobs dates and Apex Club

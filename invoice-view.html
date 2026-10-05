@@ -146,7 +146,7 @@
       <div class="card" id="cardTerms"><h2>Terms</h2><div class="terms" id="terms"></div></div>
       <div class="card"><button type="button" class="btn secondary" id="btnPdf">Download your invoice (PDF)</button></div>
     </div>
-    <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></footer>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
   </div>
 
   <script>
@@ -296,8 +296,8 @@
       if (meta) { meta.innerHTML = metaHtml("Bill to", inv.customer_name, whoLines, b, "Invoice", inv.number, rows, stamp, tile) + '<a class="toplink" href="#totals" id="viewTotal">View balance</a>'; }
       var banner = byId("cardStateBanner");
       if (banner) {
-        if (inv.status === "paid") { banner.innerHTML = '<div class="state"><h3 class="ok">Paid</h3><p>Thank you for your payment.</p></div>'; banner.classList.remove("hidden"); }
-        else if (inv.awaiting_verification) { banner.innerHTML = '<div class="state"><h3>Payment reported</h3><p>A payment was reported and is awaiting confirmation.</p></div>'; banner.classList.remove("hidden"); }
+        if (inv.status === "paid") { banner.innerHTML = '<div class="state"><h3 class="ok" aria-level="2">Paid</h3><p>Thank you for your payment.</p></div>'; banner.classList.remove("hidden"); }
+        else if (inv.awaiting_verification) { banner.innerHTML = '<div class="state"><h3 aria-level="2">Payment reported</h3><p>A payment was reported and is awaiting confirmation.</p></div>'; banner.classList.remove("hidden"); }
         else if (inv.status === "overdue") { banner.innerHTML = '<div class="state"><h3 style="color:var(--red);">Past due</h3><p>This invoice was due on ' + escHtml(fmtDate(inv.due_date)) + '.</p></div>'; banner.classList.remove("hidden"); }
       }
       var lines = byId("lines");
@@ -410,9 +410,9 @@
       var el = byId("cardPaidNote");
       if (!el || !paidReturn) { return; }
       if ((inv.balance_cents || 0) <= 0) {
-        el.innerHTML = '<div class="state"><h3>Thank you. Your card payment was received.</h3><p>Your receipt is under Payments received below.</p></div>';
+        el.innerHTML = '<div class="state"><h3 aria-level="2">Thank you. Your card payment was received.</h3><p>Your receipt is under Payments received below.</p></div>';
       } else {
-        el.innerHTML = '<div class="state"><h3>Thank you. Your card payment is being confirmed.</h3><p>This page updates by itself in a few seconds.</p></div>';
+        el.innerHTML = '<div class="state"><h3 aria-level="2">Thank you. Your card payment is being confirmed.</h3><p>This page updates by itself in a few seconds.</p></div>';
         if (paidTries < 10) { paidTries++; window.setTimeout(load, 3000); }
       }
       el.classList.remove("hidden");

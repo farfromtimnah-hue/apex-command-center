@@ -184,7 +184,7 @@
       <div class="card" id="cardActions"></div>
       <div class="card" id="cardPdf" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download contract (PDF)</button><div class="err" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
-    <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></footer>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
   </div>
 
   <script>
@@ -518,7 +518,7 @@
     function signedHtml() {
       var hs = con.homeowner_signature;
       var head = con.status === "completed" ? "Signed by both parties" : "Signed";
-      var h = '<div class="state"><h3 class="ok">' + head + '</h3>' +
+      var h = '<div class="state"><h3 class="ok" aria-level="2">' + head + '</h3>' +
         (hs ? '<p>Signed by ' + escHtml(hs.signer_name || "") + (hs.signed_at ? ' on ' + escHtml(fmtDateTime(hs.signed_at)) : "") + '.</p>' : "") +
         '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) + '</div>';
       if (con.cancellation && con.cancellation.sold_in_home && con.cancellation.deadline_date) {
@@ -555,27 +555,27 @@
         return;
       }
       if (con.status === "awaiting_company") {
-        banner.innerHTML = '<div class="state"><h3>Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
         banner.classList.remove("hidden");
         card.classList.add("hidden");
         return;
       }
       if (con.status === "expired") {
-        banner.innerHTML = '<div class="state"><h3>This offer expired' + (con.offer_expiry_date ? ' on ' + escHtml(fmtDate(con.offer_expiry_date)) : "") + '.</h3><p>Request an updated contract.</p>' +
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">This offer expired' + (con.offer_expiry_date ? ' on ' + escHtml(fmtDate(con.offer_expiry_date)) : "") + '.</h3><p>Request an updated contract.</p>' +
           (previewId ? "" : '<button type="button" class="btn" id="btnRenew" onclick="renew()">Request an updated contract</button><div class="err" role="alert" id="renewErr"></div>') + '</div>';
         banner.classList.remove("hidden");
         card.classList.add("hidden");
         return;
       }
       if (con.status === "declined") {
-        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this contract' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p></div>';
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this contract' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p></div>';
         banner.classList.remove("hidden");
         card.classList.add("hidden");
         return;
       }
       // F17: after a change request the sign form is gone, not refused on submit.
       if (con.status === "changes_requested") {
-        banner.innerHTML = '<div class="state"><h3>' + (previewId ? "Changes requested" : "You asked for changes") + '</h3>' +
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">' + (previewId ? "Changes requested" : "You asked for changes") + '</h3>' +
           (previewId ? "" : '<p>You asked for changes. ' + escHtml(bizName()) + ' will send you a revised contract.</p>') +
           (con.change_request_text ? '<p class="muted small">Your request: ' + escHtml(con.change_request_text) + '</p>' : "") + '</div>';
         banner.classList.remove("hidden");
@@ -821,7 +821,7 @@
     function renderVoid() {
       var card = byId("cardMeta"), banner = byId("cardStateBanner");
       if (card) {
-        card.innerHTML = '<div class="state"><h3>Contract ' + escHtml(con.display_number || "") + '</h3><p>This contract was cancelled by ' + escHtml(bizName()) +
+        card.innerHTML = '<div class="state"><h3 aria-level="2">Contract ' + escHtml(con.display_number || "") + '</h3><p>This contract was cancelled by ' + escHtml(bizName()) +
           (con.voided_at ? ' on ' + escHtml(fmtDate(con.voided_at)) : "") + '.</p><p class="muted small">There is nothing to sign. Contact ' + escHtml(bizName()) + ' with any questions.</p></div>';
       }
       if (banner) { banner.classList.add("hidden"); }
@@ -836,7 +836,7 @@
       var b = con.business || {};
       var contact = [b.phone ? escHtml(fmtPhone(b.phone)) : "", b.email ? escHtml(b.email) : ""].filter(Boolean).join(" &middot; ");
       if (card) {
-        card.innerHTML = '<div class="state"><h3>Contract ' + escHtml(con.display_number || "") + '</h3><p>' + escHtml(bizName()) +
+        card.innerHTML = '<div class="state"><h3 aria-level="2">Contract ' + escHtml(con.display_number || "") + '</h3><p>' + escHtml(bizName()) +
           ' is preparing a revised contract. You will receive a new link.</p>' +
           '<p class="muted small">Questions: contact ' + escHtml(bizName()) + (contact ? ' &middot; ' + contact : "") + '.</p></div>';
       }

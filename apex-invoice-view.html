@@ -127,7 +127,7 @@
 
   <div class="wrap" role="main">
     <div class="card" id="cardLoading" role="status"><div class="state"><p id="loadingText">Carregando...</p></div></div>
-    <div class="card hidden" id="cardNotFound"><div class="state"><p id="notFoundText">Esta fatura n&atilde;o est&aacute; dispon&iacute;vel.</p></div></div>
+    <div class="card hidden" id="cardNotFound"><div class="state"><p id="notFoundText" role="heading" aria-level="1">Esta fatura n&atilde;o est&aacute; dispon&iacute;vel.</p></div></div>
     <div id="doc" class="hidden">
       <div class="card hidden no-print" id="cardPaidNote"></div>
       <div class="card hidden" id="cardDraft"></div>
@@ -428,9 +428,9 @@
       if (!paidReturn && !(inv.payment && inv.payment.processing)) { el.classList.add("hidden"); return; }
       if (inv.status === "paid") {
         if (!paidReturn) { el.classList.add("hidden"); return; }
-        el.innerHTML = '<div class="state"><h3 class="ok">' + escHtml(T("payReceived")) + '</h3></div>';
+        el.innerHTML = '<div class="state"><h3 class="ok" aria-level="2">' + escHtml(T("payReceived")) + '</h3></div>';
       } else {
-        el.innerHTML = '<div class="state"><h3>' + escHtml(T("payProcessing")) + '</h3></div>';
+        el.innerHTML = '<div class="state"><h3 aria-level="2">' + escHtml(T("payProcessing")) + '</h3></div>';
         // One more look a few seconds later: a card payment usually shows on
         // the second check. The Worker limits how often this can be asked.
         if (paidReturn && paidTries < 2) { paidTries++; window.setTimeout(function() { load(true); }, 6000); }

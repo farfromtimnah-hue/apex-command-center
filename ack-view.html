@@ -193,7 +193,7 @@
       <div class="card" id="cardActions"></div>
       <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary no-print" id="btnPdf">Download (PDF)</button><div class="err no-print" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
-    <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></footer>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
   </div>
 
   <script>
@@ -370,7 +370,7 @@
       var name = (ack.business && ack.business.name) || "The company";
       var card = byId("cardMeta");
       if (card) {
-        card.innerHTML = '<div class="state"><h3>' + escHtml(kindTitle()) + '</h3><p>' +
+        card.innerHTML = '<div class="state"><h3 aria-level="2">' + escHtml(kindTitle()) + '</h3><p>' +
           (ack.void_reason === "list_changed" ? "This list changed. " + escHtml(name) + " will send an updated one." : "This request was replaced. " + escHtml(name) + " will send an updated one.") + '</p></div>';
       }
       ["cardStateBanner", "cardBody", "cardActions"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
@@ -430,7 +430,7 @@
       var s = ack.signature;
       var drawn = s && s.kind === "drawn";
       var visual = (drawn && s.image_url) ? '<img class="sigimg" src="' + escHtml(s.image_url) + '" alt="Signature">' : '<div class="typed-sig">' + escHtml((s && s.signer_name) || ack.customer_name || "") + '</div>';
-      var h = '<div class="state"><h3 class="ok">Signed</h3>' +
+      var h = '<div class="state"><h3 class="ok" aria-level="2">Signed</h3>' +
         (s ? '<p>' + escHtml(s.signer_name || "") + ' signed "' + escHtml(ack.statement || "") + '"' + (s.signed_at ? ' on ' + escHtml(fmtDateTime(s.signed_at)) : "") + '.</p>' : "") +
         '<div class="signed-grid"><div class="cell"><div class="k">Signature</div>' + visual + '</div><div class="cell">' +
         '<div class="k">Signer</div>' + escHtml((s && s.signer_name) || "") +
@@ -458,7 +458,7 @@
         return;
       }
       if (ack.status === "declined") {
-        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>You declined to sign' + (ack.decline_reason ? ": " + escHtml(ack.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((ack.business && ack.business.name) || "The company") + ' will follow up with you.</p></div>';
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Declined</h3><p>You declined to sign' + (ack.decline_reason ? ": " + escHtml(ack.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((ack.business && ack.business.name) || "The company") + ' will follow up with you.</p></div>';
         banner.classList.remove("hidden");
         card.innerHTML = disc;
         return;

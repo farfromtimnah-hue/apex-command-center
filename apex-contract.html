@@ -119,7 +119,7 @@
       <div class="card hidden no-print" id="cardSign"></div>
       <div class="card no-print" id="cardPdf" style="margin-top:24px;"><button type="button" class="btn secondary" id="btnPdf">Baixar contrato (PDF)</button><div class="err" role="alert" id="pdfErr"></div></div>
     </div>
-    <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Pol&iacute;tica de Privacidade</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Termos de Uso</a></footer>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Pol&iacute;tica de Privacidade</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Termos de Uso</a></div>
   </div>
 
   <script>
@@ -199,10 +199,10 @@
     function renderState() {
       var st = byId("cardState"); st.classList.add("hidden");
       if (con.status === "signed") {
-        st.innerHTML = '<div class="state"><h3 class="ok">Contrato assinado por todas as partes</h3><p>Voc&ecirc; pode baixar uma c&oacute;pia assinada a qualquer momento.</p></div>';
+        st.innerHTML = '<div class="state"><h3 class="ok" aria-level="2">Contrato assinado por todas as partes</h3><p>Voc&ecirc; pode baixar uma c&oacute;pia assinada a qualquer momento.</p></div>';
         st.classList.remove("hidden");
       } else if (con.status === "draft" && !isPreview) {
-        st.innerHTML = '<div class="state"><h3>Contrato em prepara&ccedil;&atilde;o</h3><p>A APEX ainda est&aacute; preparando este contrato. Voc&ecirc; receber&aacute; o link para assinar.</p></div>';
+        st.innerHTML = '<div class="state"><h3 aria-level="2">Contrato em prepara&ccedil;&atilde;o</h3><p>A APEX ainda est&aacute; preparando este contrato. Voc&ecirc; receber&aacute; o link para assinar.</p></div>';
         st.classList.remove("hidden");
       }
     }
@@ -294,7 +294,7 @@
           hi.style.objectPosition = hh[1]; hi.addEventListener("load", function() { hi.hidden = false; }); hi.src = hh[0];
           document.title = "Contrato " + con.number + (doc.company_name ? " - " + doc.company_name : "");
           if (con.status === "void") {
-            byId("cardHead").innerHTML = '<div class="state"><h3>Contrato ' + esc(con.number) + '</h3><p>Este contrato foi cancelado pela APEX. N&atilde;o h&aacute; nada para assinar.</p></div>';
+            byId("cardHead").innerHTML = '<div class="state"><h3 aria-level="2">Contrato ' + esc(con.number) + '</h3><p>Este contrato foi cancelado pela APEX. N&atilde;o h&aacute; nada para assinar.</p></div>';
             ["cardClauses", "cardSigs", "cardSign", "cardPdf", "cardState"].forEach(function(id) { byId(id).classList.add("hidden"); });
             show("doc"); document.body.setAttribute("data-render-done", "0"); return;
           }

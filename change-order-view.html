@@ -180,7 +180,7 @@
       <div class="card" id="cardActions"></div>
       <div class="card" style="margin-top:28px;"><button type="button" class="btn secondary" id="btnPdf">Download change order (PDF)</button><div class="err" role="alert" id="pdfErr"></div><p class="disclaimer" id="disclaimerEnd"></p></div>
     </div>
-    <footer class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></footer>
+    <div class="legal-links no-print" style="text-align:center;font-size:12px;color:var(--muted, #6b7280);padding:10px 0 4px;"><a href="/privacy.html" target="_blank" rel="noopener" style="color:inherit;">Privacy Policy</a> &middot; <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;">Terms</a></div>
   </div>
 
   <script>
@@ -403,7 +403,7 @@
     }
     function signedHtml() {
       var hs = con.homeowner_signature;
-      var h = '<div class="state"><h3 class="ok">Signed by both parties</h3>' +
+      var h = '<div class="state"><h3 class="ok" aria-level="2">Signed by both parties</h3>' +
         (hs ? '<p>Signed by ' + escHtml(hs.signer_name || "") + (hs.signed_at ? ' on ' + escHtml(fmtDateTime(hs.signed_at)) : "") + '.</p>' : "") +
         '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) + '</div>';
       if (con.content_hash) { h += '<p class="hash" style="margin-top:10px;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</p>'; }
@@ -429,13 +429,13 @@
       }
       if (con.status === "declined") {
         // F17: a declined change order shows its state; no sign form.
-        banner.innerHTML = '<div class="state"><h3>Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this change order' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((con.business && con.business.name) || "The company") + ' will contact you if anything changes.</p></div>';
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Declined</h3><p>' + (previewId ? "The homeowner" : "You") + ' declined this change order' + (con.decline_reason ? ": " + escHtml(con.decline_reason) : "") + '.</p><p class="muted small">' + escHtml((con.business && con.business.name) || "The company") + ' will contact you if anything changes.</p></div>';
         banner.classList.remove("hidden");
         card.innerHTML = company + disc;
         return;
       }
       if (!canRespond()) {
-        banner.innerHTML = '<div class="state"><h3>Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
+        banner.innerHTML = '<div class="state"><h3 aria-level="2">Waiting for the company\'s signature</h3><p>The company signs first. You will be able to sign once it has.</p></div>';
         banner.classList.remove("hidden");
         card.innerHTML = disc;
         return;

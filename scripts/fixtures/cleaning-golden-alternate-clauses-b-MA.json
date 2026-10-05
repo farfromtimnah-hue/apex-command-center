@@ -1,0 +1,1492 @@
+{
+  "sections": [
+    {
+      "kind": "locked",
+      "id": "L4",
+      "title": "License or registration number",
+      "text": "Sunrise Pools LLC, Massachusetts HIC Registration No. REG-12345."
+    },
+    {
+      "kind": "clause",
+      "id": "C01-B",
+      "title": "Parties, property and project description",
+      "text": "**1. Parties and Property.** This Contract is made on 10/01/2026 between Sunrise Pools LLC, a Massachusetts limited liability company, 100 Bay St, Springfield, phone (813) 555-0100, email office@sunrise.test (\"Contractor\"), and {owner_entity_name}, 12 Main St, Riverview (\"Owner\"), acting through {owner_signer_name}, {owner_signer_title}, phone (813) 555-0111, email jordan@example.test. The person signing for Owner states that he or she has authority to sign this Contract and to approve change orders and payments for Owner. The work will be performed at 12 Main St, Riverview, Hillsborough County, Massachusetts (the \"Property\"), which Owner states it owns.\n\n**Project.** Rivers backyard: Kitchen remodel, as described in Contractor's Estimate No. EST-0042, version R1, dated 09/10/2026 and accepted on 09/12/2026 (the \"Estimate\").",
+      "option_title": "Parties and property: owner signs through an entity, trust or representative"
+    },
+    {
+      "kind": "clause",
+      "id": "C02-B",
+      "title": "Scope of work and exclusions",
+      "text": "**2. Scope of Work.** Contractor will furnish the labor, materials and equipment to perform the work described in the Estimate and in the following documents, which are attached and made part of this Contract: {plan_documents_list} (together, the \"Contract Documents\"; the work they describe is the \"Work\"). If they conflict, this order controls: (1) signed Change Orders, newest first; (2) this Contract; (3) engineered or permitted plans; (4) the Estimate; (5) other drawings. Renderings, 3D images and photos of other jobs show general appearance only. They are not specifications, and colors, shading, plants and furniture shown in them are not included unless the Estimate lists them.\n\n**Not included.** The following are not part of the Work unless added by a signed Change Order: {exclusions_list}. Anything not described in the Contract Documents is also not included.\n\n**Owner-supplied items.** Owner will supply: none. Contractor is not responsible for the quality, fitness, delivery timing or warranty of owner-supplied items.",
+      "option_title": "Scope: estimate plus plans, drawings or renderings"
+    },
+    {
+      "kind": "clause",
+      "id": "C03-B",
+      "title": "Contract price",
+      "text": "**3. Contract Price.** Owner will pay Contractor a fixed total of $24,000.00 (the \"Contract Price\") for the Work. The Contract Price includes these allowances for items Owner has not yet selected: none. Each allowance covers {allowance_basis}. When Owner makes a selection, Contractor will show the actual cost against the allowance. If the actual cost is higher, the difference{allowance_markup_clause} is added by Change Order; if lower, the difference is credited by Change Order. Apart from allowance adjustments, the Contract Price changes only by a Change Order signed by both parties. The Contract Price includes all sales tax Contractor pays on materials. No sales tax is added to this Contract.",
+      "option_title": "Fixed total price with allowances"
+    },
+    {
+      "kind": "clause",
+      "id": "C04-B",
+      "title": "Payment schedule, methods and late payment",
+      "text": "**4. Payments.** Owner will pay the Contract Price as follows: Deposit (20%): $4,800.00; Completion (80%): $19,200.00. Each payment is due on the date or at the milestone shown. Contractor will send a written request for each payment when it becomes due, and a written receipt for every payment received, showing the amount, date, method and remaining balance.\n\n**How to pay.** Payments are accepted only by: Zelle (pay@sunrise.test); Check, made out or sent to Sunrise Pools LLC (Zelle: pay@sunrise.test). Do not pay cash to any worker, and do not send payment to any person or account not listed here, even if asked. If you receive payment instructions that differ from this list, call Contractor at (813) 555-0100 before paying.\n\n**Late payment.** A payment not received within 5 days after its due date is late. A late payment bears simple interest at 18 percent per year from the due date until paid. Contractor may also suspend the Work as described in Section 13.",
+      "option_title": "Milestone schedule with grace period and simple interest"
+    },
+    {
+      "kind": "clause",
+      "id": "C05-B",
+      "title": "Change orders",
+      "text": "**5. Change Orders.** Any change to the Work, the Contract Price or the schedule must be in a written Change Order signed by Owner and Contractor. Each Change Order is a one-page addendum to this Contract that refers to this Contract by date and number and states only: what is added or removed; the Contract Price before the change; the amount of the change (a removal is a credit); the new Contract Price; any change to the payment schedule; and the effect on the schedule in working days. When Owner requests a change, Contractor will send the Change Order within {co_response_days} business days. Work that depends on the change stops until the Change Order is signed or the request is withdrawn in writing, and the days of that pause are added to the schedule. Verbal requests, texts and emails are requests only, not Change Orders. Everything in this Contract not changed by a Change Order stays the same.",
+      "option_title": "Signed change order; affected work pauses until signed"
+    },
+    {
+      "kind": "clause",
+      "id": "C06-B",
+      "title": "Schedule, start conditions, delays and weather",
+      "text": "**6. Schedule.** Contractor will start the Work on or about 11/02/2026, once the start conditions below are met, and will work toward substantial completion by {target_completion_date}. Start conditions: this Contract is signed by both parties, and the three-business-day cancellation period has ended on the third business day after Owner signs; the deposit is received; required permits are issued; required HOA approval is received; and Owner has made the selections in Section 10 by their deadlines. If a start condition is met late, the start and completion dates move by the same number of days.\n\n**Extensions.** The completion date is extended by the number of working days lost to delays Contractor does not control, including: weather that prevents safe or proper work; permit, inspection or utility company delays; manufacturer or supplier delays; concealed conditions under Section 8; Change Orders; late payments; Owner's late selections or decisions; lack of access under Section 7; work by Owner's other contractors; and natural disasters, declared emergencies or government orders. Each extension will be stated in writing to Owner within {delay_notice_days} business days, with the new date.",
+      "option_title": "Target completion date with extensions"
+    },
+    {
+      "kind": "clause",
+      "id": "C07-B",
+      "title": "Site access and owner responsibilities",
+      "text": "**7. Access and Owner Responsibilities.** Owner will:\n(a) give Contractor access to the work area on working days from {work_hours_start} to {work_hours_end}, {work_days};\n(b) provide water and electricity, and access to a bathroom for the crew or allow Contractor to place a portable toilet at {portable_toilet_location};\n(c) remove valuables, fragile items, artwork and electronics from the work area and nearby rooms before the start date;\n(d) keep pets and children out of the work area while work is in progress;\n(e) obtain any HOA or condominium approval, including elevator or loading-dock reservations, unless the Estimate says Contractor will do it;\n(f) provide keys, gate or garage codes, or lockbox access: {access_instructions}; and\n(g) respond to Contractor's questions that affect the Work within {owner_response_days} business days.\n**Living in the home during work.** Owner understands that {rooms_out_of_use} will be out of use for about {days_out_of_use} days. Contractor will use dust barriers and floor protection in the work path, but some dust and noise will reach other rooms. If Contractor cannot access the work area on a scheduled working day because of Owner, the schedule is extended and Contractor may charge the documented cost of a return trip under a Change Order.",
+      "option_title": "Occupied home (remodeling and interior work)"
+    },
+    {
+      "kind": "clause",
+      "id": "C08-B",
+      "title": "Concealed and unforeseen conditions",
+      "text": "**8. Below-Ground Conditions.** Nobody can see below the surface before digging. The Contract Price assumes soil that can be excavated with standard equipment, groundwater below the planned excavation depth, and no buried obstructions. If Contractor finds rock or hard material that standard equipment cannot remove, groundwater that requires pumping (dewatering), buried debris, concrete, old foundations, septic parts, tanks, large roots, organic or unsuitable soil, or soil that requires engineering, Contractor will stop work on the affected area, notify Owner in writing with photos within {concealed_notice_days} business day(s), and propose the price and schedule effect. Where Section 3 lists a unit price for the item, that unit price applies. Contractor will not proceed with the extra work without a signed Change Order, except for steps needed to keep an open excavation safe. If an engineer or the building department requires a design change because of soil or water conditions, that change is a Change Order.",
+      "option_title": "Below ground: pools and hardscape"
+    },
+    {
+      "kind": "clause",
+      "id": "C09-B",
+      "title": "Permits and inspections",
+      "text": "**9. Permits and Inspections.** Contractor will apply for the building permits the Work requires and schedule the required inspections. Permit fees are included in the Contract Price. Owner will sign the permit documents that require the owner's signature within {owner_response_days} business days of receiving them. Contractor will not start work that requires a permit before the permit is issued. Delays caused by the building department are excusable delays under Section 6. If an inspector requires work beyond the Estimate, it is handled by Change Order, except to correct Contractor's own work, which Contractor fixes at no charge.",
+      "option_title": "Contractor pulls permits and records the Notice of Commencement as Owner's agent"
+    },
+    {
+      "kind": "clause",
+      "id": "C10-B",
+      "title": "Materials, selections and substitutions",
+      "text": "**10. Materials and Selections.** Owner will make the selections listed here by the dates shown: {selection_deadlines_table}. A late selection extends the schedule. Once Owner approves a selection in writing and Contractor orders it, changing it is a Change Order, including any restocking fee the supplier charges.\n\n**Lots and variation.** Tile is made in production lots (dye lots), and color and size can vary between lots. Contractor will try to order the full quantity from one lot; if the supplier cannot, Contractor will tell Owner before installing. Natural stone, and porcelain made to look like stone or wood, varies in color, veining and texture from piece to piece and from any sample or showroom display. That variation is a characteristic of the material, not a defect.\n\n**Grout.** Grout color on the wall or floor can look different from the color chart because of lighting, joint width and the tile around it. Owner will approve the grout color in writing: {grout_color}. Slight shade variation in grout is not a defect.\n\n**Extra material.** The Estimate includes {overage_percent} percent extra for cuts and breakage. Contractor will leave {attic_stock_quantity} of unused tile with Owner for future repairs. Contractor cannot guarantee that the same tile will be available later.\n\n**Backorders.** If a specified product is discontinued or backordered for more than {backorder_days} days, Contractor will propose an equal or better substitute in writing and will not use it without Owner's written approval.",
+      "option_title": "Tile and natural stone: lots, variation, grout and attic stock"
+    },
+    {
+      "kind": "clause",
+      "id": "C11-B",
+      "title": "Workmanship warranty and manufacturer warranties",
+      "text": "**11. Warranty.** Contractor warrants that the Work will be free from defects in workmanship for 24 months from the date of substantial completion (the \"Warranty Period\"). If a defect in workmanship appears during the Warranty Period, Contractor will repair it, or at Contractor's choice replace the defective part of the Work, at no charge. This is Contractor's only warranty; it does not promise any refund.\n\n**Manufacturer warranties.** Products and equipment carry their manufacturers' warranties, which Contractor will pass to Owner at completion along with registration information. Contractor does not add its own warranty to manufactured products, but will install them according to the manufacturer's instructions.\n\n**Not covered.** The warranty does not cover: normal wear; damage from misuse, neglect, lack of the maintenance described in the care instructions Contractor provides, accidents, storms, flooding, settling of the ground or structure not caused by the Work, or pests; work or repairs by anyone other than Contractor; owner-supplied materials; natural variation in materials described in Section 10; conditions Owner chose not to correct under Section 8; and minor hairline cracks in concrete, grout or plaster that do not affect function.\n\n**How to make a claim.** Owner will notify Contractor in writing at office@sunrise.test within {warranty_notice_days} days of noticing a problem, with photos if possible, and will give Contractor access to inspect within {warranty_inspect_days} business days. Contractor will tell Owner in writing whether the problem is covered and, if covered, schedule the repair. Owner will give Contractor the chance to inspect and repair before hiring anyone else to fix a covered item.",
+      "option_title": "Two-year workmanship warranty"
+    },
+    {
+      "kind": "clause",
+      "id": "C12-B",
+      "title": "Completion, punch list, final payment and lien releases",
+      "text": "**12. Completion and Final Payment.** When Contractor believes the Work is complete, Contractor will notify Owner and walk through it with Owner within {walkthrough_days} business days. Owner will list in writing, at the walkthrough, any items Owner believes are incomplete or not in accordance with this Contract. Contractor will correct listed items that are its responsibility within {punch_completion_days} business days. The Work is \"complete\" when those items are corrected, has passed final inspection.\n\n**Final payment documents.** With the final invoice, Contractor will give Owner: (1) releases of lien from Contractor and from each subcontractor or supplier that served Owner with a Notice to Owner, with final releases on receipt of final payment; (2) manufacturer warranties and care instructions; and (3) any inspection approvals. The final payment is due within {final_payment_days} days after the Work is complete and these documents are delivered. Owner may not withhold payment for items not listed at the walkthrough; those are handled under the warranty in Section 11.",
+      "option_title": "Final payment at final completion"
+    },
+    {
+      "kind": "clause",
+      "id": "C13-B",
+      "title": "Suspension and termination",
+      "text": "**13. Suspension and Termination.**\n**Suspension by Contractor.** If a payment is more than {suspension_trigger_days} days late, or Owner does not provide access under Section 7, Contractor may suspend the Work after giving Owner {suspension_notice_days} business days' written notice. The schedule is extended for the suspension, and Owner will pay Contractor's documented costs of demobilizing and remobilizing.\n**Termination by Contractor.** If the cause of a suspension is not corrected within {contractor_termination_days} days after the suspension starts, Contractor may terminate this Contract by letter stating the reason, sent by certified mail, return receipt requested, to Owner's address in this Contract, with a copy by email.\n**Termination by Owner.** If Contractor fails to perform the Work as this Contract requires, Owner may give Contractor written notice describing the failure. If Contractor does not begin to correct it within {owner_cure_days} business days after receiving the notice and diligently complete the correction, Owner may terminate this Contract by a second written notice.\n**Payment on termination.** On any termination, Owner will pay Contractor for Work performed up to the termination date, valued on the basis of the Contract Price and the payment schedule, plus materials ordered for this Work that cannot be returned or cancelled (which become Owner's property), less payments already made. If Owner terminates under this section, Owner may deduct Owner's reasonable, documented cost to correct Contractor's defective work. Contractor will give Owner releases of lien for amounts paid.\n\n**Termination by Owner without cause.** Owner may also terminate this Contract for any reason by written notice to Contractor. In that case, in addition to the payment on termination above, Owner will pay {convenience_fee_description}, which the parties agree is a reasonable estimate of Contractor's costs of scheduling, crew commitment and lost opportunity that are hard to calculate at the time of signing. This paragraph does not apply during the three-business-day cancellation period, if any, in the Notice of Cancellation attached to this Contract.",
+      "option_title": "Asymmetric, plus Owner termination for convenience with a fee"
+    },
+    {
+      "kind": "clause",
+      "id": "C14-B",
+      "title": "Dispute resolution",
+      "text": "**14. Disputes.** If a dispute arises under this Contract, the parties will first meet (in person or by video) within {negotiation_days} days after either gives written notice of the dispute, to try to resolve it. If it is not resolved within {negotiation_days} days after that meeting, either party may request mediation by a mediator in Hillsborough County, with the mediator's fee shared equally. If mediation does not resolve the dispute within {mediation_days} days after the request, the dispute will be decided by binding arbitration before a single arbitrator under {arbitration_rules}, held in Hillsborough County, Massachusetts. The arbitrator's decision is final and may be entered as a judgment in court. **BY AGREEING TO ARBITRATION, OWNER AND CONTRACTOR EACH GIVE UP THE RIGHT TO HAVE THE DISPUTE DECIDED BY A JUDGE OR JURY IN COURT.** {arbitration_fee_allocation} Nothing in this section prevents Contractor from recording or enforcing a claim of lien within the time the law allows, or either party from seeking emergency relief from a court. Claims within the small claims limit may be brought in small claims court instead of arbitration.\n\nOwner initials: {owner_initials_arbitration}   Contractor initials: {contractor_initials_arbitration}",
+      "option_title": "Package B: negotiation, mediation, then binding arbitration"
+    },
+    {
+      "kind": "clause",
+      "id": "C15-B",
+      "title": "Limitation of liability and insurance",
+      "text": "**15. Insurance.** Owner is responsible for insuring the Property, including the Work as it is installed, under Owner's homeowner's policy.",
+      "option_title": "No liability cap; insurance statement only"
+    },
+    {
+      "kind": "clause",
+      "id": "C16-B",
+      "title": "Offer validity and acceptance",
+      "text": "**16. Offer and Acceptance.** Contractor signed and sent this Contract on the date Contractor signs (shown once Contractor signs). Owner has 72 hours, until 72 hours after Contractor signs Eastern Time, to sign it. If Owner has not signed by then, this offer expires, the reserved start date is released, and Contractor may update the price and schedule before offering again. This Contract takes effect when both parties have signed it.",
+      "option_title": "Rafa's 72-hour mutual execution"
+    },
+    {
+      "kind": "clause",
+      "id": "C17-B",
+      "title": "Cleanup, debris and site protection",
+      "text": "**17. Cleanup and Protection.** Contractor will protect floors, fixtures and finished surfaces in the work path and keep debris in {debris_staging_area} during the Work. At completion Contractor will remove its tools, equipment and debris and leave the work area broom-clean. Detailed or professional cleaning is not included.",
+      "option_title": "Final cleanup only"
+    },
+    {
+      "kind": "clause",
+      "id": "C18-B",
+      "title": "Photos and marketing permission",
+      "text": "**18. Photos.** Contractor may take photos and video of the Work for its job records, warranty and permit purposes. ☐ Owner also allows Contractor to use photos and video of the Work on its website, social media and printed materials, without showing people, the address, house numbers, license plates or other details that identify the Property or Owner. Owner may withdraw this permission for future use at any time by written notice.",
+      "option_title": "Marketing use without identifying details"
+    },
+    {
+      "kind": "clause",
+      "id": "C19-B",
+      "title": "Entire agreement, notices, electronic signatures, severability, governing law",
+      "text": "**19. General Terms.**\n**Entire agreement.** This Contract, the Estimate, the attachments listed below and any signed Change Orders are the entire agreement between Owner and Contractor. They replace all earlier discussions, messages and proposals. Only a written document signed by both parties can change this Contract. Attachments: Estimate EST-0042-R1.\n**Notices.** Formal notices under this Contract (delay, concealed condition, suspension, termination, warranty claim, dispute) must be in writing and sent to the addresses in Section 1, by email and by one of: hand delivery, certified mail, or a nationally recognized courier. A termination notice from Contractor is also sent by certified mail, return receipt requested. Day-to-day scheduling messages may be sent by text or messaging app.\n**Electronic signatures and records.** Before signing, Owner consented to receive and sign this Contract electronically on the consent screen that is part of the signing record. Electronic signatures on this Contract, its notices and Change Orders have the same effect as handwritten signatures under the federal Electronic Signatures in Global and National Commerce Act and the Uniform Electronic Transactions Act as adopted in Massachusetts. Each party will receive a complete copy of the signed Contract. Owner may request a paper copy at no charge by contacting Contractor.\n**Severability.** If any part of this Contract is found unenforceable, the rest remains in effect, and the unenforceable part will be applied to the greatest extent the law allows.\n**Governing law.** The laws of the State of Massachusetts govern this Contract.\n**No waiver.** Accepting a late payment or allowing a delay once does not waive the right to insist on the terms later.\n**Assignment.** Neither party may assign this Contract without the other's written consent, except that Contractor may use licensed subcontractors for parts of the Work and remains responsible for their work.\n\n**Language.** At Owner's request, Contractor has provided a Portuguese translation of this Contract for convenience. If the English and Portuguese versions differ, the English version controls.",
+      "option_title": "Standard terms plus courtesy Portuguese translation"
+    },
+    {
+      "kind": "locked",
+      "id": "L5-A",
+      "title": "Federal statement beside the buyer's signature (16 CFR 429.1(a))",
+      "text": "**You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.**",
+      "beside_signature": true
+    }
+  ],
+  "notice_form_text": "**NOTICE OF CANCELLATION**\n\n**Date of your signature**\n**(Date)**\n\n**You may CANCEL this transaction, without any Penalty or Obligation, within THREE BUSINESS DAYS from the above date.**\n\n**If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within TEN BUSINESS DAYS following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.**\n\n**If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale, or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.**\n\n**If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your Notice of Cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.**\n\n**To cancel this transaction, mail or deliver a signed and dated copy of this Cancellation Notice or any other written notice, or send a telegram, to Sunrise Pools LLC, at 100 Bay St, Springfield NOT LATER THAN MIDNIGHT OF THE THIRD BUSINESS DAY AFTER YOU SIGN.**\n\n**I HEREBY CANCEL THIS TRANSACTION.**\n\n**______________________ (Date)**\n\n**______________________ (Buyer's signature)**",
+  "rules": {
+    "L1": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    },
+    "L2": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    },
+    "L3": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    },
+    "L4": {
+      "on": true,
+      "why": "every contract"
+    },
+    "L5": {
+      "on": true,
+      "why": "sold during a visit to the customer's home"
+    },
+    "L6": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    },
+    "L7": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    },
+    "L5-C": {
+      "on": false,
+      "why": "job is in Massachusetts: Florida notice not used"
+    }
+  },
+  "missing": [
+    {
+      "field": "owner_entity_name",
+      "meaning": "Entity owner and its signer",
+      "source": "Builder",
+      "used_in": [
+        "C01-B"
+      ]
+    },
+    {
+      "field": "owner_signer_name",
+      "meaning": "Entity owner and its signer",
+      "source": "Builder",
+      "used_in": [
+        "C01-B"
+      ]
+    },
+    {
+      "field": "owner_signer_title",
+      "meaning": "Entity owner and its signer",
+      "source": "Builder",
+      "used_in": [
+        "C01-B"
+      ]
+    },
+    {
+      "field": "plan_documents_list",
+      "meaning": "Plans, engineering, renderings attached",
+      "source": "Builder (uploads)",
+      "used_in": [
+        "C02-B"
+      ]
+    },
+    {
+      "field": "exclusions_list",
+      "meaning": "Ticked exclusion items",
+      "source": "Builder (trade checklist from Settings)",
+      "used_in": [
+        "C02-B"
+      ]
+    },
+    {
+      "field": "allowance_basis",
+      "meaning": "What each allowance covers (material only, or material and installation)",
+      "source": "Settings (default), Builder (override)",
+      "used_in": [
+        "C03-B"
+      ]
+    },
+    {
+      "field": "allowance_markup_clause",
+      "meaning": "Optional markup on allowance overages, e.g. \" plus {x} percent\" or empty",
+      "source": "Settings",
+      "used_in": [
+        "C03-B"
+      ]
+    },
+    {
+      "field": "co_response_days",
+      "meaning": "Business days to send a Change Order after a request",
+      "source": "Settings",
+      "used_in": [
+        "C05-B"
+      ]
+    },
+    {
+      "field": "target_completion_date",
+      "meaning": "Target substantial completion date (C06-B)",
+      "source": "Builder",
+      "used_in": [
+        "C06-B"
+      ]
+    },
+    {
+      "field": "delay_notice_days",
+      "meaning": "Business days to notify a delay",
+      "source": "Settings",
+      "used_in": [
+        "C06-B"
+      ]
+    },
+    {
+      "field": "work_hours_start",
+      "meaning": "Working days and hours",
+      "source": "Settings (default), Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "work_hours_end",
+      "meaning": "Working days and hours",
+      "source": "Settings (default), Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "work_days",
+      "meaning": "Working days and hours",
+      "source": "Settings (default), Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "portable_toilet_location",
+      "meaning": "Where a portable toilet goes, or \"not needed\"",
+      "source": "Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "access_instructions",
+      "meaning": "Keys, gate or garage codes, lockbox details",
+      "source": "Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "owner_response_days",
+      "meaning": "Business days for Owner to answer questions and sign permit papers",
+      "source": "Settings",
+      "used_in": [
+        "C07-B",
+        "C09-B"
+      ]
+    },
+    {
+      "field": "rooms_out_of_use",
+      "meaning": "Rooms unavailable during work",
+      "source": "Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "days_out_of_use",
+      "meaning": "Days rooms will be out of use",
+      "source": "Builder",
+      "used_in": [
+        "C07-B"
+      ]
+    },
+    {
+      "field": "concealed_notice_days",
+      "meaning": "Business days to notify Owner of a concealed condition",
+      "source": "Settings",
+      "used_in": [
+        "C08-B"
+      ]
+    },
+    {
+      "field": "selection_deadlines_table",
+      "meaning": "Selections and their due dates",
+      "source": "Builder",
+      "used_in": [
+        "C10-B"
+      ]
+    },
+    {
+      "field": "grout_color",
+      "meaning": "Approved grout color",
+      "source": "Builder",
+      "used_in": [
+        "C10-B"
+      ]
+    },
+    {
+      "field": "overage_percent",
+      "meaning": "Extra material percentage for cuts and breakage",
+      "source": "Estimate",
+      "used_in": [
+        "C10-B"
+      ]
+    },
+    {
+      "field": "attic_stock_quantity",
+      "meaning": "Quantity of spare material left with the Owner",
+      "source": "Builder (trade default in Settings)",
+      "used_in": [
+        "C10-B"
+      ]
+    },
+    {
+      "field": "backorder_days",
+      "meaning": "Days of backorder before a substitute is proposed",
+      "source": "Settings",
+      "used_in": [
+        "C10-B"
+      ]
+    },
+    {
+      "field": "warranty_notice_days",
+      "meaning": "Warranty claim timing",
+      "source": "Settings",
+      "used_in": [
+        "C11-B"
+      ]
+    },
+    {
+      "field": "warranty_inspect_days",
+      "meaning": "Warranty claim timing",
+      "source": "Settings",
+      "used_in": [
+        "C11-B"
+      ]
+    },
+    {
+      "field": "walkthrough_days",
+      "meaning": "Business days to hold the walkthrough",
+      "source": "Settings",
+      "used_in": [
+        "C12-B"
+      ]
+    },
+    {
+      "field": "punch_completion_days",
+      "meaning": "Business days to finish punch list items",
+      "source": "Settings",
+      "used_in": [
+        "C12-B"
+      ]
+    },
+    {
+      "field": "final_payment_days",
+      "meaning": "Days to pay after final documents are delivered",
+      "source": "Settings",
+      "used_in": [
+        "C12-B"
+      ]
+    },
+    {
+      "field": "suspension_trigger_days",
+      "meaning": "Suspension notice and lateness trigger",
+      "source": "Settings",
+      "used_in": [
+        "C13-B"
+      ]
+    },
+    {
+      "field": "suspension_notice_days",
+      "meaning": "Suspension notice and lateness trigger",
+      "source": "Settings",
+      "used_in": [
+        "C13-B"
+      ]
+    },
+    {
+      "field": "contractor_termination_days",
+      "meaning": "Days a suspension may continue before Contractor may terminate",
+      "source": "Settings",
+      "used_in": [
+        "C13-B"
+      ]
+    },
+    {
+      "field": "owner_cure_days",
+      "meaning": "Business days Contractor has to begin a cure (C13-A)",
+      "source": "Settings",
+      "used_in": [
+        "C13-B"
+      ]
+    },
+    {
+      "field": "convenience_fee_description",
+      "meaning": "Owner termination-for-convenience amount (C13-B)",
+      "source": "Settings",
+      "used_in": [
+        "C13-B"
+      ]
+    },
+    {
+      "field": "negotiation_days",
+      "meaning": "Days for the negotiation step",
+      "source": "Admin (attorney-set per package)",
+      "used_in": [
+        "C14-B"
+      ]
+    },
+    {
+      "field": "mediation_days",
+      "meaning": "Days allowed for mediation",
+      "source": "Admin (attorney-set per package)",
+      "used_in": [
+        "C14-B"
+      ]
+    },
+    {
+      "field": "arbitration_rules",
+      "meaning": "Named arbitration rules for Package B",
+      "source": "Admin (attorney-set)",
+      "used_in": [
+        "C14-B"
+      ]
+    },
+    {
+      "field": "arbitration_fee_allocation",
+      "meaning": "How arbitration fees are split in Package B",
+      "source": "Admin (attorney-set)",
+      "used_in": [
+        "C14-B"
+      ]
+    },
+    {
+      "field": "debris_staging_area",
+      "meaning": "Where debris is kept during the job",
+      "source": "Builder",
+      "used_in": [
+        "C17-B"
+      ]
+    }
+  ],
+  "blockers": [],
+  "fields": [
+    {
+      "field": "business_legal_name",
+      "value": "Sunrise Pools LLC",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "L4",
+        "C01-B",
+        "C04-B"
+      ],
+      "editable": false,
+      "meaning": "Legal name of the business"
+    },
+    {
+      "field": "license_number",
+      "value": "REG-12345",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "L4"
+      ],
+      "editable": false,
+      "meaning": "Florida registration or certification number and category"
+    },
+    {
+      "field": "contract_date",
+      "value": "10/01/2026",
+      "source": "computed",
+      "default_source": "computed",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": false,
+      "meaning": "Date the contract is generated"
+    },
+    {
+      "field": "business_dba_clause",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "\", doing business as {dba}\" or empty"
+    },
+    {
+      "field": "business_entity_type",
+      "value": "limited liability company",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "e.g. limited liability company, corporation"
+    },
+    {
+      "field": "business_address",
+      "value": "100 Bay St, Springfield",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Business mailing address (also the cancellation address)"
+    },
+    {
+      "field": "business_phone",
+      "value": "(813) 555-0100",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C01-B",
+        "C04-B"
+      ],
+      "editable": true,
+      "meaning": "Business phone"
+    },
+    {
+      "field": "business_email",
+      "value": "office@sunrise.test",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Business email"
+    },
+    {
+      "field": "owner_entity_name",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Entity owner and its signer"
+    },
+    {
+      "field": "owner_mailing_address",
+      "value": "12 Main St, Riverview",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Homeowner contact data"
+    },
+    {
+      "field": "owner_signer_name",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Entity owner and its signer"
+    },
+    {
+      "field": "owner_signer_title",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Entity owner and its signer"
+    },
+    {
+      "field": "owner_phone",
+      "value": "(813) 555-0111",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Homeowner contact data"
+    },
+    {
+      "field": "owner_email",
+      "value": "jordan@example.test",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Homeowner contact data"
+    },
+    {
+      "field": "property_address",
+      "value": "12 Main St, Riverview",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Job address and county"
+    },
+    {
+      "field": "property_county",
+      "value": "Hillsborough",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B",
+        "C14-B"
+      ],
+      "editable": true,
+      "meaning": "Job address and county"
+    },
+    {
+      "field": "project_name",
+      "value": "Rivers backyard",
+      "source": "lead",
+      "default_source": "lead",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "Job name"
+    },
+    {
+      "field": "project_summary",
+      "value": "Kitchen remodel",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": true,
+      "meaning": "One-line description"
+    },
+    {
+      "field": "estimate_number",
+      "value": "EST-0042",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": false,
+      "meaning": "Estimate number"
+    },
+    {
+      "field": "estimate_version",
+      "value": "R1",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": false,
+      "meaning": "Accepted version number"
+    },
+    {
+      "field": "estimate_date",
+      "value": "09/10/2026",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": false,
+      "meaning": "Date of the Estimate version"
+    },
+    {
+      "field": "estimate_accepted_date",
+      "value": "09/12/2026",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C01-B"
+      ],
+      "editable": false,
+      "meaning": "Date the Owner accepted the Estimate"
+    },
+    {
+      "field": "plan_documents_list",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C02-B"
+      ],
+      "editable": true,
+      "meaning": "Plans, engineering, renderings attached"
+    },
+    {
+      "field": "exclusions_list",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C02-B"
+      ],
+      "editable": true,
+      "meaning": "Ticked exclusion items"
+    },
+    {
+      "field": "owner_supplied_items",
+      "value": "none",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C02-B"
+      ],
+      "editable": true,
+      "meaning": "Items the Owner supplies"
+    },
+    {
+      "field": "contract_price",
+      "value": "$24,000.00",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C03-B"
+      ],
+      "editable": false,
+      "meaning": "Fixed total"
+    },
+    {
+      "field": "allowance_list",
+      "value": "none",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C03-B"
+      ],
+      "editable": false,
+      "meaning": "Allowance items and dollar amounts"
+    },
+    {
+      "field": "allowance_basis",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C03-B"
+      ],
+      "editable": true,
+      "meaning": "What each allowance covers (material only, or material and installation)"
+    },
+    {
+      "field": "allowance_markup_clause",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C03-B"
+      ],
+      "editable": true,
+      "meaning": "Optional markup on allowance overages, e.g. \" plus {x} percent\" or empty"
+    },
+    {
+      "field": "tax_statement",
+      "value": "The Contract Price includes all sales tax Contractor pays on materials. No sales tax is added to this Contract.",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C03-B"
+      ],
+      "editable": true,
+      "meaning": "No-sales-tax sentence (default)"
+    },
+    {
+      "field": "payment_schedule_table",
+      "value": "Deposit (20%): $4,800.00; Completion (80%): $19,200.00",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C04-B"
+      ],
+      "editable": false,
+      "meaning": "Payment schedule copied from the Estimate"
+    },
+    {
+      "field": "payment_methods_list",
+      "value": "Zelle (pay@sunrise.test); Check",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C04-B"
+      ],
+      "editable": false,
+      "meaning": "Accepted payment methods"
+    },
+    {
+      "field": "payment_account_hint",
+      "value": " (Zelle: pay@sunrise.test)",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C04-B"
+      ],
+      "editable": true,
+      "meaning": "e.g. \" (Zelle: {business Zelle handle})\""
+    },
+    {
+      "field": "grace_period_days",
+      "value": "5",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C04-B"
+      ],
+      "editable": true,
+      "meaning": "Grace days before a payment is late (C04-B)"
+    },
+    {
+      "field": "late_interest_rate",
+      "value": "18",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C04-B"
+      ],
+      "editable": true,
+      "meaning": "Annual simple interest rate, 0 to 18"
+    },
+    {
+      "field": "co_response_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C05-B"
+      ],
+      "editable": true,
+      "meaning": "Business days to send a Change Order after a request"
+    },
+    {
+      "field": "estimated_start_date",
+      "value": "11/02/2026",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C06-B"
+      ],
+      "editable": true,
+      "meaning": "Estimated start date"
+    },
+    {
+      "field": "target_completion_date",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C06-B"
+      ],
+      "editable": true,
+      "meaning": "Target substantial completion date (C06-B)"
+    },
+    {
+      "field": "cancellation_period_clause",
+      "value": "",
+      "source": "computed",
+      "default_source": "computed",
+      "overridden": false,
+      "used_in": [
+        "C06-B"
+      ],
+      "editable": false,
+      "meaning": "Start condition text used only when L5 applies"
+    },
+    {
+      "field": "delay_notice_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C06-B"
+      ],
+      "editable": true,
+      "meaning": "Business days to notify a delay"
+    },
+    {
+      "field": "work_hours_start",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Working days and hours"
+    },
+    {
+      "field": "work_hours_end",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Working days and hours"
+    },
+    {
+      "field": "work_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Working days and hours"
+    },
+    {
+      "field": "portable_toilet_location",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Where a portable toilet goes, or \"not needed\""
+    },
+    {
+      "field": "access_instructions",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Keys, gate or garage codes, lockbox details"
+    },
+    {
+      "field": "owner_response_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C07-B",
+        "C09-B"
+      ],
+      "editable": true,
+      "meaning": "Business days for Owner to answer questions and sign permit papers"
+    },
+    {
+      "field": "rooms_out_of_use",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Rooms unavailable during work"
+    },
+    {
+      "field": "days_out_of_use",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C07-B"
+      ],
+      "editable": true,
+      "meaning": "Days rooms will be out of use"
+    },
+    {
+      "field": "concealed_notice_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C08-B"
+      ],
+      "editable": true,
+      "meaning": "Business days to notify Owner of a concealed condition"
+    },
+    {
+      "field": "permit_fee_treatment",
+      "value": "are included in the Contract Price",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C09-B"
+      ],
+      "editable": true,
+      "meaning": "Permit fee handling"
+    },
+    {
+      "field": "selection_deadlines_table",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C10-B"
+      ],
+      "editable": true,
+      "meaning": "Selections and their due dates"
+    },
+    {
+      "field": "grout_color",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C10-B"
+      ],
+      "editable": true,
+      "meaning": "Approved grout color"
+    },
+    {
+      "field": "overage_percent",
+      "value": "",
+      "source": "estimate",
+      "default_source": "estimate",
+      "overridden": false,
+      "used_in": [
+        "C10-B"
+      ],
+      "editable": true,
+      "meaning": "Extra material percentage for cuts and breakage"
+    },
+    {
+      "field": "attic_stock_quantity",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C10-B"
+      ],
+      "editable": true,
+      "meaning": "Quantity of spare material left with the Owner"
+    },
+    {
+      "field": "backorder_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C10-B"
+      ],
+      "editable": true,
+      "meaning": "Days of backorder before a substitute is proposed"
+    },
+    {
+      "field": "warranty_contact",
+      "value": "office@sunrise.test",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C11-B"
+      ],
+      "editable": true,
+      "meaning": "Where warranty claims are sent"
+    },
+    {
+      "field": "warranty_notice_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C11-B"
+      ],
+      "editable": true,
+      "meaning": "Warranty claim timing"
+    },
+    {
+      "field": "warranty_inspect_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C11-B"
+      ],
+      "editable": true,
+      "meaning": "Warranty claim timing"
+    },
+    {
+      "field": "walkthrough_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C12-B"
+      ],
+      "editable": true,
+      "meaning": "Business days to hold the walkthrough"
+    },
+    {
+      "field": "punch_completion_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C12-B"
+      ],
+      "editable": true,
+      "meaning": "Business days to finish punch list items"
+    },
+    {
+      "field": "final_inspection_clause",
+      "value": ", has passed final inspection,",
+      "source": "computed",
+      "default_source": "computed",
+      "overridden": false,
+      "used_in": [
+        "C12-B"
+      ],
+      "editable": false,
+      "meaning": "\", has passed final inspection,\" when permitted, else empty"
+    },
+    {
+      "field": "final_payment_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C12-B"
+      ],
+      "editable": true,
+      "meaning": "Days to pay after final documents are delivered"
+    },
+    {
+      "field": "suspension_trigger_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C13-B"
+      ],
+      "editable": true,
+      "meaning": "Suspension notice and lateness trigger"
+    },
+    {
+      "field": "suspension_notice_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C13-B"
+      ],
+      "editable": true,
+      "meaning": "Suspension notice and lateness trigger"
+    },
+    {
+      "field": "contractor_termination_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C13-B"
+      ],
+      "editable": true,
+      "meaning": "Days a suspension may continue before Contractor may terminate"
+    },
+    {
+      "field": "owner_cure_days",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C13-B"
+      ],
+      "editable": true,
+      "meaning": "Business days Contractor has to begin a cure (C13-A)"
+    },
+    {
+      "field": "convenience_fee_description",
+      "value": "",
+      "source": "settings",
+      "default_source": "settings",
+      "overridden": false,
+      "used_in": [
+        "C13-B"
+      ],
+      "editable": true,
+      "meaning": "Owner termination-for-convenience amount (C13-B)"
+    },
+    {
+      "field": "negotiation_days",
+      "value": "",
+      "source": "admin",
+      "default_source": "admin",
+      "overridden": false,
+      "used_in": [
+        "C14-B"
+      ],
+      "editable": false,
+      "meaning": "Days for the negotiation step"
+    },
+    {
+      "field": "mediation_days",
+      "value": "",
+      "source": "admin",
+      "default_source": "admin",
+      "overridden": false,
+      "used_in": [
+        "C14-B"
+      ],
+      "editable": false,
+      "meaning": "Days allowed for mediation"
+    },
+    {
+      "field": "arbitration_rules",
+      "value": "",
+      "source": "admin",
+      "default_source": "admin",
+      "overridden": false,
+      "used_in": [
+        "C14-B"
+      ],
+      "editable": false,
+      "meaning": "Named arbitration rules for Package B"
+    },
+    {
+      "field": "arbitration_fee_allocation",
+      "value": "",
+      "source": "admin",
+      "default_source": "admin",
+      "overridden": false,
+      "used_in": [
+        "C14-B"
+      ],
+      "editable": false,
+      "meaning": "How arbitration fees are split in Package B"
+    },
+    {
+      "field": "insurance_statement",
+      "value": "",
+      "source": "computed",
+      "default_source": "computed",
+      "overridden": false,
+      "used_in": [
+        "C15-B"
+      ],
+      "editable": false,
+      "meaning": "Insurance sentence, empty unless a current certificate is on file"
+    },
+    {
+      "field": "debris_staging_area",
+      "value": "",
+      "source": "contract",
+      "default_source": "contract",
+      "overridden": false,
+      "used_in": [
+        "C17-B"
+      ],
+      "editable": true,
+      "meaning": "Where debris is kept during the job"
+    },
+    {
+      "field": "attachments_list",
+      "value": "Estimate EST-0042-R1",
+      "source": "computed",
+      "default_source": "computed",
+      "overridden": false,
+      "used_in": [
+        "C19-B"
+      ],
+      "editable": false,
+      "meaning": "List of attached documents (Estimate, plans, notices, pool documents)"
+    }
+  ],
+  "amount_cents": 2400000,
+  "sums": {
+    "total_cents": 2400000,
+    "first": {
+      "id": "est-1",
+      "number": "EST-0042",
+      "revision": 1,
+      "public_token": "tok",
+      "job_name": "Rivers backyard",
+      "customer_name": "Jordan Rivers",
+      "customer_phone": "8135550111",
+      "customer_email": "jordan@example.test",
+      "customer_address": "",
+      "accepted_signer_name": "Jordan Rivers",
+      "sent_at": "2026-09-10 15:00:00",
+      "created_at": "2026-09-10 14:00:00",
+      "updated_at": "2026-08-01 10:00:00",
+      "accepted_at": "2026-09-12 16:00:00",
+      "valid_until": "2026-10-30",
+      "terms_excluded": "",
+      "discount_type": null,
+      "discount_value": null,
+      "accepted_option_id": "opt-1",
+      "schedule": [
+        {
+          "label": "Deposit",
+          "pct": 20
+        },
+        {
+          "label": "Completion",
+          "pct": 80
+        }
+      ],
+      "options": [
+        {
+          "id": "opt-1",
+          "discount_type": null,
+          "discount_value": null,
+          "items": [
+            {
+              "id": "it-1",
+              "item_name": "Kitchen remodel",
+              "qty": 1,
+              "rate_cents": 2400000,
+              "line_type": "item",
+              "category": "Work"
+            }
+          ]
+        }
+      ]
+    },
+    "schedule": [
+      {
+        "label": "Deposit",
+        "pct": 20,
+        "amount_cents": 480000
+      },
+      {
+        "label": "Completion",
+        "pct": 80,
+        "amount_cents": 1920000
+      }
+    ],
+    "allowances": [],
+    "number": "EST-0042",
+    "version": "R1",
+    "date": "2026-09-10",
+    "accepted": "2026-09-12",
+    "valid_until": "2026-10-30",
+    "job_name": "Rivers backyard",
+    "summary": "Kitchen remodel",
+    "estimate_cents": 2400000,
+    "adjustment_cents": 0
+  },
+  "disclaimer_line": "Draft rider, not reviewed by a lawyer for Massachusetts. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it.",
+  "requires": {
+    "lien_signature": false,
+    "pool_ack": false,
+    "cancellation": true,
+    "marketing_checkbox": true,
+    "arbitration_initials": true,
+    "jury_initials": false
+  },
+  "locked_format": {
+    "L5A": {
+      "bold": true,
+      "min_pt": 10,
+      "beside_signature": true
+    },
+    "L5B": {
+      "bold": true,
+      "min_pt": 10,
+      "two_copies": true,
+      "separate_page": true
+    }
+  }
+}

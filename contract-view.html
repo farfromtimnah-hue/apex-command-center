@@ -320,6 +320,9 @@
       if (k === "owner_initials_arbitration" || k === "owner_initials_jury") { return con.homeowner_initials ? '<span class="tok-typed">' + escHtml(con.homeowner_initials) + '</span>' : tokLine(false); }
       if (k === "contractor_initials_arbitration" || k === "contractor_initials_jury") { return cs ? '<span class="tok-typed">' + escHtml(initialsOf(cs.signer_name)) + '</span>' : tokLine(false); }
       if (k === "owner_marketing_consent_checkbox") { return con.marketing_consent ? "[X]" : "[ ]"; }
+      // Cleaning service agreement: the signature line inside the continuing-services notice.
+      if (k === "customer_signature") { return tokSig(hs || null, ownerName); }
+      if (k === "customer_signature_date") { return hs ? escHtml(fmtDate(hs.signed_at)) : tokLine(false); }
       console.error("[contract] unfilled placeholder removed from homeowner text: {" + name + "}");
       return "";
     }
@@ -417,19 +420,33 @@
       else if (con.status === "declined") { stamp = '<span class="stamp bad">DECLINED</span>'; }
       var tile = { label: "Contract price", value: money(con.contract_amount_cents) };
       var card = byId("cardMeta");
-      if (card) { card.innerHTML = metaHtml("Prepared for", con.customer_name, whoLines, b, "Contract", con.display_number, rows, stamp, tile); }
+      if (card) { card.innerHTML = metaHtml("Prepared for", con.customer_name, whoLines, b, docWord(), con.display_number, rows, stamp, tile); }
     }
 
     // The clauses in array order. L1 gets its own card (12pt+ bold capitals,
     // separately signed); L5-A and L5-B are printed at the signature area
     // and as two copies, so they are skipped here; L6 shows the two
     // documents and the delivery acknowledgment.
+    // "Contract", or "Service Agreement" for a cleaning service agreement.
+    function docWord() { return (con && con.doc_title) || "Contract"; }
+    // Cleaning service agreement: the notices printed at the customer's
+    // signature (bold; the renewal panel in a box; the contract date above
+    // the continuing-services notice).
+    function besideSections() { return (con.sections || []).filter(function(s) { return s.beside_signature === true && s.id !== "L5-A"; }); }
+    function besideHtml() {
+      return besideSections().map(function(s) {
+        var f = s.format || {};
+        var dateLine = s.date_above ? '<p class="small"><strong>Date: ' + escHtml(fmtDate(con.transaction_date || con.contract_date)) + '</strong></p>' : "";
+        return dateLine + '<div class="clause locked" style="font-weight:700;font-size:' + (f.min_pt >= 12 ? "16px" : "14px") + ';' + (f.box ? "border:2px solid #111;padding:10px;" : "") + '">' + richHtml(s.text) + '</div>';
+      }).join("");
+    }
     function renderSections() {
       var box = byId("sections");
       if (!box) { return; }
       var h = '<div class="card">';
       (con.sections || []).forEach(function(s) {
         if (s.id === "L5-A" || s.id === "L5-B") { return; }
+        if (s.beside_signature === true) { return; }
         if (s.id === "L1") {
           h += '</div><div class="card lien-card" id="lienCard"><h2>Construction lien notice</h2>' + richHtml(s.text) + lienSignHtml() + '</div><div class="card">';
           return;
@@ -441,6 +458,7 @@
         h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.text) + '</div>';
       });
       h += '</div>';
+      if (besideSections().length) { h += '<div class="card" id="besideCard">' + besideHtml() + '</div>'; }
       box.innerHTML = h;
       setupCanvas("lienCanvas", "lien");
     }
@@ -588,7 +606,7 @@
       var live = canRespond();
       var off = live ? "" : " disabled";
       var l5a = sectionById("L5-A");
-      var h = '<h2>Sign this contract</h2>';
+      var h = '<h2>' + (con.doc_title ? "Sign this agreement" : "Sign this contract") + '</h2>';
       if (!live) { h += '<p class="muted small">Signing happens on the homeowner\'s link.</p>'; }
       if (req("lien_signature")) { h += '<p class="small muted">Step 1 is the lien notice above (sign it there). Step 2 is the contract itself, below.</p>'; }
       if (req("pool_ack")) {
@@ -606,6 +624,7 @@
         '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
         '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>';
       if (l5a && req("cancellation")) { h += '<div class="l5a">' + richHtml(l5a.text) + '</div>'; }
+      h += besideHtml();
       h += esignConsentHtml(con.business, off, "btnSign") +
         '<div class="err" role="alert" id="signErr"></div>' +
         '<button type="button" class="btn" id="btnSign" onclick="sign()" disabled>Sign contract</button>';
@@ -846,7 +865,7 @@
       if (banner) { banner.classList.add("hidden"); }
       ["sections", "cardPay", "cardActions", "cardPdf"].forEach(function(id) { var el = byId(id); if (el) { el.classList.add("hidden"); } });
       var sec = byId("sections"); if (sec) { sec.innerHTML = ""; }
-      document.title = "Contract " + (con.display_number || "") + (b.name ? " - " + b.name : "");
+      document.title = docWord() + " " + (con.display_number || "") + (b.name ? " - " + b.name : "");
     }
 
     function fetchContract() {
@@ -873,7 +892,7 @@
           con = d.contract;
           con.business = con.business || {};
           applyBranding(con.business);
-          document.title = "Contract " + (con.display_number || "") + (con.business.name ? " - " + con.business.name : "");
+          document.title = docWord() + " " + (con.display_number || "") + (con.business.name ? " - " + con.business.name : "");
           // F6: the PREVIEW banner is for unsent drafts only; a sent or signed
           // contract previews exactly as the homeowner sees it.
           var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !isPreviewDraft()); }

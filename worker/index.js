@@ -27320,7 +27320,11 @@ async function handleGetPublicReceipt(token, request, env) {
 
 var CONTRACT_ADMIN_SETTING_KEYS = ["review_released_to_rafa", "recovery_fund_contact_block",
     "ch515_doc_r2_key", "ch515_doc_version", "drowning_pub_r2_key", "drowning_pub_version",
-    "affidavit_written_declaration"];
+    "affidavit_written_declaration",
+    // Cleaning library: values only Apex sets (attorney-approved lists, the
+    // county surtax table, the cleaning review switch).
+    "cleaning_damage_caps", "cleaning_liability_limits", "cleaning_conversion_fee_cap", "cleaning_arbitration_rules", "cleaning_arbitration_fee_allocation",
+    "cleaning_county_surtax", "cleaning_review_recorded"];
 
 function contractIsReviewer(user) {
     return !!user && (user.role === "rafa" || user.role === "developer");
@@ -27657,10 +27661,14 @@ async function handlePostContractTranscribe(request, env) {
 // carries the reviewed line.
 // ---------------------------------------------------------------------------
 
-var CONTRACT_TRADE_KEYS = ["pools", "tile", "remodeling", "hardscape", "general"];
-var CONTRACT_TRADE_LABELS = { pools: "Pools and Spas", tile: "Tile and Flooring", remodeling: "Remodeling", hardscape: "Hardscape and Outdoor Living", general: "General Services" };
-// How the library's "Trades:" line maps onto the five keys.
-var CONTRACT_TRADE_WORDS = { pools: /pool/i, tile: /tile|flooring/i, remodeling: /remodel/i, hardscape: /hardscape|outdoor/i, general: /general|painting|handyman/i };
+// The five construction trades, and cleaning (the sixth trade: it makes a
+// service agreement from its own library, see contractCleaningCompose).
+var CONTRACT_CONSTRUCTION_TRADE_KEYS = ["pools", "tile", "remodeling", "hardscape", "general"];
+var CONTRACT_TRADE_KEYS = ["pools", "tile", "remodeling", "hardscape", "general", "cleaning"];
+var CONTRACT_TRADE_LABELS = { pools: "Pools and Spas", tile: "Tile and Flooring", remodeling: "Remodeling", hardscape: "Hardscape and Outdoor Living", general: "General Services", cleaning: "Cleaning" };
+// How the library's "Trades:" line maps onto the keys. A cleaning row's line
+// starts with "Cleaning:" and never matches a construction trade.
+var CONTRACT_TRADE_WORDS = { pools: /pool/i, tile: /tile|flooring/i, remodeling: /remodel/i, hardscape: /hardscape|outdoor/i, general: /general|painting|handyman/i, cleaning: /^\s*cleaning\b/i };
 var CONTRACT_AREA_ORDER = ["C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19"];
 var CONTRACT_DISCLAIMER_UNREVIEWED = "This contract template has not been reviewed by an attorney. Have your attorney review it.";
 var CONTRACT_DEFAULT_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your contract for {job_name}: {link}";
@@ -27669,7 +27677,7 @@ var CONTRACT_ROUTE_DEFAULT_MESSAGE = "O contrato {contract_number} de {job_name}
 var CONTRACT_SIGNING_FIELDS = ["owner_signature_lien_notice", "owner_signature_lien_notice_date", "owner_signature_pool_ack", "owner_signature_pool_ack_date",
     "owner_initials_arbitration", "contractor_initials_arbitration", "owner_initials_jury", "contractor_initials_jury", "owner_marketing_consent_checkbox",
     "transaction_date", "cancellation_deadline_date", "company_signed_at", "mutual_execution_deadline", "pool_docs_delivered_at", "pool_docs_delivery_method",
-    "ch515_doc_version", "drowning_pub_version"];
+    "ch515_doc_version", "drowning_pub_version", "customer_signature", "customer_signature_date"];
 
 // ── State riders ──────────────────────────────────────────────────────────
 // The clause library is Florida law. A job in any other state (or DC) is
@@ -27918,10 +27926,11 @@ function contractStateChecklist(st, job) {
 
 function contractOptionTrades(tradesLine) {
     var t = String(tradesLine || "").toLowerCase();
-    if (!t || /\ball\b/.test(t)) { return CONTRACT_TRADE_KEYS.slice(); }
+    if (CONTRACT_TRADE_WORDS.cleaning.test(t)) { return ["cleaning"]; }
+    if (!t || /\ball\b/.test(t)) { return CONTRACT_CONSTRUCTION_TRADE_KEYS.slice(); }
     var out = [];
-    CONTRACT_TRADE_KEYS.forEach(function(k) { if (CONTRACT_TRADE_WORDS[k].test(t)) { out.push(k); } });
-    return out.length ? out : CONTRACT_TRADE_KEYS.slice();
+    CONTRACT_CONSTRUCTION_TRADE_KEYS.forEach(function(k) { if (CONTRACT_TRADE_WORDS[k].test(t)) { out.push(k); } });
+    return out.length ? out : CONTRACT_CONSTRUCTION_TRADE_KEYS.slice();
 }
 
 async function contractSettingsRow(env, clientId) {
@@ -27946,10 +27955,14 @@ async function contractSettingsRow(env, clientId) {
 async function contractLibraryForClient(env, clientId, version, trades) {
     var lib = await contractLibraryLoad(env, version);
     if (!lib) { return null; }
+    // The cleaning rows go to lib.cleaning; everything below, and every reader
+    // of lib.clause_areas / clause_options / locked_blocks / placeholderMap,
+    // sees the construction library alone, exactly as before cleaning existed.
+    contractCleaningSplit(lib);
     var priv = (await env.DB.prepare("SELECT * FROM contract_clause_options WHERE version = ? AND scope = ? AND status = 'approved' ORDER BY sort_order").bind(version, clientId).all()).results || [];
     var byId = {};
     lib.clause_options.forEach(function(o) { byId[o.id] = o; });
-    var useTrades = trades && trades.length ? trades : CONTRACT_TRADE_KEYS;
+    var useTrades = trades && trades.length ? trades : CONTRACT_CONSTRUCTION_TRADE_KEYS;
     var options = lib.clause_options.filter(function(o) {
         var ot = contractOptionTrades(o.trades);
         return useTrades.some(function(k) { return ot.indexOf(k) !== -1; });
@@ -28060,7 +28073,13 @@ async function contractContext(env, clientId, c) {
     var client = await env.DB.prepare("SELECT name, logo_url, owners, phone, whatsapp, legal_entity_dba FROM clients WHERE id = ?").bind(clientId).first();
     var admin = await contractAdminSettings(env);
     var lib = await contractLibraryForClient(env, clientId, c.library_version, settings.trades);
-    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib };
+    // Cleaning: the answers the customer gave on the online booking page
+    // pre-fill the builder. Read only; a construction contract never reads them.
+    var booking = null;
+    if (contractIsCleaning(c) && c.lead_id) {
+        try { booking = await contractCleaningBooking(env, clientId, c.lead_id); } catch (eB) { console.error("booking answers for contract", eB && eB.message); }
+    }
+    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib, booking: booking };
 }
 
 // Contract price and schedule from the accepted estimates (change orders add
@@ -28340,7 +28359,10 @@ function GmLabelsPaymentMethodEn(k) {
 // Placeholders the library defines as "... or empty": an empty value is an
 // answer, never a missing field.
 var CONTRACT_OPTIONAL_EMPTY = ["business_dba_clause", "co_owner_clause", "owner_title_note", "extension_sentence", "insurance_statement",
-    "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause", "defect_notice_sentence"];
+    "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause", "defect_notice_sentence",
+    // Cleaning library: its "... or empty" placeholders.
+    "landlord_consent_sentence", "customer_entity_sentence", "turnover_deadline_sentence", "tax_note_short", "tax_line_sentence", "renewal_notice_sentence",
+    "renewal_reminder_sentence", "early_termination_sentence", "insurance_claim_sentence", "translation_notice_sentence"];
 // F7: an "... or empty" value must never leave doubled punctuation or a
 // doubled space where it was assembled. The junction is fixed at the
 // placeholder only, never anywhere else in the library text (the statute
@@ -28387,6 +28409,8 @@ function contractMissing(text) {
 
 // The rules engine + the document, in print order.
 function contractCompose(ctx, c, today, mode) {
+    // A cleaning service agreement has its own rules engine and library.
+    if (contractIsCleaning(c)) { return contractCleaningCompose(ctx, c, today, mode); }
     var built = contractBuildVars(ctx, c, today, mode);
     var v = built.vars, lib = ctx.lib, byId = lib.optionsById;
     var amount = built.sums.total_cents;
@@ -28531,6 +28555,669 @@ function contractCompose(ctx, c, today, mode) {
     };
 }
 
+// ── Cleaning service agreements (the sixth trade) ─────────────────────────
+// A cleaning business makes a SERVICE AGREEMENT. It is composed from the
+// cleaning library (clause areas CL01 to CL19, locked blocks LC1 to LC7,
+// loaded by migrations/contracts_e_cleaning.sql from the drafted Florida
+// cleaning library), never from C01 to C19 and L1 to L7. The kind and the
+// template (T1 to T4) live in flags_json (flags.kind = "cleaning",
+// flags.cleaning_template). A contract without flags.kind is a construction
+// contract and takes none of the code below.
+//
+// A clause area can carry more than one printed option (a pets option AND a
+// hazards option; a schedule AND a price), so the builder works in SLOTS: one
+// choice per slot. Which options a slot offers for a template comes from each
+// library row's own "Templates:" line, not from this file.
+// need: "one" = exactly one option; "on" = included unless the owner removes
+// it; "optional" = off unless the owner adds it.
+var CONTRACT_CLEANING_TEMPLATES = ["T1", "T2", "T3", "T4"];
+var CONTRACT_CLEANING_TEMPLATE_LABELS = { T1: "Residential recurring", T2: "One-time or move-out", T3: "Short-term-rental turnover", T4: "Small commercial office" };
+var CONTRACT_CLEANING_DOC_TITLE = "Service Agreement";
+var CONTRACT_CLEANING_SLOTS = [
+    { id: "CL01", area: "CL01", options: ["CL01-A", "CL01-B", "CL01-C"], need: "one", def: { T1: "CL01-A", T2: "CL01-A", T3: "CL01-B", T4: "CL01-C" } },
+    { id: "CL02", area: "CL02", options: ["CL02-A", "CL02-B", "CL02-C", "CL02-D", "CL02-E"], need: "one" },
+    { id: "CL03", area: "CL03", options: ["CL03-A", "CL03-B", "CL03-C", "CL03-D"], need: "one", def: { T1: "CL03-A", T2: "CL03-A", T3: "CL03-B", T4: "CL03-D" } },
+    { id: "CL04", area: "CL04", options: ["CL04-A", "CL04-B"], need: "one", title: "Pets" },
+    { id: "CL04-C", area: "CL04", options: ["CL04-C"], need: "optional" },
+    { id: "CL04-D", area: "CL04", options: ["CL04-D"], need: "one" },
+    { id: "CL04-E", area: "CL04", options: ["CL04-E"], need: "optional" },
+    { id: "CL05", area: "CL05", options: ["CL05-A", "CL05-B", "CL05-C", "CL05-D"], need: "one" },
+    { id: "CL06", area: "CL06", options: ["CL06-A", "CL06-B"], need: "one", title: "Schedule" },
+    { id: "CL06-P", area: "CL06", options: ["CL06-C", "CL06-D", "CL06-F", "CL06-G", "CL06-H"], need: "one", title: "Price" },
+    { id: "CL06-E", area: "CL06", options: ["CL06-E"], need: "optional" },
+    { id: "CL07", area: "CL07", options: ["CL07-A", "CL07-B", "CL07-C"], need: "one", title: "Payment" },
+    { id: "CL07-D", area: "CL07", options: ["CL07-D"], need: "optional" },
+    { id: "CL07-L", area: "CL07", options: ["CL07-E", "CL07-F"], need: "one", title: "Late payment" },
+    { id: "CL08", area: "CL08", options: ["CL08-A", "CL08-B", "CL08-C", "CL08-D", "CL08-E"], need: "one" },
+    { id: "CL09", area: "CL09", options: ["CL09-A", "CL09-B", "CL09-C", "CL09-D"], need: "one" },
+    { id: "CL09-E", area: "CL09", options: ["CL09-E"], need: "optional" },
+    { id: "CL09-F", area: "CL09", options: ["CL09-F:none", "CL09-F:fee"], need: "one", virtual: true, when: ["CL09-B", "CL09-C"], def: { all: "CL09-F:none" } },
+    { id: "CL10", area: "CL10", options: ["CL10-A", "CL10-B"], need: "one", title: "Damage" },
+    { id: "CL10-C", area: "CL10", options: ["CL10-C"], need: "optional" },
+    { id: "CL10-D", area: "CL10", options: ["CL10-D"], need: "on" },
+    { id: "CL10-E", area: "CL10", options: ["CL10-E"], need: "optional" },
+    { id: "CL11", area: "CL11", options: ["CL11-A", "CL11-B"], need: "one" },
+    { id: "CL11-C", area: "CL11", options: ["CL11-C"], need: "optional" },
+    { id: "CL12", area: "CL12", options: ["CL12-A", "CL12-B", "CL12-C", "CL12-D"], need: "one" },
+    { id: "CL13", area: "CL13", options: ["CL13-A", "CL13-B", "CL13-C"], need: "one", def: { all: "CL13-C" } },
+    { id: "CL14", area: "CL14", options: ["CL14-A", "CL14-B"], need: "one", def: { all: "CL14-B" } },
+    { id: "CL14-C", area: "CL14", options: ["CL14-C"], need: "optional" },
+    { id: "CL15", area: "CL15", options: ["CL15-A", "CL15-B", "CL15-C"], need: "optional" },
+    { id: "CL16", area: "CL16", options: ["CL16-A"], need: "on" },
+    { id: "CL16-B", area: "CL16", options: ["CL16-B"], need: "on" },
+    { id: "CL16-C", area: "CL16", options: ["CL16-C"], need: "optional" },
+    { id: "CL16-D", area: "CL16", options: ["CL16-D"], need: "optional" },
+    { id: "CL17", area: "CL17", options: ["CL17-A"], need: "on" },
+    { id: "CL17-B", area: "CL17", options: ["CL17-B"], need: "on" },
+    { id: "CL17-C", area: "CL17", options: ["CL17-C"], need: "optional" },
+    { id: "CL18", area: "CL18", options: ["CL18-A", "CL18-B", "CL18-C"], need: "one" },
+    { id: "CL19", area: "CL19", options: ["CL19-A", "CL19-B"], need: "one" }
+];
+var CONTRACT_CLEANING_VIRTUAL_TITLES = { "CL09-F:none": "No fee", "CL09-F:fee": "Stated fee" };
+// Product guardrails. None of these numbers comes from a statute: the draft
+// library sets them for an attorney to confirm or replace.
+var CONTRACT_CLEANING_FEE_WARN_PERCENT = 50;
+var CONTRACT_CLEANING_FEE_REFUSE_PERCENT = 100;
+var CONTRACT_CLEANING_EARLY_FEE_CAP_PERCENT = 25;
+var CONTRACT_CLEANING_INTEREST_MAX = 18;
+var CONTRACT_CLEANING_GUARDRAIL_EN = "Product guardrail (not law): ";
+var CONTRACT_CLEANING_GUARDRAIL_PT = "Limite do produto (n\u00e3o \u00e9 lei): ";
+// Alarm, gate and door codes are never printed on a contract. The two
+// placeholders that would carry them print these words instead.
+var CONTRACT_CLEANING_ACCESS_TEXT = "the access instructions Customer gives Contractor in writing, which are kept outside this Agreement";
+var CONTRACT_CLEANING_ALARM_TEXT = "given to Contractor in writing and kept outside this Agreement";
+// Values the cleaning rules compute or take from Apex admin data or from the
+// business's settings record: never typed on one contract.
+var CONTRACT_CLEANING_FIXED_FIELDS = ["tax_note_short", "tax_line_sentence", "renewal_notice_sentence", "renewal_reminder_sentence", "early_termination_sentence",
+    "access_instructions", "alarm_gate_instructions", "county_surtax_rate", "service_county", "arbitration_rules", "arbitration_fee_allocation", "insurance_summary",
+    "screening_description", "business_legal_name", "business_address", "business_phone", "payment_methods_list", "payment_account_hint", "contract_date"];
+var CONTRACT_CLEANING_MONEY_FIELDS = ["visit_price", "one_time_price", "monthly_price", "late_cancel_fee", "no_access_fee", "early_termination_fee", "conversion_fee"];
+// The booking page's answer keys, in the words a clause prints.
+var CONTRACT_CLEANING_BOOKING_WORDS = { clean_type: { standard: "standard clean", deep: "deep clean", move: "move-in or move-out clean" }, frequency: { weekly: "weekly", biweekly: "every two weeks", monthly: "monthly" } };
+// State-neutral versions of the cleaning clause options that carry Florida
+// wording (job outside Florida). Same rule as the state riders: each "find"
+// is text in the library row, the row itself is never changed.
+var CONTRACT_CLEANING_NEUTRAL_EDITS = {
+    "CL07-A": [{ find: " No sales tax is charged on residential cleaning.", replace: "" }],
+    "CL18-A": [{ find: "{property_county} County, Florida", replace: "{property_county} County, {job_state_name}" }],
+    "CL18-B": [{ find: "{property_county} County, Florida", replace: "{property_county} County, {job_state_name}" }],
+    "CL19-A": [{ find: "Florida law governs this Agreement.", replace: "{job_state_name} law governs this Agreement." }]
+};
+
+function contractIsCleaning(c) { return !!(c && c.flags && c.flags.kind === "cleaning"); }
+function contractCleaningTemplate(c) {
+    var t = c && c.flags && c.flags.cleaning_template;
+    return CONTRACT_CLEANING_TEMPLATES.indexOf(t) !== -1 ? t : "T1";
+}
+function contractHasCleaningTrade(settings) { return !!(settings && settings.trades && settings.trades.indexOf("cleaning") !== -1); }
+function contractHasConstructionTrade(settings) {
+    return !!(settings && settings.trades && settings.trades.some(function(k) { return CONTRACT_CONSTRUCTION_TRADE_KEYS.indexOf(k) !== -1; }));
+}
+function contractCleaningReady(lib) { return !!(lib && lib.cleaning && lib.cleaning.options.length); }
+// The kinds of contract this business can make. A business without the
+// cleaning trade (or before the cleaning library is loaded) has one kind and
+// is never asked.
+function contractKindsFor(settings, lib) {
+    var out = [];
+    if (contractHasConstructionTrade(settings)) { out.push("construction"); }
+    if (contractHasCleaningTrade(settings) && contractCleaningReady(lib)) { out.push("cleaning"); }
+    return out;
+}
+function contractCleaningTemplateList() {
+    return CONTRACT_CLEANING_TEMPLATES.map(function(k) { return { key: k, label: CONTRACT_CLEANING_TEMPLATE_LABELS[k] }; });
+}
+// The cleaning rows of a loaded library, split away from the construction
+// ones. Placeholder rows sorted from 1000 are the cleaning library's.
+function contractCleaningSplit(lib) {
+    function isCl(id) { return /^CL\d\d/.test(String(id || "")); }
+    function isLc(id) { return /^LC\d/.test(String(id || "")); }
+    var clean = { areas: [], options: [], locked: {}, byId: {}, areasById: {}, placeholderMap: {} };
+    clean.areas = lib.clause_areas.filter(function(a) { return isCl(a.id); });
+    clean.options = lib.clause_options.filter(function(o) { return isCl(o.area_id) || isCl(o.id); });
+    lib.locked_blocks.filter(function(b) { return isLc(b.id); }).forEach(function(b) { clean.locked[b.id] = b; });
+    clean.areas.forEach(function(a) { clean.areasById[a.id] = a; });
+    clean.options.forEach(function(o) { clean.byId[o.id] = o; });
+    (lib.placeholders || []).filter(function(p) { return Number(p.sort_order) >= 1000; }).forEach(function(p) {
+        String(p.field || "").replace(/\([^)]*\)/g, "").split(/\s*,\s*/).forEach(function(f) { f = f.trim(); if (f) { clean.placeholderMap[f] = p; } });
+    });
+    lib.clause_areas = lib.clause_areas.filter(function(a) { return !isCl(a.id); });
+    lib.clause_options = lib.clause_options.filter(function(o) { return !isCl(o.area_id) && !isCl(o.id); });
+    lib.locked_blocks = lib.locked_blocks.filter(function(b) { return !isLc(b.id); });
+    lib.placeholders = (lib.placeholders || []).filter(function(p) { return !(Number(p.sort_order) >= 1000); });
+    lib.cleaning = clean;
+    return lib;
+}
+// T1..T4 from a row's own "Templates:" line ("Cleaning: T1, T2", "Cleaning: all (add-on ...)").
+function contractCleaningOptionTemplates(o) {
+    var t = String((o && o.trades) || "").replace(/^\s*cleaning\s*:\s*/i, "").replace(/\([^)]*\)/g, " ");
+    var out = /\ball\b/i.test(t) ? CONTRACT_CLEANING_TEMPLATES.slice() : (t.match(/T[1-4]/g) || []);
+    // The CL09 area rule: a one-time job (T2) carries only the one-time sentence (CL09-D).
+    if (o && o.id === "CL09-E") { out = out.filter(function(x) { return x !== "T2"; }); }
+    return out;
+}
+// A quoted default or example sentence, read out of the library row itself.
+function contractCleaningQuoted(text, re) { var m = re.exec(String(text || "")); return m ? m[1] : ""; }
+// "$45", "45.00", "1,200" -> cents; null when it is not one plain amount.
+function contractCleaningMoneyCents(s) {
+    var m = /^\s*\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d{1,2})?\s*$/.exec(String(s === null || s === undefined ? "" : s));
+    if (!m) { return null; }
+    return Math.round(Number(m[1].replace(/,/g, "") + (m[2] || "")) * 100);
+}
+function contractCleaningNumber(s) {
+    var t = String(s === null || s === undefined ? "" : s).trim();
+    return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
+}
+function contractCleaningAdminList(ctx, key) {
+    return String((ctx && ctx.admin && ctx.admin[key]) || "").split(/\r?\n/).map(function(x) { return x.trim(); }).filter(Boolean);
+}
+// The county surtax table Apex keeps ("Hillsborough=1.5", one per line).
+function contractCleaningSurtax(ctx, county) {
+    var want = String(county || "").trim().toLowerCase().replace(/\s+county$/, ""), hit = null;
+    if (!want) { return null; }
+    contractCleaningAdminList(ctx, "cleaning_county_surtax").forEach(function(line) {
+        var p = line.split("=");
+        if (p.length === 2 && p[0].trim().toLowerCase() === want && contractCleaningNumber(p[1]) !== null) { hit = p[1].trim(); }
+    });
+    return hit;
+}
+// LC6, the representations gate: what this business may say about itself.
+// A sentence about insurance, workers' compensation, bonding or screening is
+// offered only while the matching record in the contract settings is current.
+function contractCleaningGate(ctx, today) {
+    var val = (ctx && ctx.settings && ctx.settings.values) || {};
+    function yes(k) { return String(val[k] || "") === "yes"; }
+    function current(k) { var y = contractParseDateAnswer(val[k]); return !!y && y >= today; }
+    var summary = String(val.cleaning_insurance_summary || "").trim();
+    return {
+        insured: yes("cleaning_insurance_on_file") && current("cleaning_insurance_expiry") && !!summary,
+        insurance_expired: yes("cleaning_insurance_on_file") && !current("cleaning_insurance_expiry"),
+        workers_comp: yes("cleaning_wc_on_file") && current("cleaning_wc_expiry"),
+        bonded: yes("cleaning_bond_on_file"),
+        limits_shown: yes("cleaning_insurance_limits_shown"),
+        screened: yes("cleaning_screening_confirmed") && !!String(val.screening_description || "").trim()
+    };
+}
+// Why an option cannot be chosen right now ({ en, pt }), or null.
+function contractCleaningOptionLock(id, ctx, gate) {
+    function lock(en, pt) { return { en: en, pt: pt }; }
+    var apexEn = "Not available yet: Apex has not loaded the attorney-approved values for this option.", apexPt = "Ainda n\u00e3o dispon\u00edvel: a Apex ainda n\u00e3o carregou os valores aprovados pelo advogado para esta op\u00e7\u00e3o.";
+    if (id === "CL19-B") { return lock("Locked until an attorney answers whether a courtesy Portuguese translation is acceptable.", "Bloqueada at\u00e9 um advogado responder se a tradu\u00e7\u00e3o de cortesia em portugu\u00eas \u00e9 aceit\u00e1vel."); }
+    if ((id === "CL13-A" || id === "CL17-C") && !gate.insured) {
+        return lock("Needs a current certificate of insurance recorded in the contract settings (with its expiry date).", "Precisa de um certificado de seguro v\u00e1lido registrado nas configura\u00e7\u00f5es do contrato (com a data de validade).");
+    }
+    if (id === "CL13-B" && !(gate.insured && gate.workers_comp)) {
+        return lock("Needs a current certificate of insurance and a current workers' compensation policy or exemption recorded in the contract settings.", "Precisa de um certificado de seguro v\u00e1lido e de uma ap\u00f3lice ou isen\u00e7\u00e3o de workers' compensation v\u00e1lida registrados nas configura\u00e7\u00f5es do contrato.");
+    }
+    if (id === "CL14-A" && !gate.screened) {
+        return lock("Needs the screening you completed recorded and confirmed in the contract settings.", "Precisa da triagem que voc\u00ea fez registrada e confirmada nas configura\u00e7\u00f5es do contrato.");
+    }
+    if (id === "CL10-B" && !contractCleaningAdminList(ctx, "cleaning_damage_caps").length) { return lock(apexEn, apexPt); }
+    if (id === "CL10-E" && !contractCleaningAdminList(ctx, "cleaning_liability_limits").length) { return lock(apexEn, apexPt); }
+    if (id === "CL15-B" && contractCleaningMoneyCents(ctx && ctx.admin && ctx.admin.cleaning_conversion_fee_cap) === null) { return lock(apexEn, apexPt); }
+    if (id === "CL18-B" && !(ctx && ctx.admin && ctx.admin.cleaning_arbitration_rules && ctx.admin.cleaning_arbitration_fee_allocation)) { return lock(apexEn, apexPt); }
+    return null;
+}
+// The slots of this contract's template, each with the options its template offers.
+function contractCleaningSlots(ctx, c, gate) {
+    var cl = (ctx && ctx.lib && ctx.lib.cleaning) || { byId: {}, areasById: {} };
+    var tpl = contractCleaningTemplate(c), sel = (c && c.selections) || {}, out = [];
+    CONTRACT_CLEANING_SLOTS.forEach(function(s) {
+        if (s.when && s.when.indexOf(sel[s.area]) === -1) { return; }
+        var opts = [], row = null;
+        s.options.forEach(function(id) {
+            var o = cl.byId[id.split(":")[0]];
+            if (!o || contractCleaningOptionTemplates(o).indexOf(tpl) === -1) { return; }
+            row = row || o;
+            opts.push({ id: id, title: CONTRACT_CLEANING_VIRTUAL_TITLES[id] || o.title, owner_description: o.owner_description, owner_description_pt: o.pt_summary || null,
+                        locked: contractCleaningOptionLock(id, ctx, gate), private: false });
+        });
+        if (!opts.length) { return; }
+        var area = cl.areasById[s.area] || {};
+        var single = s.options.length === 1 || !!s.virtual;
+        out.push({ id: s.id, area: s.area, need: s.need, primary: s.id === s.area, virtual: !!s.virtual,
+                   title: s.title || (single && s.id !== s.area ? row.title : (area.title || s.area)), options: opts, def: (s.def && (s.def[tpl] || s.def.all)) || null });
+    });
+    return out;
+}
+// What a new cleaning agreement starts with: the draft's default where it
+// names one, else the first option its template offers.
+function contractCleaningDefaults(ctx, c, gate) {
+    var sel = {};
+    contractCleaningSlots(ctx, { flags: c.flags, selections: sel }, gate).forEach(function(s) {
+        if (s.need === "optional") { return; }
+        var open = s.options.filter(function(o) { return !o.locked; });
+        var pick = open.filter(function(o) { return o.id === s.def; })[0] || open[0];
+        if (pick) { sel[s.id] = pick.id; }
+    });
+    return sel;
+}
+// Keep the owner's choices that still fit (after a template change or a save),
+// drop the ones that do not, and fill what is now required.
+// reseed: true puts the default back on every "on" slot that is empty.
+function contractCleaningFitSelections(ctx, c, gate, reseed) {
+    var cur = (c && c.selections) || {}, out = {};
+    function pass() {
+        contractCleaningSlots(ctx, { flags: c.flags, selections: out }, gate).forEach(function(s) {
+            if (out[s.id] !== undefined) { return; }
+            var v = cur[s.id];
+            if (v === "custom" && s.primary) { out[s.id] = v; return; }
+            if (v && s.options.some(function(o) { return o.id === v; })) { out[s.id] = v; return; }
+            if (s.need === "one" || (s.need === "on" && reseed)) {
+                var open = s.options.filter(function(o) { return !o.locked; });
+                var pick = open.filter(function(o) { return o.id === s.def; })[0] || open[0];
+                if (pick && (reseed || s.virtual)) { out[s.id] = pick.id; }
+            }
+        });
+    }
+    // Twice: the early-termination slot exists only once the term option is known.
+    pass(); pass();
+    return out;
+}
+function contractCleaningNeutralById(byId) {
+    var out = {};
+    Object.keys(byId).forEach(function(id) {
+        var o = byId[id], edits = CONTRACT_CLEANING_NEUTRAL_EDITS[id];
+        if (!edits) { out[id] = o; return; }
+        var text = String(o.clause_text || "");
+        edits.forEach(function(e) { text = text.split(e.find).join(e.replace); });
+        out[id] = Object.assign({}, o, { clause_text: text });
+    });
+    return out;
+}
+// The text an option prints, before numbering. Two rows are written as
+// "as CL..-A" in the library; they are assembled from that row, never retyped.
+function contractCleaningOptionText(id, byId) {
+    var o = byId[id];
+    var text = String((o && o.clause_text) || "");
+    if (id === "CL18-C" && byId["CL18-A"]) {
+        var body = String(byId["CL18-A"].clause_text || "").replace(/^\*\*[^*]+\*\*\s*/, "");
+        text = text.replace("(First two sentences as CL18-A.)", body.split(". ").slice(0, 2).join(". ") + ".");
+    }
+    if (id === "CL19-B" && byId["CL19-A"]) { text = text.replace("(All of CL19-A.)", String(byId["CL19-A"].clause_text || "")); }
+    return text;
+}
+// The latest booked online-booking request of this lead (read only).
+async function contractCleaningBooking(env, clientId, leadId) {
+    var row = await env.DB.prepare("SELECT id, answers_json, booked_at FROM gm_booking_requests WHERE client_id = ? AND lead_id = ? AND status = 'booked' ORDER BY booked_at DESC, created_at DESC LIMIT 1").bind(clientId, leadId).first();
+    if (!row) { return null; }
+    return { id: row.id, booked_at: row.booked_at || null, answers: contractCleaningBookingAnswers(row.answers_json) };
+}
+// answers_json is a list of { key, value } (or a plain object): -> { key: value }.
+function contractCleaningBookingAnswers(json) {
+    var raw = null, out = {};
+    try { raw = typeof json === "string" ? JSON.parse(json || "null") : json; } catch (e) { raw = null; }
+    if (Array.isArray(raw)) { raw.forEach(function(a) { if (a && a.key && a.value !== undefined && a.value !== null && String(a.value) !== "") { out[a.key] = String(a.value); } }); }
+    else if (raw && typeof raw === "object") { Object.keys(raw).forEach(function(k) { if (raw[k] !== null && raw[k] !== undefined && String(raw[k]) !== "") { out[k] = String(raw[k]); } }); }
+    return out;
+}
+// Builder answers pre-filled from the booking, and where each came from.
+function contractCleaningBookingPrefill(booking) {
+    var a = (booking && booking.answers) || {}, fill = {}, facts = [];
+    function fact(key, en, pt, value, field) { facts.push({ key: key, en: en, pt: pt, value: value, field: field || null }); }
+    var ct = a.clean_type ? (CONTRACT_CLEANING_BOOKING_WORDS.clean_type[a.clean_type] || null) : null;
+    if (a.clean_type) { if (ct) { fill.clean_type = ct; } fact("clean_type", "Type of cleaning", "Tipo de limpeza", ct || a.clean_type, ct ? "clean_type" : null); }
+    var fr = a.frequency ? (CONTRACT_CLEANING_BOOKING_WORDS.frequency[a.frequency] || null) : null;
+    if (a.frequency) { if (fr) { fill.frequency = fr; } fact("frequency", "How often", "Com que frequ\u00eancia", fr || (a.frequency === "once" ? "one time" : a.frequency), fr ? "frequency" : null); }
+    var size = [];
+    if (contractCleaningNumber(a.bedrooms) !== null) { size.push(a.bedrooms + (Number(a.bedrooms) === 1 ? " bedroom" : " bedrooms")); fact("bedrooms", "Bedrooms", "Quartos", a.bedrooms, "size_description"); }
+    if (contractCleaningNumber(a.bathrooms) !== null) { size.push(a.bathrooms + (Number(a.bathrooms) === 1 ? " bathroom" : " bathrooms")); fact("bathrooms", "Bathrooms", "Banheiros", a.bathrooms, "size_description"); }
+    if (contractCleaningNumber(a.sqft) !== null) { var sq = String(Math.round(Number(a.sqft))).replace(/\B(?=(\d{3})+(?!\d))/g, ","); size.push("about " + sq + " square feet"); fact("sqft", "Approximate square feet", "Metragem aproximada (sq ft)", sq, "size_description"); }
+    if (size.length) { fill.size_description = size.join(", "); }
+    if (a.pets === "yes" || a.pets === "no") {
+        if (a.pets === "no") { fill.pets_list = "none"; }
+        fact("pets", "Pets at home", "Animais em casa", a.pets, a.pets === "no" ? "pets_list" : null);
+    }
+    return { fill: fill, facts: facts };
+}
+// The owner's checklist for a cleaning agreement outside Florida. The lines
+// about cancellation, the research status and the fixed reminders are the
+// ones any contract gets; the construction lines (license, written-contract
+// amount, deposit cap, defect process, home-improvement notices) are left
+// out, and the state's cleaning facts from the rider are added.
+function contractCleaningStateChecklist(st, job) {
+    var base = contractStateChecklist(st, job).filter(function(l) { return /^(cancellation|status$|fixed:)/.test(l.key); });
+    var r = st.rider || {}, cz = r.cleaning || {}, name = st.name, lines = [];
+    function add(key, en, pt, warn) { lines.push({ key: key, level: warn ? "warn" : "info", en: en, pt: pt }); }
+    add("cleaning_blocks", "This agreement is in " + name + ": the Florida cleaning notices (continuing-services notice, Florida home solicitation statement, Florida automatic-renewal panel, Florida sales tax sentences) are not printed. The federal three-day notice and form print when they apply.",
+        "Este contrato \u00e9 em " + name + ": os avisos de limpeza da Fl\u00f3rida (servi\u00e7os cont\u00ednuos, venda em domic\u00edlio da Fl\u00f3rida, renova\u00e7\u00e3o autom\u00e1tica da Fl\u00f3rida, imposto sobre vendas da Fl\u00f3rida) n\u00e3o s\u00e3o impressos. O aviso e o formul\u00e1rio federais de tr\u00eas dias s\u00e3o impressos quando se aplicam.");
+    var ar = cz.auto_renewal;
+    if (ar && ar.rule) {
+        var tail = (ar.cite ? " (" + ar.cite + ")" : "") + "." + (ar.scope_and_confidence ? " Research note: " + ar.scope_and_confidence + "." : "");
+        var tailPt = (ar.cite ? " (" + ar.cite + ")" : "") + "." + (ar.scope_and_confidence ? " Nota da pesquisa: " + ar.scope_and_confidence + "." : "");
+        add("cleaning_auto_renewal", "Automatic renewal rule: " + ar.rule + tail, "Regra de renova\u00e7\u00e3o autom\u00e1tica: " + ar.rule + tailPt, !!job.auto_renews);
+    } else {
+        add("cleaning_auto_renewal", "Automatic renewal rule: none found in the research" + (cz.no_rule_note ? " (" + cz.no_rule_note + ")" : "") + ". That is not proof that none exists.",
+            "Regra de renova\u00e7\u00e3o autom\u00e1tica: nenhuma encontrada na pesquisa" + (cz.no_rule_note ? " (" + cz.no_rule_note + ")" : "") + ". Isso n\u00e3o prova que n\u00e3o existe.", !!job.auto_renews);
+    }
+    if (cz.license_note) { add("cleaning_license", "Cleaning licence note: " + cz.license_note, "Nota sobre licen\u00e7a de limpeza: " + cz.license_note); }
+    else {
+        add("cleaning_license", "Cleaning licence: no note in the research" + (cz.license_not_verified ? "; not verified" : "") + ". Check your city and county.",
+            "Licen\u00e7a de limpeza: nenhuma nota na pesquisa" + (cz.license_not_verified ? "; n\u00e3o verificado" : "") + ". Confira na sua cidade e no seu condado.");
+    }
+    if (cz.home_solicitation_applies_to_cleaning === true) {
+        add("cleaning_home_solicitation", "Home-solicitation cancellation: the research says " + name + "'s rule reaches cleaning services.", "Cancelamento de venda em domic\u00edlio: a pesquisa diz que a regra de " + name + " alcan\u00e7a servi\u00e7os de limpeza.", !!job.sold_in_home);
+    } else {
+        add("cleaning_home_solicitation", "Home-solicitation cancellation: the research did not find that " + name + "'s rule reaches cleaning services. That is not proof that it does not.",
+            "Cancelamento de venda em domic\u00edlio: a pesquisa n\u00e3o encontrou que a regra de " + name + " alcan\u00e7a servi\u00e7os de limpeza. Isso n\u00e3o prova que n\u00e3o alcan\u00e7a.");
+    }
+    add("cleaning_tax", "Sales tax: the clause library holds Florida's rules only. This agreement prints no tax sentence for " + name + ". Ask your tax professional.",
+        "Imposto sobre vendas: a biblioteca tem s\u00f3 as regras da Fl\u00f3rida. Este contrato n\u00e3o imprime frase de imposto para " + name + ". Pergunte ao seu contador.", job.template === "T4");
+    var pos = 0;
+    base.forEach(function(l, i) { if (/^cancellation/.test(l.key)) { pos = i + 1; } });
+    return base.slice(0, pos).concat(lines, base.slice(pos));
+}
+
+// The rules engine + the document for a cleaning service agreement. Returns
+// the same shape as contractCompose, plus kind, template, guardrails and the
+// builder's slot list.
+function contractCleaningCompose(ctx, c, today, mode) {
+    var built = contractBuildVars(ctx, c, today, mode);
+    var base = built.vars, st = built.state, outFl = !st.florida;
+    var flags = c.flags || {}, sel = c.selections || {}, answers = c.answers || {};
+    var cl = (ctx.lib && ctx.lib.cleaning) || { areas: [], options: [], locked: {}, byId: {}, areasById: {}, placeholderMap: {} };
+    var tpl = contractCleaningTemplate(c);
+    var gate = contractCleaningGate(ctx, today);
+    var slots = contractCleaningSlots(ctx, c, gate);
+    var byId = outFl ? contractCleaningNeutralById(cl.byId) : cl.byId;
+    var sv = (ctx.settings && ctx.settings.values) || {};
+    var blockers = [], guardrails = [], notes = [];
+    function block(code, en, pt) { blockers.push({ code: code, pt: pt, en: en }); }
+    function rail(code, level, en, pt) {
+        guardrails.push({ code: code, level: level, en: CONTRACT_CLEANING_GUARDRAIL_EN + en, pt: CONTRACT_CLEANING_GUARDRAIL_PT + pt });
+        if (level === "refuse") { block(code, CONTRACT_CLEANING_GUARDRAIL_EN + en, CONTRACT_CLEANING_GUARDRAIL_PT + pt); }
+    }
+    if (!cl.options.length) { block("cleaning_library", "The cleaning clause library is not loaded yet. Contact Apex.", "A biblioteca de cl\u00e1usulas de limpeza ainda n\u00e3o foi carregada. Fale com a Apex."); }
+
+    // ── What is chosen ───────────────────────────────────────────────────
+    var chosen = [], areaOn = {};
+    slots.forEach(function(s) {
+        var id = sel[s.id];
+        if (!id) {
+            if (s.need === "one") { block("cleaning_choice", "Choose an option for " + s.id + " (" + s.title + ").", "Escolha uma op\u00e7\u00e3o para " + s.id + " (" + s.title + ")."); }
+            return;
+        }
+        if (id === "custom") {
+            var cc = c.custom_clauses.filter(function(x) { return x.area_id === s.area && x.status !== "not_approved"; })[0];
+            if (cc && s.primary) { chosen.push({ slot: s, id: "custom", custom: cc }); areaOn[s.area] = true; }
+            return;
+        }
+        var o = s.options.filter(function(x) { return x.id === id; })[0];
+        if (!o) { return; }
+        if (o.locked) { block("cleaning_locked", id.split(":")[0] + ": " + o.locked.en, id.split(":")[0] + ": " + o.locked.pt); }
+        chosen.push({ slot: s, id: id });
+        areaOn[s.area] = true;
+    });
+    function picked(id) { return chosen.some(function(x) { return x.id === id; }); }
+    var nums = {}, n = 0;
+    cl.areas.forEach(function(a) { if (areaOn[a.id]) { n++; nums[a.id] = n; } });
+
+    // ── Rules for the locked blocks (the draft's section 3) ──────────────
+    var consumer = flags.consumer !== undefined && flags.consumer !== null ? !!flags.consumer : (tpl === "T1" || tpl === "T2");
+    var soldInHome = flags.sold_in_home !== false;
+    var home = tpl === "T1" || tpl === "T2";
+    var flOff = "service is in " + st.name + ": Florida notice not used";
+    var business = "off by default for this template (attorney question: does the rule reach this customer?)";
+    var rules = {};
+    if (tpl === "T1") { rules.LC1 = consumer ? { on: true, why: "residential recurring service for an individual" } : { on: false, why: "customer is not an individual buying for personal, family or household use" }; }
+    else if (tpl === "T2") { rules.LC1 = (consumer && flags.further_visits === true) ? { on: true, why: "one-time job that also promises further visits" } : { on: false, why: "one visit, no further visits promised" }; }
+    else { rules.LC1 = { on: false, why: business, flag: true }; }
+    rules["LC1-B"] = { on: false, why: "off until an attorney supplies the official wording" };
+    if (home) { rules.LC2 = (consumer && soldInHome) ? { on: true, why: "sold during a visit to the customer's home" } : { on: false, why: consumer ? "not sold at the home (sold by phone, mail or online, or at the company's own place of business)" : "customer is not an individual buying for personal, family or household use" }; }
+    else { rules.LC2 = { on: false, why: business, flag: true }; }
+    rules.LC3 = rules.LC2.on ? { on: true, why: "printed with the federal three-day notice" } : { on: false, why: "the federal three-day notice is not printed" };
+    rules.LC4 = picked("CL09-B") ? { on: true, why: "fixed term with automatic renewal (CL09-B)" } : { on: false, why: "no automatic renewal on this agreement" };
+    rules["LC4-B"] = { on: false, why: "reminder messages are not sent by the app yet" };
+    rules["LC5-A"] = tpl === "T4" ? { on: true, why: "commercial office" } : { on: false, why: "not a commercial office" };
+    rules["LC5-B"] = tpl === "T3" ? { on: true, why: "short-term-rental turnover" } : { on: false, why: "not a short-term-rental turnover" };
+    rules.LC6 = { on: true, why: "builder rule: what the agreement may say about insurance, bonding and screening" };
+    rules.LC7 = { on: false, why: "construction notices are not part of a cleaning agreement" };
+    if (outFl) { ["LC1", "LC3", "LC4", "LC5-A", "LC5-B"].forEach(function(k) { rules[k] = { on: false, why: flOff }; }); }
+
+    // ── Values ───────────────────────────────────────────────────────────
+    var v = Object.assign({}, base), src = {};
+    function answered(k) { return answers[k] !== undefined && answers[k] !== null && answers[k] !== ""; }
+    function has(k) { return v[k] !== undefined && v[k] !== null && v[k] !== ""; }
+    // A default: only where the builder, the settings and the document settings have nothing.
+    function def(k, val, from) {
+        if (has(k)) { if (!src[k]) { src[k] = (!answered(k) && sv[k] !== undefined && sv[k] !== null && sv[k] !== "") ? "settings" : from; } return; }
+        if (val !== undefined && val !== null && val !== "") { v[k] = String(val); src[k] = from; }
+    }
+    function fix(k, val, from) { v[k] = val === undefined || val === null ? "" : String(val); src[k] = from; }
+    def("customer_full_name", base.owner_full_name, "lead"); def("customer_phone", base.owner_phone, "lead"); def("customer_email", base.owner_email, "lead");
+    def("service_address", base.property_address, "lead"); def("customer_entity_name", base.owner_full_name, "lead"); def("customer_address", base.property_address, "lead");
+    src.property_county = "lead";
+    fix("service_county", has("property_county") ? v.property_county : "", "lead");
+    ["business_legal_name", "business_address", "business_phone", "payment_methods_list", "payment_account_hint"].forEach(function(k) { fix(k, base[k], "settings"); });
+    fix("contract_date", base.contract_date, "computed");
+    src.grace_period_days = "settings"; src.late_interest_rate = "settings";
+    def("visit_price", base.contract_price, "estimate"); def("one_time_price", base.contract_price, "estimate"); def("monthly_price", base.contract_price, "estimate");
+    var pre = contractCleaningBookingPrefill(ctx.booking);
+    Object.keys(pre.fill).forEach(function(k) { def(k, pre.fill[k], "booking"); });
+    // Defaults the draft states, read from its own rows.
+    function fieldsOf(id) { return (cl.byId[id] || {}).placeholders || ""; }
+    def("partial_visit_basis", contractCleaningQuoted(fieldsOf("CL04-D"), /partial_visit_basis \(default: "([^"]+)"\)/), "library");
+    def("credit_basis", contractCleaningQuoted(fieldsOf("CL11-B"), /credit_basis \(default: "([^"]+)"\)/), "library");
+    def("renewal_term", contractCleaningQuoted(fieldsOf("CL09-B"), /renewal_term \(default: "([^"]+)"/), "library");
+    def("nonsolicit_months", contractCleaningQuoted(fieldsOf("CL15-A"), /nonsolicit_months \(default (\d+)\)/), "library");
+    def("late_interest_rate", contractCleaningQuoted(fieldsOf("CL07-F"), /default (\d+);/), "library");
+    def("fee_exclusions_sentence", contractCleaningQuoted(fieldsOf("CL09-F"), /fee_exclusions_sentence \(for example "([^"]+)"\)/), "library");
+    def("acceptance_method", contractCleaningQuoted((cl.placeholderMap.acceptance_method || {}).meaning, /\(for example ([^)]+)\)/), "library");
+    ["landlord_consent_sentence", "customer_entity_sentence", "turnover_deadline_sentence", "translation_notice_sentence"].forEach(function(k) { if (!has(k)) { v[k] = ""; src[k] = "contract"; } });
+    fix("customer_label", tpl === "T3" && ["Customer", "Owner", "Manager"].indexOf(answers.customer_label) !== -1 ? answers.customer_label : "Customer", "contract");
+    var taxOn = tpl === "T4" && !outFl;
+    fix("tax_note_short", taxOn ? contractCleaningQuoted(fieldsOf("CL06-C"), /tax_note_short \(empty for T1, T3; for T4 "([^"]+)"\)/) : "", "computed");
+    fix("tax_line_sentence", taxOn ? contractCleaningQuoted(fieldsOf("CL07-B"), /tax_line_sentence \(empty for T1 and T3; for T4 "([^"]+)"\)/) : "", "computed");
+    var longTerm = flags.term_12_plus === true;
+    fix("renewal_notice_sentence", longTerm ? contractCleaningQuoted((cl.locked.LC4 || {}).notes_md, /`\{renewal_notice_sentence\}` is "([^"]+)"/) : "", "computed");
+    fix("renewal_reminder_sentence", longTerm ? contractCleaningQuoted(fieldsOf("CL09-B"), /renewal_reminder_sentence \("([^"]+)"/) : "", "computed");
+    var ftext = String((cl.byId["CL09-F"] || {}).clause_text || "");
+    fix("early_termination_sentence", picked("CL09-F:fee") ? contractCleaningQuoted(ftext, /\*\*Fee version\.\*\* ([\s\S]+)$/) : (picked("CL09-F:none") ? contractCleaningQuoted(ftext, /\*\*No-fee version\.\*\* ([^\n]+)/) : ""), "computed");
+    fix("access_instructions", CONTRACT_CLEANING_ACCESS_TEXT, "computed"); fix("alarm_gate_instructions", CONTRACT_CLEANING_ALARM_TEXT, "computed");
+    fix("county_surtax_rate", contractCleaningSurtax(ctx, v.property_county) || "", "admin");
+    fix("arbitration_rules", (ctx.admin && ctx.admin.cleaning_arbitration_rules) || "", "admin"); fix("arbitration_fee_allocation", (ctx.admin && ctx.admin.cleaning_arbitration_fee_allocation) || "", "admin");
+    fix("insurance_summary", gate.insured ? String(sv.cleaning_insurance_summary || "").trim() : "", "settings");
+    fix("screening_description", gate.screened ? String(sv.screening_description || "").trim() : "", "settings");
+    if (!gate.insured) { fix("insurance_claim_sentence", "", "computed"); }
+    else if (!has("insurance_claim_sentence")) { v.insurance_claim_sentence = ""; src.insurance_claim_sentence = "contract"; }
+    // Cross-references ({sec_CL08}) become the final section number; one that
+    // points to an area not on this agreement is a blocker.
+    var badRefs = {};
+    function secs(text, id) {
+        return String(text || "").replace(/\{sec_(CL\d\d)\}/g, function(m0, a) {
+            if (nums[a]) { return String(nums[a]); }
+            (badRefs[a] = badRefs[a] || []); if (badRefs[a].indexOf(id) === -1) { badRefs[a].push(id); }
+            return "[" + a + "]";
+        });
+    }
+    v.tax_note_short = secs(v.tax_note_short, "CL06");
+    CONTRACT_CLEANING_MONEY_FIELDS.forEach(function(k) { var cents = contractCleaningMoneyCents(v[k]); if (cents !== null) { v[k] = contractMoney(cents); } });
+    Object.keys(v).forEach(function(k) { if (/phone$/.test(k) && v[k]) { v[k] = contractFmtPhone(v[k]); } });
+    // Exhibit A: the scope checklist, from the accepted estimate until the owner edits it.
+    var estItems = [];
+    (ctx.estimates || []).forEach(function(est) {
+        var opt = (est.options || []).filter(function(o) { return o.id === est.accepted_option_id; })[0] || (est.options || [])[0];
+        ((opt && opt.items) || []).forEach(function(it) { if (it.item_name && estItems.indexOf(it.item_name) === -1) { estItems.push(it.item_name); } });
+    });
+    def("scope_included", estItems.join("\n"), "estimate");
+    def("scope_excluded", String(base.exclusions_list || "").split(/;\s*/).filter(Boolean).join("\n"), "estimate");
+    function listLine(s) { return String(s || "").split(/\r?\n/).map(function(x) { return x.trim(); }).filter(Boolean).join("; "); }
+
+    // ── The document ─────────────────────────────────────────────────────
+    var sections = [], missing = {}, used = {};
+    var signingKeys = CONTRACT_SIGNING_FIELDS.concat(CONTRACT_SIGNING_TIME_KEYS);
+    function add(kind, id, title, text, extra, vars) {
+        text = secs(text, id);
+        contractMissing(text).forEach(function(k) { (used[k] = used[k] || []).push(id); });
+        var filled = contractFill(text, vars || v).replace(/[ \t]+\*\*(\n|$)/g, "**$1").replace(/\s+$/, "");
+        contractMissing(filled).forEach(function(k) { if (signingKeys.indexOf(k) === -1) { missing[k] = missing[k] || []; missing[k].push(id); } });
+        var sec = { kind: kind, id: id, title: title, text: filled };
+        if (extra) { Object.keys(extra).forEach(function(k) { sec[k] = extra[k]; }); }
+        sections.push(sec);
+    }
+    function locked(id) { return cl.locked[id] && cl.locked[id].text ? cl.locked[id] : null; }
+    chosen.forEach(function(x) {
+        var area = x.slot.area;
+        if (x.id === "custom") {
+            var txt = x.custom.status === "approved_with_edits" && x.custom.revised_text ? x.custom.revised_text : x.custom.text;
+            add("custom", "custom:" + area, contractHomeownerHeading((cl.areasById[area] || {}).title || area), txt, { custom_status: x.custom.status });
+        } else if (!x.slot.virtual) {
+            // The clause carries its own bold heading; its number follows the
+            // areas that are on this agreement.
+            var text = contractCleaningOptionText(x.id, byId).replace(/^\*\*\d+\. /, "**" + nums[area] + ". ");
+            add("clause", x.id, "", text, { option_title: (cl.byId[x.id] || {}).title || x.id, area_id: area });
+        }
+        var last = !chosen.some(function(y) { return y.slot.area === area && chosen.indexOf(y) > chosen.indexOf(x); });
+        if (area === "CL07" && last) {
+            if (rules["LC5-A"].on && locked("LC5-A")) { add("locked", "LC5-A", "", locked("LC5-A").text, { block_title: locked("LC5-A").title }); }
+            if (rules["LC5-B"].on && locked("LC5-B")) { add("locked", "LC5-B", "", locked("LC5-B").text, { block_title: locked("LC5-B").title }); }
+        }
+    });
+    used.scope_included = ["Exhibit A"]; used.scope_excluded = ["Exhibit A"];
+    if (!listLine(v.scope_included)) { block("exhibit_a", "Exhibit A is empty. List the tasks that are included before this agreement is sent.", "O Anexo A (Exhibit A) est\u00e1 vazio. Liste as tarefas inclu\u00eddas antes de enviar este contrato."); }
+    sections.push({ kind: "exhibit", id: "EXHIBIT-A", title: "", text: "**Exhibit A.**\n\n**Included:** " + listLine(v.scope_included) + "\n\n**Excluded:** " + (listLine(v.scope_excluded) || "none listed") });
+    // Printed at the customer's signature, in this order.
+    if (rules.LC3.on && locked("LC3-A")) { add("locked", "LC3-A", "", locked("LC3-A").text, { beside_signature: true, format: { bold: true, min_pt: 10 }, block_title: (cl.locked.LC3 || {}).title }); }
+    if (rules.LC2.on && locked("LC2-A")) { add("locked", "LC2-A", "", locked("LC2-A").text, { beside_signature: true, format: { bold: true, min_pt: 10 }, block_title: locked("LC2-A").title }); }
+    if (rules.LC1.on && locked("LC1")) { add("locked", "LC1", "", locked("LC1").text, { beside_signature: true, date_above: true, format: { bold: true, min_pt: 10 }, block_title: locked("LC1").title }); }
+    if (rules.LC4.on && locked("LC4-A")) { add("locked", "LC4-A", "", locked("LC4-A").text, { beside_signature: true, format: { bold: true, min_pt: 12, box: true }, block_title: locked("LC4-A").title }); }
+    // The federal form names its deadline {cancel_deadline_date}: the same
+    // value the signing code fills as {cancellation_deadline_date}.
+    var noticeForm = null;
+    if (rules.LC2.on && locked("LC2-B")) {
+        var formText = String(locked("LC2-B").text).split("{cancel_deadline_date}").join("{cancellation_deadline_date}");
+        formText = secs(formText, "LC2-B");
+        contractMissing(formText).forEach(function(k) { (used[k] = used[k] || []).push("LC2-B"); });
+        noticeForm = contractFill(formText, contractNoticeVars(v, mode));
+    }
+
+    // ── Blockers and product guardrails ──────────────────────────────────
+    Object.keys(badRefs).forEach(function(a) {
+        block("cleaning_section_ref", badRefs[a].join(", ") + " points to area " + a + ", which is not on this agreement. Add an option in " + a + " or choose another option.",
+              badRefs[a].join(", ") + " aponta para a \u00e1rea " + a + ", que n\u00e3o est\u00e1 neste contrato. Inclua uma op\u00e7\u00e3o em " + a + " ou escolha outra op\u00e7\u00e3o.");
+    });
+    if (flags.post_construction === true) { block("cleaning_manual_review", "Post-construction or builder cleaning is not a template: this agreement needs manual review. Contact Apex.", "Limpeza p\u00f3s-obra ou para construtora n\u00e3o \u00e9 um modelo: este contrato precisa de revis\u00e3o manual. Fale com a Apex."); }
+    if (flags.mixed_use === true) { block("cleaning_manual_review", "A property with more than one use is not a template: this agreement needs manual review. Contact Apex.", "Im\u00f3vel com mais de um uso n\u00e3o \u00e9 um modelo: este contrato precisa de revis\u00e3o manual. Fale com a Apex."); }
+    if (rules.LC2.on && !(flags.oral_notice && flags.oral_notice.at)) {
+        block("cleaning_oral_notice", "Tell the customer out loud that they may cancel within three business days, then mark it done.", "Diga ao cliente em voz alta que ele pode cancelar em at\u00e9 tr\u00eas dias \u00fateis e marque como feito.");
+    }
+    if (rules["LC5-A"].on) {
+        if (flags.sales_tax_registered !== true && flags.sales_tax_registered !== false) { block("cleaning_tax_status", "Answer whether your company is registered to collect Florida sales tax.", "Responda se a sua empresa est\u00e1 registrada para recolher o imposto sobre vendas da Fl\u00f3rida."); }
+        if (has("property_county") && !v.county_surtax_rate) { delete missing.county_surtax_rate; block("cleaning_surtax", "Apex has not loaded the surtax rate for " + v.property_county + " County yet. Contact Apex before sending this agreement.", "A Apex ainda n\u00e3o carregou a al\u00edquota do condado de " + v.property_county + ". Fale com a Apex antes de enviar este contrato."); }
+    }
+    // The price one visit costs, for the fee guardrail.
+    var visitCents = null, priceKnown = true;
+    if (picked("CL06-F")) { visitCents = contractCleaningMoneyCents(v.one_time_price); }
+    else if (picked("CL06-H")) { var mp = contractCleaningMoneyCents(v.monthly_price), vm = contractCleaningNumber(v.visits_per_month); visitCents = mp !== null && vm ? Math.round(mp / vm) : null; }
+    else if (picked("CL06-G")) { priceKnown = false; }
+    else { visitCents = contractCleaningMoneyCents(v.visit_price); }
+    function feeRail(field, clause) {
+        if (!has(field) || /\{/.test(v[field])) { return; }
+        var cents = contractCleaningMoneyCents(v[field]);
+        if (cents === null) { block("cleaning_fee_amount", "Enter " + field + " (" + clause + ") as one dollar amount, for example $45.00.", "Informe " + field + " (" + clause + ") como um valor em d\u00f3lar, por exemplo $45.00."); return; }
+        if (!priceKnown || !visitCents) { rail("fee_unchecked", "warn", "the fee in " + clause + " (" + contractMoney(cents) + ") could not be compared with the visit price. Keep it at or under the price of one visit.", "a taxa de " + clause + " (" + contractMoney(cents) + ") n\u00e3o p\u00f4de ser comparada com o pre\u00e7o da visita. Mantenha no m\u00e1ximo o pre\u00e7o de uma visita."); return; }
+        var pct = cents * 100 / visitCents;
+        if (pct > CONTRACT_CLEANING_FEE_REFUSE_PERCENT) { rail("fee_over_100", "refuse", "the fee in " + clause + " (" + contractMoney(cents) + ") is above " + CONTRACT_CLEANING_FEE_REFUSE_PERCENT + " percent of the visit price (" + contractMoney(visitCents) + "). Lower it.", "a taxa de " + clause + " (" + contractMoney(cents) + ") passa de " + CONTRACT_CLEANING_FEE_REFUSE_PERCENT + " por cento do pre\u00e7o da visita (" + contractMoney(visitCents) + "). Diminua."); }
+        else if (pct > CONTRACT_CLEANING_FEE_WARN_PERCENT) { rail("fee_over_50", "warn", "the fee in " + clause + " (" + contractMoney(cents) + ") is above " + CONTRACT_CLEANING_FEE_WARN_PERCENT + " percent of the visit price (" + contractMoney(visitCents) + ").", "a taxa de " + clause + " (" + contractMoney(cents) + ") passa de " + CONTRACT_CLEANING_FEE_WARN_PERCENT + " por cento do pre\u00e7o da visita (" + contractMoney(visitCents) + ")."); }
+    }
+    if (picked("CL08-A") || picked("CL08-D") || picked("CL08-E")) { feeRail("late_cancel_fee", sel.CL08); }
+    if (picked("CL08-C")) { feeRail("no_access_fee", "CL08-C"); }
+    if (picked("CL08-B")) {
+        var t2 = contractCleaningNumber(v.tier2_percent), t3 = contractCleaningNumber(v.tier3_percent);
+        if (has("tier2_percent") && t2 === null || has("tier3_percent") && t3 === null) { block("cleaning_fee_amount", "Enter the CL08-B percentages as plain numbers, for example 50.", "Informe as porcentagens da CL08-B como n\u00fameros, por exemplo 50."); }
+        if (t3 !== null && t3 > CONTRACT_CLEANING_FEE_REFUSE_PERCENT) { rail("fee_over_100", "refuse", "the highest tier in CL08-B (" + t3 + " percent) is above " + CONTRACT_CLEANING_FEE_REFUSE_PERCENT + " percent of the visit price. Lower it.", "a faixa mais alta da CL08-B (" + t3 + " por cento) passa de " + CONTRACT_CLEANING_FEE_REFUSE_PERCENT + " por cento do pre\u00e7o da visita. Diminua."); }
+        else if (t3 !== null && t3 > CONTRACT_CLEANING_FEE_WARN_PERCENT) { rail("fee_over_50", "warn", "the highest tier in CL08-B (" + t3 + " percent) is above " + CONTRACT_CLEANING_FEE_WARN_PERCENT + " percent of the visit price.", "a faixa mais alta da CL08-B (" + t3 + " por cento) passa de " + CONTRACT_CLEANING_FEE_WARN_PERCENT + " por cento do pre\u00e7o da visita."); }
+        if (t2 !== null && t3 !== null && !(t2 < t3)) { rail("fee_tiers", "refuse", "in CL08-B the first tier (" + t2 + " percent) must be lower than the last tier (" + t3 + " percent).", "na CL08-B a primeira faixa (" + t2 + " por cento) tem de ser menor que a \u00faltima (" + t3 + " por cento)."); }
+    }
+    if (picked("CL08-C") && !picked("CL06-E")) { notes.push({ en: "CL08-C points to the frequency pricing clause (CL06-E). Add CL06-E so the reference has something to point to.", pt: "A CL08-C aponta para a cl\u00e1usula de pre\u00e7o por frequ\u00eancia (CL06-E). Inclua a CL06-E para a refer\u00eancia fazer sentido.", level: "warn" }); }
+    var extraMissing = [];
+    if (picked("CL09-F:fee")) {
+        var fee = contractCleaningMoneyCents(v.early_termination_fee), remaining = contractCleaningMoneyCents(answers.term_remaining_price);
+        if (has("early_termination_fee") && fee === null) { block("cleaning_fee_amount", "Enter the early termination fee as one dollar amount, for example $120.00.", "Informe a taxa de sa\u00edda antecipada como um valor em d\u00f3lar, por exemplo $120.00."); }
+        if (remaining === null) { extraMissing.push({ field: "term_remaining_price", meaning: "Price of the remaining contract term (used only to check the early termination fee against the cap; not printed)", source: "Builder", used_in: ["CL09-F"] }); }
+        else if (fee !== null && fee > Math.floor(remaining * CONTRACT_CLEANING_EARLY_FEE_CAP_PERCENT / 100)) {
+            rail("early_fee_cap", "refuse", "the early termination fee (" + contractMoney(fee) + ") is above " + CONTRACT_CLEANING_EARLY_FEE_CAP_PERCENT + " percent of the remaining contract price (" + contractMoney(remaining) + "). Lower it.", "a taxa de sa\u00edda antecipada (" + contractMoney(fee) + ") passa de " + CONTRACT_CLEANING_EARLY_FEE_CAP_PERCENT + " por cento do pre\u00e7o restante do contrato (" + contractMoney(remaining) + "). Diminua.");
+        }
+    }
+    if (picked("CL07-F") && has("late_interest_rate")) {
+        var rate = contractCleaningNumber(v.late_interest_rate);
+        if (rate === null || rate > CONTRACT_CLEANING_INTEREST_MAX) { block("cleaning_interest", "Builder limit: the late interest rate must be a number from 0 to " + CONTRACT_CLEANING_INTEREST_MAX + " percent per year.", "Limite do sistema: os juros de atraso t\u00eam de ser um n\u00famero de 0 a " + CONTRACT_CLEANING_INTEREST_MAX + " por cento ao ano."); }
+    }
+    if ((picked("CL10-D") || picked("CL12-B")) && has("claim_window_hours") && ["24", "48"].indexOf(String(v.claim_window_hours).trim()) === -1) {
+        block("cleaning_claim_window", "The claim window must be 24 or 48 hours.", "O prazo para reclamar tem de ser 24 ou 48 horas.");
+    }
+    if (picked("CL10-B") && has("damage_cap_per_visit") && contractCleaningAdminList(ctx, "cleaning_damage_caps").indexOf(v.damage_cap_per_visit) === -1) { block("cleaning_admin_value", "Choose the damage cap from the attorney-approved list.", "Escolha o teto de danos na lista aprovada pelo advogado."); }
+    if (picked("CL10-E") && has("liability_limit") && contractCleaningAdminList(ctx, "cleaning_liability_limits").indexOf(v.liability_limit) === -1) { block("cleaning_admin_value", "Choose the liability limit from the attorney-approved list.", "Escolha o limite de responsabilidade na lista aprovada pelo advogado."); }
+    if (picked("CL15-B") && has("conversion_fee")) {
+        var cf = contractCleaningMoneyCents(v.conversion_fee), cfCap = contractCleaningMoneyCents(ctx.admin && ctx.admin.cleaning_conversion_fee_cap);
+        if (cf === null || (cfCap !== null && cf > cfCap)) { block("cleaning_admin_value", "The conversion fee must be one dollar amount at or under the cap Apex loaded" + (cfCap !== null ? " (" + contractMoney(cfCap) + ")" : "") + ".", "A taxa de convers\u00e3o tem de ser um valor em d\u00f3lar at\u00e9 o teto carregado pela Apex" + (cfCap !== null ? " (" + contractMoney(cfCap) + ")" : "") + "."); }
+    }
+    // LC6: nothing typed on this agreement may claim what no record backs.
+    Object.keys(answers).concat(["cleaning_insurance_summary"]).forEach(function(k) {
+        var t = k === "cleaning_insurance_summary" ? (gate.insured ? String(sv[k] || "") : "") : String(answers[k] || "");
+        var hit = null;
+        if (/\binsured\b|\binsurance\b/i.test(t) && !gate.insured && k !== "cleaning_insurance_summary") { hit = ["insurance", "seguro"]; }
+        else if (/\bbond(ed|ing)?\b/i.test(t) && !gate.bonded) { hit = ["bonding", "fian\u00e7a (bond)"]; }
+        else if (/workers'? comp/i.test(t) && !gate.workers_comp) { hit = ["workers' compensation", "workers' compensation"]; }
+        else if (/background|screened|screening/i.test(t) && !gate.screened && k !== "screening_description") { hit = ["background screening", "triagem de antecedentes"]; }
+        else if (k === "cleaning_insurance_summary" && /\$\s?\d|\d\s*(million|mil\b)/i.test(t) && !gate.limits_shown) { hit = ["a coverage limit", "um limite de cobertura"]; }
+        if (hit) { block("cleaning_lc6", "\"" + k + "\" mentions " + hit[0] + ", but no matching record is on file in the contract settings. Remove it or add the record.", "\"" + k + "\" menciona " + hit[1] + ", mas n\u00e3o h\u00e1 registro correspondente nas configura\u00e7\u00f5es do contrato. Retire ou cadastre o registro."); }
+    });
+    if (gate.insurance_expired) { notes.push({ en: "The certificate of insurance in the contract settings has expired or has no expiry date. The insurance sentences are off for new agreements.", pt: "O certificado de seguro nas configura\u00e7\u00f5es do contrato venceu ou est\u00e1 sem data de validade. As frases de seguro ficam fora dos novos contratos.", level: "warn" }); }
+    // Service before the three-business-day cancellation deadline.
+    if (rules.LC1.on || rules.LC2.on || rules.LC3.on) {
+        var firstYmd = contractParseDateAnswer(v.service_date), earliest = contractCancellationDeadline(c.contract_date || today, outFl ? st.cancellation : null);
+        if (firstYmd && firstYmd <= earliest) {
+            notes.push({ level: "warn", en: "The service date (" + contractFmtDate(firstYmd) + ") is inside the customer's cancellation period (through " + contractFmtDate(earliest) + " if signed on the contract date). A customer who cancels in that period owes nothing for work already done. Whether a start inside the period is allowed is an open attorney question.",
+                pt: "A data do servi\u00e7o (" + contractFmtDate(firstYmd) + ") cai dentro do prazo de cancelamento do cliente (at\u00e9 " + contractFmtDate(earliest) + " se assinado na data do contrato). O cliente que cancelar nesse prazo n\u00e3o deve nada pelo servi\u00e7o j\u00e1 feito. Se pode come\u00e7ar dentro do prazo \u00e9 uma pergunta em aberto para o advogado." });
+        } else {
+            notes.push({ level: "info", en: "Schedule the first service after the customer's cancellation deadline (the third business day after the customer signs; Saturday counts, Sundays and federal holidays do not).", pt: "Marque o primeiro servi\u00e7o para depois do prazo de cancelamento do cliente (terceiro dia \u00fatil depois de o cliente assinar; s\u00e1bado conta, domingos e feriados federais n\u00e3o)." });
+        }
+    }
+    if (rules.LC4.on && longTerm) { notes.push({ level: "warn", en: "This agreement promises a renewal reminder between 30 and 60 days before the cancellation deadline. Apex does not send it yet: send it yourself and keep proof.", pt: "Este contrato promete um lembrete de renova\u00e7\u00e3o entre 30 e 60 dias antes do prazo de cancelamento. A Apex ainda n\u00e3o envia: envie voc\u00ea e guarde a prova." }); }
+    if (flags.sales_tax_registered === false && rules["LC5-A"].on) { notes.push({ level: "warn", en: "You answered that the company is not registered for Florida sales tax. This agreement says tax will be added to each invoice. Talk to your tax professional before sending it.", pt: "Voc\u00ea respondeu que a empresa n\u00e3o est\u00e1 registrada para o imposto sobre vendas da Fl\u00f3rida. Este contrato diz que o imposto entra em cada fatura. Fale com o seu contador antes de enviar." }); }
+
+    // ── What the builder asks and shows ──────────────────────────────────
+    function meta(k) { return cl.placeholderMap[k] || {}; }
+    var missingList = Object.keys(missing).map(function(k) { return { field: k, meaning: meta(k).meaning || k, source: meta(k).source || "Builder", used_in: missing[k] }; }).concat(extraMissing);
+    Object.keys(used).forEach(function(k) { String(v[k] || "").replace(/\{([a-z0-9_]+)\}/gi, function(m0, name) { (used[name] = used[name] || []).push.apply(used[name], used[k]); return m0; }); });
+    var hidden = signingKeys.concat(CONTRACT_STATE_FIELDS, ["cancel_deadline_date"]);
+    var fields = Object.keys(used).filter(function(k) { return hidden.indexOf(k) === -1; }).map(function(k) {
+        var val = v[k] === undefined || v[k] === null ? "" : String(v[k]);
+        var from = src[k] || "contract";
+        var fixed = CONTRACT_CLEANING_FIXED_FIELDS.indexOf(k) !== -1 || k === "customer_label";
+        return { field: k, value: /\{[a-z0-9_]+\}/i.test(val) && !answered(k) ? "" : val, source: answered(k) && !fixed ? "contract" : from, default_source: from, overridden: answered(k) && !fixed && from !== "contract",
+                 used_in: used[k].filter(function(x, i, a) { return a.indexOf(x) === i; }), editable: !fixed, meaning: meta(k).meaning || k };
+    });
+    var reviewed = ctx.lib.version.status === "attorney_reviewed" && !!(ctx.admin && ctx.admin.cleaning_review_recorded === "1");
+    var hasCustom = c.custom_clauses.some(function(x) { return x.status !== "not_approved"; }) || Object.keys(sel).some(function(k) { return sel[k] === "custom"; });
+    var disclaimer = (reviewed && !hasCustom) ? ("Template reviewed by " + ctx.lib.version.attorney_name + ", Florida Bar #" + ctx.lib.version.attorney_bar_number + ", on " + contractFmtDate(ctx.lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED;
+    if (outFl) { disclaimer = contractStateDisclaimer(st, hasCustom); }
+    if (hasCustom) { disclaimer += " This contract contains a custom clause that was not reviewed by an attorney."; }
+    var job = { amount_cents: built.sums.total_cents, sold_in_home: rules.LC2.on, is_pool: false, residential: home, selections: {}, license_number: "", has_deposit: false, first_payment_cents: 0,
+                auto_renews: picked("CL09-B"), template: tpl };
+    var cancels = rules.LC1.on || rules.LC2.on;
+    var neutralIds = outFl ? chosen.map(function(x) { return x.id; }).filter(function(id) { return !!CONTRACT_CLEANING_NEUTRAL_EDITS[id]; }) : [];
+    return {
+        kind: "cleaning", template: tpl,
+        sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers, fields: fields,
+        amount_cents: built.sums.total_cents, vars: v, sums: built.sums, disclaimer_line: disclaimer,
+        state: { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation },
+        checklist: outFl ? contractCleaningStateChecklist(st, job) : null,
+        option_warnings: {},
+        requires: { lien_signature: false, pool_ack: false, cancellation: cancels, marketing_checkbox: false, arbitration_initials: false, jury_initials: false },
+        locked_format: {
+            LC1: rules.LC1.on ? { bold: true, min_pt: 10, beside_signature: true } : undefined,
+            LC2A: rules.LC2.on ? { bold: true, min_pt: 10, beside_signature: true } : undefined,
+            LC2B: rules.LC2.on ? { bold: true, min_pt: 10, two_copies: true, separate_page: true } : undefined,
+            LC3A: rules.LC3.on ? { bold: true, min_pt: 10, beside_signature: true } : undefined,
+            LC4A: rules.LC4.on ? { bold: true, min_pt: 12, box: true, beside_signature: true } : undefined
+        },
+        guardrails: guardrails, notes: notes,
+        cleaning: { template: tpl, consumer: consumer, slots: slots, gate: gate, neutral_options: neutralIds, booking: ctx.booking ? { booked_at: ctx.booking.booked_at, facts: pre.facts } : null,
+                    damage_caps: contractCleaningAdminList(ctx, "cleaning_damage_caps"), liability_limits: contractCleaningAdminList(ctx, "cleaning_liability_limits") }
+    };
+}
+
 // Where a placeholder's value comes from (library section 4 "source" text).
 function contractFieldSource(source) {
     var t = String(source || "");
@@ -28609,9 +29296,9 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null, payment_methods: methods
         },
         sections: comp.sections, locked_format: comp.locked_format, requires: comp.requires,
-        cancellation: { sold_in_home: comp.rules.L5.on, deadline_date: c.cancellation_deadline || null, notice_form_text: comp.notice_form_text },
-        pool: { is_pool: comp.rules.L6.on, safety_feature: c.flags.pool_safety_feature || null,
-                docs: comp.rules.L6.on ? [{ label: "Chapter 515 requirements document" + (ctx.admin.ch515_doc_version ? " (" + ctx.admin.ch515_doc_version + ")" : ""), url: tokenBase + "/pool-doc/ch515" },
+        cancellation: { sold_in_home: comp.requires.cancellation, deadline_date: c.cancellation_deadline || null, notice_form_text: comp.notice_form_text },
+        pool: { is_pool: comp.requires.pool_ack, safety_feature: c.flags.pool_safety_feature || null,
+                docs: comp.requires.pool_ack ? [{ label: "Chapter 515 requirements document" + (ctx.admin.ch515_doc_version ? " (" + ctx.admin.ch515_doc_version + ")" : ""), url: tokenBase + "/pool-doc/ch515" },
                                           { label: "Drowning prevention publication" + (ctx.admin.drowning_pub_version ? " (" + ctx.admin.drowning_pub_version + ")" : ""), url: tokenBase + "/pool-doc/drowning" }] : [] },
         company_signature: c.company_signed_at && !c.company_signature_voided_at ? { signer_name: c.company_signer_name, signed_at: c.company_signed_at, kind: c.company_signature_kind, image_url: c.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: c.homeowner_signed_at ? { signer_name: c.homeowner_signer_name, signed_at: c.homeowner_signed_at, kind: c.homeowner_signature_kind, image_url: c.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(c.homeowner_signed_ua) } : null,
@@ -28636,6 +29323,9 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         // State riders: outside Florida the same disclaimer also shows at the
         // top of the first page (customer page and PDF).
         job_state: comp.state.code, job_state_name: comp.state.name, disclaimer_top: !comp.state.florida,
+        // Cleaning: the page and the PDF title it as a service agreement and
+        // call the other party the customer. Absent on a construction contract.
+        kind: comp.kind === "cleaning" ? "cleaning" : undefined, doc_title: comp.kind === "cleaning" ? CONTRACT_CLEANING_DOC_TITLE : undefined,
         content_hash: c.content_hash || null,
         signed_render_hash: c.signed_render_hash || null,
         appendix_photos: await contractAppendixPhotos(env, c, origin),
@@ -28833,7 +29523,8 @@ async function handleGetContractSettings(id, request, env) {
                 business_entity_type: contractEntityTypeFromName(doc.legal_name) || null
             },
             owner_name_default: gmOwnerFirstName(client) ? String(client.owners).split(/\s*(?:&|;|,|\se\s|\sE\s|\sand\s)\s*/)[0].trim() : (doc.legal_name || (client && client.name) || ""),
-            trades: CONTRACT_TRADE_KEYS.map(function(k) { return { key: k, label: CONTRACT_TRADE_LABELS[k] }; }),
+            // Cleaning is offered once its library rows are loaded (contracts_e_cleaning.sql).
+            trades: CONTRACT_TRADE_KEYS.filter(function(k) { return k !== "cleaning" || contractCleaningReady(lib); }).map(function(k) { return { key: k, label: CONTRACT_TRADE_LABELS[k] }; }),
             areas: lib ? lib.clause_areas.map(function(a) { return { id: a.id, title: a.title }; }) : [],
             options: lib ? lib.clause_options.concat((await env.DB.prepare("SELECT * FROM contract_clause_options WHERE scope = ? AND status = 'approved'").bind(id).all()).results || []).map(function(o) {
                 return { id: o.id, area_id: o.area_id, title: o.title, trades: contractOptionTrades(o.trades), owner_description: o.owner_description, owner_description_pt: o.pt_summary || null, scope: o.scope, private: o.scope !== "apex" };
@@ -28920,11 +29611,22 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         var leadRow0 = await gmOwnedRow(env, "gm_leads", job.lead_id, id);
         var estAddrRows = (await env.DB.prepare("SELECT customer_address, updated_at, created_at FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, job.lead_id).all()).results || [];
         var jobState = contractDefaultJobState(contractJobAddress(leadRow0, estAddrRows), settings);
-        if (jobState === "FL" && !doc.license_numbers.length) { return jsonErr2("Falta o número da licença da Flórida nas configurações dos documentos.", "A Florida license number is required in the document settings", 400); }
-        var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
-        if (!ests.length) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
+        // Cleaning: which kind of contract this is. Asked only when the
+        // business does both; a cleaning-only business goes straight to
+        // cleaning, and a business without the cleaning trade is never asked.
+        var lib = await contractLibraryForClient(env, id, 1, settings.trades);
+        var kinds = contractKindsFor(settings, lib);
+        if (!kinds.length) { return jsonErr2("A biblioteca de cl\u00e1usulas de limpeza ainda n\u00e3o foi carregada. Fale com a Apex.", "The cleaning clause library is not loaded yet. Contact Apex.", 409); }
+        var kind = kinds.length === 1 ? kinds[0] : (kinds.indexOf(body.kind) !== -1 ? body.kind : null);
+        if (!kind) { return jsonErr2("Escolha o tipo: contrato de obra ou contrato de servi\u00e7o de limpeza.", "Choose the kind: construction contract or cleaning service agreement.", 400, { code: "kind_required", contract_kinds: kinds }); }
+        var cleaning = kind === "cleaning";
+        if (cleaning && CONTRACT_CLEANING_TEMPLATES.indexOf(body.cleaning_template) === -1) { return jsonErr2("Escolha o modelo do contrato de limpeza.", "Choose the cleaning agreement template.", 400, { code: "template_required", cleaning_templates: contractCleaningTemplateList() }); }
+        // The license blocker is the construction library's; it does not apply to cleaning.
+        if (!cleaning && jobState === "FL" && !doc.license_numbers.length) { return jsonErr2("Falta o n\u00famero da licen\u00e7a da Fl\u00f3rida nas configura\u00e7\u00f5es dos documentos.", "A Florida license number is required in the document settings", 400); }
+        var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
+        if (!ests.length) { return jsonErr2("Este projeto n\u00e3o veio de um lead com estimate aceito; o contrato \u00e9 montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
         // Several accepted estimates: the owner picks which ones this contract
         // covers (all by default, the rule before this fix).
         if (Array.isArray(body.estimate_ids)) {
@@ -28934,9 +29636,8 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         }
         var live = await env.DB.prepare("SELECT id, number, revision, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
         if (live) { return jsonErr2("Este projeto já tem o contrato " + contractDisplayNumber(live) + " (" + contractStatusPt(live.status) + "). Abra pelo projeto.", "This project already has contract " + live.number + " (" + live.status + "). Open it from the project.", 409); }
-        var lib = await contractLibraryForClient(env, id, 1, settings.trades);
         var selections = {};
-        CONTRACT_AREA_ORDER.forEach(function(a) {
+        if (!cleaning) CONTRACT_AREA_ORDER.forEach(function(a) {
             var d = settings.defaults[a];
             if (d && (lib.optionsById[d])) { selections[a] = d; return; }
             var first = lib.optionsForClient.filter(function(o) { return o.area_id === a; })[0];
@@ -28948,7 +29649,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         // A new contract outside Florida starts on the safer option of an area
         // when the default is one the research flags in that state. The owner
         // can still pick any option.
-        if (jobState !== "FL") {
+        if (jobState !== "FL" && !cleaning) {
             ((contractStateRider(jobState) || {}).risky_options || []).forEach(function(r) {
                 var area = String(r.option).slice(0, 3);
                 if (selections[area] === r.option && r.safer && lib.optionsForClient.some(function(o) { return o.id === r.safer; })) { selections[area] = r.safer; }
@@ -28962,7 +29663,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         var poolRe = /pool|piscina/i, isPoolJob = false;
         var pricingCats = {};
         ((await env.DB.prepare("SELECT id, category FROM gm_pricing WHERE client_id = ?").bind(id).all()).results || []).forEach(function(r) { pricingCats[r.id] = r.category || ""; });
-        for (var ei = 0; ei < ests.length && !isPoolJob; ei++) {
+        for (var ei = 0; ei < ests.length && !isPoolJob && !cleaning; ei++) {
             var eFull = ei === 0 ? estRow : await gmEstLoad(env, id, ests[ei].id);
             if (!eFull) { continue; }
             var accOpt = (eFull.options || []).filter(function(o) { return o.id === eFull.accepted_option_id; })[0] || (eFull.options || [])[0];
@@ -28972,11 +29673,32 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             });
         }
         var flags = { sold_in_home: true, is_pool: !!(settings.builds_pools && isPoolJob), property_type: null, pool_safety_feature: null, job_state: jobState };
+        if (cleaning) {
+            // The kind and the template are stored on the contract and are
+            // frozen with it at company signing.
+            flags = { kind: "cleaning", cleaning_template: body.cleaning_template, sold_in_home: true, job_state: jobState };
+            selections = contractCleaningDefaults({ lib: lib, settings: settings, admin: await contractAdminSettings(env) }, { flags: flags }, contractCleaningGate({ settings: settings }, gmEasternToday()));
+        }
         var answers = {};
         // F39: a new contract on the same project starts from the latest
         // earlier one (any status): answers, flags and clause choices.
         var prev = await env.DB.prepare("SELECT number, revision, answers_json, flags_json, selections_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        // Cleaning: only an earlier contract of the same kind is copied from
+        // (a cleaning agreement also needs the same template).
         if (prev) {
+            var prevFlags = gmDocParseJsonObject(prev.flags_json, {}) || {};
+            var sameKind = cleaning ? (prevFlags.kind === "cleaning" && prevFlags.cleaning_template === flags.cleaning_template) : prevFlags.kind !== "cleaning";
+            if (!sameKind) { prev = null; }
+        }
+        if (prev && cleaning) {
+            answers = gmDocParseJsonObject(prev.answers_json, {}) || {};
+            ["sold_in_home", "consumer", "further_visits", "term_12_plus", "post_construction", "mixed_use", "sales_tax_registered"].forEach(function(k) { if (prevFlags[k] !== undefined) { flags[k] = prevFlags[k]; } });
+            var prevSel = gmDocParseJsonObject(prev.selections_json, {}) || {};
+            Object.keys(prevSel).forEach(function(a) { if (prevSel[a] === "custom") { delete prevSel[a]; } });
+            var fitCtx = { lib: lib, settings: settings, admin: await contractAdminSettings(env) };
+            selections = contractCleaningFitSelections(fitCtx, { flags: flags, selections: Object.assign({}, selections, prevSel) }, contractCleaningGate({ settings: settings }, gmEasternToday()), false);
+            flags.copied_from = contractDisplayNumber(prev);
+        } else if (prev) {
             answers = gmDocParseJsonObject(prev.answers_json, {}) || {};
             var pf = gmDocParseJsonObject(prev.flags_json, {}) || {};
             ["sold_in_home", "is_pool", "property_type", "pool_safety_feature"].forEach(function(k) { if (pf[k] !== undefined) { flags[k] = pf[k]; } });
@@ -28995,7 +29717,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         }
         // G2f: the property type the lead already has (first answered on an
         // earlier contract) prefills a contract that has none.
-        if (!flags.property_type) {
+        if (!flags.property_type && !cleaning) {
             var leadPT = await env.DB.prepare("SELECT property_type FROM gm_leads WHERE id = ? AND client_id = ?").bind(job.lead_id, id).first();
             if (leadPT && leadPT.property_type) { flags.property_type = leadPT.property_type; }
         }
@@ -29035,6 +29757,13 @@ async function handleGetGmJobAcceptedEstimates(id, jobId, request, env) {
         if (guard) { return guard; }
         if (!job.lead_id) { return jsonOk({ estimates: [], has_lead: false }); }
         var rows = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
+        // Cleaning: the create step asks the kind (when the business has both)
+        // and the cleaning template. A business without cleaning gets neither key.
+        var kindSettings = await contractSettingsRow(env, id), kindExtra = {};
+        if (contractHasCleaningTrade(kindSettings)) {
+            var kinds = contractKindsFor(kindSettings, await contractLibraryForClient(env, id, 1, kindSettings.trades));
+            if (kinds.indexOf("cleaning") !== -1) { kindExtra = { contract_kinds: kinds, cleaning_templates: contractCleaningTemplateList() }; }
+        }
         var out = [];
         for (var i = 0; i < rows.length; i++) {
             var est = await gmEstLoad(env, id, rows[i].id);
@@ -29047,7 +29776,7 @@ async function handleGetGmJobAcceptedEstimates(id, jobId, request, env) {
             var lines = (accOpt ? accOpt.items : []).map(function(it) { return { id: it.id, item_name: it.item_name, qty: it.qty, unit: it.unit || null, rate_cents: it.rate_cents || 0, line_type: it.line_type, amount_cents: gmEstLineAmountCents(it) }; });
             out.push({ id: est.id, display_number: est.number + (est.revision > 1 ? "-R" + est.revision : ""), job_name: est.job_name || null, total_cents: sums.total_cents, accepted_at: est.accepted_at || null, lines: lines });
         }
-        return jsonOk({ estimates: out, has_lead: true });
+        return jsonOk(Object.assign({ estimates: out, has_lead: true }, kindExtra));
     } catch (e) {
         return jsonErr2("Erro ao carregar os estimates aceitos.", "Error: " + e.message, 500);
     }
@@ -29079,17 +29808,33 @@ async function contractInternalOut(env, id, c, user, request) {
     ctx.lib.optionsForClient.forEach(function(o) {
         (areaOptions[o.area_id] = areaOptions[o.area_id] || []).push({ id: o.id, title: o.title, owner_description: o.owner_description, owner_description_pt: o.pt_summary || null, private: o.scope !== "apex" });
     });
-    return {
+    // Cleaning: the builder lists the agreement's slots where a construction
+    // contract lists its clause areas, and gets the cleaning questions. A
+    // construction contract's payload carries none of these keys, except
+    // contract_kinds for a business that also does cleaning.
+    var cleaningOut = {};
+    var isCleaning = comp.kind === "cleaning";
+    if (isCleaning) {
+        cleaningOut = {
+            kind: "cleaning", cleaning_template: comp.template, cleaning_templates: contractCleaningTemplateList(), doc_title: CONTRACT_CLEANING_DOC_TITLE,
+            guardrails: comp.guardrails, cleaning_notes: comp.notes, cleaning: comp.cleaning,
+            contract_kinds: contractKindsFor(ctx.settings, ctx.lib)
+        };
+    } else if (contractHasCleaningTrade(ctx.settings) && contractCleaningReady(ctx.lib)) {
+        cleaningOut = { contract_kinds: contractKindsFor(ctx.settings, ctx.lib), cleaning_templates: contractCleaningTemplateList() };
+    }
+    return Object.assign({
         id: c.id, job_id: c.job_id, lead_id: c.lead_id, number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), status: c.status,
         selections: c.selections, answers: c.answers, flags: c.flags, estimate_ids: c.estimate_ids,
-        areas: ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
+        areas: isCleaning ? comp.cleaning.slots.map(function(sl) { return { id: sl.id, title: sl.title, options: sl.options, need: sl.need, no_custom: !sl.primary }; }) :
+            ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
         missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line,
         // Part H3: the three numbers the builder shows.
         contract_price_cents: comp.amount_cents, estimate_price_cents: comp.sums.estimate_cents, adjustment_cents: comp.sums.adjustment_cents, contract_price_set: c.contract_price_cents !== null && c.contract_price_cents !== undefined,
         fields: comp.fields, editable: editable, routed_only: routedOnly, current_amount_cents: currentAmount, original_amount_cents: originalAmount, copied_from: (c.flags && c.flags.copied_from) || null,
         pool_setting: ctx.settings.builds_pools, builds_pools: ctx.settings.builds_pools,
         safety_features: ["(a) Isolated from the home by an enclosure that meets s. 515.29", "(b) Approved safety pool cover", "(c) Exit alarms on all doors and windows with direct access (85 dB A at 10 feet)", "(d) Self-closing, self-latching devices on all doors with direct access (release no lower than 54 inches)", "(e) Swimming pool alarm certified to ASTM F2208"],
-        exclusion_checklist: (ctx.lib.exclusion_checklists || []).filter(function(e) { return /All trades/i.test(e.trade) || ctx.settings.trades.some(function(k) { return CONTRACT_TRADE_WORDS[k].test(e.trade); }); }),
+        exclusion_checklist: isCleaning ? [] : (ctx.lib.exclusion_checklists || []).filter(function(e) { return /All trades/i.test(e.trade) || ctx.settings.trades.some(function(k) { return CONTRACT_TRADE_WORDS[k].test(e.trade); }); }),
         can_sign_as_company: signer.ok, signer_name: signer.name, signers: ctx.settings.signers, owner_signer_name: ctx.settings.owner_signer_name,
         company_signed_at: c.company_signed_at, company_signer_name: c.company_signer_name, company_signature_voided_at: c.company_signature_voided_at, company_signature_void_reason: c.company_signature_void_reason,
         routed_to_name: c.routed_to_name, routed_to_phone: c.routed_to_phone, routed_at: c.routed_at,
@@ -29101,18 +29846,18 @@ async function contractInternalOut(env, id, c, user, request) {
         link_disabled_at: c.link_disabled_at || null,
         link: DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token, pdf_link: pub.pdf_link, preview_link: DEFAULT_ORIGIN + "/contract-view?preview=" + c.id,
         send_phone: gmDocSendPhone(ctx.lead, null), customer_name: pub.customer_name, job_name: pub.job_name,
-        attorney_question_pending: comp.rules.L5.on ? "Whether work may start and deposits be spent before the cancellation deadline is pending attorney review (library question 9)." : null,
+        attorney_question_pending: !isCleaning && comp.requires.cancellation ? "Whether work may start and deposits be spent before the cancellation deadline is pending attorney review (library question 9)." : null,
         // State riders: the job state, the list for its select, the owner's
         // checklist (null in Florida) and the flagged clause options.
         job_state: comp.state.code, job_state_name: comp.state.name, job_state_confirmed: comp.state.confirmed, job_state_florida: comp.state.florida,
         job_state_status: comp.state.status, cancellation_rule: comp.state.cancellation, states: contractStateList(),
         state_checklist: comp.checklist, option_warnings: comp.option_warnings,
-        state_neutral_options: comp.state.florida ? [] : (function() {
+        state_neutral_options: comp.state.florida ? [] : isCleaning ? comp.cleaning.neutral_options : (function() {
             var neutral = contractNeutralOptions(ctx.lib.optionsById);
             return ctx.lib.optionsForClient.filter(function(o) { return contractOptionText(neutral[o.id], neutral) !== contractOptionText(o, ctx.lib.optionsById); }).map(function(o) { return o.id; });
         })(),
         public: pub
-    };
+    }, cleaningOut);
 }
 
 async function handleGetGmContracts(id, request, env) {
@@ -29192,7 +29937,53 @@ async function handlePutGmContract(id, cid, request, env) {
         try { body = await request.json(); } catch (e2) { body = {}; }
         var ctx = await contractContext(env, id, c);
         var selections = c.selections, answers = c.answers, flags = c.flags;
-        if (body.selections && typeof body.selections === "object") {
+        var cleaning = contractIsCleaning(c);
+        // Cleaning: the kind and the template can change only here, while the
+        // contract is still editable (the check above and the guarded UPDATE
+        // below). Either change starts the clause choices over for the new kind.
+        var kindChanged = false;
+        if (body.flags && typeof body.flags === "object" && (body.flags.kind !== undefined || body.flags.cleaning_template !== undefined)) {
+            var kindsNow = contractKindsFor(ctx.settings, ctx.lib);
+            var wantKind = body.flags.kind !== undefined ? String(body.flags.kind) : (cleaning ? "cleaning" : "construction");
+            if (kindsNow.indexOf(wantKind) === -1) { return jsonErr2("Este tipo de contrato n\u00e3o est\u00e1 dispon\u00edvel para a sua empresa.", "This kind of contract is not available for your business.", 400); }
+            if (wantKind === "cleaning") {
+                var wantTpl = body.flags.cleaning_template !== undefined ? String(body.flags.cleaning_template) : (cleaning ? contractCleaningTemplate(c) : "");
+                if (CONTRACT_CLEANING_TEMPLATES.indexOf(wantTpl) === -1) { return jsonErr2("Escolha o modelo do contrato de limpeza.", "Choose the cleaning agreement template.", 400, { code: "template_required" }); }
+                if (!cleaning || wantTpl !== contractCleaningTemplate(c)) {
+                    kindChanged = true;
+                    flags = { kind: "cleaning", cleaning_template: wantTpl, sold_in_home: flags.sold_in_home !== false, job_state: flags.job_state };
+                    ["consumer", "further_visits", "term_12_plus", "post_construction", "mixed_use", "sales_tax_registered"].forEach(function(k) { if (cleaning && c.flags[k] !== undefined) { flags[k] = c.flags[k]; } });
+                    c.flags = flags;
+                    selections = contractCleaningFitSelections(ctx, { flags: flags, selections: cleaning ? selections : {} }, contractCleaningGate(ctx, gmEasternToday()), true);
+                    cleaning = true;
+                    if (c.lead_id && !ctx.booking) { try { ctx.booking = await contractCleaningBooking(env, id, c.lead_id); } catch (eB) { console.error("booking answers for contract", eB && eB.message); } }
+                }
+            } else if (cleaning) {
+                kindChanged = true; cleaning = false;
+                flags = { sold_in_home: flags.sold_in_home !== false, is_pool: false, property_type: null, pool_safety_feature: null, job_state: flags.job_state };
+                c.flags = flags;
+                selections = {};
+                CONTRACT_AREA_ORDER.forEach(function(a) {
+                    var d = ctx.settings.defaults[a];
+                    if (d && ctx.lib.optionsById[d]) { selections[a] = d; return; }
+                    var first = ctx.lib.optionsForClient.filter(function(o) { return o.area_id === a; })[0];
+                    if (first) { selections[a] = first.id; }
+                });
+            }
+        }
+        if (cleaning && body.selections && typeof body.selections === "object") {
+            var slotIds = CONTRACT_CLEANING_SLOTS.map(function(sl) { return sl.id; });
+            Object.keys(body.selections).forEach(function(a) {
+                if (slotIds.indexOf(a) === -1) { return; }
+                var val = body.selections[a];
+                if (val === null || val === "") { delete selections[a]; return; }
+                selections[a] = String(val);
+            });
+        }
+        // What does not fit the template is dropped (an option of another
+        // template, a locked-out add-on), so nothing unknown is ever stored.
+        if (cleaning) { selections = contractCleaningFitSelections(ctx, { flags: flags, selections: selections }, contractCleaningGate(ctx, gmEasternToday()), false); }
+        if (!cleaning && body.selections && typeof body.selections === "object") {
             Object.keys(body.selections).forEach(function(a) {
                 if (!/^C\d\d$/.test(a)) { return; }
                 var val = body.selections[a];
@@ -29205,9 +29996,19 @@ async function handlePutGmContract(id, cid, request, env) {
         }
         if (body.flags && typeof body.flags === "object") {
             if (body.flags.sold_in_home !== undefined) { flags.sold_in_home = !!body.flags.sold_in_home; }
+            if (!cleaning) {
             if (body.flags.is_pool !== undefined) { flags.is_pool = !!body.flags.is_pool; }
             if (body.flags.property_type !== undefined) { flags.property_type = gmStr(body.flags.property_type, 30); }
             if (body.flags.pool_safety_feature !== undefined) { flags.pool_safety_feature = gmStr(body.flags.pool_safety_feature, 300); }
+            } else {
+                // Cleaning questions: yes / no, or null to clear the answer.
+                ["consumer", "further_visits", "term_12_plus", "post_construction", "mixed_use", "sales_tax_registered"].forEach(function(k) {
+                    if (body.flags[k] === null) { delete flags[k]; } else if (body.flags[k] !== undefined) { flags[k] = !!body.flags[k]; }
+                });
+                // LC2-C: the seller confirms the oral notice; who and when are stored.
+                if (body.flags.oral_notice_done === true) { flags.oral_notice = { by: actorName(user), at: new Date().toISOString().slice(0, 19).replace("T", " ") }; }
+                else if (body.flags.oral_notice_done === false) { delete flags.oral_notice; }
+            }
             if (body.flags.job_state !== undefined) {
                 var pickedState = contractStateCode(body.flags.job_state);
                 if (!pickedState) { return jsonErr2("Escolha o estado onde o servi\u00e7o ser\u00e1 feito.", "Pick the state where the work is done.", 400); }
@@ -29259,9 +30060,9 @@ async function handlePutGmContract(id, cid, request, env) {
         }
         // G2f: county and property type are stored with the lead the FIRST
         // time a contract answers them (never overwriting what the lead has).
-        if (c.lead_id && (answers.property_county || flags.property_type)) {
+        if (c.lead_id && (answers.property_county || (!cleaning && flags.property_type))) {
             await env.DB.prepare("UPDATE gm_leads SET property_county = COALESCE(property_county, ?), property_type = COALESCE(property_type, ?) WHERE id = ? AND client_id = ? AND (property_county IS NULL OR property_type IS NULL)")
-                .bind(answers.property_county || null, flags.property_type || null, c.lead_id, id).run();
+                .bind(answers.property_county || null, cleaning ? null : (flags.property_type || null), c.lead_id, id).run();
         }
         var fresh = await gmContractLoad(env, id, cid);
         return jsonOk({ saved: true, contract: await contractInternalOut(env, id, fresh, user, request) });
@@ -29521,7 +30322,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, c.flags_json, gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined })) : c.flags_json, gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
         await env.DB.prepare("UPDATE gm_contracts SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(cid, id).run();
         await gmContractEvent(env, id, newId, actorName(user), "revised", { from: cid, revision: rev });
         return jsonOk({ created: true, contract_id: newId, revision: rev });
@@ -29543,7 +30344,9 @@ async function handlePostGmContractCustomClause(id, cid, request, env) {
         var body = {};
         try { body = await request.json(); } catch (e2) { body = {}; }
         var area = gmStr(body.area_id, 4), text = gmStr(body.text, 6000);
-        if (!area || CONTRACT_AREA_ORDER.indexOf(area) === -1) { return jsonErr2("Escolha a área da cláusula.", "area_id is required", 400); }
+        // A cleaning agreement takes a custom clause in its own areas (CL01 to CL19).
+        var areaOk = contractIsCleaning(c) ? (/^CL\d\d$/.test(String(area || "")) && CONTRACT_CLEANING_SLOTS.some(function(sl) { return sl.id === area; })) : CONTRACT_AREA_ORDER.indexOf(area) !== -1;
+        if (!area || !areaOk) { return jsonErr2("Escolha a \u00e1rea da cl\u00e1usula.", "area_id is required", 400); }
         if (!text) { return jsonErr2("Escreva o texto da cláusula.", "Write the clause text", 400); }
         if (body.acknowledged !== true) { return jsonErr2("Marque que entendeu o aviso da cláusula personalizada.", "Confirm the warning about the custom clause first", 400); }
         var ccid = crypto.randomUUID();
@@ -30384,8 +31187,20 @@ async function coJobContractStatus(env, clientId, jobId) {
         threshold = th.clean ? { cents: rider.written_contract.threshold_cents, compare: rider.written_contract.compare } : null;
     }
     var needs = over && !signed && !resolvedByOwner && job.status !== "Concluída";
+    // Cleaning: a cleaning job (its newest contract is a service agreement, or
+    // the business does cleaning only) is warned in plain words, with no
+    // construction law quoted. Absent for every other job.
+    var cleaningJob = await contractJobIsCleaning(env, clientId, job);
     return { job: job, amount_cents: amount, signed_contract: signed || null, needs_warning: needs, open_notice: open || null, owner_continued: !!resolvedByOwner,
-             job_state: jobState, job_state_name: contractStateName(jobState), written_threshold: threshold };
+             job_state: jobState, job_state_name: contractStateName(jobState), written_threshold: cleaningJob ? null : threshold, job_kind: cleaningJob ? "cleaning" : undefined };
+}
+async function contractJobIsCleaning(env, clientId, job) {
+    try {
+        var row = await env.DB.prepare("SELECT flags_json FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 1").bind(clientId, job.id).first();
+        if (row) { return (gmDocParseJsonObject(row.flags_json, {}) || {}).kind === "cleaning"; }
+        var settings = await contractSettingsRow(env, clientId);
+        return contractHasCleaningTrade(settings) && !contractHasConstructionTrade(settings);
+    } catch (e) { console.error("job kind lookup failed", e && e.message); return false; }
 }
 async function contractJobStateForJob(env, clientId, job) {
     try {
@@ -30418,10 +31233,13 @@ async function handleGetGmJobContractStatus(id, jobId, request, env) {
         if (st.job_state !== "FL") {
             msg = "I'm moving forward on " + (st.job.obra || "") + " (" + ((lead && lead.cliente) || st.job.obra || "") + ", " + contractMoney(st.amount_cents) + ") without a signed contract. This job is in " + st.job_state_name + ". Please send the contract from the project in Apex.";
         }
+        if (st.job_kind === "cleaning") {
+            msg = "I'm moving forward on " + (st.job.obra || "") + " (" + ((lead && lead.cliente) || st.job.obra || "") + ", " + contractMoney(st.amount_cents) + ") without a signed service agreement. Please send the service agreement from the project in Apex.";
+        }
         // F12: a hand-made project (no lead, or no accepted estimate) cannot get a contract built.
         var accCount = st.job.lead_id ? await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, st.job.lead_id).first() : null;
         return jsonOk({ needs_warning: st.needs_warning, amount_cents: st.amount_cents, signed_contract: st.signed_contract, open_notice: st.open_notice, owner_continued: st.owner_continued,
-            job_state: st.job_state, job_state_name: st.job_state_name, written_threshold: st.written_threshold,
+            job_state: st.job_state, job_state_name: st.job_state_name, written_threshold: st.written_threshold, job_kind: st.job_kind,
             can_build_contract: !!(accCount && accCount.c),
             owner_phone: (client && (client.whatsapp || client.phone)) || null, seller_message: msg, is_seller: !!sessionSellerName(user) });
     } catch (e) {

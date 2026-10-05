@@ -4582,6 +4582,7 @@ function gmConSettingsHtml() {
     (S.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (x.code === bizState ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>';
   vals.forEach(function(v) { h += '<label class="gm-field-label" for="gmConVal_' + v[0] + '">' + gmT(v[1], v[2]) + '</label><input type="text" id="gmConVal_' + v[0] + '" class="gm-input" value="' + escHtml(d.values[v[0]] || "") + '" oninput="gmConDraft.values[\'' + v[0] + '\'] = this.value">'; });
   h += '</div>';
+  if (d.trades.indexOf("cleaning") !== -1) { h += gmConCleaningSettingsHtml(d); }
   h += '<p class="gm-warn" id="gmConMsg" hidden></p><button type="button" class="gm-btn-primary" id="gmConSaveBtn" onclick="gmConSettingsSave()">' + gmT("Salvar contrato", "Save contract settings") + '</button></div>';
   return h;
 }
@@ -4644,6 +4645,191 @@ function gmConSettingsSave() {
       if (btn) { btn.disabled = false; }
       say(e.message);
     });
+}
+
+// ── Cleaning service agreements (the sixth trade) ───────────────────────
+// Everything below shows only for a business with the cleaning trade, or on
+// a cleaning agreement (contract.kind === "cleaning").
+var GM_CON_KINDS = { construction: ["Contrato de obra", "Construction contract"], cleaning: ["Contrato de servi\u00e7o de limpeza", "Cleaning service agreement"] };
+var GM_CON_CLEANING_TEMPLATES = { T1: ["Residencial recorrente", "Residential recurring"], T2: ["Limpeza \u00fanica ou de mudan\u00e7a", "One-time or move-out"], T3: ["Temporada (turnover de aluguel curto)", "Short-term-rental turnover"], T4: ["Escrit\u00f3rio pequeno", "Small commercial office"] };
+function gmConKindLabel(k) { var x = GM_CON_KINDS[k] || [k, k]; return gmT(x[0], x[1]); }
+function gmConTemplateLabel(k) { var x = GM_CON_CLEANING_TEMPLATES[k] || [k, k]; return gmT(x[0], x[1]); }
+// The create step for a business with the cleaning trade: the kind (only when
+// it does both), the cleaning template, and the accepted estimates.
+var gmConCreateKind = null;
+function gmJobCreateContractKind(jobId) {
+  var d = gmJobAcceptedEsts[jobId] || {};
+  var kinds = d.contract_kinds || [], ests = d.estimates || [];
+  if (!gmConCreateKind || kinds.indexOf(gmConCreateKind) === -1) { gmConCreateKind = kinds[0]; }
+  var h = '<div class="gm-sheet-section">';
+  if (kinds.length > 1) {
+    h += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Que tipo de contrato \u00e9 este?", "What kind of contract is this?") + '</span>' +
+      kinds.map(function(k) { return '<button type="button" class="gm-choice-chip' + (k === gmConCreateKind ? " gm-chip-sel" : "") + '" onclick="gmConCreateKind = \'' + k + '\'; gmJobCreateContractKind(\'' + escHtml(jobId) + '\')">' + escHtml(gmConKindLabel(k)) + '</button>'; }).join("") + '</div>';
+  }
+  if (gmConCreateKind === "cleaning") {
+    h += '<label class="gm-field-label" for="gmConCreateTpl">' + gmT("Modelo do contrato de limpeza *", "Cleaning agreement template *") + '</label><select id="gmConCreateTpl" class="gm-input"><option value="">' + gmT("\u2014 escolher \u2014", "\u2014 choose \u2014") + '</option>' +
+      (d.cleaning_templates || []).map(function(t) { return '<option value="' + escHtml(t.key) + '">' + escHtml(gmConTemplateLabel(t.key)) + '</option>'; }).join("") + '</select>';
+  }
+  if (ests.length > 1) {
+    h += '<p class="muted">' + gmT("Este lead tem mais de um or\u00e7amento aceito. Marque o que entra neste contrato.", "This lead has more than one accepted estimate. Tick what this contract includes.") + '</p>' +
+      ests.map(function(e) {
+        return '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" class="gm-con-est-pick" value="' + escHtml(e.id) + '" data-cents="' + e.total_cents + '" checked style="width:22px;height:22px;" onchange="gmJobCreateContractTotal()"> <span><strong>' + escHtml(e.display_number) + '</strong> \u00b7 ' + gmMoney(e.total_cents) + '</span></label>';
+      }).join("") + '<div class="gm-sheet-group">' + gmSheetRowHtml("dollar", gmT("Total do contrato", "Contract total"), '<strong id="gmConEstTotal"></strong>') + '</div>';
+  }
+  h += '<p class="gm-warn" id="gmConEstMsg" hidden></p>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmJobCreateContractKindDo(\'' + escHtml(jobId) + '\')">' + gmT("Criar contrato", "Create contract") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button></div>';
+  gmSheetOpen(gmT("Criar contrato", "Create contract"), h);
+  gmJobCreateContractTotal();
+}
+function gmJobCreateContractKindDo(jobId) {
+  var d = gmJobAcceptedEsts[jobId] || {};
+  var msg = document.getElementById("gmConEstMsg");
+  function say(t) { if (msg) { msg.textContent = t; msg.hidden = false; } }
+  var body = { kind: gmConCreateKind };
+  if (gmConCreateKind === "cleaning") {
+    var sel = document.getElementById("gmConCreateTpl");
+    if (!sel || !sel.value) { say(gmT("Escolha o modelo do contrato de limpeza.", "Choose the cleaning agreement template.")); return; }
+    body.cleaning_template = sel.value;
+  }
+  if ((d.estimates || []).length > 1) {
+    var ids = [].slice.call(document.querySelectorAll(".gm-con-est-pick")).filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.value; });
+    if (!ids.length) { say(gmT("Marque ao menos um or\u00e7amento.", "Tick at least one estimate.")); return; }
+    body.estimate_ids = ids;
+  }
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/contracts", { method: "POST", body: body })
+    .then(function(r) { gmToast(gmT("Contrato criado: ", "Contract created: ") + r.number); gmLoadJobContracts(jobId); gmOpenContract(r.contract_id); })
+    .catch(function(e) { say(e.message); console.error(e); });
+}
+// The kind chips on the builder, for a business that does both kinds.
+function gmConKindChipsHtml(c) {
+  var kinds = c.contract_kinds || [];
+  if (kinds.length < 2) { return ""; }
+  var cur = c.kind === "cleaning" ? "cleaning" : "construction";
+  return '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Tipo de contrato", "Kind of contract") + '</span>' +
+    kinds.map(function(k) { return '<button type="button" class="gm-choice-chip' + (k === cur ? " gm-chip-sel" : "") + '" onclick="gmConSetKind(\'' + k + '\')">' + escHtml(gmConKindLabel(k)) + '</button>'; }).join("") + '</div>' +
+    '<p class="muted" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Trocar o tipo recome\u00e7a as cl\u00e1usulas. Depois que a empresa assina, o tipo n\u00e3o muda mais.", "Changing the kind starts the clauses over. Once the company signs, the kind cannot change.") + '</p>';
+}
+function gmConSetKind(k) {
+  var c = gmConDetail; if (!c) { return; }
+  if ((c.kind === "cleaning" ? "cleaning" : "construction") === k) { return; }
+  gmConSave({ flags: k === "cleaning" ? { kind: "cleaning", cleaning_template: "T1" } : { kind: "construction" } });
+}
+function gmConYesNoHtml(label, flag, val) {
+  return '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + label + '</span>' +
+    '<button type="button" class="gm-choice-chip' + (val === true ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'' + flag + '\', true)">' + gmT("Sim", "Yes") + '</button>' +
+    '<button type="button" class="gm-choice-chip' + (val === false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'' + flag + '\', false)">' + gmT("N\u00e3o", "No") + '</button></div>';
+}
+// "Este contrato" for a cleaning agreement: the questions its rules read.
+function gmConCleaningQuestionsHtml(c, ro) {
+  var f = c.flags || {}, cz = c.cleaning || {}, tpl = c.cleaning_template, R = c.rules || {}, sel = c.selections || {};
+  var outFl = !!c.job_state && c.job_state_florida === false;
+  var Q = {
+    consumer: gmT("O cliente \u00e9 uma pessoa comprando para uso pessoal, familiar ou dom\u00e9stico?", "Is the customer an individual buying for personal, family or household use?"),
+    sold: gmT("Vendido durante uma visita \u00e0 casa do cliente?", "Was this sold during a visit to the customer's home?"),
+    further: gmT("O contrato tamb\u00e9m promete outras visitas depois desta?", "Does the agreement also promise more visits after this one?"),
+    term12: gmT("O prazo inicial \u00e9 de 12 meses ou mais?", "Is the initial term 12 months or more?"),
+    post: gmT("\u00c9 limpeza p\u00f3s-obra ou para uma construtora?", "Is this a post-construction or builder clean?"),
+    mixed: gmT("O im\u00f3vel tem mais de um uso (por exemplo casa com sala comercial)?", "Does the property have more than one use (for example a home with a business suite)?"),
+    tax: gmT("A empresa est\u00e1 registrada para recolher o imposto sobre vendas da Fl\u00f3rida?", "Is the company registered to collect Florida sales tax?"),
+    label: gmT("Como o contrato chama quem paga", "What the agreement calls the paying party"),
+    oral: gmT("Eu disse ao cliente em voz alta que ele pode cancelar em at\u00e9 tr\u00eas dias \u00fateis.", "I told the customer out loud that they may cancel within three business days.")
+  };
+  function yn(v) { return v === true ? gmT("Sim", "Yes") : (v === false ? gmT("N\u00e3o", "No") : '<span class="muted">\u2014</span>'); }
+  var consumer = cz.consumer === true;
+  var q = "";
+  if (ro) {
+    q += gmSheetRowHtml("tag", gmT("Tipo de contrato", "Kind of contract"), escHtml(gmConKindLabel("cleaning")));
+    q += gmSheetRowHtml("tag", gmT("Modelo", "Template"), escHtml(gmConTemplateLabel(tpl)));
+    q += gmSheetRowHtml("tag", Q.consumer, yn(consumer));
+    q += gmSheetRowHtml("tag", Q.sold, yn(f.sold_in_home !== false));
+    q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
+    if (f.oral_notice && f.oral_notice.at) { q += gmSheetRowHtml("check", gmT("Aviso em voz alta confirmado", "Oral notice confirmed"), escHtml(f.oral_notice.by || ""), null, null, escHtml(formatDateTimeUTC(f.oral_notice.at))); }
+    q += gmSheetRowHtml("clock", gmT("Proposta v\u00e1lida at\u00e9", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
+    return q;
+  }
+  q += gmConKindChipsHtml(c);
+  q += '<label class="gm-field-label" for="gmConTpl">' + gmT("Modelo do contrato de limpeza *", "Cleaning agreement template *") + '</label><select id="gmConTpl" class="gm-input" onchange="gmConSave({ flags: { cleaning_template: this.value } })">' +
+    (c.cleaning_templates || []).map(function(t) { return '<option value="' + escHtml(t.key) + '"' + (t.key === tpl ? " selected" : "") + '>' + escHtml(gmConTemplateLabel(t.key)) + '</option>'; }).join("") + '</select>' +
+    '<p class="muted" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Trocar o modelo troca as cl\u00e1usulas oferecidas. Depois que a empresa assina, n\u00e3o muda mais.", "Changing the template changes the clauses offered. Once the company signs, it cannot change.") + '</p>';
+  q += gmConYesNoHtml(Q.consumer, "consumer", consumer);
+  q += gmConYesNoHtml(Q.sold, "sold_in_home", f.sold_in_home !== false);
+  if (tpl === "T2") { q += gmConYesNoHtml(Q.further, "further_visits", f.further_visits === true ? true : false); }
+  if (sel.CL09 === "CL09-B") { q += gmConYesNoHtml(Q.term12, "term_12_plus", f.term_12_plus === true ? true : false); }
+  q += gmConYesNoHtml(Q.post, "post_construction", f.post_construction === true ? true : false);
+  q += gmConYesNoHtml(Q.mixed, "mixed_use", f.mixed_use === true ? true : false);
+  if (tpl === "T4" && !outFl) { q += gmConYesNoHtml(Q.tax, "sales_tax_registered", f.sales_tax_registered === true ? true : (f.sales_tax_registered === false ? false : null)); }
+  if (tpl === "T3") {
+    var lab = ((c.fields || []).filter(function(x) { return x.field === "customer_label"; })[0] || {}).value || "Customer";
+    q += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + Q.label + '</span>' +
+      ["Customer", "Owner", "Manager"].map(function(w) { return '<button type="button" class="gm-choice-chip' + (w === lab ? " gm-chip-sel" : "") + '" onclick="gmConSave({ answers: { customer_label: \'' + w + '\' } })">' + w + '</button>'; }).join("") + '</div>';
+  }
+  if (R.LC2 && R.LC2.on) {
+    q += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;" ' + (f.oral_notice && f.oral_notice.at ? "checked" : "") + ' onchange="gmConSetFlag(\'oral_notice_done\', this.checked)"> ' + Q.oral + '</label>' +
+      (f.oral_notice && f.oral_notice.at ? '<p class="muted" style="margin:-4px 0 10px;font-size:13px;">' + escHtml(f.oral_notice.by || "") + " \u00b7 " + escHtml(formatDateTimeUTC(f.oral_notice.at)) + '</p>' : "");
+  }
+  if ((R.LC1 && R.LC1.on) || (R.LC2 && R.LC2.on)) {
+    q += '<p class="gm-derived-note">' + gmT("Prazo de cancelamento: meia-noite do 3\u00ba dia \u00fatil depois de o cliente assinar. O aplicativo conta s\u00e1bado e pula domingos e feriados federais; se essa contagem vale para o aviso de servi\u00e7os cont\u00ednuos \u00e9 pergunta em aberto para o advogado. ", "Cancellation deadline: midnight of the 3rd business day after the customer signs. The app counts Saturday and skips Sundays and federal holidays; whether that count applies to the continuing-services notice is an open attorney question. ") +
+      (c.cancellation_deadline ? gmT("Calculado: ", "Calculated: ") + escHtml(formatDate(c.cancellation_deadline)) : gmT("Calculado na assinatura do cliente.", "Calculated when the customer signs.")) + '</p>';
+  }
+  q += '<label class="gm-field-label" for="gmConJobState">' + gmT("Estado onde o servi\u00e7o ser\u00e1 feito *", "State where the work is done *") + '</label><select id="gmConJobState" class="gm-input" onchange="gmConSetFlag(\'job_state\', this.value)">' +
+    (c.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (c.job_state === x.code ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>' +
+    (c.job_state_confirmed ? "" : '<p class="gm-warn" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Confira o estado. Ele foi sugerido pelo endere\u00e7o do im\u00f3vel ou pelo estado da empresa; escolha na lista para confirmar.", "Check the state. It was suggested from the property address or your business's state; pick it in the list to confirm.") + '</p>');
+  q += '<label class="gm-field-label" for="gmConExpiry">' + gmT("Proposta v\u00e1lida at\u00e9", "Offer valid until") + '</label><input type="date" id="gmConExpiry" class="gm-input" value="' + escHtml(c.offer_expiry_date || "") + '" onchange="gmConSave({ offer_expiry_date: this.value })">';
+  // Product guardrails and notes; then what came from the online booking.
+  (c.guardrails || []).forEach(function(g) { q += '<p class="gm-warn" style="margin:8px 0;font-size:13px;">' + escHtml(isEn() ? g.en : g.pt) + '</p>'; });
+  (c.cleaning_notes || []).forEach(function(n) { q += '<p class="' + (n.level === "warn" ? "gm-warn" : "muted") + '" style="margin:8px 0;font-size:13px;">' + escHtml(isEn() ? n.en : n.pt) + '</p>'; });
+  if (cz.booking && cz.booking.facts && cz.booking.facts.length) {
+    q += '<p class="gm-sheet-section-title" style="margin-top:12px;">' + gmT("Do agendamento online", "From the online booking") + (cz.booking.booked_at ? ' <span class="gm-sheet-section-note">' + escHtml(formatDateTimeUTC(cz.booking.booked_at)) + '</span>' : "") + '</p>' +
+      cz.booking.facts.map(function(x) {
+        return '<p class="muted" style="margin:4px 0;font-size:13px;">' + escHtml(isEn() ? x.en : x.pt) + ": " + escHtml(x.value) + (x.field ? ' \u00b7 ' + gmT("preencheu: ", "pre-filled: ") + escHtml(gmConFieldLabel(x.field)) : "") + '</p>';
+      }).join("");
+  }
+  return q;
+}
+// The cleaning notices (LC1 to LC7), in or out, with the reason.
+function gmConCleaningLockedHtml(c, outFl) {
+  var R = c.rules || {};
+  var names = { LC1: gmT("Aviso de cancelamento de servi\u00e7os cont\u00ednuos (Rule 2-18.002)", "Continuing-services cancellation notice (Rule 2-18.002)"), "LC1-B": gmT("Aviso a cession\u00e1rios (Rule 2-18.002(3))", "Warning to assignees (Rule 2-18.002(3))"),
+    LC2: gmT("Cancelamento em tr\u00eas dias: aviso e formul\u00e1rio federais", "Three-day cancellation: federal notice and form"), LC3: gmT("Declara\u00e7\u00e3o de venda em domic\u00edlio da Fl\u00f3rida (\u00a7501.031)", "Florida home solicitation statement (\u00a7501.031)"),
+    LC4: gmT("Painel de renova\u00e7\u00e3o autom\u00e1tica (\u00a7501.165)", "Automatic renewal panel (\u00a7501.165)"), "LC4-B": gmT("Lembrete de renova\u00e7\u00e3o ao cliente", "Renewal reminder to the customer"),
+    "LC5-A": gmT("Frase de imposto sobre vendas (comercial)", "Sales tax sentence (commercial)"), "LC5-B": gmT("Nota de imposto sobre vendas (temporada)", "Sales tax note (short-term rental)"),
+    LC6: gmT("Regra sobre seguro, fian\u00e7a e triagem", "Insurance, bonding and screening rule"), LC7: gmT("Avisos de constru\u00e7\u00e3o", "Construction notices") };
+  return gmSheetSection(outFl ? gmT("Avisos inseridos por regra: " + escHtml(c.job_state_name), "Notices inserted by rule: " + escHtml(c.job_state_name)) : gmT("Avisos de limpeza inseridos por regra", "Cleaning notices inserted by rule"), Object.keys(names).map(function(k) {
+    var r = R[k] || {};
+    return gmSheetRowHtml("tag", escHtml(k + " \u00b7 " + names[k]), r.on ? '<span class="gm-pill gm-green">\u2713 ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">\u25cb ' + gmT("n\u00e3o entra", "out") + '</span>', null, null,
+      escHtml((window.GmLabels && GmLabels.contractNoticeWhy) ? GmLabels.contractNoticeWhy(r.why, isEn()) : (r.why || "")));
+  }).join(""), gmT("n\u00e3o edit\u00e1veis", "not editable"));
+}
+// Contract settings: what a cleaning business may say about itself (LC6) and
+// its standard cleaning values. Shown only while the cleaning trade is ticked.
+var GM_CON_CLEANING_VALUES = ["cancel_contact_methods", "free_cancel_notice_hours", "late_cancel_fee", "excuse_notice_hours", "access_wait_minutes", "access_change_notice_hours", "termination_methods",
+  "termination_notice_hours", "termination_notice_days", "suspension_days", "claim_window_hours", "reclean_window_hours", "reclean_return_days", "holiday_list", "schedule_change_notice_hours", "staff_status_description", "report_method"];
+function gmConCleaningSettingsHtml(d) {
+  var v = d.values;
+  function box(key, pt, en) {
+    return '<label class="gm-switch-row" style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" ' + (v[key] === "yes" ? "checked" : "") + ' onchange="gmConDraft.values[\'' + key + '\'] = this.checked ? \'yes\' : \'\';" style="width:22px;height:22px;"> ' + gmT(pt, en) + '</label>';
+  }
+  function date(key, pt, en) {
+    return '<label class="gm-field-label" for="gmConVal_' + key + '">' + gmT(pt, en) + '</label><input type="date" id="gmConVal_' + key + '" class="gm-input" value="' + escHtml(v[key] || "") + '" onchange="gmConDraft.values[\'' + key + '\'] = this.value">';
+  }
+  function text(key, label) {
+    return '<label class="gm-field-label" for="gmConVal_' + key + '">' + label + '</label><input type="text" id="gmConVal_' + key + '" class="gm-input" value="' + escHtml(v[key] || "") + '" oninput="gmConDraft.values[\'' + key + '\'] = this.value">';
+  }
+  var h = '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Limpeza: o que o contrato pode dizer sobre a empresa", "Cleaning: what the agreement may say about your company") +
+    ' <span class="gm-sheet-section-note">' + gmT("o contrato s\u00f3 diz que a empresa tem seguro, fian\u00e7a ou triagem se o registro estiver aqui e em dia", "the agreement says insured, bonded or screened only while the record here is current") + '</span></p>' +
+    box("cleaning_insurance_on_file", "Tenho um certificado de seguro v\u00e1lido em arquivo", "I have a current certificate of insurance on file") +
+    date("cleaning_insurance_expiry", "Validade do certificado de seguro", "Certificate of insurance expiry date") +
+    text("cleaning_insurance_summary", gmT("Resumo do seguro, como est\u00e1 no certificado (em ingl\u00eas: tipo, seguradora, validade)", "Insurance summary, as the certificate shows it (type, insurer, expiry)")) +
+    box("cleaning_insurance_limits_shown", "O certificado mostra os limites de cobertura", "The certificate shows the coverage limits") +
+    box("cleaning_wc_on_file", "Tenho ap\u00f3lice ou isen\u00e7\u00e3o de workers' compensation em arquivo", "I have a workers' compensation policy or exemption on file") +
+    date("cleaning_wc_expiry", "Validade do workers' compensation", "Workers' compensation expiry date") +
+    box("cleaning_bond_on_file", "Tenho um documento de fian\u00e7a (bond) em arquivo", "I have a bond document on file") +
+    text("screening_description", gmT("Triagem feita na equipe (em ingl\u00eas, ex.: identity check and criminal background check)", "Screening the staff completed (e.g. identity check and criminal background check)")) +
+    box("cleaning_screening_confirmed", "Confirmo que essa triagem foi feita para as pessoas que v\u00e3o atender", "I confirm this screening was completed for the people who will be assigned") + '</div>';
+  h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Limpeza: valores fixos da empresa", "Cleaning: your standard values") + ' <span class="gm-sheet-section-note">' + gmT("usados pelas cl\u00e1usulas de limpeza; o que ficar em branco \u00e9 perguntado no contrato", "used by the cleaning clauses; anything left blank is asked on the contract") + '</span></p>' +
+    GM_CON_CLEANING_VALUES.map(function(k) { return text(k, escHtml(gmConFieldLabel(k))); }).join("") + '</div>';
+  return h;
 }
 
 // ── Project sheet: the Contract section ─────────────────────────────────
@@ -4848,6 +5034,8 @@ function gmLoadJobAcceptedEsts(jobId) {
 function gmJobCreateContract(jobId) {
   var d = gmJobAcceptedEsts[jobId];
   var ests = (d && d.estimates) || [];
+  // Cleaning: a business with the cleaning trade picks the kind and the template first.
+  if (d && d.contract_kinds && d.contract_kinds.length) { gmConCreateKind = null; gmJobCreateContractKind(jobId); return; }
   if (ests.length <= 1) { gmJobCreateContractDo(jobId, null); return; }
   var rows = ests.map(function(e) {
     return '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" class="gm-con-est-pick" value="' + escHtml(e.id) + '" data-cents="' + e.total_cents + '" checked style="width:22px;height:22px;" onchange="gmJobCreateContractTotal()"> <span><strong>' + escHtml(e.display_number) + '</strong> · ' + gmMoney(e.total_cents) + (e.job_name ? ' <span class="muted">' + escHtml(e.job_name) + '</span>' : "") + '</span></label>';
@@ -4899,7 +5087,8 @@ function gmConFieldType(k) { return (window.GmLabels && GmLabels.contractFieldTy
 // Clause dates are printed as MM/DD/YYYY text; the date picker speaks YYYY-MM-DD.
 function gmConUsToIso(v) { var m = String(v || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + "-" + m[1] + "-" + m[2] : ""; }
 function gmConIsoToUs(v) { var m = String(v || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[2] + "/" + m[3] + "/" + m[1] : String(v || ""); }
-var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do orçamento", "from the estimate"], settings: ["das configurações", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"] };
+var GM_CON_SOURCE = { lead: ["do lead", "from the lead"], estimate: ["do or\u00e7amento", "from the estimate"], settings: ["das configura\u00e7\u00f5es", "from the settings"], admin: ["da Apex", "from Apex"], computed: ["calculado", "calculated"], contract: ["deste contrato", "this contract"], signing: ["na assinatura", "at signing"],
+  booking: ["do agendamento online", "from the online booking"], library: ["padr\u00e3o da biblioteca de cl\u00e1usulas", "clause library default"] };
 // G2h: contract fields that belong to the customer, and the lead column each
 // one is saved to.
 var GM_CON_TO_LEAD = { owner_full_name: "cliente", owner_phone: "telefone", owner_email: "email", property_address: "address", property_county: "property_county" };
@@ -5014,7 +5203,7 @@ function gmRenderContractSheet() {
       q += gmSheetRowHtml("tag", gmT("Obra de piscina", "Pool job"), f.is_pool ? gmT("Sim", "Yes") : gmT("Não", "No"));
       if (f.is_pool && !outFl) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
     }
-    q += gmSheetRowHtml("clock", gmT("Proposta válida até", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
+    q += gmSheetRowHtml("clock", gmT("Proposta v\u00e1lida at\u00e9", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
   } else {
     q += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Vendido durante uma visita à casa do cliente?", "Was this sold during a visit to the customer's home?") + '</span>' +
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home !== false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', true)">' + gmT("Sim", "Yes") + '</button>' +
@@ -5044,6 +5233,10 @@ function gmRenderContractSheet() {
     }
     q += '<label class="gm-field-label" for="gmConExpiry">' + gmT("Proposta válida até", "Offer valid until") + '</label><input type="date" id="gmConExpiry" class="gm-input" value="' + escHtml(c.offer_expiry_date || "") + '" onchange="gmConSave({ offer_expiry_date: this.value })">';
   }
+  // Cleaning: a service agreement asks its own questions; a business that
+  // does both kinds can switch the kind here until the company signs.
+  if (c.kind === "cleaning") { q = gmConCleaningQuestionsHtml(c, ro); }
+  else if (!ro && c.contract_kinds) { q = gmConKindChipsHtml(c) + q; }
   body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Este contrato", "This contract") + '</p>' + (ro ? '<div class="gm-sheet-group">' + q + '</div>' : q) + '</div>';
 
   // Locked blocks by rule
@@ -5052,9 +5245,10 @@ function gmRenderContractSheet() {
   if (outFl) {
     lockedNames = { L1: gmT("Aviso de gravame da Fl\u00f3rida", "Florida construction lien notice"), L2: gmT("Aviso do Recovery Fund da Fl\u00f3rida", "Florida Recovery Fund notice"), L3: gmT("Frase sobre defeitos de constru\u00e7\u00e3o", "Construction defect sentence"), L4: gmT("Linha da licen\u00e7a ou registro", "License or registration line"), L5: gmT("Cancelamento: aviso e formul\u00e1rio federais", "Cancellation: federal notice and form"), "L5-C": gmT("Declara\u00e7\u00e3o de venda em domic\u00edlio da Fl\u00f3rida", "Florida home solicitation statement"), L6: gmT("Documentos de piscina da Fl\u00f3rida", "Florida pool documents"), L7: gmT("Informa\u00e7\u00e3o sobre o sinal da Fl\u00f3rida", "Florida deposit information") };
   }
-  body += gmSheetSection(outFl ? gmT("Avisos inseridos por regra: " + escHtml(c.job_state_name), "Notices inserted by rule: " + escHtml(c.job_state_name)) : gmT("Avisos da Flórida inseridos por regra", "Florida notices inserted by rule"), Object.keys(lockedNames).map(function(k) {
+  if (c.kind === "cleaning") { body += gmConCleaningLockedHtml(c, outFl); }
+  else body += gmSheetSection(outFl ? gmT("Avisos inseridos por regra: " + escHtml(c.job_state_name), "Notices inserted by rule: " + escHtml(c.job_state_name)) : gmT("Avisos da Fl\u00f3rida inseridos por regra", "Florida notices inserted by rule"), Object.keys(lockedNames).map(function(k) {
     var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml((window.GmLabels && GmLabels.contractNoticeWhy) ? GmLabels.contractNoticeWhy(r.why, isEn()) : (r.why || "")));
-  }).join(""), gmT("não editáveis", "not editable"));
+  }).join(""), gmT("n\u00e3o edit\u00e1veis", "not editable"));
 
   // State riders: the owner's checklist for a job outside Florida.
   // Information only: no tick box, no gate.
@@ -5123,10 +5317,11 @@ function gmRenderContractSheet() {
     }
     body += '<label class="gm-field-label" for="gmConSel_' + a.id + '">' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</label>' +
       '<select id="gmConSel_' + a.id + '" class="gm-input" onchange="gmConSelect(\'' + a.id + '\', this.value)"><option value="">' + gmT("— fora deste contrato —", "— not in this contract —") + '</option>' +
-      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + (outFl && c.option_warnings && c.option_warnings[o.id] ? " · " + gmT("aten\u00e7\u00e3o neste estado", "caution in this state") : "") + '</option>'; }).join("") +
+      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + (o.locked && o.id !== cur2 ? " disabled" : "") + '>' + escHtml(o.id + " \u00b7 " + gmConOptTitle(o)) + (o.locked ? " \u00b7 " + gmT("indispon\u00edvel", "not available") : "") + (o.private ? " \u00b7 " + gmT("sua cl\u00e1usula", "your clause") : "") + (outFl && c.option_warnings && c.option_warnings[o.id] ? " \u00b7 " + gmT("aten\u00e7\u00e3o neste estado", "caution in this state") : "") + '</option>'; }).join("") +
       (custom ? '<option value="custom"' + (cur2 === "custom" ? " selected" : "") + '>' + gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')</option>' : "") + '</select>' +
       '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' + optNote +
-      (!gmIsSeller() && !custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cláusula própria nesta área", "Write a custom clause for this area") + '</button>' : "") +
+      a.options.filter(function(o) { return o.locked; }).map(function(o) { return '<p class="muted" style="margin:0 0 6px;font-size:13px;">' + escHtml(o.id + ": " + (isEn() ? o.locked.en : o.locked.pt)) + '</p>'; }).join("") +
+      (!gmIsSeller() && !custom && !a.no_custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cl\u00e1usula pr\u00f3pria nesta \u00e1rea", "Write a custom clause for this area") + '</button>' : "") +
       (custom ? gmConCustomHtml(custom) : "");
   });
   body += '</div>';
@@ -6153,6 +6348,10 @@ function gmContractGuard(jobId, trigger, proceed) {
           (wt && wt.cents > 0 ? gmT("A pesquisa sobre " + escHtml(st.job_state_name) + " indica contrato por escrito para servi\u00e7os " + (wt.compare === "over" ? "acima de " : "a partir de ") + gmMoney(wt.cents) + ".", "The research on file for " + escHtml(st.job_state_name) + " points to a written contract for jobs " + (wt.compare === "over" ? "over " : "of ") + gmMoney(wt.cents) + (wt.compare === "over" ? "." : " or more.")) :
             (wt ? gmT("A pesquisa sobre " + escHtml(st.job_state_name) + " indica contrato por escrito em qualquer valor.", "The research on file for " + escHtml(st.job_state_name) + " points to a written contract at any amount.") :
               gmT("A pesquisa n\u00e3o d\u00e1 um valor claro para " + escHtml(st.job_state_name) + ", ent\u00e3o este aviso aparece em qualquer valor.", "The research on file gives no clear amount for " + escHtml(st.job_state_name) + ", so this warning shows at any amount."))) + '</p>';
+      }
+      // Cleaning: a cleaning job is warned in plain words; no construction law is quoted.
+      if (st.job_kind === "cleaning") {
+        body = '<div class="gm-sheet-section"><p class="gm-warn">' + gmT("Este projeto n\u00e3o tem contrato de servi\u00e7o assinado.", "This project has no signed service agreement.") + '</p>';
       }
       if (st.is_seller) {
         var digits = gmWaDigits(st.owner_phone || "");

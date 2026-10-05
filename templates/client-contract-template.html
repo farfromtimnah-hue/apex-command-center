@@ -292,7 +292,10 @@
     // homeowner signature; L5-B twice, each copy starting its own page; L6
     // with the document list; the rest in bold.
     function footerText() { return (con.business.name || "") + " - " + (con.display_number || ""); }
-    function docTitle() { return "Contract " + (con.display_number || "") + (con.business.name ? " - " + con.business.name : ""); }
+    // Cleaning service agreement: titled "Service Agreement"; the other party is the Customer.
+    function docWord() { return (con && con.doc_title) || "Contract"; }
+    function partyWord() { return (con && con.doc_title) ? "Customer" : "Owner"; }
+    function docTitle() { return docWord() + " " + (con.display_number || "") + (con.business.name ? " - " + con.business.name : ""); }
     // **bold** and blank-line paragraphs; single newlines stay as breaks;
     // signing tokens rendered, any other brace token removed (F4).
     function richHtml(text) {
@@ -326,6 +329,8 @@
       if (k === "owner_initials_arbitration" || k === "owner_initials_jury") { return con.homeowner_initials ? '<span class="tok-typed">' + escHtml(con.homeowner_initials) + '</span>' : tokLine(false); }
       if (k === "contractor_initials_arbitration" || k === "contractor_initials_jury") { return cs ? '<span class="tok-typed">' + escHtml(initialsOf(cs.signer_name)) + '</span>' : tokLine(false); }
       if (k === "owner_marketing_consent_checkbox") { return con.marketing_consent ? "[X]" : "[ ]"; }
+      if (k === "customer_signature") { return tokSig(hs || null, ownerName); }
+      if (k === "customer_signature_date") { return hs ? escHtml(fmtDate(hs.signed_at)) : tokLine(false); }
       console.error("[contract] unfilled placeholder removed from homeowner text: {" + name + "}");
       return "";
     }
@@ -382,15 +387,17 @@
       else if (con.status === "expired") { stamp = '<span class="stamp bad">OFFER EXPIRED</span>'; }
       else if (isPreviewDraft()) { stamp = '<span class="stamp bad">PREVIEW - NOT SENT</span>'; }
       var tile = { label: "Contract price", value: money(con.contract_amount_cents) };
-      blocks.push({ html: metaBlockHtml("Owner", con.customer_name, whoLines, b, "Contract", con.display_number, rows, stamp, tile), kind: "block", keepWithNext: true });
+      blocks.push({ html: metaBlockHtml(partyWord(), con.customer_name, whoLines, b, docWord(), con.display_number, rows, stamp, tile), kind: "block", keepWithNext: true });
       // State riders: a contract for a job outside Florida prints its
       // disclaimer on the first page as well as on the signature page.
       if (con.disclaimer_top === true && con.disclaimer_line) { blocks.push({ html: '<div class="blk disclaimer-top">' + escHtml(con.disclaimer_line) + '</div>', kind: "block", keepWithNext: true }); }
 
       // Body sections in payload order; L1, L5-A and L5-B are pulled out and
       // placed by rule.
-      var lien = null, l5a = null;
+      var lien = null, l5a = null, beside = [];
       (con.sections || []).forEach(function(s) {
+        // Cleaning service agreement: notices printed at the customer's signature.
+        if (s.beside_signature === true && s.id !== "L5-A") { beside.push(s); return; }
         if (s.kind === "locked" && s.id === "L1") { lien = s; return; }
         if (s.kind === "locked" && s.id === "L5-A") { l5a = s; return; }
         if (s.kind === "locked" && s.id === "L5-B") { return; }
@@ -416,9 +423,15 @@
       var reqs = con.requires || {};
       var sig = '<div class="blk sigblock"><div class="t">Signatures</div>';
       if (reqs.cancellation && l5a) { sig += '<div class="l5a">' + escHtml(l5a.text).replace(/\*\*/g, "") + '</div>'; }
-      sig += '<div class="grid">' + sigCell("Contractor", con.company_signature, b.name) + sigCell("Owner", con.homeowner_signature, con.customer_name) + '</div>';
-      if (con.homeowner_signature && con.homeowner_initials) { sig += '<div class="k" style="margin-top:8pt;">Owner initials</div><div>' + escHtml(con.homeowner_initials) + '</div>'; }
-      if (con.cancellation && con.cancellation.deadline_date) { sig += '<p style="font-size:9pt;margin-top:8pt;">The Owner may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the attached Notice of Cancellation.</p>'; }
+      beside.forEach(function(s) {
+        var f = s.format || {};
+        if (s.date_above) { sig += '<p style="font-size:10pt;font-weight:700;margin:6pt 0 2pt;">Date: ' + escHtml(fmtDate(con.transaction_date || con.contract_date)) + '</p>'; }
+        sig += '<div style="font-weight:700;font-size:' + (f.min_pt >= 12 ? "12pt" : "10pt") + ';margin:6pt 0;' + (f.box ? "border:1.5pt solid #000;padding:6pt;" : "") + '">' +
+          String(s.text || "").split(/\n\s*\n/).map(function(p) { return '<p style="margin:0 0 4pt;">' + withTokens(escHtml(p).replace(/\*\*/g, "")) + '</p>'; }).join("") + '</div>';
+      });
+      sig += '<div class="grid">' + sigCell("Contractor", con.company_signature, b.name) + sigCell(partyWord(), con.homeowner_signature, con.customer_name) + '</div>';
+      if (con.homeowner_signature && con.homeowner_initials) { sig += '<div class="k" style="margin-top:8pt;">' + partyWord() + ' initials</div><div>' + escHtml(con.homeowner_initials) + '</div>'; }
+      if (con.cancellation && con.cancellation.deadline_date) { sig += '<p style="font-size:9pt;margin-top:8pt;">The ' + partyWord() + ' may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the attached Notice of Cancellation.</p>'; }
       if (con.content_hash) { sig += '<div class="hash" style="margin-top:8pt;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</div>'; }
       if (con.signed_render_hash) { sig += '<div class="hash" style="margin-top:3pt;">Signed copy hash (SHA-256): ' + escHtml(con.signed_render_hash) + '</div>'; }
       if (con.disclaimer_line) { sig += '<div class="disclaimer">' + escHtml(con.disclaimer_line) + '</div>'; }

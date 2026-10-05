@@ -2922,6 +2922,9 @@
         // reaching Ajustes first would render the card without them. Same
         // tolerance as above: a failure here must not blank out the tab.
         .then(function() { return gmLoadConfig().catch(function() {}); })
+        // Online booking card (owner only; gmBkLoadSettings is a no-op for a seller).
+        // A failure here must not blank out the tab either.
+        .then(function() { return (typeof gmBkLoadSettings === "function" ? gmBkLoadSettings() : Promise.resolve()).catch(function() { gmBkDraft = null; }); })
         .then(function() { renderWorkSettings(); })
         .catch(function() {
           body.innerHTML = '<div class="content-card"><p class="muted">' +
@@ -2974,6 +2977,7 @@
         (isEn() ? "+ Add blocked period" : "+ Adicionar período bloqueado") + '</button></div></div>';
 
       html += referralSettingsHtml();
+      html += (typeof gmBkCardHtml === "function" ? gmBkCardHtml() : "");
       body.innerHTML = html;
       syncReferralColorInputs();
     }
@@ -7411,7 +7415,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1791158395"></script>
+  <script src="gm.js?v=1791211204"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

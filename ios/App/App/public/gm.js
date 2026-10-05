@@ -2342,6 +2342,8 @@ function gmRenderLeadSheet() {
   // referral link), sent the same way the estimate is.
   body += '<button type="button" class="gm-btn-secondary" style="width:100%;margin:6px 0 10px;" onclick="gmCardSendOpen(\'' + escHtml(lead.id) + '\')">' +
     gmT("Enviar cartão de contato", "Send contact card") + '</button>';
+  // Online booking: the send button and the Booking block (own block at the end of this file).
+  body += gmBkLeadHtml(lead);
   // Part I3/I6: who referred this lead, and who this customer referred.
   body += gmLeadReferralHtml(lead);
 
@@ -11081,4 +11083,293 @@ function gmJobCreateInvoices(jobId) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/invoices-from-estimate", { method: "POST" })
     .then(function(d) { gmToast(gmT("Faturas criadas: ", "Invoices created: ") + d.created.map(function(c) { return c.number; }).join(", ")); gmLoadJobInvoices(jobId); gmLoadInvoicesSilent(); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// Online booking ("Agendamento online"): the owner's setup card (Settings
+// tab, owner only) and, on a lead, the "Send booking link" button, its send
+// sheet and the Booking block. The customer's page is book.html; the rules
+// live in the Worker (bk* functions). Everything here is presentation: the
+// server refuses a seller on the settings routes and re-checks every lead.
+// ═══════════════════════════════════════════════════════════════════════
+
+var gmBkSettings = null;     // GET booking-settings: { settings, presets, event_types, link }
+var gmBkDraft = null;        // the owner's unsaved edits
+var gmBkLeadState = {};      // lead id -> { enabled, language, request } from GET leads/:id/booking
+var gmBkSendData = null;     // the link just made for the send sheet
+var GM_BK_DAYS = [
+  ["0", "Dom", "Sun"], ["1", "Seg", "Mon"], ["2", "Ter", "Tue"], ["3", "Qua", "Wed"], ["4", "Qui", "Thu"], ["5", "Sex", "Fri"], ["6", "Sáb", "Sat"]
+];
+
+function gmBkFmtDateTime(date, time) {
+  var p = String(date || "").split("-");
+  var out = p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : "";
+  var m = String(time || "").match(/^(\d{1,2}):(\d{2})/);
+  if (m) {
+    var h = parseInt(m[1], 10);
+    var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+    out += " " + h12 + ":" + m[2] + " " + (h >= 12 ? "PM" : "AM");
+  }
+  return out;
+}
+
+function gmBkFirstName(full) {
+  var w = String(full || "").trim().split(/\s+/)[0] || "";
+  if (w && w === w.toUpperCase() && w !== w.toLowerCase()) { w = w.charAt(0) + w.slice(1).toLowerCase(); }
+  return w;
+}
+
+// ── The owner's card ────────────────────────────────────────────────────
+
+function gmBkLoadSettings() {
+  if (gmIsSeller()) { return Promise.resolve(null); }
+  return gmApi("booking-settings").then(function(d) {
+    gmBkSettings = d;
+    gmBkDraft = JSON.parse(JSON.stringify(d.settings));
+    return d;
+  });
+}
+
+function gmBkQuestionLabel(q) { return isEn() ? q.label_en : q.label_pt; }
+
+function gmBkChip(selected, onclick, text) {
+  return '<button type="button" class="gm-choice-chip' + (selected ? " gm-chip-sel" : "") + '" onclick="' + onclick + '">' + text + '</button>';
+}
+
+function gmBkCardHtml() {
+  if (gmIsSeller() || !gmBkDraft) { return ""; }
+  var s = gmBkDraft;
+  var h = '<div class="content-card" id="gmBkCard">' +
+    '<div class="card-title">' + gmT("Agendamento online", "Online booking") + '</div>' +
+    '<p class="muted" style="margin-bottom:12px;">' + gmT(
+      "Seus clientes escolhem o dia e o horário em uma página da sua empresa. Fica desligado até você ligar.",
+      "Your customers pick a day and time on a page of your company. It stays off until you switch it on.") + '</p>' +
+    '<div class="gm-chip-set" style="margin-bottom:12px;">' +
+      gmBkChip(s.enabled, "gmBkSet('enabled', true)", gmT("Ligado", "On")) +
+      gmBkChip(!s.enabled, "gmBkSet('enabled', false)", gmT("Desligado", "Off")) +
+    '</div>';
+
+  h += '<label class="field-label">' + gmT("Dias de trabalho", "Working days") + '</label><div class="gm-chip-set" style="margin-bottom:10px;">' +
+    GM_BK_DAYS.map(function(d) {
+      return gmBkChip(s.work_days.indexOf(parseInt(d[0], 10)) !== -1, "gmBkToggleDay(" + d[0] + ")", gmT(d[1], d[2]));
+    }).join("") + '</div>';
+  h += '<label class="field-label">' + gmT("Início", "Start time") + '</label>' +
+    '<input type="time" value="' + escHtml(s.day_start) + '" onchange="gmBkSet(\'day_start\', this.value, true)" style="margin-bottom:8px;">' +
+    '<label class="field-label">' + gmT("Fim", "End time") + '</label>' +
+    '<input type="time" value="' + escHtml(s.day_end) + '" onchange="gmBkSet(\'day_end\', this.value, true)" style="margin-bottom:8px;">';
+  var nums = [
+    ["duration_min", gmT("Duração da visita (minutos)", "Visit length (minutes)"), 15, 480],
+    ["min_notice_hours", gmT("Aviso mínimo (horas)", "Minimum notice (hours)"), 0, 720],
+    ["daily_cap", gmT("Máximo de visitas por dia", "Most visits per day"), 1, 50],
+    ["window_days", gmT("Até quantos dias à frente o cliente pode agendar", "How far ahead customers can book (days)"), 1, 90]
+  ];
+  nums.forEach(function(n) {
+    h += '<label class="field-label">' + n[1] + '</label><input type="number" inputmode="numeric" min="' + n[2] + '" max="' + n[3] + '" value="' + escHtml(String(s[n[0]])) + '" ' +
+      'onchange="gmBkSet(\'' + n[0] + '\', this.value, true)" style="margin-bottom:8px;">';
+  });
+  var types = (gmBkSettings && gmBkSettings.event_types) || [];
+  if (types.length) {
+    h += '<label class="field-label">' + gmT("Tipo do evento no calendário", "Calendar entry type") + '</label>' +
+      '<select onchange="gmBkSet(\'event_type\', this.value || null, true)" style="margin-bottom:8px;"><option value="">' + gmT("Automático", "Automatic") + '</option>' +
+      types.map(function(t) { return '<option value="' + escHtml(t.key) + '"' + (s.event_type === t.key ? " selected" : "") + '>' + escHtml(isEn() ? (t.en || t.key) : (t.pt || t.key)) + '</option>'; }).join("") + '</select>';
+  }
+
+  // Questions
+  h += '<div class="card-title" style="margin-top:14px;">' + gmT("Perguntas", "Questions") + '</div>' +
+    '<label class="field-label">' + gmT("Modelo de perguntas", "Question preset") + '</label><div class="gm-chip-set">' +
+      gmBkChip(s.preset === "cleaning", "gmBkPreset('cleaning')", gmT("Limpeza residencial", "House cleaning")) +
+      gmBkChip(s.preset === "general", "gmBkPreset('general')", gmT("Geral", "General")) +
+    '</div><p class="muted" style="font-size:12px;margin:6px 0 10px;">' + gmT("Escolher um modelo troca as perguntas atuais.", "Choosing a preset replaces the current questions.") + '</p>';
+  if (!s.questions.length) { h += '<p class="muted">' + gmT("Nenhuma pergunta.", "No questions.") + '</p>'; }
+  s.questions.forEach(function(q, i) {
+    h += '<div class="list-row"><div class="list-main"><label style="display:flex;gap:10px;align-items:center;min-height:44px;">' +
+      '<input type="checkbox"' + (q.enabled !== false ? " checked" : "") + ' onchange="gmBkToggleQ(' + i + ', this.checked)" style="width:22px;height:22px;"> ' +
+      '<span>' + escHtml(gmBkQuestionLabel(q)) + '</span></label></div>' +
+      '<button type="button" class="btn-outline" style="min-height:44px;" onclick="gmBkRemoveQ(' + i + ')">' + gmT("Remover", "Remove") + '</button></div>';
+  });
+  h += '<label class="field-label" style="margin-top:12px;">' + gmT("Adicionar pergunta", "Add your own question") + '</label>' +
+    '<input type="text" id="gmBkNewQ" maxlength="120" placeholder="' + gmT("Pergunta", "Question") + '" style="margin-bottom:8px;">' +
+    '<select id="gmBkNewType" style="margin-bottom:8px;"><option value="text">' + gmT("Resposta curta", "Short answer") + '</option><option value="number">' + gmT("Número", "Number") + '</option><option value="yesno">' + gmT("Sim ou não", "Yes or no") + '</option></select>' +
+    '<button type="button" class="btn-outline" style="width:100%;min-height:48px;" onclick="gmBkAddQ()">' + gmT("Adicionar", "Add") + '</button>';
+
+  // The general link
+  if (s.enabled && gmBkSettings && gmBkSettings.link) {
+    h += '<div class="card-title" style="margin-top:14px;">' + gmT("Link geral", "General link") + '</div>' +
+      '<p class="muted" style="font-size:12px;margin-bottom:6px;">' + gmT("Poste este link no seu site ou nas redes. Quem agendar vira um lead.", "Post this link on your website or social media. Anyone who books becomes a lead.") + '</p>' +
+      '<p style="overflow-wrap:anywhere;margin-bottom:6px;">' + escHtml(gmBkSettings.link) + '</p>' +
+      '<button type="button" class="btn-outline" style="min-height:44px;" onclick="gmDCopyLink(gmBkSettings.link)">' + gmT("Copiar", "Copy") + '</button>';
+  } else if (s.enabled) {
+    h += '<p class="muted" style="margin-top:12px;">' + gmT("O link geral aparece depois de salvar.", "The general link appears after you save.") + '</p>';
+  }
+  h += '<div class="err-msg" id="gmBkErr"></div>' +
+    '<button type="button" class="btn-gold" style="width:100%;margin-top:12px;min-height:48px;" onclick="gmBkSave()">' + gmT("Salvar", "Save") + '</button></div>';
+  return h;
+}
+
+function gmBkRerender() {
+  var card = document.getElementById("gmBkCard");
+  if (!card) { return; }
+  var tmp = document.createElement("div");
+  tmp.innerHTML = gmBkCardHtml();
+  if (tmp.firstChild) { card.parentNode.replaceChild(tmp.firstChild, card); }
+}
+
+function gmBkSet(key, value, quiet) {
+  if (!gmBkDraft) { return; }
+  var numeric = ["duration_min", "min_notice_hours", "daily_cap", "window_days"];
+  if (numeric.indexOf(key) !== -1) { value = parseInt(value, 10); if (isNaN(value)) { return; } }
+  gmBkDraft[key] = value;
+  if (!quiet) { gmBkRerender(); }
+}
+
+function gmBkToggleDay(n) {
+  var i = gmBkDraft.work_days.indexOf(n);
+  if (i === -1) { gmBkDraft.work_days.push(n); gmBkDraft.work_days.sort(); } else { gmBkDraft.work_days.splice(i, 1); }
+  gmBkRerender();
+}
+
+function gmBkPreset(name) {
+  if (gmBkDraft.questions.length && !window.confirm(gmT("Trocar as perguntas atuais pelo modelo?", "Replace the current questions with this preset?"))) { return; }
+  gmBkDraft.preset = name;
+  gmBkDraft.questions = JSON.parse(JSON.stringify(gmBkSettings.presets[name] || []));
+  gmBkRerender();
+}
+
+function gmBkToggleQ(i, on) { if (gmBkDraft.questions[i]) { gmBkDraft.questions[i].enabled = !!on; } }
+
+function gmBkRemoveQ(i) { gmBkDraft.questions.splice(i, 1); gmBkRerender(); }
+
+function gmBkAddQ() {
+  var inp = document.getElementById("gmBkNewQ");
+  var typ = document.getElementById("gmBkNewType");
+  var label = inp ? inp.value.trim() : "";
+  if (!label) { return; }
+  var key = "custom_" + Date.now().toString(36);
+  gmBkDraft.questions.push({ key: key, label_pt: label, label_en: label, type: typ ? typ.value : "text", enabled: true });
+  gmBkRerender();
+}
+
+function gmBkSave() {
+  var s = gmBkDraft;
+  var err = document.getElementById("gmBkErr");
+  if (err) { err.textContent = ""; }
+  gmApi("booking-settings", { method: "PUT", body: {
+    enabled: !!s.enabled, work_days: s.work_days, day_start: s.day_start, day_end: s.day_end, duration_min: s.duration_min,
+    min_notice_hours: s.min_notice_hours, daily_cap: s.daily_cap, window_days: s.window_days, event_type: s.event_type || null,
+    questions: { preset: s.preset, items: s.questions }
+  } }).then(function(d) {
+    gmBkSettings.settings = d.settings;
+    gmBkSettings.link = d.link;
+    gmBkDraft = JSON.parse(JSON.stringify(d.settings));
+    gmBkLeadState = {};
+    gmBkRerender();
+    gmToast(gmT("Salvo", "Saved"));
+  }).catch(function(e) {
+    var el = document.getElementById("gmBkErr");
+    if (el) { el.textContent = e.message; } else { gmToast(e.message); }
+    console.error(e);
+  });
+}
+
+// ── On a lead ───────────────────────────────────────────────────────────
+
+// Called while the lead sheet is built: returns the placeholder and fills it
+// once the lead's booking state is known (from cache first, then fresh).
+function gmBkLeadHtml(lead) {
+  var id = lead.id;
+  setTimeout(function() { gmBkLoadLead(id); }, 0);
+  var cached = gmBkLeadState[id];
+  return '<div id="gmBkLeadBox" data-lead="' + escHtml(id) + '">' + (cached ? gmBkLeadInner(lead, cached) : "") + '</div>';
+}
+
+function gmBkLoadLead(leadId) {
+  gmApi("leads/" + encodeURIComponent(leadId) + "/booking").then(function(d) {
+    gmBkLeadState[leadId] = d;
+    var box = document.getElementById("gmBkLeadBox");
+    if (box && box.getAttribute("data-lead") === leadId && gmDetailLead && gmDetailLead.id === leadId) { box.innerHTML = gmBkLeadInner(gmDetailLead, d); }
+  }).catch(function(e) { console.error("booking state", e); });
+}
+
+function gmBkStatusText(r) {
+  if (r.status === "booked") { return gmT("Agendado para ", "Booked for ") + gmBkFmtDateTime(r.slot_date, r.slot_time); }
+  if (r.status === "cancelled") { return gmT("Cancelado", "Cancelled"); }
+  if (r.status === "expired") { return gmT("Expirado", "Expired"); }
+  if (r.sent_at) { return gmT("Link enviado em ", "Link sent on ") + escHtml(formatDateTimeUTC(r.sent_at)); }
+  return gmT("Link criado, ainda não enviado", "Link created, not sent yet");
+}
+
+var GM_BK_FIELD_NAMES = { name: ["Nome", "Name"], phone: ["Telefone", "Phone"], email: ["Email", "Email"], address: ["Endereço", "Address"], city: ["Cidade", "City"] };
+
+function gmBkLeadInner(lead, d) {
+  var h = "";
+  if (d.enabled) {
+    h += '<button type="button" class="gm-btn-secondary" style="width:100%;margin:6px 0 10px;" onclick="gmBkSendOpen(\'' + escHtml(lead.id) + '\')">' +
+      gmT("Enviar link de agendamento", "Send booking link") + '</button>';
+  }
+  var r = d.request;
+  if (r) {
+    var inner = '<div style="padding:10px 12px;"><div><strong>' + gmBkStatusText(r) + '</strong></div>';
+    (r.answers || []).forEach(function(a) {
+      inner += '<div class="muted">' + escHtml(isEn() ? a.label_en : a.label_pt) + ': ' + escHtml(isEn() ? a.value_en : a.value_pt) + '</div>';
+    });
+    (r.customer_updates || []).forEach(function(u) {
+      var nm = GM_BK_FIELD_NAMES[u.field] || [u.field, u.field];
+      inner += '<div class="gm-warn">' + gmT("O cliente atualizou: ", "Customer updated: ") + gmT(nm[0], nm[1]) + ': ' + escHtml(u.customer_value) +
+        ' <span class="muted">(' + gmT("você tem: ", "you have: ") + escHtml(u.business_value) + ')</span></div>';
+    });
+    inner += '</div>';
+    h += gmSheetSection(gmT("Agendamento", "Booking"), inner);
+  }
+  return h;
+}
+
+function gmBkSendOpen(leadId) {
+  gmSheetOpen(gmT("Enviar link de agendamento", "Send booking link"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmApi("leads/" + encodeURIComponent(leadId) + "/booking-link", { method: "POST" }).then(function(d) {
+    gmBkSendData = d;
+    gmBkSendData.lead_id = leadId;
+    delete gmBkLeadState[leadId];
+    gmBkRenderSendSheet();
+  }).catch(function(e) {
+    var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
+    console.error(e);
+  });
+}
+
+function gmBkMessage(d) {
+  var first = gmBkFirstName(d.lead && d.lead.cliente);
+  if (d.language === "pt") {
+    return "Oi " + first + ", aqui está o link para escolher o melhor dia e horário para a nossa visita: " + d.url;
+  }
+  return "Hi " + first + ", here is the link to choose the best day and time for our visit: " + d.url;
+}
+
+function gmBkRenderSendSheet() {
+  var d = gmBkSendData;
+  if (!d) { return; }
+  var text = gmBkMessage(d);
+  var phone = (d.lead && d.lead.telefone) || "";
+  var digits = gmWaDigits(phone);
+  var body = '<div class="gm-sheet-section">' +
+    '<p class="muted">' + gmT("Abre o app de mensagens do seu telefone com o texto e o link prontos.", "Opens your phone's messaging app with the text and link ready.") + '</p>' +
+    '<div class="gm-contact-row">' +
+      '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmBkSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
+      '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmBkSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
+    '</div>' +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone no lead; edite o lead para adicionar, ou copie o link.", "No phone on the lead; edit the lead to add one, or copy the link.") + '</p>' : gmDocSendPhoneNote(phone)) +
+    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + '</div>' +
+    '<p class="gm-derived-note" style="white-space:pre-wrap;overflow-wrap:anywhere;">' + escHtml(text) + '</p>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmDCopyLink(gmBkSendData.url); gmBkSendMark();">' + gmT("Copiar link", "Copy link") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmRenderLeadSheet()">' + gmT("Voltar", "Back") + '</button>' +
+    '</div>';
+  gmSheetOpen(gmT("Enviar link de agendamento", "Send booking link"), body);
+}
+
+function gmBkSendMark() {
+  var d = gmBkSendData;
+  if (!d) { return; }
+  gmApi("leads/" + encodeURIComponent(d.lead_id) + "/booking-sent", { method: "POST" })
+    .then(function() { delete gmBkLeadState[d.lead_id]; })
+    .catch(function(e) { console.error("booking-sent", e); });
 }

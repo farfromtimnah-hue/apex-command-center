@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Book a visit</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <script src="doc-hero.js?v=1790547506"></script>
+  <style>
+    /* Public, no-login booking page for a client business's CUSTOMER. Modelled
+       on receipt-view.html: self-contained, the business's brand only. No Apex
+       name, logo, colours or URL anywhere on this page. Phone first. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px 60px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 13px; }
+    .hidden { display: none !important; }
+    .langbar { display: flex; justify-content: flex-end; padding-top: 10px; }
+    .langbar button { min-height: 36px; padding: 0 12px; border: 1px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
+    .langbar button:first-child { border-radius: 999px 0 0 999px; }
+    .langbar button:last-child { border-radius: 0 999px 999px 0; border-left: 0; }
+    .langbar button.sel { background: var(--brand-accent); color: var(--on-brand-accent); border-color: var(--brand-accent); }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+    input[type="text"], input[type="tel"], input[type="email"], input[type="number"] { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); font-family: inherit; }
+    input:focus { outline: none; border-color: var(--brand-accent); }
+    .req { color: var(--red); }
+    .known { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); min-height: 48px; }
+    .known .kv { min-width: 0; overflow-wrap: anywhere; }
+    .known .kl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .known button { min-height: 44px; padding: 0 12px; border: none; background: none; color: var(--brand-accent); font-weight: 700; font-size: 14px; text-decoration: underline; cursor: pointer; flex: 0 0 auto; }
+    .btn { width: 100%; min-height: 52px; margin-top: 14px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 17px; font-weight: 800; cursor: pointer; display: block; text-align: center; text-decoration: none; line-height: 52px; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); line-height: 48px; }
+    .btn.danger { background: #fff; color: var(--red); border: 2px solid #e3b4b4; line-height: 48px; }
+    .btn[disabled] { opacity: 0.6; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chips button { flex: 1 1 auto; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; font-size: 15px; cursor: pointer; }
+    .chips button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .grid button { min-height: 56px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-weight: 700; font-size: 16px; cursor: pointer; }
+    .grid button.sel { border-color: var(--brand-accent); background: var(--brand-accent); color: var(--on-brand-accent); }
+    .daybtn { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 56px; margin-top: 8px; padding: 0 14px; border-radius: 12px; border: 2px solid var(--border); background: #fff; color: var(--ink); font-size: 16px; font-weight: 700; cursor: pointer; text-align: left; }
+    .daybtn span:last-child { font-weight: 400; color: var(--muted); font-size: 13px; }
+    .err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 18px; font-weight: 600; }
+    .note { background: #fff8e6; border: 1px solid #ecd9a0; color: #5c4a10; border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; }
+    .state { text-align: center; padding: 20px 0; }
+    .state h3 { font-size: 20px; margin-bottom: 8px; }
+    .state p { color: var(--muted); }
+    .done-row { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .done-row .dl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .done-row .dv { font-size: 17px; font-weight: 700; }
+    .linkbtn { display: inline-block; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; background: none; border: none; font-size: 15px; cursor: pointer; }
+    .hp { position: absolute; left: -5000px; width: 1px; height: 1px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="hero-band doc-screen" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap" role="main">
+    <div class="langbar"><button type="button" id="langPt">PT</button><button type="button" id="langEn">EN</button></div>
+    <div class="card" id="stepLoading" role="status"><div class="state"><p id="loadingTxt"></p></div></div>
+    <div class="card hidden" id="stepInactive"></div>
+    <div id="stepInfo" class="hidden"></div>
+    <div class="card hidden" id="stepDays"></div>
+    <div class="card hidden" id="stepTimes"></div>
+    <div id="stepDone" class="hidden"></div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var qs = window.location.search;
+    var leadToken = (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    var siteSlug = (qs.match(/[?&]b=([a-z2-7]{10,40})/) || [])[1] || null;
+    var lang = "en";
+    var D = null;                 // the public payload
+    var cust = {};                // what the customer has typed
+    var answers = {};
+    var editing = {};             // known lines the customer opened for editing
+    var chosenDate = null;
+    var chosenTime = null;
+    var changing = false;         // picking a different time for a booked visit
+    var loadedAt = Date.now();
+    var doneLocal = null;         // booking details when there is no token to reload with
+    var busy = false;
+
+    function byId(id) { return document.getElementById(id); }
+    function T(pt, en) { return lang === "pt" ? pt : en; }
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+    function fmtPhone(tel) { var d = String(tel || "").replace(/\D/g, ""); if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); } if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); } return String(tel || ""); }
+
+    var DAYS_PT = ["Domingo", "Segunda-feira", "Ter\u00e7a-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "S\u00e1bado"];
+    var DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    function weekday(date) { var p = date.split("-"); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])).getUTCDay(); return (lang === "pt" ? DAYS_PT : DAYS_EN)[d]; }
+    function fmtDate(date) { var p = String(date || "").split("-"); return p.length === 3 ? p[1] + "/" + p[2] + "/" + p[0] : ""; }
+    function fmtTime(hhmm) {
+      var m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})/); if (!m) { return ""; }
+      var h = +m[1]; var suffix = h >= 12 ? "PM" : "AM"; var h12 = h % 12; if (h12 === 0) { h12 = 12; }
+      return h12 + ":" + m[2] + " " + suffix;
+    }
+
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand-bg", primary); root.setProperty("--on-brand-bg", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+      var name = b.name || "";
+      var mark = byId("bizMark");
+      var logo = byId("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (b.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = b.logo_url;
+      }
+      var hero = byId("heroImg");
+      if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+
+    function show(id) {
+      ["stepLoading", "stepInactive", "stepInfo", "stepDays", "stepTimes", "stepDone"].forEach(function(c) {
+        var el = byId(c); if (el) { el.classList.toggle("hidden", c !== id); }
+      });
+      window.scrollTo(0, 0);
+    }
+
+    function setLang(l) {
+      lang = l === "pt" ? "pt" : "en";
+      document.documentElement.lang = lang;
+      var a = byId("langPt"), b = byId("langEn");
+      if (a) { a.classList.toggle("sel", lang === "pt"); }
+      if (b) { b.classList.toggle("sel", lang === "en"); }
+      var lt = byId("loadingTxt"); if (lt) { lt.textContent = T("Carregando...", "Loading..."); }
+      if (D) {
+        var tm = byId("stepTimes"), dy = byId("stepDays");
+        if (tm && !tm.classList.contains("hidden")) { renderTimes(); }
+        else if (dy && !dy.classList.contains("hidden")) { renderDays(); }
+        else { readInputs(); render(); }
+      }
+    }
+
+    // ---- inactive ----
+    function renderInactive() {
+      var b = (D && D.business) || {};
+      var phone = b.phone ? '<p style="margin-top:10px;"><a class="linkbtn" href="tel:' + escHtml(String(b.phone).replace(/[^0-9+]/g, "")) + '">' + escHtml(fmtPhone(b.phone)) + '</a></p>' : "";
+      var el = byId("stepInactive");
+      if (el) {
+        el.innerHTML = '<div class="state"><h3 role="heading" aria-level="1">' + T("Este link n\u00e3o est\u00e1 mais ativo.", "This link is no longer active.") + '</h3>' +
+          '<p>' + T("Fale com ", "Please contact ") + escHtml(b.name || T("a empresa", "the business")) + '.</p>' + phone + '</div>';
+      }
+      show("stepInactive");
+    }
+
+    // ---- step 1: details and questions ----
+    var FIELDS = [["name", "Nome", "Name", "text"], ["phone", "Telefone", "Phone", "tel"], ["email", "E-mail", "Email", "email"], ["address", "Endere\u00e7o da visita", "Address for the visit", "text"], ["city", "Cidade", "City", "text"]];
+
+    function isRequired(key) { return key === "address" || (D.kind === "general" && (key === "name" || key === "phone")); }
+
+    function fieldHtml(f) {
+      var key = f[0];
+      var known = D.kind === "lead" && D.customer[key] && !editing[key] && cust[key] === D.customer[key];
+      var label = T(f[1], f[2]);
+      if (known) {
+        return '<div class="known"><div class="kv"><div class="kl">' + escHtml(label) + '</div>' + escHtml(key === "phone" ? fmtPhone(cust[key]) : cust[key]) + '</div>' +
+          '<button type="button" data-edit="' + key + '">' + T("Editar", "Edit") + '</button></div>';
+      }
+      var opt = isRequired(key) ? ' <span class="req">*</span>' : ' <span class="muted">(' + T("opcional", "optional") + ')</span>';
+      return '<label for="f_' + key + '">' + escHtml(label) + opt + '</label><input type="' + f[3] + '" id="f_' + key + '" data-field="' + key + '" value="' + escHtml(cust[key] || "") + '" autocomplete="' + (key === "name" ? "name" : key === "phone" ? "tel" : key === "email" ? "email" : key === "address" ? "street-address" : "address-level2") + '">';
+    }
+
+    function questionHtml(q) {
+      var label = escHtml(lang === "pt" ? q.label_pt : q.label_en);
+      var v = answers[q.key] == null ? "" : String(answers[q.key]);
+      if (q.type === "yesno") {
+        return '<label>' + label + '</label><div class="chips" data-q="' + escHtml(q.key) + '">' +
+          '<button type="button" data-val="yes" class="' + (v === "yes" ? "sel" : "") + '">' + T("Sim", "Yes") + '</button>' +
+          '<button type="button" data-val="no" class="' + (v === "no" ? "sel" : "") + '">' + T("N\u00e3o", "No") + '</button></div>';
+      }
+      if (q.type === "choice") {
+        return '<label>' + label + '</label><div class="chips" data-q="' + escHtml(q.key) + '">' + (q.options || []).map(function(o) {
+          return '<button type="button" data-val="' + escHtml(o.key) + '" class="' + (v === o.key ? "sel" : "") + '">' + escHtml(lang === "pt" ? o.pt : o.en) + '</button>';
+        }).join("") + '</div>';
+      }
+      var type = q.type === "number" ? 'number" inputmode="decimal" min="0' : "text";
+      return '<label for="q_' + escHtml(q.key) + '">' + label + '</label><input type="' + type + '" id="q_' + escHtml(q.key) + '" data-answer="' + escHtml(q.key) + '" value="' + escHtml(v) + '">';
+    }
+
+    function renderInfo() {
+      var first = D.customer.first_name;
+      var hi = D.kind === "lead" && first ? T("Ol\u00e1, ", "Hi ") + escHtml(first) + (lang === "pt" ? "!" : ",") : T("Agende sua visita", "Book your visit");
+      var intro = D.kind === "lead"
+        ? T("Confirme seus dados e escolha o melhor dia e hor\u00e1rio.", "Confirm your details and choose the best day and time.")
+        : T("Preencha seus dados e escolha um dia e hor\u00e1rio.", "Fill in your details and choose a day and time.");
+      var html = '<div class="card"><h1 role="heading" aria-level="1">' + hi + '</h1><p class="muted">' + intro + '</p>';
+      if (D.kind === "lead" && D.service) {
+        html += '<div class="known"><div class="kv"><div class="kl">' + T("Servi\u00e7o", "Service") + '</div>' + escHtml(D.service) + '</div></div>';
+      }
+      html += FIELDS.map(fieldHtml).join("");
+      html += '<div class="hp" aria-hidden="true"><label>Website</label><input type="text" id="f_website" tabindex="-1" autocomplete="off"></div>';
+      html += '</div>';
+      if (D.questions.length) {
+        html += '<div class="card"><h2>' + T("Sobre o servi\u00e7o", "About the job") + '</h2>' + D.questions.map(questionHtml).join("") + '</div>';
+      }
+      html += '<div class="card"><div class="err" id="infoErr" role="alert"></div><button type="button" class="btn" id="btnNext">' + T("Escolher dia e hor\u00e1rio", "Choose a day and time") + '</button></div>';
+      var el = byId("stepInfo");
+      if (el) { el.innerHTML = html; }
+      wireInfo();
+      show("stepInfo");
+    }
+
+    function readInputs() {
+      var el = byId("stepInfo");
+      if (!el || el.classList.contains("hidden")) { return; }
+      var ins = el.querySelectorAll("[data-field]");
+      for (var i = 0; i < ins.length; i++) { cust[ins[i].getAttribute("data-field")] = ins[i].value.trim(); }
+      var an = el.querySelectorAll("[data-answer]");
+      for (var j = 0; j < an.length; j++) { answers[an[j].getAttribute("data-answer")] = an[j].value.trim(); }
+    }
+
+    function wireInfo() {
+      var el = byId("stepInfo");
+      if (!el) { return; }
+      var eds = el.querySelectorAll("[data-edit]");
+      for (var i = 0; i < eds.length; i++) {
+        eds[i].onclick = function() { readInputs(); editing[this.getAttribute("data-edit")] = true; renderInfo(); };
+      }
+      var chips = el.querySelectorAll(".chips[data-q]");
+      for (var j = 0; j < chips.length; j++) {
+        (function(group) {
+          var btns = group.querySelectorAll("button");
+          for (var k = 0; k < btns.length; k++) {
+            btns[k].onclick = function() {
+              var key = group.getAttribute("data-q"); var val = this.getAttribute("data-val");
+              answers[key] = answers[key] === val ? "" : val;
+              for (var m = 0; m < btns.length; m++) { btns[m].classList.toggle("sel", btns[m].getAttribute("data-val") === answers[key]); }
+            };
+          }
+        })(chips[j]);
+      }
+      var next = byId("btnNext");
+      if (next) { next.onclick = function() { readInputs(); goDays(); }; }
+    }
+
+    function missingText() {
+      if (!cust.name) { return T("Informe seu nome.", "Please enter your name."); }
+      if (D.kind === "general" && !cust.phone) { return T("Informe seu telefone.", "Please enter your phone number."); }
+      if (!cust.address) { return T("Informe o endere\u00e7o da visita.", "Please enter the address for the visit."); }
+      return "";
+    }
+
+    function goDays() {
+      var msg = missingText();
+      if (msg) {
+        var e = byId("infoErr"); if (e) { e.textContent = msg; }
+        // a known line may hide the empty field: open it
+        FIELDS.forEach(function(f) { if (!cust[f[0]] && !byId("f_" + f[0])) { editing[f[0]] = true; } });
+        return;
+      }
+      renderDays();
+    }
+
+    // ---- step 2: day ----
+    function renderDays(note) {
+      var el = byId("stepDays");
+      if (!el) { return; }
+      var html = '<h1 role="heading" aria-level="1">' + (changing ? T("Escolher outro hor\u00e1rio", "Pick a different time") : T("Escolha um dia", "Choose a day")) + '</h1>';
+      if (note) { html += '<div class="note" role="status">' + note + '</div>'; }
+      if (!D.slots.length) {
+        html += '<p class="muted" style="margin-top:10px;">' + T("N\u00e3o h\u00e1 hor\u00e1rios dispon\u00edveis no momento. Fale com ", "There are no open times right now. Please contact ") + escHtml(D.business.name || "") + '.</p>';
+      }
+      D.slots.forEach(function(s) {
+        html += '<button type="button" class="daybtn" data-date="' + s.date + '"><span>' + escHtml(weekday(s.date)) + '</span><span>' + fmtDate(s.date) + '</span></button>';
+      });
+      html += '<button type="button" class="btn secondary" id="btnBackDays">' + T("Voltar", "Back") + '</button>';
+      el.innerHTML = html;
+      var ds = el.querySelectorAll("[data-date]");
+      for (var i = 0; i < ds.length; i++) { ds[i].onclick = function() { chosenDate = this.getAttribute("data-date"); chosenTime = null; renderTimes(); }; }
+      var back = byId("btnBackDays");
+      if (back) { back.onclick = function() { if (changing) { render(); } else { renderInfo(); } }; }
+      show("stepDays");
+    }
+
+    // ---- step 3: time and confirm ----
+    function renderTimes(note) {
+      var el = byId("stepTimes");
+      if (!el) { return; }
+      var day = null;
+      D.slots.forEach(function(s) { if (s.date === chosenDate) { day = s; } });
+      if (!day) { renderDays(note); return; }
+      var html = '<h1 role="heading" aria-level="1">' + escHtml(weekday(chosenDate)) + ', ' + fmtDate(chosenDate) + '</h1>' +
+        '<p class="muted small" style="margin-bottom:10px;">' + T("Hor\u00e1rios em ", "Times shown in ") + escHtml(D.tz_label || "") + '</p>';
+      if (note) { html += '<div class="note" role="status">' + note + '</div>'; }
+      html += '<div class="grid">' + day.times.map(function(t) {
+        return '<button type="button" data-time="' + t + '" class="' + (t === chosenTime ? "sel" : "") + '">' + fmtTime(t) + '</button>';
+      }).join("") + '</div>';
+      html += '<div class="err" id="timesErr" role="alert"></div>';
+      html += '<button type="button" class="btn" id="btnConfirm"' + (chosenTime ? "" : " disabled") + '>' + (changing ? T("Confirmar novo hor\u00e1rio", "Confirm new time") : T("Confirmar", "Confirm")) + '</button>';
+      html += '<button type="button" class="btn secondary" id="btnBackTimes">' + T("Outro dia", "Another day") + '</button>';
+      el.innerHTML = html;
+      var ts = el.querySelectorAll("[data-time]");
+      for (var i = 0; i < ts.length; i++) {
+        ts[i].onclick = function() {
+          chosenTime = this.getAttribute("data-time");
+          for (var k = 0; k < ts.length; k++) { ts[k].classList.toggle("sel", ts[k] === this); }
+          var c = byId("btnConfirm"); if (c) { c.disabled = false; }
+        };
+      }
+      var c2 = byId("btnConfirm"); if (c2) { c2.onclick = submit; }
+      var bk = byId("btnBackTimes"); if (bk) { bk.onclick = function() { renderDays(); }; }
+      show("stepTimes");
+    }
+
+    function postJson(path, body) {
+      return fetch(WORKER_URL + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().catch(function() { return {}; }).then(function(j) { return { status: res.status, body: j }; }); });
+    }
+
+    function base() { return leadToken ? "/api/public/booking/lead/" + leadToken : "/api/public/booking/site/" + siteSlug; }
+
+    function friendlyError(r) {
+      var b = r.body || {};
+      if (r.status === 429) { return T("Muitas tentativas. Tente novamente em alguns minutos.", "Too many attempts. Please try again in a few minutes."); }
+      return (lang === "pt" ? b.error_pt : b.error_en) || T("N\u00e3o foi poss\u00edvel agendar agora. Tente de novo.", "We could not book that just now. Please try again.");
+    }
+
+    function handleTaken(r) {
+      // A lost race: fresh times and a friendly line, never an error code.
+      if (r.body && r.body.slots) { D.slots = r.body.slots; }
+      chosenTime = null;
+      var msg = T("Esse hor\u00e1rio acabou de ser ocupado. Escolha outro.", "Sorry, that time was just taken. Please pick another.");
+      var still = false;
+      D.slots.forEach(function(s) { if (s.date === chosenDate) { still = true; } });
+      if (still) { renderTimes(msg); } else { renderDays(msg); }
+    }
+
+    function submit() {
+      if (busy || !chosenDate || !chosenTime) { return; }
+      busy = true;
+      var btn = byId("btnConfirm"); if (btn) { btn.disabled = true; }
+      var path, body;
+      if (changing) { path = base() + "/change"; body = { slot_date: chosenDate, slot_time: chosenTime }; }
+      else {
+        path = base() + "/book";
+        body = { slot_date: chosenDate, slot_time: chosenTime, customer: { name: cust.name || "", phone: cust.phone || "", email: cust.email || "", address: cust.address || "", city: cust.city || "" }, answers: answers };
+        var hp = byId("f_website");
+        body.website = (hp && hp.value) || "";
+        body.elapsed_ms = Date.now() - loadedAt;
+      }
+      postJson(path, body).then(function(r) {
+        busy = false;
+        if (r.status === 200 && r.body && r.body.booked) { afterBooked(r.body); return; }
+        if (r.status === 409 && r.body && r.body.taken) { handleTaken(r); return; }
+        if (r.status === 410) { renderInactive(); return; }
+        var e = byId("timesErr"); if (e) { e.textContent = friendlyError(r); }
+        var c = byId("btnConfirm"); if (c) { c.disabled = false; }
+      }).catch(function() {
+        busy = false;
+        var e = byId("timesErr"); if (e) { e.textContent = T("Sem conex\u00e3o. Tente de novo.", "No connection. Please try again."); }
+        var c = byId("btnConfirm"); if (c) { c.disabled = false; }
+      });
+    }
+
+    function afterBooked(res) {
+      changing = false;
+      if (res.token) {
+        // A general-link booking now has a token of its own: use it from here,
+        // and keep it in the address so a refresh finds the booking.
+        leadToken = res.token; siteSlug = null;
+        try { history.replaceState(null, "", window.location.pathname + "?t=" + res.token); } catch (e) { /* ignore */ }
+      }
+      if (leadToken) { load(); return; }
+      doneLocal = res.booking;
+      renderDone(res.booking);
+    }
+
+    // ---- done ----
+    function icsEscape(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+    function icsHref(bk) {
+      var now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+      var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//booking//EN", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
+        "UID:" + (leadToken || bk.start_utc) + "@booking", "DTSTAMP:" + now, "DTSTART:" + bk.start_utc, "DTEND:" + bk.end_utc,
+        "SUMMARY:" + icsEscape(T("Visita - ", "Visit - ") + (D.business.name || "")), "LOCATION:" + icsEscape(bk.address || ""), "END:VEVENT", "END:VCALENDAR"];
+      return "data:text/calendar;charset=utf-8," + encodeURIComponent(lines.join("\r\n"));
+    }
+
+    function doneRow(label, value) { return '<div class="done-row"><div class="dl">' + label + '</div><div class="dv">' + escHtml(value) + '</div></div>'; }
+
+    function renderDone(bk) {
+      var el = byId("stepDone");
+      if (!el) { return; }
+      var canChange = !!leadToken;
+      var html = '<div class="card"><div class="state" style="padding-bottom:6px;"><h3 role="heading" aria-level="1">' + T("Visita agendada!", "Your visit is booked!") + '</h3></div>' +
+        doneRow(T("Data", "Date"), weekday(bk.slot_date) + ", " + fmtDate(bk.slot_date)) +
+        doneRow(T("Hor\u00e1rio", "Time"), fmtTime(bk.slot_time) + (D.tz_label ? " " + D.tz_label : "")) +
+        (bk.address ? doneRow(T("Endere\u00e7o", "Address"), bk.address) : "") +
+        '<a class="btn" id="btnIcs" href="' + icsHref(bk) + '" download="visit.ics">' + T("Adicionar ao calend\u00e1rio", "Add to calendar") + '</a></div>';
+      if (canChange) {
+        html += '<div class="card"><h2>' + T("Precisa mudar?", "Need to change it?") + '</h2>' +
+          '<button type="button" class="btn secondary" id="btnChange">' + T("Escolher outro hor\u00e1rio", "Pick a different time") + '</button>' +
+          '<button type="button" class="btn danger" id="btnCancel">' + T("Cancelar a visita", "Cancel the visit") + '</button>' +
+          '<div class="err" id="doneErr" role="alert"></div></div>';
+      }
+      el.innerHTML = html;
+      var ch = byId("btnChange"); if (ch) { ch.onclick = function() { changing = true; chosenDate = null; chosenTime = null; renderDays(); }; }
+      var ca = byId("btnCancel"); if (ca) { ca.onclick = doCancel; }
+      show("stepDone");
+    }
+
+    function doCancel() {
+      if (busy) { return; }
+      if (!window.confirm(T("Cancelar esta visita?", "Cancel this visit?"))) { return; }
+      busy = true;
+      postJson(base() + "/cancel", {}).then(function(r) {
+        busy = false;
+        if (r.status === 200) {
+          var el = byId("stepDone");
+          if (el) { el.innerHTML = '<div class="card"><div class="state"><h3 role="heading" aria-level="1">' + T("Visita cancelada.", "Your visit is cancelled.") + '</h3><p>' + T("Se quiser, fale com ", "If you like, contact ") + escHtml(D.business.name || "") + (D.business.phone ? " - " + escHtml(fmtPhone(D.business.phone)) : "") + '.</p></div></div>'; }
+          show("stepDone");
+          return;
+        }
+        var e = byId("doneErr"); if (e) { e.textContent = friendlyError(r); }
+      }).catch(function() { busy = false; var e = byId("doneErr"); if (e) { e.textContent = T("Sem conex\u00e3o. Tente de novo.", "No connection. Please try again."); } });
+    }
+
+    // ---- flow ----
+    function render() {
+      if (!D) { return; }
+      if (!D.active) { renderInactive(); return; }
+      if (D.status === "booked" && D.booking) { renderDone(D.booking); return; }
+      if (doneLocal) { renderDone(doneLocal); return; }
+      renderInfo();
+    }
+
+    function seed() {
+      cust = { name: D.customer.name || "", phone: D.customer.phone || "", email: D.customer.email || "", address: D.customer.address || "", city: D.customer.city || "" };
+      answers = {};
+      D.questions.forEach(function(q) { if (q.value !== "" && q.value != null) { answers[q.key] = q.value; } });
+    }
+
+    var firstLoad = true;
+    function load() {
+      var path = leadToken ? "/api/public/booking/lead/" + leadToken : (siteSlug ? "/api/public/booking/site/" + siteSlug : null);
+      if (!path) { D = { active: false, business: {} }; renderInactive(); return; }
+      fetch(WORKER_URL + path)
+        .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
+        .then(function(d) {
+          D = d;
+          if (D.business) { applyBranding(D.business); }
+          if (firstLoad) { setLang(D.language === "pt" ? "pt" : "en"); firstLoad = false; }
+          seed();
+          render();
+        })
+        .catch(function(e) { console.error(e); D = { active: false, business: {} }; renderInactive(); });
+    }
+
+    window.onload = function() {
+      var a = byId("langPt"), b = byId("langEn");
+      if (a) { a.onclick = function() { setLang("pt"); }; }
+      if (b) { b.onclick = function() { setLang("en"); }; }
+      setLang("en");
+      load();
+    };
+  </script>
+</body>
+</html>

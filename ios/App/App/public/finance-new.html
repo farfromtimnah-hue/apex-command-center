@@ -1214,10 +1214,14 @@
     .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     .table-wrap { overflow-x: auto; }
-    /* The invoice actions cell lets its buttons wrap onto more lines instead
-       of running past the edge (.num alone forces one line). */
-    td.inv-actions { white-space: normal; }
-    td.inv-actions .btn { margin: 2px 0 2px 4px; }
+    /* Each invoice is two table rows: the facts, then one cell spanning every
+       column that holds the buttons side by side. No divider between the two
+       lines; the divider comes after the buttons. */
+    tr.inv-facts td { border-bottom: none; padding-bottom: 4px; }
+    td.inv-actions { padding-top: 0; padding-bottom: 10px; }
+    .inv-actions-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .inv-actions-line .btn { white-space: nowrap; margin: 0; }
+    .inv-actions-line .tpl-pencil { margin-left: -2px; }
 
     .pill {
       display: inline-block;
@@ -2637,7 +2641,6 @@
               <th><span class="show-pt">Vencimento</span><span class="show-en">Due</span></th>
               <th><span class="show-pt">Situa&ccedil;&atilde;o</span><span class="show-en">Status</span></th>
               <th class="num"><span class="show-pt">Valor</span><span class="show-en">Amount</span></th>
-              <th></th>
             </tr>
           </thead>
           <tbody id="invoiceBody"></tbody>
@@ -9300,14 +9303,14 @@
             "</span>"
           : "";
 
-        return "<tr>" +
+        return '<tr class="inv-facts">' +
           "<td>" + esc(inv.number) + "</td>" +
           "<td>" + esc(inv.client_name || "") + "</td>" +
           "<td>" + fmtDate(inv.due_at) + "</td>" +
           '<td><span class="pill"><span class="show-pt">' + esc(statusLabel(inv, false)) + '</span><span class="show-en">' + esc(statusLabel(inv, true)) + '</span></span>' + claimTag + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
-          '<td class="num inv-actions">' + actions + "</td>" +
-        "</tr>";
+        "</tr>" +
+        '<tr class="inv-btns"><td colspan="5" class="inv-actions"><div class="inv-actions-line">' + actions + "</div></td></tr>";
       }).join("");
       wireInvoiceTemplateEditing();
     }

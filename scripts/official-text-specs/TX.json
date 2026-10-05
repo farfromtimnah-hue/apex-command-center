@@ -7,14 +7,24 @@
       "format": "10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.",
       "support": "The official text puts \"KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.\" inside the quotation marks, as the final sentence of the notice",
       "summary_row": "Home improvement contract contents and IMPORTANT NOTICE",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Prop. Code 41.007, which also holds the Residential Construction Commission items, the DTPA violation clause and the arbitration rule around the notice, so printing it would put non-notice statute text in the contract; the trigger (a homestead lien contract) is also not something the builder knows."
+      "mode": "on_file",
+      "block": "Property Code 41.007 (Home Improvement Contract)",
+      "block_index": 0,
+      "start": "IMPORTANT NOTICE:",
+      "end": "DUTIES UNDER THE LAW.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded: the start and end markers lie inside them. The last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW. is inside the quotation marks and is included.",
+      "blanks": []
     },
     {
       "id": "TX-defect",
       "summary_row": "Chapter 27 contract notice",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Prop. Code 27.007, which also holds the $500 penalty subsection, the repealed subsection and the history lines around the notice, so printing it would put non-notice statute text in the contract."
+      "mode": "on_file",
+      "block": "Property Code 27.007 (Disclosure Statement Required)",
+      "block_index": 0,
+      "start": "This contract is subject to Chapter 27 of the Texas Property Code.",
+      "end": "as provided by Section 27.004 of the Texas Property Code.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded: the start and end markers lie inside them.",
+      "blanks": []
     },
     {
       "id": "TX-disclosure",
@@ -24,29 +34,94 @@
       "format": "A separate statement handed over before signing; no type size stated; must read substantially similar to the statute",
       "support": "Before a residential construction contract is executed by the owner, the original contractor shall deliver to the owner a disclosure statement described by this section.",
       "summary_row": "Residential disclosure statement",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Prop. Code 53.255, which also holds the delivery duty and a subsection about lien validity around the statement, so printing it would put non-notice statute text in the contract."
+      "mode": "on_file",
+      "block": "Property Code 53.255 (Disclosure Statement Required for Residential Construction Contract)",
+      "block_index": 0,
+      "start": "KNOW YOUR RIGHTS AND RESPONSIBILITIES UNDER THE LAW.",
+      "end": "date of the endorsement.",
+      "quote_note": "Starts inside the statute's opening quotation mark and ends inside its closing one. Each later paragraph of the statement begins with a quotation mark that is the statute's own continuation mark (the file says so); those marks are inside the cut, exactly as printed.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges (quoted statement after 'must read substantially similar to the following'). The cut is about 1,100 words in many paragraphs, copied as one block."
     },
     {
       "id": "TX-sublist",
-      "title": "Subcontractor and supplier list with its 10 point bold notice, and the optional waiver",
+      "title": "Subcontractor and supplier list: the 10 point bold NOTICE that the list must carry",
       "cite": "Prop. Code 53.256",
       "trigger": "Original contractor, before construction starts, on a residential construction contract",
       "format": "Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "The list must contain the following notice conspicuously printed, stamped, or typed in a size equal to at least 10-point boldface or the computer equivalent",
       "summary_row": "Subcontractor and supplier list, notice and waiver",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Prop. Code 53.256, which also holds the list duties, a lien-validity subsection and the waiver rules around the notice, so printing it would put non-notice statute text in the contract."
+      "mode": "on_file",
+      "block": "Property Code 53.256 (List of Subcontractors and Suppliers)",
+      "block_index": 0,
+      "start": "NOTICE:  THIS LIST OF SUBCONTRACTORS AND SUPPLIERS MAY NOT BE A FINAL LISTING.",
+      "end": "PERFORMED ON YOUR RESIDENCE.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded: the start and end markers lie inside them.",
+      "blanks": []
+    },
+    {
+      "id": "TX-sublist-waiver",
+      "title": "Optional owner waiver of the subcontractor and supplier list",
+      "cite": "Prop. Code 53.256(d)",
+      "trigger": "Only if the owner chooses to waive the list; the waiver may be in the residential construction contract or a separate signed statement",
+      "format": "Conspicuously printed in at least 10-point bold-faced type; substantially similar to the statute; if not in the contract, signed by the owner",
+      "applies": {
+        "residential": true
+      },
+      "support": "The waiver must be conspicuously printed in at least 10-point bold-faced type and read substantially similar to the following",
+      "summary_row": "Subcontractor and supplier list, notice and waiver",
+      "mode": "on_file",
+      "block": "Property Code 53.256 (List of Subcontractors and Suppliers)",
+      "block_index": 0,
+      "start": "WAIVER OF THE LIST OF SUBCONTRACTORS AND SUPPLIERS.",
+      "end": "I HAVE VOLUNTARILY CONSENTED TO THIS WAIVER.",
+      "quote_note": "Starts inside the statute's opening quotation mark and ends inside the closing one. The later paragraphs begin with the statute's own continuation quotation marks, left in the cut exactly as printed.",
+      "blanks": []
     },
     {
       "id": "TX-cancel",
-      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
+      "title": "State cancellation statement in immediate proximity to the signature space",
       "format": "Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation",
-      "support": "Statement (601.052(b)(4)): \"in immediate proximity to the space reserved in the contract for the signature of the consumer or on the front page of the receipt if a contract is not used\" and \"in boldfaced type of a minimum size of 10 points in substantially the following form\"",
+      "support": "Form (601.053): \"a completed notice of cancellation form in duplicate\"",
       "summary_row": "Home solicitation: scope, right, statement, form, FTC option, duties, prohibited acts, remedies",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Bus. & Com. Code chapter 601 (scope, duties, prohibited acts, remedies), so printing it would put non-notice statute text in the contract."
+      "mode": "print",
+      "block": "Business and Commerce Code chapter 601 (Cancellation of Certain Consumer Transactions), whole chapter",
+      "block_index": 0,
+      "start": "YOU, THE BUYER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded: the start and end markers lie inside them.",
+      "blanks": []
+    },
+    {
+      "id": "TX-cancel-form",
+      "title": "NOTICE OF CANCELLATION form (duplicate, easily detachable)",
+      "cite": "B&C 601.053",
+      "trigger": "Door-to-door sale or a sale made away from the seller's place of business, over $25",
+      "format": "Completed notice of cancellation form attached to the contract in duplicate, easily detachable, in 10-point boldfaced type, in the same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed notice of cancellation form in duplicate",
+      "summary_row": "Home solicitation: scope, right, statement, form, FTC option, duties, prohibited acts, remedies",
+      "mode": "print",
+      "block": "Business and Commerce Code chapter 601 (Cancellation of Certain Consumer Transactions), whole chapter",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(buyer's signature)",
+      "quote_note": "Starts inside the statute's opening quotation mark and ends before the closing one. The form's later paragraphs begin with the statute's own continuation quotation marks, left in exactly as printed.",
+      "blanks": [
+        "(enter date of transaction)",
+        "(name of merchant)",
+        "(address of merchant's place of business)",
+        "MIDNIGHT OF (date)",
+        "(date) above the buyer's signature line",
+        "(buyer's signature)"
+      ],
+      "boundary_unsure": "None on the edges. The caption NOTICE OF CANCELLATION is the form's first line. Section 601.053(b) requires the merchant to fill in the name, address, transaction date and the cancel-by date (not earlier than the third business day) on both copies."
     }
   ],
   "changes": [
@@ -76,6 +151,10 @@
     "TX-defect: Prop. Code 27.007 applies to contracts subject to chapter 27, which the file does not narrow to a property type the builder knows; residential was kept as is.",
     "TX-disclosure and TX-sublist: 53.255 is a separate document handed over before signing and 53.256 is a list, not text printed in the contract; split from the one combined first-pass notice because one notice may carry only one block.",
     "Not added: Tex. Const. art. XVI sec. 50(a)(5)(C) requires the homestead repair contract to expressly provide a three-day rescission right, but prescribes no sentence, and the file says it is a condition for a valid lien, not for the contract to bind.",
-    "Not added: Prop. Code 53.254(g) owner statement belongs in the claimant's notice to the owner, not in the contract; 17.42 DTPA waiver is optional and only valid with the owner's own lawyer."
+    "Not added: Prop. Code 53.254(g) owner statement belongs in the claimant's notice to the owner, not in the contract; 17.42 DTPA waiver is optional and only valid with the owner's own lawyer.",
+    "TX-homestead: on_file (stored, never printed) because only homestead lien contracts need it and the builder cannot tell a homestead.",
+    "TX-defect: on_file, not print: the file says chapter 27 reaches 'a written contract subject to this chapter' (not a condominium developer contract) but does not say which jobs those are, and the notice says 'This contract is subject to Chapter 27'. Flip to print once scope is confirmed.",
+    "TX-disclosure and TX-sublist: on_file because they are documents handed to the owner (53.255 before signing; the 53.256 notice sits on the list), not contract text. TX-sublist-waiver (new): the owner's optional waiver; on_file because printing it in every contract would invite a waiver the owner is 'not required' to give.",
+    "TX-cancel and TX-cancel-form (the form is new, split from TX-cancel): printed for sold_in_home; chapter 601 also needs the statement to sit in immediate proximity to the signature space, which is layout, not a trigger. The sale must also exceed $25 (no issue for a home job). Chapter 601 notice must be in the language of the sales presentation."
   ]
 }

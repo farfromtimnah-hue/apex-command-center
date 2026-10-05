@@ -29,7 +29,10 @@
       "cite": "ORS 701.330(1); OAR 812-001-0200(2)",
       "trigger": "Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into",
       "format": "CCB form with signature lines for the contractor and the property owner; attach the agency's current copy",
-      "applies": { "over_cents": 200000, "residential": true },
+      "applies": {
+        "over_cents": 200000,
+        "residential": true
+      },
       "support": "If a contractor is required to have a written contract under ORS 701.305, the consumer notices described in OAR 812-001-0200(1), (2) and (4) shall be delivered on or before the date the contract is entered into.",
       "summary_row": "Consumer Protection Notice (CCB form, full text)",
       "mode": "none",
@@ -43,26 +46,72 @@
       "cite": "ORS 701.330(2); OAR 812-001-0200(4)",
       "trigger": "Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into",
       "format": "CCB form with signature lines for the contractor and the homeowner",
-      "applies": { "over_cents": 200000, "residential": true },
+      "applies": {
+        "over_cents": 200000,
+        "residential": true
+      },
       "support": "If a contractor is required to have a written contract under ORS 701.305, the consumer notices described in OAR 812-001-0200(1), (2) and (4) shall be delivered on or before the date the contract is entered into.",
       "summary_row": "Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form, full text)",
       "mode": "print",
       "block": "ORS 701.330(2); OAR 812-001-0200(4): Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form, full text)",
-      "block_index": 0
+      "block_index": 0,
+      "blanks": [
+        "CONTRACTOR:",
+        "CCB#:",
+        "HOMEOWNER:",
+        "Print Contractor Name (as it appears on contract)",
+        "Print Homeowner Name (as it appears on contract)",
+        "Signature of Authorized Representative",
+        "Date (contractor)",
+        "Signature (homeowner)",
+        "Date (homeowner)"
+      ]
     },
     {
       "id": "OR-door-to-door",
-      "title": "Home solicitation statement near the signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "title": "Home solicitation statement near the buyer's signature",
       "cite": "ORS 83.730",
       "trigger": "Home solicitation sale: the seller personally solicits (including at the buyer's invitation) and the buyer's written agreement is made away from the seller's place of business; remodeling is covered, a new house is not",
-      "format": "Statement in immediate proximity to the buyer's signature space in at least 10-point boldface, plus a duplicate NOTICE OF BUYER'S RIGHT TO CANCEL in conspicuous type of 10-point or larger; same language as the sales presentation; oral notice also required",
-      "applies": { "sold_in_home": true },
-      "support": "Remodeling is covered;",
+      "format": "In immediate proximity to the space reserved for the buyer's signature, in at least 10-point boldfaced type; same language as the sales presentation; seller must also orally inform the buyer of the right to cancel",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "in at least 10-point boldfaced type, a statement in substantially the following form:",
       "summary_row": "Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
-      "mode": "none",
       "block": "ORS 83.730: Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
       "block_index": 0,
-      "hold_reason": "The block is the whole section 83.730, with the seller's duties, the federal-notice option and the late-cancellation rule around the statement and the notice, so printing it would put non-notice statute text in the contract; the statement and notice need to be cut out by hand."
+      "mode": "print",
+      "start": "You, the buyer, may cancel this transaction at any time",
+      "end": "of the right to cancel.",
+      "quote_note": "No quotation marks; cut is the text set off between the two rules of underscores after 'a statement in substantially the following form:'. The rule lines are excluded.",
+      "blanks": []
+    },
+    {
+      "id": "OR-door-to-door-notice",
+      "title": "NOTICE OF BUYER'S RIGHT TO CANCEL (home solicitation sale)",
+      "cite": "ORS 83.730(2)",
+      "trigger": "Home solicitation sale: two copies, attached to the written agreement, each carrying the seller's name and address, the transaction date and the cancel-by date",
+      "format": "In conspicuous type, 10-point or larger; duplicate copy for the buyer",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "must be in conspicuous type, 10-point or larger, and must read as follows",
+      "summary_row": "Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "mode": "print",
+      "block": "ORS 83.730: Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "block_index": 0,
+      "start": "NOTICE OF BUYER",
+      "end": "(Signature of buyer) (Date)",
+      "quote_note": "No quotation marks; cut is the form set off between the two rules of underscores after 'must read as follows:'. The rule lines are excluded.",
+      "blanks": [
+        "(Date) after (1)",
+        "(name of seller)",
+        "(address of seller’s place of business)",
+        "(date) not later than 12 midnight",
+        "signature line __________________ (Signature of buyer)",
+        "_____ (Date)"
+      ],
+      "boundary_unsure": "The bottom edge is the '(Signature of buyer) (Date)' line, the last line before the closing rule of underscores; certain."
     }
   ],
   "changes": [
@@ -121,6 +170,8 @@
     "OR-ccb: I reused this notice for the Consumer Protection Notice because the first pass's OAR 812 entry is now identified as that form, and added the Notice of Procedure as its own notice.",
     "OR-notice-of-procedure: loaded for print on every residential job over $2,000; the OAR ties delivery to contracts needing a written contract under ORS 701.305, which covers a residential structure or zero-lot-line dwelling, and the builder cannot check for the zero-lot-line case.",
     "OR warranty offer (ORS 701.320): a written offer is required for new residential structures only, with no prescribed wording, so no notice was added.",
-    "OR day count: the next-business-day cancellation does not define business day in chapter 701, so I set saturday_counts false only on the strength of the door-to-door definition."
+    "OR day count: the next-business-day cancellation does not define business day in chapter 701, so I set saturday_counts false only on the strength of the door-to-door definition.",
+    "OR-door-to-door and OR-door-to-door-notice: printed on every sale at the customer's home; the statute says the seller may use the federal 16 CFR 429 notice instead of the Oregon notice (not the statement), and the builder cannot tell which the seller chose.",
+    "OR-door-to-door: the statement's last sentence points to the 'attached notice'; the statute says the seller must change that sentence if the two copies of the notice are not attached to the agreement, so the printed sentence is right only if they are attached."
   ]
 }

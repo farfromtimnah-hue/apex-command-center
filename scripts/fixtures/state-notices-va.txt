@@ -1,70 +1,26 @@
 State notices a customer would see: Virginia (VA), residential job, $12,500.00, sold at the customer's home.
 Status: notice text still needs official copy
 
-== PRINTED IN THE CONTRACT (1) ==
+== PRINTED IN THE CONTRACT (2) ==
 
---- DPOR Statement of Consumer Protections (18VAC50-22-260 B 9 h) ---
-Revised 4/29/2025 (effective 07/01/2025)
+--- BUYER'S RIGHT TO CANCEL (59.1-21.4) ---
+If this agreement was solicited at a residence and you do not want the goods or services, you, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.
+Notice of Cancellation
+_________________________
+(Date of Transaction)
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to _________________________ (name of seller), at _________________________ (address of seller's place of business) not later than midnight of ____________________ (Date).
+I hereby cancel this transaction.
+_________________________
+(Date)
+________________________________________
+(Buyer's signature)
 
-                DEPARTMENT OF PROFESSIONAL AND OCCUPATIONAL
-               REGULATION STATEMENT OF CONSUMER PROTECTIONS
-
- THIS CONSUMER INFORMATION SHEET IS PROVIDED BY THE BOARD FOR CONTRACTORS. THE
- INFORMATION PROVIDED DOES NOT, AND IS NOT INTENDED TO, CONSTITUTE LEGAL ADVICE.
-              THIS DOCUMENT MAY BE REPRODUCED BUT NOT ALTERED.
-
-
-Prior to engaging the services of a contractor in the Commonwealth of Virginia, a consumer should be
-aware of the state’s program for the regulation of contractors through licensing and certification of contracting
-businesses.
-
-Any contractor who undertakes a project, the total value of which is $150,000 or more, is required to have a
-valid Class A license issued by the Board for Contractors. Any contractor who undertakes a project, the total
-value of which is $30,000 or more, but less than $150,000, must have a valid Class B license. Any contractor
-who undertakes a project, the total value of which is more than $1,000 but less than $30,000, is required to
-have a valid Class C license. A licensed contractor has met standards established by the Board for Contractors
-to ensure that the licensee possesses the character, financial fitness, knowledge, and skills necessary to engage
-in the profession of contracting without causing harm to the public.
-
-Before signing a contract, a consumer should take the proper steps to verify a contractor is properly licensed
-to perform the work outlined within the contract. All licensed contractors are assigned a license number,
-which should be included in a contract. By visiting the Department’s website and utilizing the “License
-Lookup” feature, a consumer can access details of any existing license. Also prior to signing, consumers
-are encouraged to carefully review contracts to ensure the terms contained in the contract are clear and
-acceptable. The Board for Contractors recommends that the initial downpayment be about 10% of the total
-cost of the contract, unless the job requires custom made items, in which case the Board recommends a
-downpayment of about 30% of the total contracted cost. The Department’s website contains additional
-education materials, provided by the Board for Contractors, that should also be reviewed by consumers.
-
-The authority of the Board for Contractors to discipline a licensed contractor is limited to specific violations of
-the law and/or regulations of the board and does not include disputes that are wholly civil in nature. Examples
-of such violations might include written citations from the local Building Inspectors for violations of the
-Virginia Uniform Statewide Building Code, practices that constitute abandonment, gross negligence,
-continued incompetence, or misconduct in the practice of the profession, and failure to include required
-elements within a contract. Disciplinary action by the board is limited to monetary penalties and/or remedial
-education, revocation or suspension of a license, and placing the licensee on probation. Disciplinary action
-can only be taken after a hearing or with the consent of the license holder that has waived rights to a hearing.
-
-Complaints against a contractor can be filed with the Department’s Complaint Analysis & Resolution
-section. Complaint forms can be obtained by visiting the Department’s website or by contacting the
-section at (804) 367-8504. The board does not have the authority to order a license holder to reimburse or
-refund money due to non-performance or poor performance. Efforts to recover any funds must be made
-through civil process. If such action against the contractor is necessary, the Department’s Adjudication
-section can provide information about the Virginia Contractor Transaction Recovery Fund, eligibility to
-collect from the fund, and procedures to apply for recovery. The Adjudication section can be reached at
-(804) 367-1559.
-The aforementioned information is not intended to be an exhaustive list of the remedies available to you
-through your local government or other agencies. If you need additional assistance, call the Office of the
-Attorney General, Consumer Protection Section at (800) 552-9963 or (804) 786-2042, or write to the
-following address:
-
-                                Office of the Attorney General of Virginia
-                                      Consumer Protection Section
-                                           900 East Main Street
-                                        Richmond, Virginia 23219
+--- Caption BUYER'S RIGHT TO CANCEL above the statement (Va. Code 59.1-21.4(2)(a)) ---
+BUYER'S RIGHT TO CANCEL
 
 == OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
 
-- [info] This notice prints in the contract: DPOR Statement of Consumer Protections (18VAC50-22-260 B 9 h). When: Residential. Format: Handed to the consumer with the contract; the contract carries the consumer's signed acknowledgment of having been provided with and read it; the form may be reproduced but not altered.
+- [warn] Virginia requires this notice: DPOR Statement of Consumer Protections (18VAC50-22-260 B 9 h). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential. Format: Handed to the consumer with the contract; the contract carries the consumer's signed acknowledgment of having been provided with and read it; the form may be reproduced but not altered.
 - [warn] Virginia requires this notice: Virginia Contractor Transaction Recovery Fund statement (18VAC50-22-260 B 9 k). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting (excluding subcontractors and routine maintenance or service contracts). Format: A statement in the contract that the Recovery Fund exists, with how to contact the board for claim information.
-- [warn] Virginia requires this notice: BUYER'S RIGHT TO CANCEL (59.1-21.4). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25. Format: Bold face of at least ten points under the caption BUYER'S RIGHT TO CANCEL, on the front of the contract or immediately above the buyer's signature; the federal form is accepted if it has at least the same information.
+- [info] This notice prints in the contract: BUYER'S RIGHT TO CANCEL (59.1-21.4). When: Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25. Format: Bold face of at least ten points under the caption BUYER'S RIGHT TO CANCEL, on the front of the contract or immediately above the buyer's signature; the federal form is accepted if it has at least the same information.
+- [info] This notice prints in the contract: Caption BUYER'S RIGHT TO CANCEL above the statement (Va. Code 59.1-21.4(2)(a)). When: Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25. Format: Conspicuous caption in bold face of at least ten points, on the front of the contract or immediately above the buyer's signature, directly over the statement and form.

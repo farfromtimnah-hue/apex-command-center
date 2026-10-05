@@ -1,14 +1,30 @@
 State notices a customer would see: Texas (TX), residential job, $12,500.00, sold at the customer's home.
-Status: notice text still needs official copy
+Status: draft rider ready
 
-== PRINTED IN THE CONTRACT (0) ==
+== PRINTED IN THE CONTRACT (2) ==
 
-(no state notice prints for this state yet)
+--- State cancellation statement in immediate proximity to the signature space (B&C 601.052 to 601.054) ---
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- NOTICE OF CANCELLATION form (duplicate, easily detachable) (B&C 601.053) ---
+NOTICE OF CANCELLATION
+
+(enter date of transaction)
+"YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+"IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE MERCHANT OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+"IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE MERCHANT AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE;  OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE MERCHANT REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE MERCHANT'S EXPENSE AND RISK.
+"IF YOU DO NOT AGREE TO RETURN THE GOODS TO THE MERCHANT OR IF THE MERCHANT DOES NOT PICK THEM UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION.
+"TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO (name of merchant), AT (address of merchant's place of business) NOT LATER THAN MIDNIGHT OF (date).
+I HEREBY CANCEL THIS TRANSACTION.
+(date)
+(buyer's signature)
 
 == OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
 
 - [warn] Texas requires this notice: IMPORTANT NOTICE (homestead) (Prop. Code 41.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Contracts for improvements to an existing residence that are homestead lien contracts. Format: 10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW..
 - [warn] Texas requires this notice: Defect notice (Prop. Code 27.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential. Format: 10 point bold; $500 penalty for omission.
 - [warn] Texas requires this notice: Owner disclosure statement (Prop. Code 53.255). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, delivered to the owner before the residential construction contract is executed by the owner. Format: A separate statement handed over before signing; no type size stated; must read substantially similar to the statute.
-- [warn] Texas requires this notice: Subcontractor and supplier list with its 10 point bold notice, and the optional waiver (Prop. Code 53.256). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, before construction starts, on a residential construction contract. Format: Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold.
-- [warn] Texas requires this notice: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (B&C 601.052 to 601.054). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Door-to-door sale or a sale made away from the seller's place of business, over $25. Format: Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation.
+- [warn] Texas requires this notice: Subcontractor and supplier list: the 10 point bold NOTICE that the list must carry (Prop. Code 53.256). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, before construction starts, on a residential construction contract. Format: Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold.
+- [warn] Texas requires this notice: Optional owner waiver of the subcontractor and supplier list (Prop. Code 53.256(d)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Only if the owner chooses to waive the list; the waiver may be in the residential construction contract or a separate signed statement. Format: Conspicuously printed in at least 10-point bold-faced type; substantially similar to the statute; if not in the contract, signed by the owner.
+- [info] This notice prints in the contract: State cancellation statement in immediate proximity to the signature space (B&C 601.052 to 601.054). When: Door-to-door sale or a sale made away from the seller's place of business, over $25. Format: Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation.
+- [info] This notice prints in the contract: NOTICE OF CANCELLATION form (duplicate, easily detachable) (B&C 601.053). When: Door-to-door sale or a sale made away from the seller's place of business, over $25. Format: Completed notice of cancellation form attached to the contract in duplicate, easily detachable, in 10-point boldfaced type, in the same language as the contract.

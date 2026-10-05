@@ -1,97 +1,121 @@
 {
- "state": "UT",
- "mirror_source": false,
- "notices": [
-  {
-   "id": "UT-lien",
-   "title": "Protection against liens and civil action notice (owner steps to lien protection)",
-   "cite": "Utah Code 38-11-108; Utah Admin. Code R156-38a-108",
-   "trigger": "Every contract between an original contractor and a homeowner",
-   "format": "Notice in substantially the official form, prominently in an easy-to-read type style and size; the X. is the contract's own paragraph number; items (1) to (3) print together",
-   "applies": {
-    "residential": true
-   },
-   "support": "shall prominently appear in an easy-to-read type style and size in every contract between an original contractor and homeowner",
-   "summary_row": "The notice wording for every original contractor and homeowner contract",
-   "mode": "on_file",
-   "block": "Utah Admin. Code R156-38a-108. Notification of Rights under Title 38, Chapter 11",
-   "block_index": 0,
-   "hold_reason": "The block opens with the rule heading and an instruction sentence, prints the contract paragraph number as \"X.\", and the $5,000 exemption cannot be decided by the builder; a person must prepare it."
-  },
-  {
-   "id": "UT-cancel",
-   "title": "Direct solicitation sale cancellation notice (12 point dark bold, first page)",
-   "cite": "Utah Code 13-11-4(2)(m), (3)",
-   "trigger": "Sale over $25 made other than at the supplier's established place of business after the supplier's personal contact (in person, mail, email, fax or telephone)",
-   "format": "Conspicuous statement in dark bold, at least 12-point type, on the first page of the purchase documentation; no separate state form",
-   "applies": {
-    "sold_in_home": true,
-    "over_cents": 2500
-   },
-   "support": "be a conspicuous statement written in dark bold with at least 12-point type on the first page of the purchase documentation",
-   "summary_row": "Direct solicitation sale cancellation notice",
-   "mode": "none",
-   "hold_reason": "the block holds the notice wording together with a parenthetical instruction to the supplier that the file says is not words to print, and the exemption rule in subsection (3)(b), which should not print in the customer's contract"
-  },
-  {
-   "id": "UT-auto-renew",
-   "title": "Automatic renewal notice on the first page of the service contract",
-   "cite": "Utah Code 15-10-201(2)(a)",
-   "trigger": "Service, maintenance or repair contract on real property (recurring cleaning or pool service) with an automatic renewal period over 12 months",
-   "format": "Written notice, prominently displayed on the first page of the contract, in clear and understandable language and easy-to-read type",
-   "applies": {},
-   "support": "a seller shall provide written notice of an automatic renewal provision prominently displayed on the first page of the service contract",
-   "summary_row": "Automatic renewal of service contracts on real property (cleaning, pool service)",
-   "mode": "none",
-   "hold_reason": "no prescribed wording; the statute only requires a written notice of the automatic renewal provision on the first page, and the block holds definitions and remedy rules around it"
-  }
- ],
- "changes": [
-  {
-   "path": "cancellation.text",
-   "new": "Three business days after the later of the transaction or receipt of the product, for direct solicitation sales over $25 (Utah Code 13-11-4)",
-   "support": "AFTER THE DATE OF THE TRANSACTION OR RECEIPT OF THE PRODUCT, WHICHEVER IS LATER"
-  },
-  {
-   "path": "cancellation.covered",
-   "new": "Sales over $25 made other than at the supplier's established place of business after the supplier's personal contact, whether in person, by mail, email, fax or telephone, on top of the federal rule; exempt if the supplier's own cancellation policy gives the buyer greater rights",
-   "support": "the sale is made other than at the supplier's established place of business pursuant to the supplier's personal contact, whether through mail, electronic mail, facsimile transmission, telephone, or any other form of direct solicitation"
-  },
-  {
-   "path": "cancellation.day_count_note",
-   "new": "Three business days counted from the later of the transaction date or receipt of the product; business day is not defined in the sections read.",
-   "support": "Day count: three business days after the later of the transaction date or receipt of the product; \"business day\" is not defined in the paragraphs read."
-  },
-  {
-   "path": "license.text",
-   "new": "DOPL license; work with a contracted or agreed value under $7,000 including labor and materials is exempt (over $3,000 needs a one-time insurance affirmation); electrical, plumbing, gas, fire, alarm, HVAC and radon stay licensed; insurance $1,000,000 and $2,000,000 for new applicants April 20, 2026",
-   "support": "Confirmed: \"a contracted or agreed value of less than $7,000, including both labor and materials, and including all changes or additions\"; over $3,000 the person files a one-time insurance affirmation with the division. Electrical, plumbing, gas, fire, alarm, HVAC and radon work stay licensed."
-  },
-  {
-   "path": "cleaning.auto_renewal",
-   "new": {
-    "rule": "Renewal that keeps the contract running past six months needs written notice 30 to 90 calendar days before the consumer's last day to cancel (personally, by certified mail, or on the first page of a monthly statement), plus first-page notice when the renewal period exceeds 12 months; otherwise the renewal clause is void and the contract goes month to month",
-    "cite": "Utah Code 15-10-102, 15-10-201, 15-10-202",
-    "scope_and_confidence": "OFFICIAL text read at le.utah.gov. Applies to recurring cleaning and pool service."
-   },
-   "support": "The Service Contracts Act applies to recurring cleaning and pool service"
-  },
-  {
-   "path": "cleaning.no_rule_found",
-   "new": false,
-   "support": "Utah has one that reaches cleaning and pool service: the Service Contracts Act, Utah Code 15-10"
-  },
-  {
-   "path": "cleaning.no_rule_note",
-   "new": null,
-   "support": "Utah has one that reaches cleaning and pool service: the Service Contracts Act, Utah Code 15-10"
-  }
- ],
- "unsure": [
-  "UT-lien: the official notice begins with the placeholder X. (the contract's own paragraph number), which will print as written because the builder cannot number it, and the block opens with a one-sentence instruction line naming where the notice goes.",
-  "UT-lien: the rule says the notice is for contracts between an original contractor and a homeowner; the residential key is the closest thing the builder can tell, and the file does not say whether jobs under $5,000 are exempt from printing it.",
-  "UT-cancel: the notice belongs in the contract, but the block mixes the wording with a supplier-instruction parenthetical and the exemption rule, so it is held; the rule also reaches phone, mail and email sales, which sold_in_home does not capture.",
-  "UT-auto-renew: added; the notice is only required when a renewal period exceeds 12 months, which the builder cannot tell, and no wording is prescribed.",
-  "cleaning.home_solicitation_applies_to_cleaning: left false, but 13-11-4(2)(m) reaches any sale away from the supplier's place of business, so a cleaning plan sold at the home may be covered; the file does not say so outright."
- ]
+  "state": "UT",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "UT-lien",
+      "title": "Protection against liens and civil action notice (owner steps to lien protection)",
+      "cite": "Utah Code 38-11-108; Utah Admin. Code R156-38a-108",
+      "trigger": "Every contract between an original contractor and a homeowner",
+      "format": "Notice in substantially the official form, prominently in an easy-to-read type style and size; the X. is the contract's own paragraph number; items (1) to (3) print together",
+      "applies": {
+        "residential": true
+      },
+      "support": "shall prominently appear in an easy-to-read type style and size in every contract between an original contractor and homeowner",
+      "summary_row": "The notice wording for every original contractor and homeowner contract",
+      "mode": "print",
+      "block": "Utah Admin. Code R156-38a-108. Notification of Rights under Title 38, Chapter 11",
+      "block_index": 0,
+      "start": "X. PROTECTION AGAINST LIENS AND CIVIL ACTION.",
+      "end": "www.dopl.utah.gov/rlrf.",
+      "quote_note": "The opening quotation mark before X. is excluded (start marker inside it). The statute's own closing quotation mark after item (2) sits in the middle of the cut because item (3) follows it and the file says to print items (1) to (3) together; it is left exactly as printed. The inner quotation marks around owner, owner-occupied residence and qualified services are the rule's own and stay.",
+      "blanks": [
+        "X. (the contract's own paragraph number)"
+      ],
+      "boundary_unsure": "Edges are clear (opening quote of the form; item (3) ends the rule). The stray closing quotation mark after item (2) prints in the middle of the notice as the official text has it."
+    },
+    {
+      "id": "UT-cancel",
+      "title": "Direct solicitation sale cancellation notice (12 point dark bold, first page)",
+      "cite": "Utah Code 13-11-4(2)(m), (3)",
+      "trigger": "Sale over $25 made other than at the supplier's established place of business after the supplier's personal contact (in person, mail, email, fax or telephone)",
+      "format": "Conspicuous statement in dark bold, at least 12-point type, on the first page of the purchase documentation; no separate state form",
+      "applies": {
+        "sold_in_home": true,
+        "over_cents": 2500
+      },
+      "support": "be a conspicuous statement written in dark bold with at least 12-point type on the first page of the purchase documentation",
+      "summary_row": "Direct solicitation sale cancellation notice",
+      "mode": "on_file",
+      "block": "Utah Code 13-11-4(2)(m) and (3). Direct solicitation sale",
+      "block_index": 2,
+      "start": "YOU, THE BUYER, MAY CANCEL THIS CONTRACT AT ANY TIME",
+      "end": "WHICHEVER IS LATER.",
+      "quote_note": "The statute's opening quotation mark and closing quotation mark are excluded: markers lie inside them. The cut includes the supplier-instruction parenthetical (or time period reflecting the supplier's cancellation policy but not less than three business days) exactly as printed.",
+      "blanks": [
+        "(or time period reflecting the supplier's cancellation policy but not less than three business days) - the file says this parenthetical is an instruction to the supplier, not words to print"
+      ],
+      "boundary_unsure": "Edges are certain. Stored, not printed, because the quoted text carries the supplier-instruction parenthetical which the loader cannot remove; a person must choose the period and drop the parenthetical."
+    },
+    {
+      "id": "UT-auto-renew",
+      "title": "Automatic renewal notice on the first page of the service contract",
+      "cite": "Utah Code 15-10-201(2)(a)",
+      "trigger": "Service, maintenance or repair contract on real property (recurring cleaning or pool service) with an automatic renewal period over 12 months",
+      "format": "Written notice, prominently displayed on the first page of the contract, in clear and understandable language and easy-to-read type",
+      "applies": {},
+      "support": "a seller shall provide written notice of an automatic renewal provision prominently displayed on the first page of the service contract",
+      "summary_row": "Automatic renewal of service contracts on real property (cleaning, pool service)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only requires a written notice of the automatic renewal provision on the first page, and the block holds definitions and remedy rules around it"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days after the later of the transaction or receipt of the product, for direct solicitation sales over $25 (Utah Code 13-11-4)",
+      "support": "AFTER THE DATE OF THE TRANSACTION OR RECEIPT OF THE PRODUCT, WHICHEVER IS LATER"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Sales over $25 made other than at the supplier's established place of business after the supplier's personal contact, whether in person, by mail, email, fax or telephone, on top of the federal rule; exempt if the supplier's own cancellation policy gives the buyer greater rights",
+      "support": "the sale is made other than at the supplier's established place of business pursuant to the supplier's personal contact, whether through mail, electronic mail, facsimile transmission, telephone, or any other form of direct solicitation"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Three business days counted from the later of the transaction date or receipt of the product; business day is not defined in the sections read.",
+      "support": "Day count: three business days after the later of the transaction date or receipt of the product; \"business day\" is not defined in the paragraphs read."
+    },
+    {
+      "path": "license.text",
+      "new": "DOPL license; work with a contracted or agreed value under $7,000 including labor and materials is exempt (over $3,000 needs a one-time insurance affirmation); electrical, plumbing, gas, fire, alarm, HVAC and radon stay licensed; insurance $1,000,000 and $2,000,000 for new applicants April 20, 2026",
+      "support": "Confirmed: \"a contracted or agreed value of less than $7,000, including both labor and materials, and including all changes or additions\"; over $3,000 the person files a one-time insurance affirmation with the division. Electrical, plumbing, gas, fire, alarm, HVAC and radon work stay licensed."
+    },
+    {
+      "path": "cleaning.auto_renewal",
+      "new": {
+        "rule": "Renewal that keeps the contract running past six months needs written notice 30 to 90 calendar days before the consumer's last day to cancel (personally, by certified mail, or on the first page of a monthly statement), plus first-page notice when the renewal period exceeds 12 months; otherwise the renewal clause is void and the contract goes month to month",
+        "cite": "Utah Code 15-10-102, 15-10-201, 15-10-202",
+        "scope_and_confidence": "OFFICIAL text read at le.utah.gov. Applies to recurring cleaning and pool service."
+      },
+      "support": "The Service Contracts Act applies to recurring cleaning and pool service"
+    },
+    {
+      "path": "cleaning.no_rule_found",
+      "new": false,
+      "support": "Utah has one that reaches cleaning and pool service: the Service Contracts Act, Utah Code 15-10"
+    },
+    {
+      "path": "cleaning.no_rule_note",
+      "new": null,
+      "support": "Utah has one that reaches cleaning and pool service: the Service Contracts Act, Utah Code 15-10"
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "13-11-4 cancellation statement (12 point dark bold, first page of the purchase documentation; official text)",
+      "support": "Format is **12-point** dark bold on the **first page**, not 10-point near the signature."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "R156-38a-108 lien protection notice in every original contractor and homeowner contract (38-11-108)",
+      "support": "which \"shall prominently appear in an easy-to-read type style and size in every contract between an original contractor and homeowner\""
+    }
+  ],
+  "unsure": [
+    "UT-lien: the rule says the notice is for contracts between an original contractor and a homeowner; the residential key is the closest thing the builder can tell, and the file does not say whether jobs under $5,000 are exempt from printing it.",
+    "UT-auto-renew: added; the notice is only required when a renewal period exceeds 12 months, which the builder cannot tell, and no wording is prescribed.",
+    "cleaning.home_solicitation_applies_to_cleaning: left false, but 13-11-4(2)(m) reaches any sale away from the supplier's place of business, so a cleaning plan sold at the home may be covered; the file does not say so outright.",
+    "UT-lien: now printed for residential jobs. The X. paragraph number is a blank the contract must number; the rule text itself says the notice goes in every original contractor and homeowner contract. The residential key is the closest the builder can tell to 'homeowner'; the file does not say whether jobs under $5,000 are exempt from printing the notice (the notice itself mentions the $5,000 case).",
+    "UT-cancel: on_file, not print, because the quoted wording contains the supplier-instruction parenthetical (not words to print per the file). The rule also reaches phone, mail and email sales, which sold_in_home does not capture."
+  ]
 }

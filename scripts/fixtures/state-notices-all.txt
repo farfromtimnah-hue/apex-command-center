@@ -1,0 +1,1654 @@
+Total notices that print: 82
+Every state notice that prints in a contract (read this file to see every word a customer could see).
+Florida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.
+
+################ Alabama (AL) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ Alaska (AK) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ Arizona (AZ) - status: notice text still needs official copy - prints: 2 of 7 notices
+
+--- NOTICE OF CANCELLATION form, in duplicate (A.R.S. 44-5004(C); right to cancel 44-5002) ---
+State: Arizona
+Trigger: Door-to-door sale or a sale made away from the seller's place of business or solicited at the home
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract or receipt, in the language of the oral sales presentation
+Source: VERBATIM-OFFICIAL https://www.azleg.gov/ars/44/05004.htm (page created 09/10/26)
+Blanks to fill: /enter date of transaction/ with the line ' (date) ' under it | {name of seller} | {address of seller's place of business} | not later than midnight of ____________________ with ' (date)' under it | ______________________________ (date) after 'I hereby cancel this transaction.' | ________________________________ (buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+/enter date of transaction/
+
+ (date) 
+
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice and any security interest arising out of the transaction will be cancelled.
+
+If you cancel, you must make available to the seller at your residence in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram, to {name of seller}, at {address of seller's place of business} not later than midnight of ____________________.
+
+ (date)
+
+I hereby cancel this transaction.
+
+______________________________
+
+ (date)
+
+________________________________
+
+ (buyer's signature)
+
+--- NOTICE TO BUYER (five points) (A.R.S. 44-5004(B)) ---
+State: Arizona
+Trigger: Home solicitation sale: seller personally solicits without prior invitation and the buyer's agreement is made at a home other than the seller's
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous, in the language of the oral sales presentation; agreement must be dated and signed by the buyer
+Source: VERBATIM-OFFICIAL https://www.azleg.gov/ars/44/05004.htm (page created 09/10/26)
+Blanks to fill: none
+TEXT:
+NOTICE TO BUYER
+
+1. Do not sign this agreement if any of the spaces intended for the agreed terms to the extent of then available information are left blank.
+
+2. You are entitled to a copy of this agreement at the time you sign it.
+
+3. You may pay off the full unpaid balance due under this agreement at any time, and in so doing you shall be entitled to a full rebate of the unearned finance and insurance charges.
+
+4. You may cancel this agreement any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.
+
+5. It shall not be legal for the seller to enter your premises unlawfully or commit any breach of the peace to repossess goods purchased under this agreement.
+
+################ Arkansas (AR) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ California (CA) - status: notice text still needs official copy - prints: 6 of 27 notices
+
+--- MECHANICS LIEN WARNING (B&P 7159(e)(4)) ---
+State: California
+Trigger: Home improvement contracts over $500 (a contractor furnishing an approved bond may leave it out, B&P 7159.5(a)(8))
+Prints when: {"over_cents":50000}
+Format rule: Heading 'Mechanics Lien Warning'; provided to the owner as part of the contract form
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: none
+TEXT:
+MECHANICS LIEN WARNING:
+
+Anyone who helps improve your property, but who is not paid, may record what is called a mechanics lien on your property. A mechanics lien is a claim, like a mortgage or home equity loan, made against your property and recorded with the county recorder.
+
+Even if you pay your contractor in full, unpaid subcontractors, suppliers, and laborers who helped to improve your property may record mechanics liens and sue you in court to foreclose the lien. If a court finds the lien is valid, you could be forced to pay twice or have a court officer sell your home to pay the lien. Liens can also affect your credit.
+
+To preserve their right to record a lien, each subcontractor and material supplier must provide you with a document called a ‘Preliminary Notice.’ This notice is not a lien. The purpose of the notice is to let you know that the person who sends you the notice has the right to record a lien on your property if they are not paid.
+
+BE CAREFUL. The Preliminary Notice can be sent up to 20 days after the subcontractor starts work or the supplier provides material. This can be a big problem if you pay your contractor before you have received the Preliminary Notices.
+
+You will not get Preliminary Notices from your prime contractor or from laborers who work on your project. The law assumes that you already know they are improving your property.
+
+PROTECT YOURSELF FROM LIENS. You can protect yourself from liens by getting a list from your contractor of all the subcontractors and material suppliers that work on your project. Find out from your contractor when these subcontractors started work and when these suppliers delivered goods or materials. Then wait 20 days, paying attention to the Preliminary Notices you receive.
+
+PAY WITH JOINT CHECKS. One way to protect yourself is to pay with a joint check. When your contractor tells you it is time to pay for the work of a subcontractor or supplier who has provided you with a Preliminary Notice, write a joint check payable to both the contractor and the subcontractor or material supplier.
+
+For other ways to prevent liens, visit CSLB’s internet website at www.cslb.ca.gov or call CSLB at 800-321-CSLB (2752).
+
+REMEMBER, IF YOU DO NOTHING, YOU RISK HAVING A LIEN PLACED ON YOUR HOME. This can mean that you may have to pay twice, or face the forced sale of your home to pay what you owe.
+
+--- Information about the Contractors State License Board (CSLB) (B&P 7159(e)(5); 7030(b)) ---
+State: California
+Trigger: Every home improvement contract (and service and repair contract)
+Prints when: {}
+Format rule: At least 12-point typeface, provided as part of the contract form
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: none
+TEXT:
+Information about the Contractors State License Board (CSLB): CSLB is the state consumer protection agency that licenses and regulates construction contractors.
+
+Contact CSLB for information about the licensed contractor you are considering, including information about disclosable complaints, disciplinary actions, and civil judgments that are reported to CSLB.
+
+Use only licensed contractors. If you file a complaint against a licensed contractor within the legal deadline (usually four years), CSLB has authority to investigate the complaint. If you use an unlicensed contractor, CSLB may not be able to help you resolve your complaint. Your only remedy may be in civil court, and you may be liable for damages arising out of any injuries to the unlicensed contractor or the unlicensed contractor’s employees.
+
+For more information:
+
+Visit CSLB’s internet website at www.cslb.ca.gov
+
+Call CSLB at 800-321-CSLB (2752)
+
+Write CSLB at P.O. Box 26000, Sacramento, CA 95826.
+
+--- You are entitled to a completely filled in copy of this agreement (B&P 7159(d)(4)) ---
+State: California
+Trigger: Home improvement contracts over $500
+Prints when: {"over_cents":50000}
+Format rule: At least 12-point boldface type
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: none
+TEXT:
+You are entitled to a completely filled in copy of this agreement, signed by both you and the contractor, before any work may be started.
+
+--- Note About Extra Work and Change Orders (B&P 7159(d)(13)) ---
+State: California
+Trigger: Home improvement contracts over $500
+Prints when: {"over_cents":50000}
+Format rule: Under the heading 'Note About Extra Work and Change Orders' (the heading is a separate quotation in the statute and is not part of the cut)
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: none
+TEXT:
+Extra Work and Change Orders become part of the contract once the order is prepared in writing and signed by the parties prior to the commencement of work covered by the new change order. The order must describe the scope of the extra work or change, the cost to be added or subtracted from the contract, and the effect the order will have on the schedule of progress payments.
+
+--- Three-Day Right to Cancel (home improvement contracts) (B&P 7159(e)(6)(B)(i)) ---
+State: California
+Trigger: Home improvement contract, unless negotiated at the contractor's place of business, or subject to the Seven-Day notice, or an alarm company contract; five business days for a buyer who is a senior citizen
+Prints when: {"sold_in_home":true}
+Format rule: At least 12-point boldface type, in immediate proximity to a space reserved for the owner's signature, signed and dated; same language as the oral sales presentation; may be attached if the contract has a checkbox statement
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: none
+TEXT:
+Three-Day Right to Cancel
+
+You, the buyer, have the right to cancel this contract within three business days. You may cancel by emailing, mailing, faxing, or delivering a written notice to the contractor at the contractor’s place of business by midnight of the third business day after you received a signed and dated copy of the contract that includes this notice. Include your name, your address, and the date you received the signed copy of the contract and this notice.
+
+If you cancel, the contractor must return to you anything you paid within 10 days of receiving the notice of cancellation. For your part, you must make available to the contractor at your residence, in substantially as good condition as you received them, goods delivered to you under this contract or sale. Or, you may, if you wish, comply with the contractor’s instructions on how to return the goods at the contractor’s expense and risk. If you do make the goods available to the contractor and the contractor does not pick them up within 20 days of the date of your notice of cancellation, you may keep them without any further obligation. If you fail to make the goods available to the contractor, or if you agree to return the goods to the contractor and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+--- Notice of Cancellation form (three-day, home improvement) (B&P 7159(e)(6)(C)(vi)) ---
+State: California
+Trigger: Same as the Three-Day Right to Cancel notice
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, same language as the contract
+Source: VERBATIM-OFFICIAL https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159. (Amended Stats. 2025 ch. 585 (SB 517), effective January 1, 2026)
+Blanks to fill: /enter date of transaction/ with '(Date)' under it | to ____ (blank before the comma, then /name of seller/) | at ____ /address of seller’s place of business/ | not later than midnight of ____ (blank before the period) with '(Date)' under it | I hereby cancel this transaction. with '(Date)' under it | (Buyer’s signature)
+TEXT:
+“Notice of Cancellation”
+
+/enter date of transaction/
+
+(Date)
+
+“You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be canceled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale, or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller’s expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.”
+
+To cancel this transaction, email, mail, or deliver a signed and dated copy of this cancellation notice, or any other written notice, or send a telegram
+
+to ,
+
+/name of seller/
+
+at
+
+/address of seller’s place of business/
+
+not later than midnight of .
+
+(Date)
+
+I hereby cancel this transaction.
+
+(Date)
+
+(Buyer’s signature)
+
+################ Colorado (CO) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ Connecticut (CT) - status: draft rider ready - prints: 2 of 4 notices
+
+--- Buyer statement in immediate proximity to the buyer's signature space (cancel any time before midnight of the third business day) (C.G.S. 42-135a; 20-429(e)) ---
+State: Connecticut
+Trigger: Every home improvement contract wherever it is signed, and any other sale of consumer services away from the seller's place of business
+Prints when: {"residential":true}
+Format rule: In immediate proximity to the space reserved in the contract for the buyer's signature, or on the front page of the receipt, in boldface type of a minimum size of twelve points; same language as the oral sales presentation
+Source: VERBATIM-OFFICIAL https://www.cga.ct.gov/2026/sup/chap_740.htm ("2026 Supplement ... to be used in conjunction with the General Statutes of Connecticut, revised to January 1, 2025"; section as amended by P.A. 25-111, "effective July 1, 2025")
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- NOTICE OF CANCELLATION form, in duplicate, detachable (C.G.S. 42-135a(2); 20-429(e)) ---
+State: Connecticut
+Trigger: Every home improvement contract wherever it is signed, and any other sale of consumer services away from the seller's place of business
+Prints when: {"residential":true}
+Format rule: Completed by the seller in duplicate, attached to the contract or receipt and easily detachable, in twelve-point boldface type, in the same language as the contract; the deadline date inserted in boldface type by the seller
+Source: VERBATIM-OFFICIAL https://www.cga.ct.gov/2026/sup/chap_740.htm ("2026 Supplement ... to be used in conjunction with the General Statutes of Connecticut, revised to January 1, 2025"; section as amended by P.A. 25-111, "effective July 1, 2025")
+Blanks to fill: Seller: (Seller's name inserted by seller) | Date of Transaction: (Date of transaction inserted by seller) | (date of the third business day after the date of the transaction, as inserted in boldface type by seller) | (Seller's name inserted by seller) under 'send it either by email, by fax, or by regular mail to:' | Email: (Seller's business electronic mail address inserted by seller) | Fax: (Seller's fax number inserted by seller) | Regular mail: (Address of seller's place of business inserted by seller) | Dated: | Signed:
+TEXT:
+NOTICE OF CANCELLATION
+
+Seller: (Seller's name inserted by seller)
+
+Date of Transaction: (Date of transaction inserted by seller)
+
+You have the right to cancel this contract or sale by following the instructions in this notice. Your deadline is midnight on (date of the third business day after the date of the transaction, as inserted in boldface type by seller) to cancel. You have until this deadline to sign, date, and send this notice of cancellation to the Seller by email, fax, or mail to the contact information listed below.
+
+(Instructions for seller: To determine the third business day, start counting on the day following the day when the transaction took place and do not count Saturdays, Sundays, or days designated as legal holidays in Connecticut.)
+
+There is no penalty if you cancel. You do not have any legal obligations under the contract if you cancel. If you cancel, the seller must return to you any payments made by you, any property you traded in, and any negotiable instrument executed by you, such as a personal check, money order or promissory note. The seller has ten days after it receives your cancellation notice to return those items to you. Any security interest arising out of the transaction will be cancelled, such as a legal claim or a lien on your property.
+
+If you cancel, you must make available to the seller any goods delivered to you under this contract or sale. The goods must be in substantially as good condition as when you received them. The seller can pick them up from your residence. If you make the goods available to the seller and the seller does not pick them up, after twenty calendar days have passed since you sent this notice to the seller, you may keep or dispose of the goods. If you do not make the goods available to the seller, you will still have to fulfill your contractual obligations.
+
+The seller may also tell you how to return the goods to the seller at the seller's own expense and risk, such as by mailing them to the seller. You do not have to agree to return the goods to the seller yourself, but if you agree to do so but fail to send the goods to the seller, you will still have to fulfill your contractual obligations.
+
+To cancel this contract or sale, you must sign and date this notice, and send it either by email, by fax, or by regular mail to:
+
+(Seller's name inserted by seller)
+
+Email: (Seller's business electronic mail address inserted by seller)
+
+OR
+
+Fax: (Seller's fax number inserted by seller)
+
+OR
+
+Regular mail: (Address of seller's place of business inserted by seller)
+
+I hereby cancel this transaction.
+
+Dated:
+
+Signed:
+
+################ Delaware (DE) - status: draft rider ready - prints: 2 of 3 notices
+
+--- State cancellation statement near the signature (door-to-door sale) (6 Del. C. ch. 44) ---
+State: Delaware
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, $25 or more
+Prints when: {"sold_in_home":true}
+Format rule: Statement in bold type of at least 10 point in immediate proximity to the buyer's signature space, in an ink color different from the rest of the contract; ends with the sentence about the attached notice form; the contract in the language of the sales talk; oral notice also required (the duplicate form is the separate notice DE-cancel-form)
+Source: VERBATIM-OFFICIAL https://delcode.delaware.gov/title6/c044/index.html (no "current through" date; last history cite on 4404 is 70 Del. Laws, c. 186; on 4403, 78 Del. Laws, c. 221)
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- Duplicate NOTICE OF CANCELLATION form (door-to-door sale) (6 Del. C. 4404(2)) ---
+State: Delaware
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, $25 or more
+Prints when: {"sold_in_home":true}
+Format rule: Form in duplicate, attached to the contract and easily detachable, in 10 point bold type, in the same language as the contract; seller completes name, address and last cancellation date on both copies before handing them over
+Source: VERBATIM-OFFICIAL https://delcode.delaware.gov/title6/c044/index.html (no "current through" date; last history cite on 4404 is 70 Del. Laws, c. 186; on 4403, 78 Del. Laws, c. 221)
+Blanks to fill: (Enter date of transaction) | (Name of seller) | (Address at seller’s place of business) | (Date) after 'not later than midnight of' | (Date) after 'I hereby cancel this transaction.' | (Buyer’s signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+________
+(Enter date of transaction)
+
+You may cancel this transaction, without any penalty or obligation, within 3 business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale and any negotiable instrument executed by you will be returned within 10 business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may if you wish comply with the instructions of the seller regarding the return shipment of the goods at the seller’s expense and risk.
+
+If you do not agree to return the goods to the seller or if the seller does not pick them up within 20 days of the date of your Notice of Cancellation, you may retain or dispose of the goods without any further obligation.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram, to
+
+________
+(Name of seller)
+
+, at
+________
+(Address at seller’s place of business)
+
+not later than midnight of
+________________
+(Date)
+
+I hereby cancel this transaction.
+
+________________
+(Date)
+
+________
+(Buyer’s signature)
+
+################ District of Columbia (DC) - status: notice text still needs official copy - prints: 1 of 3 notices
+
+--- Buyers right to cancel statement (home solicitation sale) (D.C. Code 28-3811(g)) ---
+State: District of Columbia
+Trigger: Home solicitation sale: cash or credit sale solicited in person at or near the buyer's residence
+Prints when: {"sold_in_home":true}
+Format rule: Under the conspicuous caption BUYERS RIGHT TO CANCEL; fixed wording; agreement dated the day the buyer actually signs
+Source: VERBATIM-OFFICIAL https://code.dccouncil.gov/us/dc/council/code/sections/28-3811 (no currency date on the page; last amendment noted Mar. 27, 2003 (D.C. Law 14-256))
+Blanks to fill: (insert name and address of seller)
+TEXT:
+If this agreement was solicited at or near your residence and you do not want the goods or services, you may cancel this agreement by mailing a notice to the seller. The notice must say that you do not want the goods or services and must be mailed before midnight of the third business day after you signed this agreement. The notice must be mailed to:
+"(insert name and address of seller)
+"If you cancel, the seller may not keep any of your cash down payment.
+
+################ Georgia (GA) - status: needs primary source before use - prints: 0 of 4 notices
+
+(nothing prints for this state)
+
+################ Hawaii (HI) - status: notice text still needs official copy - prints: 3 of 5 notices
+
+--- State cancellation statement near the signature (door-to-door sale) (HRS 481C-2) ---
+State: Hawaii
+Trigger: Door-to-door sale or a sale made away from the seller's place of business; floor $5 or $25
+Prints when: {"sold_in_home":true}
+Format rule: Statement in bold face type of at least 10 point in immediate proximity to the buyer's signature space; the contract in the language of the sales talk; oral notice also required (the duplicate form is the separate notice HI-cancel-form)
+Source: VERBATIM-OFFICIAL https://data.capitol.hawaii.gov/hrscurrent/Vol11_Ch0476-0490/HRS0481C/HRS_0481C-0002.htm (L 1976, c 32; gen ch 1985)
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- Duplicate NOTICE OF CANCELLATION form (door-to-door sale) (HRS 481C-2(2)) ---
+State: Hawaii
+Trigger: Door-to-door sale or a sale made away from the seller's place of business; floor $5 or $25
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, in ten-point bold face type, in the same language as the contract; seller completes name, address, transaction date and last cancellation date on both copies
+Source: VERBATIM-OFFICIAL https://data.capitol.hawaii.gov/hrscurrent/Vol11_Ch0476-0490/HRS0481C/HRS_0481C-0002.htm (L 1976, c 32; gen ch 1985)
+Blanks to fill: (Enter date of transaction) | (Date) on the line right after the date of transaction | (Name of seller) | (Address of seller's place of business) | (Date) after 'NOT LATER THAN MIDNIGHT OF' | (Date) under 'I HEREBY CANCEL THIS TRANSACTION.' (blank line above it) | (Buyer's signature) (blank line above it)
+TEXT:
+NOTICE OF CANCELLATION
+
+(Enter date of transaction)
+
+(Date)
+
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+
+IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENT MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN TEN BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+
+IF YOU CANCEL YOU MUST MAKE AVAILABLE TO THE SELLER AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE; OR YOU MAY, IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE SELLER'S EXPENSE AND RISK.
+
+IF YOU DO MAKE THE GOODS AVAILABLE TO THE SELLER AND THE SELLER DOES NOT PICK THEM UP WITHIN TWENTY DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE GOODS AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE GOODS TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+
+TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM TO (Name of seller) , AT (Address of seller's place of business) NOT LATER THAN MIDNIGHT OF .
+
+(Date)
+
+I HEREBY CANCEL THIS TRANSACTION.
+
+__________________
+
+(Date)
+
+______________________________________
+
+(Buyer's signature)
+
+--- Chapter 672E defect notice in the contract (capital letters, conspicuous, part of the contract) (HRS 672E-11; HRS 444-25.5(b)(2)) ---
+State: Hawaii
+Trigger: Home construction or improvements
+Prints when: {}
+Format rule: Not given in the research
+Source: VERBATIM-OFFICIAL https://data.capitol.hawaii.gov/hrscurrent/Vol13_Ch0601-0676/HRS0672E/HRS_0672E-0011.htm (L 2004, c 119)
+Blanks to fill: none
+TEXT:
+CHAPTER 672E OF THE HAWAII REVISED STATUTES CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW BEFORE YOU MAY FILE A LAWSUIT OR OTHER ACTION FOR DEFECTIVE CONSTRUCTION AGAINST THE CONTRACTOR WHO DESIGNED, REPAIRED, OR CONSTRUCTED YOUR HOME OR FACILITY. NINETY DAYS BEFORE YOU FILE YOUR LAWSUIT OR OTHER ACTION, YOU MUST SERVE ON THE CONTRACTOR A WRITTEN NOTICE OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE. UNDER THE LAW, A CONTRACTOR HAS THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR AND/OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY A CONTRACTOR. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER THE LAW, AND FAILURE TO FOLLOW THEM MAY NEGATIVELY AFFECT YOUR ABILITY TO FILE A LAWSUIT OR OTHER ACTION.
+
+################ Idaho (ID) - status: notice text still needs official copy - prints: 2 of 4 notices
+
+--- State cancellation statement near the signature (door-to-door sale) (IDAPA 04.02.01.170 (Rule 170)) ---
+State: Idaho
+Trigger: Door-to-door sale of $25 or more, cash or credit, made away from the seller's place of business, including after the customer invites the contractor
+Prints when: {"sold_in_home":true}
+Format rule: Statement in ten point type in immediate proximity to the space reserved in the contract for the consumer's signature (or front page of the receipt); contract in the same language as the oral sales presentation, showing date, seller name and street address; oral notice also required; the duplicate form is the separate notice ID-cancel-door-form
+Source: VERBATIM-OFFICIAL https://adminrules.idaho.gov/rules/current/04/040201.pdf (each paragraph stamped (3-31-22))
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- Duplicate NOTICE OF CANCELLATION form (door-to-door sale) (IDAPA 04.02.01.170 (Rule 170), item 02) ---
+State: Idaho
+Trigger: Door-to-door sale of $25 or more, cash or credit, including a visit the customer invited, where the agreement is made away from the seller's trade premises
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, ten point bold face type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies before handing them over (item 03)
+Source: VERBATIM-OFFICIAL https://adminrules.idaho.gov/rules/current/04/040201.pdf (each paragraph stamped (3-31-22))
+Blanks to fill: enter date of transaction | Date (line under it) | (address of seller’s place of business) inside the last paragraph | (Date) after 'NOT LATER THAN MIDNIGHT OF'
+TEXT:
+NOTICE OF CANCELLATION
+enter date of transaction
+
+Date
+
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+
+IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+
+IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE SELLER AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOOD DELIVERED TO YOU UNDER THIS CONTRACT OR SALE; OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE SELLER’S EXPENSE AND RISK.
+
+IF YOU DO MAKE THE GOODS AVAILABLE TO THE SELLER AND THE SELLER DOES NOT PICK THEM UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE GOODS AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE GOODS TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+
+TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO (address of seller’s place of business) NOT LATER THAN MIDNIGHT OF (Date).
+
+################ Illinois (IL) - status: notice text still needs official copy - prints: 2 of 8 notices
+
+--- State cancellation statement near the signature (815 ILCS 505/2B) ---
+State: Illinois
+Trigger: Sale of $25 or more where the seller is physically present at the consumer's residence
+Prints when: {"sold_in_home":true}
+Format rule: Statement in bold face type, at least 10-point, in immediate proximity to the space reserved in the contract for the consumer's signature (or front page of the receipt); contract in substantially the same language as the oral presentation; oral notice also required; the duplicate form is the separate notice IL-cancel-form
+Source: VERBATIM-OFFICIAL https://www.ilga.gov/Documents/legislation/ilcs/documents/081505050K2B.htm (Source: P.A. 90-764, eff. 1-1-99)
+Blanks to fill: none
+TEXT:
+YOU, THE CONSUMER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- Duplicate NOTICE OF CANCELLATION form (home solicitation) (815 ILCS 505/2B) ---
+State: Illinois
+Trigger: Sale of $25 or more where the seller is physically present at the consumer's residence
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the receipt or contract and easily detachable, 10 point bold face type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies (unlawful practice (a))
+Source: VERBATIM-OFFICIAL https://www.ilga.gov/Documents/legislation/ilcs/documents/081505050K2B.htm (Source: P.A. 90-764, eff. 1-1-99)
+Blanks to fill: (enter date of transaction) | (Date) after the dotted line | (Name of seller) | (address of seller's place of business) | (date) after 'NOT LATER THAN MIDNIGHT OF' | (Date) with dotted line after it, under 'I HEREBY CANCEL THIS TRANSACTION.' | dotted line above (Buyer's signature) | (Buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+(enter date of transaction)
+...........................
+(Date)
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN 3 BUSINESS DAYS FROM THE ABOVE DATE.
+    IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU UNDER THE CONTRACT OR TRANSACTION WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+    IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE SELLER AT YOUR RESIDENCE IN SUBSTANTIALLY AS GOOD A CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR TRANSACTION, OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE SELLER'S EXPENSE AND RISK.
+    IF YOU MAKE THE GOODS AVAILABLE TO THE SELLER AND THE SELLER DOES NOT PICK THEM UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE GOODS AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE GOODS TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+    TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO (Name of seller), AT (address of seller's place of business) NOT LATER THAN MIDNIGHT OF (date).
+    I HEREBY CANCEL THIS TRANSACTION.
+(Date) ............
+...................
+(Buyer's signature)
+
+################ Indiana (IN) - status: notice text still needs official copy - prints: 0 of 4 notices
+
+(nothing prints for this state)
+
+################ Iowa (IA) - status: draft rider ready - prints: 2 of 3 notices
+
+--- State cancellation statement near the signature (door-to-door sale) (Iowa Code 555A.2 and 555A.3) ---
+State: Iowa
+Trigger: Door-to-door sale of $25 or more, including a visit the buyer invited, where the buyer's agreement is made away from the seller's place of business
+Prints when: {"sold_in_home":true}
+Format rule: Statement near the signature space in boldface type of at least ten points, in the same language as the oral sales presentation; oral notice also required; the duplicate form is the separate notice IA-cancel-form
+Source: VERBATIM-OFFICIAL https://www.legis.iowa.gov/docs/code/555A.pdf (Iowa Code 2026, Chapter 555A (PDF stamped Tue Dec 09 2025))
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to
+                 midnight of the third business day after the date of this transaction.
+                 See the attached notice of cancellation form for an explanation of
+                 this right.
+
+--- Duplicate NOTICE OF CANCELLATION form (door-to-door sale) (Iowa Code 555A.3) ---
+State: Iowa
+Trigger: Door-to-door sale of $25 or more, including a visit the buyer invited, where the buyer's agreement is made away from the seller's place of business
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, in ten point boldface type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies (555A.4(1))
+Source: VERBATIM-OFFICIAL https://www.legis.iowa.gov/docs/code/555A.pdf (same)
+Blanks to fill: (enter date of transaction) (dotted line above it) | (Name of seller) (dotted line before it) | (Address of seller’s place of business) (dotted line before it) | (Date) after 'not later than midnight of' (dotted line before it) | (Date) under 'I hereby cancel this transaction.' (dotted line above it) | (Buyer’s signature) (dotted line above it)
+TEXT:
+NOTICE OF CANCELLATION
+                 ....................................................
+                 (enter date of transaction)
+                     You may cancel this transaction, without any penalty or
+                 obligation, within three business days from the above date.
+                     If you cancel, any property traded in, any payments made by you
+                 under the contract or sale, and any negotiable instrument executed
+                 by you will be returned within ten business days following receipt
+                 by the seller of your cancellation notice, and any security interest
+                 arising out of the transaction will be canceled.
+                     If you cancel, you must make available to the seller at your
+                 residence, in substantially as good condition as when received, any
+                 goods delivered to you under this contract or sale; or you may if
+                 you wish, comply with the instructions of the seller regarding the
+                 return shipment of the goods at the seller’s expense and risk.
+                     If you do not agree to return the goods to the seller or if the seller
+                 does not pick them up within twenty days of the date of your notice
+                 of cancellation, you may retain or dispose of the goods without any
+                 further obligation.
+                     To cancel this transaction, mail or deliver a signed and dated copy
+                 of this cancellation notice or any other written notice, or send a
+                 telegram, to ........................, (Name of seller) at ................................
+                 (Address of seller’s place of business) not later than midnight of
+                 ........................ (Date).
+
+
+
+                   I hereby cancel this transaction.
+                   ................................................
+                   (Date)
+                   ............................................
+                   (Buyer’s signature)
+
+################ Kansas (KS) - status: draft rider ready - prints: 2 of 3 notices
+
+--- State cancellation statement in boldface near the signature (K.S.A. 50-640) ---
+State: Kansas
+Trigger: Door-to-door sale of $25 or more, including a visit the consumer asked for, made away from the supplier's place of business; not when the consumer asked the supplier to come to repair or maintain property, unless extra goods or services are sold on the visit
+Prints when: {"sold_in_home":true}
+Format rule: Boldface type of at least 10 points, in immediate proximity to the space reserved in the contract for the consumer's signature; statement in substantially the statutory form (all capitals, no comma after YOU)
+Source: VERBATIM-OFFICIAL https://www.ksrevisor.gov/statutes/chapters/ch50/050_006_0040.html (History: L. 1973, ch. 217, § 18; L. 1974, ch. 230, § 6; L. 1976, ch. 236, § 9; L. 1991, ch. 159, § 12; L. 1998, ch. 156, § 1; July 1.)
+Blanks to fill: none
+TEXT:
+YOU THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- Duplicate NOTICE OF CANCELLATION form attached to the contract and easily detachable (K.S.A. 50-640(b)(2)) ---
+State: Kansas
+Trigger: Door-to-door sale of $25 or more, including a visit the consumer asked for, made away from the supplier's place of business; not when the consumer asked the supplier to come to repair or maintain property, unless extra goods or services are sold on the visit
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract and easily detachable, in 10-point boldface, in the same language as the contract; supplier completes name, address, transaction date and cancellation deadline on both copies
+Source: VERBATIM-OFFICIAL https://www.ksrevisor.gov/statutes/chapters/ch50/050_006_0040.html (History: L. 1973, ch. 217, § 18; L. 1974, ch. 230, § 6; L. 1976, ch. 236, § 9; L. 1991, ch. 159, § 12; L. 1998, ch. 156, § 1; July 1.)
+Blanks to fill: (Enter date of transaction) with its line | TO ____ (Name of Seller) | AT ____ (Address of Seller's Place of Business) | NOT LATER THAN MIDNIGHT OF ____ (Date) | (Date) signature date line | (Buyer's Signature) line
+TEXT:
+NOTICE OF CANCELLATION
+(Enter date of transaction)
+___________________________
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELED.
+IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE SELLER AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY PROPERTY DELIVERED TO YOU UNDER THIS CONTRACT OR SALE; OR YOU MAY, IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE PROPERTY AT THE SELLER'S EXPENSE AND RISK.
+IF YOU DO MAKE THE PROPERTY AVAILABLE TO THE SELLER, AND IF THE SELLER DOES NOT PICK SUCH PROPERTY UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE PROPERTY WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE PROPERTY AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE PROPERTY TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM,
+TO ______________________________________________________
+(Name of Seller)
+AT _______________________________________________________
+(Address of Seller's Place of Business)
+NOT LATER THAN MIDNIGHT OF __________________.
+(Date)
+I HEREBY CANCEL THIS TRANSACTION.
+________________ ________________________________________
+(Date) (Buyer's Signature)
+
+################ Kentucky (KY) - status: draft rider ready - prints: 2 of 3 notices
+
+--- BUYER'S RIGHT TO CANCEL statement (KRS 367.430) ---
+State: Kentucky
+Trigger: Seller solicits in person at the buyer's residence; sales under $25 and sales made after prior negotiations or at the seller's fixed business location are excluded
+Prints when: {"sold_in_home":true}
+Format rule: Statement under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold, placement or detachable form rule
+Source: VERBATIM-OFFICIAL https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=34960 (last amended 1974)
+Blanks to fill: two dotted lines (......) for the seller's address to which the notice must be mailed
+TEXT:
+If this agreement was solicited to your residence and you do
+            not want the goods or services, you may cancel this agreement by mailing a
+            notice to the seller. The notice must say that you do not want the goods or
+            services and must be mailed before midnight of the third business day after
+            you sign this agreement. The notice must be mailed to:
+                        ......................................................................
+                        ......................................................................
+
+--- Conspicuous caption for the BUYER'S RIGHT TO CANCEL statement (KRS 367.430(2)(a)) ---
+State: Kentucky
+Trigger: Seller solicits in person at the buyer's residence; sales under $25 and sales made after prior negotiations or at the seller's fixed business location are excluded
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous caption placed over the statement; no point size or bold rule
+Source: VERBATIM-OFFICIAL https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=34960 (last amended 1974)
+Blanks to fill: none
+TEXT:
+BUYER'S RIGHT TO CANCEL
+
+################ Louisiana (LA) - status: draft rider ready - prints: 2 of 2 notices
+
+--- CONSUMER'S RIGHT TO CANCEL statement (R.S. 9:3539(B)) ---
+State: Louisiana
+Trigger: Noncredit home solicitation sale: consumer sale of $25 or more solicited in person at any place other than the seller's business establishment; a sale the consumer initiated by contacting the seller at his business establishment is outside it
+Prints when: {"sold_in_home":true}
+Format rule: Under the conspicuous caption CONSUMER'S RIGHT TO CANCEL, exact wording; agreement dated the day the consumer actually signs; the FTC 16 CFR 429 form counts as compliance (9:3539(D))
+Source: VERBATIM-OFFICIAL https://legis.la.gov/Legis/LawPrint.aspx?d=107628 (Acts 1978, No. 373)
+Blanks to fill: (Insert name and mailing address of seller)
+TEXT:
+If this agreement was solicited at your residence and you do not want the goods or services, you may cancel this agreement by mailing a notice to the seller.  The notice must say that you do not want the goods or services and must be mailed before midnight of the third business day after you sign this agreement.  The notice must be mailed to: (Insert name and mailing address of seller).  If you cancel, the seller must return all of your cash down payment.
+
+--- Conspicuous caption for the CONSUMER'S RIGHT TO CANCEL statement (R.S. 9:3539(B)(1)) ---
+State: Louisiana
+Trigger: Noncredit home solicitation sale: consumer sale of $25 or more solicited in person at any place other than the seller's business establishment; a sale the consumer initiated by contacting the seller at his business establishment is outside it
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous caption placed over the statement; no point size or bold rule
+Source: VERBATIM-OFFICIAL https://legis.la.gov/Legis/LawPrint.aspx?d=107628 (Acts 1978, No. 373)
+Blanks to fill: none
+TEXT:
+CONSUMER'S RIGHT TO CANCEL
+
+################ Maine (ME) - status: notice text still needs official copy - prints: 3 of 6 notices
+
+--- Mandatory warranty statement (10 M.R.S. 1487(7)) ---
+State: Maine
+Trigger: Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor
+Prints when: {"over_cents":300000,"residential":true}
+Format rule: Exact statutory text ('A warranty statement which reads'); no type size
+Source: VERBATIM-OFFICIAL https://legislature.maine.gov/statutes/10/title10sec1487.html ("Data for this page extracted on 10/20/2025 14:32:56.")
+Blanks to fill: none
+TEXT:
+In addition to any additional warranties agreed to by the parties, the contractor warrants that the work will be free from faulty materials; constructed according to the standards of the building code applicable for this location; constructed in a skillful manner and fit for habitation or appropriate use. The warranty rights and remedies set forth in the Maine Uniform Commercial Code apply to this contract
+
+--- Mandatory dispute resolution statement (choose one: binding arbitration, nonbinding arbitration, mediation) (10 M.R.S. 1487(8)) ---
+State: Maine
+Trigger: Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor
+Prints when: {"over_cents":300000,"residential":true}
+Format rule: Exact statutory minimum wording; the statute prints '( )' after each of three options; no type size
+Source: VERBATIM-OFFICIAL https://legislature.maine.gov/statutes/10/title10sec1487.html ("Data for this page extracted on 10/20/2025 14:32:56.")
+Blanks to fill: ( ) after Binding arbitration option | ( ) after Nonbinding arbitration option | ( ) after Mediation option
+TEXT:
+If a dispute arises concerning the provisions of this contract or the performance by the parties that may not be resolved through a small claims action, then the parties agree to settle this dispute by jointly paying for one of the following (check only one):
+
+(1) Binding arbitration under the Maine Uniform Arbitration Act, in which the parties agree to accept as final the arbitrator's decision ( );
+
+(2) Nonbinding arbitration, with the parties free to reject the arbitrator's decision and to seek a solution through other means, including a lawsuit ( ); or
+
+(3) Mediation, in which the parties negotiate through a neutral mediator in an effort to resolve their differences in advance of filing a lawsuit ( )
+
+--- Mandatory change order statement (10 M.R.S. 1487(9)) ---
+State: Maine
+Trigger: Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor
+Prints when: {"over_cents":300000,"residential":true}
+Format rule: Exact statutory text ('A change order statement which reads'); no type size
+Source: VERBATIM-OFFICIAL https://legislature.maine.gov/statutes/10/title10sec1487.html ("Data for this page extracted on 10/20/2025 14:32:56.")
+Blanks to fill: none
+TEXT:
+Any alteration or deviation from the above contractual specifications that results in a revision of the contract price will be executed only upon the parties entering into a written change order
+
+################ Maryland (MD) - status: notice text still needs official copy - prints: 0 of 4 notices
+
+(nothing prints for this state)
+
+################ Massachusetts (MA) - status: notice text still needs official copy - prints: 3 of 5 notices
+
+--- "Do not sign this contract if there are any blank spaces" line (c. 142A s. 2) ---
+State: Massachusetts
+Trigger: Residential contracting over $1,000
+Prints when: {"over_cents":100000}
+Format rule: Ten point bold type or larger, directly above the space provided for the signature
+Source: VERBATIM-OFFICIAL https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXX/Chapter142A/Section2 (None shown on the page)
+Blanks to fill: none
+TEXT:
+Do not sign this contract if there are any blank spaces
+
+--- State cancellation statement near the buyer's signature (M.G.L. c. 93 s. 48(B)) ---
+State: Massachusetts
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, $25 or more
+Prints when: {"sold_in_home":true}
+Format rule: Statement on the front page in immediate proximity to the space reserved for the buyer's signature, in boldface type of a minimum size of ten points
+Source: VERBATIM-OFFICIAL https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section48 (None shown on the page)
+Blanks to fill: none
+TEXT:
+You may cancel this agreement if it has been signed by a party thereto at a place other than an address of the seller, which may be his main office or branch thereof, provided you notify the seller in writing at his main office or branch by ordinary mail posted, by telegram sent or by delivery, not later than midnight of the third business day following the signing of this agreement.
+
+See the attached notice of cancellation form for an explanation of this right.
+
+--- Duplicate NOTICE OF CANCELLATION form attached to the agreement and easily detachable (M.G.L. c. 93 s. 48(B)) ---
+State: Massachusetts
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, $25 or more
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, easily detachable, attached to the agreement, in ten point boldface, in the same language as the agreement
+Source: VERBATIM-OFFICIAL https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXV/Chapter93/Section48 (None shown on the page)
+Blanks to fill: (Enter date of transaction)(Date) | to ___, (Name of seller) | at ___ (Address of seller's place of business) | than midnight of ___. (Date) | ___ (Date) above the signature | ___ (Buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+(Enter date of transaction)(Date)
+
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the agreement, and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this agreement; or you may if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to
+
+to ___,
+
+(Name of seller)
+
+at ___ not later
+
+(Address of seller's place of business)
+
+than midnight of ___.
+ (Date)
+
+I hereby cancel this transaction.
+
+___
+ (Date)
+
+___
+(Buyer's signature)
+
+################ Michigan (MI) - status: notice text still needs official copy - prints: 2 of 3 notices
+
+--- Buyer statement near the signature (home solicitation sale) (MCL 445.113(1) (statement); 445.112 (right to cancel)) ---
+State: Michigan
+Trigger: Door-to-door sale or a sale made away from the seller's place of business or solicited at the home
+Prints when: {"sold_in_home":true}
+Format rule: Statement in immediate proximity to the space reserved for the buyer's signature; not less than 10-point bold and 2 points larger than the contract text
+Source: VERBATIM-OFFICIAL https://www.legislature.mi.gov/documents/mcl/pdf/mcl-445-113.pdf (Michigan Compiled Laws Complete Through PA 103 of 2026 (PDF footer))
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third
+ business day after the date of this transaction. See the attached notice of cancellation form for
+ an explanation of this right. Additionally, the seller is prohibited from having an independent
+ courier service or other third party pick up your payment at your residence before the end of
+ the 3-business-day period in which you can cancel the transaction.
+
+--- Notice of cancellation, in duplicate (home solicitation sale) (MCL 445.113(2) (notice of cancellation); 445.112 (right to cancel)) ---
+State: Michigan
+Trigger: Door-to-door sale or a sale made away from the seller's place of business or solicited at the home
+Prints when: {"sold_in_home":true}
+Format rule: Notice of cancellation in duplicate, attached to the buyer's copy or printed on the reverse side of it; not less than 10-point bold and 2 points larger than the contract text
+Source: VERBATIM-OFFICIAL https://www.legislature.mi.gov/documents/mcl/pdf/mcl-445-113.pdf (Michigan Compiled Laws Complete Through PA 103 of 2026 (PDF footer))
+Blanks to fill: (enter date of transaction) | (date) line under the date of transaction | (name of seller) | (address of seller's place of business) | line for the not-later-than date, with (date) | I hereby cancel this transaction: line for the date, with (date) | buyer signature line with (buyer's signature)
+TEXT:
+notice of cancellation
+                                 (enter date of transaction)
+                                 (date)
+ You may cancel this transaction, without any penalty or obligation, within 3 business days
+ from the above date.
+    If you cancel, any property traded in, any payments made by you under the contract or sale,
+ and any negotiable instrument executed by you will be returned within 10 business days
+ following receipt by the seller of your cancellation notice, and any security interest arising out
+ of the transaction will be canceled.
+    If you cancel, you must make available to the seller at your residence, in substantially as
+ good condition as when received, any goods delivered to you under this contract or sale; or
+ you may if you wish, comply with the instructions of the seller regarding the return shipment
+ of the goods at the seller's expense and risk.
+    If you do make the goods available to the seller and the seller does not pick them up within
+ 20 days of the date of your notice of cancellation, you may retain or dispose of the goods
+ without any further obligation. If you fail to make the goods available to the seller or if you
+ agree to return the goods to the seller and fail to do so, then you remain liable for performance
+ of all obligations under the contract.
+    To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice
+ or any other written notice, or send a telegram to (name of seller), at (address of seller's place
+ of business) not later than midnight on
+  _________________________________
+  (date)
+  I hereby cancel this transaction.
+  _________________________________
+  (date)
+                                                 ____________________________
+                                                 (buyer's signature)
+
+################ Minnesota (MN) - status: draft rider ready - prints: 2 of 5 notices
+
+--- Buyer statement near the signature (home solicitation sale) (Minn. Stat. 325G.08 subd. 1(b)) ---
+State: Minnesota
+Trigger: Home solicitation sale: improvements or services bought for personal, family or household use, price more than $25, solicited and agreed away from the seller's place of business; an invited visit is still covered unless the buyer gives a handwritten, dated, signed waiver
+Prints when: {"sold_in_home":true}
+Format rule: Statement in immediate proximity to the space reserved in the contract for the buyer's signature, in boldface type of at least ten points; the seller also tells the buyer orally
+Source: VERBATIM-OFFICIAL https://www.revisor.mn.gov/statutes/cite/325G.08 (2025 Minnesota Statutes (page heading); History line under each section)
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this purchase at any time prior to midnight of the third business day after the date of this purchase. See attached notice of cancellation form for an explanation of this right.
+
+--- NOTICE OF CANCELLATION form, in duplicate (home solicitation sale) (Minn. Stat. 325G.08 subd. 1(c)) ---
+State: Minnesota
+Trigger: Home solicitation sale: improvements or services bought for personal, family or household use, price more than $25, solicited and agreed away from the seller's place of business; an invited visit is still covered unless the buyer gives a handwritten, dated, signed waiver
+Prints when: {"sold_in_home":true}
+Format rule: Fully completed form in duplicate, attached to the contract or receipt and easily detachable, in boldface type of at least ten points
+Source: VERBATIM-OFFICIAL https://www.revisor.mn.gov/statutes/cite/325G.08 (2025 Minnesota Statutes (page heading); History line under each section)
+Blanks to fill: (enter type of goods or services purchased) with its blank line (goods or services) | (enter date of transaction) with its blank line (date) | (Name of seller) | (Address of Seller's Place of Business) | (Date) in the not-later-than sentence | blank line above (Date) after I HEREBY CANCEL THIS TRANSACTION. | blank line above (Buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+(enter type of goods or services purchased)
+.
+(goods or services)
+(enter date of transaction)
+.
+(date)
+If you do not want the goods or services described above, you may cancel your purchase by mailing or delivering a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to (Name of seller), at (Address of Seller's Place of Business) not later than midnight of (Date). If you cancel, any payments made by you under the contract or sale, any property traded in, and any instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be canceled.
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the written instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+If the seller does not pick up the goods within 20 days of the date of your notice of cancellation, you may retain or dispose of them without any further obligation.
+I HEREBY CANCEL THIS TRANSACTION.
+.
+(Date)
+. "
+(Buyer's signature)
+
+################ Mississippi (MS) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ Missouri (MO) - status: notice text still needs official copy - prints: 1 of 4 notices
+
+--- NOTICE TO OWNER (429.012) ---
+State: Missouri
+Trigger: Original contractors; before payment
+Prints when: {}
+Format rule: 10 point bold
+Source: VERBATIM-OFFICIAL https://revisor.mo.gov/main/OneSection.aspx?section=429.012 (Effective - 01 Jan 2017, 2 histories, see footnote)
+Blanks to fill: none
+TEXT:
+NOTICE TO OWNER
+FAILURE OF THIS CONTRACTOR TO PAY THOSE PERSONS SUPPLYING MATERIAL OR SERVICES TO COMPLETE THIS CONTRACT CAN RESULT IN THE FILING OF A MECHANIC'S LIEN ON THE PROPERTY WHICH IS THE SUBJECT OF THIS CONTRACT PURSUANT TO CHAPTER 429, RSMO. TO AVOID THIS RESULT YOU MAY ASK THIS CONTRACTOR FOR "LIEN WAIVERS" FROM ALL PERSONS SUPPLYING MATERIAL OR SERVICES FOR THE WORK DESCRIBED IN THIS CONTRACT. FAILURE TO SECURE LIEN WAIVERS MAY RESULT IN YOUR PAYING FOR LABOR AND MATERIAL TWICE.
+
+################ Montana (MT) - status: notice text still needs official copy - prints: 2 of 3 notices
+
+--- Personal solicitation cancellation card, text part (3 business days) (MCA 30-14-505(1)(a)) ---
+State: Montana
+Trigger: Over $25; skip when the buyer contacted the seller first
+Prints when: {"sold_in_home":true}
+Format rule: Printed in capital and lowercase letters of not less than 10-point boldfaced type with the seller's name and business address
+Source: VERBATIM-OFFICIAL https://mca.legmt.gov/bills/mca/title_0300/chapter_0140/part_0050/section_0050/0300-0140-0050-0050.html (MCA 2025; last amended Ch. 56, L. 2009)
+Blanks to fill: (date)
+TEXT:
+YOU MAY CANCEL THIS SALE WITHIN THREE BUSINESS DAYS.
+ If you decide within 3 days that you want to cancel the sale, tear off and mail the bottom of this card. To cancel, the card must be mailed BY CERTIFIED MAIL within 3 days after you sign the contract.
+ (date)
+
+--- Personal solicitation cancellation card, tear-off part (CONTRACT CANCELED) (MCA 30-14-505(1)(b)) ---
+State: Montana
+Trigger: Over $25; skip when the buyer contacted the seller first
+Prints when: {"sold_in_home":true}
+Format rule: Same card as MT-cancel: capital and lowercase letters of not less than 10-point boldfaced type with the seller's name and business address
+Source: VERBATIM-OFFICIAL https://mca.legmt.gov/bills/mca/title_0300/chapter_0140/part_0050/section_0050/0300-0140-0050-0050.html (MCA 2025; last amended Ch. 56, L. 2009)
+Blanks to fill: (Buyer's signature)
+TEXT:
+CONTRACT CANCELED
+ I hereby cancel this sale.
+ (Buyer's signature)
+
+################ Nebraska (NE) - status: draft rider ready - prints: 1 of 1 notices
+
+--- BUYER'S RIGHT TO CANCEL (69-1604) ---
+State: Nebraska
+Trigger: Seller solicits at the residence, including a visit the buyer invited; buyer-initiated contact is excluded only for repair or maintenance of the buyer's personal property
+Prints when: {"sold_in_home":true}
+Format rule: 10 point boldface, capital and lowercase, under the caption BUYER'S RIGHT TO CANCEL; given in English and in the seller's other language when the seller regularly uses it and it is the buyer's principal language
+Source: VERBATIM-OFFICIAL https://nebraskalegislature.gov/laws/statutes.php?statute=69-1604 ("Laws 1974, LB 212, § 4.")
+Blanks to fill: (Insert name and mailing address of seller)
+TEXT:
+You may cancel this agreement by mailing a written notice to (Insert name and mailing address of seller) before midnight of the third business day after you signed this agreement. If you wish, you may use this page as that notice by writing "I hereby cancel" and adding your name and address.
+
+################ Nevada (NV) - status: notice text still needs official copy - prints: 3 of 9 notices
+
+--- Residential Construction Recovery Fund statement (NRS 624.520) ---
+State: Nevada
+Trigger: Residential contractor contracting with an owner; written statement in any agreement or contract for qualified services
+Prints when: {"residential":true}
+Format rule: Written statement in substantially the form given, in any agreement or contract for qualified services; inside a 624.970 contract the 10 point bold rule applies
+Source: VERBATIM-OFFICIAL https://www.leg.state.nv.us/nrs/nrs-624.html (page header "[Rev. 4/15/2026 3:43:42 PM--2025]")
+Blanks to fill: none
+TEXT:
+RESIDENTIAL CONSTRUCTION RECOVERY FUND
+
+Payment may be available from the Recovery Fund if you are damaged financially by a project performed on your residence pursuant to a contract, including construction, remodeling, repair or other improvements, and the damage resulted from certain specified violations of Nevada law by a contractor licensed in this State. To obtain information relating to the Recovery Fund and filing a claim for recovery from the Recovery Fund, you may contact the State Contractors’ Board.
+
+--- Door-to-door sale: cancellation statement beside the buyer's signature (NRS 598.240) ---
+State: Nevada
+Trigger: Door-to-door sale of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not
+Prints when: {"sold_in_home":true}
+Format rule: Statement in bold type in immediate proximity to the buyer's signature space (or on the front page of the receipt); in the language of the sales presentation
+Source: VERBATIM-OFFICIAL https://www.leg.state.nv.us/nrs/nrs-598.html (page header "[Rev. 4/15/2026 3:30:22 PM--2025]")
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for explanation of this right.
+
+--- NOTICE OF CANCELLATION form, in duplicate (NRS 598.250) ---
+State: Nevada
+Trigger: Door-to-door sale of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not
+Prints when: {"sold_in_home":true}
+Format rule: Fully completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract or receipt and easily detachable, in boldface type, in the language of the contract
+Source: VERBATIM-OFFICIAL https://www.leg.state.nv.us/nrs/nrs-598.html (page header "[Rev. 4/15/2026 3:30:22 PM--2025]")
+Blanks to fill: (Enter date of transaction) / Date line | send a telegram to ..... (Name of seller) line | at ..... (Address of seller's place of business) line | not later than midnight of ..... line (date) | ..... (Date) line under I hereby cancel this transaction | ..... (Buyer’s signature) line
+TEXT:
+NOTICE OF CANCELLATION
+
+(Enter date of transaction)
+
+Date
+
+You may cancel this transaction, without any penalty or obligation, except as provided by law, within 3 business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+
+If you cancel, you must make available to the seller at reasonable times at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you must in the alternative comply with the instructions of the seller regarding the return shipment of the goods at the seller’s expense and risk.
+
+If the seller does not either provide instructions for the return of the goods to the seller or pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to ....................................................................................................
+
+(Name of seller)
+
+at ......................................................................................................................................
+
+(Address of seller’s place of business)
+
+not later than midnight of ............................................................................................
+
+I hereby cancel this transaction.
+
+..........................................
+
+(Date)
+
+.....................................................................
+
+(Buyer’s signature)
+
+################ New Hampshire (NH) - status: draft rider ready - prints: 2 of 2 notices
+
+--- Construction defect notice (all capitals form) (RSA 359-G:7) ---
+State: New Hampshire
+Trigger: Contract for the construction or improvement of a residence in which the contract amount exceeds $5,000
+Prints when: {"over_cents":500000,"residential":true}
+Format rule: Conspicuous notice in substantially the statutory capital-letter form; may be part of the contract; no type size stated
+Source: VERBATIM-OFFICIAL https://gc.nh.gov/rsa/html/XXXI/359-G/359-G-7.htm ("Source. 2005, 155:1, eff. Jan. 1, 2006.")
+Blanks to fill: none
+TEXT:
+NEW HAMPSHIRE LAW, RSA 359-G, CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW BEFORE YOU MAY FILE A LAWSUIT OR OTHER ACTION FOR DEFECTIVE CONSTRUCTION AGAINST THE CONTRACTOR WHO CONSTRUCTED, REMODELED, OR REPAIRED YOUR HOME. SIXTY DAYS BEFORE YOU FILE YOUR LAWSUIT OR OTHER ACTION, YOU MUST SERVE ON THE CONTRACTOR A WRITTEN NOTICE OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE. UNDER THE LAW, A CONTRACTOR HAS THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR AND/OR PAY FOR THE DEFECTS. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY AFFECT YOUR ABILITY TO FILE A LAWSUIT OR OTHER ACTION.
+
+--- Cancellation statement in 10 point boldface next to the buyer's signature (RSA 361-B:2, I) ---
+State: New Hampshire
+Trigger: Sale of $150 or more solicited and made at any place other than the seller's permanent place of business, cash or credit
+Prints when: {"sold_in_home":true,"at_least_cents":15000}
+Format rule: Statement in boldface type of at least 10 points, in immediate proximity to the buyer's signature space; the federal form is accepted instead
+Source: VERBATIM-OFFICIAL same ("2010, 341:1, 2, eff. Jan. 1, 2011")
+Blanks to fill: none
+TEXT:
+ANY BUYER MAY CANCEL THIS TRANSACTION ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION.
+
+################ New Jersey (NJ) - status: notice text still needs official copy - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ New Mexico (NM) - status: notice text still needs official copy - prints: 2 of 3 notices
+
+--- State cancellation statement near the buyer's signature (NMSA 1978, 57-12-21) ---
+State: New Mexico
+Trigger: Door-to-door sale: consumer goods or services of $25 or more, solicited in person (including after an invitation by the buyer) with the agreement made away from the seller's place of business, and seller-initiated telephone sales
+Prints when: {"sold_in_home":true}
+Format rule: Statement in bold face, minimum ten points, in immediate proximity to the buyer's signature space (or on the front page of a receipt if no contract); in the language of the sales presentation
+Source: VERBATIM-OFFICIAL https://nmonesource.com/nmos/nmsa/en/4423/1/document.do (Chapter 57 PDF; viewer page https://nmonesource.com/nmos/nmsa/en/item/4423/index.do) (History: Laws 1987, ch. 212; 1995, ch. 38; 2019, ch. 123 (eff. July 1, 2019))
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third
+business day after the date of this transaction. See the attached notice of cancellation
+form for an explanation of this right.
+
+--- NOTICE OF CANCELLATION form, in duplicate (NMSA 1978, 57-12-21 A(2)) ---
+State: New Mexico
+Trigger: Door-to-door sale: consumer goods or services of $25 or more, solicited in person (including after an invitation by the buyer) with the agreement made away from the seller's place of business
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract or receipt and easily detachable, ten-point bold face, in the same language as the contract
+Source: VERBATIM-OFFICIAL https://nmonesource.com/nmos/nmsa/en/4423/1/document.do (Chapter 57 PDF; viewer page https://nmonesource.com/nmos/nmsa/en/item/4423/index.do) (History: Laws 1987, ch. 212; 1995, ch. 38; 2019, ch. 123 (eff. July 1, 2019))
+Blanks to fill: date (line under the NOTICE OF CANCELLATION caption) | (name of seller) line | at ___ (address of seller's place of business) | not later than midnight of ___ (date) | (date) line under I hereby cancel this transaction | (buyer's signature) line
+TEXT:
+NOTICE OF CANCELLATION
+_______________________
+date
+You may cancel this transaction, without any penalty or obligation, within three
+business days from the above date.
+If you cancel, any property traded in, any payments made by you under the contract
+or sale and any negotiable instrument executed by you will be returned within ten
+business days following receipt by the seller of your cancellation notice and any security
+interest arising out of the transaction will be canceled.
+If you cancel, you must make available to the seller at your residence, in
+substantially as good condition as when received, any goods delivered to you under this
+contract or sale; or you may, if you wish, comply with the instructions of the seller
+regarding the return shipment of the goods at the seller's expense and risk.
+If you do make the goods available to the seller and the seller does not pick them up
+within twenty days of the date of your notice of cancellation, you may retain or dispose
+of the goods without any further obligation. If you fail to make the goods available to the
+seller or if you agree to return the goods to the seller and fail to do so, then you remain
+liable for performance of all obligations under the contract.
+To cancel this transaction, mail or deliver a signed and dated copy of this
+cancellation notice or any other written notice or send a telegram to:
+_____________________________
+(name of seller)
+at ___________________________________________________________
+(address of seller's place of business)
+not later than midnight of ___________________________________
+(date)
+I hereby cancel this transaction.
+_____________________________
+(date)
+_____________________________
+(buyer's signature)
+
+################ New York (NY) - status: notice text still needs official copy - prints: 3 of 5 notices
+
+--- Lien notice and escrow notice (GBL 771(1)(d) and 771(1)(e)) ---
+State: New York
+Trigger: Home improvement over $500
+Prints when: {"over_cents":50000}
+Format rule: Bold, in the contract
+Source: VERBATIM-OFFICIAL same (same)
+Blanks to fill: none
+TEXT:
+Any contractor, subcontractor, or materialman who provides home improvement goods or services pursuant to your home improvement contract and who is not paid may have a valid legal claim against your property known as a mechanic's lien. Any mechanic's lien filed against your property may be discharged. Payment of the agreed-upon price under the home improvement contract prior to filing of a mechanic's lien may invalidate such lien. The owner may contact an attorney to determine his rights to discharge a mechanic's lien
+
+--- Door-to-door cancellation statement beside the signature (Personal Property Law 428(1)(a)) ---
+State: New York
+Trigger: Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller
+Prints when: {"sold_in_home":true}
+Format rule: In immediate proximity to the buyer's signature space, not less than ten-point bold, in the language of the sales presentation
+Source: VERBATIM-OFFICIAL query `$$PEP428$$@TXPEP0428` (same)
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- NOTICE OF CANCELLATION form, in duplicate (Personal Property Law 428(1)(b)) ---
+State: New York
+Trigger: Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, not less than ten-point bold, in the language of the contract
+Source: VERBATIM-OFFICIAL same (same)
+Blanks to fill: (enter date of transaction) / (Date) line under the caption | Name of Seller | Address of Seller (Place of Business) | NOT LATER THAN MIDNIGHT OF (Date) | I HEREBY CANCEL THIS TRANSACTION (Date) | (Buyer's Signature)
+TEXT:
+NOTICE OF CANCELLATION
+(enter date of transaction)
+_________________________________________
+(Date)
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE SELLER AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE; OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE SELLER'S EXPENSE AND RISK.
+IF YOU DO MAKE THE GOODS AVAILABLE TO THE SELLER AND THE SELLER DOES NOT PICK THEM UP WITHIN TWENTY DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE GOODS AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE GOODS TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO
+(Name of Seller),    AT    Address of Seller
+__________________    _________________________________
+(Place of Business)    NOT LATER THAN MIDNIGHT OF
+__________________
+__________________
+(Date)
+I HEREBY CANCEL THIS TRANSACTION.
+_________________
+(Date)
+______________________________
+(Buyer's Signature)
+
+################ North Carolina (NC) - status: draft rider ready - prints: 2 of 4 notices
+
+--- Buyer statement near the signature (off-premises sale) (G.S. 14-401.13(a)(1)) ---
+State: North Carolina
+Trigger: Off-premises sale of consumer goods or services of $25 or more, including a visit the customer invited; not a visit the customer asked for only to repair or maintain the customer's property
+Prints when: {"sold_in_home":true}
+Format rule: Statement in boldface, at least 10 points, in immediate proximity to the space reserved in the contract for the buyer's signature, in the same language as the sales talk
+Source: VERBATIM-OFFICIAL https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_14/GS_14-401.13.html (last amended S.L. 2024-11)
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.
+
+--- NOTICE OF CANCELLATION form, in duplicate (off-premises sale) (G.S. 14-401.13(a)(2)) ---
+State: North Carolina
+Trigger: Off-premises sale of consumer goods or services of $25 or more, including a visit the customer invited; not a visit the customer asked for only to repair or maintain the customer's property
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract or receipt and easily detachable, in boldface of at least 10 points, in the same language as the contract
+Source: VERBATIM-OFFICIAL https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_14/GS_14-401.13.html (last amended S.L. 2024-11)
+Blanks to fill: (enter date of transaction) | (date) under it | (name of seller) | line before (address of seller's place of business) | line before (date) in the not-later-than sentence | line above (date) after I hereby cancel this transaction. | (buyer's signature) with no signature line printed above it
+TEXT:
+NOTICE OF CANCELLATION
+(enter date of transaction)
+(date)
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 business days following receipt by the seller of your cancellation notice and any security interest arising out of the transaction will be canceled.
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk. In the event you purchased antiques at an antique show and cancel, and your residence is out-of-state, you must deliver the purchased goods to the seller.
+If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice, or any other written notice, or send a telegram, to
+(name of seller)
+at ____________________________________
+ (address of seller's place of business)
+not later than midnight of _____________________
+ (date)
+I hereby cancel this transaction.
+_______________
+(date)
+ "
+ (buyer's signature)
+
+################ North Dakota (ND) - status: notice text still needs official copy - prints: 3 of 4 notices
+
+--- NOTICE TO BUYER (personal solicitation sale) (N.D.C.C. 51-18-04 (NOTICE TO BUYER)) ---
+State: North Dakota
+Trigger: Personal solicitation sale: sale of consumer goods or services solicited by telephone or in person, with the agreement made away from the seller's place of business; 15 business days for buyers 65 or older
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous notice inside the agreement, substantially the statutory form; no type size stated
+Source: VERBATIM-OFFICIAL https://ndlegis.gov/cencode/t51c18.pdf (none printed)
+Blanks to fill: none
+TEXT:
+NOTICE TO BUYER
+1. Do not sign this agreement if any of the spaces intended for the agreed terms to the
+extent of then available information are left blank.
+2. You are entitled to a copy of this agreement at the time you sign it.
+3. You may pay off the full unpaid balance due under this agreement at any time, and in
+so doing you may receive a full rebate of the unearned finance and insurance charges.
+4. You may cancel this transaction at any time prior to midnight of the third business day
+after the date of this transaction. See the attached notice of cancellation form for an
+explanation of this right.
+5. The seller cannot enter your premises unlawfully or commit any breach of the peace to
+repossess goods purchased under this agreement.
+
+--- Statement that the buyer owes nothing unless the contract is signed and returned (N.D.C.C. 51-18-04.1) ---
+State: North Dakota
+Trigger: Personal solicitation sale: agreement to obtain a consumer good or service from a seller solicited in person or by telephone; whether it reaches sellers who are not telepromoters is not settled by the text
+Prints when: {"sold_in_home":true}
+Format rule: At least 12 point type, in the space immediately preceding the space for the consumer signature
+Source: VERBATIM-OFFICIAL same (none)
+Blanks to fill: none
+TEXT:
+YOU ARE NOT
+OBLIGATED TO PAY ANY MONEY UNLESS YOU SIGN THIS CONTRACT AND
+RETURN IT TO THE SELLER.
+
+--- NOTICE OF CANCELLATION form, in duplicate (personal solicitation sale) (N.D.C.C. 51-18-04 (NOTICE OF CANCELLATION)) ---
+State: North Dakota
+Trigger: Personal solicitation sale: sale of consumer goods or services solicited by telephone or in person, with the agreement made away from the seller's place of business; 15 business days for buyers 65 or older
+Prints when: {"sold_in_home":true}
+Format rule: Completed form attached to the agreement, in duplicate; the seller also tells the buyer orally; no type size stated
+Source: VERBATIM-OFFICIAL https://ndlegis.gov/cencode/t51c18.pdf (none printed)
+Blanks to fill: (Enter date of transaction) | (Date) under point 5 | (Buyer's signature) under point 5 (acknowledgment of the oral notice) | (electronic mail address of seller) | (name of seller) | (address of seller's place of business) | (date) in the not-later-than sentence | (Date) under I hereby cancel this transaction. | (Buyer's signature) under I hereby cancel this transaction.
+TEXT:
+NOTICE OF CANCELLATION
+(Enter date of transaction)
+1. You may cancel this transaction, without any penalty or obligation, within three
+business days from the above date.
+2. If you cancel, any property traded in, any payments made by you under the contract or
+sale, and any negotiable instrument executed by you will be returned within ten
+business days following receipt by the seller of your cancellation notice, and any
+security interest arising out of the transaction will be canceled.
+3. If you cancel, you must make available to the seller at your residence, in substantially
+as good condition as when received, any goods delivered to you under this contract or
+sale; or you may, if you wish, comply with the instructions of the seller regarding the
+return shipment of the goods at the seller's expense and risk.
+4. If you do make the goods available to the seller and the seller does not pick them up
+within twenty days of the date of your notice of cancellation, you may retain or dispose
+of the goods without any further obligation. If you fail to make the goods available to
+the seller, or if you agree to return the goods to the seller and fail to do so, then you
+remain liable for performance of all obligations under the contract.
+5. Buyer acknowledges receiving an oral notification that the buyer may cancel this
+transaction at any time before midnight of the third business day after the date of this
+transaction or fifteen business days if the buyer is sixty-five years of age or older.
+(Date)
+(Buyer's signature)
+
+6.    To cancel this transaction, mail or deliver a signed and dated copy of this cancellation
+notice or any other written notice, or send an electronic mail message to (electronic
+mail address of seller), to (name of seller), at (address of seller's place of business)
+not later than midnight of (date).
+I hereby cancel this transaction.
+(Date)
+(Buyer's signature)
+
+################ Ohio (OH) - status: draft rider ready - prints: 3 of 4 notices
+
+--- Home solicitation statement near the buyer's signature (R.C. 1345.23) ---
+State: Ohio
+Trigger: Off-premises sales
+Prints when: {"sold_in_home":true}
+Format rule: Statement clearly and conspicuously on the copy of the contract left with the buyer, bold-face type of at least ten points, in immediate proximity to the buyer's signature space
+Source: VERBATIM-OFFICIAL https://codes.ohio.gov/ohio-revised-code/section-1345.23 (Effective: April 6, 2017)
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation for an explanation of this right.
+
+--- NOTICE OF CANCELLATION form, in duplicate (R.C. 1345.23(B)(2)) ---
+State: Ohio
+Trigger: Home solicitation sale: solicitation at the residence, including after an invitation by the buyer
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract signed by the buyer and easily detachable, ten-point bold-face type, in the same language as the contract
+Source: VERBATIM-OFFICIAL https://codes.ohio.gov/ohio-revised-code/section-1345.23 (Effective: April 6, 2017)
+Blanks to fill: (enter date of transaction) / (Date) line under the caption | (Name of seller) line | (address, electronic mail address, or facsimile number of seller's place of business) line | not later than midnight of ________ (Date) | Date line under I hereby cancel this transaction | (Buyer's signature) line
+TEXT:
+NOTICE OF CANCELLATION
+(enter date of transaction)
+___________________________
+(Date)
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+If you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+To cancel this transaction, mail, with return receipt requested, or deliver, in person or manually, a signed and dated copy of this cancellation notice or any other written notice of cancellation, or send notice by facsimile transmission or electronic mail, to _______________ (Name of seller), at _______________ (address, electronic mail address, or facsimile number of seller's place of business) not later than midnight of ________ (Date)
+I hereby cancel this transaction.
+_______________
+Date
+(Buyer's signature)
+______________________________
+
+--- EXCESS COSTS statement with the owner's initials (written or oral estimate) (R.C. 4722.02(B)(2)) ---
+State: Ohio
+Trigger: Jobs of $25,000 or more, unless the contract is firm price with no excess costs or is cost-plus
+Prints when: {"at_least_cents":2500000}
+Format rule: Statement in substantially the given language with an initials line: written estimate or oral estimate; no type size stated
+Source: VERBATIM-OFFICIAL https://codes.ohio.gov/ohio-revised-code/section-4722.02 (Effective: August 31, 2012)
+Blanks to fill: _____ written estimate (initials) | _____ oral estimate (initials)
+TEXT:
+"EXCESS COSTS
+IF AT ANY TIME A HOME CONSTRUCTION SERVICE REQUIRES EXTRA COSTS ABOVE THE COST SPECIFIED OR ESTIMATED IN THE CONTRACT THAT WERE REASONABLY UNFORESEEN, BUT NECESSARY, AND THE TOTAL OF ALL EXTRA COSTS TO DATE EXCEEDS FIVE THOUSAND DOLLARS OVER THE COURSE OF THE ENTIRE HOME CONSTRUCTION CONTRACT, YOU HAVE A RIGHT TO AN ESTIMATE OF THOSE EXCESS COSTS BEFORE THE HOME CONSTRUCTION SERVICE SUPPLIER BEGINS WORK RELATED TO THOSE COSTS. INITIAL YOUR CHOICE OF THE TYPE OF ESTIMATE YOU REQUIRE:
+_____ written estimate _____ oral estimate"
+
+################ Oklahoma (OK) - status: notice text still needs official copy - prints: 0 of 1 notices
+
+(nothing prints for this state)
+
+################ Oregon (OR) - status: notice text still needs official copy - prints: 3 of 6 notices
+
+--- Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form) (ORS 701.330(2); OAR 812-001-0200(4)) ---
+State: Oregon
+Trigger: Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into
+Prints when: {"over_cents":200000,"residential":true}
+Format rule: CCB form with signature lines for the contractor and the homeowner
+Source: VERBATIM-OFFICIAL https://www.oregon.gov/ccb/Documents/Notice%20of%20Procedure.pdf (form footer "f:noticeofprocedure/adopted12-04-07")
+TEXT:
+Notice of Procedure
+Regarding Residential Construction
+Arbitrations and Lawsuits
+(ORS 701.330)
+
+Oregon law contains important requirements that homeowners must follow before
+starting an arbitration or court action against any contractor, subcontractor,
+or supplier (materials or equipment) for construction defects.
+
+Before you start an arbitration or court action, you must do the following:
+
+1. Deliver a written notice of any conditions that you believe are defective to the
+contractor, subcontractor, or supplier that you believe is responsible for the
+alleged defect.
+2. Allow the contractor, subcontractor, supplier, or its agent, to visually inspect the
+possible defects and also allow the contractor, subcontractor, or supplier to do
+reasonable testing.
+3. Provide the contractor, subcontractor, supplier, or its agent, the opportunity to
+make an offer to repair or pay for the defects. You are not obligated to accept
+any offer made.
+
+There are strict procedures and deadlines that must be followed under Oregon law.
+Failure to follow those procedures or meet those deadlines will affect your right to start
+an arbitration or court action.
+
+You should contact an attorney for information on the procedures and deadlines
+required under Oregon law.
+
+Your contractor is supplying this notice to you as required by Oregon law.
+
+CONTRACTOR: CCB#: HOMEOWNER:
+
+Print Contractor Name (as it appears on contract) Print Homeowner Name (as it appears on contract)
+
+Signature of Authorized Representative Date Signature Date
+
+f:noticeofprocedure/adopted12-04-07
+
+--- Home solicitation statement near the buyer's signature (ORS 83.730) ---
+State: Oregon
+Trigger: Home solicitation sale: the seller personally solicits (including at the buyer's invitation) and the buyer's written agreement is made away from the seller's place of business; remodeling is covered, a new house is not
+Prints when: {"sold_in_home":true}
+Format rule: In immediate proximity to the space reserved for the buyer's signature, in at least 10-point boldfaced type; same language as the sales presentation; seller must also orally inform the buyer of the right to cancel
+Source: VERBATIM-OFFICIAL https://www.oregonlegislature.gov/bills_laws/ors/ors083.html (2025 EDITION (page header))
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of buyer’s right to cancel for an explanation of the right to cancel.
+
+--- NOTICE OF BUYER'S RIGHT TO CANCEL (home solicitation sale) (ORS 83.730(2)) ---
+State: Oregon
+Trigger: Home solicitation sale: two copies, attached to the written agreement, each carrying the seller's name and address, the transaction date and the cancel-by date
+Prints when: {"sold_in_home":true}
+Format rule: In conspicuous type, 10-point or larger; duplicate copy for the buyer
+Source: VERBATIM-OFFICIAL https://www.oregonlegislature.gov/bills_laws/ors/ors083.html (2025 EDITION (page header))
+Blanks to fill: (Date) after (1) | (name of seller) | (address of seller’s place of business) | (date) not later than 12 midnight | signature line __________________ (Signature of buyer) | _____ (Date)
+TEXT:
+NOTICE OF BUYER’S RIGHT TO CANCEL
+
+(1) (Date) You, the buyer, may cancel this agreement without any penalty, cancellation fee or other financial obligation by mailing or delivering a notice to the seller within THREE BUSINESS DAYS from the above date.
+
+(2) If you cancel:
+
+(a) Any property you traded in, any payments you made under the sales contract and any checks or notes you signed will be returned within 10 business days following receipt by the seller of your notice of cancellation. Any security interest that arises from the transaction will be canceled.
+
+(b) You may either make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under the sales contract or you may comply with the seller’s instructions regarding the return shipment of the goods at the seller’s expense and risk.
+
+(c) If you make the goods available to the seller at your residence and the seller does not pick up the goods within 20 days of the date of your notice of cancellation, you may keep or discard the goods without further obligation.
+
+(d) If you do not make the goods available to the seller, or if you agree to return the goods to the seller and you do not return the goods, you must perform all of your obligations under the sales contract.
+
+(3) To cancel this transaction, mail or deliver a signed and dated copy of this notice or other written expression of your intention to cancel, or send a telegram, to (name of seller) at (address of seller’s place of business) not later than 12 midnight on (date), the third business day after you signed the written agreement or offer to purchase.
+
+I HEREBY CANCEL THIS TRANSACTION.
+
+__________________ _____
+
+(Signature of buyer) (Date)
+
+################ Pennsylvania (PA) - status: notice text still needs official copy - prints: 3 of 5 notices
+
+--- Registration number and Bureau toll-free number 1-888-520-6680 (HICPA sections 6, 7(a)(1) and 7(a)(12)) ---
+State: Pennsylvania
+Trigger: Every home improvement contract
+Prints when: {}
+Format rule: Registration number as "PA" plus the number, clearly and conspicuously displayed; the Attorney General suggests a sentence giving the toll-free number (agency guidance, not statute)
+Source: VERBATIM-OFFICIAL https://www.attorneygeneral.gov/businesses-and-organizations/home-improvement-contractor-registration/frequently-asked-questions/ (page undated; retrieved 2026-10-05)
+Blanks to fill: [contractor name]
+TEXT:
+The official registration number of [contractor name] can be obtained from the Pennsylvania Office of Attorney General’s Bureau of Consumer Protection by calling toll-free within Pennsylvania 1-888-520-6680. Registration does not imply endorsement.
+
+--- Sale at the customer's residence: cancellation statement beside the signature (UTPCPL section 7(b)(1) (73 P.S. 201-7)) ---
+State: Pennsylvania
+Trigger: Goods or services of $25 or more sold as a result of a contact with or call on the buyer at his residence, in person or by phone
+Prints when: {"sold_in_home":true}
+Format rule: In immediate proximity to the space reserved in the contract for the buyer's signature, in bold face type of a minimum size of ten points; in the language of the sales presentation and also in English
+Source: VERBATIM-OFFICIAL https://www.legis.state.pa.us/WU01/LI/LI/US/HTM/1968/0/0387..HTM (no currency date on the page; latest inline note in section 7 is Nov. 30, 2004 (P.L.1553, No.196))
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.
+
+--- Notice of Cancellation form, in duplicate (sale at the customer's residence) (UTPCPL section 7(b)(2) (73 P.S. 201-7)) ---
+State: Pennsylvania
+Trigger: Goods or services of $25 or more sold as a result of a contact with or call on the buyer at his residence
+Prints when: {"sold_in_home":true}
+Format rule: Form in duplicate, attached to the contract and easily detachable, ten-point bold face, in the language of the contract; a federal-form Notice of Cancellation is deemed compliant
+Source: VERBATIM-OFFICIAL same (same)
+Blanks to fill: (Enter Date of Transaction) | (name of seller) | (address of seller's place of business) | (date) | (Date) | (Buyer's Signature)
+TEXT:
+Notice of Cancellation
+(Enter Date of Transaction)
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+If you cancel, you must make available to the seller at your residence in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+If you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation.
+If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram, to (name of seller), at (address of seller's place of business) not later than midnight of (date).
+I hereby cancel this transaction.
+(Date)
+(Buyer's Signature)
+
+################ Rhode Island (RI) - status: notice text still needs official copy - prints: 2 of 6 notices
+
+--- Notice of possible mechanic's lien (34-28-4.1; 5-65-3(o)) ---
+State: Rhode Island
+Trigger: Any contractor with a direct contract; before work, in the contract or by certified mail; failure triggers indemnity of the owner
+Prints when: {}
+Format rule: Fixed statutory form with a To: line and an (INSERT ADDRESS) blank, either incorporated conspicuously in a written contract or sent by certified mail, return receipt requested, before commencing work
+Source: VERBATIM-OFFICIAL https://webserver.rilegislature.gov/Statutes/TITLE34/34-28/34-28-4.1.htm (History ends P.L. 2015, ch. 258 and ch. 279)
+Blanks to fill: To: Insert name of owner, lessee or tenant, or owner of less than the fee simple. | (INSERT ADDRESS)
+TEXT:
+NOTICE OF POSSIBLE MECHANIC’S LIEN
+
+To: Insert name of owner, lessee or tenant, or owner of less than the fee simple.
+
+The undersigned is about to perform work and/or furnish materials for the construction, erection, alterations, or repair upon the land at (INSERT ADDRESS) under contract with you. This is a notice that the undersigned and any other persons who provide labor and materials for the improvement under contract with the undersigned may file a mechanic’s lien upon the land in the event of nonpayment to them. It is your responsibility to assure yourself that those other persons under contract with the undersigned receive payment for their work performed and materials furnished for the construction, erection, alteration or repair upon the land.
+
+--- NOTICE TO BUYER above the signature (6-28-4(a)) ---
+State: Rhode Island
+Trigger: Door-to-door sale or a sale made away from the seller's place of business or solicited at the home
+Prints when: {"sold_in_home":true}
+Format rule: Ten-point bold-face type or larger directly above the space reserved in the agreement for the buyer's signature; the seller must change the last sentence if the cancellation forms are not attached to the agreement
+Source: VERBATIM-OFFICIAL https://webserver.rilegislature.gov/Statutes/TITLE6/6-28/6-28-4.htm (History ends P.L. 2014, ch. 528)
+Blanks to fill: none
+TEXT:
+Notice to buyer: (1) Do not sign this agreement if any of the spaces intended for the agreed terms to the extent of then available information are left blank. (2) You are entitled to a copy of this agreement at the time you sign it. (3) You may at any time pay off the full, unpaid balance due under this agreement and in so doing you may be entitled to receive a partial rebate of the finance and insurance charges. (4) The seller has no right to unlawfully enter your premises or commit any breach of the peace to repossess goods purchased under this agreement. (5) You may cancel this agreement if it has not been signed at the main office or a branch office of the seller, provided you notify the seller at his or her main office or branch office shown in the agreement by registered or certified mail, that shall be posted not later than midnight of the third calendar day after the day on which the buyer signs the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. See the attached notice of cancellation form for an explanation of buyer’s rights.
+
+################ South Carolina (SC) - status: draft rider ready - prints: 0 of 1 notices
+
+(nothing prints for this state)
+
+################ South Dakota (SD) - status: draft rider ready - prints: 2 of 2 notices
+
+--- State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (37-24-5.3) ---
+State: South Dakota
+Trigger: Door-to-door sale: the seller personally solicits (including at the buyer's invitation), price $25 or more, agreement made away from the seller's place of business; only a visit to repair or maintain the buyer's personal property is excepted, and anything extra sold on that visit is covered
+Prints when: {"sold_in_home":true}
+Format rule: Statement near the signature in 10 point bold; oral notice also required
+Source: VERBATIM-OFFICIAL https://sdlegislature.gov/api/Statutes/37-24-5.3.html ("SL 1975, ch 244, § 7 (a), (e), (f)")
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- NOTICE OF CANCELLATION form, in duplicate (SDCL 37-24-5.4) ---
+State: South Dakota
+Trigger: Door-to-door sale: the seller personally solicits (including at the buyer's invitation), price $25 or more, agreement made away from the seller's place of business
+Prints when: {"sold_in_home":true}
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, ten point bold, all capitals
+Source: VERBATIM-OFFICIAL https://sdlegislature.gov/api/Statutes/37-24-5.4.html ("SL 2019, ch 177, § 2")
+Blanks to fill: (enter date of transaction) / (Date) | (Name of seller) | (address of seller's place of business) | __________ (Date) (deadline, not earlier than the third business day) | __________________ (Date) (buyer date) | __________________ (Buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+(enter date of transaction)
+
+(Date)
+
+YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+
+IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN TEN BUSINESS DAYS FOLLOWING RECEIPT BY THE SELLER OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELED. IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE SELLER AT YOU RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE; OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE SELLER REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE SELLER'S EXPENSE AND RISK.
+
+IF YOU DO MAKE THE GOODS AVAILABLE TO THE SELLER AND THE SELLER DOES NOT PICK THEM UP WITHIN TWENTY DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION. IF YOU FAIL TO MAKE THE GOODS AVAILABLE TO THE SELLER, OR IF YOU AGREE TO RETURN THE GOODS TO THE SELLER AND FAIL TO DO SO, THEN YOU REMAIN LIABLE FOR PERFORMANCE OF ALL OBLIGATIONS UNDER THE CONTRACT.
+
+TO CANCEL THIS TRANSACTION, MAIL, OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND AN ELECTRONIC NOTICE, TO (Name of seller) AT (address of seller's place of business) NOT LATER THAN MIDNIGHT OF
+
+__________
+
+(Date)
+
+I HEREBY CANCEL THIS TRANSACTION.
+
+__________________
+
+(Date)
+
+__________________
+
+(Buyer's signature)
+
+################ Tennessee (TN) - status: needs primary source before use - prints: 0 of 4 notices
+
+(nothing prints for this state)
+
+################ Texas (TX) - status: draft rider ready - prints: 2 of 7 notices
+
+--- State cancellation statement in immediate proximity to the signature space (B&C 601.052 to 601.054) ---
+State: Texas
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, over $25
+Prints when: {"sold_in_home":true}
+Format rule: Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation
+Source: VERBATIM-OFFICIAL https://tcss.legis.texas.gov/resources/BC/htm/BC.601.htm (all sections eff. 2009-04-01; no later amendment shown)
+Blanks to fill: none
+TEXT:
+YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.
+
+--- NOTICE OF CANCELLATION form (duplicate, easily detachable) (B&C 601.053) ---
+State: Texas
+Trigger: Door-to-door sale or a sale made away from the seller's place of business, over $25
+Prints when: {"sold_in_home":true}
+Format rule: Completed notice of cancellation form attached to the contract in duplicate, easily detachable, in 10-point boldfaced type, in the same language as the contract
+Source: VERBATIM-OFFICIAL https://tcss.legis.texas.gov/resources/BC/htm/BC.601.htm (all sections eff. 2009-04-01; no later amendment shown)
+Blanks to fill: (enter date of transaction) | (name of merchant) | (address of merchant's place of business) | MIDNIGHT OF (date) | (date) above the buyer's signature line | (buyer's signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+(enter date of transaction)
+"YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.
+"IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE MERCHANT OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.
+"IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE MERCHANT AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE;  OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE MERCHANT REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE MERCHANT'S EXPENSE AND RISK.
+"IF YOU DO NOT AGREE TO RETURN THE GOODS TO THE MERCHANT OR IF THE MERCHANT DOES NOT PICK THEM UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION.
+"TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO (name of merchant), AT (address of merchant's place of business) NOT LATER THAN MIDNIGHT OF (date).
+I HEREBY CANCEL THIS TRANSACTION.
+(date)
+(buyer's signature)
+
+################ Utah (UT) - status: notice text still needs official copy - prints: 1 of 3 notices
+
+--- Protection against liens and civil action notice (owner steps to lien protection) (Utah Code 38-11-108; Utah Admin. Code R156-38a-108) ---
+State: Utah
+Trigger: Every contract between an original contractor and a homeowner
+Prints when: {"residential":true}
+Format rule: Notice in substantially the official form, prominently in an easy-to-read type style and size; the X. is the contract's own paragraph number; items (1) to (3) print together
+Source: VERBATIM-OFFICIAL https://adminrules.utah.gov/api/public/getfile/uac-html/6640aecb-7100-456d-a8c3-cf4dd3a17698.html/R156-38a.html ("Date of Last Change: June 25, 2026")
+Blanks to fill: X. (the contract's own paragraph number)
+TEXT:
+X. PROTECTION AGAINST LIENS AND CIVIL ACTION. Notice is hereby provided in accordance with Section 38-11-108 of the Utah Code that under Utah law an "owner" may be protected against liens being maintained against an "owner-occupied residence" and from other civil action being maintained to recover monies owed for "qualified services" performed or provided by suppliers and subcontractors as a part of this contract, if either section (1) or (2) is met:
+(1)(a) the owner entered into a written contract with an original contractor, a factory built housing retailer, or a real estate developer;
+(b) the original contractor was properly licensed or exempt from licensure under Title 58, Chapter 55, Utah Construction Trades Licensing Act at the time the contract was executed; and
+(c) the owner paid in full the contracting entity in accordance with the written contract and any written or oral amendments to the contract; or
+(2) the amount of the general contract between the owner and the original contractor totals no more than $5,000."
+(3) An owner who can establish compliance with either section (1) or (2) may perfect the owner's protection by applying for a Certificate of Compliance with the Division of Occupational and Professional Licensing. The application is available at www.dopl.utah.gov/rlrf.
+
+################ Vermont (VT) - status: draft rider ready - prints: 2 of 2 notices
+
+--- State cancellation statement in immediate proximity to the signature space (9 V.S.A. 2454(b)(1)) ---
+State: Vermont
+Trigger: Home solicitation sale of $5.00 or more, personally solicited or consummated at the consumer's residence or place of business or employment
+Prints when: {"sold_in_home":true}
+Format rule: In immediate proximity to the space reserved in the contract for the consumer's signature (or on the front page of the receipt), boldface of at least 10 points, substantially in the statutory form; the contract must be in the language the sale was principally negotiated in
+Source: VERBATIM-OFFICIAL https://legislature.vermont.gov/statutes/section/09/063/02454 ("1973, No. 221 (Adj. Sess.), § 2, eff. June 7, 1974.")
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation for an explanation of this right.
+
+--- NOTICE OF CANCELLATION form (attached to the contract, easily detachable) (9 V.S.A. 2454(b)(2)(A)) ---
+State: Vermont
+Trigger: Home solicitation sale of $5.00 or more, personally solicited or consummated at the consumer's residence or place of business or employment
+Prints when: {"sold_in_home":true}
+Format rule: Attached to the contract or receipt, easily detachable, printed in not less than 10-point boldface type; seller completes both copies and leaves one with the consumer
+Source: VERBATIM-OFFICIAL https://legislature.vermont.gov/statutes/section/09/063/02454 ("1973, No. 221 (Adj. Sess.), § 2, eff. June 7, 1974.")
+Blanks to fill: (enter date of transaction) with its dotted line and (date) | (name of seller) dotted line | (address of seller’s place of business) dotted line | not later than midnight of ......(date) | dotted line above (date) under I hereby cancel this transaction. | dotted line above (buyer’s signature)
+TEXT:
+NOTICE OF CANCELLATION
+
+(enter date of transaction)
+
+.........................................
+
+(date)
+
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be canceled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller’s expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram, to ......................... at .........................................
+
+(name of seller) (address of seller’s place of business)
+
+not later than midnight of .........................................
+
+(date)
+
+I hereby cancel this transaction.
+
+..................................
+
+(date)
+
+.........................................
+
+(buyer’s signature)
+
+################ Virginia (VA) - status: notice text still needs official copy - prints: 2 of 4 notices
+
+--- BUYER'S RIGHT TO CANCEL (59.1-21.4) ---
+State: Virginia
+Trigger: Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25
+Prints when: {"sold_in_home":true}
+Format rule: Bold face of at least ten points under the caption BUYER'S RIGHT TO CANCEL, on the front of the contract or immediately above the buyer's signature; the federal form is accepted if it has at least the same information
+Source: VERBATIM-OFFICIAL https://law.lis.virginia.gov/vacode/title59.1/chapter2.1/section59.1-21.4/ (and .2, .3, .5, .6) (10/5/2026; 21.2 last amended 2023)
+Blanks to fill: _________________________ (Date of Transaction) | _________________________ (name of seller) | _________________________ (address of seller's place of business) | ____________________ (Date) cancel-by date after midnight of | _________________________ (Date) above the buyer's signature | ________________________________________ (Buyer's signature)
+TEXT:
+If this agreement was solicited at a residence and you do not want the goods or services, you, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.
+Notice of Cancellation
+_________________________
+(Date of Transaction)
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to _________________________ (name of seller), at _________________________ (address of seller's place of business) not later than midnight of ____________________ (Date).
+I hereby cancel this transaction.
+_________________________
+(Date)
+________________________________________
+(Buyer's signature)
+
+--- Caption BUYER'S RIGHT TO CANCEL above the statement (Va. Code 59.1-21.4(2)(a)) ---
+State: Virginia
+Trigger: Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous caption in bold face of at least ten points, on the front of the contract or immediately above the buyer's signature, directly over the statement and form
+Source: VERBATIM-OFFICIAL https://law.lis.virginia.gov/vacode/title59.1/chapter2.1/section59.1-21.4/ (and .2, .3, .5, .6) (10/5/2026; 21.2 last amended 2023)
+Blanks to fill: none
+TEXT:
+BUYER'S RIGHT TO CANCEL
+
+################ Washington (WA) - status: notice text still needs official copy - prints: 1 of 4 notices
+
+--- Notice to Customer (RCW 18.27.114) ---
+State: Washington
+Trigger: Residential repair, alteration or construction of four or fewer units or accessory structures when the bid or contract price is $1,000 or more (a commercial building at $1,000 to under $60,000 also)
+Prints when: {"at_least_cents":100000,"residential":true}
+Format rule: Given before starting work, in substantially the statutory form using lower case and upper case twelve-point and bold type where appropriate; the form has a customer signature line; the contractor keeps the signed copy at least three years
+Source: VERBATIM-OFFICIAL https://app.leg.wa.gov/rcw/default.aspx?cite=18.27.114 (No "current through" date on the page; last session law shown: [ 2020 c 57 s 26; 2007 c 436 s 8; 2001 c 159 s 9; 1997 c 314 s 12; 1988 c 182 s 1; 1987 c 419 s 1.])
+Blanks to fill: registration no. . . . | bond or deposit of . . . . . | expiration date of this contractor's registration . . . . .. | payments of valid claims up to . . . . . | dotted signature line . . . . . . . . . . . . . . . . . . | (Signature of customer)
+TEXT:
+NOTICE TO CUSTOMER
+
+This contractor is registered with the state of Washington, registration no. . . ., and has posted with the state a bond or deposit of . . . . . for the purpose of satisfying claims against the contractor for breach of contract including negligent or improper work in the conduct of the contractor's business. The expiration date of this contractor's registration is . . . . ..
+
+THIS BOND OR DEPOSIT MIGHT NOT BE SUFFICIENT TO COVER A CLAIM THAT MIGHT ARISE FROM THE WORK DONE UNDER YOUR CONTRACT.
+
+This bond or deposit is not for your exclusive use because it covers all work performed by this contractor. The bond or deposit is intended to pay valid claims up to . . . . . that you and other customers, suppliers, subcontractors, or taxing authorities may have.
+
+FOR GREATER PROTECTION YOU MAY WITHHOLD A PERCENTAGE OF YOUR CONTRACT.
+
+You may withhold a contractually defined percentage of your construction contract as retainage for a stated period of time to provide protection to you and help insure that your project will be completed as required by your contract.
+
+YOUR PROPERTY MAY BE LIENED.
+
+If a supplier of materials used in your construction project or an employee or subcontractor of your contractor or subcontractors is not paid, your property may be liened to force payment and you could pay twice for the same work.
+
+FOR ADDITIONAL PROTECTION, YOU MAY REQUEST THE CONTRACTOR TO PROVIDE YOU WITH ORIGINAL "LIEN RELEASE" DOCUMENTS FROM EACH SUPPLIER OR SUBCONTRACTOR ON YOUR PROJECT.
+
+The contractor is required to provide you with further information about lien release documents if you request it. General information is also available from the state Department of Labor and Industries.
+
+I have received a copy of this disclosure statement.
+
+. . . . . . . . . . . . . . . . . .
+
+(Signature of customer)
+
+################ West Virginia (WV) - status: draft rider ready - prints: 0 of 2 notices
+
+(nothing prints for this state)
+
+################ Wisconsin (WI) - status: notice text still needs official copy - prints: 2 of 10 notices
+
+--- CUSTOMER'S RIGHT TO CANCEL (423.203; 423.202) ---
+State: Wisconsin
+Trigger: Consumer approval transaction: solicited face to face away from the merchant's regular place of business, or by mail or telephone, and signed away from it, on credit or cash over $25
+Prints when: {"sold_in_home":true}
+Format rule: Two copies of a typed or printed notice in capital and lowercase letters of not less than 12-point boldface, under the conspicuous caption CUSTOMER'S RIGHT TO CANCEL; also in the other language when the merchant regularly uses it and the customer's principal language is that language; a federal cancellation form is accepted
+Source: VERBATIM-OFFICIAL https://docs.legis.wisconsin.gov/document/statutes/423.203 (2023-24 Wisconsin Statutes updated through 2025 Wis. Act 247, in effect on October 1, 2026 (Published 10-1-26))
+Blanks to fill: (insert name and mailing address of seller)
+TEXT:
+You may cancel this agreement by mailing a written notice to (insert name and mailing address of seller) before midnight of the third business day after you signed this agreement. If you wish, you may use this page as that notice by writing “I hereby cancel” and adding your name and address. A duplicate of this page is provided by the seller for your records.
+
+--- Caption CUSTOMER'S RIGHT TO CANCEL above the notice (Wis. Stat. 423.203(1)(b)) ---
+State: Wisconsin
+Trigger: Consumer approval transaction: solicited face to face away from the merchant's regular place of business, or by mail or telephone, and signed away from it, on credit or cash over $25
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous caption over the notice, capital and lowercase letters in not less than 12-point boldface type
+Source: VERBATIM-OFFICIAL https://docs.legis.wisconsin.gov/document/statutes/423.203 (2023-24 Wisconsin Statutes updated through 2025 Wis. Act 247, in effect on October 1, 2026 (Published 10-1-26))
+Blanks to fill: none
+TEXT:
+CUSTOMER’S RIGHT TO CANCEL
+
+################ Wyoming (WY) - status: draft rider ready - prints: 2 of 5 notices
+
+--- BUYER'S RIGHT TO CANCEL statement (10 point bold, next to the buyer's signature) (40-14-253(b); 40-12-104(d)) ---
+State: Wyoming
+Trigger: Home solicitation sale of $25 or more, cash or credit, solicited at the buyer's residence in person or by telephone (merchandise includes any service)
+Prints when: {"sold_in_home":true}
+Format rule: In immediate proximity to the space reserved for the buyer's signature, boldface of at least ten points, under the caption Buyer's right to cancel; contract in the language of the oral sales presentation
+Source: VERBATIM-OFFICIAL same (same)
+Blanks to fill: none
+TEXT:
+You, the buyer, may cancel
+this transaction at any time prior to 12:00 midnight of the
+third business day after the date of this transaction. See the
+attached notice of cancellation form for an explanation of this
+right.
+
+--- Caption Buyer's right to cancel above the statement (40-14-253(b)(i)) ---
+State: Wyoming
+Trigger: Home solicitation sale of $25 or more, cash or credit, solicited at the buyer's residence in person or by telephone (merchandise includes any service)
+Prints when: {"sold_in_home":true}
+Format rule: Conspicuous caption over the statement
+Source: VERBATIM-OFFICIAL same (same)
+Blanks to fill: none
+TEXT:
+Buyer's
+right to cancel
+

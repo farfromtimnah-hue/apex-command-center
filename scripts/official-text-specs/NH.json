@@ -7,10 +7,19 @@
       "title": "Construction defect notice (all capitals form)",
       "trigger": "Contract for the construction or improvement of a residence in which the contract amount exceeds $5,000",
       "format": "Conspicuous notice in substantially the statutory capital-letter form; may be part of the contract; no type size stated",
-      "support": "in which the contract amount exceeds $5,000",
+      "support": "Upon entering into a purchase agreement or contract for the construction or improvement of a residence in which the contract amount exceeds $5,000",
       "summary_row": "Construction defect notice for contracts over $5,000 (all capitals form)",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the capital-letter notice it holds subsection I (the contractor's duty) and subsection II (third party warranty programs) and a source line, which should not print in the customer's contract"
+      "mode": "print",
+      "block": "1. RSA 359-G:7, Contract of Sale (defect notice)",
+      "block_index": 0,
+      "start": "NEW HAMPSHIRE LAW, RSA 359-G, CONTAINS",
+      "end": "ABILITY TO FILE A LAWSUIT OR OTHER ACTION.",
+      "quote_note": "The statute prints the notice with no quotation marks, after 'shall be in substantially the following form:'; none to handle.",
+      "blanks": [],
+      "applies": {
+        "over_cents": 500000,
+        "residential": true
+      }
     },
     {
       "id": "NH-cancel",
@@ -18,11 +27,19 @@
       "cite": "RSA 361-B:2, I",
       "trigger": "Sale of $150 or more solicited and made at any place other than the seller's permanent place of business, cash or credit",
       "format": "Statement in boldface type of at least 10 points, in immediate proximity to the buyer's signature space; the federal form is accepted instead",
-      "applies": { "sold_in_home": true, "at_least_cents": 15000 },
+      "applies": {
+        "sold_in_home": true,
+        "at_least_cents": 15000
+      },
       "support": "in boldface type of a minimum size of 10 points, a statement in substantially the following form",
       "summary_row": "Cancellation statement (10 point boldface next to the buyer's signature), refund in 15 days, no deduction for work done",
-      "mode": "none",
-      "hold_reason": "the block is the whole chapter 361-B (definition, remedies, disclosure rules, refund rules); only the one cancellation statement in 361-B:2, I belongs in the contract, and the rest should not print"
+      "mode": "print",
+      "block": "3. RSA chapter 361-B, Retail Selling (home solicitation sales), complete chapter",
+      "block_index": 0,
+      "start": "ANY BUYER MAY CANCEL THIS TRANSACTION",
+      "end": "AFTER THE DATE OF THIS TRANSACTION.",
+      "quote_note": "The statute prints the statement inside quotation marks; the markers sit inside them, so the opening and closing quotation marks are excluded.",
+      "blanks": []
     }
   ],
   "changes": [
@@ -40,12 +57,17 @@
       "path": "cancellation.day_count_note",
       "new": "Chapter 361-B does not define business day. On cancellation the seller refunds everything within 15 days and may not deduct the value of work already done.",
       "support": "Chapter 361-B does not define \"business day\"."
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Seller name, address and date of transaction on a home solicitation contract; legal name, street address and phone in ads only when a P.O. box, mail drop or answering service is used",
+      "support": "It is NOT a general contract-content rule."
     }
   ],
   "unsure": [
-    "NH-defect: the capital-letter notice belongs in the contract over $5,000, but the file only offers it inside the whole 359-G:7 block (with the contractor's duty and a warranty rule), so it is held.",
-    "NH-cancel: added; the statement belongs in the contract, but the only block is the whole chapter 361-B, so it is held. The $150 floor is on the price and the builder's amount may include items the statute counts differently.",
     "cleaning.home_solicitation_applies_to_cleaning: left false, but 361-B:1 reaches any sale of goods or services of $150 or more, so it may now be true for cleaning plans sold at the home; the file does not say so outright.",
-    "cancellation.saturday_counts: left true because the file says business day is not defined in chapter 361-B."
+    "cancellation.saturday_counts: left true because the file says business day is not defined in chapter 361-B.",
+    "NH-defect: printed when the contract exceeds $5,000 and the job is residential; the statute says the notice may be part of the contract, and the cut text is the all-capitals notice only. The 'residential' key was added to applies because the statute says 'a residence'.",
+    "NH-cancel: the cut is the quoted statement only; the sentence after it (how the buyer may cancel) is not in quotation marks and is not cut. The $150 floor is on the price and the builder's amount may include items the statute counts differently."
   ]
 }

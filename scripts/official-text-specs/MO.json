@@ -6,8 +6,14 @@
       "id": "MO-lien",
       "support": "Heading \"NOTICE TO OWNER\" then three capitals sentences, quoted in full below.",
       "summary_row": "NOTICE TO OWNER (lien disclosure), before any payment",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the NOTICE TO OWNER wording it holds a long section title, penalty rules, exemptions and settlement-agent rules that should not print in the customer's contract"
+      "mode": "print",
+      "block": "RSMo 429.012: NOTICE TO OWNER",
+      "block_index": 0,
+      "start": "NOTICE TO OWNER",
+      "end": "PAYING FOR LABOR AND MATERIAL TWICE.",
+      "quote_note": "None: the notice is not in quotation marks. It is the heading NOTICE TO OWNER and the capitals paragraph that follows 'shall include the following disclosure language in ten-point bold type:'; the cut ends at the end of that paragraph, before subsection 2. The word \"LIEN WAIVERS\" carries the statute's own quotation marks inside the notice and is included.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges: the notice is set off as its own lines after the colon, and subsection 2 starts on the next line. Applies to every contract (original contractor, before payment); the 429.012(4) exemption for new residences with title insurance cannot be decided by the builder."
     },
     {
       "id": "MO-cancel-credit",
@@ -15,7 +21,7 @@
       "support": "407.710 is one statement headed \"NOTICE OF CANCELLATION\", with a line for the date and for the seller's name and mailing address; there is no duplicate tear-off form in the Missouri statute.",
       "summary_row": "NOTICE OF CANCELLATION statement",
       "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the NOTICE OF CANCELLATION statement it holds operative rules (subsection 1 on the written agreement, the federal-form alternative, subsection 3 on late cancellation) that should not print in the customer's contract; the credit-sale trigger is also not something the builder can tell"
+      "hold_reason": "the 407.710(2) statement is not cleanly delimited: only the heading \"NOTICE OF CANCELLATION\" is in quotation marks, the Revisor extraction inserts a stray \"; and\" and instruction lines (\"Date of transaction must be filled in at time of sale by seller\") between the heading and the paragraph, and subsection (2) offers the federal form instead; also credit sales only, which the builder cannot tell"
     },
     {
       "id": "MO-consent",
@@ -23,11 +29,19 @@
       "cite": "RSMo 429.013(2)",
       "trigger": "Repair, remodeling or addition on owner-occupied residential property of four units or less, if the contractor wants its subcontractors and suppliers to have lien rights",
       "format": "Ten point bold type, signed separately from the 429.012 notice",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "which \"shall be printed in ten point bold type and signed separately from the notice required by section 429.012\"",
       "summary_row": "CONSENT OF OWNER (owner-occupied residential, four units or less; optional block that lets subs and suppliers lien)",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the CONSENT OF OWNER wording it holds definitions, lien rules and penalties that should not print in the customer's contract"
+      "mode": "on_file",
+      "block": "RSMo 429.013: CONSENT OF OWNER",
+      "block_index": 0,
+      "start": "CONSENT OF OWNER",
+      "end": "IF HE IS NOT PAID.",
+      "quote_note": "None: not in quotation marks. Starts at the heading line after 'shall contain the following words:' and ends at the end of the capitals sentence, before subsection 3.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. Stored, not printed: optional for the contractor and only for owner-occupied residential property of four units or less."
     },
     {
       "id": "MO-cure",
@@ -35,11 +49,19 @@
       "cite": "RSMo 436.353(2)",
       "trigger": "Contract for sale, construction or substantial remodel of a residence (remodel costing more than half the assessed value)",
       "format": "Conspicuous capital-letter notice in substantially the statutory form; may be part of the contract; no type size stated",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "The contractor shall provide notice to each homeowner upon entering into a contract for sale, construction, or substantial remodel of a residence",
       "summary_row": "Notice of contractor's right to offer to cure (capitals notice; new construction or substantial remodel)",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the capital-letter notice it holds subsection 1 on who gives it, subsections 3 and 4 on its effect, and a condominium rule that should not print in the customer's contract"
+      "mode": "on_file",
+      "block": "RSMo 436.353: notice of offer to cure",
+      "block_index": 0,
+      "start": "SECTIONS 436.350 TO 436.365 OF MISSOURI REVISED STATUTES PROVIDE YOU",
+      "end": "BEFORE YOU ARE ENTITLED TO FILE A LAWSUIT UNDER SECTIONS 436.350 TO 436.365.",
+      "quote_note": "None: not in quotation marks. Starts at the capitals paragraph after 'shall be in substantially the following form:' and ends at its last sentence, before subsection 3.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. Stored, not printed: only for new construction or a remodel costing over half the assessed value, which the builder cannot tell."
     }
   ],
   "changes": [
@@ -55,10 +77,10 @@
     }
   ],
   "unsure": [
-    "MO-lien: the NOTICE TO OWNER belongs in or with the contract, but the file only offers it inside the whole 429.012 block, so it is held.",
-    "MO-cancel-credit: the statement belongs in the contract for consumer credit sales, but the block is a whole section; its applies key credit_sale is not one the builder can decide, so it must never be printed as it stands.",
-    "MO-consent: added because the file shows it is printed in the contract, but the statute makes it a contractor's choice, not a duty, and the block is a whole section.",
-    "MO-cure: added; it applies only to new construction or a remodel costing over half the assessed value, which the builder cannot tell, so the residential key is only a rough fit.",
+    "MO-lien: the NOTICE TO OWNER is now cut out of the 429.012 block and printed in every contract; the new-residence title-insurance exemption in 429.012(4) cannot be decided by the builder.",
+    "MO-cancel-credit: held; the 407.710(2) statement is not cleanly delimited (stray '; and' and instruction lines) and applies only to credit sales, so it must never be printed as it stands.",
+    "MO-consent: cut out and stored on file only; the statute makes it a contractor's choice, not a duty, so it is not printed.",
+    "MO-cure: cut out and stored on file only; it applies only to new construction or a remodel costing over half the assessed value, which the builder cannot tell.",
     "cancellation.no_work_or_payment_in_window: left false because the file says only that the seller gets no pay for services done before cancellation, not that work is barred."
   ]
 }

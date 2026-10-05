@@ -5,7 +5,7 @@
 //   node scripts/test-state-riders.mjs
 import { readFileSync } from "node:fs";
 import { writeFileSync } from "node:fs";
-import { parseStateFile, baseStatus, inputExists, INPUT_DIR } from "./official-text-lib.mjs";
+import { parseStateFile, baseStatus, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -65,7 +65,7 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
   NON_FL.forEach(function (c) { count[data.riders[c].status] = (count[data.riders[c].status] || 0) + 1; });
   ok(NON_FL.every(function (c) { return data.statuses.indexOf(data.riders[c].status) !== -1; }) && data.statuses.length === 3, "every non-Florida entry has one of the three allowed statuses");
   ok(NON_FL.every(function (c) { return data.statuses.indexOf(data.riders[c].status) !== -1; }) && (count["needs primary source before use"] || 0) === 2 && data.riders.GA.status === "needs primary source before use" && data.riders.TN.status === "needs primary source before use", "statuses: only the two mirror-built states (GA, TN) need a primary source (got " + JSON.stringify(count) + ")");
-  let notices = 0, withText = 0, badSource = [], notExact = [], skipped = !inputExists();
+  let ranged = 0, notices = 0, withText = 0, badSource = [], notExact = [], skipped = !inputExists();
   const parsed = {};
   NON_FL.forEach(function (c) {
     (data.riders[c].notices || []).forEach(function (n) {
@@ -78,13 +78,21 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
       if (n.text !== null && n.hold_reason) { badSource.push(n.id + " prints while on hold"); }
       if (!skipped) {
         parsed[c] = parsed[c] || parseStateFile(c);
-        [n.text, n.text_on_file].forEach(function (t) { if (t && !parsed[c].blocks.some(function (b) { return b.text === t; })) { notExact.push(n.id); } });
+        [n.text, n.text_on_file].forEach(function (t) {
+          if (!t) { return; }
+          if (n.range) {
+            const blk = parsed[c].blocks.filter(function (b) { return b.heading === n.range.block && b.index === n.range.block_index; })[0];
+            const cut = blk ? cutRange(blk.text, n.range) : { error: "block not found" };
+            if (cut.error || cut.text !== t || blk.text.indexOf(t) === -1 || !Array.isArray(n.range.blanks) || !n.range.quote_note) { notExact.push(n.id + " (range)"); }
+            else { ranged++; }
+          } else if (!parsed[c].blocks.some(function (b) { return b.text === t; })) { notExact.push(n.id); }
+        });
       }
     });
   });
   ok(notices > 0 && badSource.length === 0, "every notice with text (printed or on file) has source_status VERBATIM-OFFICIAL or VERBATIM-NEAR-OFFICIAL, carries source fields, and nothing prints while on hold" + (badSource.length ? " (" + badSource.join(", ") + ")" : ""));
   if (skipped) { console.log("NOTICE  input folder " + INPUT_DIR + " not found: the byte-exact check against the state files is skipped"); }
-  else { ok(notExact.length === 0, "every non-null text is a byte-exact copy of a fenced block in that state's input file (" + notices + " notices, " + withText + " print, " + NON_FL.reduce(function (a, c) { return a + data.riders[c].notices.filter(function (n) { return n.text_on_file; }).length; }, 0) + " stored on file)" + (notExact.length ? " (" + notExact.join(", ") + ")" : "")); }
+  else { ok(notExact.length === 0, "every printed text and text_on_file is a byte-exact copy of ONE fenced block (whole) or, for ranged notices, equals the range recomputed from the spec markers (" + ranged + " ranged; " + notices + " notices, " + withText + " print, " + NON_FL.reduce(function (a, c) { return a + data.riders[c].notices.filter(function (n) { return n.text_on_file; }).length; }, 0) + " stored on file)" + (notExact.length ? " (" + notExact.join(", ") + ")" : "")); }
   ok(data.riders.NJ.notices.length > 0 && data.riders.NJ.notices.every(function (n) { return n.text === null && !n.text_on_file && n.hold_reason; }), "New Jersey: no notice has text, each carries a hold_reason");
   ok(NON_FL.every(function (c) { return (data.riders[c].notices || []).every(function (n) { var k = Object.keys(n.applies || {}); return n.text === null || k.every(function (x) { return ["sold_in_home", "is_pool", "residential", "over_cents", "at_least_cents"].indexOf(x) !== -1; }); }); }), "a notice prints only when its trigger uses keys the builder can decide");
   ok(NON_FL.every(function (c) { return (data.riders[c].notices || []).every(function (n) { return n.id && n.title && n.cite && n.trigger && n.format && n.applies; }); }), "every notice carries id, title, cite, trigger, format and applies");
@@ -94,7 +102,7 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
   ok(data.riders.RI.license.word === "registered" && ["AK", "CT", "IA", "ID", "MA", "NE", "NJ", "PA", "VT", "WA"].every(function (c) { return data.riders[c].license.word === "registered" && !/licen/i.test(data.riders[c].license.line_label); }), "registration states say registered and their line label never says license");
   ok(NON_FL.every(function (c) { const r = data.riders[c]; return typeof r.strictness === "number" && r.written_contract && r.deposit_cap && r.cancellation && r.checklist && r.checklist.rider_items.length === 3 && r.cleaning && Array.isArray(r.risky_options) && "defect_process" in r; }), "every entry carries strictness, written contract, deposit cap, cancellation, checklist, cleaning, risky options and defect process");
   const satOff = ["CT", "DE", "HI", "IA", "ID", "MI", "MN", "MO", "OR", "VT"];
-  ok(data.riders.AK.cancellation.business_days === 5 && NON_FL.filter(function (c) { return data.riders[c].cancellation.business_days !== 3; }).join() === "AK" && NON_FL.filter(function (c) { return data.riders[c].cancellation.saturday_counts === false; }).sort().join() === satOff.join() && data.riders.RI.cancellation.saturday_counts === true, "cancellation: Alaska five business days; Saturday does not count in " + satOff.join(" ") + "; every other state counts Saturday (Rhode Island too)");
+  ok(data.riders.AK.cancellation.business_days === 5 && NON_FL.filter(function (c) { return data.riders[c].cancellation.business_days !== 3; }).join() === "AK,MD" && data.riders.MD.cancellation.business_days === 5 && NON_FL.filter(function (c) { return data.riders[c].cancellation.saturday_counts === false; }).sort().join() === satOff.join() && data.riders.RI.cancellation.saturday_counts === true, "cancellation: Alaska and Maryland (home improvement) five business days; Saturday does not count in " + satOff.join(" ") + "; every other state counts Saturday (Rhode Island too)");
   // Every neutral clause version is an edit of text that really is in the library row.
   const ctx = await h.context(fx("small-job", {}));
   let editsOk = true, leftovers = [];
@@ -147,8 +155,8 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   ok(!/construction defects/i.test(sec(ma, "C11-A").text) && !/\s$/.test(sec(ma, "C11-A").text) && !/  /.test(sec(ma, "C14-A").text.replace(/\n/g, "")), "Massachusetts (no defect process in the matrix): the defect sentence is removed and leaves no gap");
   ok(sec(ma, "C09-A").title === "Permits and inspections" && sec(ma, "C12-A").title === "Completion, punch list, final payment and lien releases", "Massachusetts: the two section titles that named Florida steps are neutral");
   ok(ma.requires.lien_signature === false && ma.requires.pool_ack === false && ma.requires.cancellation === true, "Massachusetts: no separate lien signature, no pool acknowledgment; the cancellation form stays");
-  ok(ma.checklist.some(function (l) { return l.en === "Massachusetts requires this notice: \"Do not sign this contract if there are any blank spaces\" line (c. 142A s. 2). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting over $1,000. Format: 10 point bold directly above the owner's signature."; }), "Massachusetts: a required notice with no wording loaded is a checklist line, in the sentence the job gives");
-  ok(!ma.sections.some(function (s) { return s.kind === "state_notice"; }), "Massachusetts: no state notice prints while its text is null");
+  ok(ma.checklist.some(function (l) { return l.key === "notice:MA-142A-notices" && /^Massachusetts requires this notice: /.test(l.en) && /The exact wording is not loaded yet\. Get it from the official source or your attorney and attach it before the customer signs\. When: Residential contracting over \$1,000\./.test(l.en); }), "Massachusetts: a required notice with no wording loaded (the 142A notices that have no prescribed wording) is a checklist line, in the sentence the job gives");
+  ok(ma.sections.filter(function (s) { return s.kind === "state_notice"; }).map(function (s) { return s.id; }).sort().join() === "MA-blank-spaces,MA-cancel,MA-cancel-form" && !ma.sections.some(function (s) { return s.kind === "state_notice" && s.id === "MA-142A-notices"; }), "Massachusetts: the three notices with loaded wording print; the one with null text does not");
 
   const ri = (await h.compose(stateFx("residential-in-home-deposit", "RI"))).comp;
   ok(/Registration/.test(sec(ri, "L4").text) && !/licensed/i.test(sec(ri, "L4").text) && sec(ri, "L4").text === "Sunrise Pools LLC, Rhode Island Registration No. REG-12345.", "Rhode Island: the license line says Registration and never licensed");
@@ -243,7 +251,23 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
     writeFileSync(new URL(path, root), out);
     made.push(path);
   }
-  ok(made.length === 5 && made.every(function (m) { return readFileSync(new URL(m, root), "utf8").length > 200; }), "read-through files written for five states: " + made.join(", "));
+  // all states: every notice that prints, in full
+  {
+    let all = "Every state notice that prints in a contract (read this file to see every word a customer could see).\nFlorida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.\n\n", total = 0;
+    NON_FL.forEach(function (c) {
+      const pr = data.riders[c].notices.filter(function (n) { return n.text; });
+      all += "################ " + data.riders[c].name + " (" + c + ") - status: " + data.riders[c].status + " - prints: " + pr.length + " of " + data.riders[c].notices.length + " notices\n\n";
+      pr.forEach(function (n) {
+        total++;
+        all += "--- " + n.title + " (" + n.cite + ") ---\nState: " + data.riders[c].name + "\nTrigger: " + n.trigger + "\nPrints when: " + JSON.stringify(n.applies) + "\nFormat rule: " + n.format + "\nSource: " + n.source_status + " " + n.source_url + " (" + n.source_date + ")\n" + (n.range ? "Blanks to fill: " + (n.range.blanks.length ? n.range.blanks.join(" | ") : "none") + "\n" : "") + "TEXT:\n" + n.text + "\n\n";
+      });
+      if (!pr.length) { all += "(nothing prints for this state)\n\n"; }
+    });
+    all = "Total notices that print: " + total + "\n" + all;
+    writeFileSync(new URL("scripts/fixtures/state-notices-all.txt", root), all);
+    made.push("scripts/fixtures/state-notices-all.txt");
+  }
+  ok(made.length === 6 && made.every(function (m) { return readFileSync(new URL(m, root), "utf8").length > 200; }), "read-through files written for five states and the all-states file: " + made.join(", "));
 }
 
 // ── F5. Cancellation deadline ────────────────────────────────────────────
@@ -273,14 +297,14 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
 
 // ── E. Loading a notice's wording is a JSON edit only ────────────────────
 {
-  const n = h.riders.riders.MA.notices.filter(function (x) { return x.id === "MA-blank-spaces"; })[0];
+  const n = h.riders.riders.MA.notices.filter(function (x) { return x.id === "MA-142A-notices"; })[0];
   n.text = "EXACT OFFICIAL WORDING PLACEHOLDER FOR THIS TEST";
   const withText = (await h.compose(stateFx("residential-in-home-deposit", "MA"))).comp;
   const small = (await h.compose(stateFx("small-job", "MA", { amount_cents: 90000 }))).comp;
   n.text = null;
   const printed = withText.sections.filter(function (s) { return s.kind === "state_notice"; });
-  ok(printed.length === 1 && printed[0].id === "MA-blank-spaces" && printed[0].text === "EXACT OFFICIAL WORDING PLACEHOLDER FOR THIS TEST" && withText.checklist.some(function (l) { return l.key === "notice:MA-blank-spaces" && /^This notice prints in the contract/.test(l.en); }), "a notice whose text is filled in the JSON prints in the contract, word for word, with no code change");
-  ok(!small.sections.some(function (s) { return s.kind === "state_notice"; }) && !small.checklist.some(function (l) { return l.key === "notice:MA-blank-spaces"; }), "...and only when its trigger applies (not on a $900.00 job, under the $1,000 trigger)");
+  ok(printed.filter(function (x) { return x.id === "MA-142A-notices"; }).length === 1 && printed.filter(function (x) { return x.id === "MA-142A-notices"; })[0].text === "EXACT OFFICIAL WORDING PLACEHOLDER FOR THIS TEST" && withText.checklist.some(function (l) { return l.key === "notice:MA-142A-notices" && /^This notice prints in the contract/.test(l.en); }), "a notice whose text is filled in the JSON prints in the contract, word for word, with no code change");
+  ok(!small.sections.some(function (s) { return s.kind === "state_notice" && s.id === "MA-142A-notices"; }) && !small.checklist.some(function (l) { return l.key === "notice:MA-142A-notices"; }), "...and only when its trigger applies (not on a $900.00 job, under the $1,000 trigger)");
 }
 
 // ── F6 / G. Risky options, checklist, thresholds ─────────────────────────

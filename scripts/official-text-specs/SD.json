@@ -8,10 +8,13 @@
       "format": "Statement near the signature in 10 point bold; oral notice also required",
       "support": "Remodeling, flooring, pools and hardscape sold at the home are door to door sales.",
       "summary_row": "Statement beside the buyer's signature (10 point bold); oral notice",
-      "mode": "none",
+      "mode": "print",
       "block": "1. SDCL 37-24-5.3 (statement in the contract; oral notice)",
       "block_index": 0,
-      "hold_reason": "The block is the whole statute section, which also contains the rules about oral notice and misrepresenting the right to cancel, so printing it would put non-notice statute text in the contract; the notice sentence needs to be cut out by hand."
+      "start": "YOU, THE BUYER, MAY CANCEL",
+      "end": "EXPLANATION OF THIS RIGHT.",
+      "quote_note": "The statute puts the statement inside quotation marks after \"in substantially the following form:\"; the markers sit inside the quotes, so the quotation marks and the closing \";\" are excluded.",
+      "blanks": []
     },
     {
       "id": "SD-cancel-form",
@@ -19,13 +22,26 @@
       "cite": "SDCL 37-24-5.4",
       "trigger": "Door-to-door sale: the seller personally solicits (including at the buyer's invitation), price $25 or more, agreement made away from the seller's place of business",
       "format": "Completed form in duplicate, attached to the contract and easily detachable, ten point bold, all capitals",
-      "applies": { "sold_in_home": true },
+      "applies": {
+        "sold_in_home": true
+      },
       "support": "The form is all capitals in the statute and allows \"AN ELECTRONIC NOTICE\" of cancellation.",
       "summary_row": "NOTICE OF CANCELLATION form, in duplicate, 10 point bold, all capitals",
-      "mode": "none",
+      "mode": "print",
       "block": "2. SDCL 37-24-5.4 (Notice of Cancellation form)",
       "block_index": 0,
-      "hold_reason": "The block is the whole statute section, with the seller's duty wording before the form and the instruction to complete both copies after it, so printing it would put non-notice statute text in the contract; the form itself needs to be cut out by hand."
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(Buyer's signature)",
+      "quote_note": "No quotation marks around the form itself (only around the caption NOTICE OF CANCELLATION in the lead-in, which is outside the cut); the cut starts at the form caption line and ends at the buyer signature caption. Item (2), the seller duty to complete both copies, is excluded.",
+      "blanks": [
+        "(enter date of transaction) / (Date)",
+        "(Name of seller)",
+        "(address of seller's place of business)",
+        "__________ (Date) (deadline, not earlier than the third business day)",
+        "__________________ (Date) (buyer date)",
+        "__________________ (Buyer's signature)"
+      ]
     }
   ],
   "changes": [
@@ -33,9 +49,21 @@
       "path": "cancellation.text",
       "new": "Three business days; only a visit to repair or maintain the buyer's personal property is excepted",
       "support": "The repair exception is for the buyer's \"personal property\" only"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Optional pre-suit defect clause (21-1-16, 30 days); the 30 day rule binds the home owner by statute with or without contract wording",
+      "support": "The 21-1-16 clause is optional: the 30 day rule applies by statute with or without contract language."
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Excise tax license line only if the contractor uses one (no statute found that makes it a contract print item); copy the customer can store or print",
+      "support": "no statute was found in the first pass that makes it a contract print item"
     }
   ],
   "unsure": [
-    "SD-cancel and SD-cancel-form: the statute blocks are whole sections with seller-duty wording around the notice, so I held them rather than guess how much of that belongs in the contract."
+    "SD-cancel-form: SDCL 37-24-5.2(2) takes out a transaction in which the buyer has a federal right of rescission (credit sales); the builder cannot tell that, so the form is printed for every home sale. Whether the form should print on a financed home sale is for a lawyer.",
+    "SD-cancel-form: the lead-in line '(enter date of transaction)' then '(Date)' at the top of the form is printed exactly as the statute shows it; it reads like an instruction to the seller, and I kept it because it is inside the form.",
+    "SD-cancel-form: SDCL 37-24-5.2(2) excludes a transaction where the buyer has a federal right of rescission; the builder cannot tell that, so the form prints on every home sale."
   ]
 }

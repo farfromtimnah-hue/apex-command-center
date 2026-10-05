@@ -13,7 +13,9 @@
       "cite": "N.J.S.A. 56:8-151",
       "trigger": "Every home improvement contract for a price over $500, wherever signed; the right runs from the day the customer receives a copy",
       "format": "Conspicuous notice printed in at least 10-point bold-faced type; contractor name, address and phone filled in",
-      "applies": { "over_cents": 50000 },
+      "applies": {
+        "over_cents": 50000
+      },
       "support": "It applies to EVERY home improvement contract over $500, not only door-to-door sales, and the clock runs from receipt of the copy, not from signing.",
       "summary_row": "Written contract over $500, contents, three business day cancellation, \"NOTICE TO CONSUMER\"",
       "mode": "none",
@@ -30,6 +32,11 @@
       "path": "cancellation.text",
       "new": "Three business days from receipt of the contract, any reason, written notice by registered or certified mail or personal delivery; refund within 30 days (56:8-151)",
       "support": "may be cancelled by a consumer for any reason at any time before midnight of the third business day after the consumer receives a copy of it"
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Three day cancellation notice in 10 point bold (56:8-151, agency courtesy copy dated 2013) and CGL certificate",
+      "support": "Is the three-day cancellation in 56:8-151 (first pass: SECONDARY)? Yes, confirmed in the statute copy"
     }
   ],
   "unsure": [

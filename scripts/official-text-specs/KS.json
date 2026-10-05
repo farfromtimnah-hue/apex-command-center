@@ -5,10 +5,46 @@
     {
       "id": "KS-cancel",
       "trigger": "Door-to-door sale of $25 or more, including a visit the consumer asked for, made away from the supplier's place of business; not when the consumer asked the supplier to come to repair or maintain property, unless extra goods or services are sold on the visit",
-      "support": "50-640(c)(1): \"purchase price of $25 or more ... including those in response to or following an invitation by the consumer, and the consumer's agreement or offer to purchase is made at a place other than the place of business of the supplier.\" Exclusion (E) covers a consumer who \"specifically requested the supplier to visit the consumer's home for the purpose of repairing or performing maintenance upon the consumer's real or personal property\" (Kansas adds \"real\" property), but not additional goods or services sold on the visit.",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the consumer or on the front page of the receipt if a contract is not used and in boldface type of a minimum size of 10 points, a statement in substantially the following form",
       "summary_row": "Door-to-door statement near signature and duplicate NOTICE OF CANCELLATION form (all capitals)",
-      "mode": "none",
-      "hold_reason": "The block is the whole text of K.S.A. 50-640, including the supplier conduct rules, the refund duties and the definitions, so printing it would put statute text that is not the notice into the customer's contract; the statement and form cannot be taken out of it as separate blocks."
+      "mode": "print",
+      "title": "State cancellation statement in boldface near the signature",
+      "format": "Boldface type of at least 10 points, in immediate proximity to the space reserved in the contract for the consumer's signature; statement in substantially the statutory form (all capitals, no comma after YOU)",
+      "block": "K.S.A. 50-640: door-to-door sales",
+      "block_index": 0,
+      "start": "YOU THE BUYER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "Excluded: the statute's opening and closing quotation marks around the statement; the statement's own final period (inside the closing quote) is included. The sentence after the closing quote (the definition of 'buyer') is not part of the cut.",
+      "blanks": [],
+      "boundary_unsure": "none: the statement is set off by quotation marks after 'in substantially the following form'. The statute's exclusions (invited repair visit, immediate-emergency waiver, credit-sale rescission) are facts the builder does not know; it prints for any job sold at the customer's home."
+    },
+    {
+      "id": "KS-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form attached to the contract and easily detachable",
+      "cite": "K.S.A. 50-640(b)(2)",
+      "trigger": "Door-to-door sale of $25 or more, including a visit the consumer asked for, made away from the supplier's place of business; not when the consumer asked the supplier to come to repair or maintain property, unless extra goods or services are sold on the visit",
+      "format": "Completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract and easily detachable, in 10-point boldface, in the same language as the contract; supplier completes name, address, transaction date and cancellation deadline on both copies",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned \"NOTICE OF CANCELLATION,\" which shall be attached to the contract or receipt and be easily detachable, and which shall contain in 10-point boldface type the following information and statements in the same language, Spanish for example, as that used in the contract:",
+      "summary_row": "Door-to-door statement near signature and duplicate NOTICE OF CANCELLATION form (all capitals)",
+      "mode": "print",
+      "block": "K.S.A. 50-640: door-to-door sales",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "(Buyer's Signature)",
+      "quote_note": "none: the form is not in quotation marks; it follows 'the following information and statements ... as that used in the contract:' and the cut runs from its caption to the buyer's signature line.",
+      "blanks": [
+        "(Enter date of transaction) with its line",
+        "TO ____ (Name of Seller)",
+        "AT ____ (Address of Seller's Place of Business)",
+        "NOT LATER THAN MIDNIGHT OF ____ (Date)",
+        "(Date) signature date line",
+        "(Buyer's Signature) line"
+      ],
+      "boundary_unsure": "The form has no closing quotation mark; the end is taken at the (Buyer's Signature) line because subsection (3), which starts on the next line, is a separate duty (completing the blanks), not form text."
     },
     {
       "id": "KS-60-4706",
@@ -16,12 +52,19 @@
       "cite": "K.S.A. 60-4706",
       "trigger": "Contract for construction or remodel of a dwelling",
       "format": "Conspicuous; may be part of the contract; substantially the statutory form",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "Such notice shall be conspicuous and may be included as part of the underlying contract.",
       "summary_row": "Notice of contractor's right to offer repair (in or with the contract, construction or remodel of a dwelling)",
       "mode": "on_file",
       "block": "K.S.A. 60-4706: notice of contractor's right to offer repair",
-      "block_index": 0
+      "block_index": 0,
+      "start": "Kansas law contains important requirements you must follow",
+      "end": "affect your ability to file a lawsuit.",
+      "quote_note": "none: the wording is not in quotation marks; it follows 'Such notice shall be in substantially the following form:' and the state file says it 'begins at \"Kansas law contains\" and ends at \"file a lawsuit.\"'",
+      "blanks": [],
+      "boundary_unsure": "none: start and end are the ones the state file itself names. Kept on file, not printed, because the act's 'contractor' definition (engaged in the business of constructing dwellings) may not reach a remodel-only trade."
     }
   ],
   "changes": [
@@ -29,12 +72,17 @@
       "path": "defect_process.text",
       "new": "K.S.A. 60-4701 to 60-4704; contract notice in 60-4706; contractor's written response within 30 days of the notice of claim",
       "support": "Within 30 days after service of the notice of claim"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Notice of contractor's right to offer to repair construction defects, K.S.A. 60-4706 (conspicuous, substantially the statutory form, may be part of the contract)",
+      "support": "The first pass proposed a home-made \"pre-suit notice acknowledgment\"; the statutory text should be used instead."
     }
   ],
   "unsure": [
     "KS-60-4706: stored on file, not printed, because the act defines 'contractor' as one 'engaged in the business of constructing dwellings' and 'dwelling' narrowly (not manufactured homes), and the state file says it is not settled whether a remodel-only trade is covered; the builder only knows residential or not.",
     "KS-cancel: the invited-visit repair exclusion (50-640(c)(1)(E)) depends on facts the builder does not know, so the notice is held in any case.",
     "KS: K.S.A. 60-4707 (list of subcontractors to the buyer of a new dwelling, within 30 days after the sale closes) is handed over after the sale and only for new dwellings, so no notice was added.",
-    "KS: the checklist line 'Pre-suit notice acknowledgment, K.S.A. 60-4701' describes the first-pass home-made notice that the state file says should be replaced by the statutory 60-4706 text; checklist is not in the allowed change paths."
+    "KS-cancel and KS-cancel-form: printed for any job sold at the customer's home; the statute's exclusions (consumer asked the supplier to visit to repair or maintain property, emergency waiver, consumer-credit rescission) turn on facts the builder does not know."
   ]
 }

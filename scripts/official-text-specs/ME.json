@@ -5,8 +5,69 @@
     {
       "id": "ME-1487",
       "summary_row": "Home construction contract: threshold, 14 required parts, exact warranty, dispute and change order text, one-third down payment cap",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of 10 M.R.S. 1487 (all 14 required parts, the one-third deposit cap and the amendment notes), so printing it would put non-notice statute text in the contract; the warranty, dispute and change order sentences sit inside it, and the dispute text is printed in the statute with ( ) marks while the Attorney General's model uses check boxes."
+      "mode": "print",
+      "title": "Mandatory warranty statement",
+      "cite": "10 M.R.S. 1487(7)",
+      "trigger": "Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor",
+      "format": "Exact statutory text ('A warranty statement which reads'); no type size",
+      "applies": {
+        "over_cents": 300000,
+        "residential": true
+      },
+      "support": "Buildings used for commercial or business purposes are not subject to this chapter.",
+      "block": "1. 10 M.R.S. 1487 (entire section)",
+      "block_index": 0,
+      "start": "In addition to any additional warranties agreed to by the parties",
+      "end": "apply to this contract",
+      "quote_note": "Excluded: the statute's opening and closing quotation marks and the semicolon after the closing quote.",
+      "blanks": [],
+      "boundary_unsure": "none: inside quotation marks after 'A warranty statement which reads'. The Attorney General's model contract says 'additional express warranties'; the statute's wording is the mandated text and is the one cut."
+    },
+    {
+      "trigger": "Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor",
+      "applies": {
+        "over_cents": 300000,
+        "residential": true
+      },
+      "summary_row": "Home construction contract: threshold, 14 required parts, exact warranty, dispute and change order text, one-third down payment cap",
+      "block": "1. 10 M.R.S. 1487 (entire section)",
+      "block_index": 0,
+      "mode": "print",
+      "id": "ME-1487-dispute",
+      "title": "Mandatory dispute resolution statement (choose one: binding arbitration, nonbinding arbitration, mediation)",
+      "cite": "10 M.R.S. 1487(8)",
+      "format": "Exact statutory minimum wording; the statute prints '( )' after each of three options; no type size",
+      "support": "Buildings used for commercial or business purposes are not subject to this chapter.",
+      "start": "If a dispute arises concerning the provisions of this contract",
+      "end": "in advance of filing a lawsuit ( )",
+      "quote_note": "Excluded: the statute's opening quotation mark before 'If a dispute arises' and the closing quotation mark and semicolon after 'lawsuit ( )'.",
+      "blanks": [
+        "( ) after Binding arbitration option",
+        "( ) after Nonbinding arbitration option",
+        "( ) after Mediation option"
+      ],
+      "boundary_unsure": "none: inside quotation marks after 'At a minimum, this statement must provide the following information:'. The statement spans several paragraphs of the statute with blank lines between them, all kept. The Attorney General's model uses check boxes and adds a fourth box; the statute's ( ) form is the one cut."
+    },
+    {
+      "trigger": "Home construction contract (build, remodel or repair a residence of 3 or fewer living units) for more than $3,000 in materials or labor",
+      "applies": {
+        "over_cents": 300000,
+        "residential": true
+      },
+      "summary_row": "Home construction contract: threshold, 14 required parts, exact warranty, dispute and change order text, one-third down payment cap",
+      "block": "1. 10 M.R.S. 1487 (entire section)",
+      "block_index": 0,
+      "mode": "print",
+      "id": "ME-1487-change-order",
+      "title": "Mandatory change order statement",
+      "cite": "10 M.R.S. 1487(9)",
+      "format": "Exact statutory text ('A change order statement which reads'); no type size",
+      "support": "Buildings used for commercial or business purposes are not subject to this chapter.",
+      "start": "Any alteration or deviation from the above contractual specifications",
+      "end": "entering into a written change order",
+      "quote_note": "Excluded: the statute's opening and closing quotation marks and the semicolon after the closing quote.",
+      "blanks": [],
+      "boundary_unsure": "none: inside quotation marks after 'A change order statement which reads'."
     },
     {
       "id": "ME-ag",
@@ -18,14 +79,45 @@
     },
     {
       "id": "ME-cancel",
-      "title": "State statement of the right to avoid (cash sales) and BUYER'S RIGHT TO CANCEL statement (credit sales)",
-      "cite": "32 M.R.S. 4662, 4664-A (cash sales); 9-A M.R.S. 3-503 (credit sales)",
-      "trigger": "Cash sale where the seller made direct contact without the consumer soliciting it, price $25 or more; credit sale solicited and signed at the buyer's residence",
-      "format": "Cash sales: a statement of the right to avoid and of the 4664-A limit, in the seller's own words, no form; credit sales: the statement under the conspicuous caption BUYER'S RIGHT TO CANCEL, no type size, FTC form accepted",
-      "support": "Title 32 prescribes NO notice wording, only \"a statement of the consumer's right to avoid\" and \"a statement of the limitation contained in section 4664‑A\". Title 9-A prescribes exact wording.",
+      "title": "BUYER'S RIGHT TO CANCEL statement (credit sales)",
+      "cite": "9-A M.R.S. 3-503(2)(B)",
+      "trigger": "Credit sale solicited and signed at the buyer's residence (home solicitation sale of goods or services)",
+      "format": "Exact statutory statement under the conspicuous caption BUYER'S RIGHT TO CANCEL; no type size; FTC form accepted if it gives at least equal information (3-503(3))",
+      "support": "Title 9-A prescribes exact wording.",
       "summary_row": "Home solicitation sale (credit sales): \"BUYER'S RIGHT TO CANCEL\" statement",
-      "mode": "none",
-      "hold_reason": "The only block for the credit statement is five whole sections of 9-A M.R.S. 3-501 to 3-505, so printing it would put non-notice statute text in the contract; Title 32 prescribes no wording; and whether a sale is credit or cash is not something the builder knows."
+      "mode": "on_file",
+      "block": "4. 9-A M.R.S. 3-501, 3-502, 3-503, 3-504, 3-505 (home solicitation sale, credit)",
+      "block_index": 0,
+      "start": "If this agreement was solicited at your residence",
+      "end": "when cancellation right lapses.",
+      "end_occurrence": 2,
+      "quote_note": "Excluded: the statute's opening quotation mark before 'If this agreement' and its closing quotation mark after the final 'lapses.' (the period inside the quote is included).",
+      "blanks": [
+        "..........(Stated date) after 'mailed before midnight of'",
+        "..........  (Insert name and mailing address of seller)",
+        "..........(Stated date) after 'until'"
+      ],
+      "boundary_unsure": "none for the edges (inside quotation marks after 'Read as follows:'; end_occurrence 2 because 'when cancellation right lapses.' ends two sentences). Stored on file only: credit sales only, which the builder cannot tell. Title 32 (cash sales) prescribes no wording."
+    },
+    {
+      "id": "ME-cancel-caption",
+      "title": "Conspicuous caption BUYER'S RIGHT TO CANCEL (credit sales)",
+      "cite": "9-A M.R.S. 3-503(2)(A)",
+      "trigger": "Credit sale solicited and signed at the buyer's residence (home solicitation sale of goods or services)",
+      "format": "Conspicuous caption over the statement; no type size",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Appear under the conspicuous caption: \"BUYER'S RIGHT TO CANCEL;\"",
+      "summary_row": "Home solicitation sale (credit sales): \"BUYER'S RIGHT TO CANCEL\" statement",
+      "mode": "on_file",
+      "block": "4. 9-A M.R.S. 3-501, 3-502, 3-503, 3-504, 3-505 (home solicitation sale, credit)",
+      "block_index": 0,
+      "start": "BUYER'S RIGHT TO",
+      "end": "CANCEL",
+      "quote_note": "Excluded: the statute's quotation marks and the semicolon inside the closing quote.",
+      "blanks": [],
+      "boundary_unsure": "none: the caption is the words inside the quotation marks after 'Appear under the conspicuous caption:'. Stored on file with the credit-sale statement."
     }
   ],
   "changes": [
@@ -53,8 +145,8 @@
   "unsure": [
     "ME-ag: the addendum is required with every contract over $3,000 and should print, but the state file says it changes and must be re-fetched, so it is held rather than stored.",
     "ME-ag: this one notice covers both the 1487(13) addendum and the 1487(14) website-and-phone notice; the second has no prescribed sentence, and the Attorney General's model contract section 14 links to a test host (uat) that must not be printed.",
-    "ME-1487: the warranty, dispute and change order sentences are the text the law mandates, but they only exist inside the whole-section block; the statute and the Attorney General's model differ in small ways (express warranties, a fourth check box, MUBEC).",
-    "ME-cancel: kept as one notice although cash and credit sales are governed by different statutes; the cash statute has no wording to load.",
-    "cancellation.no_work_or_payment_in_window left true: the file says work is barred only where merchandise is permanently affixed, which is a partial ban."
+    "cancellation.no_work_or_payment_in_window left true: the file says work is barred only where merchandise is permanently affixed, which is a partial ban.",
+    "ME-1487, ME-1487-dispute, ME-1487-change-order: the statute's mandated sentences; the Attorney General's model differs in small ways (express warranties, check boxes with a fourth box, MUBEC). The statute's own words are the ones cut. applies now also requires residential (the chapter excludes buildings used for commercial or business purposes).",
+    "ME-cancel: now only the credit-sale statement (9-A 3-503), stored on file because the builder does not know whether a sale is credit. The cash-sale statements in 32 M.R.S. 4662(1)(F) and (G) have no prescribed wording and are not loaded."
   ]
 }

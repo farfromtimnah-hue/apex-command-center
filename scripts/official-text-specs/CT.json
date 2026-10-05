@@ -6,12 +6,88 @@
       "id": "CT-cancel",
       "cite": "C.G.S. 42-135a; 20-429(e)",
       "trigger": "Every home improvement contract wherever it is signed, and any other sale of consumer services away from the seller's place of business",
-      "format": "Buyer statement in immediate proximity to the signature space in boldface of at least twelve points; detachable duplicate NOTICE OF CANCELLATION in twelve-point boldface, same language as the contract; the emailed-contract sentence when the contract is sent by email",
-      "applies": { "residential": true },
-      "support": "Each home improvement contract entered into shall be considered a home solicitation sale pursuant to chapter 740 and shall be subject to the requirements of said chapter regardless of the location of the transaction or of the signing of the contract.",
+      "format": "In immediate proximity to the space reserved in the contract for the buyer's signature, or on the front page of the receipt, in boldface type of a minimum size of twelve points; same language as the oral sales presentation",
+      "applies": {
+        "residential": true
+      },
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer, or on the front page of the receipt if a contract is not used, and in boldface type of a minimum size of twelve points, a statement in substantially the following form",
       "summary_row": "Buyer statement beside signature, NOTICE OF CANCELLATION form, email sentence, seller duties",
-      "mode": "none",
-      "hold_reason": "the block is the whole of 42-135a, which also carries the seller's duties (oral notice, refund within ten business days, no assignment of notes, no waiver) around the notice wording, so printing it would put non-notice statute text in the contract"
+      "mode": "print",
+      "title": "Buyer statement in immediate proximity to the buyer's signature space (cancel any time before midnight of the third business day)",
+      "block": "1. C.G.S. 42-135a (entire section, as amended effective July 1, 2025)",
+      "block_index": 0,
+      "start": "YOU, THE BUYER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "none: the statement follows 'a statement in substantially the following form:' and is not in quotation marks.",
+      "blanks": []
+    },
+    {
+      "id": "CT-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate, detachable",
+      "cite": "C.G.S. 42-135a(2); 20-429(e)",
+      "trigger": "Every home improvement contract wherever it is signed, and any other sale of consumer services away from the seller's place of business",
+      "format": "Completed by the seller in duplicate, attached to the contract or receipt and easily detachable, in twelve-point boldface type, in the same language as the contract; the deadline date inserted in boldface type by the seller",
+      "applies": {
+        "residential": true
+      },
+      "support": "a form completed by the seller in duplicate, captioned “NOTICE OF CANCELLATION”, which shall be attached to the contract or receipt and easily detachable, and which shall contain in twelve-point boldface type the following information and statements in the same language as that used in the contract",
+      "summary_row": "Buyer statement beside signature, NOTICE OF CANCELLATION form, email sentence, seller duties",
+      "mode": "print",
+      "block": "1. C.G.S. 42-135a (entire section, as amended effective July 1, 2025)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "Signed:",
+      "quote_note": "The statute's opening quotation mark (before NOTICE OF CANCELLATION) and closing mark (after 'Signed:') are excluded by placing the markers inside them.",
+      "blanks": [
+        "Seller: (Seller's name inserted by seller)",
+        "Date of Transaction: (Date of transaction inserted by seller)",
+        "(date of the third business day after the date of the transaction, as inserted in boldface type by seller)",
+        "(Seller's name inserted by seller) under 'send it either by email, by fax, or by regular mail to:'",
+        "Email: (Seller's business electronic mail address inserted by seller)",
+        "Fax: (Seller's fax number inserted by seller)",
+        "Regular mail: (Address of seller's place of business inserted by seller)",
+        "Dated:",
+        "Signed:"
+      ]
+    },
+    {
+      "id": "CT-email-sentence",
+      "title": "Sentence to place beside an emailed copy of the agreement",
+      "cite": "C.G.S. 42-135a(10)",
+      "trigger": "When a digital copy of the agreement is provided by email or another electronic delivery method",
+      "format": "Immediately adjacent to the body of the message, in at least twelve-point type or the size of the body of the message if larger",
+      "applies": {
+        "emailed_contract": true
+      },
+      "support": "to include the following statement, immediately adjacent to the body of the message, in at least twelve-point type or, if the body of the message is in larger size type, the same size type as the body of the message",
+      "summary_row": "Buyer statement beside signature, NOTICE OF CANCELLATION form, email sentence, seller duties",
+      "mode": "on_file",
+      "block": "1. C.G.S. 42-135a (entire section, as amended effective July 1, 2025)",
+      "block_index": 0,
+      "start": "PLEASE REVIEW IMPORTANT INFORMATION ABOUT YOUR RIGHT TO CANCEL",
+      "end": "BEING PROVIDED TO YOU.",
+      "quote_note": "The statute's own quotation marks around NOTICE OF CANCELLATION lie inside the sentence and stay in the cut; the sentence itself is not in quotation marks.",
+      "blanks": []
+    },
+    {
+      "id": "CT-note-statement",
+      "title": "Statement on the face of any note given in a home solicitation sale",
+      "cite": "C.G.S. 42-136(b)",
+      "trigger": "Each note or other evidence of indebtedness given by a buyer in a home solicitation sale",
+      "format": "Conspicuous statement on the face of the note (not in the contract)",
+      "applies": {
+        "note_taken": true
+      },
+      "support": "Each note or other evidence of indebtedness given by a buyer in respect of a home solicitation sale shall bear on its face a conspicuous statement as follows",
+      "summary_row": "Statement on any note",
+      "mode": "on_file",
+      "block": "3. C.G.S. 42-136(b), 42-137, 42-138(a), 42-139(c)",
+      "block_index": 0,
+      "start": "THIS INSTRUMENT IS BASED UPON A HOME SOLICITATION SALE",
+      "end": "THIS INSTRUMENT IS NOT NEGOTIABLE.",
+      "quote_note": "none: the statement follows 'as follows:' and is not in quotation marks.",
+      "blanks": []
     }
   ],
   "changes": [
@@ -54,11 +130,19 @@
       "path": "cleaning.auto_renewal.scope_and_confidence",
       "new": "Official text (2026 Supplement, version on and after July 1, 2026); the disclosure lists were not compared word for word between the two versions; month to month plans are covered",
       "support": "the lists (i) to (vii) were not compared word for word between the two versions"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Chapter 740 buyer statement beside the signature and NOTICE OF CANCELLATION form (twelve point bold, duplicate, detachable, same language, email and fax cancellation)",
+      "support": "The type size is now TWELVE point (not ten), the NOTICE OF CANCELLATION has entirely new wording"
     }
   ],
   "unsure": [
-    "CT-cancel: the notice, the buyer statement and the emailed-contract sentence all sit inside the whole 42-135a section with the seller's duties, so nothing is loaded; I did not add a separate notice for the emailed-contract sentence because it goes in the email, not the contract.",
     "CT-cancel: applies is now residential because 20-429(e) makes every home improvement contract a home solicitation sale, but the builder may also write non-home-improvement residential jobs.",
-    "CT-cancel: the file says the old ten point form and the 2017 DCP guide are outdated, so I did not use them."
+    "CT-cancel: the file says the old ten point form and the 2017 DCP guide are outdated, so I did not use them.",
+    "CT-cancel (buyer statement) and CT-cancel-form print for residential jobs because 20-429(e) makes every home improvement contract a home solicitation sale; the builder cannot tell home improvement from other residential work.",
+    "CT-cancel-form: the cut includes the statute's parenthetical '(Instructions for seller: ...)' line, which is part of the quoted form and is printed as written.",
+    "CT-email-sentence: goes in the email beside the contract, not in the contract, so stored on file only.",
+    "CT-note-statement: goes on the face of a note, so stored on file only."
   ]
 }

@@ -1,12 +1,54 @@
 State notices a customer would see: Massachusetts (MA), residential job, $12,500.00, sold at the customer's home.
 Status: notice text still needs official copy
 
-== PRINTED IN THE CONTRACT (0) ==
+== PRINTED IN THE CONTRACT (3) ==
 
-(no state notice prints for this state yet)
+--- "Do not sign this contract if there are any blank spaces" line (c. 142A s. 2) ---
+Do not sign this contract if there are any blank spaces
+
+--- State cancellation statement near the buyer's signature (M.G.L. c. 93 s. 48(B)) ---
+You may cancel this agreement if it has been signed by a party thereto at a place other than an address of the seller, which may be his main office or branch thereof, provided you notify the seller in writing at his main office or branch by ordinary mail posted, by telegram sent or by delivery, not later than midnight of the third business day following the signing of this agreement.
+
+See the attached notice of cancellation form for an explanation of this right.
+
+--- Duplicate NOTICE OF CANCELLATION form attached to the agreement and easily detachable (M.G.L. c. 93 s. 48(B)) ---
+NOTICE OF CANCELLATION
+
+(Enter date of transaction)(Date)
+
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the agreement, and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this agreement; or you may if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to
+
+to ___,
+
+(Name of seller)
+
+at ___ not later
+
+(Address of seller's place of business)
+
+than midnight of ___.
+ (Date)
+
+I hereby cancel this transaction.
+
+___
+ (Date)
+
+___
+(Buyer's signature)
 
 == OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
 
-- [warn] Massachusetts requires this notice: "Do not sign this contract if there are any blank spaces" line (c. 142A s. 2). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting over $1,000. Format: 10 point bold directly above the owner's signature.
+- [info] This notice prints in the contract: "Do not sign this contract if there are any blank spaces" line (c. 142A s. 2). When: Residential contracting over $1,000. Format: Ten point bold type or larger, directly above the space provided for the signature.
 - [warn] Massachusetts requires this notice: Notices of registration, cancellation, warranties, lien or security interest, and the permit paragraph (c. 142A s. 2). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting over $1,000. Format: A clear and conspicuous notice appearing in the contract.
-- [warn] Massachusetts requires this notice: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (c. 93 s. 48). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Door-to-door sale or a sale made away from the seller's place of business, $25 or more. Format: Statement near the signature in 10 point bold, plus a detachable duplicate NOTICE OF CANCELLATION.
+- [info] This notice prints in the contract: State cancellation statement near the buyer's signature (M.G.L. c. 93 s. 48(B)). When: Door-to-door sale or a sale made away from the seller's place of business, $25 or more. Format: Statement on the front page in immediate proximity to the space reserved for the buyer's signature, in boldface type of a minimum size of ten points.
+- [info] This notice prints in the contract: Duplicate NOTICE OF CANCELLATION form attached to the agreement and easily detachable (M.G.L. c. 93 s. 48(B)). When: Door-to-door sale or a sale made away from the seller's place of business, $25 or more. Format: Completed form in duplicate, easily detachable, attached to the agreement, in ten point boldface, in the same language as the agreement.
+- [warn] Massachusetts requires this notice: Optional contractor-initiated arbitration clause (acceptable language) with separate signature block (201 CMR 18.05(2)(e)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Only when the contractor chooses to include a contractor-initiated arbitration clause. Format: Clearly and conspicuously disclosed; each party separately signs and dates the provision.

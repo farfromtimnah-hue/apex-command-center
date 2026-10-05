@@ -4,16 +4,20 @@
   "notices": [
     {
       "id": "ND-cancel",
-      "title": "NOTICE TO BUYER and NOTICE OF CANCELLATION form",
-      "cite": "N.D.C.C. 51-18-04",
+      "title": "NOTICE TO BUYER (personal solicitation sale)",
+      "cite": "N.D.C.C. 51-18-04 (NOTICE TO BUYER)",
       "trigger": "Personal solicitation sale: sale of consumer goods or services solicited by telephone or in person, with the agreement made away from the seller's place of business; 15 business days for buyers 65 or older",
-      "format": "Conspicuous NOTICE TO BUYER inside the agreement, substantially the statutory form; attached completed NOTICE OF CANCELLATION in duplicate; seller also tells the buyer orally",
-      "support": "a sale is covered when \"the seller or the seller's representative solicits the sale, lease, or rental, by telephone or in person, and the buyer's agreement or offer to purchase is made at a place other than the place of business of the person soliciting\"",
-      "mode": "none",
+      "format": "Conspicuous notice inside the agreement, substantially the statutory form; no type size stated",
+      "support": "contains a conspicuous notice in\nsubstantially the following form:",
+      "mode": "print",
       "block": "1. N.D.C.C. 51-18-04, Agreement requirement (both notices)",
       "block_index": 0,
-      "hold_reason": "The block is the whole section: besides the two notices it carries the enforceability sentence and a conditional paragraph for buyers 65 or older that the builder cannot decide, so printing it would put non-notice statute text in the customer's contract.",
-      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, complete; age 65 rule"
+      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, complete; age 65 rule",
+      "start": "NOTICE TO BUYER",
+      "end": "repossess goods purchased under this agreement.",
+      "quote_note": "None: the statute does not use quotation marks. The notice is the heading NOTICE TO BUYER and its five numbered points, ending before 'The agreement must also have attached the following completed form'.",
+      "blanks": [],
+      "boundary_unsure": "None; edges are certain."
     },
     {
       "id": "ND-completion",
@@ -25,7 +29,7 @@
       "mode": "none",
       "block": "6. N.D.C.C. 43-07-24 and 43-07-26",
       "block_index": 0,
-      "hold_reason": "The block holds two sections: 43-07-24 (license number on a building permit application, not contract text) as well as 43-07-26, and 43-07-26 is the whole section with operative rules; the file gives no standalone notice wording.",
+      "hold_reason": "43-07-26 prescribes no wording: the contractor 'shall provide the purchaser or owner written notice of the requirements of this section' at completion; the block is the whole section (with 43-07-24 before it) and a notice is not worded",
       "summary_row": "Warranty repairs notice the contractor must hand over at completion"
     },
     {
@@ -38,11 +42,46 @@
         "sold_in_home": true
       },
       "support": "In a type size in a minimum of twelve points, in a space immediately preceding the space allotted for the consumer signature",
-      "mode": "none",
+      "mode": "print",
       "block": "3. N.D.C.C. 51-18-04.1, 51-18-04.2, 51-18-04.3",
       "block_index": 0,
-      "hold_reason": "The block is three whole sections (contract contents, advance payment ban, void agreement); printing it would put non-notice statute text in the contract. The statement itself is one line in 51-18-04.1(4).",
-      "summary_row": "Extra contract contents, 12 point statement, no advance payment, void agreement"
+      "summary_row": "Extra contract contents, 12 point statement, no advance payment, void agreement",
+      "start": "YOU ARE NOT",
+      "end": "RETURN IT TO THE SELLER.",
+      "quote_note": "The statute's opening and closing quotation marks are left out: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark. The statement runs over three lines of the PDF; the line breaks are copied as printed.",
+      "blanks": [],
+      "boundary_unsure": "Edges are certain (inside the statute's quotation marks). Printed for 'sold at the customer's home'; the file says it is not settled by the text whether 51-18-04.1 reaches sellers who are not telepromoters."
+    },
+    {
+      "id": "ND-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate (personal solicitation sale)",
+      "cite": "N.D.C.C. 51-18-04 (NOTICE OF CANCELLATION)",
+      "trigger": "Personal solicitation sale: sale of consumer goods or services solicited by telephone or in person, with the agreement made away from the seller's place of business; 15 business days for buyers 65 or older",
+      "format": "Completed form attached to the agreement, in duplicate; the seller also tells the buyer orally; no type size stated",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "The agreement must also have attached the following completed form, in duplicate:",
+      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, complete; age 65 rule",
+      "mode": "print",
+      "block": "1. N.D.C.C. 51-18-04, Agreement requirement (both notices)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(Buyer's signature)",
+      "end_occurrence": 2,
+      "quote_note": "None: the statute does not use quotation marks. The cut runs from the heading NOTICE OF CANCELLATION to the second '(Buyer's signature)' (the one after 'I hereby cancel this transaction.').",
+      "blanks": [
+        "(Enter date of transaction)",
+        "(Date) under point 5",
+        "(Buyer's signature) under point 5 (acknowledgment of the oral notice)",
+        "(electronic mail address of seller)",
+        "(name of seller)",
+        "(address of seller's place of business)",
+        "(date) in the not-later-than sentence",
+        "(Date) under I hereby cancel this transaction.",
+        "(Buyer's signature) under I hereby cancel this transaction."
+      ],
+      "boundary_unsure": "The start is certain. The end is the final '(Buyer's signature)'; the next paragraph ('If the buyer is sixty-five years of age or older ... the agreement required by this chapter must either state ...') is an instruction about what the agreement must say, not part of the form, so it is left out; the PDF gives no explicit marker between them other than that wording. The PDF extraction leaves a blank line before point 6, copied as printed."
     }
   ],
   "changes": [
@@ -78,8 +117,8 @@
   ],
   "unsure": [
     "ND-cancel: the statute covers any sale solicited by telephone or in person and agreed away from the seller's place of business, but the builder only knows 'sold at the customer's home'.",
-    "ND-cancel: the block is the whole of 51-18-04 including the conditional 65-or-older paragraph; it could be loaded if the paragraph counts as an instruction line for the notice.",
+    "ND-cancel / ND-cancel-form: loaded as two notices; the conditional 65-or-older paragraph that follows the form is left out as an instruction about the agreement, not part of the form.",
     "ND-not-obligated: the file says it is unsettled whether 51-18-04.1 reaches sellers who are not telepromoters.",
-    "ND-completion: the notice is handed over at completion, not in the contract, and the file says printing the section's own words in the contract or the completion certificate meets it."
+    "ND-completion: held; 43-07-26 requires a written notice of its requirements at completion but gives no wording to copy."
   ]
 }

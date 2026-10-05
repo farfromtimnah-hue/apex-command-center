@@ -11,12 +11,38 @@
       "applies": {
         "sold_in_home": true
       },
-      "support": "with a prescribed statement under the caption \"BUYERS RIGHT TO CANCEL\"",
-      "mode": "none",
+      "support": "(B) read as follows:",
+      "mode": "print",
       "block": "7. D.C. Code 28-3811, home solicitation sales (the full section)",
       "block_index": 0,
-      "hold_reason": "The block is the whole statute section (cancellation, refund and goods rules around the statement); printing it would put non-notice statute text in the contract. The statement is only subsection (g)(2).",
-      "summary_row": "Home solicitation sale: \"BUYERS RIGHT TO CANCEL\" statement, three business days, emergency waiver wording"
+      "summary_row": "Home solicitation sale: \"BUYERS RIGHT TO CANCEL\" statement, three business days, emergency waiver wording",
+      "start": "If this agreement was solicited at or near your residence",
+      "end": "keep any of your cash down payment.",
+      "quote_note": "The statute's opening curly quotation mark before 'If this agreement' and its closing curly mark after 'down payment.' are excluded by placing the markers inside them. The two straight quotation marks the Council page prints before '(insert name and address of seller)' and 'If you cancel' are inside the cut and are kept as printed. The caption BUYERS RIGHT TO CANCEL is in a separate sub-paragraph (A) and is not part of the cut; it stays in the format field.",
+      "blanks": [
+        "(insert name and address of seller)"
+      ],
+      "boundary_unsure": "Caption not included in the cut (statute puts it in (g)(2)(A), apart from the 'read as follows' text). The cut contains the statute's own straight quote marks before the seller line and before 'If you cancel'."
+    },
+    {
+      "id": "DC-waiver",
+      "title": "Emergency waiver of right to cancel (separately signed)",
+      "cite": "D.C. Code 28-3811(f)(3)",
+      "trigger": "Only when the buyer requests goods or services without delay because of an emergency and signs the waiver separately",
+      "format": "Signed separately by the buyer; under the conspicuous caption WAIVER OF RIGHT TO CANCEL",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "the buyer has signed separately the following notice which appears under the conspicuous caption: “WAIVER OF RIGHT TO CANCEL,” and reads as follows",
+      "summary_row": "Home solicitation sale: \"BUYERS RIGHT TO CANCEL\" statement, three business days, emergency waiver wording",
+      "mode": "on_file",
+      "block": "7. D.C. Code 28-3811, home solicitation sales (the full section)",
+      "block_index": 0,
+      "start": "Because of an emergency",
+      "end": "cancel this home solicitation sale",
+      "quote_note": "The curly quotation marks around the waiver sentence are excluded by placing markers inside them; the statute's closing quote and the final period placement ('sale”.') are outside the cut. The caption WAIVER OF RIGHT TO CANCEL is outside the cut.",
+      "blanks": [],
+      "boundary_unsure": "The statute prints no period inside the quotation marks, so the cut ends at 'sale' with no period."
     },
     {
       "id": "DC-808-15",
@@ -81,11 +107,23 @@
       "path": "cleaning.auto_renewal.scope_and_confidence",
       "new": "OFFICIAL; the service contract exemption in 28A-204(4) points to D.C. Code 31-2351.01(10), which was not read",
       "support": "which was not read; from its title number it is the insurance title's product service contract, but confirm before relying on that"
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "Contract form approved by the Director before use (16 DCMR 811), with contractor license number and participating salespersons' names and license numbers (808.4, 808.9)",
+      "support": "No contractor shall use any contract form or receipt form required by this chapter unless a sample of the form has first been submitted to and approved for compliance with this chapter by the Director."
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "No payment ahead of full completion for unlicensed persons (16 DCMR 800.1)",
+      "support": "No person shall require or accept any payment for a home improvement contract to be undertaken in the District in advance of the full completion of all work required to be performed under the contract, unless that person is licensed"
     }
   ],
   "unsure": [
     "DC-808-15: the notice is required but its wording is left to the Director, so no text can be loaded and a sentence the owner writes needs DLCP's approval.",
-    "DC-home-solicitation: held because the block is the whole 28-3811 section; the statement itself is in (g)(2) only.",
-    "D.C. Code 28A-203(a) automatic renewal disclosure prescribes no sentence, so no notice was added."
+    "D.C. Code 28A-203(a) automatic renewal disclosure prescribes no sentence, so no notice was added.",
+    "DC-home-solicitation: statement printed for any in-home sale; the statute also covers goods and credit sales, and (j) excludes sales with a public insurance adjuster (not decided by the builder).",
+    "DC-waiver: only used when the buyer asks for emergency work; stored on file, never printed automatically. It must be signed separately, so it may not belong inside the contract text.",
+    "DC cancellation.business_days stays 3: the file shows no longer period for home improvement contracts."
   ]
 }

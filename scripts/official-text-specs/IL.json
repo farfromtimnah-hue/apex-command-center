@@ -8,29 +8,95 @@
       "applies": {},
       "support": "For any contract for $1,000 or under, any person engaging in the business of home repair and remodeling shall provide to its customers a copy of the \"Home Repair: Know Your Consumer Rights\" pamphlet. No written acknowledgment of receipt of the pamphlet is required for a contract of $1,000 or under.",
       "summary_row": "Pamphlet \"Home Repair: Know Your Consumer Rights\" (full text fixed by statute) and Consumer Rights Acknowledgment Form sentence",
-      "mode": "none",
+      "mode": "on_file",
       "block": "815 ILCS 513/20: pamphlet \"Home Repair: Know Your Consumer Rights\" and Consumer Rights Acknowledgment Form (full statutory pamphlet text)",
       "block_index": 0,
-      "hold_reason": "The only block is the whole section 513/20, with the duty and acknowledgment-form rules in (a) and (b) around the pamphlet, and the pamphlet must be a separate document; printing the block would put non-notice statute text in the contract."
+      "start": "HOME REPAIR: KNOW YOUR CONSUMER RIGHTS",
+      "end": "Chicago (800) 386-5438",
+      "quote_note": "The statute's opening quotation mark before HOME REPAIR and its closing quotation mark (followed by a period) after the Chicago number are excluded by placing the markers inside them. Inner double quotation marks (\"Sworn Statement\") are the statute's own and are inside the cut. The statute prints the pamphlet's numbered paragraphs with indentation as the page serves them.",
+      "blanks": [
+        "(name of contractor) and (address of contractor's place of business) inside BASIC TERMS item (7), which are blanks in the statutory pamphlet text"
+      ],
+      "boundary_unsure": "Edges are clear (the statute says 'The pamphlet shall read as follows:' and the text sits in one quoted block ending at the Chicago number). The Attorney General's designed PDF is worded differently from this statutory text (file, conflict 6); the statutory text is the one fixed by law. Stored on file only because the statute says the pamphlet must be a separate document in at least 12 point type."
+    },
+    {
+      "id": "IL-ack-form",
+      "title": "Consumer Rights Acknowledgment Form sentence",
+      "cite": "815 ILCS 513/20(a)",
+      "trigger": "Contract over $1,000: the consumer signs and dates an acknowledgment of receipt of the pamphlet; the contractor or representative also signs and dates it, with the business name and address; duplicate, incorporated into the pamphlet",
+      "format": "Separate acknowledgment form entitled Consumer Rights Acknowledgment Form, in duplicate, incorporated into the pamphlet; original kept by the contractor, duplicate kept in the pamphlet by the consumer",
+      "applies": {
+        "over_cents": 100000
+      },
+      "support": "The consumer shall sign and date an acknowledgment form entitled \"Consumer Rights Acknowledgment Form\" that states:",
+      "summary_row": "Pamphlet \"Home Repair: Know Your Consumer Rights\" (full text fixed by statute) and Consumer Rights Acknowledgment Form sentence",
+      "mode": "on_file",
+      "block": "815 ILCS 513/20: pamphlet \"Home Repair: Know Your Consumer Rights\" and Consumer Rights Acknowledgment Form (full statutory pamphlet text)",
+      "block_index": 0,
+      "start": "I, the homeowner, have received from the contractor",
+      "end": "Know Your Consumer Rights.'",
+      "quote_note": "The statute's outer double quotation marks around the sentence are excluded by placing the markers inside them (the sentence ends Rights.' and then the closing double mark). The inner single quotation marks around the pamphlet title are the statute's own and are inside the cut.",
+      "blanks": [],
+      "boundary_unsure": "Edges are clear (quoted sentence after 'that states:'). The statute also requires dated signatures of the homeowner and of the contractor or representative and the business name and address on the form; those lines are not printed in the statute, so none are in the cut and there are no blanks to list from it."
     },
     {
       "id": "IL-lien",
       "summary_row": "Notice to owner (sworn statement), owner-occupied single-family",
-      "mode": "none",
+      "mode": "on_file",
       "block": "770 ILCS 60/5: sworn statement and notice to owner of owner-occupied single-family residence",
       "block_index": 0,
-      "hold_reason": "The only block is the whole section 770 ILCS 60/5, which includes the contractor's sworn-statement duty in (a) and other text around the notice in (b); printing the block would put non-notice statute text in the contract."
+      "start": "THE LAW REQUIRES THAT THE CONTRACTOR SHALL SUBMIT",
+      "end": "REQUIRED TO BE MADE TO THE CONTRACTOR.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them; the final period is inside the cut.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges (single quoted capital-letter sentence in (b)(i)). Stored on file, not printed, because it applies only to an owner-occupied single-family residence, which the builder cannot decide; the statute allows it 'either as part of the contract or as a separate printed statement given before the owner ... makes the first payment'."
     },
     {
       "id": "IL-cancel",
       "cite": "815 ILCS 505/2B",
       "trigger": "Sale of $25 or more where the seller is physically present at the consumer's residence",
-      "support": "Floor: \"$25 or more\". Trigger: \"seller who is physically present at the consumer's residence\".",
+      "support": "in immediate proximity to the space reserved in the contract for the consumer's signature or on the front page of the receipt if a contract is not used, a statement which shall be in bold face type, in at least 10-point type and in substantially the following form:",
       "summary_row": "Three-day statement and NOTICE OF CANCELLATION form",
-      "mode": "none",
+      "mode": "print",
       "block": "815 ILCS 505/2B: home solicitation three-day cancellation (statement and NOTICE OF CANCELLATION form)",
       "block_index": 0,
-      "hold_reason": "The only block is the whole section 505/2B, with the unlawful-practice list and the exemptions around the statement and form; printing the block would put non-notice statute text in the contract."
+      "title": "State cancellation statement near the signature",
+      "format": "Statement in bold face type, at least 10-point, in immediate proximity to the space reserved in the contract for the consumer's signature (or front page of the receipt); contract in substantially the same language as the oral presentation; oral notice also required; the duplicate form is the separate notice IL-cancel-form",
+      "start": "YOU, THE CONSUMER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them; the final period is inside the cut.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges (single quoted sentence pair after 'in substantially the following form:'). Note it says 'THE CONSUMER', not 'THE BUYER'."
+    },
+    {
+      "id": "IL-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form (home solicitation)",
+      "cite": "815 ILCS 505/2B",
+      "trigger": "Sale of $25 or more where the seller is physically present at the consumer's residence",
+      "format": "Completed form in duplicate, attached to the receipt or contract and easily detachable, 10 point bold face type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies (unlawful practice (a))",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Attached to the receipt or contract shall be a completed form in duplicate, captioned \"NOTICE OF CANCELLATION\" which shall be easily detachable and which shall contain in 10 point bold face type the following information and statements in the same language as that used in the contract:",
+      "summary_row": "Three-day statement and NOTICE OF CANCELLATION form",
+      "mode": "print",
+      "block": "815 ILCS 505/2B: home solicitation three-day cancellation (statement and NOTICE OF CANCELLATION form)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "(Buyer's signature)",
+      "quote_note": "None: the form is set off under the heading NOTICE OF CANCELLATION on its own line, no quotation marks. The start marker repeats (the statement and the caption sentence contain it), so the third occurrence, the heading line of the form, is used.",
+      "blanks": [
+        "(enter date of transaction)",
+        "(Date) after the dotted line",
+        "(Name of seller)",
+        "(address of seller's place of business)",
+        "(date) after 'NOT LATER THAN MIDNIGHT OF'",
+        "(Date) with dotted line after it, under 'I HEREBY CANCEL THIS TRANSACTION.'",
+        "dotted line above (Buyer's signature)",
+        "(Buyer's signature)"
+      ],
+      "boundary_unsure": "Edges are clear (heading line to the signature caption; the next paragraph 'Such written Notice of Cancellation may be sent...' is a separate rule). The layout of the date lines is odd as the statute prints it (caption '(enter date of transaction)' before its dotted line, '(Date) ............' on one line); kept as printed."
     },
     {
       "id": "IL-arbitration-margin",
@@ -38,7 +104,9 @@
       "cite": "815 ILCS 513/15.1",
       "trigger": "Contract contains a binding arbitration clause or a jury trial waiver",
       "format": "Consumer signs and writes the word accept or reject in the margin next to each clause; otherwise the clause is null and void",
-      "applies": { "has_arbitration_or_jury_waiver_clause": true },
+      "applies": {
+        "has_arbitration_or_jury_waiver_clause": true
+      },
       "support": "Any binding arbitration clause or jury trial waiver in a home repair contract needs the consumer's signature and the handwritten word \"accept\" or \"reject\" in the margin beside each clause, or the clause is null and void.",
       "summary_row": "Arbitration and jury-waiver clauses: consumer signs and writes \"accept\" or \"reject\" in the margin",
       "mode": "none",
@@ -48,33 +116,97 @@
     },
     {
       "id": "IL-insurance-cancel",
-      "title": "Insurance-proceeds jobs: 10 point bold cancellation statement and duplicate NOTICE OF CANCELLATION",
+      "title": "Insurance-proceeds jobs: 10 point bold cancellation statement",
       "cite": "815 ILCS 513/18(f) and (g)",
       "trigger": "Contract to be paid from the proceeds of a property and casualty insurance policy",
-      "format": "Statement in at least 10 point boldface; NOTICE OF CANCELLATION in duplicate, attached to the contract but easily detachable, boldface type of a minimum size of 10 points",
-      "applies": { "insurance_proceeds": true },
-      "support": "A contract to be paid from property insurance proceeds needs its own 10 point bold statement and a duplicate detachable NOTICE OF CANCELLATION",
+      "format": "Statement in at least 10 point boldface inside the contract; the duplicate NOTICE OF CANCELLATION is the separate notice IL-insurance-cancel-form",
+      "applies": {
+        "insurance_proceeds": true
+      },
+      "support": "Any contract referred to in subsection (e), must contain a statement in at least 10 point boldface, in substantially the following form:",
       "summary_row": "Insurance-proceeds jobs: 10 point bold statement plus duplicate NOTICE OF CANCELLATION; roofing license name and number on contracts",
-      "mode": "none",
+      "mode": "on_file",
       "block": "815 ILCS 513/18: insurance-proceeds jobs (statement and NOTICE OF CANCELLATION), roofing license line",
       "block_index": 0,
-      "hold_reason": "The only block is the whole section 513/18 (deductible rebate ban, roofing license, public adjuster and other rules around the notice); printing it would put non-notice statute text in the contract. Also the trigger depends on insurance payment, which the builder does not know."
+      "start": "You may cancel this contract at any time before midnight",
+      "end": "explanation of this right.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them; the final period is inside the cut.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges (quoted statement in 513/18(f)). Stored on file, not printed: it applies only to contracts paid from property and casualty insurance proceeds, which the builder cannot tell. Unsure whether it should print in every roofing/storm contract."
+    },
+    {
+      "id": "IL-insurance-cancel-form",
+      "title": "Insurance-proceeds jobs: duplicate NOTICE OF CANCELLATION",
+      "cite": "815 ILCS 513/18(g)",
+      "trigger": "Contract to be paid from the proceeds of a property and casualty insurance policy",
+      "format": "Completed form in duplicate, attached to the contract but easily detachable, boldface type of a minimum size of 10 points, appropriate fields completed by the contractor",
+      "applies": {
+        "insurance_proceeds": true
+      },
+      "support": "furnish each insured a fully completed form in duplicate, captioned \"NOTICE OF CANCELLATION\", which shall be attached to the contract but easily detachable, and which shall contain boldface type of a minimum size of 10 points the following statement with the appropriate fields completed by the contractor:",
+      "summary_row": "Insurance-proceeds jobs: 10 point bold statement plus duplicate NOTICE OF CANCELLATION; roofing license name and number on contracts",
+      "mode": "on_file",
+      "block": "815 ILCS 513/18: insurance-proceeds jobs (statement and NOTICE OF CANCELLATION), roofing license line",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(insured's signature)",
+      "quote_note": "The statute's opening quotation mark before NOTICE OF CANCELLATION and its closing quotation mark (followed by a period) after (insured's signature) are excluded by placing the markers inside them. The start marker repeats (the caption sentence has it in quotation marks), so the second occurrence is used.",
+      "blanks": [
+        "(name of contractor)",
+        "(address of contractor's place of business)",
+        "(date) with dotted line above it",
+        "(insured's signature) with dotted line above it"
+      ],
+      "boundary_unsure": "None on the edges (opening quote at the heading line to the closing quote after (insured's signature)). 'I HEREBY CANCEL THIS TRANSACTION' has no final period in the statute; kept as printed."
     }
   ],
   "changes": [
-    { "path": "written_contract.text", "new": "Over $1,000, furnished for signature before work starts; states total cost with parts and materials listed, any charge for an estimate, and the business name and address (815 ILCS 513/15)", "support": "Prior to initiating home repair or remodeling work for over $1,000, a person engaged in the business of home repair or remodeling shall furnish to the customer for signature a written contract or work order that states the total cost, including parts and materials listed with reasonable particularity and any charge for an estimate. In addition, the contract shall state the business name and address of the person engaged in the business of home repair or remodeling." },
-    { "path": "cancellation.text", "new": "Three business days (815 ILCS 505/2B); age 65 or older with an uninvited solicitor, sold at the home: 15 full business days (815 ILCS 513/22)", "support": "A person age 65 or older who purchases home repair or remodeling services from an uninvited solicitor may cancel any contract with a person engaged in home repair or remodeling by notifying that person within 15 full business days following the day on which the contract was signed if the agreement for the home repair or remodeling was made at the home of the purchaser." },
-    { "path": "cancellation.day_count_note", "new": "Age 65 or older, uninvited solicitor, agreement made at the purchaser's home: 15 full business days (815 ILCS 513/22). The 505/2B statement and form still say three business days.", "support": "A person age 65 or older who purchases home repair or remodeling services from an uninvited solicitor may cancel any contract with a person engaged in home repair or remodeling by notifying that person within 15 full business days following the day on which the contract was signed if the agreement for the home repair or remodeling was made at the home of the purchaser." },
-    { "path": "cancellation.oral_notice", "new": true, "support": "Oral notice required (item (c))." },
-    { "path": "cancellation.same_language", "new": true, "support": "in the same language as that used in the contract" },
-    { "path": "cleaning.auto_renewal.rule", "new": "Disclosure in the contract and consent before charging; written notice 30 to 60 days before the cancellation deadline for terms of 12 months or more that renew for more than one month", "support": "where such contract term is a specified term of 12 months or more, and where such contract automatically renews for a specified term of more than one month unless the consumer cancels the contract, shall notify the consumer in writing of the automatic renewal. Written notice shall be provided to the consumer no less than 30 days and no more than 60 days before the cancellation deadline" },
-    { "path": "cleaning.auto_renewal.scope_and_confidence", "new": "OFFICIAL text read at ilga.gov; covers a written consumer contract that auto-renews; no small-business or service-type exemption", "support": "No small-business or service-type exemption appears; exemptions are business-to-business contracts, banks, utilities under Article XXII, insurance-regulated parties." }
+    {
+      "path": "written_contract.text",
+      "new": "Over $1,000, furnished for signature before work starts; states total cost with parts and materials listed, any charge for an estimate, and the business name and address (815 ILCS 513/15)",
+      "support": "Prior to initiating home repair or remodeling work for over $1,000, a person engaged in the business of home repair or remodeling shall furnish to the customer for signature a written contract or work order that states the total cost, including parts and materials listed with reasonable particularity and any charge for an estimate. In addition, the contract shall state the business name and address of the person engaged in the business of home repair or remodeling."
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (815 ILCS 505/2B); age 65 or older with an uninvited solicitor, sold at the home: 15 full business days (815 ILCS 513/22)",
+      "support": "A person age 65 or older who purchases home repair or remodeling services from an uninvited solicitor may cancel any contract with a person engaged in home repair or remodeling by notifying that person within 15 full business days following the day on which the contract was signed if the agreement for the home repair or remodeling was made at the home of the purchaser."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Age 65 or older, uninvited solicitor, agreement made at the purchaser's home: 15 full business days (815 ILCS 513/22). The 505/2B statement and form still say three business days.",
+      "support": "A person age 65 or older who purchases home repair or remodeling services from an uninvited solicitor may cancel any contract with a person engaged in home repair or remodeling by notifying that person within 15 full business days following the day on which the contract was signed if the agreement for the home repair or remodeling was made at the home of the purchaser."
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Oral notice required (item (c))."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "in the same language as that used in the contract"
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Disclosure in the contract and consent before charging; written notice 30 to 60 days before the cancellation deadline for terms of 12 months or more that renew for more than one month",
+      "support": "where such contract term is a specified term of 12 months or more, and where such contract automatically renews for a specified term of more than one month unless the consumer cancels the contract, shall notify the consumer in writing of the automatic renewal. Written notice shall be provided to the consumer no less than 30 days and no more than 60 days before the cancellation deadline"
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "OFFICIAL text read at ilga.gov; covers a written consumer contract that auto-renews; no small-business or service-type exemption",
+      "support": "No small-business or service-type exemption appears; exemptions are business-to-business contracts, banks, utilities under Article XXII, insurance-regulated parties."
+    }
   ],
   "unsure": [
     "IL-pamphlet: the pamphlet is a separate handout, not contract text, and the Attorney General's printed pamphlet differs from the statutory text; which to hand out is open.",
     "IL-lien: it is unclear whether the notice should be printed in the contract or given as a separate statement before first payment; the statute allows either.",
     "IL-arbitration-margin: no wording is prescribed, but the margin accept or reject mark is a signing step the contract may need to leave room for.",
     "IL-insurance-cancel: the statement and form are in the contract only for insurance-paid jobs; the builder cannot tell whether a job is insurance-paid.",
-    "The state file says roofing contracts must show the Illinois roofing license name and number (513/18(d)); the license field was left unchanged because it is roofing only."
+    "The state file says roofing contracts must show the Illinois roofing license name and number (513/18(d)); the license field was left unchanged because it is roofing only.",
+    "IL-pamphlet is stored on file only: the statute says the pamphlet must be a separate document in at least 12 point type, and the file says the Attorney General's printed pamphlet is worded differently from the statutory text.",
+    "IL-lien and IL-insurance-cancel/-form are stored on file, not printed, because the builder cannot tell owner-occupied single-family or insurance-paid jobs; if Nicole prefers to print IL-lien for every residential contract (the statute allows it in the contract), the range is already cut.",
+    "IL-ack-form: the sentence is stored on file, not printed, because the acknowledgment must be a separate duplicate form incorporated into the pamphlet.",
+    "IL-arbitration-margin stays held: 513/15.1 prescribes the accept/reject act, not a notice wording."
   ]
 }

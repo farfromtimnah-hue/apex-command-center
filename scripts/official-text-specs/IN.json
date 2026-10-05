@@ -12,15 +12,53 @@
     },
     {
       "id": "IN-cancel-10-6",
-      "title": "Statement of right to cancel and duplicate NOTICE OF CANCELLATION in every home improvement contract",
+      "title": "Statement of right to cancel, furnished to the consumer before the contract is signed",
       "cite": "IC 24-5-11-10.6",
       "trigger": "Every home improvement contract over $150 entered into after June 30, 2017, whether or not the sale was door to door",
-      "format": "Fixed statement furnished before the contract is signed (no type size), plus a duplicate, easily detachable form captioned NOTICE OF CANCELLATION in at least 10 point boldface that names an email address",
-      "applies": { "residential": true, "over_cents": 15000 },
-      "support": "IC 24-5-11-10.6 gives EVERY home improvement contract \"entered into by a real property improvement supplier and a consumer after June 30, 2017\" its own fixed-text statement and NOTICE OF CANCELLATION, whether or not the sale was door to door.",
+      "format": "Fixed statement furnished before the contract is signed (no type size)",
+      "applies": {
+        "residential": true,
+        "over_cents": 15000
+      },
+      "support": "Furnishing to the consumer the following statement: \"You may cancel this contract",
       "summary_row": "Statement of right to cancel and duplicate NOTICE OF CANCELLATION in EVERY home improvement contract entered after June 30, 2017",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of IC 24-5-11-10.6, which also holds the scope, the consumer's cancellation rule, refund timing and the emergency-services rule around the statement and form, so printing it would put non-notice statute text in the contract; the statement also has an insurance-claim branch the builder does not track."
+      "mode": "on_file",
+      "block": "IC 24-5-11-10.6: statement of right to cancel and NOTICE OF CANCELLATION (all contracts after June 30, 2017)",
+      "block_index": 0,
+      "start": "\"You may cancel this contract",
+      "end": "of this right.\"",
+      "quote_note": "Both the opening and closing quotation marks are included in the cut: the opening quote cannot be excluded because the line the statement starts on only has 'You may cancel this contract' after it, which also begins the form below; the statute's final period after the closing quote is left out.",
+      "blanks": [
+        "(name of real property improvement supplier)"
+      ],
+      "boundary_unsure": "Start has to carry the opening quotation mark (the words alone are not unique on one line). Printed text therefore shows the quote marks. The statement has an insurance-claim branch (B) 'If applicable', printed as the statute words it. Stored, not printed: the cut contains a form-feed character from the PDF page break before the signature caption, which cannot be cleaned (copy is byte for byte); the statement and form go together."
+    },
+    {
+      "id": "IN-cancel-10-6-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form attached to the contract and easily detachable",
+      "cite": "IC 24-5-11-10.6(b)(2)",
+      "trigger": "Every home improvement contract over $150 entered into after June 30, 2017, whether or not the sale was door to door",
+      "format": "Form furnished in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract but easily detachable, in at least 10 point boldface type",
+      "applies": {
+        "residential": true,
+        "over_cents": 15000
+      },
+      "support": "Furnishing to the consumer a form, in duplicate, that is captioned \"NOTICE OF CANCELLATION\" and is attached to the contract but easily detachable, and that contains the following statement in at least 10 point, boldface type:",
+      "summary_row": "Statement of right to cancel and duplicate NOTICE OF CANCELLATION in EVERY home improvement contract entered after June 30, 2017",
+      "mode": "on_file",
+      "block": "IC 24-5-11-10.6: statement of right to cancel and NOTICE OF CANCELLATION (all contracts after June 30, 2017)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(consumer's signature)",
+      "quote_note": "Excluded: the statute's opening quotation mark before NOTICE OF CANCELLATION and the closing quotation mark plus period after (consumer's signature).",
+      "blanks": [
+        "(name of real property improvement supplier) (several places)",
+        "(address of real property improvement supplier's place of business)",
+        "(electronic mail address described in section 10(a)(2)(A) or 10(a)(2)(B)(iii) of this chapter)",
+        "_______________________________ (date)",
+        "_______________________________ (consumer's signature)"
+      ],
+      "boundary_unsure": "none: the form is set off by quotation marks and the lead-in 'contains the following statement'. Stored, not printed: the cut contains a form-feed character from the PDF page break before the signature caption, which cannot be cleaned (copy is byte for byte); the statement and form go together."
     },
     {
       "id": "IN-cure",
@@ -28,11 +66,19 @@
       "cite": "IC 32-27-3-12",
       "trigger": "Contract for sale, construction, or substantial remodeling of a residence (remodeling counts only when its total cost exceeds 50 percent of the assessed value)",
       "format": "Conspicuous capitals notice in substantially the statutory form; may be included in the contract; no type size stated",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "The notice must be conspicuous and may be included as part of the underlying contract signed by the home owner.",
       "summary_row": "Notice of right to offer to cure construction defects (capitals notice, may be in the contract)",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of IC 32-27-3-12, which also holds the duty subsection and a subsection saying the chapter does not bar an action if notice is not given, so printing it would put non-notice statute text in the contract; the 50 percent of assessed value test is also not something the builder knows."
+      "mode": "on_file",
+      "block": "IC 32-27-3-12: notice of right to offer to cure",
+      "block_index": 0,
+      "start": "IC 32-27-3 CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW",
+      "end": "AFFECT YOUR ABILITY TO FILE A LAWSUIT.",
+      "quote_note": "Excluded: the statute's opening quotation mark before IC 32-27-3 CONTAINS and the closing quotation mark plus period after LAWSUIT.",
+      "blanks": [],
+      "boundary_unsure": "none: the notice is set off by quotation marks after 'in substantially the following form'. Stored on file, not printed, because the builder cannot tell whether remodeling exceeds 50 percent of assessed value."
     }
   ],
   "changes": [
@@ -55,6 +101,11 @@
       "path": "defect_process.text",
       "new": "IC 32-27-3: construction or substantial remodeling of a residence (remodeling over 50 percent of assessed value); notice of claim at least 60 days before suit, contractor's response within 21 days",
       "support": "Notice of claim \"At least sixty (60) days before filing\"; contractor's written response \"Within twenty-one (21) days after service\""
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "24-5-11-10.6 statement of right to cancel and duplicate NOTICE OF CANCELLATION (every home improvement contract over $150 since July 1, 2017; 24-5-10 only for unsolicited home sales) and 32-27-3 defect process",
+      "support": "IC 24-5-11-10.6 gives EVERY home improvement contract \"entered into by a real property improvement supplier and a consumer after June 30, 2017\" its own fixed-text statement and NOTICE OF CANCELLATION, whether or not the sale was door to door."
     }
   ],
   "unsure": [

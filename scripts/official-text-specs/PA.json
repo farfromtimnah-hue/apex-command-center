@@ -18,26 +18,68 @@
       "title": "Registration number and Bureau toll-free number 1-888-520-6680",
       "cite": "HICPA sections 6, 7(a)(1) and 7(a)(12)",
       "format": "Registration number as \"PA\" plus the number, clearly and conspicuously displayed; the Attorney General suggests a sentence giving the toll-free number (agency guidance, not statute)",
-      "support": "(12) Includes the toll-free telephone number under section 3(b).",
+      "support": "We suggest that you include the following language in your contracts, and display it prominently so your customers can review it:",
       "summary_row": "Bureau of Consumer Protection toll-free number: 1-888-520-6680",
-      "mode": "none",
       "block": "8. Attorney General guidance: toll-free number, suggested sentence, registration number format",
       "block_index": 0,
-      "hold_reason": "The statute prescribes no wording; the only sentence is the Attorney General's suggestion, and the state file's block is a whole FAQ page with other questions and answers and a blank for the contractor name."
+      "mode": "print",
+      "start": "The official registration number of",
+      "end": "Registration does not imply endorsement.",
+      "quote_note": "Cut sits inside the Attorney General's own quotation marks (curly quotes excluded). Agency suggestion, not statute wording.",
+      "blanks": [
+        "[contractor name]"
+      ],
+      "boundary_unsure": "None on the edges (quoted). The wording is the Attorney General's suggested sentence, not required by statute; the statute (7(a)(12)) only requires the toll-free number to appear.",
+      "applies": {}
     },
     {
       "id": "PA-door",
-      "title": "Sale at the customer's residence: cancellation statement beside the signature and duplicate Notice of Cancellation form",
-      "cite": "UTPCPL section 7(b)(1), (2) (73 P.S. 201-7)",
+      "title": "Sale at the customer's residence: cancellation statement beside the signature",
+      "cite": "UTPCPL section 7(b)(1) (73 P.S. 201-7)",
       "trigger": "Goods or services of $25 or more sold as a result of a contact with or call on the buyer at his residence, in person or by phone",
-      "format": "Statement in bold face of at least ten points next to the buyer's signature; form in duplicate, detachable, ten-point bold face; both in the language of the sales talk and also in English; a federal-form Notice of Cancellation is deemed compliant",
-      "applies": { "sold_in_home": true },
-      "support": "The text covers a sale \"as a result of, or in connection with, a contact with or call on the buyer or resident at his residence either in person or by telephone\"",
+      "format": "In immediate proximity to the space reserved in the contract for the buyer's signature, in bold face type of a minimum size of ten points; in the language of the sales presentation and also in English",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a statement in substantially the following form:",
       "summary_row": "Door-to-door statement beside the signature",
-      "mode": "none",
       "block": "7. UTPCPL section 7, door-to-door contracts, the statement, the Notice of Cancellation and the Emergency Work Authorization (the full section)",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole section 7 of the Unfair Trade Practices law; around the statement and form it holds refund duties, emergency rules, definitions and exceptions, so printing it would put non-notice statute text in the contract."
+      "mode": "print",
+      "start": "You, the buyer, may cancel this transaction at any time",
+      "end": "explanation of this right.",
+      "quote_note": "Cut sits inside the statute's own quotation marks; the quote marks are excluded.",
+      "blanks": [],
+      "boundary_unsure": "None (quoted text)."
+    },
+    {
+      "id": "PA-door-form",
+      "title": "Notice of Cancellation form, in duplicate (sale at the customer's residence)",
+      "cite": "UTPCPL section 7(b)(2) (73 P.S. 201-7)",
+      "trigger": "Goods or services of $25 or more sold as a result of a contact with or call on the buyer at his residence",
+      "format": "Form in duplicate, attached to the contract and easily detachable, ten-point bold face, in the language of the contract; a federal-form Notice of Cancellation is deemed compliant",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "A completed form in duplicate, captioned \"Notice of Cancellation,\" which shall be attached to the contract or receipt and easily detachable",
+      "summary_row": "Notice of Cancellation form, in duplicate",
+      "mode": "print",
+      "block": "7. UTPCPL section 7, door-to-door contracts, the statement, the Notice of Cancellation and the Emergency Work Authorization (the full section)",
+      "block_index": 0,
+      "start": "Notice of Cancellation",
+      "start_occurrence": 2,
+      "end": "(Buyer's Signature)",
+      "end_occurrence": 1,
+      "quote_note": "none: the form is not in quotation marks; it follows 'the following information and statements in the same language ... as that used in the contract:' and runs from its caption to the buyer's signature line.",
+      "blanks": [
+        "(Enter Date of Transaction)",
+        "(name of seller)",
+        "(address of seller's place of business)",
+        "(date)",
+        "(Date)",
+        "(Buyer's Signature)"
+      ],
+      "boundary_unsure": "The end marker '(Buyer's Signature)' occurs again later in the block (Emergency Work Authorization form); the first occurrence after the start is the end of this form, which is followed by subsection (c)."
     },
     {
       "id": "PA-emergency-form",
@@ -45,13 +87,24 @@
       "cite": "UTPCPL section 7(j.1) (73 P.S. 201-7)",
       "trigger": "The buyer contacted the seller about a bona fide emergency at the buyer's residence and the buyer waives the cancellation right",
       "format": "Preprinted card at least four inches by six inches, writing in at least ten-point bold face, with a written estimate",
-      "applies": { "sold_in_home": true },
-      "support": "the Emergency Work Authorization card",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "the writing thereon must be in at least ten-point bold face type in the following form:",
       "summary_row": "Emergency Work Authorization form",
-      "mode": "none",
       "block": "7. UTPCPL section 7, door-to-door contracts, the statement, the Notice of Cancellation and the Emergency Work Authorization (the full section)",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole section 7; the form is one part of it with many other operative rules, and whether the customer has an emergency is something the builder does not know."
+      "mode": "on_file",
+      "start": "Emergency Work Authorization",
+      "end": "(Buyer's Signature)",
+      "quote_note": "none (form set off after 'in the following form:')",
+      "blanks": [
+        "(Enter Date of Transaction)",
+        "(enter the name of the seller)",
+        "(Date)",
+        "(Buyer's Signature)"
+      ],
+      "boundary_unsure": "Top edge: the heading line 'Emergency Work Authorization'. Bottom edge: the '(Buyer's Signature)' line right before the amendment note '((j.1) added ...)'. Both clear."
     }
   ],
   "changes": [
@@ -84,6 +137,16 @@
       "path": "cleaning.home_solicitation_applies_to_cleaning",
       "new": true,
       "support": "The text covers a sale \"as a result of, or in connection with, a contact with or call on the buyer or resident at his residence either in person or by telephone\""
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "Registration number plus Bureau toll-free number plus 13 contents list",
+      "support": "Section 7(a) has 13 numbered paragraphs."
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Deposit one third (only when the price is over $5,000); arbitration formatting; remove voidable clauses (jury waiver, automatic fee, hold-harmless, confession of judgment)",
+      "support": "The cap does not apply to a contract of $5,000 or less."
     }
   ],
   "unsure": [
@@ -91,6 +154,8 @@
     "PA-door: the state file shows two overlapping cancellation rules (HICPA 7(b) on every contract and UTPCPL 7 for sales at the residence); the second needs its statement and form only when sold at the customer's home.",
     "PA-emergency-form: the form is only used when the customer calls about an emergency and waives the right; added for the checklist, unclear whether it belongs in a normal contract.",
     "deposit_cap: the one-third cap applies only above $5,000, so the fraction field was left empty rather than apply it to every job.",
-    "cleaning.home_solicitation_applies_to_cleaning: set true because section 7 covers services sold at the residence at $25 or more; the state file does not say this about cleaning in particular."
+    "cleaning.home_solicitation_applies_to_cleaning: set true because section 7 covers services sold at the residence at $25 or more; the state file does not say this about cleaning in particular.",
+    "PA-bureau: printed on every contract (applies {}), but the sentence is the Attorney General's suggestion, not statute wording; it contains the blank [contractor name] and says 'toll-free within Pennsylvania'.",
+    "PA-door-form: held only because of a loader limit (see hold_reason), not for any doubt about the statute."
   ]
 }

@@ -10,7 +10,18 @@
       "summary_row": "IMPORTANT NOTICE TO OWNER, full wording with signature and certification lines",
       "mode": "on_file",
       "block": "1. IMPORTANT NOTICE TO OWNER (ACA 18-44-115(a)(7)), as printed by the Department of Labor and Licensing",
-      "block_index": 0
+      "block_index": 0,
+      "start": "IMPORTANT NOTICE TO OWNER",
+      "end": "CONTRACTOR",
+      "end_occurrence": 9,
+      "quote_note": "The statute's opening and closing quotation marks (stated in the state file not to be part of the notice) are excluded: the start marker begins after the opening mark and the end marker is the final word CONTRACTOR before the closing mark.",
+      "blanks": [
+        "SIGNED:______________________________",
+        "ADDRESS OF PROPERTY: _______________",
+        "DATE:_____________",
+        "__________________ (contractor signature line, above the word CONTRACTOR)"
+      ],
+      "boundary_unsure": "The end marker is the 9th occurrence of the word CONTRACTOR counted after the start (the last word of the form, on its own line). Edges are certain: the Labor Department sheet's text starts at IMPORTANT NOTICE TO OWNER and ends with CONTRACTOR inside the closing quote mark."
     },
     {
       "id": "AR-cancel",
@@ -18,17 +29,32 @@
       "format": "Completed NOTICE OF CANCELLATION form in duplicate, attached to the contract or receipt and easily detachable, in 10-point bold face type; oral notice as well as written",
       "support": "4-89-108(c): \"a completed form in duplicate, captioned “NOTICE OF CANCELLATION”, which shall be attached to the contract or receipt and easily detachable and which shall contain in 10-point bold face type",
       "summary_row": "NOTICE OF CANCELLATION form (home solicitation)",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "the only copy of the NOTICE OF CANCELLATION form is a secondary (Justia) copy; the loader accepts official sources only"
     }
   ],
   "changes": [
-    { "path": "cancellation.text", "new": "Third calendar day after signing, excluding Sundays and holidays (4-89-107), oral notice, two form copies, criminal exposure", "support": "4-89-107(a): \"until midnight of the third calendar day, excluding Sundays and holidays as declared in § 1-5-101, after the day on which the buyer signs\"" },
-    { "path": "cancellation.day_count_note", "new": "The statute counts the third calendar day after signing, excluding Sundays and holidays; Saturday counts (ACA 4-89-107(a)).", "support": "The form says \"the third day, excluding Sundays and holidays\". Saturday counts." }
+    {
+      "path": "cancellation.text",
+      "new": "Third calendar day after signing, excluding Sundays and holidays (4-89-107), oral notice, two form copies, criminal exposure",
+      "support": "4-89-107(a): \"until midnight of the third calendar day, excluding Sundays and holidays as declared in § 1-5-101, after the day on which the buyer signs\""
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "The statute counts the third calendar day after signing, excluding Sundays and holidays; Saturday counts (ACA 4-89-107(a)).",
+      "support": "The form says \"the third day, excluding Sundays and holidays\". Saturday counts."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "IMPORTANT NOTICE TO OWNER (18-44-115) exact, bold capitals, before work, for 4 or fewer units unless bond or direct sale; owner signature needed unless sent by certified mail",
+      "support": "shall not require the signature of the owner of the residential real estate, the owner's authorized agent, or the owner's registered agent in an instance when the notice is delivered by certified mail."
+    }
   ],
   "unsure": [
     "AR-lien: the notice is only required for residential property of four or fewer units and not when a bond is supplied or the sale is direct; the builder knows neither, so the text is stored and not printed.",
-    "AR-lien: the stored block keeps the statute's opening and closing quotation marks, which the state file says are not part of the notice.",
     "AR-cancel: the only copy of the form is a secondary (Justia) copy, so nothing is loaded; the state statute prescribes no statement near the signature, only the detachable form.",
-    "Whether the home solicitation law applies to recurring cleaning was not addressed by the state file, so home_solicitation_applies_to_cleaning was left as it was."
+    "Whether the home solicitation law applies to recurring cleaning was not addressed by the state file, so home_solicitation_applies_to_cleaning was left as it was.",
+    "AR-lien: now cut by start/end markers so the statute's quotation marks are no longer in the stored text; still stored on file only (four-or-fewer-unit residential, no bond, and prime contractor status are not known to the builder).",
+    "AR checklist item 1 (rider_items.0) corrected: the file says no owner signature is needed when the notice goes by certified mail."
   ]
 }

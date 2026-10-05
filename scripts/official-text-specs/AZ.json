@@ -15,8 +15,21 @@
       "format": "Completed form in duplicate, attached to the contract or receipt, in the language of the oral sales presentation",
       "support": "the following completed form, in duplicate and in the language used in the oral sales presentation which, if in English, would be in the form set forth in this subsection, is attached to the contract or receipt",
       "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, same-language rule",
-      "mode": "none",
-      "hold_reason": "The form is inside the block holding the whole of 44-5004, with subsection A (same-language rule for all documents) and the NOTICE TO BUYER around it, so printing the block would put non-notice statute text in the contract."
+      "mode": "print",
+      "block": "A.R.S. 44-5004. Agreement requirements (NOTICE TO BUYER and NOTICE OF CANCELLATION)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(buyer's signature)",
+      "quote_note": "none: the form follows 'the following completed form, in duplicate ... is attached to the contract or receipt:' and is not in quotation marks.",
+      "blanks": [
+        "/enter date of transaction/ with the line ' (date) ' under it",
+        "{name of seller}",
+        "{address of seller's place of business}",
+        "not later than midnight of ____________________ with ' (date)' under it",
+        "______________________________ (date) after 'I hereby cancel this transaction.'",
+        "________________________________ (buyer's signature)"
+      ],
+      "boundary_unsure": "Start is the caption NOTICE OF CANCELLATION right after the statute's lead-in sentence ending 'in the form set forth in this subsection, is attached to the contract or receipt:'; end is the last line '(buyer's signature)' which is the last line of the block. The statute's own bracket-style placeholders (/enter date of transaction/, {name of seller}) are kept exactly as printed. The statute gives no blank after 'NOT LATER THAN MIDNIGHT OF' beyond the underscores shown."
     },
     {
       "id": "AZ-notice-to-buyer",
@@ -24,11 +37,19 @@
       "cite": "A.R.S. 44-5004(B)",
       "trigger": "Home solicitation sale: seller personally solicits without prior invitation and the buyer's agreement is made at a home other than the seller's",
       "format": "Conspicuous, in the language of the oral sales presentation; agreement must be dated and signed by the buyer",
-      "applies": { "sold_in_home": true },
+      "applies": {
+        "sold_in_home": true
+      },
       "support": "No agreement of the buyer in a home solicitation sale shall be effective unless it is dated, signed by the buyer and contains a conspicuous notice in the language used in the oral sales presentation",
       "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, same-language rule",
-      "mode": "none",
-      "hold_reason": "The notice is inside the block holding the whole of 44-5004, with subsection A (same-language rule for all documents) and the cancellation form around it, so printing the block would put non-notice statute text in the contract."
+      "mode": "print",
+      "block": "A.R.S. 44-5004. Agreement requirements (NOTICE TO BUYER and NOTICE OF CANCELLATION)",
+      "block_index": 0,
+      "start": "NOTICE TO BUYER",
+      "end": "to repossess goods purchased under this agreement.",
+      "quote_note": "none: the notice follows 'which if in English would be as follows:' and is not in quotation marks.",
+      "blanks": [],
+      "boundary_unsure": "Start is the caption NOTICE TO BUYER after 'contains a conspicuous notice ... which if in English would be as follows:'; end is the end of numbered item 5, the last item before subsection C. No judgement about the end was needed; the five numbered points are the whole notice."
     },
     {
       "id": "AZ-pool-notice",
@@ -36,10 +57,71 @@
       "cite": "A.R.S. 36-1681(E)",
       "trigger": "Agreement to build a swimming pool or contained body of water",
       "format": "A notice explaining safety education and responsibilities of pool ownership as approved by the Department of Health Services",
-      "applies": { "is_pool": true },
+      "applies": {
+        "is_pool": true
+      },
       "support": "A person on entering into an agreement to build a swimming pool or contained body of water or sell, rent or lease a dwelling with a swimming pool or contained body of water shall give the buyer, lessee or renter a notice explaining safety education and responsibilities of pool ownership as approved by the department of health services.",
       "summary_row": "Department of Health Services approved pool safety notice (the document itself)",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "the Department of Health Services approved pool safety notice itself was not obtained; the statute states a duty only"
+    },
+    {
+      "id": "AZ-note-statement",
+      "title": "Statement on the face of any note given in a home solicitation sale",
+      "cite": "A.R.S. 44-5005(B)",
+      "trigger": "Each note or other evidence of indebtedness given by a buyer in a home solicitation sale",
+      "format": "Conspicuous statement on the face of the note (not in the contract)",
+      "applies": {
+        "sold_in_home": true,
+        "note_taken": true
+      },
+      "support": "Each note or other evidence of indebtedness given by a buyer in respect of a home solicitation sale shall bear on its face a conspicuous statement as follows",
+      "summary_row": "Statement on any note taken in a home solicitation sale",
+      "mode": "on_file",
+      "block": "A.R.S. 44-5005(B). Statement on any note or evidence of indebtedness",
+      "block_index": 0,
+      "start": "This instrument is based upon a home solicitation sale",
+      "end": "This instrument is not negotiable.",
+      "quote_note": "The statute's opening quotation mark (before 'This instrument') and closing mark (after 'not negotiable.') are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "AZ-new-dwelling",
+      "title": "Registrar complaint provision in a contract for sale of a newly constructed dwelling",
+      "cite": "A.R.S. 12-1365(A)",
+      "trigger": "Written contract for the sale of a newly constructed dwelling by the seller responsible for the original construction",
+      "format": "Prominently displayed, at least ten point bold type; buyer initials the provision",
+      "applies": {
+        "new_construction": true
+      },
+      "support": "A written contract for the sale of a newly constructed dwelling between a buyer of a newly constructed dwelling and the seller responsible for the original construction of the dwelling shall contain, or provide separate notice of, the following provision",
+      "summary_row": "New-dwelling seller notice (alternative to 32-1158(A)(9))",
+      "mode": "on_file",
+      "block": "A.R.S. 12-1365. New-dwelling notice (new construction sellers only)",
+      "block_index": 0,
+      "start": "Under Arizona Revised Statutes section 32-1155",
+      "end": "section 32-1154, subsection A.",
+      "quote_note": "none: the provision follows 'the following provision:' and is not in quotation marks.",
+      "blanks": []
+    },
+    {
+      "id": "AZ-prelim-20day",
+      "title": "Preliminary twenty day notice statement (sent by subcontractors and suppliers)",
+      "cite": "A.R.S. 33-992.01(C)(5)",
+      "trigger": "Served by a lien claimant within twenty days of first furnishing; not a contract clause",
+      "format": "Bold-faced type statement in the claimant's notice",
+      "applies": {
+        "lien_claimant_notice": true
+      },
+      "support": "The following statement in bold-faced type:",
+      "summary_row": "Preliminary twenty day notice statement (sent by subs and suppliers, not a contract clause)",
+      "mode": "on_file",
+      "block": "A.R.S. 33-992.01(C)(5). Preliminary twenty day notice statement",
+      "block_index": 0,
+      "start": "In accordance with Arizona Revised Statutes section 33-992.01",
+      "end": "that is appropriate under the circumstances.",
+      "quote_note": "none: not in quotation marks.",
+      "blanks": []
     }
   ],
   "changes": [
@@ -61,8 +143,11 @@
   ],
   "unsure": [
     "AZ-registrar: 32-1158(A)(9) lists required content (registrar phone and website, the two-year time limit) with no sentence; the phone and website were not obtained (Registrar site returned 403).",
-    "AZ-cancel and AZ-notice-to-buyer: the home solicitation definition requires solicitation without prior invitation, which the builder cannot tell; both are held anyway because their block is a whole section.",
     "A.R.S. 44-5005(B) statement on a note was not added: it goes on the face of a note, not in the contract, and depends on a note being taken.",
-    "A.R.S. 12-1365 new-dwelling notice was not added: it is for sales of newly constructed dwellings only, not remodel contracts."
+    "A.R.S. 12-1365 new-dwelling notice was not added: it is for sales of newly constructed dwellings only, not remodel contracts.",
+    "AZ-cancel and AZ-notice-to-buyer are now printed with applies sold_in_home; the statute covers only sales solicited without prior invitation, appointment or consent (44-5001(1)(a)), which the builder cannot tell, so sold_in_home is the closest test (it may print for an invited visit).",
+    "AZ-pool-notice stays held: the Department of Health Services notice itself was not obtained; the statute states a duty only.",
+    "AZ-note-statement, AZ-new-dwelling, AZ-prelim-20day: stored on file only; the first goes on a note, the second applies to new-home sales only, the third is a lien claimant's notice, none belongs in a remodel contract text.",
+    "AZ-cancel and AZ-notice-to-buyer apply only to sales solicited without prior invitation; the builder can only test sold_in_home."
   ]
 }

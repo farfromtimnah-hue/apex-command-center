@@ -5,10 +5,16 @@
     {
       "id": "MA-blank-spaces",
       "summary_row": "Home improvement contract contents, the four contract notices, \"blank spaces\" sentence, deposit cap, acceleration ban, permit paragraph, ADR clause rule",
-      "mode": "none",
+      "mode": "print",
       "block": "1. M.G.L. c. 142A s. 2 (entire section)",
       "block_index": 0,
-      "hold_reason": "The only blocks are whole sections (c. 142A s. 2 and 201 CMR 18.05) with the contents list, deposit cap, acceleration ban and other rules around the one-line notice; printing a block would put non-notice statute text in the contract. The statute and the regulation also differ in case (lower case versus capitals)."
+      "start": "Do not sign this",
+      "end": "any blank spaces",
+      "format": "Ten point bold type or larger, directly above the space provided for the signature",
+      "support": "in ten point bold type or larger, directly above the space provided for the signature",
+      "quote_note": "Excluded: the statute's doubled apostrophe quotation marks ('' and '') around the sentence.",
+      "blanks": [],
+      "boundary_unsure": "none for the edges (the sentence is inside the statute's quotation marks). Which case to print is open: 201 CMR 18.05(2)(a)8.d prints the same sentence in capitals, the statute in lower case; the statute's own words are cut here."
     },
     {
       "id": "MA-142A-notices",
@@ -23,25 +29,105 @@
     {
       "id": "MA-cancel",
       "summary_row": "Buyer statement next to the signature, and NOTICE OF CANCELLATION form",
-      "mode": "none",
+      "mode": "print",
       "block": "3. M.G.L. c. 93 s. 48 (entire section: buyer statement, NOTICE OF CANCELLATION, counting of days)",
       "block_index": 0,
-      "hold_reason": "The only block is the whole of c. 93 s. 48, with the cancellation rules, penalties and exemptions around the statement and form; printing the block would put non-notice statute text in the contract."
+      "title": "State cancellation statement near the buyer's signature",
+      "cite": "M.G.L. c. 93 s. 48(B)",
+      "format": "Statement on the front page in immediate proximity to the space reserved for the buyer's signature, in boldface type of a minimum size of ten points",
+      "support": "Each agreement shall contain the following statement appearing on the front page thereof in immediate proximity to the space reserved for the buyer's signature and in boldface type of a minimum size of ten points",
+      "start": "You may cancel this agreement if it has been signed by a party",
+      "end": "for an explanation of this right.",
+      "quote_note": "none: the statement is not in quotation marks; it follows the lead-in 'the following statement ... :' and consists of the paragraph beginning 'You may cancel this agreement' plus the next one-line paragraph 'See the attached notice of cancellation form for an explanation of this right.'",
+      "blanks": [],
+      "boundary_unsure": "The statement has no closing marker. It is cut as the two paragraphs after the lead-in, ending at 'explanation of this right.'; the next paragraph (the attached duplicate form lead-in) begins a different requirement. The statute lets FTC forms be substituted. Statute says 'in excess of twenty-five dollars'; 940 CMR 3.01 says $25 or more; printed for any job sold at the customer's home."
+    },
+    {
+      "id": "MA-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form attached to the agreement and easily detachable",
+      "cite": "M.G.L. c. 93 s. 48(B)",
+      "trigger": "Door-to-door sale or a sale made away from the seller's place of business, $25 or more",
+      "format": "Completed form in duplicate, easily detachable, attached to the agreement, in ten point boldface, in the same language as the agreement",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, which shall be easily detachable, and which shall contain in ten point boldface type the following in the same language as that used in the agreement",
+      "summary_row": "Buyer statement next to the signature, and NOTICE OF CANCELLATION form",
+      "mode": "print",
+      "block": "3. M.G.L. c. 93 s. 48 (entire section: buyer statement, NOTICE OF CANCELLATION, counting of days)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(Buyer's signature)",
+      "quote_note": "none: the form is not in quotation marks; it follows 'the following in the same language as that used in the agreement:' and is cut from its caption to the buyer's signature line.",
+      "blanks": [
+        "(Enter date of transaction)(Date)",
+        "to ___, (Name of seller)",
+        "at ___ (Address of seller's place of business)",
+        "than midnight of ___. (Date)",
+        "___ (Date) above the signature",
+        "___ (Buyer's signature)"
+      ],
+      "boundary_unsure": "The end is taken at the (Buyer's signature) line; the next paragraph says FTC forms may be substituted and is not form text. The statute's own layout of the 'to ___ ... at ___ not later ... than midnight of ___' lines is broken by the page, kept as printed."
+    },
+    {
+      "id": "MA-adr-clause",
+      "title": "Optional contractor-initiated arbitration clause (acceptable language) with separate signature block",
+      "cite": "201 CMR 18.05(2)(e)",
+      "trigger": "Only when the contractor chooses to include a contractor-initiated arbitration clause",
+      "format": "Clearly and conspicuously disclosed; each party separately signs and dates the provision",
+      "applies": {},
+      "support": "The following language and format is acceptable: THE CONTRACTOR AND THE HOMEOWNER HEREBY MUTUALLY AGREE IN ADVANCE",
+      "summary_row": "Contractor-initiated arbitration clause, model language and separate signature block",
+      "mode": "on_file",
+      "block": "2. 201 CMR 18.05 (entire section)",
+      "block_index": 0,
+      "start": "THE CONTRACTOR AND THE HOMEOWNER HEREBY MUTUALLY AGREE",
+      "end": "even where this section is not signed separately by the parties.",
+      "quote_note": "none: the language follows 'The following language and format is acceptable:' with no quotation marks.",
+      "blanks": [
+        "Owner: (signature and date line)",
+        "Contractor: (signature and date line)"
+      ],
+      "boundary_unsure": "The clause itself is certain; whether the 'Owner: Contractor:' line and the closing NOTICE sentence belong to the 'language and format' is a judgement, included because the regulation lists them directly under the model wording. Stored on file only (the clause is optional, builder cannot tell if the contractor wants it)."
     }
   ],
   "changes": [
-    { "path": "cancellation.oral_notice", "new": true, "support": "H. The seller or lessor shall inform the buyer orally, at the time he signs the agreement, of his right to cancel and shall not misrepresent in any manner such right." },
-    { "path": "cancellation.same_language", "new": true, "support": "the agreement itself is \"in the same language as that principally used in the oral sales presentation\"" },
-    { "path": "cancellation.no_work_or_payment_in_window", "new": true, "support": "J. A seller of services shall not commence such service during the three business day cancellation period, and the buyer shall not be responsible for the value of work performed during such period, in the event of cancellation." },
-    { "path": "license.text", "new": "HIC registration (owner-occupied 1 to 4 units). Not required of a contractor who works exclusively in landscaping; interior painting or wall covering; finished floor covering; fencing or freestanding masonry walls; above-ground swimming pools; shutter or awning installation; ground level patios; or asphalt and driveway installation and maintenance (c. 142A s. 14); construction supervisor license separately", "support": "any contractor or subcontractor who works exclusively in any of the following home improvement areas: landscaping; interior painting or wall covering; or finished floor covering, including but not limited to carpeting, vinyl floor covering, tile; or fencing or freestanding masonry walls; or above-ground swimming pools; or shutter or awning installation; or ground level patios; or asphalt and driveway installation and maintenance." },
-    { "path": "cleaning.auto_renewal.rule", "new": "Recurring charges: written disclosure before purchase, cancellation through the same medium, written reminder 5 to 30 calendar days before the cancel date for terms over 31 days; all-in total price disclosure", "support": "(4) For any Negative Option Feature exceeding 31 days, failing to provide the consumer written notice within no more than 30 and no fewer than five calendar days prior to the date upon which the consumer must cancel" },
-    { "path": "cleaning.auto_renewal.scope_and_confidence", "new": "OFFICIAL text read (Secretary of the Commonwealth PDF); applies to acts as of September 2, 2025; 31 days or less has its own notice rule (38.05(6))", "support": "940 CMR 38.00 shall apply to acts committed or practices in force as of September 2, 2025." }
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "H. The seller or lessor shall inform the buyer orally, at the time he signs the agreement, of his right to cancel and shall not misrepresent in any manner such right."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "the agreement itself is \"in the same language as that principally used in the oral sales presentation\""
+    },
+    {
+      "path": "cancellation.no_work_or_payment_in_window",
+      "new": true,
+      "support": "J. A seller of services shall not commence such service during the three business day cancellation period, and the buyer shall not be responsible for the value of work performed during such period, in the event of cancellation."
+    },
+    {
+      "path": "license.text",
+      "new": "HIC registration (owner-occupied 1 to 4 units). Not required of a contractor who works exclusively in landscaping; interior painting or wall covering; finished floor covering; fencing or freestanding masonry walls; above-ground swimming pools; shutter or awning installation; ground level patios; or asphalt and driveway installation and maintenance (c. 142A s. 14); construction supervisor license separately",
+      "support": "any contractor or subcontractor who works exclusively in any of the following home improvement areas: landscaping; interior painting or wall covering; or finished floor covering, including but not limited to carpeting, vinyl floor covering, tile; or fencing or freestanding masonry walls; or above-ground swimming pools; or shutter or awning installation; or ground level patios; or asphalt and driveway installation and maintenance."
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Recurring charges: written disclosure before purchase, cancellation through the same medium, written reminder 5 to 30 calendar days before the cancel date for terms over 31 days; all-in total price disclosure",
+      "support": "(4) For any Negative Option Feature exceeding 31 days, failing to provide the consumer written notice within no more than 30 and no fewer than five calendar days prior to the date upon which the consumer must cancel"
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "OFFICIAL text read (Secretary of the Commonwealth PDF); applies to acts as of September 2, 2025; 31 days or less has its own notice rule (38.05(6))",
+      "support": "940 CMR 38.00 shall apply to acts committed or practices in force as of September 2, 2025."
+    }
   ],
   "unsure": [
-    "MA-blank-spaces: the statute prints the sentence in lower case and 201 CMR 18.05 in capitals, so which form to print is open.",
     "MA-142A-notices: the statute gives no wording for the registration, cancellation, warranty, lien and permit notices; the regulation only names the office the registration notice must point to.",
     "MA-cancel: the statute lets the FTC form be substituted for the state form, so whether the state statement belongs in the contract at all is open; the statute says in excess of $25 and 940 CMR 3.01 says $25 or more.",
     "The deposit cap is the greater of one-third or special-order material cost; the structured deposit fields were left empty because one fraction alone would misstate the rule.",
-    "The 201 CMR 18.05(2)(e) arbitration clause is optional model wording, not loaded as a notice."
+    "MA-blank-spaces: the statute's lower-case sentence is the one cut; if capitals are wanted the regulation's block 2 holds 'DO NOT SIGN THIS CONTRACT IF THERE ARE ANY BLANK SPACES.' (201 CMR 18.05(2)(a)8.d).",
+    "MA-adr-clause: optional model clause stored on file only, never printed; whether the Owner/Contractor line and the NOTICE sentence are part of the model language is a judgement (see boundary_unsure)."
   ]
 }

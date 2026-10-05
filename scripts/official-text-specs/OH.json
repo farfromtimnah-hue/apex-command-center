@@ -5,10 +5,47 @@
     {
       "id": "OH-cancel",
       "cite": "R.C. 1345.23",
-      "support": "A completed form, in duplicate, captioned \"notice of cancellation\", shall be attached to the contract signed by the buyer and be easily detachable",
+      "support": "in bold-face type of the minimum size of ten points, in substantially the following form and in immediate proximity to the space reserved in the contract for the signature of the buyer",
       "summary_row": "Home solicitation statement near signature and duplicate NOTICE OF CANCELLATION form",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the buyer statement and the NOTICE OF CANCELLATION form it holds operative rules (writing requirements, late cancellation, prohibited acts) that should not print in the customer's contract"
+      "mode": "print",
+      "title": "Home solicitation statement near the buyer's signature",
+      "block": "R.C. 1345.23: written agreement, buyer statement, NOTICE OF CANCELLATION",
+      "block_index": 0,
+      "format": "Statement clearly and conspicuously on the copy of the contract left with the buyer, bold-face type of at least ten points, in immediate proximity to the buyer's signature space",
+      "applies": {
+        "sold_in_home": true
+      },
+      "start": "You, the buyer, may cancel this transaction",
+      "end": "for an explanation of this right.",
+      "quote_note": "The statute prints the statement inside quotation marks on one line with the lead-in; the markers sit inside them, so both quotation marks are excluded.",
+      "blanks": []
+    },
+    {
+      "id": "OH-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "R.C. 1345.23(B)(2)",
+      "trigger": "Home solicitation sale: solicitation at the residence, including after an invitation by the buyer",
+      "format": "Completed form in duplicate, attached to the contract signed by the buyer and easily detachable, ten-point bold-face type, in the same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "A completed form, in duplicate, captioned \"notice of cancellation\", shall be attached to the contract signed by the buyer and be easily detachable, and shall contain in ten-point, bold-face type",
+      "summary_row": "Home solicitation statement near signature and duplicate NOTICE OF CANCELLATION form",
+      "mode": "print",
+      "block": "R.C. 1345.23: written agreement, buyer statement, NOTICE OF CANCELLATION",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "______________________________",
+      "quote_note": "The form is not printed inside quotation marks (the caption is quoted once in lowercase in the lead-in, outside the cut); none to handle.",
+      "blanks": [
+        "(enter date of transaction) / (Date) line under the caption",
+        "(Name of seller) line",
+        "(address, electronic mail address, or facsimile number of seller's place of business) line",
+        "not later than midnight of ________ (Date)",
+        "Date line under I hereby cancel this transaction",
+        "(Buyer's signature) line"
+      ],
+      "boundary_unsure": "The cut ends at the 30-underscore line that follows '(Buyer's signature)' in the file; I took it to be the buyer's signature line because the next paragraph, (3), is an instruction to the seller. If that line is not part of the form the cut has one extra blank line. The form's last sentence 'To cancel this transaction, mail, with return receipt requested, ...' runs the seller blanks into the sentence on one line, exactly as in the file."
     },
     {
       "id": "OH-excess-cost",
@@ -18,8 +55,20 @@
       "format": "Statement in substantially the given language with an initials line: written estimate or oral estimate; no type size stated",
       "support": "the contract shall include a statement in substantially the following language",
       "summary_row": "Written contract at $25,000, required contents, EXCESS COSTS statement with initials",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the EXCESS COSTS statement it holds the list of required contract contents and the exemptions, which should not print in the customer's contract"
+      "mode": "print",
+      "block": "R.C. 4722.02: service contract (required contents and EXCESS COSTS statement)",
+      "block_index": 0,
+      "applies": {
+        "at_least_cents": 2500000
+      },
+      "start": "\"EXCESS COSTS",
+      "end": "oral estimate\"",
+      "quote_note": "The statute prints the statement inside quotation marks. The heading line EXCESS COSTS occurs twice in the block (the body also says 'THOSE EXCESS COSTS BEFORE'), and the loader refuses a non-unique first start marker, so the start marker has to include the opening quotation mark; the end marker includes the closing quotation mark. BOTH QUOTATION MARKS ARE THEREFORE INCLUDED in the cut text.",
+      "blanks": [
+        "_____ written estimate (initials)",
+        "_____ oral estimate (initials)"
+      ],
+      "boundary_unsure": "Edges are certain (the statement is the quoted text). The only issue is that the cut carries the statute's own opening and closing quotation marks, because the heading EXCESS COSTS is not a unique start marker. Printing needs those two quotation marks stripped, or the loader changed to allow a repeated first start marker."
     },
     {
       "id": "OH-estimate-form",
@@ -30,8 +79,17 @@
       "applies": {},
       "support": "Jobs under $25,000 and cleaning: \"Estimate\" form with initials (written, oral, no estimate), over $25",
       "summary_row": "Jobs under $25,000 and cleaning: \"Estimate\" form with initials (written, oral, no estimate), over $25",
-      "mode": "none",
-      "hold_reason": "the block is the whole administrative rule; besides the Estimate wording it holds many other operative rules (second sign, authorization of extra work, itemized bills) that should not print in the customer's contract"
+      "mode": "on_file",
+      "block": "Ohio Adm. Code 109:4-3-05: repairs or services (Estimate form)",
+      "block_index": 0,
+      "start": "Estimate",
+      "end": "_____ no estimate",
+      "quote_note": "The rule prints the disclosure inside quotation marks; the markers sit inside them, so both quotation marks are excluded.",
+      "blanks": [
+        "_____ written estimate (initials)",
+        "_____ oral estimate (initials)",
+        "_____ no estimate (initials)"
+      ]
     }
   ],
   "changes": [
@@ -59,13 +117,18 @@
       "path": "cancellation.no_work_or_payment_in_window",
       "new": true,
       "support": "the seller shall not commence performance of such services during the time in which the buyer may cancel"
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "10 percent deposit cap on covered jobs; no notice of commencement for a home construction contract (1311.04(O))",
+      "support": "This section does not apply to a home construction contract as defined in section 1311.011 of the Revised Code"
     }
   ],
   "unsure": [
-    "OH-cancel: the buyer statement (1345.23(B)(1)) and the NOTICE OF CANCELLATION form (B)(2) belong in the contract, but the file only offers them inside the whole section block, so they are held.",
-    "OH-excess-cost: the EXCESS COSTS statement belongs in the contract but is only offered inside the whole 4722.02 block, so it is held.",
-    "OH-estimate-form: added as a form handed over before work on jobs under $25,000 and cleaning; the builder cannot tell the face to face contact condition, and the whole rule block is held anyway.",
     "cancellation.no_work_or_payment_in_window: the file bars starting work during the window (1345.22(B)) but says nothing barring payment, so true may overstate the payment half.",
-    "Whether the home solicitation sections reach a $25,000-plus job is flagged by the file as a lawyer question, so OH-cancel's sold_in_home trigger is left as is."
+    "Whether the home solicitation sections reach a $25,000-plus job is flagged by the file as a lawyer question, so OH-cancel's sold_in_home trigger is left as is.",
+    "OH-cancel and OH-cancel-form: print for a sale at the customer's home. The file flags whether home solicitation sections reach a $25,000-plus job as a lawyer question, so the trigger is left as is.",
+    "OH-excess-cost: printed for jobs of $25,000 or more, but the statute exempts a firm-price contract with no excess costs and cost-plus contracts; the builder cannot tell those, so the statement would also print on those contracts. Cut text carries the statute's quotation marks (see quote_note).",
+    "OH-estimate-form: stored on file only. It applies to repairs or services over $25 with face to face contact, is oral as well as written, may be a separate form, and the builder cannot test 'under $25,000' (no under key). The form must also show date, supplier, consumer name and phone and completion date, which are outside the quoted text."
   ]
 }

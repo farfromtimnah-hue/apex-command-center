@@ -1,50 +1,166 @@
 {
- "state": "WY",
- "mirror_source": false,
- "notices": [
-  {
-   "id": "WY-lien",
-   "support": "now verbatim, with the attached lien waiver form",
-   "summary_row": "NOTICE TO OWNER form and LIEN WAIVER form",
-   "mode": "on_file",
-   "block": "W.S. 29-10-101. Preliminary notice of right to lien; lien waiver form",
-   "block_index": 0,
-   "hold_reason": "The block is the whole statute section 29-10-101, and the Notice to Owner is sent by the lien claimant before payment, not handed over with the contract; a person must decide if it belongs in the contract."
-  },
-  {
-   "id": "WY-cancel-credit",
-   "title": "BUYER'S RIGHT TO CANCEL statement and NOTICE OF CANCELLATION form",
-   "cite": "40-14-253; 40-12-104(d)",
-   "trigger": "Home solicitation sale of $25 or more, cash or credit, solicited at the buyer's residence in person or by telephone (merchandise includes any service)",
-   "format": "Statement under the conspicuous caption Buyer's right to cancel, in boldface of at least ten points, in immediate proximity to the buyer's signature space; the Notice of cancellation form is in duplicate, same language, attached and easily detachable",
-   "applies": {
-    "sold_in_home": true
-   },
-   "support": "So the Wyoming cancellation statement is needed for cash sales too, not \"credit sales only\"",
-   "summary_row": "\"Buyer's right to cancel\" statement and \"Notice of cancellation\" form",
-   "mode": "none",
-   "hold_reason": "the only block is a run of whole statute sections (40-14-251 to 40-14-253) with definitions and cancellation rules around the statement and form, so printing it would put non-notice statute text in the contract"
-  }
- ],
- "changes": [
-  {
-   "path": "cancellation.text",
-   "new": "Three business days, for cash and credit home solicitation sales alike; the Consumer Protection Act covers services as well as goods",
-   "support": "\"Merchandise\" includes any service or any property"
-  },
-  {
-   "path": "cancellation.covered",
-   "new": "Home solicitation sales of more than $25 cash (40-12-104) or $25 or more on credit (40-14-251) solicited at the buyer's residence in person or by telephone, on top of the federal rule; a buyer-invited visit is not excluded",
-   "support": "Neither definition excludes buyer-initiated contact at the home."
-  },
-  {
-   "path": "cancellation.day_count_note",
-   "new": "The three business days start only when the buyer has the completed contract, the cancellation address and the written Buyer's right to cancel statement. Business day is not defined in the sections read.",
-   "support": "the period does not start until the buyer has the completed contract, the cancellation address and the written \"Buyer's right to cancel\" statement in ten-point bold"
-  }
- ],
- "unsure": [
-  "WY-cancel-credit: the file says the statement is needed for cash sales (40-12-104(d)) as well as credit, but the builder cannot tell cash from credit; the statement is the same in both regimes and the block is held anyway because it spans whole statute sections.",
-  "WY-lien: the Notice to Owner is sent to the owner by the contractor before any payment; I load it as a document handed over with the contract, with the lien waiver form and its notary block attached, as the form itself says a waiver form is attached."
- ]
+  "state": "WY",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "WY-lien",
+      "support": "The undersigned party is providing work or materials to the property described below.",
+      "summary_row": "NOTICE TO OWNER form and LIEN WAIVER form",
+      "mode": "on_file",
+      "block": "W.S. 29-10-101. Preliminary notice of right to lien; lien waiver form",
+      "block_index": 0,
+      "title": "NOTICE TO OWNER (preliminary notice of right to lien)",
+      "cite": "W.S. 29-10-101(a); 29-2-112",
+      "trigger": "Contractor, before receiving any payment including advances; sent to the record owner, with a lien waiver form attached",
+      "format": "Substantially the statutory form; no type size; the notice says a lien waiver form is attached",
+      "applies": {},
+      "start": "NOTICE TO OWNER",
+      "end": "DATE: __________________",
+      "quote_note": "No quotation marks in the statute. Starts at the caption NOTICE TO OWNER; the 'Note to Lien Claimant' paragraph above the caption is excluded (an instruction to the claimant, not to the owner).",
+      "blanks": [
+        "Name, address and telephone number of contractor, subcontractor or materialman, and contact person (3 lines)",
+        "MATERIALS PROVIDED OR WORK PERFORMED (3 lines)",
+        "PROPERTY DESCRIPTION (3 lines)",
+        "ADDRESS (3 lines)",
+        "LEGAL DESCRIPTION (3 lines)",
+        "SIGNED: ________________",
+        "DATE: __________________"
+      ],
+      "boundary_unsure": "The statute prints a 'Note to Lien Claimant: ...' paragraph inside the form, above the caption NOTICE TO OWNER. I started at the caption because the note is addressed to the claimant, not the owner; whether the note is part of the form the statute prints is a judgement. The end is certain (DATE line, before subsection (b))."
+    },
+    {
+      "id": "WY-cancel-credit",
+      "title": "BUYER'S RIGHT TO CANCEL statement (10 point bold, next to the buyer's signature)",
+      "cite": "40-14-253(b); 40-12-104(d)",
+      "trigger": "Home solicitation sale of $25 or more, cash or credit, solicited at the buyer's residence in person or by telephone (merchandise includes any service)",
+      "format": "In immediate proximity to the space reserved for the buyer's signature, boldface of at least ten points, under the caption Buyer's right to cancel; contract in the language of the oral sales presentation",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "So the Wyoming cancellation statement is needed for cash sales too, not \"credit sales only\"",
+      "summary_row": "\"Buyer's right to cancel\" statement and \"Notice of cancellation\" form",
+      "mode": "print",
+      "block": "W.S. 40-14-251 to 40-14-253. Home solicitation sales on credit, and the wording both regimes use",
+      "block_index": 0,
+      "start": "You, the buyer, may cancel",
+      "end": "right.",
+      "quote_note": "The statute's opening quotation mark before You and its closing quotation mark after the final period are excluded: markers lie inside them. The cut keeps the PDF's own line breaks.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges; the statement wraps over several PDF lines which stay as printed."
+    },
+    {
+      "id": "WY-lien-waiver",
+      "title": "LIEN WAIVER form attached to the NOTICE TO OWNER",
+      "cite": "W.S. 29-10-101(b)",
+      "trigger": "Attached to the NOTICE TO OWNER; the form is signed by the lien claimant on payment",
+      "format": "Substantially the statutory form, with a notarial acknowledgment block",
+      "applies": {},
+      "support": "The form for waiver of a lien shall be completed in substantially the following form:",
+      "summary_row": "NOTICE TO OWNER form and LIEN WAIVER form",
+      "mode": "on_file",
+      "block": "W.S. 29-10-101. Preliminary notice of right to lien; lien waiver form",
+      "block_index": 0,
+      "start": "LIEN WAIVER",
+      "end": "Seal:",
+      "quote_note": "No quotation marks. Starts at the caption LIEN WAIVER; the 'Note to lien claimant' paragraph above it is excluded (instruction to the claimant).",
+      "blanks": [
+        "TO:",
+        "PROJECT:",
+        "FROM:",
+        "DATE:",
+        "PAYMENT: $",
+        "retainage $",
+        "unpaid sum $",
+        "By:",
+        "subcontractor/materialman/employee line",
+        "Title:",
+        "Date:",
+        "STATE OF",
+        "COUNTY OF",
+        "_____ day of _____, 20___",
+        "(name of person)",
+        "(title, position or type of authority granted by lien claimant)",
+        "(lien claimant)",
+        "Notarial officer",
+        "My Commission Expires:",
+        "Seal:"
+      ],
+      "boundary_unsure": "The note 'Note to lien claimant: Signing this form has legal implications...' sits inside the statutory form above the caption; excluded as an instruction to the claimant (judgement). The end 'Seal:' is the last line of the form."
+    },
+    {
+      "id": "WY-cancel-caption",
+      "title": "Caption Buyer's right to cancel above the statement",
+      "cite": "40-14-253(b)(i)",
+      "trigger": "Home solicitation sale of $25 or more, cash or credit, solicited at the buyer's residence in person or by telephone (merchandise includes any service)",
+      "format": "Conspicuous caption over the statement",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Appear under the conspicuous caption \"Buyer's right to cancel\"",
+      "summary_row": "\"Buyer's right to cancel\" statement and \"Notice of cancellation\" form",
+      "mode": "print",
+      "block": "W.S. 40-14-251 to 40-14-253. Home solicitation sales on credit, and the wording both regimes use",
+      "block_index": 0,
+      "start": "Buyer's",
+      "start_occurrence": 2,
+      "end": "right to cancel",
+      "quote_note": "The statute's quotation marks around the caption are excluded. The caption wraps over a PDF line break (Buyer's / right to cancel), kept as printed.",
+      "blanks": [],
+      "boundary_unsure": "The cut contains a line break inside the caption, as the PDF prints it."
+    },
+    {
+      "id": "WY-cancel-form",
+      "title": "Notice of cancellation form (duplicate, detachable), credit sales",
+      "cite": "40-14-253(c)",
+      "trigger": "Home solicitation sale on credit of $25 or more solicited away from the seller's place of business",
+      "format": "Completed in duplicate, caption Notice of cancellation, ten-point boldface, same language as the agreement, attached and easily detachable",
+      "applies": {},
+      "support": "the detachable duplicate \"Notice of cancellation\" form is required by the credit-sale statute",
+      "summary_row": "\"Buyer's right to cancel\" statement and \"Notice of cancellation\" form",
+      "mode": "on_file",
+      "block": "W.S. 40-14-251 to 40-14-253. Home solicitation sales on credit, and the wording both regimes use",
+      "block_index": 0,
+      "start": "You may cancel this transaction without any penalty or",
+      "end": "(Buyer's signature)",
+      "quote_note": "The statute's opening quotation mark before You and closing quotation mark after (Buyer's signature) are excluded: markers lie inside them. The caption Notice of cancellation (required by (c)(ii), split over two PDF lines) is not part of the cut.",
+      "blanks": [
+        ".... (enter date of transaction)",
+        ".... (name of seller)",
+        ".... (address of seller's place of business)",
+        ".... (date) after not later than 12:00 midnight of",
+        "(Date)",
+        "(Buyer's signature)"
+      ],
+      "boundary_unsure": "None on the edges. Stored not printed: credit sales only (builder cannot tell cash from credit)."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days, for cash and credit home solicitation sales alike; the Consumer Protection Act covers services as well as goods",
+      "support": "\"Merchandise\" includes any service or any property"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Home solicitation sales of more than $25 cash (40-12-104) or $25 or more on credit (40-14-251) solicited at the buyer's residence in person or by telephone, on top of the federal rule; a buyer-invited visit is not excluded",
+      "support": "Neither definition excludes buyer-initiated contact at the home."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "The three business days start only when the buyer has the completed contract, the cancellation address and the written Buyer's right to cancel statement. Business day is not defined in the sections read.",
+      "support": "the period does not start until the buyer has the completed contract, the cancellation address and the written \"Buyer's right to cancel\" statement in ten-point bold"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Buyer's right to cancel statement (10 point bold, near the signature) for cash and credit home solicitation sales; credit sales also need the detachable Notice of cancellation form (or the FTC form)",
+      "support": "So the Wyoming cancellation statement is needed for cash sales too, not \"credit sales only\""
+    }
+  ],
+  "unsure": [
+    "WY-cancel-credit: the file says the statement is needed for cash sales (40-12-104(d)) as well as credit, but the builder cannot tell cash from credit; the statement is the same in both regimes and the block is held anyway because it spans whole statute sections.",
+    "WY-lien: the Notice to Owner is sent to the owner by the contractor before any payment; I load it as a document handed over with the contract, with the lien waiver form and its notary block attached, as the form itself says a waiver form is attached.",
+    "WY-cancel-credit now holds only the statement (print, sold_in_home, cash and credit); the Notice of cancellation form is a new notice WY-cancel-form (on_file, credit only). The caption of the form (Notice of cancellation) is not loaded: it wraps over a PDF line break and the form is stored only.",
+    "WY-lien and WY-lien-waiver: stored only; the NOTICE TO OWNER is sent by the contractor before any payment, not a contract paragraph. Start of both cuts is the caption; the claimant note above each is excluded.",
+    "cancellation.no_work_or_payment_in_window is still true in the baseline although the cash-sale rule lets the seller keep a 5 percent fee (40-12-104(e)(iii)); not changed here."
+  ]
 }

@@ -135,6 +135,89 @@
       return h12 + ":" + m[2] + " " + suffix;
     }
 
+
+    // ---- the device's own time zone ----
+    // The Worker offers slots in the BUSINESS's zone (D.tz): a date and "HH:MM".
+    // The page shows them on the visitor's clock and posts back the business
+    // date and time of the slot that was chosen, so the booking itself is
+    // exactly the moment picked. Same zone, or a zone that cannot be read:
+    // nothing is converted and the page is as it always was.
+    var BRAZIL_LABELS = { "America/Sao_Paulo": "BRT", "America/Bahia": "BRT", "America/Recife": "BRT", "America/Fortaleza": "BRT", "America/Belem": "BRT", "America/Manaus": "AMT", "America/Cuiaba": "AMT", "America/Porto_Velho": "AMT", "America/Boa_Vista": "AMT", "America/Rio_Branco": "ACT", "America/Eirunepe": "ACT", "America/Noronha": "FNT" };
+    function zoneParts(ms, tz) {
+      var f = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      var p = {};
+      f.formatToParts(new Date(ms)).forEach(function(x) { p[x.type] = x.value; });
+      if (p.hour === "24") { p.hour = "00"; }
+      return p;
+    }
+    function zoneOffsetMs(ms, tz) {
+      var p = zoneParts(ms, tz);
+      return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000;
+    }
+    // a wall-clock date and time in a zone -> the moment (epoch ms); two passes so a clock change is handled
+    function wallToMs(date, hhmm, tz) {
+      var asUtc = new Date(date + "T" + hhmm + ":00Z").getTime();
+      var inst = asUtc - zoneOffsetMs(asUtc, tz);
+      return asUtc - zoneOffsetMs(inst, tz);
+    }
+    function msToWall(ms, tz) {
+      var p = zoneParts(ms, tz);
+      return { date: p.year + "-" + p.month + "-" + p.day, time: p.hour + ":" + p.minute };
+    }
+    function zoneLabel(ms, tz) {
+      if (BRAZIL_LABELS[tz]) { return BRAZIL_LABELS[tz]; }
+      try {
+        var parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short", hour: "numeric" }).formatToParts(new Date(ms));
+        for (var i = 0; i < parts.length; i++) { if (parts[i].type === "timeZoneName") { return parts[i].value; } }
+      } catch (e) { /* no label */ }
+      return "";
+    }
+    function deviceTz() {
+      try {
+        var z = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!z) { return ""; }
+        new Intl.DateTimeFormat("en-US", { timeZone: z });
+        return z;
+      } catch (e) { return ""; }
+    }
+    // the device zone to convert into, or "" when the page shows the business's own time
+    function viewTz() {
+      if (!D || !D.tz) { return ""; }
+      var z = deviceTz();
+      if (!z || z === D.tz) { return ""; }
+      try { new Intl.DateTimeFormat("en-US", { timeZone: D.tz }); new Intl.DateTimeFormat("en-US", { timeZone: z }); } catch (e) { return ""; }
+      return z;
+    }
+    // one business slot (date + "HH:MM") as the visitor sees it: { date, time, label }
+    function viewWall(bdate, btime) {
+      var z = viewTz();
+      if (!z) { return { date: bdate, time: btime, label: D.tz_label || "" }; }
+      var ms = wallToMs(bdate, btime, D.tz);
+      var w = msToWall(ms, z);
+      return { date: w.date, time: w.time, label: zoneLabel(ms, z) };
+    }
+    // D.slots on the visitor's clock: [{ date, times:[...], map:{ "HH:MM": { date, time } } }]
+    // map goes from what the visitor sees back to the business slot that is posted.
+    function viewSlots() {
+      var out = [];
+      var byDate = {};
+      (D.slots || []).forEach(function(s) {
+        s.times.forEach(function(t) {
+          var w = viewWall(s.date, t);
+          var day = byDate[w.date];
+          if (!day) { day = { date: w.date, times: [], map: {} }; byDate[w.date] = day; out.push(day); }
+          day.times.push(w.time);
+          day.map[w.time] = { date: s.date, time: t };
+        });
+      });
+      return out;
+    }
+    function viewDay(date) {
+      var found = null;
+      viewSlots().forEach(function(d) { if (d.date === date) { found = d; } });
+      return found;
+    }
+
     function applyBranding(b) {
       var hex = /^#[0-9a-fA-F]{6}$/;
       var root = document.documentElement.style;
@@ -309,10 +392,11 @@
       if (!el) { return; }
       var html = '<h1 role="heading" aria-level="1">' + (changing ? T("Escolher outro hor\u00e1rio", "Pick a different time") : T("Escolha um dia", "Choose a day")) + '</h1>';
       if (note) { html += '<div class="note" role="status">' + note + '</div>'; }
-      if (!D.slots.length) {
+      var vslots = viewSlots();
+      if (!vslots.length) {
         html += '<p class="muted" style="margin-top:10px;">' + T("N\u00e3o h\u00e1 hor\u00e1rios dispon\u00edveis no momento. Fale com ", "There are no open times right now. Please contact ") + escHtml(D.business.name || "") + '.</p>';
       }
-      D.slots.forEach(function(s) {
+      vslots.forEach(function(s) {
         html += '<button type="button" class="daybtn" data-date="' + s.date + '"><span>' + escHtml(weekday(s.date)) + '</span><span>' + fmtDate(s.date) + '</span></button>';
       });
       html += '<button type="button" class="btn secondary" id="btnBackDays">' + T("Voltar", "Back") + '</button>';
@@ -328,11 +412,11 @@
     function renderTimes(note) {
       var el = byId("stepTimes");
       if (!el) { return; }
-      var day = null;
-      D.slots.forEach(function(s) { if (s.date === chosenDate) { day = s; } });
+      var day = viewDay(chosenDate);
       if (!day) { renderDays(note); return; }
+      var first = day.map[day.times[0]];
       var html = '<h1 role="heading" aria-level="1">' + escHtml(weekday(chosenDate)) + ', ' + fmtDate(chosenDate) + '</h1>' +
-        '<p class="muted small" style="margin-bottom:10px;">' + T("Hor\u00e1rios em ", "Times shown in ") + escHtml(D.tz_label || "") + '</p>';
+        '<p class="muted small" style="margin-bottom:10px;">' + T("Hor\u00e1rios em ", "Times shown in ") + escHtml(viewWall(first.date, first.time).label) + '</p>';
       if (note) { html += '<div class="note" role="status">' + note + '</div>'; }
       html += '<div class="grid">' + day.times.map(function(t) {
         return '<button type="button" data-time="' + t + '" class="' + (t === chosenTime ? "sel" : "") + '">' + fmtTime(t) + '</button>';
@@ -372,20 +456,22 @@
       if (r.body && r.body.slots) { D.slots = r.body.slots; }
       chosenTime = null;
       var msg = T("Esse hor\u00e1rio acabou de ser ocupado. Escolha outro.", "Sorry, that time was just taken. Please pick another.");
-      var still = false;
-      D.slots.forEach(function(s) { if (s.date === chosenDate) { still = true; } });
+      var still = !!viewDay(chosenDate);
       if (still) { renderTimes(msg); } else { renderDays(msg); }
     }
 
     function submit() {
       if (busy || !chosenDate || !chosenTime) { return; }
+      var vday = viewDay(chosenDate);
+      var pick = vday && vday.map[chosenTime];
+      if (!pick) { return; }
       busy = true;
       var btn = byId("btnConfirm"); if (btn) { btn.disabled = true; }
       var path, body;
-      if (changing) { path = base() + "/change"; body = { slot_date: chosenDate, slot_time: chosenTime }; }
+      if (changing) { path = base() + "/change"; body = { slot_date: pick.date, slot_time: pick.time }; }
       else {
         path = base() + "/book";
-        body = { slot_date: chosenDate, slot_time: chosenTime, customer: { name: cust.name || "", phone: cust.phone || "", email: cust.email || "", address: cust.address || "", city: cust.city || "" }, answers: answers };
+        body = { slot_date: pick.date, slot_time: pick.time, customer: { name: cust.name || "", phone: cust.phone || "", email: cust.email || "", address: cust.address || "", city: cust.city || "" }, answers: answers };
         var hp = byId("f_website");
         body.website = (hp && hp.value) || "";
         body.elapsed_ms = Date.now() - loadedAt;
@@ -425,9 +511,13 @@
     // ---- done ----
     function icsEscape(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
     function icsHref(bk) {
+      // UTC times (the trailing Z), so the event lands at the right moment on any phone
+      function utcStamp(ms) { return new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z"); }
+      var startUtc = bk.start_utc || utcStamp(wallToMs(bk.slot_date, bk.slot_time, D.tz));
+      var endUtc = bk.end_utc || utcStamp(wallToMs(bk.slot_date, bk.end_time || bk.slot_time, D.tz));
       var now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
       var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//booking//EN", "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
-        "UID:" + (leadToken || bk.start_utc) + "@booking", "DTSTAMP:" + now, "DTSTART:" + bk.start_utc, "DTEND:" + bk.end_utc,
+        "UID:" + (leadToken || startUtc) + "@booking", "DTSTAMP:" + now, "DTSTART:" + startUtc, "DTEND:" + endUtc,
         "SUMMARY:" + icsEscape(T("Visita - ", "Visit - ") + (D.business.name || "")), "LOCATION:" + icsEscape(bk.address || ""), "END:VEVENT", "END:VCALENDAR"];
       return "data:text/calendar;charset=utf-8," + encodeURIComponent(lines.join("\r\n"));
     }
@@ -438,9 +528,10 @@
       var el = byId("stepDone");
       if (!el) { return; }
       var canChange = !!leadToken;
+      var when = viewWall(bk.slot_date, bk.slot_time);
       var html = '<div class="card"><div class="state" style="padding-bottom:6px;"><h3 role="heading" aria-level="1">' + T("Visita agendada!", "Your visit is booked!") + '</h3></div>' +
-        doneRow(T("Data", "Date"), weekday(bk.slot_date) + ", " + fmtDate(bk.slot_date)) +
-        doneRow(T("Hor\u00e1rio", "Time"), fmtTime(bk.slot_time) + (D.tz_label ? " " + D.tz_label : "")) +
+        doneRow(T("Data", "Date"), weekday(when.date) + ", " + fmtDate(when.date)) +
+        doneRow(T("Hor\u00e1rio", "Time"), fmtTime(when.time) + (when.label ? " " + when.label : "")) +
         (bk.address ? doneRow(T("Endere\u00e7o", "Address"), bk.address) : "") +
         '<a class="btn" id="btnIcs" href="' + icsHref(bk) + '" download="visit.ics">' + T("Adicionar ao calend\u00e1rio", "Add to calendar") + '</a></div>';
       if (canChange) {

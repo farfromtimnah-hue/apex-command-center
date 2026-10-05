@@ -1417,7 +1417,7 @@
     .card-body-collapsible { transition: none; }
     .card-body-collapsible[hidden] { display: none !important; }
 
-    /* ─── Five groups, one section on screen ─────────────────────────────── */
+    /* ─── Five groups, one group on screen ───────────────────────────────── */
     /* Same design as the client portal's group strip and its drop-down
        (portal.html .portal-group-tab / #portalGroupSheet): no second row of
        pills, no full-screen menu. */
@@ -1473,7 +1473,7 @@
     }
     .cg-item:hover { background: var(--gold-dim); }
     .cg-item.active { background: var(--header); color: var(--gold); }
-    /* One section on screen. Screen only: a printed page keeps every section,
+    /* One group on screen. Screen only: a printed page keeps every section,
        as it always has. .cg-off never touches the hidden attribute, which
        stays each section's own "not for this client / this role" rule. */
     @media screen {
@@ -1482,6 +1482,18 @@
       .two-col-layout.cg-one .col-side > .info-card { display: none; }
     }
     @media print { .cg-bar, .cg-sheet { display: none !important; } }
+    /* The group on screen (#cgStage, filled by cgLayout()). Its sections are
+       stacked in rows: a wide section is a row of its own, and a run of the
+       others is a row of two columns, read down the left column first. */
+    .cg-stage { display: flex; flex-direction: column; gap: 24px; }
+    .cg-stage:empty { display: none; }
+    .cg-row-two { display: flex; gap: 24px; align-items: flex-start; }
+    .cg-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+    @media (max-width: 1099px) {
+      /* Not enough width for two: the right column goes under the left. */
+      .cg-row-two { flex-direction: column; align-items: stretch; }
+      .cg-col { flex: none; width: 100%; }
+    }
 
     #sectionsList { display: flex; flex-direction: column; gap: 24px; }
 
@@ -2003,7 +2015,8 @@
     <div class="below-hero-section">
 
     <!-- The five groups. Filled by cgRenderBar(): the order depends on the
-         signed-in role. A group opens a menu of its sections (#cgSheet). -->
+         signed-in role. A group button puts all of its sections on screen
+         and opens a menu (#cgSheet) that jumps to one of them. -->
     <nav class="cg-bar" id="cgBar" hidden></nav>
 
     <!-- Leads reported in the daily log that never reached the pipeline.
@@ -2012,6 +2025,10 @@
          days it says something. Rendered before the meeting Rafa is about to
          walk into, which is the moment the number is actionable. -->
     <div id="pipelineGapBanner" hidden></div>
+
+    <!-- The sections of the group on screen. cgLayout() moves them in here
+         from the two columns below and puts them back before printing. -->
+    <div class="cg-stage" id="cgStage"></div>
 
     <!-- Two-column layout -->
     <div class="two-col-layout">
@@ -3809,7 +3826,7 @@
     // here mid-meeting, and "scroll down and find the digital presence card"
     // is not something he can do while a client is talking.
     //   ?day=YYYY-MM-DD  open that day's entry under the week card
-    //   ?section=<id>    put that content-card on screen and flash it
+    //   ?section=<id>    open that content-card's group, jump to it and flash it
     var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
     var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
 
@@ -3819,13 +3836,10 @@
     function scrollToSection(elId) {
       var el = document.getElementById(elId);
       if (!el) { return; }
-      // One section is on screen at a time: bring this element's section up
+      // One group is on screen at a time: bring this element's group up
       // first, or there is nothing to scroll to.
       cgShowForElement(el);
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.style.transition = "background-color 0.4s";
-      el.style.backgroundColor = "var(--gold-dim)";
-      setTimeout(function() { el.style.backgroundColor = ""; }, 900);
+      cgScrollFlash(el);
     }
 
     // ?modal=fieldconfig opens the targets editor straight away. Meeting Prep
@@ -3839,7 +3853,7 @@
       // implementation of a one-time password that can never be shown again --
       // a second one would be a second chance to get it wrong.
       // Both dialogs belong to the Client Portal card (login + field config),
-      // so that is the section left on screen behind them. ?section= wins
+      // so its group is the one left on screen behind them. ?section= wins
       // when a link carries both.
       if ((DEEP_MODAL === "login" || DEEP_MODAL === "fieldconfig") && !DEEP_SECTION) {
         cgShow("portalAccess", false);
@@ -3872,6 +3886,12 @@
       // He already chose a section himself while this was waiting.
       if (cgUserPicked) { return; }
       scrollToSection(id);
+      // The sections above it in its group are still loading and push it
+      // down as they fill in: line it up once more when they have settled.
+      setTimeout(function() {
+        if (cgUserPicked || !el.scrollIntoView) { return; }
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 1500);
     }
     var clientData  = null;
     var sessions    = [];
@@ -4068,7 +4088,7 @@
       populateHeaderUser(email, displayName, avatarUrl);
       document.getElementById("headerRole").textContent = role;
 
-      // Before the page is shown: only the first section is on screen.
+      // Before the page is shown: only the Overview group is on screen.
       cgInit();
 
       document.getElementById("loadingScreen").hidden = true;
@@ -5673,11 +5693,15 @@
       var card = document.getElementById("sec-apexContract");
       var role = sessionStorage.getItem("apex_role") || "";
       if (!card || !window.ApexContract || ["alice", "rafa", "developer"].indexOf(role) === -1) { return; }
+      // Placed in the page's own columns (the printed order), so anything
+      // cgLayout() has on screen goes home first and is laid out again after.
+      cgHome();
       card.hidden = false;
       if ((client.status || "").toLowerCase() === "lead") {
         var lead = document.getElementById("sec-leadPipeline");
         if (lead && lead.parentNode) { lead.parentNode.insertBefore(card, lead.nextSibling); }
       }
+      cgInit();
       ApexContract.init({ api: function(path, method, body) { return apiFetch(path, { method: method, body: body }); } });
       ApexContract.mount(document.getElementById("apexContractMount"), CLIENT_ID);
     }
@@ -5689,20 +5713,16 @@
         card.hidden = true;   // not a lead: section never appears, no data fetched
         return;
       }
-      card.hidden = false;
       // Pinned to the top of the list: for a lead the pipeline is the point
       // of the page, and the APEX Contract card is placed right under it.
+      // (The page's own columns, so what is on screen goes home first.)
+      cgHome();
+      card.hidden = false;
       var list = document.getElementById("sectionsList");
       if (list) { list.insertBefore(card, list.firstChild); }
-      // A lead opens on the pipeline (with the APEX Contract card under it)
-      // instead of the plain overview, unless he was sent somewhere specific
-      // or has already chosen a section.
-      if (cgCurrent === "apexContract" ||
-          (!cgUserPicked && !DEEP_SECTION && !DEEP_MODAL && cgCurrent === "overview")) {
-        cgShow("leadPipeline", false);
-      } else {
-        cgApply();
-      }
+      // A lead's Overview group now starts with the pipeline, then the APEX
+      // Contract card (cgGroupNames()).
+      cgInit();
 
       leadStageCurrent = client.lead_stage && LEAD_STAGES.indexOf(client.lead_stage) >= 0
         ? client.lead_stage : "Lead";
@@ -9930,16 +9950,19 @@
       }
     }
 
-    // ── Five groups, one section on screen ─────────────────────────────────
+    // ── Five groups, one group on screen ───────────────────────────────────
     // The page used to be 25 cards on one long scroll. Now each card belongs
-    // to one of five groups and only one card is on screen. Same design as
-    // the client portal (PORTAL_GROUPS / portalDockTap / #portalGroupSheet).
+    // to one of five groups and one GROUP is on screen: all of its cards, in
+    // the order below. A group button opens the group and its menu; a menu
+    // item jumps to that card. Same strip and drop-down as the client portal
+    // (PORTAL_GROUPS / portalDockTap / #portalGroupSheet).
     //
     // "sections" are the short names: the card's id is "sec-" + name, which
-    // is also what ?section= takes. The order here is the order in the menu.
-    // A card the page hides for its own reason (the hidden attribute: Lead
-    // Pipeline for a non-lead, APEX Contract and Contract status by role) is
-    // left out of its menu; a group with nothing to list is left out too.
+    // is also what ?section= takes. The order here is the order on screen
+    // and in the menu. A card the page hides for its own reason (the hidden
+    // attribute: Lead Pipeline for a non-lead, APEX Contract and Contract
+    // status by role) is left out of both; a group with nothing to list is
+    // left out too.
     var CG_GROUPS = [
       { key: "overview", icon: "view",
         pt: "Vis\u00e3o geral", en: "Overview", shortPt: "Geral", shortEn: "Overview",
@@ -9950,8 +9973,9 @@
       { key: "results", icon: "trend",
         pt: "Resultados", en: "Results", shortPt: "Resultados", shortEn: "Results",
         sections: ["growth", "weeklySummary", "dp"], analyticsLink: true },
+      // The key stays "business": it is the name the click counter files it under.
       { key: "business", icon: "store",
-        pt: "Neg\u00f3cio do cliente", en: "Their business", shortPt: "Neg\u00f3cio", shortEn: "Business",
+        pt: "Ferramentas do cliente", en: "Client tools", shortPt: "Ferram.", shortEn: "Tools",
         sections: ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance"] },
       { key: "money", icon: "finance",
         pt: "Financeiro", en: "Money", shortPt: "Financeiro", shortEn: "Money",
@@ -9960,9 +9984,14 @@
     // Rafa works the client; Alice (and the developer) work the money.
     var CG_ORDER_RAFA  = ["overview", "apexwork", "results", "business", "money"];
     var CG_ORDER_OTHER = ["overview", "money", "apexwork", "results", "business"];
+    // Too wide for half the page: these always take a full row.
+    var CG_WIDE = ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance", "leadPipeline"];
 
-    var cgCurrent    = "overview";   // short name of the section on screen
-    var cgUserPicked = false;        // he chose a section himself
+    var cgGroup      = "overview";   // key of the group on screen
+    var cgUserPicked = false;        // he chose a group or a section himself
+    var cgPlanSig    = "";           // the rows now in #cgStage (see cgLayout)
+    var cgHomeMarks  = {};           // section name -> the marker left where its card lives
+    var cgSheetOpenedAt = 0;
 
     // The developer's role switcher counts as the role being previewed.
     function cgRole() {
@@ -9995,20 +10024,8 @@
       return !!(card && !card.hidden);
     }
 
-    // For a lead the APEX Contract card sits under the Lead Pipeline card and
-    // the two are ONE screen (the Overview group's first). It is the only
-    // screen with two cards.
-    function cgLeadHasContract() {
-      var card = cgCard("apexContract");
-      return cgIsLead() && !!(card && !card.hidden);
-    }
-
-    function cgNormalize(name) {
-      if (name === "apexContract" && cgIsLead()) { return "leadPipeline"; }
-      return name;
-    }
-
     function cgGroupOfSection(name) {
+      // A lead's APEX Contract sits right under the Lead Pipeline, in Overview.
       if (name === "apexContract" && cgIsLead()) { return cgGroupByKey("overview"); }
       for (var i = 0; i < CG_GROUPS.length; i++) {
         if (CG_GROUPS[i].sections.indexOf(name) !== -1) { return CG_GROUPS[i]; }
@@ -10016,24 +10033,30 @@
       return null;
     }
 
-    // What a group's menu lists right now.
-    function cgGroupSections(g) {
+    // Every section of a group, in order, whether or not its card is shown.
+    // For a lead the APEX Contract leaves Money and follows the Lead Pipeline.
+    function cgGroupNames(g) {
       var out = [];
       var lead = cgIsLead();
       for (var i = 0; i < g.sections.length; i++) {
         var name = g.sections[i];
-        var card = cgCard(name);
-        if (!card || card.hidden) { continue; }
-        // A lead's APEX Contract is on the Lead Pipeline screen, in Overview.
         if (lead && name === "apexContract") { continue; }
         out.push(name);
+        if (lead && g.key === "overview" && name === "leadPipeline") { out.push("apexContract"); }
       }
       return out;
     }
 
-    function cgOnScreen(name) {
-      if (name === cgCurrent) { return true; }
-      return cgCurrent === "leadPipeline" && name === "apexContract";
+    // What a group shows, and what its menu lists, right now.
+    function cgGroupSections(g) {
+      var names = cgGroupNames(g);
+      var out = [];
+      for (var i = 0; i < names.length; i++) {
+        var card = cgCard(names[i]);
+        if (!card || card.hidden) { continue; }
+        out.push(names[i]);
+      }
+      return out;
     }
 
     function cgLabelHtml(pt, en) {
@@ -10050,35 +10073,36 @@
     }
 
     function cgSectionLabelHtml(name) {
-      var pt = cgSectionTitle(name, "pt");
-      var en = cgSectionTitle(name, "en");
-      if (name === "leadPipeline" && cgLeadHasContract()) {
-        pt += " e " + cgSectionTitle("apexContract", "pt");
-        en += " and " + cgSectionTitle("apexContract", "en");
-      }
-      return cgLabelHtml(pt, en);
+      return cgLabelHtml(cgSectionTitle(name, "pt"), cgSectionTitle(name, "en"));
     }
 
-    // Show one section and hide the rest. Returns false when the name is not
-    // a section of this page.
-    function cgShow(name, picked) {
-      name = cgNormalize(name);
-      if (!cgCard(name) || !cgGroupOfSection(name)) { return false; }
-      cgCurrent = name;
+    // Put a group on screen. Returns false when the key is not a group.
+    function cgShowGroup(key, picked) {
+      if (!cgGroupByKey(key)) { return false; }
+      cgGroup = key;
       if (picked) { cgUserPicked = true; }
       cgApply();
       return true;
     }
 
-    // The section an element lives in, put on screen (deep links, ?day=, and
+    // Put a section's group on screen. Returns false when the name is not a
+    // section of this page.
+    function cgShow(name, picked) {
+      var g = cgGroupOfSection(name);
+      if (!cgCard(name) || !g) { return false; }
+      return cgShowGroup(g.key, picked);
+    }
+
+    // The group an element lives in, put on screen (deep links, ?day=, and
     // gm.js asking for "its tab").
     function cgShowForElement(el) {
       var node = el;
       while (node && node !== document.body) {
         if (node.id && node.id.indexOf("sec-") === 0) {
           var name = node.id.slice(4);
-          if (cgGroupOfSection(name)) {
-            if (!cgOnScreen(name)) { cgShow(name, false); }
+          var g = cgGroupOfSection(name);
+          if (g) {
+            if (g.key !== cgGroup) { cgShowGroup(g.key, false); }
             return;
           }
         }
@@ -10089,35 +10113,164 @@
     function cgApply() {
       var layout = document.querySelector(".two-col-layout");
       if (layout) { layout.classList.add("cg-one"); }
+      var cur = cgGroupByKey(cgGroup);
+      var mine = cur ? cgGroupNames(cur) : [];
       for (var i = 0; i < CG_GROUPS.length; i++) {
         for (var j = 0; j < CG_GROUPS[i].sections.length; j++) {
           var name = CG_GROUPS[i].sections[j];
           var card = cgCard(name);
           if (!card) { continue; }
-          if (cgOnScreen(name)) { card.classList.remove("cg-off"); }
+          if (mine.indexOf(name) !== -1) { card.classList.remove("cg-off"); }
           else { card.classList.add("cg-off"); }
         }
       }
+      cgLayout(cur ? cgGroupSections(cur) : []);
       cgRenderBar();
     }
 
+    // The rows a list of sections is laid out in. A wide section is a row of
+    // its own; a run of two or more of the others is one row of two columns,
+    // the first half down the left, the rest down the right. A group with
+    // fewer than three sections on screen stays one column.
+    function cgPlan(names) {
+      var rows = [];
+      var run = [];
+      var two = names.length >= 3;
+      for (var i = 0; i <= names.length; i++) {
+        var name = i < names.length ? names[i] : null;
+        if (name && two && CG_WIDE.indexOf(name) === -1) { run.push(name); continue; }
+        if (run.length >= 2) {
+          var half = Math.ceil(run.length / 2);
+          rows.push({ left: run.slice(0, half), right: run.slice(half) });
+        } else if (run.length === 1) {
+          rows.push({ wide: run[0] });
+        }
+        run = [];
+        if (name) { rows.push({ wide: name }); }
+      }
+      return rows;
+    }
+
+    function cgPlanText(rows) {
+      var out = [];
+      for (var i = 0; i < rows.length; i++) {
+        out.push(rows[i].wide ? rows[i].wide : rows[i].left.join(",") + "|" + rows[i].right.join(","));
+      }
+      return out.join(" / ");
+    }
+
+    // Every card that was moved into #cgStage goes back to where the page
+    // keeps it (its marker), and the stage is emptied. That is the page as it
+    // is printed, and as it was before the groups.
+    function cgHome() {
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        for (var j = 0; j < CG_GROUPS[i].sections.length; j++) {
+          var name = CG_GROUPS[i].sections[j];
+          var mark = cgHomeMarks[name];
+          var card = cgCard(name);
+          if (mark && mark.parentNode) {
+            if (card) { mark.parentNode.insertBefore(card, mark); }
+            mark.parentNode.removeChild(mark);
+          }
+          cgHomeMarks[name] = null;
+        }
+      }
+      var stage = document.getElementById("cgStage");
+      if (stage) { stage.innerHTML = ""; }
+      cgPlanSig = "";
+    }
+
+    function cgStageCard(parent, name) {
+      var card = cgCard(name);
+      if (!card || !card.parentNode) { return; }
+      var mark = document.createElement("span");
+      mark.hidden = true;
+      mark.setAttribute("data-cg-home", name);
+      card.parentNode.insertBefore(mark, card);
+      cgHomeMarks[name] = mark;
+      parent.appendChild(card);
+    }
+
+    function cgStageBox(className) {
+      var box = document.createElement("div");
+      box.className = className;
+      box.setAttribute("data-cg", "1");
+      return box;
+    }
+
+    function cgIsStaged(names) {
+      for (var i = 0; i < names.length; i++) {
+        var card = cgCard(names[i]);
+        var box = card ? card.parentNode : null;
+        if (!box || !box.getAttribute || box.getAttribute("data-cg") !== "1") { return false; }
+      }
+      return true;
+    }
+
+    // Lay the group's sections out in #cgStage. Nothing is moved when the
+    // rows are already the ones on screen, so a card being typed in keeps its
+    // cursor when some other card finishes loading.
+    function cgLayout(names) {
+      var stage = document.getElementById("cgStage");
+      if (!stage || !document.createElement) { return; }
+      var rows = cgPlan(names);
+      var sig = cgGroup + ": " + cgPlanText(rows);
+      if (sig === cgPlanSig && cgIsStaged(names)) { return; }
+      cgHome();
+      stage.setAttribute("data-cg", "1");
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].wide) { cgStageCard(stage, rows[i].wide); continue; }
+        var row = cgStageBox("cg-row-two");
+        var left = cgStageBox("cg-col");
+        var right = cgStageBox("cg-col");
+        row.appendChild(left);
+        row.appendChild(right);
+        stage.appendChild(row);
+        var k;
+        for (k = 0; k < rows[i].left.length; k++) { cgStageCard(left, rows[i].left[k]); }
+        for (k = 0; k < rows[i].right.length; k++) { cgStageCard(right, rows[i].right[k]); }
+      }
+      cgPlanSig = sig;
+    }
+
+    // A card the page shows or hides later (Lead Pipeline, APEX Contract,
+    // Contract status) joins or leaves the group on screen when it does.
+    function cgWatchCards() {
+      if (typeof MutationObserver !== "function") { return; }
+      var watcher = new MutationObserver(function() { cgInit(); });
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        for (var j = 0; j < CG_GROUPS[i].sections.length; j++) {
+          var card = cgCard(CG_GROUPS[i].sections[j]);
+          if (card) { watcher.observe(card, { attributes: true, attributeFilter: ["hidden"] }); }
+        }
+      }
+    }
+    var cgWatching = false;
+
     function cgInit() {
       // A failure here must leave the old long page, never a blank one.
-      try { cgApply(); } catch (e) {}
+      try {
+        cgApply();
+        if (!cgWatching) { cgWatching = true; cgWatchCards(); }
+      } catch (e) {}
     }
+
+    // A printed page is the page's own two columns, every section in its
+    // usual place: the cards go home for the print and come back after it.
+    window.addEventListener("beforeprint", function() { try { cgHome(); } catch (e) {} });
+    window.addEventListener("afterprint", function() { cgInit(); });
 
     function cgRenderBar() {
       var bar = document.getElementById("cgBar");
       if (!bar) { return; }
       var order = cgGroupOrder();
-      var cur = cgGroupOfSection(cgCurrent);
       var html = "";
       for (var i = 0; i < order.length; i++) {
         var g = cgGroupByKey(order[i]);
         if (!g) { continue; }
         if (!cgGroupSections(g).length && !g.analyticsLink) { continue; }
-        html += '<button type="button" class="cg-tab' + (cur && cur.key === g.key ? " active" : "") +
-          '" onclick="cgGroupTap(\'' + g.key + '\', this)">' +
+        html += '<button type="button" class="cg-tab' + (g.key === cgGroup ? " active" : "") +
+          '" onclick="cgGroupTap(\'' + g.key + '\', this)" data-cg-key="' + g.key + '">' +
           (window.apexNavSvg ? window.apexNavSvg(g.icon) : "") +
           '<span class="cg-tab-long">' + cgLabelHtml(g.pt, g.en) + '</span>' +
           '<span class="cg-tab-short">' + cgLabelHtml(g.shortPt, g.shortEn) + '</span>' +
@@ -10131,21 +10284,55 @@
       return !!(window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
     }
 
-    // A group button. Opens the group's menu: a drop-down under the button on
-    // a desktop, the small pop-up above the dock on a phone. Tapping the same
-    // group again closes it.
+    // How far below the top of the page a jump has to land to clear the
+    // "back to meeting prep" strip, when it is there.
+    function cgStickyTop() {
+      var strip = document.getElementById("prepReturn");
+      return ((strip && strip.offsetHeight) || 0) + 12;
+    }
+
+    // Scroll an element to the top of the screen, its header showing, and
+    // flash it so the jump is visible (the flash scrollToSection() has always
+    // done for ?section=).
+    function cgScrollFlash(el) {
+      if (!el || !el.style) { return; }
+      el.style.scrollMarginTop = cgStickyTop() + "px";
+      if (el.scrollIntoView) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      el.style.transition = "background-color 0.4s";
+      el.style.backgroundColor = "var(--gold-dim)";
+      setTimeout(function() { el.style.backgroundColor = ""; }, 900);
+    }
+
+    // A group button. One tap does two things: the group goes on screen (all
+    // of its sections, from the top) and its menu opens, so the next tap can
+    // jump to a section. The menu is a drop-down under the button on a
+    // desktop, the small pop-up above the dock on a phone. Tapping the group
+    // that is already on screen only opens or closes its menu.
     function cgGroupTap(key, anchor) {
       var g = cgGroupByKey(key);
       var sheet = document.getElementById("cgSheet");
       var panel = document.getElementById("cgPanel");
       if (!g || !sheet || !panel) { return; }
-      if (!sheet.hidden && sheet.getAttribute("data-group") === key) { cgSheetClose(); return; }
+      if (key === cgGroup && !sheet.hidden && sheet.getAttribute("data-group") === key) { cgSheetClose(); return; }
       cgTrack("client:group:" + key);
+      if (key !== cgGroup) {
+        cgShowGroup(key, true);
+        // The buttons were just redrawn: the drop-down hangs from the new one.
+        var bar = document.getElementById("cgBar");
+        var fresh = (bar && bar.querySelector) ? bar.querySelector('[data-cg-key="' + key + '"]') : null;
+        if (fresh) { anchor = fresh; }
+        // Top of the group: its buttons at the top of the screen, the first
+        // section right under them. At once, not animated, so the drop-down
+        // is placed where the button ends up.
+        if (bar && bar.style && bar.scrollIntoView) {
+          bar.style.scrollMarginTop = cgStickyTop() + "px";
+          bar.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+      }
       var names = cgGroupSections(g);
       var html = '<div class="cg-title">' + cgLabelHtml(g.pt, g.en) + '</div>';
       for (var i = 0; i < names.length; i++) {
-        html += '<button type="button" class="cg-item' + (names[i] === cgCurrent ? " active" : "") +
-          '" role="menuitem" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
+        html += '<button type="button" class="cg-item" role="menuitem" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
           cgSectionLabelHtml(names[i]) + '</span></button>';
       }
       // Not a section: this client's analytics live on their own page.
@@ -10173,6 +10360,7 @@
         sheet.classList.remove("cg-dropdown");
         panel.style.top = ""; panel.style.left = ""; panel.style.maxHeight = "";
       }
+      cgSheetOpenedAt = Date.now();
       sheet.hidden = false;
     }
 
@@ -10181,6 +10369,9 @@
       var sheet = document.getElementById("cgSheet");
       // Scrolling a long menu itself is not the page moving.
       if (e && e.target && e.target.id === "cgPanel") { return; }
+      // Nor is the page settling right after a group was opened (the new
+      // group can be shorter, and cgGroupTap() scrolls to its top).
+      if (Date.now() - cgSheetOpenedAt < 400) { return; }
       if (sheet && !sheet.hidden && sheet.classList.contains("cg-dropdown")) { cgSheetClose(); }
     }, true);
 
@@ -10189,10 +10380,12 @@
       if (sheet) { sheet.hidden = true; }
     }
 
+    // A menu item: jump to that section inside its group.
     function cgSheetGo(name) {
       cgSheetClose();
       cgTrack("client:section:" + name);
-      cgShow(name, true);
+      if (!cgShow(name, true)) { return; }
+      cgScrollFlash(cgCard(name));
     }
 
     // Staff click counter (nav.js, window.apexTrack). Optional: with the

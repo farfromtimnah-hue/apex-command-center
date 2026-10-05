@@ -370,6 +370,18 @@
     }
     function statusClass(st) { return st === "paid" ? "ok" : (st === "overdue" ? "bad" : "plain"); }
 
+    // Apex's own name, city and website, as the Worker sends them, on one
+    // footer line under the links. It prints, like the line above the links.
+    function footBizHtml() {
+      var b = inv.business || {};
+      var parts = [];
+      if (b.name) { parts.push(escHtml(b.name)); }
+      if (b.address) { parts.push(escHtml(b.address)); }
+      if (b.website) { parts.push(escHtml(b.website)); }
+      if (!parts.length) { return ""; }
+      return '<div class="foot-biz" id="footBiz">' + parts.join(" &middot; ") + '</div>';
+    }
+
     function render() {
       document.documentElement.lang = LANG === "en" ? "en" : "pt-BR";
       document.title = T("title") + " " + inv.number;
@@ -432,7 +444,7 @@
       renderPay();
       var foot = byId("foot");
       if (foot) {
-        foot.innerHTML = escHtml(T("foot")) + '<br><span class="no-print"><a href="privacy.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("privacy")) + '</a> &middot; <a href="terms.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("terms")) + '</a></span>';
+        foot.innerHTML = escHtml(T("foot")) + '<br><span class="no-print"><a href="privacy.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("privacy")) + '</a> &middot; <a href="terms.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("terms")) + '</a></span>' + footBizHtml();
       }
       // While staff review a draft the PDF button is greyed out and does nothing.
       var pdf = byId("btnPdf");

@@ -62,6 +62,7 @@ const fns = ["logoVersionParam", "apxInvSwitches", "apxInvNoIndex", "apxInvByTok
   ok(r.status === 200 && inv.number === "INV-9001" && inv.status === "open" && inv.draft === false, "a sent invoice reads open");
   ok(inv.balance_cents === 250000 && inv.paid_cents === 0 && inv.total_cents === 250000 && inv.subtotal_cents === 250000, "balance = total when nothing is paid");
   ok(inv.subject === "Consultoria de outubro" && inv.items[0].description === "Consultoria de outubro" && inv.description === "Obrigado pela parceria.", "subject is line_description; description is the notes");
+  ok(inv.business && inv.business.name === "Apex Business & Leadership" && inv.business.address === "Tampa, FL" && inv.business.website === "apexbusiness.pro", "the payload carries Apex's own name, city and website for the footer line");
   ok(inv.client_name === "ALPHA BUILDERS" && !/alpha\.test|8135550199/.test(JSON.stringify(inv)), "client name only: no email or phone anywhere in the payload");
   ok(!/nicole/i.test(JSON.stringify(inv)), "nothing in the payload names Nicole");
   ok(inv.payment && inv.payment.zelle_handle === "pay@apex.test" && inv.payment.zelle_qr_url === "https://api.test/api/business/qr-image", "Zelle handle and QR come from business_settings");
@@ -385,7 +386,23 @@ function seedCharge(d, id, cents, extra) {
   h = billed({ client_name: 'A <b> & "C"', client_logo_url: LOGO + '&x="><script>' });
   ok(h.html.indexOf("<b>") < 0 && h.html.indexOf("<script>") < 0 && h.html.indexOf('src="' + LOGO + '&amp;x=&quot;&gt;&lt;script&gt;"') > 0, "the name and the logo address are escaped going into the box");
   ok(/'<div class="meta-area"><div class="meta-left">' \+ billedToHtml\(\) \+ '<\/div>' \+/.test(html) && /billedToHtml\(\)[\s\S]*?\n\s*watchClientLogo\(\);/.test(cut("render")), "render() draws the box with billedToHtml and then watches the image");
-  ok(!/fromLines|class="from"|\.meta-left \.from|inv\.business|b\.address|b\.website/.test(html), "the box no longer carries Apex's own name, address and website lines");
+  ok(!/fromLines|class="from"|\.meta-left \.from/.test(html) && !/business|b\.address|b\.website/.test(cut("billedToHtml")) && !/business|footBiz/.test(html.slice(html.indexOf('var meta = byId("cardMeta");'), html.indexOf('var draft = byId("cardDraft");'))),
+    "the box no longer carries Apex's own name, address and website lines");
+
+  // Apex's own details: one footer line under the links, above the PDF box.
+  const footBiz = (business) => new Function("escHtml", "inv", cut("footBizHtml") + "\nreturn footBizHtml();")(escHtml, { business });
+  const BIZ = { name: "Apex Business & Leadership", address: "Tampa, FL", website: "apexbusiness.pro" };
+  ok(footBiz(BIZ) === '<div class="foot-biz" id="footBiz">Apex Business &amp; Leadership &middot; Tampa, FL &middot; apexbusiness.pro</div>', "the footer line carries the name, the city and the website from the invoice data, in that order, with a middle dot between them");
+  ok(footBiz(BIZ).indexOf("<a") < 0 && footBiz(BIZ).indexOf("no-print") < 0, "the website is plain text, not a link, and the line is not hidden in print");
+  ok(footBiz({ name: "Apex Business & Leadership", website: "apexbusiness.pro" }) === '<div class="foot-biz" id="footBiz">Apex Business &amp; Leadership &middot; apexbusiness.pro</div>' && footBiz(undefined) === "" && footBiz({}) === "", "a missing part leaves no stray dot, and no details at all leaves no line");
+  ok(footBiz({ name: "<b>x</b>" }).indexOf("<b>") < 0, "the footer values are escaped");
+  ok(!/\bT\(|LANG/.test(cut("footBizHtml")), "the footer line is the same in Portuguese and English");
+  const footSet = (html.match(/foot\.innerHTML = ([^\n]*);\n/) || [])[1] || "";
+  ok(footSet.indexOf('escHtml(T("foot"))') === 0 && footSet.indexOf('T("privacy")') < footSet.indexOf('T("terms")') && /escHtml\(T\("terms"\)\) \+ '<\/a><\/span>' \+ footBizHtml\(\)$/.test(footSet),
+    "the footer reads: the generated-by line, the two links, then Apex's details straight after the links");
+  ok(html.indexOf('<div class="foot" id="foot"></div>') > 0 && html.indexOf('<div class="foot" id="foot"></div>') < html.indexOf('id="cardPdf"') && html.indexOf('id="cardPdf"') < html.indexOf('id="reviewBar"'),
+    "the footer sits above the PDF box, and both are outside the staff review bar");
+  ok(!/footBiz/.test(cut("renderReviewBar")) && /body\.has-review-bar \.wrap \{ padding-bottom: 270px; \}/.test(html), "the review bar does not carry the line, and the page still leaves room under the footer for the bar");
 
   // The logo's size and look, on screen, on a phone and in print.
   const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
@@ -396,6 +413,8 @@ function seedCharge(d, id, cents, extra) {
   ok(/\.meta-left \.who-logo\[hidden\] \{ display: none; \}/.test(css), "a hidden logo takes no space");
   ok(/\.meta-left \{ flex: 1; min-width: 0;/.test(css) && /\.meta-right \{ flex: 0 1 260px;/.test(css), "the left column can shrink and the right column keeps its own width, so the logo cannot push the number and dates");
   const print = css.slice(css.indexOf("@media print"));
+  ok(print.indexOf("foot-biz") < 0 && /\.foot \{ margin-top: 18px; text-align: center; font-size: 12px; color: var\(--muted\); line-height: 1\.7; \}/.test(css) && !/\.foot-biz \{[^}]*(font-size|color|text-align)/.test(css),
+    "the footer line takes the footer's own small, quiet, centered style and no print rule hides it");
   ok(print.indexOf("who-logo") < 0 && print.indexOf(".who") < 0 && print.indexOf("meta-left") < 0, "print and PDF: no print rule hides or resizes the logo or the name, so they print as on screen");
   ok(/var imgs = Array\.prototype\.slice\.call\(document\.images\);/.test(html) && /render\(\); show\("doc"\); renderDone\("1"\);/.test(html), "the PDF printer's ready flag still waits for every image, drawn after the box is built");
 

@@ -14,10 +14,12 @@ export const GOLDEN_DIR = new URL("scripts/fixtures/", root);
 const GM_HELPERS = ["gmDocParseJsonObject", "gmFmtUsDate", "gmUtcStampToEasternDate", "gmEstLineAmountCents", "gmEstOptDiscount", "gmEstOptTotals",
   "gmEstDiscountCents", "gmEstOptionTotals", "gmEstScheduleAmounts", "GmLabelsPaymentMethodEn", "gmNum", "gmCents", "gmStr"];
 
-function libraryDb() {
+// extra: more migration files to load after the seed (the cleaning library).
+function libraryDb(extra) {
   const db = new DatabaseSync(":memory:");
   // The seed carries ";" inside clause text, so the whole file goes in at once.
   db.exec(readFileSync(new URL("migrations/contracts_a_library.sql", root), "utf8"));
+  (extra || []).forEach(function (f) { db.exec(readFileSync(new URL(f, root), "utf8")); });
   try { db.exec("ALTER TABLE contract_clause_options ADD COLUMN origin TEXT"); } catch (e) { /* already there */ }
   function prepared(sql, args) {
     return {
@@ -31,7 +33,8 @@ function libraryDb() {
 
 // src: the text of a worker/index.js (main's, for the golden files, or the
 // working copy). Returns the real functions plus a compose(fixture) helper.
-export async function buildComposer(src) {
+// opts.migrations: extra migration files loaded on top of the seed.
+export async function buildComposer(src, opts) {
   const names = [];
   const re = /\n(?:async )?function (contract[A-Za-z0-9_]*)\(/g;
   let m;
@@ -52,7 +55,7 @@ export async function buildComposer(src) {
   const body = vars.map(function (v) { return varSrc(v, src); }).concat(names.map(function (n) { return fnSrc(n, src); })).join("\n") +
     "\nreturn { " + names.join(", ") + " };";
   const fns = new Function(...stubNames, body)(...stubNames.map(function (k) { return stubs[k]; }));
-  const env = libraryDb();
+  const env = libraryDb(opts && opts.migrations);
   async function context(fx) {
     const settings = Object.assign({ exists: true, trades: ["pools", "tile", "remodeling", "hardscape", "general"], builds_pools: false, defaults: {}, signers: [],
       owner_signer_name: "Pat Owner", owner_signer_phone: "8135550100", source: "apex", values: {} }, fx.settings || {});
@@ -70,7 +73,10 @@ export async function buildComposer(src) {
       options: [{ id: "opt-1", discount_type: null, discount_value: null, items: [{ id: "it-1", item_name: fx.item_name || "Paver patio", qty: 1, rate_cents: fx.amount_cents, line_type: "item", category: "Work" }] }]
     }];
     const admin = Object.assign({ recovery_fund_contact_block: "Recovery Fund contact block (test value)", ch515_doc_r2_key: "k1", drowning_pub_r2_key: "k2", ch515_doc_version: "2026", drowning_pub_version: "2026" }, fx.admin || {});
-    return { job: job, lead: lead, estimates: estimates, doc: doc, settings: settings, client: { name: "Sunrise Pools", owners: "Pat Owner" }, admin: admin, lib: lib };
+    const out = { job: job, lead: lead, estimates: estimates, doc: doc, settings: settings, client: { name: "Sunrise Pools", owners: "Pat Owner" }, admin: admin, lib: lib };
+    // Cleaning fixtures only: the booked online-booking answers of the lead.
+    if (fx.booking !== undefined) { out.booking = fx.booking; }
+    return out;
   }
   // The selections a new contract starts with (the same loop as handlePostGmJobContract).
   function defaultSelections(ctx) {
@@ -85,9 +91,12 @@ export async function buildComposer(src) {
   }
   async function compose(fx, mode) {
     const ctx = await context(fx);
+    const flags = Object.assign({}, fx.flags || {});
+    // A cleaning fixture starts from the cleaning defaults, as a new cleaning agreement does.
+    const start = flags.kind === "cleaning" ? fns.contractCleaningDefaults(ctx, { flags: flags }, fns.contractCleaningGate(ctx, "2026-10-01")) : defaultSelections(ctx);
     const c = { id: "con-1", client_id: "client-1", number: "CON-0007", revision: 1, status: "draft", contract_date: "2026-10-01", offer_expiry_date: "2026-10-30",
-      selections: Object.assign(defaultSelections(ctx), fx.selections || {}), answers: Object.assign({}, fx.answers || {}), flags: Object.assign({}, fx.flags || {}),
-      custom_clauses: [], estimate_ids: ["est-1"] };
+      selections: Object.assign(start, fx.selections || {}), answers: Object.assign({}, fx.answers || {}), flags: flags,
+      custom_clauses: fx.custom_clauses || [], estimate_ids: ["est-1"] };
     if (fx.contract) { Object.assign(c, fx.contract); }
     return { comp: fns.contractCompose(ctx, c, "2026-10-01", mode || "live"), ctx: ctx, c: c };
   }

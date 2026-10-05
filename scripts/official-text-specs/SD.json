@@ -1,0 +1,41 @@
+{
+  "state": "SD",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "SD-cancel",
+      "trigger": "Door-to-door sale: the seller personally solicits (including at the buyer's invitation), price $25 or more, agreement made away from the seller's place of business; only a visit to repair or maintain the buyer's personal property is excepted, and anything extra sold on that visit is covered",
+      "format": "Statement near the signature in 10 point bold; oral notice also required",
+      "support": "Remodeling, flooring, pools and hardscape sold at the home are door to door sales.",
+      "summary_row": "Statement beside the buyer's signature (10 point bold); oral notice",
+      "mode": "none",
+      "block": "1. SDCL 37-24-5.3 (statement in the contract; oral notice)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole statute section, which also contains the rules about oral notice and misrepresenting the right to cancel, so printing it would put non-notice statute text in the contract; the notice sentence needs to be cut out by hand."
+    },
+    {
+      "id": "SD-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "SDCL 37-24-5.4",
+      "trigger": "Door-to-door sale: the seller personally solicits (including at the buyer's invitation), price $25 or more, agreement made away from the seller's place of business",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, ten point bold, all capitals",
+      "applies": { "sold_in_home": true },
+      "support": "The form is all capitals in the statute and allows \"AN ELECTRONIC NOTICE\" of cancellation.",
+      "summary_row": "NOTICE OF CANCELLATION form, in duplicate, 10 point bold, all capitals",
+      "mode": "none",
+      "block": "2. SDCL 37-24-5.4 (Notice of Cancellation form)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole statute section, with the seller's duty wording before the form and the instruction to complete both copies after it, so printing it would put non-notice statute text in the contract; the form itself needs to be cut out by hand."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days; only a visit to repair or maintain the buyer's personal property is excepted",
+      "support": "The repair exception is for the buyer's \"personal property\" only"
+    }
+  ],
+  "unsure": [
+    "SD-cancel and SD-cancel-form: the statute blocks are whole sections with seller-duty wording around the notice, so I held them rather than guess how much of that belongs in the contract."
+  ]
+}

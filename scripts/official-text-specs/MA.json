@@ -1,0 +1,47 @@
+{
+  "state": "MA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "MA-blank-spaces",
+      "summary_row": "Home improvement contract contents, the four contract notices, \"blank spaces\" sentence, deposit cap, acceleration ban, permit paragraph, ADR clause rule",
+      "mode": "none",
+      "block": "1. M.G.L. c. 142A s. 2 (entire section)",
+      "block_index": 0,
+      "hold_reason": "The only blocks are whole sections (c. 142A s. 2 and 201 CMR 18.05) with the contents list, deposit cap, acceleration ban and other rules around the one-line notice; printing a block would put non-notice statute text in the contract. The statute and the regulation also differ in case (lower case versus capitals)."
+    },
+    {
+      "id": "MA-142A-notices",
+      "format": "A clear and conspicuous notice appearing in the contract",
+      "support": "\"a clear and conspicuous notice appearing in the contract\"",
+      "summary_row": "Home improvement contract contents, the four contract notices, \"blank spaces\" sentence, deposit cap, acceleration ban, permit paragraph, ADR clause rule",
+      "mode": "none",
+      "block": "1. M.G.L. c. 142A s. 2 (entire section)",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "MA-cancel",
+      "summary_row": "Buyer statement next to the signature, and NOTICE OF CANCELLATION form",
+      "mode": "none",
+      "block": "3. M.G.L. c. 93 s. 48 (entire section: buyer statement, NOTICE OF CANCELLATION, counting of days)",
+      "block_index": 0,
+      "hold_reason": "The only block is the whole of c. 93 s. 48, with the cancellation rules, penalties and exemptions around the statement and form; printing the block would put non-notice statute text in the contract."
+    }
+  ],
+  "changes": [
+    { "path": "cancellation.oral_notice", "new": true, "support": "H. The seller or lessor shall inform the buyer orally, at the time he signs the agreement, of his right to cancel and shall not misrepresent in any manner such right." },
+    { "path": "cancellation.same_language", "new": true, "support": "the agreement itself is \"in the same language as that principally used in the oral sales presentation\"" },
+    { "path": "cancellation.no_work_or_payment_in_window", "new": true, "support": "J. A seller of services shall not commence such service during the three business day cancellation period, and the buyer shall not be responsible for the value of work performed during such period, in the event of cancellation." },
+    { "path": "license.text", "new": "HIC registration (owner-occupied 1 to 4 units). Not required of a contractor who works exclusively in landscaping; interior painting or wall covering; finished floor covering; fencing or freestanding masonry walls; above-ground swimming pools; shutter or awning installation; ground level patios; or asphalt and driveway installation and maintenance (c. 142A s. 14); construction supervisor license separately", "support": "any contractor or subcontractor who works exclusively in any of the following home improvement areas: landscaping; interior painting or wall covering; or finished floor covering, including but not limited to carpeting, vinyl floor covering, tile; or fencing or freestanding masonry walls; or above-ground swimming pools; or shutter or awning installation; or ground level patios; or asphalt and driveway installation and maintenance." },
+    { "path": "cleaning.auto_renewal.rule", "new": "Recurring charges: written disclosure before purchase, cancellation through the same medium, written reminder 5 to 30 calendar days before the cancel date for terms over 31 days; all-in total price disclosure", "support": "(4) For any Negative Option Feature exceeding 31 days, failing to provide the consumer written notice within no more than 30 and no fewer than five calendar days prior to the date upon which the consumer must cancel" },
+    { "path": "cleaning.auto_renewal.scope_and_confidence", "new": "OFFICIAL text read (Secretary of the Commonwealth PDF); applies to acts as of September 2, 2025; 31 days or less has its own notice rule (38.05(6))", "support": "940 CMR 38.00 shall apply to acts committed or practices in force as of September 2, 2025." }
+  ],
+  "unsure": [
+    "MA-blank-spaces: the statute prints the sentence in lower case and 201 CMR 18.05 in capitals, so which form to print is open.",
+    "MA-142A-notices: the statute gives no wording for the registration, cancellation, warranty, lien and permit notices; the regulation only names the office the registration notice must point to.",
+    "MA-cancel: the statute lets the FTC form be substituted for the state form, so whether the state statement belongs in the contract at all is open; the statute says in excess of $25 and 940 CMR 3.01 says $25 or more.",
+    "The deposit cap is the greater of one-third or special-order material cost; the structured deposit fields were left empty because one fraction alone would misstate the rule.",
+    "The 201 CMR 18.05(2)(e) arbitration clause is optional model wording, not loaded as a notice."
+  ]
+}

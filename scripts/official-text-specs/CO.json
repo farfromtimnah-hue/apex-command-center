@@ -1,0 +1,25 @@
+{
+  "state": "CO",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "CO-cancel-credit",
+      "cite": "C.R.S. 5-3-401 to 5-3-403",
+      "format": "Statement of buyer's rights that complies with the FTC notice of cancellation rule; no Colorado wording of its own",
+      "support": "The statement shall comply with any notice of cancellation or a similar requirement of any trade regulation rule of the federal trade commission that by its terms applies to the home solicitation sale.",
+      "summary_row": "Form of agreement, statement of buyer's rights (adopts FTC notice)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only requires a statement that complies with the FTC notice of cancellation rule"
+    }
+  ],
+  "changes": [
+    { "path": "cancellation.text", "new": "Federal for cash sales; state home solicitation covers credit sales only (C.R.S. 5-3-401, official text)", "support": "'Home solicitation sale' means a consumer credit sale of goods or services in which the seller or a person acting for the seller personally solicits the sale" },
+    { "path": "defect_process.text", "new": "CDARA 13-20-803.5, 75 days before filing an action (90 days for commercial property)", "support": "No later than seventy-five days before filing an action against a construction professional, or no later than ninety days before filing the action in the case of a commercial property" },
+    { "path": "cleaning.auto_renewal.rule", "new": "Reminder 25 to 40 days before renewal, retainable acknowledgment, easy cancellation; a renewal term over one year needs express written consent", "support": "A renewal term longer than one year needs \"express written consent\"." },
+    { "path": "cleaning.auto_renewal.scope_and_confidence", "new": "OFFICIAL text (CRS 2026, olls.info); since February 16, 2026 a consumer includes business customers; no exemption for cleaning or home services", "support": "No exemption for cleaning or home services appears in subsection (5)." }
+  ],
+  "unsure": [
+    "CO-cancel-credit: Colorado prints no wording of its own (it adopts the FTC notice), so nothing is loaded; the notice also only applies to credit sales, which the builder cannot tell.",
+    "The permit-office lien notice (38-22-105.5) is mailed by the permit office, not the contractor, so it was not added as a contract notice."
+  ]
+}

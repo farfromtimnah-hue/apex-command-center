@@ -1,0 +1,73 @@
+{
+  "state": "MN",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "MN-lien",
+      "trigger": "Residential contracts where the contractor has contracted or will contract with subcontractors or material suppliers; not required for a wholly residential improvement of more than four family units",
+      "format": "At least 10-point bold type if printed, or capital letters if typewritten, in the written contract; the owner also gets a copy of the written contract",
+      "support": "Every person who enters into a contract with the owner for the improvement of real property and who has contracted or will contract with any subcontractors or material suppliers to provide labor, skill or materials for the improvement shall include in any written contract with the owner the notice required in this subdivision",
+      "summary_row": "Lien notice in the contract (two lettered paragraphs)",
+      "mode": "none",
+      "block": "Minn. Stat. 514.011: notice (subdivision 1 is the contractor's contract notice)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole section 514.011, with the subcontractor's notice, supplier rules and exceptions around the contractor's notice, so printing it would put non-notice statute text in the contract; the two lettered paragraphs need to be cut out by hand. It is also owed only when subcontractors or suppliers are used, which the builder cannot tell."
+    },
+    {
+      "id": "MN-cancel",
+      "trigger": "Home solicitation sale: improvements or services bought for personal, family or household use, price more than $25, solicited and agreed away from the seller's place of business; an invited visit is still covered unless the buyer gives a handwritten, dated, signed waiver",
+      "support": "a sale of goods, services, or improvements to real property by a seller who regularly engages in transactions of the same kind, purchased primarily for personal, family or household purposes, and not for agricultural purposes, with a purchase price of more than $25",
+      "summary_row": "Home solicitation: oral notice, buyer statement, duplicate NOTICE OF CANCELLATION",
+      "mode": "none",
+      "block": "Minn. Stat. 325G.08: writing, notice of right to cancel, notice of cancellation",
+      "block_index": 0,
+      "hold_reason": "The block is the whole section 325G.08, with the seller's duties and the alternative federal notice rule around the statement and the form, so printing it would put non-notice statute text in the contract; the statement and the form need to be cut out by hand."
+    },
+    {
+      "id": "MN-roofing-cancel",
+      "title": "Insurance-paid roofing: 72 hour statement and duplicate NOTICE OF CANCELLATION",
+      "cite": "Minn. Stat. 326B.811",
+      "trigger": "A written contract for roofing goods and services to be paid from property or casualty insurance proceeds, given before the contract is entered",
+      "format": "Statement in boldface type of at least ten points, plus a detachable fully completed NOTICE OF CANCELLATION form in duplicate",
+      "applies": { "residential": true },
+      "support": "So it reaches a builder or remodeler only when the insured work is roofing.",
+      "summary_row": "Insurance-paid roofing services: 72 hour statement and duplicate NOTICE OF CANCELLATION",
+      "mode": "none",
+      "block": "Minn. Stat. 326B.811: insurance-paid roofing contract, right to cancel",
+      "block_index": 0,
+      "hold_reason": "The block is the whole section 326B.811, with the right to cancel, return of payments and definitions around the statement and form, so printing it would put non-notice statute text in the contract. It also applies only to insurance-paid roofing, which the builder cannot tell."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "Saturday does not count."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Saturday, Sunday and holidays are not business days.",
+      "support": "any day other than a Saturday, Sunday, or holiday as defined in section 645.44."
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (Saturday does not count), 10 point bold, oral notice; insurance-paid roofing 72 hours after the insurer denies the claim",
+      "support": "has the right to cancel the contract within 72 hours after the insured has been notified by the insurer that the claim has been denied"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Home solicitation sales for personal, family or household use over $25, including improvements to real property; an invited in-home sale is covered unless the buyer gives a handwritten, dated, signed waiver",
+      "support": "Without that handwritten waiver an invited in-home sale is still a home solicitation sale."
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Writing for licensees: summary, materials, price; written performance guidelines given before signing and included or incorporated by reference; signed and dated; free signed copy (326B.809)",
+      "support": "Before entering into an agreement, the licensee shall provide a prospective customer with written performance guidelines for the services to be performed. Performance guidelines also must be included or incorporated by reference in the agreement."
+    }
+  ],
+  "unsure": [
+    "MN-roofing-cancel: added because the statute puts a statement and form in an insurance-paid roofing contract, but the file says it is out of scope for the five trades unless roofing is included.",
+    "MN-lien: the statute puts the notice in the contract only when subcontractors or suppliers are used, so even a cut-out copy could not be printed on every residential contract.",
+    "MN auto-renewal (325G.57): the offer terms and yearly notice are required but no sentence is prescribed, so no notice was added."
+  ]
+}

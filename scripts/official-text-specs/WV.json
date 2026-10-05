@@ -1,0 +1,53 @@
+{
+  "state": "WV",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "WV-cancel",
+      "cite": "46A-2-132; 46A-2-133 (statement); 46A-1-102(22) (definition)",
+      "trigger": "Home solicitation sale: a consumer credit sale over $25 solicited away from the seller's business establishment (a cash job is under the federal rule only)",
+      "support": "The definition is 46A-1-102(22): \"a consumer credit sale in excess of $25 in which the buyer receives a solicitation of the sale at a place other than the seller's business establishment at a fixed location and the buyer's agreement or offer to purchase is there given\"",
+      "summary_row": "Right to cancel; BUYER'S RIGHT TO CANCEL statement; refund; buyer's duty",
+      "mode": "none",
+      "hold_reason": "The statement is inside the block holding the whole of 46A-2-133 plus 46A-2-132, 134 and 135, with operative rules around it (the buyer's handwritten date, the federal-form safe harbor, refunds), and the credit-sale trigger cannot be decided by the builder."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.covered",
+      "new": "Home solicitation sales as West Virginia defines them: a consumer credit sale over $25 solicited away from the seller's business (a cash job is under the federal rule only), on top of the federal rule",
+      "support": "So West Virginia's article reaches CREDIT sales (and sales paid by a consumer loan where the creditor is subject to claims and defenses); a cash job is under the federal rule only."
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Attorney General rule expects a written contract from $250 (142 CSR 5-3.3); written contract required for licensees at $10,000 or more (30-42-10)",
+      "support": "So the Attorney General rule expects a written contract from $250, well below the $10,000 licensing-statute floor."
+    },
+    {
+      "path": "written_contract.threshold_cents",
+      "new": 25000,
+      "support": "So the Attorney General rule expects a written contract from $250, well below the $10,000 licensing-statute floor."
+    },
+    {
+      "path": "license.text",
+      "new": "License at $5,000 or more residential (30-42-3, 30-42-6); painting and landscaping are outside the definition of contractor (30-42-3); old 21-11 repealed",
+      "support": "Painting and landscaping: the exemption is in the definition, not in 30-42-6."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "No cap found; a clause requiring liquidated damages or forfeiture of a deposit on cancellation is prohibited (142 CSR 5-3.1.28)",
+      "support": "a clause requiring liquidated damages or the forfeiture of any deposit or any other amount already paid upon cancellation of the home improvement contract"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "142 CSR 5 contents (official text)",
+      "support": "use the official rule text above for the contents list and prohibitions"
+    }
+  ],
+  "unsure": [
+    "WV-cancel: the statement applies only to credit sales over $25, which the builder cannot tell, so it could only ever be stored, not printed; it is held because its block is a whole section with other operative rules.",
+    "142 CSR 5-3.1.17 (disclose that a note may be assigned and label it a Consumer Note) and the Board's APPENDIX A form were not added as notices: the first has no fixed sentence and depends on a credit note, the second is a model contract the Board posts, not a required notice.",
+    "WV-cancel: the rule text of 142 CSR 5-3.2.2 omits the sentence about mailing before midnight of the third business day that the statute 46A-2-133 includes, so the two versions of the statement differ.",
+    "55-2-6a repose of ten years has no field in the rider (defect_process is null), so it was not entered."
+  ]
+}

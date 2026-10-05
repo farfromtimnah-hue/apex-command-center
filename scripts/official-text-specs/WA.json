@@ -1,0 +1,75 @@
+{
+  "state": "WA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "WA-customer",
+      "trigger": "Residential repair, alteration or construction of four or fewer units or accessory structures when the bid or contract price is $1,000 or more (a commercial building at $1,000 to under $60,000 also)",
+      "format": "Given before starting work, in substantially the statutory form using lower case and upper case twelve-point and bold type where appropriate; the form has a customer signature line; the contractor keeps the signed copy at least three years",
+      "applies": { "at_least_cents": 100000, "residential": true },
+      "support": "substantially the following form using lower case and upper case twelve-point and bold type where appropriate, prior to starting work on the project",
+      "summary_row": "Notice to Customer disclosure statement (residential jobs of $1,000 or more)",
+      "mode": "none",
+      "hold_reason": "the only block is the whole section 18.27.114; around the notice it holds operative subsections (record keeping, expiry notice, lien bar, exemptions, infraction, L&I model forms) that should not print in the customer's contract"
+    },
+    {
+      "id": "WA-cancel",
+      "title": "NOTICE TO BUYER (cancellation right, retail installment contract)",
+      "cite": "RCW 63.14.154; RCW 63.14.040(2)(e)",
+      "trigger": "Retail installment transaction (a service charge, or no charge and more than four installments) solicited in person or by commercial telephone solicitation at a place other than the seller's address on the contract; not a motor vehicle sale",
+      "format": "Item (e) of the NOTICE TO BUYER, in ten point boldface type or larger directly above the buyer's signature space; cancel by certified mail, return receipt requested, posted by midnight of the third day excluding Sundays and holidays",
+      "support": "Formatting rules: \"in ten point boldface type or larger directly above the space reserved in the contract for the signature of the buyer\". Applies only to retail installment contracts.",
+      "summary_row": "Retail installment contract contents and NOTICE TO BUYER",
+      "mode": "none",
+      "hold_reason": "the block is the whole section 63.14.040 with the contract-contents rules around the notice, and the notice applies only to credit or installment sales, which the builder does not know"
+    },
+    {
+      "id": "WA-defect",
+      "title": "Notice to homeowner of the construction defect process",
+      "cite": "RCW 64.50.050",
+      "trigger": "A contract for sale, construction or substantial remodel of a residence (a remodel costing more than half the assessed value)",
+      "format": "Conspicuous; may be part of the contract; in substantially the statutory capital-letter form",
+      "applies": { "residential": true },
+      "support": "RCW 64.50.050 requires the notice \"upon entering into a contract for sale, construction, or substantial remodel of a residence\", \"conspicuous\", \"may be included as part of the underlying contract\".",
+      "summary_row": "Construction defect notice to homeowner in the contract (new construction and substantial remodel)",
+      "mode": "none",
+      "hold_reason": "the block is the whole section 64.50.050 with operative subsections (1) and (3) around the notice, and whether it applies depends on the assessed value of the home, which the builder does not know"
+    },
+    {
+      "id": "WA-lien-info",
+      "title": "L&I construction lien information handed over with the Notice to Customer",
+      "cite": "RCW 60.04.255(2)",
+      "trigger": "Every customer who must receive the Notice to Customer (residential work of $1,000 or more)",
+      "format": "A copy of L&I's master informational material on construction liens, handed over with the Notice to Customer",
+      "applies": { "at_least_cents": 100000, "residential": true },
+      "support": "Every contractor shall provide a copy of the informational material described in RCW 60.04.250 to customers required to receive contractor disclosure notice under RCW 18.27.114.",
+      "summary_row": "Lien informational material to be handed to 18.27.114 customers",
+      "mode": "none",
+      "hold_reason": "the statute only requires handing over L&I's own master lien information; that pamphlet is not statute text and was not obtained"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three days excluding Sundays and holidays, by certified mail (RCW 63.14.154), only for a retail installment transaction (a service charge, or more than four installments) solicited away from the seller's address; other sales fall under the federal rule only",
+      "support": "A contract with no service charge and four or fewer payments is not covered by 63.14.154; only the federal rule (16 CFR 429) applies to it."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Retail installment transactions solicited in person or by commercial telephone solicitation at a place other than the seller's address (RCW 63.14.154), on top of the federal rule",
+      "support": "Only when the deal is a retail installment transaction."
+    },
+    {
+      "path": "cleaning.home_solicitation_applies_to_cleaning",
+      "new": false,
+      "support": "No general state home solicitation act for non-installment sales was located in this pass"
+    }
+  ],
+  "unsure": [
+    "WA-customer: the notice applies to residential jobs of $1,000 or more but the statute covers four or fewer units and also commercial buildings under $60,000; the builder only knows residential and amount.",
+    "WA-cancel: moved the wording source to the NOTICE TO BUYER in 63.14.040(2)(e) because 63.14.154 itself has no notice sentence; the block is the whole section and the trigger turns on credit terms, so nothing is loaded.",
+    "WA-defect: added because the law puts a capital-letter notice in contracts for new construction or a substantial remodel; the trigger needs the assessed value of the home, so it could only be stored even once held text is cleared.",
+    "WA-lien-info: added because the law hands the L&I lien pamphlet over with the Notice to Customer; no text exists to load.",
+    "cleaning.home_solicitation_applies_to_cleaning: changed to false because the state cancellation right reaches only installment sales; a cleaning plan paid in five or more installments would be covered."
+  ]
+}

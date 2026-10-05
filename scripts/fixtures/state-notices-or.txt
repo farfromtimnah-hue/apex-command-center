@@ -1,0 +1,51 @@
+State notices a customer would see: Oregon (OR), residential job, $12,500.00, sold at the customer's home.
+Status: notice text still needs official copy
+
+== PRINTED IN THE CONTRACT (1) ==
+
+--- Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form) (ORS 701.330(2); OAR 812-001-0200(4)) ---
+Notice of Procedure
+Regarding Residential Construction
+Arbitrations and Lawsuits
+(ORS 701.330)
+
+Oregon law contains important requirements that homeowners must follow before
+starting an arbitration or court action against any contractor, subcontractor,
+or supplier (materials or equipment) for construction defects.
+
+Before you start an arbitration or court action, you must do the following:
+
+1. Deliver a written notice of any conditions that you believe are defective to the
+contractor, subcontractor, or supplier that you believe is responsible for the
+alleged defect.
+2. Allow the contractor, subcontractor, supplier, or its agent, to visually inspect the
+possible defects and also allow the contractor, subcontractor, or supplier to do
+reasonable testing.
+3. Provide the contractor, subcontractor, supplier, or its agent, the opportunity to
+make an offer to repair or pay for the defects. You are not obligated to accept
+any offer made.
+
+There are strict procedures and deadlines that must be followed under Oregon law.
+Failure to follow those procedures or meet those deadlines will affect your right to start
+an arbitration or court action.
+
+You should contact an attorney for information on the procedures and deadlines
+required under Oregon law.
+
+Your contractor is supplying this notice to you as required by Oregon law.
+
+CONTRACTOR: CCB#: HOMEOWNER:
+
+Print Contractor Name (as it appears on contract) Print Homeowner Name (as it appears on contract)
+
+Signature of Authorized Representative Date Signature Date
+
+f:noticeofprocedure/adopted12-04-07
+
+== OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
+
+- [warn] Oregon requires this notice: Information Notice to Owner About Construction Lien Rights (CCB form) (ORS 87.093). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential construction or improvement contracts over $2,000, delivered on or before the contract date (within five days if the price grows past $2,000); not needed when the owner is a licensed contractor; failure bars the lien. Format: CCB form; attach the agency's current copy.
+- [warn] Oregon requires this notice: Cancellation statement (until midnight of the next business day) (ORS 701.310). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Owner of an initial written residential contract may cancel until midnight at the end of the next business day, unless both parties agree work starts earlier or the contractor has substantially begun; no notice wording is prescribed and the statute does not require the contract to print the right. Format: No notice wording, form or type size is prescribed.
+- [warn] Oregon requires this notice: Consumer Protection Notice (CCB form) (ORS 701.330(1); OAR 812-001-0200(2)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into. Format: CCB form with signature lines for the contractor and the property owner; attach the agency's current copy.
+- [info] This notice prints in the contract: Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form) (ORS 701.330(2); OAR 812-001-0200(4)). When: Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into. Format: CCB form with signature lines for the contractor and the homeowner.
+- [warn] Oregon requires this notice: Home solicitation statement near the signature and NOTICE OF BUYER'S RIGHT TO CANCEL (ORS 83.730). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Home solicitation sale: the seller personally solicits (including at the buyer's invitation) and the buyer's written agreement is made away from the seller's place of business; remodeling is covered, a new house is not. Format: Statement in immediate proximity to the buyer's signature space in at least 10-point boldface, plus a duplicate NOTICE OF BUYER'S RIGHT TO CANCEL in conspicuous type of 10-point or larger; same language as the sales presentation; oral notice also required.

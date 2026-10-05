@@ -1,0 +1,34 @@
+{
+  "state": "IA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "IA-cancel",
+      "trigger": "Door-to-door sale of $25 or more, including a visit the buyer invited, where the buyer's agreement is made away from the seller's place of business",
+      "support": "555A.1(3)(a): \"purchase price of twenty-five dollars or more ... in which the seller or the seller's representative personally solicits the sale, including those in response to or following an invitation by the buyer",
+      "summary_row": "Buyer statement near signature",
+      "mode": "none",
+      "block": "Iowa Code chapter 555A: door-to-door sales (whole chapter: 555A.1 to 555A.6)",
+      "block_index": 0,
+      "hold_reason": "The only block is the whole of chapter 555A (definitions, seller duties, effect on debts, penalties) around the statement and form; printing the block would put non-notice statute text in the contract."
+    },
+    {
+      "id": "IA-lien",
+      "format": "Written, boldface, at least 10 point, in the contract or a separate notice; must carry the registry web address (sos.iowa.gov/MNLR) and toll-free number (1-888-767-8683); registry posting within 10 days (572.13A)",
+      "support": "The owner notice shall include the MNLR Internet Web site address (sos.iowa.gov/MNLR) and MNLR toll-free telephone number (1-888-767-8683).",
+      "summary_row": "Owner notice (residential, when a subcontractor is or will be used)",
+      "mode": "none",
+      "block": "Iowa Code 572.13: general contractor owner notice",
+      "block_index": 0,
+      "hold_reason": "The only block is the whole section 572.13, with the lien-loss and scope subsections around the notice, and it does not contain the registry address and toll-free number the notice must carry; printing it would put non-notice statute text in the contract."
+    }
+  ],
+  "changes": [
+    { "path": "cancellation.day_count_note", "new": "Saturday is not counted: a business day is any calendar day except Saturday, Sunday, or public holiday (Iowa Code 555A.1(1)).", "support": "555A.1(1): \"any calendar day except Saturday, Sunday, or public holiday, including holidays observed on Mondays.\"" }
+  ],
+  "unsure": [
+    "IA-lien: the notice is only required when the general contractor uses or will use a subcontractor, which the builder cannot tell; the statute copy and the Secretary of State page differ on boldface (statute requires it).",
+    "IA-lien: the longer notice in 572.13A(3)(a) is sent by the registry, not the contractor, so it was not added as a contract notice.",
+    "IA-cancel: statement and form are in a single whole-chapter block, so nothing is loaded."
+  ]
+}

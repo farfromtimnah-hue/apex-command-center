@@ -1,0 +1,74 @@
+{
+  "state": "RI",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "RI-lien",
+      "cite": "34-28-4.1; 5-65-3(o)",
+      "format": "Fixed statutory form with a To: line and an (INSERT ADDRESS) blank, either incorporated conspicuously in a written contract or sent by certified mail, return receipt requested, before commencing work",
+      "support": "either incorporated conspicuously in a written contract or sent by certified mail, return receipt requested, any time prior to commencing work or delivery of materials",
+      "summary_row": "NOTICE OF POSSIBLE MECHANIC'S LIEN (lien chapter version) and indemnity",
+      "mode": "none",
+      "hold_reason": "the only copies of this notice sit inside whole statute sections (34-28-4.1 and 5-65-3 subsections k to p) that carry operative rules, fines and indemnity around the notice, and the two copies differ in commas and one plural, so printing a block would put non-notice statute text in the contract"
+    },
+    {
+      "id": "RI-lien-statement",
+      "title": "Statement that the contractor, subcontractors or materialpersons may file a lien",
+      "cite": "5-65-18",
+      "trigger": "Every written contract between a registered contractor and a property owner",
+      "format": "No wording prescribed; a statement in the contract",
+      "applies": {},
+      "support": "No wording is prescribed for this statement; no formatting rule.",
+      "summary_row": "Lien statement in every written contract",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "RI-cancel",
+      "format": "Notice to buyer in ten-point bold-face type or larger directly above the buyer's signature space, then a Notice of Cancellation under that conspicuous caption; registered or certified mail; the statute prints both three days and three business days, and the chapter defines business day (Sundays and postal holidays skipped, Saturday counts)",
+      "support": "in ten-point (10), bold-face type or larger directly above the space reserved in the agreement for the signature of the buyer",
+      "summary_row": "\"Notice to buyer\" (10 point bold above signature) and \"Notice of Cancellation\"",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 6-28-4, which also holds the seller's duty to return a deposit within 20 days and double damages, so printing it would put non-notice statute text in the contract"
+    },
+    {
+      "id": "RI-62",
+      "trigger": "In-home solicitation of an elderly person for contractor work at the consumer's primary residence, including telephonic or online, except transactions the consumer initiated",
+      "format": "Separate Notice of Cancellation under the conspicuous caption, worded 'this agreement' and 'consumer's signing' (not the 6-28-4 wording)",
+      "support": "except those transactions initiated by the consumer",
+      "summary_row": "Elderly person in-home solicitation Notice of Cancellation",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 5-65-27 (definitions, the three day rule and the deposit refund rule around the notice), and the age that makes a person elderly is in 42-66-4.1, which the file did not fetch"
+    },
+    {
+      "id": "RI-board",
+      "support": "NOT OBTAINED: no such text exists in either active Board regulation",
+      "summary_row": "\"Consumer disclosures and information required pursuant to regulations promulgated by the board\" (5-65-3(o))",
+      "mode": "none"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three days counted as calendar days, skipping Sundays and postal holidays, by registered or certified mail; the statutory notice prints both 'three days' and 'three business days' as written",
+      "support": "count calendar days, skip Sundays and postal holidays; SATURDAY COUNTS"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Count calendar days, skip Sundays and postal holidays; Saturday counts (6-28-2(1) defines business day this way, so the statute's three days and three business days mean the same count).",
+      "support": "count calendar days, skip Sundays and postal holidays; SATURDAY COUNTS"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Door-to-door sales of consumer goods or services of $25 or more, including visits the buyer invited, as 6-28-2 defines them, on top of the federal rule",
+      "support": "in response to, or following an invitation by, the buyer"
+    }
+  ],
+  "unsure": [
+    "RI-cancel: the 6-28-4 block is a whole section with a deposit refund rule in subsection (d) around the two notices, so it is held rather than printed.",
+    "RI-62: the age that makes a person elderly is in 42-66-4.1, which the file did not fetch, and the builder does not know buyer age, so this would be on_file at best; it is held because the block is the whole 5-65-27 section.",
+    "RI-lien: both copies of the lien notice are inside whole statute sections with operative text, so none is loaded even though two official copies exist.",
+    "RI-board: the Board flyer (agency guidance, not law) may be the Summary of Registration Law that 5-65-3(k) says is handed to the owner when work begins, but the file only quotes its insurance paragraph, so it is not loaded.",
+    "RI-lien-statement: added because 5-65-18 puts a lien statement in every written contract, but the statute prescribes no sentence."
+  ]
+}

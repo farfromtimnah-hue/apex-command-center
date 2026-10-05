@@ -1,0 +1,19 @@
+{
+  "state": "OK",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "OK-cancel-credit",
+      "support": "Where both apply (a financed sale signed at the home), the two notices say different things about the refund; this is a point for a lawyer, not something the text resolves.",
+      "summary_row": "\"BUYER'S RIGHT TO CANCEL\" statement (credit sales solicited at the home)",
+      "mode": "none",
+      "hold_reason": "Unresolved conflict: the Oklahoma statement says the seller may keep up to 5 percent of the cash price, but the federal rule gives a full refund, and the state file says the text does not settle which controls (a point for a lawyer). Also the block is the whole section 2-503 (including the seller's duties and a rule letting the buyer cancel until the seller complies), so printing it would put non-notice statute text in the contract, and the statute prints the misprint 'sevices'."
+    }
+  ],
+  "changes": [],
+  "unsure": [
+    "OK-cancel-credit: whether the 5 percent retention sentence may be printed on a financed home sale that also carries the federal notice is unresolved; the state file leaves it to a lawyer.",
+    "OK-cancel-credit: whether a contract with a deposit and progress payments counts as 'payable in installments' under 14A O.S. 2-104 is not settled by the text, so it is unclear when the state statement belongs in the contract at all.",
+    "OK: 15 O.S. 765.6 repair clause is optional and has no prescribed wording, so no notice was added for it."
+  ]
+}

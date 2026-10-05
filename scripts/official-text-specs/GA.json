@@ -1,0 +1,88 @@
+{
+  "state": "GA",
+  "mirror_source": true,
+  "mirror_source_reason": "Georgia's statute text comes from the Public.Resource.Org / UniCourt mirror (Release 86, 2022.11), not the state's own code host, and later amendments are not reflected.",
+  "notices": [
+    {
+      "id": "GA-8-2-41",
+      "title": "Notice of the contractor's right to resolve construction defects (before a lawsuit)",
+      "cite": "O.C.G.A. 8-2-41",
+      "trigger": "Every contract for sale, construction, or improvement of a dwelling by a contractor who must be licensed under Chapter 41 of Title 43",
+      "format": "Conspicuous; may be part of the contract; substantially the statutory form (printed in capitals)",
+      "applies": {},
+      "support": "Upon entering into a contract for sale, construction, or improvement of a dwelling",
+      "summary_row": "Construction-defect notice the contractor must give on entering the contract (NEW, missed by first pass)",
+      "mode": "none",
+      "block": "O.C.G.A. 8-2-41 (notice the contractor must give when the contract is made)",
+      "block_index": 0
+    },
+    {
+      "id": "GA-43-41-7",
+      "title": "Written warranty must be offered on single-family residence contracts over $2,500",
+      "cite": "O.C.G.A. 43-41-7",
+      "trigger": "Licensed residential contractor, contract to construct or manage construction of a single-family residence over $2,500",
+      "format": "Written warranty; see Rule 553-7-.01 for minimum contents",
+      "applies": {},
+      "support": "Written warranty: 43-41-7 and Rule 553-7-.01 require a licensed residential contractor to offer a written warranty on covered contracts over $2,500.00",
+      "summary_row": "Written warranty must be offered (NEW)",
+      "mode": "none"
+    },
+    {
+      "id": "GA-553-7-01",
+      "title": "Written warranty minimum contents; attach before signing",
+      "cite": "Ga. Comp. R. & Regs. 553-7-.01",
+      "trigger": "Licensed residential contractor, covered contract (single-family residence over $2,500)",
+      "format": "Attach a complete copy of the written warranty (or an identical blank standard form) to the contract or make it available for review before signing",
+      "applies": {},
+      "support": "attach a complete copy of the written warranty (or an identical blank standard form of it) to the covered contract or otherwise make same available for review",
+      "summary_row": "Written warranty minimum contents; attach before signing",
+      "mode": "none",
+      "hold_reason": "The rule is a whole regulation (definitions, duty to offer, minimum contents list) with no prescribed warranty wording; printing it would put non-notice rule text in the contract, and whether a remodel or pool is a covered contract is not stated."
+    },
+    {
+      "id": "GA-553-8-01",
+      "title": "Repair exemption: written disclosure that the contractor is not licensed",
+      "cite": "Ga. Comp. R. & Regs. 553-8-.01",
+      "trigger": "Repair work done under the repair exemption without a residential or general contractor license",
+      "format": "Disclosure must be in writing to the owner",
+      "applies": {},
+      "support": "the person performing the repair work discloses in writing to the owner that such person/entity is not licensed as a residential or general contractor under this chapter",
+      "summary_row": "Repair exemption: disclosure must be IN WRITING",
+      "mode": "none",
+      "hold_reason": "No prescribed wording; the rule only requires a written disclosure, and the block is a whole rule with other operative conditions (no delegation, no structural work, permits)."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Federal rule governs most contracts; Georgia O.C.G.A. 10-1-6 gives a right to cancel by midnight of the third business day, but only for a consumer credit sale payable in installments",
+      "support": "Georgia has one, O.C.G.A. 10-1-6, but it reaches only a \"consumer credit sale in which the purchase price is payable in installments\" solicited in person and signed at a home"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Installment credit sales solicited in person and signed at a home (10-1-2(a)(4)); a cash or pay-on-completion job is outside it, so the federal rule (16 CFR 429) still governs",
+      "support": "A cash or pay-on-completion job is outside it, so the federal rule (16 CFR 429) still governs most contracts."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Georgia statute: until 12:00 Midnight of the third business day after the day the buyer signs; notice by certified mail or statutory overnight delivery, return receipt requested; seller may charge 5 percent of the gross sales price or $25.00, whichever is less",
+      "support": "until 12:00 Midnight of the third business day after the day on which the buyer signs the agreement"
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Disclosure clearly and conspicuously in the contract when a renewal of more than one month takes the contract past six months; reminder 30 to 60 days before the cancellation deadline only for terms of 12 months or more; a violation makes the renewal provision void and unenforceable",
+      "support": "the 30 to 60 day reminder (13-12-3(a)) applies only to a service contract \"for a specified period of 12 months or more\". Remedy, which the first pass could not find: 13-12-5, the provision is \"void and unenforceable\"."
+    },
+    {
+      "path": "cleaning.auto_renewal.cite",
+      "new": "13-12-1 to 13-12-5",
+      "support": "O.C.G.A. 13-12-1 to 13-12-5"
+    }
+  ],
+  "unsure": [
+    "GA-8-2-41: the notice is for contractors who must hold the Chapter 41 license; the builder cannot tell whether a given job needs that license, so applies is left as every contract, but the text is only secondary so nothing prints.",
+    "GA-43-41-7 and GA-553-7-01: whether a remodel or pool counts as a covered single-family residence contract is not stated in the file.",
+    "Lien waiver and affidavit forms (O.C.G.A. 44-14-366) are handed over at payment, not with the contract, and the file's copy is flattened, so no notice was added for them.",
+    "O.C.G.A. 10-1-6 (home solicitation) prescribes no printed statement, so no notice was added."
+  ]
+}

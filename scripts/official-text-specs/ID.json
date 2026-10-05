@@ -1,0 +1,67 @@
+{
+  "state": "ID",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "ID-disclosure",
+      "trigger": "Over $2,000 with a homeowner (one to four dwelling units); not when the homeowner starts the contact for a bona fide emergency repair or a necessary repair to an electrical, plumbing or water system",
+      "support": "This section shall not apply to instances in which a homeowner or the agent of the homeowner initiates the contact with the general contractor for purposes of providing repairs necessary to meet a bona fide emergency of the homeowner or to make necessary repairs to an electrical, plumbing or water system of the homeowner.",
+      "summary_row": "Homeowner disclosure statement over $2,000, signed acknowledgment, sub and supplier list",
+      "mode": "none",
+      "block": "Idaho Code 45-525. General contractors, residential property, disclosures",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole statute section; besides the four disclosure items it holds the subcontractor list rule, penalty, definitions and exemption, and the statute prescribes no wording, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "ID-cancel-credit",
+      "summary_row": "Home solicitation sale (credit sales): definition, right to cancel, BUYER'S RIGHT TO CANCEL statement",
+      "mode": "none",
+      "hold_reason": "The state file's block is five whole statute sections (28-43-401 to 405) with operative rules around the notice, and the official page for the statement ends mid-sentence with no seller line, so it cannot be copied as one notice."
+    },
+    {
+      "id": "ID-cancel-door",
+      "title": "Door-to-door sale: cancellation statement beside the signature and duplicate NOTICE OF CANCELLATION form",
+      "cite": "IDAPA 04.02.01.170 (Rule 170)",
+      "trigger": "Door-to-door sale of $25 or more, cash or credit, made away from the seller's place of business, including after the customer invites the contractor",
+      "format": "Statement in 10 point type next to the customer's signature; form in duplicate, detachable, 10 point bold; both in the same language as the sales talk; oral notice required",
+      "applies": { "sold_in_home": true },
+      "support": "it is **not limited to credit sales**. Its definition covers any \"sale, lease, or rental of goods or services primarily for personal, family, or household purposes, with a purchase price of twenty-five dollars ($25) or more",
+      "summary_row": "Door-to-door cooling-off rule (cash and credit sales): contract statement and NOTICE OF CANCELLATION",
+      "mode": "none",
+      "block": "IDAPA 04.02.01.170. Cooling-off period for door-to-door sales (Rule 170)",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole Rule 170 (items 01 to 10); only items 01 and 02 are the statement and form, the rest are seller duties and bans, so the block cannot be printed as one notice."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "the rule excludes Saturday (\"Any calendar day, except Saturday, Sunday, or the following legal holidays\")"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Fail to inform each consumer orally, at the time he signs the contract or purchases the goods or services, of his right to cancel."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "both \"in the same language, e.g., Spanish, as that principally used in the oral sales presentation\"; oral notice required"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Door-to-door sales of $25 or more made away from the seller's place of business, cash or credit, including after the customer invites the contractor (state Attorney General rule), on top of the federal rule; the state credit-sale statute (28-43-401) also covers regulated consumer credit sales at the residence",
+      "support": "applies to cash sales of $25 or more made away from the seller's premises, **including after the customer invites the contractor**"
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days, Saturday not counted (IDAPA 04.02.01.170); oral notice; statement beside the signature and duplicate form; credit sales also under 28-43-402",
+      "support": "Idaho needs its own cancellation block: capital-letter sentence beside the signature, duplicate detachable form, oral notice, same language as the sales talk."
+    }
+  ],
+  "unsure": [
+    "ID-cancel-door: the rule reaches any door-to-door sale for personal, family or household purposes at $25 or more, and the builder only knows 'sold at the customer's home', so whether every in-home contract is covered (for example work on a rental) is not settled.",
+    "ID-disclosure: the statute prescribes no wording, only four items the disclosure shall include plus an acknowledgment, so it is unclear whether the owner wants those four items printed in the contract itself."
+  ]
+}

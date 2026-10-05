@@ -1,0 +1,81 @@
+{
+  "state": "TX",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "TX-homestead",
+      "format": "10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.",
+      "support": "The official text puts \"KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.\" inside the quotation marks, as the final sentence of the notice",
+      "summary_row": "Home improvement contract contents and IMPORTANT NOTICE",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Prop. Code 41.007, which also holds the Residential Construction Commission items, the DTPA violation clause and the arbitration rule around the notice, so printing it would put non-notice statute text in the contract; the trigger (a homestead lien contract) is also not something the builder knows."
+    },
+    {
+      "id": "TX-defect",
+      "summary_row": "Chapter 27 contract notice",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Prop. Code 27.007, which also holds the $500 penalty subsection, the repealed subsection and the history lines around the notice, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "TX-disclosure",
+      "title": "Owner disclosure statement",
+      "cite": "Prop. Code 53.255",
+      "trigger": "Original contractor, delivered to the owner before the residential construction contract is executed by the owner",
+      "format": "A separate statement handed over before signing; no type size stated; must read substantially similar to the statute",
+      "support": "Before a residential construction contract is executed by the owner, the original contractor shall deliver to the owner a disclosure statement described by this section.",
+      "summary_row": "Residential disclosure statement",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Prop. Code 53.255, which also holds the delivery duty and a subsection about lien validity around the statement, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "TX-sublist",
+      "title": "Subcontractor and supplier list with its 10 point bold notice, and the optional waiver",
+      "cite": "Prop. Code 53.256",
+      "trigger": "Original contractor, before construction starts, on a residential construction contract",
+      "format": "Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold",
+      "applies": { "residential": true },
+      "support": "The list must contain the following notice conspicuously printed, stamped, or typed in a size equal to at least 10-point boldface or the computer equivalent",
+      "summary_row": "Subcontractor and supplier list, notice and waiver",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Prop. Code 53.256, which also holds the list duties, a lien-validity subsection and the waiver rules around the notice, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "TX-cancel",
+      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
+      "format": "Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation",
+      "support": "Statement (601.052(b)(4)): \"in immediate proximity to the space reserved in the contract for the signature of the consumer or on the front page of the receipt if a contract is not used\" and \"in boldfaced type of a minimum size of 10 points in substantially the following form\"",
+      "summary_row": "Home solicitation: scope, right, statement, form, FTC option, duties, prohibited acts, remedies",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Bus. & Com. Code chapter 601 (scope, duties, prohibited acts, remedies), so printing it would put non-notice statute text in the contract."
+    }
+  ],
+  "changes": [
+    {
+      "path": "written_contract.text",
+      "new": "Writing for homestead lien contracts, signed before work and by both spouses if married (Prop. Code 53.254(a), (b), (c); 41.001(b)(3))",
+      "support": "41.001(b)(3) points to \"Sections 53.254(a), (b), and (c)\" only (written contract, before work, both spouses)"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Oral notice also required (601.152(1))."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "Document \"in the same language as that principally used in the oral sales presentation\"."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Chapter 601 counts to midnight of the third business day after the consumer signs. For a homestead repair or renovation contract the Constitution separately says the owner may rescind within three days after execution by all parties (not business days), Tex. Const. art. XVI, sec. 50(a)(5)(C).",
+      "support": "Note the difference in day counts: the Constitution says the owner may rescind \"within three days after the execution of the contract by all parties\" (not business days)"
+    }
+  ],
+  "unsure": [
+    "TX-homestead: the statute prints the IMPORTANT NOTICE only for homestead lien contracts (existing residence), which the builder cannot tell, so even if the section were loaded it would have to be stored, not printed.",
+    "TX-defect: Prop. Code 27.007 applies to contracts subject to chapter 27, which the file does not narrow to a property type the builder knows; residential was kept as is.",
+    "TX-disclosure and TX-sublist: 53.255 is a separate document handed over before signing and 53.256 is a list, not text printed in the contract; split from the one combined first-pass notice because one notice may carry only one block.",
+    "Not added: Tex. Const. art. XVI sec. 50(a)(5)(C) requires the homestead repair contract to expressly provide a three-day rescission right, but prescribes no sentence, and the file says it is a condition for a valid lien, not for the contract to bind.",
+    "Not added: Prop. Code 53.254(g) owner statement belongs in the claimant's notice to the owner, not in the contract; 17.42 DTPA waiver is optional and only valid with the owner's own lawyer."
+  ]
+}

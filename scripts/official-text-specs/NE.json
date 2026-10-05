@@ -1,0 +1,32 @@
+{
+  "state": "NE",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NE-cancel",
+      "trigger": "Seller solicits at the residence, including a visit the buyer invited; buyer-initiated contact is excluded only for repair or maintenance of the buyer's personal property",
+      "format": "10 point boldface, capital and lowercase, under the caption BUYER'S RIGHT TO CANCEL; given in English and in the seller's other language when the seller regularly uses it and it is the buyer's principal language",
+      "support": "printed in capital and lowercase letters of not less than ten-point boldface type and appear under the conspicuous caption: BUYER'S RIGHT TO CANCEL",
+      "summary_row": "BUYER'S RIGHT TO CANCEL notice (10 point boldface; second language rule)",
+      "mode": "none",
+      "hold_reason": "the block is the whole section 69-1604; besides the notice sentence it holds operative rules (federal form accepted, second language, delivery timing, when the three days start, goods-only exception) and the Revisor's annotations, which should not print in the customer's contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days from when the seller gives a complying notice; buyer-initiated contact is excluded only for repair or maintenance of the buyer's personal property",
+      "support": "excludes a transaction \"In which the buyer has initiated the contact and specifically requested the seller to visit his or her home for the purpose of repairing or performing maintenance upon the buyer's personal property.\""
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "A business day is any calendar day except Sunday or any federal holiday; the three days run from when the seller gives a complying notice, not from signing.",
+      "support": "\"business day\" is defined as any calendar day except Sunday or any federal holiday. Flodman v. Robinson"
+    }
+  ],
+  "unsure": [
+    "NE-cancel: the notice sentence (69-1604(1)) is the right text to print, but the file only gives it inside the whole section block, so it is held rather than loaded.",
+    "NE-cancel: the second-language duty depends on the buyer's principal language, which the builder does not know.",
+    "cancellation.no_work_or_payment_in_window: left false; 69-1606(5) says a seller who performs services before cancellation is not entitled to compensation, which is not clearly a ban on starting work."
+  ]
+}

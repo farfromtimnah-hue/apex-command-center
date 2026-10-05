@@ -1,0 +1,63 @@
+{
+  "state": "NY",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NY-lien",
+      "summary_row": "Mechanic's lien notice, bold face",
+      "mode": "none",
+      "hold_reason": "The lien notice wording sits only inside the block that is the whole of GBL 771 (every contract requirement), so printing it would put non-notice statute text in the contract; the escrow or bond notice in 771(1)(e) has no prescribed wording, only content."
+    },
+    {
+      "id": "NY-cancel",
+      "summary_row": "Three business day cancellation notice on every home improvement contract (content prescribed, wording not)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "NY-insurance",
+      "cite": "GBL 771(1)(i)",
+      "support": "(i) Before a contractor or subcontractor begins work on a home, such writing shall disclose to the homeowner the existence of a property and/or casualty insurance policy",
+      "summary_row": "Insurance disclosure",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "NY-ppl428-statement",
+      "title": "Door-to-door cancellation statement beside the signature",
+      "cite": "Personal Property Law 428(1)(a)",
+      "trigger": "Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller",
+      "format": "In immediate proximity to the buyer's signature space, not less than ten-point bold, in the language of the sales presentation",
+      "applies": { "sold_in_home": true },
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in not less than ten-point bold face type, a statement in substantially the following form",
+      "summary_row": "Door-to-door statement beside the signature",
+      "mode": "none",
+      "hold_reason": "The statement is inside the block that is the whole of Personal Property Law 428, interleaved with the form and with subdivisions 2 to 5 (oral notice, no waiver, refund policy), so printing the block would put non-notice statute text in the contract."
+    },
+    {
+      "id": "NY-ppl428-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "Personal Property Law 428(1)(b)",
+      "trigger": "Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, not less than ten-point bold, in the language of the contract",
+      "applies": { "sold_in_home": true },
+      "support": "which shall be attached to the contract or receipt and easily detachable",
+      "summary_row": "NOTICE OF CANCELLATION form, in duplicate",
+      "mode": "none",
+      "hold_reason": "The form is inside the block that is the whole of Personal Property Law 428, interleaved with the statement and with subdivisions 2 to 5 (oral notice, no waiver, refund policy), so printing the block would put non-notice statute text in the contract."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.day_count_note",
+      "new": "For a sale at the customer's home (Personal Property Law 426(6)), business day means every day except Sunday and nine named holidays, so Saturday counts.",
+      "support": "Business days under Article 10-A include Saturdays (426(6))."
+    }
+  ],
+  "unsure": [
+    "NY-cancel and NY-insurance: GBL 771(1)(h) and (i) prescribe content but no sentence, so no text is loaded; the owner writes the wording.",
+    "NY-ppl428-statement and NY-ppl428-form were added because the file says a contract signed at the customer's home needs them; the oral notice in 428(2) and the refund-policy disclosure in 428(4) are rules the contract builder does not print, so oral_notice and same_language were left unchanged because the existing cancellation fields describe the GBL 771 right that applies to every contract, not only door-to-door sales.",
+    "Lien Law 71-a(3)(e) bold statement was not added: the file says it applies to new residential construction sales, not home improvement contracts.",
+    "GOL 5-903 (cleaning auto-renewal): the file says whether a recurring cleaning contract is a service contract on real property is a reading the text does not settle, so cleaning was left unchanged."
+  ]
+}

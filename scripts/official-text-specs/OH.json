@@ -1,0 +1,71 @@
+{
+  "state": "OH",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "OH-cancel",
+      "cite": "R.C. 1345.23",
+      "support": "A completed form, in duplicate, captioned \"notice of cancellation\", shall be attached to the contract signed by the buyer and be easily detachable",
+      "summary_row": "Home solicitation statement near signature and duplicate NOTICE OF CANCELLATION form",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the buyer statement and the NOTICE OF CANCELLATION form it holds operative rules (writing requirements, late cancellation, prohibited acts) that should not print in the customer's contract"
+    },
+    {
+      "id": "OH-excess-cost",
+      "title": "EXCESS COSTS statement with the owner's initials (written or oral estimate)",
+      "cite": "R.C. 4722.02(B)(2)",
+      "trigger": "Jobs of $25,000 or more, unless the contract is firm price with no excess costs or is cost-plus",
+      "format": "Statement in substantially the given language with an initials line: written estimate or oral estimate; no type size stated",
+      "support": "the contract shall include a statement in substantially the following language",
+      "summary_row": "Written contract at $25,000, required contents, EXCESS COSTS statement with initials",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the EXCESS COSTS statement it holds the list of required contract contents and the exemptions, which should not print in the customer's contract"
+    },
+    {
+      "id": "OH-estimate-form",
+      "title": "Estimate form with the customer's initials (written, oral or no estimate)",
+      "cite": "Ohio Adm. Code 109:4-3-05(A)(1)",
+      "trigger": "Repairs or services over $25 with face to face contact, which covers jobs under $25,000 and cleaning",
+      "format": "Form given at the first face to face contact and before work starts; may be separate or part of another form; also told to the customer orally",
+      "applies": {},
+      "support": "Jobs under $25,000 and cleaning: \"Estimate\" form with initials (written, oral, no estimate), over $25",
+      "summary_row": "Jobs under $25,000 and cleaning: \"Estimate\" form with initials (written, oral, no estimate), over $25",
+      "mode": "none",
+      "hold_reason": "the block is the whole administrative rule; besides the Estimate wording it holds many other operative rules (second sign, authorization of extra work, itemized bills) that should not print in the customer's contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "written_contract.text",
+      "new": "Written contract required when the cost equals or exceeds $25,000 (R.C. 4722.02(A))",
+      "support": "4722.02(A): \"no home construction service supplier shall perform any home construction service the cost of which equals or exceeds twenty-five thousand dollars unless the supplier enters into a written home construction services contract with the owner.\""
+    },
+    {
+      "path": "deposit_cap.percent",
+      "new": 10,
+      "support": "not more than ten per cent of the contract price before the supplier's performance that is required by the contract begins"
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "10 percent of the contract price before performance begins on R.C. 4722 jobs; 75 percent of a non-returnable special order item; not for cost-plus contracts",
+      "support": "not more than seventy-five per cent of the total cost of any special order item that is otherwise not returnable or usable"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day is any calendar day except Sunday and eleven named holidays, so Saturday counts",
+      "support": "\"Business day\" means any calendar day except Sunday, or the following business holidays"
+    },
+    {
+      "path": "cancellation.no_work_or_payment_in_window",
+      "new": true,
+      "support": "the seller shall not commence performance of such services during the time in which the buyer may cancel"
+    }
+  ],
+  "unsure": [
+    "OH-cancel: the buyer statement (1345.23(B)(1)) and the NOTICE OF CANCELLATION form (B)(2) belong in the contract, but the file only offers them inside the whole section block, so they are held.",
+    "OH-excess-cost: the EXCESS COSTS statement belongs in the contract but is only offered inside the whole 4722.02 block, so it is held.",
+    "OH-estimate-form: added as a form handed over before work on jobs under $25,000 and cleaning; the builder cannot tell the face to face contact condition, and the whole rule block is held anyway.",
+    "cancellation.no_work_or_payment_in_window: the file bars starting work during the window (1345.22(B)) but says nothing barring payment, so true may overstate the payment half.",
+    "Whether the home solicitation sections reach a $25,000-plus job is flagged by the file as a lawyer question, so OH-cancel's sold_in_home trigger is left as is."
+  ]
+}

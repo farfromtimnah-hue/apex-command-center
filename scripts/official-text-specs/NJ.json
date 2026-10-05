@@ -1,0 +1,39 @@
+{
+  "state": "NJ",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NJ-division",
+      "summary_row": "All-capitals Division statement with 1-888-656-6225",
+      "mode": "none",
+      "hold_reason": "New Jersey is held: the state file finds two official sources disagree on the Division phone number (regulation 1-888-656-6225, Division checklist 1-800-242-5846) and the statute copy is an unofficial courtesy copy dated 2013."
+    },
+    {
+      "id": "NJ-cancel",
+      "cite": "N.J.S.A. 56:8-151",
+      "trigger": "Every home improvement contract for a price over $500, wherever signed; the right runs from the day the customer receives a copy",
+      "format": "Conspicuous notice printed in at least 10-point bold-faced type; contractor name, address and phone filled in",
+      "applies": { "over_cents": 50000 },
+      "support": "It applies to EVERY home improvement contract over $500, not only door-to-door sales, and the clock runs from receipt of the copy, not from signing.",
+      "summary_row": "Written contract over $500, contents, three business day cancellation, \"NOTICE TO CONSUMER\"",
+      "mode": "none",
+      "hold_reason": "New Jersey is held: the statute copy is an unofficial courtesy copy revised 2/21/13 that could not be checked against the Legislature, the Division phone number conflicts between two official sources, and the block is the whole section with contract-content rules around the notice."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.covered",
+      "new": "Every home improvement contract over $500, wherever signed; the three business days run from the day the customer receives a copy of the contract",
+      "support": "It applies to EVERY home improvement contract over $500, not only door-to-door sales, and the clock runs from receipt of the copy, not from signing."
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days from receipt of the contract, any reason, written notice by registered or certified mail or personal delivery; refund within 30 days (56:8-151)",
+      "support": "may be cancelled by a consumer for any reason at any time before midnight of the third business day after the consumer receives a copy of it"
+    }
+  ],
+  "unsure": [
+    "NJ-division: the regulation says the statement also goes on invoices and correspondence, not only the contract, and its phone number conflicts with the Division checklist; held either way.",
+    "NJ-cancel: the notice has blanks for the contractor's name, address and phone, which would have to be filled in per contract; held."
+  ]
+}

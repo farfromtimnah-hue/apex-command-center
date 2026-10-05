@@ -4,6 +4,8 @@
 // production database, nothing written.
 //   node scripts/test-state-riders.mjs
 import { readFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
+import { parseStateFile, baseStatus, inputExists, INPUT_DIR } from "./official-text-lib.mjs";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -21,8 +23,8 @@ function fx(base, patch) {
   });
   return out;
 }
-function allText(comp) {
-  return comp.sections.map(function (s) { return (s.title || "") + "\n" + (s.text || ""); }).join("\n") + "\n" + (comp.notice_form_text || "") + "\n" + (comp.disclaimer_line || "");
+function allText(comp, keepNotices) {
+  return comp.sections.filter(function (s) { return keepNotices || s.kind !== "state_notice"; }).map(function (s) { return (s.title || "") + "\n" + (s.text || ""); }).join("\n") + "\n" + (comp.notice_form_text || "") + "\n" + (comp.disclaimer_line || "");
 }
 const BANNED = ["Florida", "Fla.", "713.", "489.", "558", "515.", "501.", "668.50"];
 // Not in the job's list, but each is a Florida-only process or office.
@@ -62,18 +64,37 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
   const count = {};
   NON_FL.forEach(function (c) { count[data.riders[c].status] = (count[data.riders[c].status] || 0) + 1; });
   ok(NON_FL.every(function (c) { return data.statuses.indexOf(data.riders[c].status) !== -1; }) && data.statuses.length === 3, "every non-Florida entry has one of the three allowed statuses");
-  ok(count["draft rider ready"] === 11 && count["notice text still needs official copy"] === 22 && count["needs primary source before use"] === 17,
-    "status counts match the matrix: 11 / 22 / 17 (got " + JSON.stringify(count) + ")");
-  let notices = 0, withText = 0;
-  NON_FL.forEach(function (c) { (data.riders[c].notices || []).forEach(function (n) { notices++; if (n.text !== null) { withText++; } }); });
-  ok(notices > 0 && withText === 0, "no state notice in the data has a non-null text (" + notices + " notices)");
+  ok(NON_FL.every(function (c) { return data.statuses.indexOf(data.riders[c].status) !== -1; }) && (count["needs primary source before use"] || 0) === 2 && data.riders.GA.status === "needs primary source before use" && data.riders.TN.status === "needs primary source before use", "statuses: only the two mirror-built states (GA, TN) need a primary source (got " + JSON.stringify(count) + ")");
+  let notices = 0, withText = 0, badSource = [], notExact = [], skipped = !inputExists();
+  const parsed = {};
+  NON_FL.forEach(function (c) {
+    (data.riders[c].notices || []).forEach(function (n) {
+      notices++;
+      if (n.text !== null || n.text_on_file) { withText += n.text !== null ? 1 : 0; }
+      if (n.text !== null && n.source_status !== "VERBATIM-OFFICIAL" && n.source_status !== "VERBATIM-NEAR-OFFICIAL") { badSource.push(n.id); }
+      if (n.text_on_file && n.source_status !== "VERBATIM-OFFICIAL" && n.source_status !== "VERBATIM-NEAR-OFFICIAL") { badSource.push(n.id); }
+      if (n.text !== null && n.text_on_file) { badSource.push(n.id + " has both text and text_on_file"); }
+      if (!("source_status" in n) || !("source_url" in n) || !("source_date" in n)) { badSource.push(n.id + " lacks source fields"); }
+      if (n.text !== null && n.hold_reason) { badSource.push(n.id + " prints while on hold"); }
+      if (!skipped) {
+        parsed[c] = parsed[c] || parseStateFile(c);
+        [n.text, n.text_on_file].forEach(function (t) { if (t && !parsed[c].blocks.some(function (b) { return b.text === t; })) { notExact.push(n.id); } });
+      }
+    });
+  });
+  ok(notices > 0 && badSource.length === 0, "every notice with text (printed or on file) has source_status VERBATIM-OFFICIAL or VERBATIM-NEAR-OFFICIAL, carries source fields, and nothing prints while on hold" + (badSource.length ? " (" + badSource.join(", ") + ")" : ""));
+  if (skipped) { console.log("NOTICE  input folder " + INPUT_DIR + " not found: the byte-exact check against the state files is skipped"); }
+  else { ok(notExact.length === 0, "every non-null text is a byte-exact copy of a fenced block in that state's input file (" + notices + " notices, " + withText + " print, " + NON_FL.reduce(function (a, c) { return a + data.riders[c].notices.filter(function (n) { return n.text_on_file; }).length; }, 0) + " stored on file)" + (notExact.length ? " (" + notExact.join(", ") + ")" : "")); }
+  ok(data.riders.NJ.notices.length > 0 && data.riders.NJ.notices.every(function (n) { return n.text === null && !n.text_on_file && n.hold_reason; }), "New Jersey: no notice has text, each carries a hold_reason");
+  ok(NON_FL.every(function (c) { return (data.riders[c].notices || []).every(function (n) { var k = Object.keys(n.applies || {}); return n.text === null || k.every(function (x) { return ["sold_in_home", "is_pool", "residential", "over_cents", "at_least_cents"].indexOf(x) !== -1; }); }); }), "a notice prints only when its trigger uses keys the builder can decide");
   ok(NON_FL.every(function (c) { return (data.riders[c].notices || []).every(function (n) { return n.id && n.title && n.cite && n.trigger && n.format && n.applies; }); }), "every notice carries id, title, cite, trigger, format and applies");
   ok(codes.every(function (c) { return data.riders[c].reviewed === null; }), "reviewed is null for every state today");
   const noLic = NON_FL.filter(function (c) { return data.riders[c].license.state_level === false; });
   ok(noLic.length === 14 && noLic.every(function (c) { return data.riders[c].license.label === "local or trade license number, if your city or county requires one"; }), "14 states have no state-level license and carry the local-license label (" + noLic.join(" ") + ")");
   ok(data.riders.RI.license.word === "registered" && ["AK", "CT", "IA", "ID", "MA", "NE", "NJ", "PA", "VT", "WA"].every(function (c) { return data.riders[c].license.word === "registered" && !/licen/i.test(data.riders[c].license.line_label); }), "registration states say registered and their line label never says license");
   ok(NON_FL.every(function (c) { const r = data.riders[c]; return typeof r.strictness === "number" && r.written_contract && r.deposit_cap && r.cancellation && r.checklist && r.checklist.rider_items.length === 3 && r.cleaning && Array.isArray(r.risky_options) && "defect_process" in r; }), "every entry carries strictness, written contract, deposit cap, cancellation, checklist, cleaning, risky options and defect process");
-  ok(data.riders.AK.cancellation.business_days === 5 && data.riders.IA.cancellation.saturday_counts === false && NON_FL.filter(function (c) { return data.riders[c].cancellation.business_days !== 3; }).join() === "AK" && NON_FL.filter(function (c) { return data.riders[c].cancellation.saturday_counts === false; }).join() === "IA", "cancellation: Alaska five business days, Iowa does not count Saturday, every other state the federal count");
+  const satOff = ["CT", "DE", "HI", "IA", "ID", "MI", "MN", "MO", "OR", "VT"];
+  ok(data.riders.AK.cancellation.business_days === 5 && NON_FL.filter(function (c) { return data.riders[c].cancellation.business_days !== 3; }).join() === "AK" && NON_FL.filter(function (c) { return data.riders[c].cancellation.saturday_counts === false; }).sort().join() === satOff.join() && data.riders.RI.cancellation.saturday_counts === true, "cancellation: Alaska five business days; Saturday does not count in " + satOff.join(" ") + "; every other state counts Saturday (Rhode Island too)");
   // Every neutral clause version is an edit of text that really is in the library row.
   const ctx = await h.context(fx("small-job", {}));
   let editsOk = true, leftovers = [];
@@ -136,7 +157,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   const tx = (await h.compose(stateFx("residential-in-home-deposit", "TX"))).comp;
   ok(sec(tx, "L4").text === "Sunrise Pools LLC, Texas local or trade license No. REG-12345.", "Texas (no state license): the license line uses the local or trade license label");
   ok(/Any claim for construction defects is subject to the notice and opportunity to repair procedures of Texas Prop\. Code 27\.004 \(RCLA\), where they apply\./.test(sec(tx, "C11-A").text) && /procedures of Texas Prop\. Code 27\.004 \(RCLA\), where they apply\. Nothing in this section/.test(sec(tx, "C14-A").text) && tx.rules.L3.on === true, "Texas (defect process in the matrix): the neutral defect sentence replaces the Chapter 558 one in C11 and C14");
-  ok(tx.disclaimer_line === "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it. State-specific rules for Texas could not be verified from official sources. Confirm licensing and notices before signing.", "Texas (needs primary source before use): the second disclaimer sentence is present");
+  ok(tx.disclaimer_line === "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it.", "Texas (notice text still needs official copy; not a mirror state): the draft sentence only, no unverified sentence");
 
   const ga = (await h.compose(stateFx("small-job", "GA"))).comp;
   ok(data.riders.GA.status === "needs primary source before use" && / State-specific rules for Georgia could not be verified from official sources\. Confirm licensing and notices before signing\.$/.test(ga.disclaimer_line), "Georgia (needs primary source before use): the second disclaimer sentence is present");
@@ -194,7 +215,35 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   }
   if (bad.length) { console.log("   " + bad.slice(0, 25).join("\n   ")); }
   ok(composed === NON_FL.length * bases.length * variants.length * 2 && NON_FL.length === 50, "compose succeeds for all 50 non-Florida codes (" + composed + " contracts: " + bases.length + " fixtures x 4 clause variants x with and without a license number)");
+  {
+    // The state notices that print carry their own state's wording: Florida's must not appear in them.
+    const nb = [];
+    for (const code of NON_FL) {
+      const r = (await h.compose(stateFx("residential-in-home-deposit", code))).comp;
+      r.sections.filter(function (x) { return x.kind === "state_notice"; }).forEach(function (x) { ["Florida", "Fla.", "713.", "489.", "558", "515.", "501.", "668.50"].forEach(function (b) { if ((x.title + "\n" + x.text).indexOf(b) !== -1) { nb.push(code + ":" + x.id + ":" + b); } }); });
+    }
+    ok(nb.length === 0, "the notices that print contain no Florida wording" + (nb.length ? " (" + nb.join(", ") + ")" : ""));
+  }
   ok(bad.length === 0, "for every one of them: no blocker at all (no state rule can block), no Florida locked block, the checklist and disclaimer are right, and the composed text contains none of " + BANNED.concat(BANNED_PROCESS).join(", "));
+}
+
+// ── Read-through files: what a customer would see for five states ─────────
+{
+  const picks = ["OR", "VA", "TX", "MA", "OH"], made = [];
+  for (const code of picks) {
+    const r = (await h.compose(stateFx("residential-in-home-deposit", code))).comp;
+    let out = "State notices a customer would see: " + data.riders[code].name + " (" + code + "), residential job, $12,500.00, sold at the customer's home.\nStatus: " + data.riders[code].status + "\n\n";
+    const printed = r.sections.filter(function (x) { return x.kind === "state_notice"; });
+    out += "== PRINTED IN THE CONTRACT (" + printed.length + ") ==\n\n";
+    printed.forEach(function (x) { out += "--- " + x.title + (x.cite ? " (" + x.cite + ")" : "") + " ---\n" + x.text + "\n\n"; });
+    if (!printed.length) { out += "(no state notice prints for this state yet)\n\n"; }
+    out += "== OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==\n\n";
+    r.checklist.filter(function (l) { return /^notice:/.test(l.key); }).forEach(function (l) { out += "- [" + l.level + "] " + l.en + "\n"; });
+    const path = "scripts/fixtures/state-notices-" + code.toLowerCase() + ".txt";
+    writeFileSync(new URL(path, root), out);
+    made.push(path);
+  }
+  ok(made.length === 5 && made.every(function (m) { return readFileSync(new URL(m, root), "utf8").length > 200; }), "read-through files written for five states: " + made.join(", "));
 }
 
 // ── F5. Cancellation deadline ────────────────────────────────────────────

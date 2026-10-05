@@ -1,0 +1,58 @@
+{
+  "state": "AK",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "AK-cancel",
+      "format": "Written notice of the right to revoke; the statute prescribes no wording, type size or form",
+      "support": "The statute gives **no wording, type size or form** for that notice",
+      "summary_row": "Door-to-door sale: five business day revoke right and written notice",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "AK-defect-notice",
+      "title": "Notice of Potential Claims Must Be Provided within One Year (separate signed page attached to the contract)",
+      "cite": "AS 09.45.893",
+      "trigger": "Contract to design, construct or remodel a dwelling (single-family house, duplex or multi-family unit); remodel means a change worth more than 25 percent of the structure's value",
+      "format": "Separate page attached to the contract, titled at the top, conspicuous, signed by the purchaser",
+      "applies": { "residential": true },
+      "support": "must be included on a separate page attached to the contract and must contain a title at the top of the page that reads",
+      "summary_row": "Defect notice on a separate signed page attached to the contract (dwelling design, construction or remodel)",
+      "mode": "on_file",
+      "block": "AS 09.45.893. Notice required in contract",
+      "block_index": 0
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Five business days, written notice of the right (AS 45.02.350, official text; the statute gives no wording); federal also applies",
+      "support": "within five business days of entering into the contract"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Five business days from entering into the contract; the statute does not define business day. The buyer revokes by tendering the goods back or by registered letter marked Deliver to Addressee Only, Return Receipt.",
+      "support": "upon the posting of a registered letter, marked Deliver to Addressee Only, Return Receipt, of rejection"
+    },
+    {
+      "path": "license.text",
+      "new": "Certificate of Registration with bond and insurance (general $25,000 bond; specialty $10,000; residential $20,000 with endorsement; one project of $10,000 or less $5,000), AS 08.18; name, mailing address and principal address on every contract and ad, registration number on contracts and ads (AS 08.18.051)",
+      "support": "Advertising and contracts must also include the contractor's registration number."
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "AS 45.45.920 is a free-trial law only, not an automatic renewal law; it prints nothing in an ordinary cleaning plan unless a free trial is offered",
+      "support": "It is not an automatic renewal law and prints nothing in an ordinary cleaning plan unless a free trial is offered."
+    },
+    {
+      "path": "cleaning.auto_renewal.cite",
+      "new": "AS 45.45.920",
+      "support": "AS 45.45.920 | VERBATIM-OFFICIAL"
+    }
+  ],
+  "unsure": [
+    "AK-defect-notice: the builder cannot tell whether a job is a dwelling or a remodel worth more than 25 percent of the structure, so the page is stored on file instead of printed.",
+    "AK-cancel: the statute requires a written notice of the five business day right but prescribes no sentence, so nothing is loaded."
+  ]
+}

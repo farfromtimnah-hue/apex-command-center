@@ -1,0 +1,78 @@
+{
+  "state": "WI",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "WI-lien-waiver",
+      "title": "Notice of Consumer's Right to Receive Lien Waivers, as a separate document",
+      "trigger": "Home improvement contract; given before the buyer and seller enter into the contract, and the seller keeps evidence the buyer received it",
+      "format": "In writing, the verbatim statement only, as a separate document, in a clear and conspicuous font, in a format the buyer can retain",
+      "support": "The notice shall be provided as a separate document, written in a clear and conspicuous font, in a format that the buyer can retain.",
+      "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
+      "mode": "none",
+      "hold_reason": "the block is the whole of ATCP 110.025, which also carries the seller's duty to hand over actual lien waivers on request, so printing it would put non-notice rule text in the contract"
+    },
+    {
+      "id": "WI-lien",
+      "trigger": "Prime contractor who has contracted or will contract with subcontractors, suppliers or service providers, under a written contract with the owner; if no written contract, a separate notice within 10 days after the first labor or materials; exceptions in 779.02(1)",
+      "format": "Included in the written contract and a copy of the contract given to the owner; at least 8-point bold type if printed, or capital letters if typewritten; substantially the stated language",
+      "support": "shall be in at least 8-point bold type, if printed, or in capital letters, if typewritten",
+      "summary_row": "Lien notice in the contract",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 779.02 (exceptions, subcontractor notice, trust fund and theft rules, lender duties) around the notice, so printing it would put non-notice statute text in the contract"
+    },
+    {
+      "id": "WI-defect",
+      "trigger": "Contract to construct or remodel a dwelling (pools, hardscape, porches, garages and basements are in; repair or maintenance only jobs are out); delivered before entering a written contract, or before work starts if the contract is oral",
+      "format": "Notice worded substantially as given, conspicuous and in writing, may be included within the contract; delivered together with a copy of the DSPS brochure",
+      "support": "The notice required under par. (a) shall be conspicuous and in writing and may be included within the contract between the contractor and the consumer.",
+      "summary_row": "Notice Concerning Construction Defects (contract or separate)",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 101.148, which also carries the definitions and delivery rules around the notice, so printing it would put non-notice statute text in the contract"
+    },
+    {
+      "id": "WI-brochure",
+      "title": "Right to Cure brochure (DSPS form SBD-10845) handed over with the defect notice",
+      "cite": "895.07(13); 101.148(2)(a)",
+      "trigger": "Contract to construct or remodel a dwelling; delivered with the Notice Concerning Construction Defects",
+      "format": "Hand over the state's own PDF, not retyped text; the only copy is a City of Verona copy, revision R08/14, and the current revision is unconfirmed",
+      "applies": {},
+      "support": "Someone should get the current PDF from DSPS directly before the product ships it.",
+      "summary_row": "Right-to-cure brochure that must be handed over with it",
+      "mode": "none"
+    },
+    {
+      "id": "WI-cancel",
+      "cite": "423.203; 423.202",
+      "trigger": "Consumer approval transaction: solicited face to face away from the merchant's regular place of business, or by mail or telephone, and signed away from it, on credit or cash over $25",
+      "format": "Two copies of a typed or printed notice in capital and lowercase letters of not less than 12-point boldface, under the conspicuous caption CUSTOMER'S RIGHT TO CANCEL; also in the other language when the merchant regularly uses it and the customer's principal language is that language; a federal cancellation form is accepted",
+      "support": "Compliance with requirements of federal statutes, rules or regulations governing form of notice of right of cancellation, in consumer approval transactions otherwise subject to this chapter, shall be deemed to satisfy the notice requirements of this chapter.",
+      "summary_row": "CUSTOMER'S RIGHT TO CANCEL notice",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 423.203, which also carries the other-language rule, the delivery timing rule and a penalty cross-reference around the notice, so printing it would put non-notice statute text in the contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.day_count_note",
+      "new": "The three business days run from when the merchant gives the CUSTOMER'S RIGHT TO CANCEL notice, so a missing notice leaves the right open; the customer cancels by mail, effective when mailed.",
+      "support": "the three business days run from when the merchant gives the 423.203 notice, so a missing notice leaves the right open"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Consumer approval transactions (solicited face to face away from the merchant's regular place of business, or by mail or telephone, and signed away from it, on credit or cash over $25); a home improvement contract that is one must comply with ch. 423 (ATCP 110.08), on top of the federal rule",
+      "support": "shall comply with ch. 423, Stats."
+    },
+    {
+      "path": "defect_process.text",
+      "new": "895.07: 90 working days before suit; repose 7 years (893.89)",
+      "support": "893.89 repose, 7 versus 10 years: SEVEN."
+    }
+  ],
+  "unsure": [
+    "WI-lien-waiver, WI-lien, WI-defect and WI-cancel: every official text is inside a whole statute or rule section with operative rules around the notice, so all are held rather than loaded.",
+    "WI-brochure: added because 101.148(2)(a) requires the brochure to be delivered with the notice, but the only copy in the file is a city copy (VERBATIM-SECONDARY), so no text is loaded.",
+    "WI-cancel: the cite on the existing entry was 423.202 but the notice wording is in 423.203, so I changed the cite to 423.203; 423.202.",
+    "WI-lien-waiver: ATCP 110.025 reaches home improvement, which excludes new residences and major renovations, a distinction the builder cannot decide."
+  ]
+}

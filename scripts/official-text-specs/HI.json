@@ -1,0 +1,72 @@
+{
+  "state": "HI",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "HI-cancel",
+      "support": "Fail to furnish each buyer, at the time the buyer signs the door-to-door sales contract or otherwise agrees to buy goods or services from the seller, a completed form in duplicate, captioned \"NOTICE OF CANCELLATION\"",
+      "summary_row": "Door-to-door statement near signature, NOTICE OF CANCELLATION form, oral notice, refund duties",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the buyer statement and the NOTICE OF CANCELLATION form it holds operative rules (receipt contents, refund duties, assignment limits, property restoration) that should not print in the customer's contract"
+    },
+    {
+      "id": "HI-lien-bond",
+      "support": "A prescribed sentence for the risk of loss statement, the lien rights provision, or the bonding explanation | n/a | n/a | None exists in HRS 444-25.5 or HAR 16-77-80; the rule states what must be covered, not the words.",
+      "summary_row": "Contractor disclosure and written contract duties",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only says the contract must contain the lien rights and bonding information, and the block is a whole statute section"
+    },
+    {
+      "id": "HI-defect",
+      "title": "Chapter 672E defect notice in the contract (capital letters, conspicuous, part of the contract)",
+      "cite": "HRS 672E-11; HRS 444-25.5(b)(2)",
+      "support": "444-25.5(b)(2) requires the notice in every written home construction or improvement contract",
+      "summary_row": "Contractor Repair Act notice that must be in the contract",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the capital-letter notice it holds subsection (a) on who must give it to whom and a history line, which should not print in the customer's contract"
+    },
+    {
+      "id": "HI-risk-of-loss",
+      "cite": "HAR 16-77-80(a)(6)",
+      "format": "Distinct capital letters next to the owner's signature line",
+      "support": "A clear statement of the risk of loss of any payments made to a sales representative (printed in distinct capital letters next to the owner's signature line)",
+      "summary_row": "Homeowner contract contents (nine items)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the rule only requires a clear statement of the risk of loss of payments made to a sales representative, in capitals beside the owner's signature line"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "\"Business day\" means any calendar day, except Saturday, Sunday, or any state or federal holiday."
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Fail to inform each buyer orally, at the time the buyer signs the contract or purchases the goods or services, of the buyer's right to cancel."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "in the same language as that principally used in the oral sales presentation"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Saturday does not count as a business day. If the work needs a chapter 444 contractor license and the seller has none, the cancellation period is extended to thirty calendar days (HRS 481C-2.5).",
+      "support": "the cancellation period to be provided in section 481C-2 shall be extended to thirty calendar days"
+    },
+    {
+      "path": "license.text",
+      "new": "Contractor license (exemption at $1,500 or less, not where a building permit is required); C-49 swimming pool contractor confirmed in the Board's Exhibit A; license number required in ads",
+      "support": "Pool classification C-49 is now confirmed from the Board's own Exhibit A"
+    }
+  ],
+  "unsure": [
+    "HI-cancel: the buyer statement and NOTICE OF CANCELLATION form belong in the contract, but the file only offers them inside the whole 481C-2 section block, so they are held.",
+    "HI-defect: the 672E-11 notice belongs in the contract, but its block also carries subsection (a) addressed to the seller and a history line, so it is held rather than loaded.",
+    "HI-lien-bond: the lien rights and bonding explanation have no prescribed sentence, so nothing is loaded.",
+    "HAR 16-77-79 (seven disclosures before a binding contract) and HAR 16-77-80 (nine contract items) only list required content with no prescribed wording; no notice was added for them.",
+    "HI-cancel: the file says a buyer-initiated remodel visit can fall outside the door-to-door rule depending on the facts, so the sold_in_home trigger is left as is."
+  ]
+}

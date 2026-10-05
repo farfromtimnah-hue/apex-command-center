@@ -1,0 +1,51 @@
+{
+  "state": "NH",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NH-defect",
+      "title": "Construction defect notice (all capitals form)",
+      "trigger": "Contract for the construction or improvement of a residence in which the contract amount exceeds $5,000",
+      "format": "Conspicuous notice in substantially the statutory capital-letter form; may be part of the contract; no type size stated",
+      "support": "in which the contract amount exceeds $5,000",
+      "summary_row": "Construction defect notice for contracts over $5,000 (all capitals form)",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the capital-letter notice it holds subsection I (the contractor's duty) and subsection II (third party warranty programs) and a source line, which should not print in the customer's contract"
+    },
+    {
+      "id": "NH-cancel",
+      "title": "Cancellation statement in 10 point boldface next to the buyer's signature",
+      "cite": "RSA 361-B:2, I",
+      "trigger": "Sale of $150 or more solicited and made at any place other than the seller's permanent place of business, cash or credit",
+      "format": "Statement in boldface type of at least 10 points, in immediate proximity to the buyer's signature space; the federal form is accepted instead",
+      "applies": { "sold_in_home": true, "at_least_cents": 15000 },
+      "support": "in boldface type of a minimum size of 10 points, a statement in substantially the following form",
+      "summary_row": "Cancellation statement (10 point boldface next to the buyer's signature), refund in 15 days, no deduction for work done",
+      "mode": "none",
+      "hold_reason": "the block is the whole chapter 361-B (definition, remedies, disclosure rules, refund rules); only the one cancellation statement in 361-B:2, I belongs in the contract, and the rest should not print"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days under RSA 361-B (sales of $150 or more away from the seller's place of business) and the federal rule; refund within 15 days, no deduction for work done",
+      "support": "New Hampshire has one: RSA chapter 361-B, \"Retail Selling\", in Title XXXIII-A"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Home solicitation sales of $150 or more made at any place other than the seller's permanent place of business, cash or credit, on top of the federal rule",
+      "support": "to a \"solicitation and sale at any place other than a permanent place of business of the seller\", cash or credit, with no exception for a buyer who invited the seller"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Chapter 361-B does not define business day. On cancellation the seller refunds everything within 15 days and may not deduct the value of work already done.",
+      "support": "Chapter 361-B does not define \"business day\"."
+    }
+  ],
+  "unsure": [
+    "NH-defect: the capital-letter notice belongs in the contract over $5,000, but the file only offers it inside the whole 359-G:7 block (with the contractor's duty and a warranty rule), so it is held.",
+    "NH-cancel: added; the statement belongs in the contract, but the only block is the whole chapter 361-B, so it is held. The $150 floor is on the price and the builder's amount may include items the statute counts differently.",
+    "cleaning.home_solicitation_applies_to_cleaning: left false, but 361-B:1 reaches any sale of goods or services of $150 or more, so it may now be true for cleaning plans sold at the home; the file does not say so outright.",
+    "cancellation.saturday_counts: left true because the file says business day is not defined in chapter 361-B."
+  ]
+}

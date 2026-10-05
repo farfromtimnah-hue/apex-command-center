@@ -1,0 +1,51 @@
+{
+  "state": "NM",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NM-default",
+      "mode": "none",
+      "support": "The statute gives no wording for the form.",
+      "summary_row": "CID-approved residential disclosure form (the wording itself)"
+    },
+    {
+      "id": "NM-cancel",
+      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
+      "cite": "NMSA 1978, 57-12-21",
+      "trigger": "Door-to-door sale: consumer goods or services of $25 or more, solicited in person (including after an invitation by the buyer) with the agreement made away from the seller's place of business, and seller-initiated telephone sales",
+      "format": "Statement in bold face, minimum ten points, in immediate proximity to the buyer's signature space; NOTICE OF CANCELLATION in duplicate, attached and easily detachable, ten-point bold; in the language of the sales presentation; oral notice",
+      "support": "The official definition includes sales \"in response to or following an invitation by the buyer\".",
+      "mode": "none",
+      "block": "NMSA 1978, 57-12-21. Door-to-door sales; contracts; requirements; prohibitions",
+      "block_index": 0,
+      "hold_reason": "The block is the whole of 57-12-21 (seller prohibitions, refund duties, definitions and exclusions) around the statement and the NOTICE OF CANCELLATION form; printing it would put non-notice statute text in the customer's contract.",
+      "summary_row": "Door-to-door sales: contract statement, NOTICE OF CANCELLATION, oral notice, definitions"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (NMSA 57-12-21), on top of the federal rule",
+      "support": "57-12-21 is now official and complete."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Door-to-door sales of consumer goods or services of $25 or more, including sales made after an invitation by the buyer, with the agreement made away from the seller's place of business; a requested visit to repair the buyer's personal property is excluded, not the house",
+      "support": "(personal property, not the house)"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day means any calendar day except Sunday and the listed holidays, so Saturday counts; for seller-initiated telephone sales the period does not begin until the buyer has been told of the right and given the notice copies",
+      "support": "\"business day\" means any calendar day except Sunday or the following business holidays"
+    },
+    {
+      "path": "license.text",
+      "new": "CID license under CILA; handyman exemption up to $7,200 compensation a year with an annual declaration filed with the division",
+      "support": "Handyman exemption is confirmed at $7,200 a year with an annual declaration"
+    }
+  ],
+  "unsure": [
+    "NM-default: the CID-approved residential disclosure form was not obtained, so no wording is loaded; the statute requires it in writing on a division-approved form before work, signature or payment.",
+    "NM-cancel: the builder only knows 'sold at the customer's home', but the statute covers any sale agreed away from the seller's place of business and seller-initiated telephone sales."
+  ]
+}

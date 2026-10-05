@@ -5536,7 +5536,9 @@ function gmConSetFact(k, v) { var facts = {}; facts[k] = v; gmConSave({ flags: {
 // one closed "More about {State}" line. A tick is saved on the contract at
 // once. It is a record for the business only: it never blocks anything.
 // A line the system does or sees (a.kind "does" / "sees") ticks itself: it
-// shows "Done by the system" with the time and one line of evidence, or what
+// shows "Done by the system", who caused it and when (a.sys.who_en / who_pt,
+// written by the server: "Sent by Maria, 10/05/2026 4:12 PM ET"), and one line
+// of evidence, or what
 // the system is waiting for, and a person cannot tick or untick it.
 function gmConStateCardHtml(c) {
   var card = c.state_card || null;
@@ -5560,7 +5562,7 @@ function gmConStateCardHtml(c) {
         '<input type="checkbox" id="' + boxId + '" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (a.done ? " checked" : "") + (canTick ? "" : " disabled") + ' onchange="gmConStateCheck(' + i + ', this.checked)">';
       var under = sysLine ?
         '<div id="' + boxId + 'Sys" class="muted" style="font-size:12px;margin-top:2px;">' +
-          (a.sys.done ? '<span class="gm-pill gm-green">\u2713 ' + gmT("Feito pelo sistema", "Done by the system") + '</span>' + (a.sys.at ? " " + escHtml(formatDateTimeUTC(a.sys.at)) : "") + '<br>' : "") +
+          (a.sys.done ? '<span class="gm-pill gm-green">\u2713 ' + gmT("Feito pelo sistema", "Done by the system") + '</span>' + (a.sys.who_en ? ' <strong>' + escHtml(isEn() ? a.sys.who_en : (a.sys.who_pt || a.sys.who_en)) + '</strong>' : (a.sys.at ? " " + escHtml(formatDateTimeUTC(a.sys.at)) : "")) + '<br>' : "") +
           escHtml(isEn() ? a.sys.en : a.sys.pt) + '</div>' :
         (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "");
       h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);">' + box +

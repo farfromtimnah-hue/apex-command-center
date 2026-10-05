@@ -28049,9 +28049,57 @@ function contractSecondSigner(flags) { return flags && flags.second_signer && fl
 // x (optional) = what contractStateSysLoad read: { c, ack, copy_sent_at, frozen }.
 // frozen = the system notices inside the text the company signed: a contract
 // signed before the builder printed a notice never claims to carry it.
+// A done line also says who caused it: who_en / who_pt (the line a person
+// reads, a developer's name never in it) and cause = { action, at, auto,
+// by: [{ kind: "staff" | "customer", id, name, role }] } for the saved record.
+// x.who (optional) = { company, sent, copy }: who signed for the company, who
+// sent the contract, who sent the signed copy, each { id, name, role, at }.
 function contractStateSysStatus(e, l, st, flags, facts, x) {
-    var c = (x && x.c) || {}, when = contractFmtEastern;
-    function done(at, en, pt) { return { done: true, at: at || null, en: en, pt: pt }; }
+    var c = (x && x.c) || {}, when = contractFmtEastern, who = (x && x.who) || {};
+    function staff(w, name) { return { kind: "staff", id: (w && w.id) || null, name: (w && w.name) || name || null, role: (w && w.role) || null }; }
+    function cust(name) { return { kind: "customer", id: null, name: name || null, role: "customer" }; }
+    function shown(p) { return p.kind === "staff" ? gmDisplayActor(p.name) : p.name; }
+    function done(at, en, pt, cause) {
+        var out = { done: true, at: at || null, en: en, pt: pt };
+        if (cause) { out.who_en = cause.en; out.who_pt = cause.pt; out.cause = { action: cause.action, at: cause.at || null, auto: !!cause.auto, by: cause.by || [] }; }
+        return out;
+    }
+    // "Sent by Maria, 10/05/2026 4:12 PM ET"; with no name to show, the time alone.
+    function byLine(enVerb, ptVerb, p, at) {
+        var n = shown(p);
+        return { en: enVerb + (n ? " by " + n + ", " : " ") + when(at), pt: ptVerb + (n ? " por " + n + ", " : " em ") + when(at) };
+    }
+    var sentAt = (who.sent && who.sent.at) || c.sent_at || null, sender = staff(who.sent, c.sent_by);
+    var signerCo = staff(who.company, c.company_signer_name);
+    function sentCause() { var t = byLine("Sent", "Enviado", sender, sentAt); return { action: "sent", at: sentAt, by: [sender], en: t.en, pt: t.pt }; }
+    // A line the contract's own text satisfies: caused by whoever sent it,
+    // before that by whoever signed for the company, before that by nobody.
+    function textCause() {
+        if (companyAt && sentAt && sentAt >= companyAt) { return sentCause(); }
+        if (companyAt) { var t = byLine("Signed for the company", "Assinado pela empresa", signerCo, companyAt); return { action: "company_signed", at: companyAt, by: [signerCo], en: t.en, pt: t.pt }; }
+        return { action: "printed", at: null, auto: true, by: [], en: "Done automatically. Nobody has signed or sent the contract yet.", pt: "Feito automaticamente. Ningu\u00e9m assinou nem enviou o contrato ainda." };
+    }
+    // The signed copy: nobody sends it, the last signature makes it. Names the
+    // signer whose signature did that, and whoever also sent it by hand.
+    function copyCause(last, sec) {
+        var trig = cust(sec ? sec.name : c.homeowner_signer_name), n = shown(trig), by = [trig];
+        var en = "Done automatically, " + when(last) + (n ? ", when " + n + " signed" : ""), pt = "Feito automaticamente, " + when(last) + (n ? ", quando " + n + " assinou" : "");
+        if (x && x.copy_sent_at) {
+            var cs = staff(who.copy, null), t = byLine("Also sent", "Tamb\u00e9m enviado", cs, x.copy_sent_at);
+            by.push(cs); en += ". " + t.en; pt += ". " + t.pt;
+        }
+        return { action: "signed_copy_ready", at: last, auto: true, by: by, en: en, pt: pt };
+    }
+    function both(a, b, at, action) {
+        var na = shown(a) || "the customer", nb = shown(b), pa = shown(a) || "o cliente";
+        return { action: action, at: at, by: [a, b], en: "Signed by " + na + (nb ? " and " + nb : "") + ", " + when(at), pt: "Assinado por " + pa + (nb ? " e " + nb : "") + ", " + when(at) };
+    }
+    function ackCause(ack) {
+        var sg = cust(ack.signer_name), ph = staff(null, ack.created_by), ns = shown(sg), np = shown(ph);
+        return { action: "photos_acknowledged", at: ack.signed_at, by: [sg, ph],
+            en: "Acknowledgment signed" + (ns ? " by " + ns : "") + (np ? ", photos by " + np : "") + ", " + when(ack.signed_at),
+            pt: "Termo assinado" + (ns ? " por " + ns : "") + (np ? ", fotos por " + np : "") + ", " + when(ack.signed_at) };
+    }
     function wait(en, pt) { return { done: false, at: null, en: en, pt: pt }; }
     var companyAt = c.company_signed_at && !c.company_signature_voided_at ? c.company_signed_at : null;
     var second = contractSecondSigner(flags);
@@ -28063,13 +28111,13 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
     if (e.sys === "print") {
         if (l.sys !== "print") { return null; }
         return done(companyAt, "Printed in the contract under \"" + title + "\"." + (companyAt ? " Locked in when the company signed." : ""),
-            "Impresso no contrato em \"" + title + "\"." + (companyAt ? " Travado quando a empresa assinou." : ""));
+            "Impresso no contrato em \"" + title + "\"." + (companyAt ? " Travado quando a empresa assinou." : ""), textCause());
     }
     if (e.sys === "deliver") {
         if (l.sys !== "deliver") { return null; }
         if (c.sent_at) {
             return done(c.sent_at, "Given to the customer with the contract, sent " + when(c.sent_at) + "." + (c.first_viewed_at ? " The customer opened it " + when(c.first_viewed_at) + "." : ""),
-                "Entregue ao cliente junto com o contrato, enviado em " + when(c.sent_at) + "." + (c.first_viewed_at ? " O cliente abriu em " + when(c.first_viewed_at) + "." : ""));
+                "Entregue ao cliente junto com o contrato, enviado em " + when(c.sent_at) + "." + (c.first_viewed_at ? " O cliente abriu em " + when(c.first_viewed_at) + "." : ""), sentCause());
         }
         return wait("The system will do this when you send the contract: the document is part of what the customer reads before signing.",
             "O sistema faz isto quando você enviar o contrato: o documento faz parte do que o cliente lê antes de assinar.");
@@ -28079,19 +28127,19 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
         if (c.status === "completed" && c.homeowner_signed_at && !needSecond) {
             var last = second ? second.at : c.homeowner_signed_at;
             return done(last, "The customer's link became the complete signed copy when the last signature was made, " + when(last) + "." + (x && x.copy_sent_at ? " You also sent it " + when(x.copy_sent_at) + "." : ""),
-                "O link do cliente virou a cópia completa e assinada quando a última assinatura foi feita, em " + when(last) + "." + (x && x.copy_sent_at ? " Você também enviou em " + when(x.copy_sent_at) + "." : ""));
+                "O link do cliente virou a cópia completa e assinada quando a última assinatura foi feita, em " + when(last) + "." + (x && x.copy_sent_at ? " Você também enviou em " + when(x.copy_sent_at) + "." : ""), copyCause(last, second));
         }
         return wait("The system will do this when everyone has signed: the customer's link becomes the complete signed copy.",
             "O sistema faz isto quando todos tiverem assinado: o link do cliente vira a cópia completa e assinada.");
     }
     if (e.sys === "language") {
         if (!contractStateFactIs(facts, "sale_english", "yes")) { return null; }
-        return done(companyAt, "The contract and the cancellation notice are in English, the language of the sale.", "O contrato e o aviso de cancelamento estão em inglês, o idioma da venda.");
+        return done(companyAt, "The contract and the cancellation notice are in English, the language of the sale.", "O contrato e o aviso de cancelamento estão em inglês, o idioma da venda.", textCause());
     }
     if (e.sys === "second_signer") {
         // No answer yet: the line stays a hand tick, and the question is asked.
         if (!second && !contractSecondSignerWanted(st.code, flags)) { return null; }
-        if (second) { return done(second.at, "Second signer " + (second.name || "") + " signed " + when(second.at) + ".", "Segundo assinante " + (second.name || "") + " assinou em " + when(second.at) + "."); }
+        if (second) { return done(second.at, "Second signer " + (second.name || "") + " signed " + when(second.at) + ".", "Segundo assinante " + (second.name || "") + " assinou em " + when(second.at) + ".", both(cust(c.homeowner_signer_name), cust(second.name), second.at, "second_signer_signed")); }
         if (c.homeowner_signed_at) {
             return wait("Waiting: the second signer has not signed yet. The customer's link asks for the second signature.",
                 "Aguardando: o segundo assinante ainda não assinou. O link do cliente pede a segunda assinatura.");
@@ -28103,7 +28151,7 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
         var ack = x && x.ack;
         if (ack && ack.signed_at) {
             return done(ack.signed_at, "The customer signed the condition acknowledgment with " + ack.photos + " photo" + (ack.photos === 1 ? "" : "s") + " " + when(ack.signed_at) + ".",
-                "O cliente assinou o termo de condição do imóvel com " + ack.photos + " foto" + (ack.photos === 1 ? "" : "s") + " em " + when(ack.signed_at) + ".");
+                "O cliente assinou o termo de condição do imóvel com " + ack.photos + " foto" + (ack.photos === 1 ? "" : "s") + " em " + when(ack.signed_at) + ".", ackCause(ack));
         }
         return wait("Waiting: send the photos for acknowledgment from the project. The system sees it when the customer signs.",
             "Aguardando: envie as fotos para o cliente confirmar, pelo projeto. O sistema vê quando o cliente assinar.");
@@ -28111,13 +28159,13 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
     if (e.sys === "signed") {
         if (c.status === "completed" && c.homeowner_signed_at) {
             return done(c.homeowner_signed_at, "Company signed " + when(c.company_signed_at) + "; customer signed " + when(c.homeowner_signed_at) + ".",
-                "Empresa assinou em " + when(c.company_signed_at) + "; cliente assinou em " + when(c.homeowner_signed_at) + ".");
+                "Empresa assinou em " + when(c.company_signed_at) + "; cliente assinou em " + when(c.homeowner_signed_at) + ".", both(cust(c.homeowner_signer_name), signerCo, c.homeowner_signed_at, "homeowner_signed"));
         }
         return wait("Waiting: the company and the customer have not both signed yet.", "Aguardando: a empresa e o cliente ainda não assinaram os dois.");
     }
     if (e.sys === "sent") {
         if (companyAt && c.sent_at) {
-            return done(c.sent_at, "Signed by the company " + when(companyAt) + " and sent to the customer " + when(c.sent_at) + ".", "Assinado pela empresa em " + when(companyAt) + " e enviado ao cliente em " + when(c.sent_at) + ".");
+            return done(c.sent_at, "Signed by the company " + when(companyAt) + " and sent to the customer " + when(c.sent_at) + ".", "Assinado pela empresa em " + when(companyAt) + " e enviado ao cliente em " + when(c.sent_at) + ".", sentCause());
         }
         return wait("Waiting: sign for the company and send the contract.", "Aguardando: assine pela empresa e envie o contrato.");
     }
@@ -28133,10 +28181,12 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
     return null;
 }
 // What the system lines read outside the contract row itself: the signed
-// before-work photo acknowledgment of the job and the "signed copy sent"
-// event. Never throws: a failed read leaves the line waiting.
+// before-work photo acknowledgment of the job (who signed it, who sent the
+// photos) and the contract's own events: who signed for the company, who sent
+// it, who sent the signed copy. Never throws: a failed read leaves the line
+// waiting.
 async function contractStateSysLoad(env, c) {
-    var out = { c: c, ack: null, copy_sent_at: null, frozen: null };
+    var out = { c: c, ack: null, copy_sent_at: null, frozen: null, who: {} };
     try {
         if (c.snapshot_r2_key && c.company_signed_at && !c.company_signature_voided_at) {
             var snap = await contractR2Json(env, c.snapshot_r2_key);
@@ -28145,17 +28195,26 @@ async function contractStateSysLoad(env, c) {
                 (snap.sections || []).forEach(function(sec) { if (sec.system && (sec.kind === "state_notice" || sec.kind === "state_document")) { out.frozen[sec.id] = true; } });
             }
         }
-        var ack = await env.DB.prepare("SELECT signed_at, payload_json FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'before_photos' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(c.client_id, c.job_id).first();
+        var ack = await env.DB.prepare("SELECT signed_at, payload_json, signer_name, created_by FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'before_photos' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(c.client_id, c.job_id).first();
         var photos = ack ? ((gmDocParseJsonObject(ack.payload_json, {}) || {}).photos || []).length : 0;
-        if (ack && ack.signed_at && photos > 0) { out.ack = { signed_at: ack.signed_at, photos: photos }; }
-        var ev = await env.DB.prepare("SELECT created_at FROM gm_contract_events WHERE contract_id = ? AND client_id = ? AND action = 'signed_copy_sent' ORDER BY created_at DESC LIMIT 1").bind(c.id, c.client_id).first();
-        if (ev && ev.created_at) { out.copy_sent_at = ev.created_at; }
+        if (ack && ack.signed_at && photos > 0) { out.ack = { signed_at: ack.signed_at, photos: photos, signer_name: ack.signer_name || null, created_by: ack.created_by || null }; }
+        // Oldest first, so the last one of each action wins.
+        var evs = (await env.DB.prepare("SELECT action, actor, detail_json, created_at FROM gm_contract_events WHERE contract_id = ? AND client_id = ? AND action IN ('company_signed','sent','signed_copy_sent') ORDER BY created_at").bind(c.id, c.client_id).all()).results || [];
+        evs.forEach(function(ev) {
+            var d = gmDocParseJsonObject(ev.detail_json, {}) || {};
+            var w = { id: d.actor_id || null, name: ev.actor || null, role: d.actor_role || null, at: ev.created_at || null };
+            if (ev.action === "signed_copy_sent") { out.who.copy = w; out.copy_sent_at = ev.created_at || null; }
+            else if (ev.action === "sent") { out.who.sent = w; }
+            else { out.who.company = w; }
+        });
     } catch (e) { console.error("state card system lines", e && e.message); }
     return out;
 }
 // sys (optional) = contractStateSysLoad's result. Without it every system
 // line that needs a signature, a send or a photo set shows as waiting.
-function contractStateActionCard(st, lines, flags, sys) {
+// causes (optional) = an object this fills with { line key: cause } for every
+// system line that is done; it never leaves the server (contractStateSysLedger).
+function contractStateActionCard(st, lines, flags, sys, causes) {
     if (!lines || !st || st.florida) { return null; }
     var data = CONTRACT_STATE_CHECKLIST_V1 || {};
     var stData = (data.states || {})[st.code] || {};
@@ -28192,9 +28251,13 @@ function contractStateActionCard(st, lines, flags, sys) {
             key: l.key, kind: kind, en: fill(status && e.sys_en ? e.sys_en : e.en, l), pt: fill(status && e.sys_pt ? e.sys_pt : e.pt, l),
             ref: e.ref || l.ref || (e.ref_from ? stData[e.ref_from] : null) || null, ref_pt: (e.ref && e.ref_pt) || null,
             context_en: l.en, context_pt: l.pt, source_url: l.url || null,
-            done: status ? (status.done ? { by: null, at: status.at, system: true } : null) : (tick && tick.at ? { by: tick.by || null, at: tick.at } : null)
+            done: status ? (status.done ? { by: null, at: status.at, system: true } : null) : (tick && tick.at ? { by: gmDisplayActor(tick.by), at: tick.at } : null)
         };
-        if (status) { a.sys = { done: status.done, at: status.at, en: status.en, pt: status.pt }; }
+        if (status) {
+            a.sys = { done: status.done, at: status.at, en: status.en, pt: status.pt };
+            if (status.cause) { a.sys.who_en = status.who_en; a.sys.who_pt = status.who_pt; a.sys.action = status.cause.action; a.sys.auto = status.cause.auto; }
+            if (causes && status.done) { causes[l.key] = status.cause || { action: e.sys, at: status.at, auto: true, by: [] }; }
+        }
         actions.push(a);
     });
     // The one-question facts this state's lines depend on, in the data file's order.
@@ -28207,11 +28270,72 @@ function contractStateActionCard(st, lines, flags, sys) {
 // One tick or untick. Returns the new flags.state_checks, or null when the key
 // is not one of this contract's hand-ticked lines (nothing is stored for it):
 // a line the system does or sees is never ticked or unticked by hand.
+// by = the display name, or contractActorRecord(user): the tick then also
+// keeps the person's login and role.
 function contractStateCheckApply(flags, card, key, isDone, by, at) {
     if (!card || !card.actions.some(function(a) { return a.key === key && (a.kind || "person") === "person"; })) { return null; }
     var out = { state: card.state, done: Object.assign({}, contractStateChecks(flags, card.state)) };
-    if (isDone) { out.done[key] = { by: by || null, at: at }; } else { delete out.done[key]; }
+    var who = by && typeof by === "object" ? by : { name: by || null };
+    if (isDone) {
+        out.done[key] = { by: who.name || null, at: at };
+        if (who.id || who.role) { out.done[key].by_id = who.id || null; out.done[key].by_role = who.role || null; out.done[key].action = "ticked"; }
+    } else { delete out.done[key]; }
     return out;
+}
+// The flags a screen gets: the saved who-did-what records stay on the server
+// (they hold logins, and a developer's name must never reach a screen); the
+// card carries what a person may read.
+function contractFlagsOut(flags) {
+    if (!flags || (!flags.state_sys && !flags.state_checks)) { return flags; }
+    var out = Object.assign({}, flags);
+    delete out.state_sys;
+    if (out.state_checks && out.state_checks.done) {
+        var done = {};
+        Object.keys(out.state_checks.done).forEach(function(k) { var t = out.state_checks.done[k] || {}; done[k] = { by: gmDisplayActor(t.by), at: t.at || null }; });
+        out.state_checks = { state: out.state_checks.state, done: done };
+    }
+    return out;
+}
+// Who is acting, for a saved record: the login (a portal username or a staff
+// email), the display name at this moment, and the role.
+function contractActorRecord(user) {
+    if (!user) { return { id: null, name: null, role: null }; }
+    return { id: user.username || user.email || null, name: actorName(user), role: user.login_role === "seller" ? "seller" : (user.role || null) };
+}
+// The saved record of the system's own ticks: flags.state_sys = { state,
+// lines: { line key: { action, at, auto, by: [{ kind, id, name, role }],
+// recorded_at } } }. causes = what contractStateActionCard filled in. Returns
+// the new record, or null when nothing changed. A line that is no longer done
+// (a voided company signature) leaves the record; a line whose cause is the
+// same keeps the time it was first recorded.
+function contractStateSysLedger(flags, code, causes, now) {
+    var prev = flags && flags.state_sys && flags.state_sys.state === code && flags.state_sys.lines ? flags.state_sys.lines : {};
+    var lines = {};
+    Object.keys(causes || {}).forEach(function(k) {
+        var cz = causes[k], rec = { action: cz.action, at: cz.at || null, auto: !!cz.auto, by: (cz.by || []).map(function(p) { return { kind: p.kind, id: p.id || null, name: p.name || null, role: p.role || null }; }) };
+        var old = prev[k];
+        rec.recorded_at = old && JSON.stringify({ action: old.action, at: old.at, auto: old.auto, by: old.by }) === JSON.stringify(rec) ? old.recorded_at : now;
+        lines[k] = rec;
+    });
+    return JSON.stringify(lines) === JSON.stringify(prev) ? null : { state: code, lines: lines };
+}
+// Writes flags.state_sys only (json_set), like a hand tick.
+var CONTRACT_STATE_SYS_SQL = "UPDATE gm_contracts SET flags_json = json_set(COALESCE(flags_json, '{}'), '$.state_sys', json(?)) WHERE id = ? AND client_id = ? AND status != 'void'";
+// Called after an action that can tick a system line (company signature,
+// send, a customer signature, the signed copy, a signed photo
+// acknowledgment, a saved answer). Never throws and never blocks the action:
+// the action is already done when this runs.
+async function contractStateSysStamp(env, clientId, contractId) {
+    try {
+        var c = await gmContractLoad(env, clientId, contractId);
+        if (!c || c.status === "void") { return; }
+        var comp = contractCompose(await contractContext(env, clientId, c), c, gmEasternToday(), "live");
+        if (!comp.state || comp.state.florida) { return; }
+        var causes = {};
+        contractStateActionCard(comp.state, comp.checklist, c.flags, await contractStateSysLoad(env, c), causes);
+        var next = contractStateSysLedger(c.flags, comp.state.code, causes, new Date().toISOString().slice(0, 19).replace("T", " "));
+        if (next) { await env.DB.prepare(CONTRACT_STATE_SYS_SQL).bind(JSON.stringify(next), contractId, clientId).run(); }
+    } catch (e) { console.error("state card system record", e && e.message); }
 }
 
 function contractOptionTrades(tradesLine) {
@@ -30145,7 +30269,7 @@ async function contractInternalOut(env, id, c, user, request) {
     }
     return Object.assign({
         id: c.id, job_id: c.job_id, lead_id: c.lead_id, number: c.number, revision: c.revision, display_number: contractDisplayNumber(c), status: c.status,
-        selections: c.selections, answers: c.answers, flags: c.flags, estimate_ids: c.estimate_ids,
+        selections: c.selections, answers: c.answers, flags: contractFlagsOut(c.flags), estimate_ids: c.estimate_ids,
         areas: isCleaning ? comp.cleaning.slots.map(function(sl) { return { id: sl.id, title: sl.title, options: sl.options, need: sl.need, no_custom: !sl.primary }; }) :
             ctx.lib.clause_areas.map(function(a) { return { id: a.id, title: a.title, options: areaOptions[a.id] || [] }; }),
         missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line,
@@ -30267,7 +30391,7 @@ async function handlePutGmContract(id, cid, request, env) {
             var tickComp = contractCompose(await contractContext(env, id, c), c, gmEasternToday(), "live");
             var tickKey = String(body.flags.state_check.key || "");
             var tickCard = contractStateActionCard(tickComp.state, tickComp.checklist, c.flags, await contractStateSysLoad(env, c));
-            var checks = contractStateCheckApply(c.flags, tickCard, tickKey, body.flags.state_check.done === true, actorName(user), new Date().toISOString().slice(0, 19).replace("T", " "));
+            var checks = contractStateCheckApply(c.flags, tickCard, tickKey, body.flags.state_check.done === true, contractActorRecord(user), new Date().toISOString().slice(0, 19).replace("T", " "));
             // A line the system does or sees is never ticked or unticked by hand.
             if (!checks && tickCard && tickCard.actions.some(function(a) { return a.key === tickKey; })) { return jsonErr2("O sistema marca esta linha sozinho.", "The system ticks this line by itself.", 409, { code: "system_line" }); }
             if (!checks) { return jsonErr2("Este item n\u00e3o est\u00e1 na lista deste contrato.", "This item is not on this contract's list.", 400); }
@@ -30393,6 +30517,7 @@ async function handlePutGmContract(id, cid, request, env) {
         // "Before you send" ticks belong to one state: a contract that moved to
         // another state starts its list with nothing ticked.
         if (flags.state_checks && flags.state_checks.state !== comp.state.code) { delete flags.state_checks; }
+        if (flags.state_sys && flags.state_sys.state !== comp.state.code) { delete flags.state_sys; }
         // Rule 23: the guard lives in the write. A company signature or a send
         // that lands between the read above and this write makes it a no-op.
         // G4e (drift c): a change order already signed and applied to this
@@ -30421,6 +30546,7 @@ async function handlePutGmContract(id, cid, request, env) {
                 .bind(answers.property_county || null, cleaning ? null : (flags.property_type || null), c.lead_id, id).run();
         }
         var fresh = await gmContractLoad(env, id, cid);
+        await contractStateSysStamp(env, id, cid);
         return jsonOk({ saved: true, contract: await contractInternalOut(env, id, fresh, user, request) });
     } catch (e) {
         return jsonErr2("Erro ao salvar o contrato. Tente de novo.", "Error saving contract: " + e.message, 500);
@@ -30493,7 +30619,8 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
             "WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested')"
         ).bind(signer.name, ctx.settings.owner_signer_phone || ctx.doc.phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, JSON.stringify(c.flags), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode mais ser assinado pela empresa (" + contractStatusPt(c.status) + ").", "This contract can no longer be signed by the company (status " + c.status + ")", 409); }
-        await gmContractEvent(env, id, cid, actorName(user), "company_signed", { signer: signer.name, kind: kind, hash: snap.hash });
+        await gmContractEvent(env, id, cid, actorName(user), "company_signed", { signer: signer.name, kind: kind, hash: snap.hash, actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+        await contractStateSysStamp(env, id, cid);
         // G2a: what this contract used for the customer's email, phone and
         // address is saved back to the lead (the name stays the lead's own;
         // "Salvar no cliente" on the form is how a legal name is copied).
@@ -30596,7 +30723,8 @@ async function handlePostGmContractSend(id, cid, request, env) {
             seller_name: (await gmDocSenderFirstName(env, user, id, ctx.client, ctx.doc)), link: link
         });
         if (c.status === "company_signed") {
-            await gmContractEvent(env, id, cid, actorName(user), "sent", {});
+            await gmContractEvent(env, id, cid, actorName(user), "sent", { actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+            await contractStateSysStamp(env, id, cid);
             if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
         }
         return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null) });
@@ -30623,7 +30751,8 @@ async function handlePostGmContractSignedCopy(id, cid, request, env) {
         var ctx = await contractContext(env, id, c);
         var link = await docPrettyLink(env, "contract", c.public_token, id, c.number + (c.revision > 1 ? "-R" + c.revision : ""), c.owner_full_name || (typeof lead !== "undefined" && lead && lead.cliente) || "");
         if (body.mark === true) {
-            await gmContractEvent(env, id, cid, actorName(user), "signed_copy_sent", { link: link });
+            await gmContractEvent(env, id, cid, actorName(user), "signed_copy_sent", { link: link, actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+            await contractStateSysStamp(env, id, cid);
             if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_signed_copy_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
             return jsonOk({ marked: true });
         }
@@ -30678,7 +30807,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined })) : (c.flags && (c.flags.state_checks || c.flags.second_signer) ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined, second_signer: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined, state_sys: undefined })) : (c.flags && (c.flags.state_checks || c.flags.second_signer || c.flags.state_sys) ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined, second_signer: undefined, state_sys: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
         await env.DB.prepare("UPDATE gm_contracts SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(cid, id).run();
         await gmContractEvent(env, id, newId, actorName(user), "revised", { from: cid, revision: rev });
         return jsonOk({ created: true, contract_id: newId, revision: rev });
@@ -30932,6 +31061,7 @@ async function handlePostPublicContractSign(token, request, env) {
         await env.DB.batch(valBatch);
         await gmContractEvent(env, c.client_id, c.id, signer, "homeowner_signed", { kind: kind, ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash, lien: comp.requires.lien_signature, pool_ack: comp.requires.pool_ack, cancellation_deadline: deadline });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
+        await contractStateSysStamp(env, c.client_id, c.id);
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
     } catch (e) {
@@ -30962,6 +31092,7 @@ async function handlePostPublicContractSecondSign(token, request, env) {
         if (!res.meta || !res.meta.changes) { return jsonErr("The second signature is already on this contract.", 409); }
         await gmContractEvent(env, c.client_id, c.id, signer, "second_signer_signed", { kind: "typed", ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_second_signer_signed", field: "contract", old_value: null, new_value: contractDisplayNumber(c), reason: "second signer signed online (typed)" }]); }
+        await contractStateSysStamp(env, c.client_id, c.id);
         // The stored PDF waits for this signature (docPdfByToken), so it is made now.
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true });
@@ -30990,6 +31121,7 @@ async function handlePostPublicContractRespond(token, kind, request, env) {
             res = await env.DB.prepare("UPDATE gm_contracts SET status = 'declined', decline_reason = ?, updated_at = datetime('now') WHERE id = ? AND status IN ('sent','viewed','changes_requested')").bind(text, c.id).run();
         }
         if (!res.meta || !res.meta.changes) { return jsonErr("This contract can no longer be answered.", 409); }
+        await contractStateSysStamp(env, c.client_id, c.id);
         await gmContractEvent(env, c.client_id, c.id, c.homeowner_signer_name || "Homeowner", kind === "changes" ? "changes_requested" : "declined", { text: text, company_signature_voided: kind === "changes" });
         await gmRecordHomeownerResponse(env, { client_id: c.client_id, job_id: c.job_id, lead_id: c.lead_id, doc_kind: "contract", doc_id: c.id, doc_number: contractDisplayNumber(c), response: kind === "changes" ? "changes_requested" : "declined", reason: text });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, "Homeowner", [{ action: kind === "changes" ? "contract_changes_requested" : "contract_declined", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: text }]); }
@@ -31948,6 +32080,13 @@ async function handlePostPublicAckSign(token, request, env) {
             var fa = await env.DB.prepare("SELECT status FROM gm_job_acks WHERE id = ?").bind(a.id).first();
             if (a.kind === "completion" && fa && (fa.status === "sent" || fa.status === "viewed")) { return jsonErr("The punch list has an open item, so the work cannot be accepted as complete yet. The company will send an updated list.", 409); }
             return jsonErr("This acknowledgment can no longer be signed.", 409);
+        }
+        // The photo line of this job's contracts ticks itself now: record who.
+        if (a.kind === "before_photos") {
+            try {
+                var ackCons = (await env.DB.prepare("SELECT id FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded')").bind(a.client_id, a.job_id).all()).results || [];
+                for (var aci = 0; aci < ackCons.length; aci++) { await contractStateSysStamp(env, a.client_id, ackCons[aci].id); }
+            } catch (eStamp) { console.error("state card system record", eStamp && eStamp.message); }
         }
         if (a.lead_id) { await gmLogLeadEvents(env, a.client_id, a.lead_id, signer, [{ action: a.kind === "before_photos" ? "conditions_acknowledged" : "completion_signed", field: "acknowledgment", old_value: null, new_value: a.kind, reason: "signed online (" + kind + ")" }]); }
         docPdfAfterFinal(request, env, "ack", token);

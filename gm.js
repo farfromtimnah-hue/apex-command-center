@@ -4573,6 +4573,11 @@ function gmConSettingsHtml() {
     ["suspension_trigger_days", "Dias de atraso que permitem suspender", "Days late before suspension"], ["suspension_notice_days", "Dias úteis de aviso de suspensão", "Business days' notice before suspension"], ["contractor_termination_days", "Dias de suspensão antes de rescindir", "Days of suspension before termination"], ["owner_cure_days", "Dias úteis para começar a corrigir", "Business days to begin a cure"],
     ["negotiation_days", "Dias para a negociação (C14)", "Negotiation days (C14)"], ["mediation_days", "Dias para a mediação (C14)", "Mediation days (C14)"], ["debris_frequency", "Frequência de retirada de entulho", "Debris removal frequency"], ["co_response_days", "Dias úteis para enviar o aditivo (C05-B)", "Business days to send a change order (C05-B)"], ["urgent_cap_amount", "Teto do serviço urgente (C05-C)", "Urgent work cap (C05-C)"]];
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Valores fixos da empresa", "Your standard values") + ' <span class="gm-sheet-section-note">' + gmT("usados pelas cláusulas; o que ficar em branco é perguntado no contrato", "used by the clauses; anything left blank is asked on the contract") + '</span></p>';
+  // State riders: the business's home state (unset = Florida).
+  var bizState = d.values.business_state || "FL";
+  h += '<label class="gm-field-label" for="gmConBizState">' + gmT("Estado de registro da empresa", "State your business is registered in") + '</label>' +
+    '<select id="gmConBizState" class="gm-input" onchange="gmConDraft.values.business_state = this.value">' +
+    (S.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (x.code === bizState ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>';
   vals.forEach(function(v) { h += '<label class="gm-field-label" for="gmConVal_' + v[0] + '">' + gmT(v[1], v[2]) + '</label><input type="text" id="gmConVal_' + v[0] + '" class="gm-input" value="' + escHtml(d.values[v[0]] || "") + '" oninput="gmConDraft.values[\'' + v[0] + '\'] = this.value">'; });
   h += '</div>';
   h += '<p class="gm-warn" id="gmConMsg" hidden></p><button type="button" class="gm-btn-primary" id="gmConSaveBtn" onclick="gmConSettingsSave()">' + gmT("Salvar contrato", "Save contract settings") + '</button></div>';
@@ -4996,13 +5001,16 @@ function gmRenderContractSheet() {
   // Questions for this contract (the rules engine's inputs)
   var f = c.flags || {};
   var q = "";
+  // State riders: outFl is true only for a job outside Florida.
+  var outFl = !!c.job_state && c.job_state_florida === false;
   var propLabel = ""; GM_CON_PROPERTY_TYPES.forEach(function(p) { if (p[0] === f.property_type) { propLabel = gmT(p[1], p[2]); } });
   if (ro) {
     q += gmSheetRowHtml("tag", gmT("Vendido durante uma visita à casa do cliente?", "Sold during a visit to the customer's home?"), f.sold_in_home !== false ? gmT("Sim", "Yes") : gmT("Não", "No"));
+    q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
     q += gmSheetRowHtml("tag", gmT("Tipo do imóvel", "Property type"), escHtml(propLabel));
     if (c.builds_pools) {
       q += gmSheetRowHtml("tag", gmT("Obra de piscina", "Pool job"), f.is_pool ? gmT("Sim", "Yes") : gmT("Não", "No"));
-      if (f.is_pool) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
+      if (f.is_pool && !outFl) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
     }
     q += gmSheetRowHtml("clock", gmT("Proposta válida até", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
   } else {
@@ -5011,16 +5019,23 @@ function gmRenderContractSheet() {
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home === false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', false)">' + gmT("Não", "No") + '</button></div>';
   }
   if (c.rules && c.rules.L5 && c.rules.L5.on) {
-    q += '<p class="gm-derived-note">' + gmT("Prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar (sábado conta; domingo e feriados federais não). ", "Cancellation deadline: midnight of the 3rd business day after the homeowner signs (Saturday counts; Sunday and federal holidays do not). ") +
+    var canRule = c.cancellation_rule || { business_days: 3, saturday_counts: true };
+    q += '<p class="gm-derived-note">' + (outFl ?
+      gmT("Prazo de cancelamento em " + escHtml(c.job_state_name) + ": meia-noite do " + canRule.business_days + "\u00ba dia \u00fatil depois de o cliente assinar (s\u00e1bado " + (canRule.saturday_counts ? "conta" : "n\u00e3o conta") + "; domingo e feriados federais n\u00e3o). ",
+          "Cancellation deadline in " + escHtml(c.job_state_name) + ": midnight of business day " + canRule.business_days + " after the homeowner signs (Saturday " + (canRule.saturday_counts ? "counts" : "does not count") + "; Sunday and federal holidays do not). ") :
+      gmT("Prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar (sábado conta; domingo e feriados federais não). ", "Cancellation deadline: midnight of the 3rd business day after the homeowner signs (Saturday counts; Sunday and federal holidays do not). ")) +
       (c.cancellation_deadline ? gmT("Calculado: ", "Calculated: ") + escHtml(formatDate(c.cancellation_deadline)) : gmT("Calculado na assinatura do cliente.", "Calculated when the homeowner signs.")) +
       (c.attorney_question_pending ? '<br><span class="gm-pill gm-gold">● ' + gmT("pendente de revisão do advogado", "pending attorney review") + '</span> ' + gmT("Trabalho e sinal antes do prazo de cancelamento (pergunta 9 da biblioteca).", "Work and deposits before the cancellation deadline (library question 9).") : "") + '</p>';
   }
   if (!ro) {
+    q += '<label class="gm-field-label" for="gmConJobState">' + gmT("Estado onde o servi\u00e7o ser\u00e1 feito *", "State where the work is done *") + '</label><select id="gmConJobState" class="gm-input" onchange="gmConSetFlag(\'job_state\', this.value)">' +
+      (c.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (c.job_state === x.code ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>' +
+      (c.job_state_confirmed ? "" : '<p class="gm-warn" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Confira o estado. Ele foi sugerido pelo endere\u00e7o do im\u00f3vel ou pelo estado da empresa; escolha na lista para confirmar.", "Check the state. It was suggested from the property address or your business's state; pick it in the list to confirm.") + '</p>');
     q += '<label class="gm-field-label" for="gmConPropType">' + gmT("Tipo do imóvel", "Property type") + '</label><select id="gmConPropType" class="gm-input" onchange="gmConSetFlag(\'property_type\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
       GM_CON_PROPERTY_TYPES.map(function(p) { return '<option value="' + p[0] + '"' + (f.property_type === p[0] ? " selected" : "") + '>' + escHtml(gmT(p[1], p[2])) + '</option>'; }).join("") + '</select>';
     if (c.builds_pools) {
-      q += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;" ' + (f.is_pool ? "checked" : "") + ' onchange="gmConSetFlag(\'is_pool\', this.checked)"> ' + gmT("Obra de piscina (anexa os dois documentos do Capítulo 515)", "Pool job (attaches the two Chapter 515 documents)") + '</label>';
-      if (f.is_pool) {
+      q += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" style="width:22px;height:22px;" ' + (f.is_pool ? "checked" : "") + ' onchange="gmConSetFlag(\'is_pool\', this.checked)"> ' + (outFl ? gmT("Obra de piscina", "Pool job") : gmT("Obra de piscina (anexa os dois documentos do Capítulo 515)", "Pool job (attaches the two Chapter 515 documents)")) + '</label>';
+      if (f.is_pool && !outFl) {
         q += '<label class="gm-field-label" for="gmConSafety">' + gmT("Recurso de segurança da piscina (s. 515.27) *", "Pool safety feature (s. 515.27) *") + '</label><select id="gmConSafety" class="gm-input" onchange="gmConSetFlag(\'pool_safety_feature\', this.value)"><option value="">' + gmT("— escolher —", "— choose —") + '</option>' +
           (c.safety_features || []).map(function(s) { return '<option value="' + escHtml(s) + '"' + (f.pool_safety_feature === s ? " selected" : "") + '>' + escHtml(s) + '</option>'; }).join("") + '</select>';
       }
@@ -5032,9 +5047,23 @@ function gmRenderContractSheet() {
   // Locked blocks by rule
   var R = c.rules || {};
   var lockedNames = { L1: gmT("Aviso de gravame de construção (§713.015)", "Construction lien notice (§713.015)"), L2: gmT("Aviso do Recovery Fund (§489.1425)", "Recovery Fund notice (§489.1425)"), L3: gmT("Aviso do Capítulo 558", "Chapter 558 notice"), L4: gmT("Linha do número da licença", "License number line"), L5: gmT("Cancelamento em três dias", "Three-day cancellation"), L6: gmT("Documentos de piscina (Capítulo 515)", "Pool documents (Chapter 515)"), L7: gmT("Informação sobre o sinal (§489.126)", "Deposit information (§489.126)") };
-  body += gmSheetSection(gmT("Avisos da Flórida inseridos por regra", "Florida notices inserted by rule"), Object.keys(lockedNames).map(function(k) {
+  if (outFl) {
+    lockedNames = { L1: gmT("Aviso de gravame da Fl\u00f3rida", "Florida construction lien notice"), L2: gmT("Aviso do Recovery Fund da Fl\u00f3rida", "Florida Recovery Fund notice"), L3: gmT("Frase sobre defeitos de constru\u00e7\u00e3o", "Construction defect sentence"), L4: gmT("Linha da licen\u00e7a ou registro", "License or registration line"), L5: gmT("Cancelamento: aviso e formul\u00e1rio federais", "Cancellation: federal notice and form"), "L5-C": gmT("Declara\u00e7\u00e3o de venda em domic\u00edlio da Fl\u00f3rida", "Florida home solicitation statement"), L6: gmT("Documentos de piscina da Fl\u00f3rida", "Florida pool documents"), L7: gmT("Informa\u00e7\u00e3o sobre o sinal da Fl\u00f3rida", "Florida deposit information") };
+  }
+  body += gmSheetSection(outFl ? gmT("Avisos inseridos por regra: " + escHtml(c.job_state_name), "Notices inserted by rule: " + escHtml(c.job_state_name)) : gmT("Avisos da Flórida inseridos por regra", "Florida notices inserted by rule"), Object.keys(lockedNames).map(function(k) {
     var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml((window.GmLabels && GmLabels.contractNoticeWhy) ? GmLabels.contractNoticeWhy(r.why, isEn()) : (r.why || "")));
   }).join(""), gmT("não editáveis", "not editable"));
+
+  // State riders: the owner's checklist for a job outside Florida.
+  // Information only: no tick box, no gate.
+  if (outFl && c.state_checklist && c.state_checklist.length) {
+    body += '<div class="gm-sheet-section" id="gmConStateChecklist"><p class="gm-sheet-section-title">' + gmT("Antes de enviar: " + escHtml(c.job_state_name), "Before you send: " + escHtml(c.job_state_name)) +
+      ' <span class="gm-sheet-section-note">' + gmT("s\u00f3 informa\u00e7\u00e3o; nada aqui impede o envio", "information only; nothing here stops you from sending") + '</span></p>' +
+      c.state_checklist.map(function(l) {
+        return '<p class="' + (l.level === "warn" ? "gm-warn" : "muted") + '" style="margin:6px 0;font-size:13px;">' + escHtml(isEn() ? l.en : l.pt) + '</p>';
+      }).join("") +
+      '<p class="gm-derived-note">' + gmT("Os dados legais (cita\u00e7\u00f5es e n\u00fameros) v\u00eam da pesquisa e ficam em ingl\u00eas. Nenhum advogado revisou.", "The legal facts (cites and numbers) come from the research on file. No lawyer has reviewed them.") + '</p></div>';
+  }
 
   // Missing fields: human labels (F15), date pickers and number pads.
   if (c.missing && c.missing.length && !ro) {
@@ -5079,16 +5108,22 @@ function gmRenderContractSheet() {
     var sel = a.options.filter(function(o) { return o.id === cur2; })[0];
     var custom = (c.custom_clauses || []).filter(function(x) { return x.area_id === a.id; })[0];
     var cst = custom ? (GM_CON_CUSTOM_STATUS[custom.status] || [custom.status, custom.status]) : null;
+    // State riders: an option the research flags in this state, and an option
+    // that prints in its state-neutral version.
+    var optWarn = outFl && c.option_warnings ? c.option_warnings[cur2] : null;
+    var optNote = (optWarn ? '<p class="gm-warn" style="margin:0 0 8px;font-size:13px;">' + escHtml(isEn() ? optWarn.en : optWarn.pt) + '</p>' : "") +
+      (outFl && sel && (c.state_neutral_options || []).indexOf(sel.id) !== -1 ? '<p class="muted" style="margin:0 0 8px;font-size:13px;">' + gmT("Em " + escHtml(c.job_state_name) + " esta op\u00e7\u00e3o \u00e9 impressa sem o texto da Fl\u00f3rida. Veja em \"Ver como o cliente\".", "In " + escHtml(c.job_state_name) + " this option prints without its Florida wording. See it in \"Preview as customer\".") + '</p>' : "");
     if (ro) {
       body += gmSheetRowHtml("file", escHtml(a.id + " · " + gmConAreaTitle(a)), sel ? escHtml(sel.id + " · " + gmConOptTitle(sel)) : (cur2 === "custom" && custom ? gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')' : '<span class="muted">' + gmT("fora deste contrato", "not in this contract") + '</span>'));
+      body += optNote;
       if (custom) { body += gmConCustomHtml(custom); }
       return;
     }
     body += '<label class="gm-field-label" for="gmConSel_' + a.id + '">' + escHtml(a.id + " · " + gmConAreaTitle(a)) + '</label>' +
       '<select id="gmConSel_' + a.id + '" class="gm-input" onchange="gmConSelect(\'' + a.id + '\', this.value)"><option value="">' + gmT("— fora deste contrato —", "— not in this contract —") + '</option>' +
-      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + '</option>'; }).join("") +
+      a.options.map(function(o) { return '<option value="' + escHtml(o.id) + '"' + (o.id === cur2 ? " selected" : "") + '>' + escHtml(o.id + " · " + gmConOptTitle(o)) + (o.private ? " · " + gmT("sua cláusula", "your clause") : "") + (outFl && c.option_warnings && c.option_warnings[o.id] ? " · " + gmT("aten\u00e7\u00e3o neste estado", "caution in this state") : "") + '</option>'; }).join("") +
       (custom ? '<option value="custom"' + (cur2 === "custom" ? " selected" : "") + '>' + gmT("Cláusula personalizada (", "Custom clause (") + escHtml(gmT(cst[0], cst[1])) + ')</option>' : "") + '</select>' +
-      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' +
+      '<p class="muted" style="margin:-4px 0 6px;font-size:13px;">' + escHtml(sel ? gmConOptDesc(sel) : (cur2 === "custom" ? gmT("Texto escrito por você; este contrato não terá a linha 'revisado por advogado'.", "Text you wrote; this contract will not carry the 'reviewed by an attorney' line.") : "")) + '</p>' + optNote +
       (!gmIsSeller() && !custom ? '<button type="button" class="gm-btn-secondary" style="margin:0 0 10px;" onclick="gmConCustomOpen(\'' + a.id + '\')">' + gmT("Escrever cláusula própria nesta área", "Write a custom clause for this area") + '</button>' : "") +
       (custom ? gmConCustomHtml(custom) : "");
   });
@@ -6109,6 +6144,14 @@ function gmContractGuard(jobId, trigger, proceed) {
       gmApi("jobs/" + encodeURIComponent(jobId) + "/contract-notice", { method: "POST", body: { action: "open", trigger: trigger } }).catch(function(e) { console.error(e); });
       var body = '<div class="gm-sheet-section"><p class="gm-warn">' + gmT("Este projeto passa de $2,500 e não tem contrato assinado. Para obra residencial acima desse valor, a Flórida exige no contrato o aviso de lien (seção 713.015) e o aviso do Recovery Fund (seção 489.1425).",
           "This project is over $2,500 and has no signed contract. For residential jobs over that amount, Florida requires the construction lien notice (section 713.015) and the Recovery Fund notice (section 489.1425) in the contract.") + '</p>';
+      // State riders: a job in another state names that state and quotes no Florida law.
+      if (st.job_state && st.job_state !== "FL") {
+        var wt = st.written_threshold;
+        body = '<div class="gm-sheet-section"><p class="gm-warn">' + gmT("Este projeto fica em " + escHtml(st.job_state_name) + " e n\u00e3o tem contrato assinado. ", "This project is in " + escHtml(st.job_state_name) + " and has no signed contract. ") +
+          (wt && wt.cents > 0 ? gmT("A pesquisa sobre " + escHtml(st.job_state_name) + " indica contrato por escrito para servi\u00e7os " + (wt.compare === "over" ? "acima de " : "a partir de ") + gmMoney(wt.cents) + ".", "The research on file for " + escHtml(st.job_state_name) + " points to a written contract for jobs " + (wt.compare === "over" ? "over " : "of ") + gmMoney(wt.cents) + (wt.compare === "over" ? "." : " or more.")) :
+            (wt ? gmT("A pesquisa sobre " + escHtml(st.job_state_name) + " indica contrato por escrito em qualquer valor.", "The research on file for " + escHtml(st.job_state_name) + " points to a written contract at any amount.") :
+              gmT("A pesquisa n\u00e3o d\u00e1 um valor claro para " + escHtml(st.job_state_name) + ", ent\u00e3o este aviso aparece em qualquer valor.", "The research on file gives no clear amount for " + escHtml(st.job_state_name) + ", so this warning shows at any amount."))) + '</p>';
+      }
       if (st.is_seller) {
         var digits = gmWaDigits(st.owner_phone || "");
         body += '<p class="muted">' + gmT("Para continuar, avise o dono. Abre uma mensagem no seu telefone com este texto fixo:", "To continue, notify the owner. This opens a message from your phone with this fixed text:") + '</p>' +

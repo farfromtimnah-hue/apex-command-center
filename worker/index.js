@@ -1,5 +1,6 @@
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
+import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
 // Apex Command Center — Cloudflare Worker
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
@@ -27657,6 +27658,251 @@ var CONTRACT_SIGNING_FIELDS = ["owner_signature_lien_notice", "owner_signature_l
     "transaction_date", "cancellation_deadline_date", "company_signed_at", "mutual_execution_deadline", "pool_docs_delivered_at", "pool_docs_delivery_method",
     "ch515_doc_version", "drowning_pub_version"];
 
+// ── State riders ──────────────────────────────────────────────────────────
+// The clause library is Florida law. A job in any other state (or DC) is
+// composed from the same library with the rider data in
+// data/contract-state-riders-v1.json: the Florida-only locked blocks stay out,
+// the clause options that carry Florida text use their state-neutral versions,
+// the license line and the disclaimer name the job state, and the owner gets a
+// checklist. NOTHING is blocked because a state's rules are not loaded, and no
+// state notice prints unless the data file holds its exact official wording.
+// A Florida contract (job state FL, or none and a business with no state)
+// composes exactly as it did before state riders existed.
+var CONTRACT_DISCLAIMER_STATE_DRAFT = "Draft rider, not reviewed by a lawyer for {job_state_name}. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it.";
+var CONTRACT_DISCLAIMER_STATE_UNVERIFIED = "State-specific rules for {job_state_name} could not be verified from official sources. Confirm licensing and notices before signing.";
+var CONTRACT_DISCLAIMER_STATE_REVIEWED = "Reviewed by {name} for {job_state_name} on {date}.";
+var CONTRACT_STATE_STATUS_UNVERIFIED = "needs primary source before use";
+var CONTRACT_STATE_LICENSE_LINE = "{business_legal_name}, {job_state_name} {license_label} No. {license_number}.";
+var CONTRACT_STATE_LICENSE_QUALIFIER = " Qualifying agent: {qualifier_name}.";
+var CONTRACT_STATE_LICENSE_MISSING = "{business_legal_name}. {job_state_name} license or registration number: not provided.";
+var CONTRACT_STATE_LICENSE_TITLE = "License or registration number";
+// Values the state rider computes: never asked and never edited in the builder.
+var CONTRACT_STATE_FIELDS = ["job_state", "job_state_name", "job_state_jurisdiction", "business_state", "business_state_name", "license_label", "defect_notice_sentence", "defect_statute_cite"];
+var CONTRACT_STATE_CHECKLIST_FIXED = [
+    { en: "Take dated photos before work starts and have the customer sign the condition acknowledgment.", pt: "Tire fotos com data antes de come\u00e7ar a obra e pe\u00e7a ao cliente para assinar o termo de condi\u00e7\u00e3o do im\u00f3vel." },
+    { en: "Give the customer a complete signed copy at signing.", pt: "Entregue ao cliente uma c\u00f3pia completa e assinada no momento da assinatura." },
+    { en: "Leave no blank spaces in the contract.", pt: "N\u00e3o deixe espa\u00e7os em branco no contrato." }
+];
+
+function contractStateList() { return (CONTRACT_STATE_RIDERS_V1.states || []).map(function(x) { return { code: x.code, name: x.name }; }); }
+// A real two-letter code (50 states or DC), upper case, or null.
+function contractStateCode(v) {
+    var code = String(v === null || v === undefined ? "" : v).trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) { return null; }
+    return (CONTRACT_STATE_RIDERS_V1.states || []).some(function(x) { return x.code === code; }) ? code : null;
+}
+function contractStateName(code) {
+    var hit = (CONTRACT_STATE_RIDERS_V1.states || []).filter(function(x) { return x.code === code; })[0];
+    return hit ? hit.name : "";
+}
+function contractStateRider(code) { return (CONTRACT_STATE_RIDERS_V1.riders || {})[code] || null; }
+// The state at the end of a one-line address: ", FL 33579" / " RI 02903", or
+// two capital letters at the very end. Only real codes count. "100 Main St NE"
+// (a street direction, no comma) is not read as Nebraska.
+function contractStateFromAddress(addr) {
+    var a = String(addr || "").trim();
+    var m = /[,\s]([A-Z]{2})[,\s]+\d{5}(?:-\d{4})?$/.exec(a);
+    if (m) { return contractStateCode(m[1]); }
+    m = /([,\s])\s*([A-Z]{2})$/.exec(a);
+    if (!m) { return null; }
+    if (m[2] === "NE" && m[1] !== "," && !/,\s*NE$/.test(a)) { return null; }
+    return contractStateCode(m[2]);
+}
+function contractBusinessState(settings) { return contractStateCode(settings && settings.values && settings.values.business_state) || "FL"; }
+// The default job state: the property address, else the business's own state, else Florida.
+function contractDefaultJobState(address, settings) { return contractStateFromAddress(address) || contractBusinessState(settings); }
+function contractIsEditable(c) {
+    return !!c && ["draft", "awaiting_company", "changes_requested"].indexOf(c.status) !== -1 && !(c.company_signed_at && !c.company_signature_voided_at);
+}
+// The state a contract is composed for. The owner's own choice
+// (flags.job_state) wins. A contract nobody can edit any more and that carries
+// no state was written before job states existed, under Florida rules: it
+// stays Florida. Anything else gets the default.
+function contractJobState(ctx, c, address) {
+    var own = contractStateCode(c && c.flags && c.flags.job_state);
+    if (own) { return own; }
+    if (c && c.status && !contractIsEditable(c)) { return "FL"; }
+    return contractDefaultJobState(address, ctx && ctx.settings);
+}
+// The property address the way contractBuildVars picks it (lead or newest
+// accepted estimate, whichever was edited last), for places that need the
+// default state without composing a contract.
+function contractJobAddress(lead, estimates) {
+    lead = lead || {};
+    var newestEst = (estimates || []).slice().sort(function(a, b) { return String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")); })[0] || {};
+    var leadVal = String(contractLeadAddressLine(lead) || "").trim(), estVal = String(newestEst.customer_address || "").trim();
+    if (!leadVal || !estVal || leadVal === estVal) { return leadVal || estVal; }
+    return String(lead.updated_at || "") >= String(newestEst.updated_at || newestEst.created_at || "") ? leadVal : estVal;
+}
+// Everything compose needs to know about the job state, in one object.
+function contractStateInfo(ctx, c, address) {
+    var code = contractJobState(ctx, c, address);
+    var rider = contractStateRider(code) || {};
+    var florida = code === "FL";
+    var can = rider.cancellation || {};
+    var biz = contractBusinessState(ctx && ctx.settings);
+    return {
+        code: code, name: contractStateName(code), florida: florida, confirmed: !!contractStateCode(c && c.flags && c.flags.job_state),
+        business_state: biz, business_state_name: contractStateName(biz),
+        status: florida ? "baseline" : (rider.status || CONTRACT_STATE_STATUS_UNVERIFIED), rider: florida ? null : rider,
+        cancellation: { business_days: florida ? 3 : (Math.round(Number(can.business_days)) || 3), saturday_counts: florida ? true : can.saturday_counts !== false }
+    };
+}
+// The clause options with their state-neutral text (job outside Florida).
+// Only Apex library rows are touched; a client's own clause prints as written.
+function contractNeutralOptions(byId) {
+    var edits = (CONTRACT_STATE_RIDERS_V1.outside_florida || {}).clause_edits || {};
+    var out = {};
+    Object.keys(byId).forEach(function(id) {
+        var o = byId[id];
+        if (!edits[id] || (o.scope && o.scope !== "apex")) { out[id] = o; return; }
+        var text = String(o.clause_text || "");
+        edits[id].forEach(function(e) { text = text.split(e.find).join(e.replace); });
+        out[id] = Object.assign({}, o, { clause_text: text });
+    });
+    return out;
+}
+// The heading a homeowner reads for a clause area.
+function contractAreaHeading(lib, areaId, florida, fallback) {
+    var neutral = florida ? null : ((CONTRACT_STATE_RIDERS_V1.outside_florida || {}).area_titles || {})[areaId];
+    if (neutral) { return neutral; }
+    return contractHomeownerHeading((((lib && lib.clause_areas) || []).filter(function(a) { return a.id === areaId; })[0] || {}).title || fallback);
+}
+function contractOrdinalWord(n) { return { 1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 10: "tenth", 15: "fifteenth" }[n] || null; }
+// Does a state notice apply to this job? Only what the builder knows is
+// tested; a condition it cannot know (a credit sale, the buyer's age) counts
+// as "may apply", so the owner is told about the notice.
+function contractStateNoticeApplies(n, job) {
+    var a = (n && n.applies) || {};
+    if (a.sold_in_home === true && !job.sold_in_home) { return false; }
+    if (a.is_pool === true && !job.is_pool) { return false; }
+    if (a.residential === true && job.residential === false) { return false; }
+    if (a.over_cents !== undefined && a.over_cents !== null && !(job.amount_cents > a.over_cents)) { return false; }
+    if (a.at_least_cents !== undefined && a.at_least_cents !== null && !(job.amount_cents >= a.at_least_cents)) { return false; }
+    return true;
+}
+// The written-contract threshold of a rider against an amount.
+// { clean, crosses }: clean is false when the research gives no dollar figure.
+function contractStateWrittenThreshold(rider, amountCents) {
+    var w = (rider && rider.written_contract) || {};
+    if (w.threshold_cents === null || w.threshold_cents === undefined) { return { clean: false, crosses: true }; }
+    return { clean: true, crosses: w.compare === "over" ? amountCents > w.threshold_cents : amountCents >= w.threshold_cents };
+}
+// The deposit cap in cents for this contract amount, or null when the research
+// gives no clean number.
+function contractStateDepositCapCents(rider, amountCents) {
+    var d = (rider && rider.deposit_cap) || {};
+    var caps = [];
+    if (d.cents !== null && d.cents !== undefined) { caps.push(d.cents); }
+    if (d.percent !== null && d.percent !== undefined) { caps.push(Math.floor(amountCents * d.percent / 100)); }
+    if (d.fraction && d.fraction.length === 2 && d.fraction[1]) { caps.push(Math.floor(amountCents * d.fraction[0] / d.fraction[1])); }
+    if (!caps.length) { return null; }
+    return d.rule === "greater" ? Math.max.apply(null, caps) : Math.min.apply(null, caps);
+}
+function contractStateDisclaimer(st, hasCustom) {
+    var rider = st.rider || {};
+    var rev = rider.reviewed;
+    if (rev && rev.attorney_name && rev.date && !hasCustom) {
+        return CONTRACT_DISCLAIMER_STATE_REVIEWED.split("{name}").join(rev.attorney_name).split("{job_state_name}").join(st.name).split("{date}").join(contractFmtDate(rev.date));
+    }
+    var out = CONTRACT_DISCLAIMER_STATE_DRAFT.split("{job_state_name}").join(st.name);
+    if (st.status === CONTRACT_STATE_STATUS_UNVERIFIED) { out += " " + CONTRACT_DISCLAIMER_STATE_UNVERIFIED.split("{job_state_name}").join(st.name); }
+    return out;
+}
+// The disclaimer for a document that is not the contract itself (a change
+// order): the contract's own state when it has one, Florida wording for a
+// contract written before job states existed.
+function contractStateDisclaimerFor(code) {
+    code = contractStateCode(code) || "FL";
+    if (code === "FL") { return null; }
+    var rider = contractStateRider(code) || {};
+    return contractStateDisclaimer({ name: contractStateName(code), status: rider.status || CONTRACT_STATE_STATUS_UNVERIFIED, rider: rider }, false);
+}
+// The clause options the research flags in this state, by option id.
+function contractStateOptionWarnings(st) {
+    var out = {};
+    ((st.rider && st.rider.risky_options) || []).forEach(function(r) {
+        var en = st.name + ": " + r.reason + " (" + r.cite + ")." + (r.safer ? " Safer choice in this area: " + r.safer + "." : "");
+        var pt = st.name + ": " + r.reason + " (" + r.cite + ")." + (r.safer ? " Op\u00e7\u00e3o mais segura nesta \u00e1rea: " + r.safer + "." : "");
+        out[r.option] = { level: r.level, safer: r.safer || null, en: en, pt: pt };
+    });
+    return out;
+}
+// The owner's checklist for a job outside Florida. Information only: it never
+// blocks anything. The legal facts (cites, numbers) come from the data file in
+// English and stay in English in the Portuguese view.
+function contractStateChecklist(st, job) {
+    var r = st.rider || {}, lines = [], name = st.name;
+    function add(key, en, pt, warn) { lines.push({ key: key, level: warn ? "warn" : "info", en: en, pt: pt }); }
+    var lic = r.license || {};
+    add("license", "License or registration: " + (lic.text || "not in the research") + ".", "Licen\u00e7a ou registro: " + (lic.text || "not in the research") + ".");
+    if (lic.state_level === false) {
+        add("license_local", "The research found no state-level license for these trades in " + name + ". Use your " + lic.label + ".",
+            "A pesquisa n\u00e3o encontrou licen\u00e7a estadual para estes of\u00edcios em " + name + ". Use o seu n\u00famero de licen\u00e7a local ou do of\u00edcio, se a cidade ou o condado exigir.");
+    }
+    if (lic.word === "registered") {
+        add("license_word", "In " + name + " say \"registered\", never \"licensed\".", "Em " + name + " diga \"registered\" (registrado), nunca \"licensed\" (licenciado).");
+    }
+    if (job.license_number) { add("license_number", "Number on file: " + job.license_number + ".", "N\u00famero cadastrado: " + job.license_number + "."); }
+    else {
+        add("license_number", "No license or registration number is on file. The contract prints \"not provided\". Add the number in the document settings.",
+            "Nenhum n\u00famero de licen\u00e7a ou registro cadastrado. O contrato imprime \"not provided\". Cadastre o n\u00famero nas configura\u00e7\u00f5es dos documentos.", true);
+    }
+    var w = r.written_contract || {}, th = contractStateWrittenThreshold(r, job.amount_cents), money = contractMoney(job.amount_cents);
+    var wEn = "Written contract: " + (w.text || "None found") + ". ", wPt = "Contrato por escrito: " + (w.text || "None found") + ". ";
+    if (!th.clean) { wEn += "The research gives no clear dollar amount; use a written contract at any amount."; wPt += "A pesquisa n\u00e3o d\u00e1 um valor claro; use contrato por escrito em qualquer valor."; }
+    else if (th.crosses) { wEn += "This contract (" + money + ") crosses that amount."; wPt += "Este contrato (" + money + ") passa desse valor."; }
+    else { wEn += "This contract (" + money + ") is under that amount."; wPt += "Este contrato (" + money + ") fica abaixo desse valor."; }
+    add("written_contract", wEn, wPt, th.clean && th.crosses);
+    var can = r.cancellation || {};
+    add("cancellation", "Cancellation: " + (can.text || "None found") + ". " + (can.covered || "") + ".", "Cancelamento: " + (can.text || "None found") + ". " + (can.covered || "") + ".");
+    if (can.day_count_note) { add("cancellation_days", can.day_count_note, can.day_count_note); }
+    add("cancellation_deadline", "The deadline this contract computes when it is sold at the customer's home: " + st.cancellation.business_days + " business days after the customer signs; Saturday " + (st.cancellation.saturday_counts ? "counts" : "does not count") + "; Sundays and federal holidays do not count. The federal notice and form print as they are.",
+        "Prazo que este contrato calcula quando \u00e9 vendido na casa do cliente: " + st.cancellation.business_days + " dias \u00fateis depois de o cliente assinar; s\u00e1bado " + (st.cancellation.saturday_counts ? "conta" : "n\u00e3o conta") + "; domingos e feriados federais n\u00e3o contam. O aviso e o formul\u00e1rio federais s\u00e3o impressos como s\u00e3o.");
+    if (can.oral_notice) { add("cancellation_oral", "Also tell the customer about the right to cancel out loud (oral notice).", "Avise o cliente tamb\u00e9m em voz alta sobre o direito de cancelar (aviso oral).", true); }
+    if (can.same_language) { add("cancellation_language", "Give the contract and the cancellation notice in the language used in the sale.", "Entregue o contrato e o aviso de cancelamento no idioma usado na venda.", true); }
+    if (can.no_work_or_payment_in_window) { add("cancellation_window", "Do not start work or take payment before the cancellation window closes.", "N\u00e3o comece a obra nem receba pagamento antes de o prazo de cancelamento acabar.", true); }
+    var dep = r.deposit_cap || {};
+    add("deposit", "Deposit cap: " + (dep.text || "None found") + ".", "Limite do sinal: " + (dep.text || "None found") + ".");
+    var cap = contractStateDepositCapCents(r, job.amount_cents);
+    if (cap !== null && job.has_deposit && job.first_payment_cents > cap) {
+        add("deposit_over", "The first payment on this contract (" + contractMoney(job.first_payment_cents) + ") is over that cap (" + contractMoney(cap) + ").",
+            "O primeiro pagamento deste contrato (" + contractMoney(job.first_payment_cents) + ") passa desse limite (" + contractMoney(cap) + ").", true);
+    }
+    (r.notices || []).forEach(function(n) {
+        if (!contractStateNoticeApplies(n, job)) { return; }
+        var tail = (n.trigger ? " When: " + n.trigger + "." : "") + (n.format ? " Format: " + n.format + "." : "");
+        var tailPt = (n.trigger ? " Quando: " + n.trigger + "." : "") + (n.format ? " Formato: " + n.format + "." : "");
+        if (n.text) {
+            add("notice:" + n.id, "This notice prints in the contract: " + n.title + " (" + n.cite + ")." + tail, "Este aviso \u00e9 impresso no contrato: " + n.title + " (" + n.cite + ")." + tailPt);
+            return;
+        }
+        add("notice:" + n.id, name + " requires this notice: " + n.title + " (" + n.cite + "). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs." + tail,
+            name + " exige este aviso: " + n.title + " (" + n.cite + "). O texto exato ainda n\u00e3o foi carregado. Pegue o texto na fonte oficial ou com o seu advogado e anexe antes de o cliente assinar." + tailPt, true);
+    });
+    var df = r.defect_process;
+    if (df && df.sentence_cite) { add("defect", "Defect process: " + df.text + ". The warranty and dispute clauses point to it (" + df.sentence_cite + ").", "Processo de defeitos: " + df.text + ". As cl\u00e1usulas de garantia e de disputas apontam para ele (" + df.sentence_cite + ")."); }
+    else if (df) { add("defect", "Defect process: " + df.text + ". The research leaves this unresolved, so the contract does not mention it.", "Processo de defeitos: " + df.text + ". A pesquisa deixa isso sem resolver; o contrato n\u00e3o menciona."); }
+    else { add("defect", "Defect process: none found in the research (not proof that none exists).", "Processo de defeitos: nenhum encontrado na pesquisa (n\u00e3o prova que n\u00e3o existe)."); }
+    if (job.is_pool) {
+        var poolElse = (CONTRACT_STATE_RIDERS_V1.outside_florida || {}).pool_elsewhere || "";
+        add("pool", "Pool job: the Florida pool documents are not used in " + name + ". The research lists: " + (r.pool || poolElse) + ".", "Obra de piscina: os documentos de piscina da Fl\u00f3rida n\u00e3o s\u00e3o usados em " + name + ". A pesquisa lista: " + (r.pool || poolElse) + ".", true);
+    }
+    (r.risky_options || []).forEach(function(x) {
+        var area = String(x.option).slice(0, 3);
+        if ((job.selections || {})[area] !== x.option) { return; }
+        add("risky:" + x.option, "Clause " + x.option + " is chosen. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Safer choice in this area: " + x.safer + "." : ""),
+            "A cl\u00e1usula " + x.option + " est\u00e1 escolhida. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Op\u00e7\u00e3o mais segura nesta \u00e1rea: " + x.safer + "." : ""), true);
+    });
+    var cl = r.checklist || {};
+    (cl.rider_items || []).forEach(function(t, i) { add("item:" + (i + 1), "From the research for " + name + ": " + t + ".", "Da pesquisa para " + name + ": " + t + "."); });
+    (cl.extra || []).forEach(function(t, i) { add("extra:" + (i + 1), t, t, true); });
+    add("status", "Research status for " + name + ": " + st.status + (r.status_reason ? " (" + r.status_reason + ")" : "") + ". No lawyer has reviewed it.",
+        "Situa\u00e7\u00e3o da pesquisa para " + name + ": " + st.status + (r.status_reason ? " (" + r.status_reason + ")" : "") + ". Nenhum advogado revisou.");
+    CONTRACT_STATE_CHECKLIST_FIXED.forEach(function(x, i) { add("fixed:" + (i + 1), x.en, x.pt); });
+    return lines;
+}
+
 function contractOptionTrades(tradesLine) {
     var t = String(tradesLine || "").toLowerCase();
     if (!t || /\ball\b/.test(t)) { return CONTRACT_TRADE_KEYS.slice(); }
@@ -27756,14 +28002,19 @@ function contractFederalHolidays(year) {
     var list = [observed(0, 1), nthWeekday(0, 1, 3), nthWeekday(1, 1, 3), lastWeekday(4, 1), observed(5, 19), observed(6, 4), nthWeekday(8, 1, 1), nthWeekday(9, 1, 2), observed(10, 11), nthWeekday(10, 4, 4), observed(11, 25)];
     return list.map(function(d) { return d.toISOString().slice(0, 10); });
 }
-function contractCancellationDeadline(signYmd) {
+// rule (state rider, optional): { business_days, saturday_counts }. Without a
+// rule this is the federal count above, unchanged.
+function contractCancellationDeadline(signYmd, rule) {
     var d = new Date(signYmd + "T00:00:00Z");
     var hol = contractFederalHolidays(d.getUTCFullYear()).concat(contractFederalHolidays(d.getUTCFullYear() + 1));
+    var days = rule && Math.round(Number(rule.business_days)) > 0 ? Math.round(Number(rule.business_days)) : 3;
+    var saturday = !(rule && rule.saturday_counts === false);
     var count = 0;
-    while (count < 3) {
+    while (count < days) {
         d.setUTCDate(d.getUTCDate() + 1);
         var ymd = d.toISOString().slice(0, 10);
         if (d.getUTCDay() === 0) { continue; }
+        if (!saturday && d.getUTCDay() === 6) { continue; }
         if (hol.indexOf(ymd) !== -1) { continue; }
         count++;
     }
@@ -27861,7 +28112,7 @@ function contractSigningTimeVars(v, c, mode) {
 function contractNoticeVars(v, mode) {
     if (mode === "template" || mode === "signed") { return v; }
     var nv = Object.assign({}, v);
-    nv.cancellation_deadline_date = CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
+    nv.cancellation_deadline_date = v.cancellation_unsigned_notice_text || CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
     return nv;
 }
 // Fill the signing-time {tokens} left in frozen text. Old snapshots (frozen
@@ -27869,9 +28120,13 @@ function contractNoticeVars(v, mode) {
 // replaced too, so no contract ever shows "MIDNIGHT OF midnight of ...".
 function contractFillSigningTime(text, v, isNotice) {
     var out = String(text || "");
-    var unsigned = v.cancellation_deadline_date === CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date || v.cancellation_deadline_date === CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
-    var deadline = unsigned ? (isNotice ? CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice : CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date) : v.cancellation_deadline_date;
-    out = out.split("MIDNIGHT OF midnight of the third business day after the day Owner signs").join("MIDNIGHT OF " + (unsigned ? CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice : deadline));
+    // A state rider with another day count (Alaska: five) carries its own
+    // words for "not signed yet"; without one these are the federal words.
+    var unsignedText = v.cancellation_unsigned_text || CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date;
+    var unsignedNotice = v.cancellation_unsigned_notice_text || CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date_notice;
+    var unsigned = v.cancellation_deadline_date === unsignedText || v.cancellation_deadline_date === unsignedNotice;
+    var deadline = unsigned ? (isNotice ? unsignedNotice : unsignedText) : v.cancellation_deadline_date;
+    out = out.split("MIDNIGHT OF midnight of the third business day after the day Owner signs").join("MIDNIGHT OF " + (unsigned ? unsignedNotice : deadline));
     out = out.split("midnight of the third business day after the day Owner signs").join(deadline);
     out = out.split("**the day Owner signs**").join("**" + v.transaction_date + "**");
     out = out.split("On the date Owner signs this Contract,").join("On " + v.pool_docs_delivered_at + ",");
@@ -27979,12 +28234,41 @@ function contractBuildVars(ctx, c, today, mode) {
     Object.keys(c.answers || {}).forEach(function(k) { if (c.answers[k] !== null && c.answers[k] !== undefined && c.answers[k] !== "") { v[k] = String(c.answers[k]); } });
     // F8: every phone prints as (401) 651-4117.
     Object.keys(v).forEach(function(k) { if (/phone$/.test(k) && v[k]) { v[k] = contractFmtPhone(v[k]); } });
+    // State riders: the job state (the owner's choice, else the property
+    // address, else the business's state, else Florida). For Florida nothing
+    // below changes a printed word.
+    var st = contractStateInfo(ctx, c, v.property_address);
+    v.job_state = st.code; v.job_state_name = st.name;
+    if (!st.florida) {
+        var outside = CONTRACT_STATE_RIDERS_V1.outside_florida || {}, rider = st.rider || {};
+        v.business_state = st.business_state; v.business_state_name = st.business_state_name;
+        v.job_state_jurisdiction = st.code === "DC" ? "the District of Columbia" : "the State of " + st.name;
+        v.license_label = (rider.license && rider.license.line_label) || "license";
+        // The Florida Notice of Commencement sentences are not used.
+        v.noc_sentence = (outside.computed || {}).noc_sentence || "";
+        v.noc_first_inspection_sentence = (outside.computed || {}).noc_first_inspection_sentence || "the permit is issued";
+        var defectCite = rider.defect_process && rider.defect_process.sentence_cite ? rider.defect_process.sentence_cite : "";
+        v.defect_statute_cite = defectCite;
+        v.defect_notice_sentence = defectCite ? String(outside.defect_sentence || "").split("{defect_statute_cite}").join(defectCite) : "";
+        // The qualifying agent is a Florida license idea: outside Florida it
+        // prints only when someone typed one, never the owner-signer default.
+        v.qualifier_name = (c.answers && c.answers.qualifier_name) || s.values.qualifier_name || "";
+        v.attachments_list = "Estimate " + sums.number + (sums.version ? "-" + sums.version : "");
+        if (c.answers && c.answers.attachments_list) { v.attachments_list = String(c.answers.attachments_list); }
+        if (st.cancellation.business_days !== 3) {
+            var ord = contractOrdinalWord(st.cancellation.business_days);
+            if (c.flags.sold_in_home !== false) { v.cancellation_period_clause = ", and the cancellation period has ended on {cancellation_deadline_date}"; }
+            v.cancellation_unsigned_text = ord ? "the " + ord + " business day after Owner signs" : "the last day of the cancellation period after Owner signs";
+            v.cancellation_unsigned_notice_text = ord ? "THE " + ord.toUpperCase() + " BUSINESS DAY AFTER YOU SIGN" : "THE LAST DAY OF THE CANCELLATION PERIOD AFTER YOU SIGN";
+            if (v.cancellation_deadline_date === CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date) { v.cancellation_deadline_date = v.cancellation_unsigned_text; }
+        }
+    }
     if (v.year_built) {
         var yb = Number(v.year_built);
         v.lead_paint_clause = (yb && yb >= 1978) ? "Owner states the home was built in " + v.year_built + "." :
             "Owner states the home was built in " + v.year_built + ". Homes built before 1978 may contain lead-based paint. Before starting work that disturbs painted surfaces, Contractor will give Owner the EPA lead renovation pamphlet and ask Owner to sign a receipt, as federal rules require, and will follow lead-safe work practices. " + (v.lead_testing_sentence || "The Estimate treats painted surfaces to be disturbed as containing lead.");
     }
-    return { vars: v, sums: sums };
+    return { vars: v, sums: sums, state: st };
 }
 
 // The lead's address as one line (without repeating a city it already has).
@@ -28043,7 +28327,7 @@ function GmLabelsPaymentMethodEn(k) {
 // Placeholders the library defines as "... or empty": an empty value is an
 // answer, never a missing field.
 var CONTRACT_OPTIONAL_EMPTY = ["business_dba_clause", "co_owner_clause", "owner_title_note", "extension_sentence", "insurance_statement",
-    "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause"];
+    "allowance_markup_clause", "payment_account_hint", "owner_agent_name", "payment_schedule_note", "cancellation_period_clause", "noc_sentence", "lead_paint_clause", "defect_notice_sentence"];
 // F7: an "... or empty" value must never leave doubled punctuation or a
 // doubled space where it was assembled. The junction is fixed at the
 // placeholder only, never anywhere else in the library text (the statute
@@ -28094,6 +28378,10 @@ function contractCompose(ctx, c, today, mode) {
     var v = built.vars, lib = ctx.lib, byId = lib.optionsById;
     var amount = built.sums.total_cents;
     var flags = c.flags || {};
+    // State riders: st.florida is true for every Florida job, and then nothing
+    // in this function takes a different path than it did before riders.
+    var st = built.state, outFl = !st.florida;
+    if (outFl) { byId = contractNeutralOptions(byId); }
     var residential = flags.property_type ? ["single_family", "duplex", "triplex", "fourplex", "townhouse", "condo"].indexOf(flags.property_type) !== -1 : null;
     var res14 = flags.property_type ? ["single_family", "duplex", "triplex", "fourplex", "townhouse"].indexOf(flags.property_type) !== -1 : null;
     var soldInHome = flags.sold_in_home !== false;
@@ -28107,6 +28395,14 @@ function contractCompose(ctx, c, today, mode) {
         L6: { on: isPool, why: isPool ? "pool contract" : (ctx.settings.builds_pools ? "pool box unchecked" : "business does not build pools") },
         L7: { on: firstPct > 10 && residential !== false, why: firstPct > 10 ? "first payment over 10%" : "first payment 10% or less" }
     };
+    if (outFl) {
+        // The Florida-only blocks stay out and say why. L4 (the license line)
+        // and L5 (the federal cancellation statement and form) stay.
+        var offWhy = "job is in " + st.name + ": Florida notice not used";
+        ["L1", "L2", "L6", "L7"].forEach(function(k) { rules[k] = { on: false, why: offWhy }; });
+        rules.L3 = v.defect_notice_sentence ? { on: true, why: "job is in " + st.name + ": state defect process named instead" } : { on: false, why: offWhy };
+        rules["L5-C"] = { on: false, why: offWhy };
+    }
     var locked = {};
     lib.locked_blocks.forEach(function(b) { locked[b.id] = b; });
     var sections = [], missing = {}, blockers = [], used = {};
@@ -28114,19 +28410,26 @@ function contractCompose(ctx, c, today, mode) {
         contractMissing(text).forEach(function(k) { (used[k] = used[k] || []).push(id); });
         var filled = contractFill(text, v);
         contractMissing(filled).forEach(function(k) { if (CONTRACT_SIGNING_FIELDS.indexOf(k) === -1) { missing[k] = missing[k] || []; missing[k].push(id); } });
+        // Outside Florida a removed sentence can leave the text ending in blank lines.
+        if (outFl) { filled = filled.replace(/\s+$/, ""); }
         var sec = { kind: kind, id: id, title: title, text: filled };
         if (extra) { Object.keys(extra).forEach(function(k) { sec[k] = extra[k]; }); }
         sections.push(sec);
     }
+    if (outFl) {
+        // Never a blocker outside Florida: a missing number prints as "not provided".
+        add("locked", "L4", CONTRACT_STATE_LICENSE_TITLE, v.license_number ? CONTRACT_STATE_LICENSE_LINE + (v.qualifier_name ? CONTRACT_STATE_LICENSE_QUALIFIER : "") : CONTRACT_STATE_LICENSE_MISSING);
+    } else {
     if (!v.license_number) { blockers.push({ code: "license", pt: "Falta o número da licença da Flórida (configurações dos documentos).", en: "A Florida license number is required (document settings)." }); }
     if (locked.L4) { add("locked", "L4", locked.L4.title, locked.L4.text); }
+    }
     CONTRACT_AREA_ORDER.forEach(function(areaId) {
         var optId = c.selections[areaId];
         if (!optId) { return; }
         var custom = c.custom_clauses.filter(function(x) { return x.area_id === areaId && x.status !== "not_approved"; })[0];
         if (optId === "custom" && custom) {
             var txt = custom.status === "approved_with_edits" && custom.revised_text ? custom.revised_text : custom.text;
-            add("custom", "custom:" + areaId, contractHomeownerHeading((lib.clause_areas.filter(function(a) { return a.id === areaId; })[0] || {}).title || areaId), txt, { custom_status: custom.status });
+            add("custom", "custom:" + areaId, contractAreaHeading(lib, areaId, st.florida, areaId), txt, { custom_status: custom.status });
             return;
         }
         var o = byId[optId];
@@ -28140,7 +28443,7 @@ function contractCompose(ctx, c, today, mode) {
         }
         // F5: the homeowner reads the AREA title; the option title is the
         // contractor's own label and stays in option_title.
-        add("clause", o.id, contractHomeownerHeading((lib.clause_areas.filter(function(a) { return a.id === areaId; })[0] || {}).title || o.title), text, { option_title: o.title });
+        add("clause", o.id, contractAreaHeading(lib, areaId, st.florida, o.title), text, { option_title: o.title });
         if (areaId === "C04" && rules.L7.on && locked.L7) {
             var l7 = (locked.L7.extra_blocks || [])[0] || "";
             add("locked", "L7", locked.L7.title, l7);
@@ -28158,8 +28461,17 @@ function contractCompose(ctx, c, today, mode) {
         if (!flags.pool_safety_feature) { blockers.push({ code: "pool_safety_feature", pt: "Escolha o recurso de segurança da piscina (s. 515.27) deste contrato.", en: "Choose the pool safety feature (s. 515.27) for this contract." }); }
         if (!ctx.admin.ch515_doc_r2_key || !ctx.admin.drowning_pub_r2_key) { blockers.push({ code: "pool_docs", pt: "Os dois documentos de piscina (requisitos do Capítulo 515 e a publicação sobre afogamento) ainda não estão arquivados. Fale com a Apex antes de enviar este contrato.", en: "The two pool documents (Chapter 515 requirements and the drowning-prevention publication) are not on file yet. Contact Apex before sending this contract." }); }
     }
+    // A state notice prints ONLY when the data file holds its exact official
+    // wording (text). Until then it is a line on the owner's checklist.
+    var job = { amount_cents: amount, sold_in_home: soldInHome, is_pool: !!flags.is_pool, residential: residential, selections: c.selections || {}, license_number: v.license_number || "",
+                has_deposit: built.sums.schedule.length >= 2, first_payment_cents: built.sums.schedule.length ? (built.sums.schedule[0].amount_cents || 0) : 0 };
+    if (outFl) {
+        ((st.rider && st.rider.notices) || []).forEach(function(n) {
+            if (n.text && contractStateNoticeApplies(n, job)) { add("state_notice", n.id, n.title, String(n.text), { cite: n.cite || null, format: n.format || null }); }
+        });
+    }
     if (rules.L5.on) {
-        if (locked["L5-C"]) { add("locked", "L5-C", locked["L5-C"].title, locked["L5-C"].text); }
+        if (locked["L5-C"] && !outFl) { add("locked", "L5-C", locked["L5-C"].title, locked["L5-C"].text); }
         if (locked["L5-A"]) { add("locked", "L5-A", locked["L5-A"].title, locked["L5-A"].text, { beside_signature: true }); }
     }
     var noticeForm = rules.L5.on && locked["L5-B"] ? contractFill(locked["L5-B"].text, contractNoticeVars(v, mode)) : null;
@@ -28168,11 +28480,11 @@ function contractCompose(ctx, c, today, mode) {
         var p = lib.placeholderMap[k] || {};
         return { field: k, meaning: p.meaning || k, source: p.source || "Builder", used_in: missing[k] };
     });
-    if (res14 === null && amount > 250000) { missingList.unshift({ field: "property_type", meaning: "Property type (single-family, duplex, triplex, fourplex, townhouse, condo, commercial)", source: "Builder", used_in: ["L1", "L2"] }); }
+    if (res14 === null && amount > 250000 && !outFl) { missingList.unshift({ field: "property_type", meaning: "Property type (single-family, duplex, triplex, fourplex, townhouse, condo, commercial)", source: "Builder", used_in: ["L1", "L2"] }); }
     // F19: every value this contract prints, where it came from, and whether
     // the builder may override it for this contract only.
     Object.keys(used).forEach(function(k) { String(v[k] || "").replace(/\{([a-z0-9_]+)\}/g, function(m, n) { (used[n] = used[n] || []).push.apply(used[n], used[k]); return m; }); });
-    var fields = Object.keys(used).filter(function(k) { return CONTRACT_SIGNING_FIELDS.indexOf(k) === -1 && CONTRACT_SIGNING_TIME_KEYS.indexOf(k) === -1; }).map(function(k) {
+    var fields = Object.keys(used).filter(function(k) { return CONTRACT_SIGNING_FIELDS.indexOf(k) === -1 && CONTRACT_SIGNING_TIME_KEYS.indexOf(k) === -1 && CONTRACT_STATE_FIELDS.indexOf(k) === -1 && !(outFl && (k === "noc_sentence" || k === "noc_first_inspection_sentence")); }).map(function(k) {
         var p = lib.placeholderMap[k] || {};
         var src = contractFieldSource(p.source);
         var answered = c.answers && c.answers[k] !== undefined && c.answers[k] !== null && c.answers[k] !== "";
@@ -28184,10 +28496,16 @@ function contractCompose(ctx, c, today, mode) {
     var reviewed = ctx.lib.version.status === "attorney_reviewed";
     var hasCustom = c.custom_clauses.some(function(x) { return x.status !== "not_approved"; }) || Object.keys(c.selections).some(function(k) { return c.selections[k] === "custom"; });
     var disclaimer = (reviewed && !hasCustom) ? ("Template reviewed by " + ctx.lib.version.attorney_name + ", Florida Bar #" + ctx.lib.version.attorney_bar_number + ", on " + contractFmtDate(ctx.lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED;
+    // Outside Florida the label is the state's own: draft rider until a lawyer
+    // reviews that state (the library's Florida review never counts here).
+    if (outFl) { disclaimer = contractStateDisclaimer(st, hasCustom); }
     if (hasCustom) { disclaimer += " This contract contains a custom clause that was not reviewed by an attorney."; }
     return {
         sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers, fields: fields,
         amount_cents: amount, vars: v, sums: built.sums, disclaimer_line: disclaimer,
+        state: { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation },
+        checklist: outFl ? contractStateChecklist(st, job) : null,
+        option_warnings: outFl ? contractStateOptionWarnings(st) : {},
         requires: { lien_signature: rules.L1.on, pool_ack: rules.L6.on, cancellation: rules.L5.on,
                     marketing_checkbox: c.selections.C18 === "C18-B" || c.selections.C18 === "C18-C",
                     arbitration_initials: c.selections.C14 === "C14-B", jury_initials: c.selections.C14 === "C14-C" },
@@ -28302,6 +28620,9 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
             { label: "Negotiated adjustment", amount_cents: comp.sums.adjustment_cents }
         ] : [],
         disclaimer_line: c.disclaimer_line || comp.disclaimer_line,
+        // State riders: outside Florida the same disclaimer also shows at the
+        // top of the first page (customer page and PDF).
+        job_state: comp.state.code, job_state_name: comp.state.name, disclaimer_top: !comp.state.florida,
         content_hash: c.content_hash || null,
         signed_render_hash: c.signed_render_hash || null,
         appendix_photos: await contractAppendixPhotos(env, c, origin),
@@ -28382,7 +28703,7 @@ async function contractPublicView(env, c, ctx, origin, opts) {
         if (frozen.amount_cents !== undefined && frozen.amount_cents !== null) { pub.contract_amount_cents = frozen.amount_cents; }
     }
     var areaTitles = {};
-    ((ctx.lib && ctx.lib.clause_areas) || []).forEach(function(a) { areaTitles[a.id] = contractHomeownerHeading(a.title); });
+    ((ctx.lib && ctx.lib.clause_areas) || []).forEach(function(a) { areaTitles[a.id] = contractAreaHeading(ctx.lib, a.id, pub.job_state === "FL", a.title); });
     pub.sections = (pub.sections || []).map(function(s) {
         var t = Object.assign({}, s);
         var area = s.kind === "custom" ? String(s.id || "").replace(/^custom:/, "") : (s.kind === "clause" ? String(s.id || "").slice(0, 3) : null);
@@ -28490,6 +28811,7 @@ async function handleGetContractSettings(id, request, env) {
         var ownerDefault = gmOwnerFirstName(client) ? String(client.owners).split(/\s*(?:&|;|,|\se\s|\sE\s|\sand\s)\s*/)[0].trim() : (doc.legal_name || (client && client.name) || "");
         return jsonOk({
             settings: settings,
+            states: contractStateList(),
             salespeople: salespeople,
             suggested: {
                 owner_signer_phone: doc.phone || null,
@@ -28541,6 +28863,8 @@ async function handlePutContractSettings(id, request, env) {
         var values = body.values && typeof body.values === "object" ? body.values : cur.values;
         var cleanValues = {};
         Object.keys(values).forEach(function(k) { if (/^[a-z0-9_]{1,60}$/.test(k)) { var val = gmStr(values[k], 500); if (val) { cleanValues[k] = val; } } });
+        // State riders: the business's home state is a real two-letter code or absent (absent = Florida).
+        if (cleanValues.business_state !== undefined) { var bizState = contractStateCode(cleanValues.business_state); if (bizState) { cleanValues.business_state = bizState; } else { delete cleanValues.business_state; } }
         var ownerName = body.owner_signer_name !== undefined ? gmStr(body.owner_signer_name, 120) : cur.owner_signer_name;
         var ownerPhone = body.owner_signer_phone !== undefined ? gmStr(body.owner_signer_phone, 40) : cur.owner_signer_phone;
         var source = body.source === "client" ? "client" : (body.source === "apex" ? "apex" : cur.source);
@@ -28577,7 +28901,13 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         var settings = await contractSettingsRow(env, id);
         if (!settings.trades.length) { return jsonErr2("Configure o contrato primeiro (ofícios e quem assina) em Estimates > Configurações.", "Set up the contract settings first (trades, signers) under Estimates > Settings", 400); }
         var doc = await gmDocSettingsRow(env, id);
-        if (!doc.license_numbers.length) { return jsonErr2("Falta o número da licença da Flórida nas configurações dos documentos.", "A Florida license number is required in the document settings", 400); }
+        // State riders: the default job state (property address, else the
+        // business's state, else Florida). Only a Florida job needs the
+        // Florida license number before a contract can be made.
+        var leadRow0 = await gmOwnedRow(env, "gm_leads", job.lead_id, id);
+        var estAddrRows = (await env.DB.prepare("SELECT customer_address, updated_at, created_at FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, job.lead_id).all()).results || [];
+        var jobState = contractDefaultJobState(contractJobAddress(leadRow0, estAddrRows), settings);
+        if (jobState === "FL" && !doc.license_numbers.length) { return jsonErr2("Falta o número da licença da Flórida nas configurações dos documentos.", "A Florida license number is required in the document settings", 400); }
         var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
         if (!ests.length) { return jsonErr2("Este projeto não veio de um lead com estimate aceito; o contrato é montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
         var body = {};
@@ -28600,6 +28930,17 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             if (first) { selections[a] = first.id; }
         });
         var estRow = await gmEstLoad(env, id, ests[0].id);
+        var prevState = await env.DB.prepare("SELECT flags_json FROM gm_contracts WHERE client_id = ? AND job_id = ? ORDER BY created_at DESC LIMIT 1").bind(id, jobId).first();
+        jobState = contractStateCode((gmDocParseJsonObject(prevState && prevState.flags_json, {}) || {}).job_state) || jobState;
+        // A new contract outside Florida starts on the safer option of an area
+        // when the default is one the research flags in that state. The owner
+        // can still pick any option.
+        if (jobState !== "FL") {
+            ((contractStateRider(jobState) || {}).risky_options || []).forEach(function(r) {
+                var area = String(r.option).slice(0, 3);
+                if (selections[area] === r.option && r.safer && lib.optionsForClient.some(function(o) { return o.id === r.safer; })) { selections[area] = r.safer; }
+            });
+        }
         // F21: the pool box follows the accepted estimate, not the company:
         // ticked only when a line of an accepted option sits in a price-list
         // category named like "pool"/"piscina" (the line's price-list item's
@@ -28617,7 +28958,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
                 if (poolRe.test(cat)) { isPoolJob = true; }
             });
         }
-        var flags = { sold_in_home: true, is_pool: !!(settings.builds_pools && isPoolJob), property_type: null, pool_safety_feature: null };
+        var flags = { sold_in_home: true, is_pool: !!(settings.builds_pools && isPoolJob), property_type: null, pool_safety_feature: null, job_state: jobState };
         var answers = {};
         // F39: a new contract on the same project starts from the latest
         // earlier one (any status): answers, flags and clause choices.
@@ -28626,8 +28967,17 @@ async function handlePostGmJobContract(id, jobId, request, env) {
             answers = gmDocParseJsonObject(prev.answers_json, {}) || {};
             var pf = gmDocParseJsonObject(prev.flags_json, {}) || {};
             ["sold_in_home", "is_pool", "property_type", "pool_safety_feature"].forEach(function(k) { if (pf[k] !== undefined) { flags[k] = pf[k]; } });
+            var safeSel = Object.assign({}, selections);
             var ps = gmDocParseJsonObject(prev.selections_json, {}) || {};
             Object.keys(ps).forEach(function(a) { if (ps[a] !== "custom" && lib.optionsById[ps[a]]) { selections[a] = ps[a]; } });
+            // An earlier contract written before job states existed may carry a
+            // flagged option it never chose on purpose for this state.
+            if (jobState !== "FL" && !contractStateCode(pf.job_state)) {
+                ((contractStateRider(jobState) || {}).risky_options || []).forEach(function(r) {
+                    var area = String(r.option).slice(0, 3);
+                    if (selections[area] === r.option && safeSel[area]) { selections[area] = safeSel[area]; }
+                });
+            }
             flags.copied_from = contractDisplayNumber(prev);
         }
         // G2f: the property type the lead already has (first answered on an
@@ -28739,6 +29089,15 @@ async function contractInternalOut(env, id, c, user, request) {
         link: DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token, pdf_link: pub.pdf_link, preview_link: DEFAULT_ORIGIN + "/contract-view?preview=" + c.id,
         send_phone: gmDocSendPhone(ctx.lead, null), customer_name: pub.customer_name, job_name: pub.job_name,
         attorney_question_pending: comp.rules.L5.on ? "Whether work may start and deposits be spent before the cancellation deadline is pending attorney review (library question 9)." : null,
+        // State riders: the job state, the list for its select, the owner's
+        // checklist (null in Florida) and the flagged clause options.
+        job_state: comp.state.code, job_state_name: comp.state.name, job_state_confirmed: comp.state.confirmed, job_state_florida: comp.state.florida,
+        job_state_status: comp.state.status, cancellation_rule: comp.state.cancellation, states: contractStateList(),
+        state_checklist: comp.checklist, option_warnings: comp.option_warnings,
+        state_neutral_options: comp.state.florida ? [] : (function() {
+            var neutral = contractNeutralOptions(ctx.lib.optionsById);
+            return ctx.lib.optionsForClient.filter(function(o) { return contractOptionText(neutral[o.id], neutral) !== contractOptionText(o, ctx.lib.optionsById); }).map(function(o) { return o.id; });
+        })(),
         public: pub
     };
 }
@@ -28836,6 +29195,11 @@ async function handlePutGmContract(id, cid, request, env) {
             if (body.flags.is_pool !== undefined) { flags.is_pool = !!body.flags.is_pool; }
             if (body.flags.property_type !== undefined) { flags.property_type = gmStr(body.flags.property_type, 30); }
             if (body.flags.pool_safety_feature !== undefined) { flags.pool_safety_feature = gmStr(body.flags.pool_safety_feature, 300); }
+            if (body.flags.job_state !== undefined) {
+                var pickedState = contractStateCode(body.flags.job_state);
+                if (!pickedState) { return jsonErr2("Escolha o estado onde o servi\u00e7o ser\u00e1 feito.", "Pick the state where the work is done.", 400); }
+                flags.job_state = pickedState;
+            }
         }
         var offer = body.offer_expiry_date !== undefined ? gmStr(body.offer_expiry_date, 10) : c.offer_expiry_date;
         if (offer && !/^\d{4}-\d{2}-\d{2}$/.test(offer)) { return jsonErr2("Data inválida.", "offer_expiry_date must be YYYY-MM-DD", 400); }
@@ -28855,6 +29219,10 @@ async function handlePutGmContract(id, cid, request, env) {
         c.contract_price_cents = price;
         c.selections = selections; c.answers = answers; c.flags = flags; c.offer_expiry_date = offer;
         var comp = contractCompose(ctx, c, gmEasternToday(), "live");
+        // State riders: the state this save was composed for is stored with it,
+        // so a later change to the address never moves a contract to another
+        // state behind the owner's back.
+        if (!flags.job_state) { flags.job_state = comp.state.code; }
         // Rule 23: the guard lives in the write. A company signature or a send
         // that lands between the read above and this write makes it a no-op.
         // G4e (drift c): a change order already signed and applied to this
@@ -28932,6 +29300,9 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         // text (C16's "Contractor signed on ...") and in the row.
         var signedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
         var prevSignedAt = c.company_signed_at, prevVoided = c.company_signature_voided_at;
+        // State riders: the job state is fixed on the contract before it is
+        // frozen, so the snapshot, the rules and every later read agree.
+        if (!contractStateCode(c.flags.job_state)) { c.flags.job_state = contractCompose(ctx, c, gmEasternToday(), "template").state.code; }
         c.company_signed_at = signedAt; c.company_signature_voided_at = null;
         var comp = contractCompose(ctx, c, gmEasternToday(), "template");
         c.company_signed_at = prevSignedAt; c.company_signature_voided_at = prevVoided;
@@ -28948,9 +29319,9 @@ async function handlePostGmContractCompanySign(id, cid, request, env) {
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
         var res = await env.DB.prepare(
             "UPDATE gm_contracts SET status = 'company_signed', company_signer_name = ?, company_signer_phone = ?, company_signed_at = ?, company_signature_kind = ?, company_signature_r2_key = ?, company_signed_ip = ?, company_signed_ua = ?, " +
-            "company_signature_voided_at = NULL, company_signature_void_reason = NULL, snapshot_r2_key = ?, content_hash = ?, disclaimer_line = ?, contract_amount_cents = ? + " + CONTRACT_APPLIED_CO_SQL + ", rules_json = ?, has_custom_clause = ?, updated_at = datetime('now') " +
+            "company_signature_voided_at = NULL, company_signature_void_reason = NULL, snapshot_r2_key = ?, content_hash = ?, disclaimer_line = ?, contract_amount_cents = ? + " + CONTRACT_APPLIED_CO_SQL + ", rules_json = ?, has_custom_clause = ?, flags_json = ?, updated_at = datetime('now') " +
             "WHERE id = ? AND client_id = ? AND status IN ('draft','awaiting_company','changes_requested')"
-        ).bind(signer.name, ctx.settings.owner_signer_phone || ctx.doc.phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, cid, id).run();
+        ).bind(signer.name, ctx.settings.owner_signer_phone || ctx.doc.phone || null, signedAt, kind, sigKey, ip, ua, snap.key, snap.hash, comp.disclaimer_line, comp.amount_cents, JSON.stringify(comp.rules), c.custom_clauses.length ? 1 : 0, JSON.stringify(c.flags), cid, id).run();
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este contrato não pode mais ser assinado pela empresa (" + contractStatusPt(c.status) + ").", "This contract can no longer be signed by the company (status " + c.status + ")", 409); }
         await gmContractEvent(env, id, cid, actorName(user), "company_signed", { signer: signer.name, kind: kind, hash: snap.hash });
         // G2a: what this contract used for the customer's email, phone and
@@ -29336,7 +29707,7 @@ async function handlePostPublicContractSign(token, request, env) {
         if (comp.requires.pool_ack && body.pool_ack !== true) { return jsonErr("Please confirm you received the two pool documents", 400); }
         var initials = gmStr(body.initials, 8);
         if ((comp.requires.arbitration_initials || comp.requires.jury_initials) && !initials) { return jsonErr("Please add your initials", 400); }
-        var deadline = comp.requires.cancellation ? contractCancellationDeadline(today) : null;
+        var deadline = comp.requires.cancellation ? contractCancellationDeadline(today, comp.state.florida ? null : comp.state.cancellation) : null;
         var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
         // One timestamp for the signature, the lien notice and the pool
         // acknowledgment; "today" (Eastern) is the transaction date.
@@ -29572,9 +29943,12 @@ async function coPublicPayload(env, co, origin) {
     var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, co.client_id) : null;
     var doc = await gmDocSettingsRow(env, co.client_id);
     var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(co.client_id).first();
-    var contract = co.contract_id ? await env.DB.prepare("SELECT number, revision, contract_date FROM gm_contracts WHERE id = ?").bind(co.contract_id).first() : null;
+    var contract = co.contract_id ? await env.DB.prepare("SELECT number, revision, contract_date, flags_json FROM gm_contracts WHERE id = ?").bind(co.contract_id).first() : null;
     var lib = await contractLibraryLoad(env, 1);
     var reviewed = lib && lib.version.status === "attorney_reviewed";
+    // State riders: a change order to a contract outside Florida carries that
+    // state's label (null for Florida and for a contract with no job state).
+    var stateDisclaimer = contractStateDisclaimerFor(contract ? (gmDocParseJsonObject(contract.flags_json, {}) || {}).job_state : null);
     var tokenBase = origin + "/api/public/change-orders/" + co.public_token;
     return {
         number: co.number, status: co.status, description: co.description, items: co.items,
@@ -29588,7 +29962,7 @@ async function coPublicPayload(env, co, origin) {
             brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
         company_signature: co.company_signed_at ? { signer_name: co.company_signer_name, signed_at: co.company_signed_at, kind: co.company_signature_kind, image_url: co.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: co.homeowner_signed_at ? { signer_name: co.homeowner_signer_name, signed_at: co.homeowner_signed_at, kind: co.homeowner_signature_kind, image_url: co.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(co.homeowner_signed_ua) } : null,
-        disclaimer_line: reviewed ? ("Template reviewed by " + lib.version.attorney_name + ", Florida Bar #" + lib.version.attorney_bar_number + ", on " + contractFmtDate(lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED,
+        disclaimer_line: stateDisclaimer || (reviewed ? ("Template reviewed by " + lib.version.attorney_name + ", Florida Bar #" + lib.version.attorney_bar_number + ", on " + contractFmtDate(lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED),
         content_hash: co.content_hash || null, decline_reason: co.decline_reason
     };
 }
@@ -29984,8 +30358,36 @@ async function coJobContractStatus(env, clientId, jobId) {
     // "Seguir sem contrato (decisão do dono)" decided in Rafa's meeting counts as
     // the owner continuing; "Contrato será enviado" does not (F53).
     var resolvedByOwner = await env.DB.prepare("SELECT id FROM gm_contract_notices WHERE client_id = ? AND job_id = ? AND (resolution = 'owner_continued' OR (resolution = 'resolved_in_meeting' AND resolution_decision = 'continue_without_contract')) LIMIT 1").bind(clientId, jobId).first();
-    var needs = amount > 250000 && !signed && !resolvedByOwner && job.status !== "Concluída";
-    return { job: job, amount_cents: amount, signed_contract: signed || null, needs_warning: needs, open_notice: open || null, owner_continued: !!resolvedByOwner };
+    // State riders: the job's state is its newest contract's, else the same
+    // default a new contract would get. Florida keeps the $2,500 rule; another
+    // state uses its own written-contract amount when the research gives a
+    // clean number, and warns at any amount when it does not.
+    var jobState = await contractJobStateForJob(env, clientId, job);
+    var over = amount > 250000, threshold = null;
+    if (jobState !== "FL") {
+        var rider = contractStateRider(jobState) || {};
+        var th = contractStateWrittenThreshold(rider, amount);
+        over = th.crosses;
+        threshold = th.clean ? { cents: rider.written_contract.threshold_cents, compare: rider.written_contract.compare } : null;
+    }
+    var needs = over && !signed && !resolvedByOwner && job.status !== "Concluída";
+    return { job: job, amount_cents: amount, signed_contract: signed || null, needs_warning: needs, open_notice: open || null, owner_continued: !!resolvedByOwner,
+             job_state: jobState, job_state_name: contractStateName(jobState), written_threshold: threshold };
+}
+async function contractJobStateForJob(env, clientId, job) {
+    try {
+        var rows = (await env.DB.prepare("SELECT flags_json, status FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded','declined') ORDER BY created_at DESC LIMIT 5").bind(clientId, job.id).all()).results || [];
+        for (var i = 0; i < rows.length; i++) {
+            var own = contractStateCode((gmDocParseJsonObject(rows[i].flags_json, {}) || {}).job_state);
+            if (own) { return own; }
+        }
+        // A contract past the draft stage with no job state was written under Florida rules.
+        if (rows.some(function(r) { return ["draft", "awaiting_company", "changes_requested"].indexOf(r.status) === -1; })) { return "FL"; }
+        var settings = await contractSettingsRow(env, clientId);
+        var lead = job.lead_id ? await gmOwnedRow(env, "gm_leads", job.lead_id, clientId) : null;
+        var ests = job.lead_id ? ((await env.DB.prepare("SELECT customer_address, updated_at, created_at FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(clientId, job.lead_id).all()).results || []) : [];
+        return contractDefaultJobState(contractJobAddress(lead, ests), settings);
+    } catch (e) { console.error("job state lookup failed", e && e.message); return "FL"; }
 }
 async function handleGetGmJobContractStatus(id, jobId, request, env) {
     try {
@@ -29999,9 +30401,14 @@ async function handleGetGmJobContractStatus(id, jobId, request, env) {
         var client = await env.DB.prepare("SELECT phone, whatsapp FROM clients WHERE id = ?").bind(id).first();
         var lead = st.job.lead_id ? await gmOwnedRow(env, "gm_leads", st.job.lead_id, id) : null;
         var msg = "I'm moving forward on " + (st.job.obra || "") + " (" + ((lead && lead.cliente) || st.job.obra || "") + ", " + contractMoney(st.amount_cents) + ") without a signed contract. Florida requires the construction lien notice (section 713.015) and the Recovery Fund notice (section 489.1425) in the contract for residential jobs over $2,500. Please send the contract from the project in Apex.";
+        // State riders: a job in another state names that state and quotes no Florida law.
+        if (st.job_state !== "FL") {
+            msg = "I'm moving forward on " + (st.job.obra || "") + " (" + ((lead && lead.cliente) || st.job.obra || "") + ", " + contractMoney(st.amount_cents) + ") without a signed contract. This job is in " + st.job_state_name + ". Please send the contract from the project in Apex.";
+        }
         // F12: a hand-made project (no lead, or no accepted estimate) cannot get a contract built.
         var accCount = st.job.lead_id ? await env.DB.prepare("SELECT COUNT(*) AS c FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted'").bind(id, st.job.lead_id).first() : null;
         return jsonOk({ needs_warning: st.needs_warning, amount_cents: st.amount_cents, signed_contract: st.signed_contract, open_notice: st.open_notice, owner_continued: st.owner_continued,
+            job_state: st.job_state, job_state_name: st.job_state_name, written_threshold: st.written_threshold,
             can_build_contract: !!(accCount && accCount.c),
             owner_phone: (client && (client.whatsapp || client.phone)) || null, seller_message: msg, is_seller: !!sessionSellerName(user) });
     } catch (e) {

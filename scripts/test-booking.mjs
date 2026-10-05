@@ -13,7 +13,7 @@ const MIG = [
   "migrations/gm_leads_costs_commission.sql", "migrations/gm_leads_stage_keys.sql", "migrations/customer_referrals.sql",
   "migrations/gm_lead_contacts.sql", "migrations/gm_lead_events.sql",
   "migrations/client_estimates_invoices_p1.sql", "migrations/client_estimates_invoices_p1b.sql", "migrations/hero_gallery_doc_settings.sql",
-  "migrations/hero_flip.sql", "migrations/gm_booking.sql"
+  "migrations/hero_flip.sql", "migrations/gm_booking.sql", "migrations/doc_links.sql"
 ];
 
 // every top-level bk* function in the block, plus the helpers it reuses
@@ -23,11 +23,13 @@ if (blockStart < 0 || blockEnd < 0) { console.log("FAIL  booking block not found
 const block = workerSrc.slice(blockStart, blockEnd);
 const names = [...block.matchAll(/^(?:async )?function ((?:bk|handle\w*Booking)\w*)\(/gm)].map((m) => m[1]);
 const helpers = ["schedMinutes", "schedHHMM", "schedAddDays", "schedDayOfWeek", "fmtTime12", "tzOffsetMs", "tzShortLabel", "gmStr", "gmNum", "gmDateStr", "gmTimeStr",
-  "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam"];
-const vars = ["BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN"];
+  "gmReferralSlug", "gmEstNewToken", "gmNyNowParts", "gmOwnedRow", "gmInsertLead", "gmLogLeadEvents", "gmGetConfig", "gmParseJsonList", "gmParseJsonListNonEmpty", "gmDocSettingsOwnerOnly", "sessionSellerName", "sellerCanActOnLead", "logoVersionParam",
+  "docPrettyLink", "docLinkTarget", "docLinkSlugPart", "docLinkRandom"];
+const vars = ["BK_STEP_MIN", "BK_ACTOR", "BK_QTYPES", "BK_PRESETS", "BK_INACTIVE", "BRAZIL_TZ_LABELS", "GM_LEAD_COST_FIELDS", "GM_LEAD_LOGGED_FIELDS", "GM_MONTH_NAMES_PT", "GM_DEFAULT_FINANCE_CATEGORIES", "GM_DEFAULT_VIEW_THRESHOLD", "APEX_TIMEZONE", "DEFAULT_ORIGIN", "DOC_LINK_ORIGIN", "DOC_LINK_PAGES", "DOC_LINK_LABELS"];
 
 function world() {
   const d = makeDb(MIG);
+  d.raw.exec("CREATE TABLE IF NOT EXISTS gm_doc_settings (client_id TEXT PRIMARY KEY, legal_name TEXT)");
   // gm_leads.imposto is live but has no migration file in the repo
   try { d.raw.exec("ALTER TABLE gm_leads ADD COLUMN imposto REAL"); } catch (e) { /* already there */ }
   d.raw.exec("INSERT INTO clients (id, name, phone, language, timezone) VALUES ('c1', 'Shine Cleaning', '555-0100', 'en', 'America/New_York')");
@@ -261,7 +263,7 @@ const body = (over) => Object.assign({ slot_date: "2026-10-06", slot_time: "10:0
   ok((await F2.handlePostGmLeadBookingLink("c1", "L1", mk(), e)).status === 403, "portal: a seller cannot send a link for a lead that is not theirs");
   w.d.raw.exec("UPDATE gm_leads SET vendedor = 'Bob' WHERE id = 'L1'");
   const linkRes = await F2.handlePostGmLeadBookingLink("c1", "L1", mk(), e);
-  ok(linkRes.status === 200 && linkRes.data.url === "https://apex.resonateai.online/book.html?t=" + w.tok && w.d.q("SELECT COUNT(*) AS c FROM gm_booking_requests WHERE lead_id='L1'")[0].c === 1, "portal: a seller sends the link for their own lead; the still-waiting request is reused");
+  ok(linkRes.status === 200 && /^https:\/\/doc\.resonateai\.online\/shine-cleaning\/visit-[a-z0-9-]+-[a-z0-9]{8}$/.test(linkRes.data.url) && linkRes.data.request.url === linkRes.data.url && w.d.q("SELECT COUNT(*) AS c FROM gm_booking_requests WHERE lead_id='L1'")[0].c === 1, "portal: a seller sends the link for their own lead; the still-waiting request is reused");
   ok((await F2.handlePostGmLeadBookingLink("c1", "L1", mk(), { DB: w.d.DB })).data.request.id === "R1", "portal: asking again returns the same request");
   ok((await F2.handlePostGmLeadBookingLink("c2", "L1", mk(), e)).status === 404, "portal: another business's lead is not found");
   const sent = await F2.handlePostGmLeadBookingSent("c1", "L1", mk(), e);

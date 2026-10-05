@@ -669,12 +669,12 @@ function loadUsers() {
           popup.location.href = data.auth_url;
         } else {
           popup.close();
-          alert("Error: no auth_url returned");
+          pageNotice("Error: no auth_url returned");
         }
       }).catch(function(e) {
         btn.disabled = false;
         if (popup) { popup.close(); }
-        alert("Error starting OAuth: " + e.message);
+        pageNotice("Error starting OAuth: " + e.message);
       });
     }
 
@@ -723,11 +723,11 @@ function loadUsers() {
         if (data.auth_url) {
           window.location.href = data.auth_url;
         } else {
-          alert("Error: no auth_url returned");
+          pageNotice("Error: no auth_url returned");
         }
       }).catch(function(e) {
         btn.disabled = false;
-        alert("Error starting OAuth: " + e.message);
+        pageNotice("Error starting OAuth: " + e.message);
       });
     }
 
@@ -784,11 +784,11 @@ function loadUsers() {
         if (data.auth_url) {
           window.location.href = data.auth_url;
         } else {
-          alert("Error: no auth_url returned");
+          pageNotice("Error: no auth_url returned");
         }
       }).catch(function(e) {
         btn.disabled = false;
-        alert("Error starting Drive OAuth: " + e.message);
+        pageNotice("Error starting Drive OAuth: " + e.message);
       });
     }
 
@@ -868,6 +868,24 @@ function loadUsers() {
     }
 
     window.onload = function () { init(); };
+
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
   </script>
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
        injected fixed-position nav broke the desktop flex layout, so these

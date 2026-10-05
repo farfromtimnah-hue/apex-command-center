@@ -67,6 +67,28 @@ try {
   ok(!/\blet\s|\bconst\s|=>/.test(shared) && !/[^\x00-\x7F]/.test(shared), "apex-invoice-send.js: var and function() only, plain ASCII");
 }
 
+
+// A tiny page for the "old cached page, new script" case: no pageDialog and no
+// deps.ask, so the script must draw its own card. Records what is on screen.
+function fakeDocument(trace) {
+  const listeners = {};
+  const mk = (tag) => {
+    const el = { tag, children: [], parentNode: null, style: {}, ls: {}, textContent: "", value: "", focused: false,
+      setAttribute() {}, addEventListener(t, f) { (el.ls[t] = el.ls[t] || []).push(f); },
+      appendChild(c) { c.parentNode = el; el.children.push(c); return c; },
+      removeChild(c) { el.children = el.children.filter(x => x !== c); c.parentNode = null; },
+      focus() { el.focused = true; } };
+    return el;
+  };
+  const body = mk("body");
+  return { body, createElement: mk,
+    addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    removeEventListener(t, f) { listeners[t] = (listeners[t] || []).filter(x => x !== f); },
+    key(k) { (listeners.keydown || []).slice().forEach(f => f({ key: k, preventDefault() {}, stopPropagation() {} })); },
+    buttons() { const out = []; (function w(n) { if (n.tag === "button") { out.push(n); } n.children.forEach(w); })(body); return out; },
+    click(el) { (el.ls.click || []).forEach(f => f({ target: el, stopPropagation() {} })); } };
+}
+
 // One run of one call in a fresh world. Returns everything that happened.
 async function run(code, call, sc) {
   const trace = [];
@@ -91,12 +113,17 @@ async function run(code, call, sc) {
     INVOICES: sc.invoices,
     MESSAGE_TEMPLATES: sc.templates === undefined ? { invoice_send: "Ola! Segue a fatura:\n{invoiceLink}\nObrigada." } : sc.templates,
     APX_SWITCHES: { client_invoice_link_enabled: sc.switchOn === true, club_pay_enabled: false, role: "alice" },
+    // The in-page question (pageDialog on the real pages): answered at once,
+    // inside the same call, the way a tap on the Yes / Keep button is. It is
+    // traced as "confirm" so the old browser box and the card compare equal.
+    pageDialog: sc.fallback ? undefined : (o) => { trace.push(["confirm", o.message]); if (sc.confirm !== false) { o.onYes(); } return true; },
     isEn: () => sc.en === true,
     toast: (msg) => { trace.push(["toast", msg]); },
     loadInvoices: () => { trace.push(["loadInvoices"]); },
     apiFetch: (path, opts) => { trace.push(["apiFetch", path, opts && opts.method, opts && opts.body]); return answer(path); },
     out: (v) => { trace.push(["result", v]); }
   };
+  if (sc.fallback) { box.document = fakeDocument(trace); box.out2 = box.document; }
   vm.createContext(box);
   vm.runInContext(fmtCents + "\n" + code + "\n" + call, box);
   for (let i = 0; i < 20; i++) { await new Promise(r => setImmediate(r)); }
@@ -208,6 +235,43 @@ for (const [name, raw] of [["switch OFF", { }], ["switch ON", { switchOn: true, 
   const t = await run(NEW, deps + "D.onMarkFailed = function(e) { out(e.message); }; window.ApexInvoiceSend.sendWhatsApp(INVOICES[0], D);", sc);
   ok(t.some(x => x[0] === "navigate") && t.some(x => x[0] === "result" && x[1] === "Failed to fetch") && !t.some(x => x[0] === "toast" || x[0] === "loadInvoices"),
     "review page send, mark-sent fails: WhatsApp still opens and the page is told why");
+}
+
+// No pageDialog and no deps.ask on the page: the script draws its own card.
+// Run in a world where the test can tap the card, so it needs its own runner.
+async function fallbackRun(call, action, sc) {
+  const trace = [];
+  const doc = fakeDocument(trace);
+  const win = { open: (url, target) => { trace.push(["open", url, target, "buttonsOnScreen=" + doc.buttons().length]); return { location: { set href(v) { trace.push(["navigate", v]); } }, close() {} }; } };
+  const box = {
+    window: win, document: doc, Promise, Error, String, encodeURIComponent, console, Number, INVOICES: [SAMPLE],
+    MESSAGE_TEMPLATES: { invoice_send: "Ola! Segue a fatura:\n{invoiceLink}\nObrigada." },
+    APX_SWITCHES: { client_invoice_link_enabled: false, club_pay_enabled: false, role: "alice" },
+    isEn: () => sc.en === true, toast: (m) => trace.push(["toast", m]), loadInvoices: () => {},
+    apiFetch: (path, opts) => { trace.push(["apiFetch", path, opts && opts.method]); return Promise.resolve({ json: () => Promise.resolve({}) }); }
+  };
+  vm.createContext(box);
+  vm.runInContext(fmtCents + "\n" + NEW + "\n" + call, box);
+  const shown = doc.buttons().map(b => b.textContent);
+  const focusedKeep = doc.buttons().length > 0 && doc.buttons()[doc.buttons().length - 1].focused;
+  const sentBefore = trace.length;
+  action(doc);
+  for (let i = 0; i < 20; i++) { await new Promise(r => setImmediate(r)); }
+  return { trace, shown, focusedKeep, sentBefore, left: doc.body.children.length };
+}
+for (const en of [false, true]) {
+  const label = en ? "English" : "Portuguese";
+  const call = "sendInvoiceWhatsApp(" + JSON.stringify(SAMPLE.id) + ");";
+  let r = await fallbackRun(call, (d) => { const b = d.buttons(); d.click(b[0]); d.click(b[0]); }, { en });
+  ok(r.shown.length === 2 && !/^(ok|cancel)$/i.test(r.shown[0]) && r.sentBefore === 0 && r.focusedKeep, "no page helper (" + label + "): Send shows the script's own card with two labelled buttons, Keep focused, nothing sent yet: " + r.shown.join(" / "));
+  ok(r.trace.filter(t => t[0] === "open").length === 1 && r.trace.filter(t => t[0] === "apiFetch" && /mark-sent$/.test(t[1])).length === 1 && r.left === 0, "no page helper (" + label + "): Yes sends exactly once, even tapped twice, and the card closes");
+  ok(r.trace.find(t => t[0] === "open")[3] === "buttonsOnScreen=0" && r.trace[0][0] === "open", "no page helper (" + label + "): window.open runs inside the Yes tap (card already gone, first thing that happens)");
+  r = await fallbackRun(call, (d) => { d.click(d.buttons()[1]); }, { en });
+  ok(r.trace.length === 0 && r.left === 0, "no page helper (" + label + "): Keep sends nothing and closes the card");
+  r = await fallbackRun(call, (d) => { d.key("Escape"); }, { en });
+  ok(r.trace.length === 0 && r.left === 0, "no page helper (" + label + "): Escape means Keep");
+  r = await fallbackRun(call, (d) => { d.click(d.body.children[0]); }, { en });
+  ok(r.trace.length === 0 && r.left === 0, "no page helper (" + label + "): a tap outside means Keep");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

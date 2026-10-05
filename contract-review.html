@@ -727,7 +727,7 @@
           crLib.submissions.unshift({ reviewer_name: crLib.me.name, ok_count: d.ok_count, changes_count: d.changes_count, submitted_at: new Date().toISOString().replace("T", " ") });
           crRenderBanner();
         })
-        .catch(function(e) { if (btn) { btn.disabled = false; } window.alert(t("Não foi possível enviar: ", "Could not send: ") + e.message); console.error(e); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } pageNotice(t("Não foi possível enviar: ", "Could not send: ") + e.message); console.error(e); });
     }
 
     function crRenderBanner() {
@@ -781,7 +781,7 @@
     function crToggleRelease(cb) {
       apiFetch("/api/contracts/admin-settings", { method: "PUT", body: { key: "review_released_to_rafa", value: cb.checked ? "1" : "0" } })
         .then(function() { sessionStorage.setItem("apex_contract_review_released", cb.checked ? "1" : "0"); })
-        .catch(function(e) { cb.checked = !cb.checked; window.alert("Erro: " + e.message); console.error(e); });
+        .catch(function(e) { cb.checked = !cb.checked; pageNotice("Erro: " + e.message); console.error(e); });
     }
     function crSaveRecovery() {
       var ta = document.getElementById("crRecovery"), msg = document.getElementById("crRecoveryMsg");
@@ -814,7 +814,7 @@
         return fetch(WORKER_URL + "/api/contracts/admin-docs/" + kind, { headers: { "Authorization": "Bearer " + token } });
       }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.blob(); })
         .then(function(b) { var u = URL.createObjectURL(b); window.open(u, "_blank"); })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+        .catch(function(e) { pageNotice("Erro: " + e.message); });
     }
 
     // ── Print mode: the whole library, English text, locked blocks and the 30
@@ -945,6 +945,24 @@
     }
 
     window.onload = function () { init(); };
+
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
   </script>
   <!-- Mobile nav containers: static HTML on purpose. A previous runtime-
        injected fixed-position nav broke the desktop flex layout, so these

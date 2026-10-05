@@ -24,6 +24,16 @@ if [ -x scripts/check-ios-drift.sh ]; then
   sh scripts/check-ios-drift.sh || exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# No browser pop-ups (Rule 31). Also first, for the same reason: nothing is
+# stamped or staged if the commit is going to be refused. Checks every root
+# .html / .js file, not only the staged ones, so an old pop-up cannot hide.
+# The same script runs in .github/workflows/ios-drift.yml.
+# ---------------------------------------------------------------------------
+if [ -f scripts/check-no-popups.sh ]; then
+  sh scripts/check-no-popups.sh || exit 1
+fi
+
 STAGED=$(git diff --cached --name-only)
 
 TRIGGER=0

@@ -186,7 +186,7 @@
     // Finance page lists it (id, number, client WhatsApp). templates and
     // switchOn: what the send needs, loaded before any click.
     var REVIEW = { staff: false, row: null, templates: null, switchOn: false };
-    var SEND_JS = "apex-invoice-send.js?v=1791168483";
+    var SEND_JS = "apex-invoice-send.js?v=1791236689";
     var FIREBASE_JS = ["https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"];
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
@@ -774,6 +774,125 @@
       if (previewWanted) { reviewStart(function() { load(false); }); }
       else { load(paidReturn && !isRender); }
     };
+
+
+    // BEGIN PAGE DIALOG
+    // In-page replacement for the browser's confirm box, alert box and prompt box.
+    // One helper, called from every place that used to open a browser box.
+    //   message  text shown (already in the page's language; \n is kept)
+    //   title    optional heading
+    //   yes      label of the button that does the action ("Yes, delete")
+    //   keep     label of the button that walks away ("Keep it")
+    //   field    optional {value, placeholder, readonly}: an input in the same card
+    //   onYes    called ONCE, synchronously inside the tap, with the field text
+    //   onKeep   optional, called when Keep, Escape or a tap outside closes it
+    // With no `yes` it is a plain note with one button (used to show a link
+    // that must be copied by hand). Escape and a tap outside both mean keep.
+    var PAGE_DIALOG_CLASSES = {"overlay": "", "overlayStyle": "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(26,26,29,0.45);display:flex;align-items:center;justify-content:center;padding:20px;", "box": "", "boxStyle": "background:#fff;border-radius:12px;box-shadow:0 8px 48px rgba(26,26,29,0.22);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:22px 24px;box-sizing:border-box;", "body": "", "title": "", "titleStyle": "font-size:16px;font-weight:700;margin-bottom:8px;color:#1a1a1d;", "text": "", "textStyle": "font-size:14px;line-height:1.5;color:#1a1a1d;", "actionsStyle": "display:flex;flex-direction:column;gap:10px;margin-top:16px;", "yes": "btn", "yesStyle": "margin-top:0;", "keep": "", "keepStyle": "width:100%;min-height:48px;background:transparent;color:#1f2328;border:1px solid #e3e7ec;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;", "keepFirst": false};
+    var pageDialogOpen = null;
+    function pageDialog(o) {
+      if (pageDialogOpen) { return false; }
+      var C = PAGE_DIALOG_CLASSES;
+      var prevFocus = document.activeElement;
+      var done = false;
+      var ov = document.createElement("div");
+      ov.className = C.overlay;
+      ov.style.zIndex = "10000";
+      if (C.overlayStyle) { ov.style.cssText += ";" + C.overlayStyle; }
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      var box = document.createElement("div");
+      box.className = C.box;
+      if (C.boxStyle) { box.style.cssText = C.boxStyle; }
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var holder = box;
+      if (C.body) {
+        holder = document.createElement("div");
+        holder.className = C.body;
+        box.appendChild(holder);
+      }
+      if (o.title) {
+        var h = document.createElement("div");
+        h.className = C.title;
+        if (C.titleStyle) { h.style.cssText = C.titleStyle; }
+        h.textContent = o.title;
+        holder.appendChild(h);
+      }
+      var p = document.createElement("div");
+      p.className = C.text;
+      p.style.cssText = (C.textStyle || "") + ";white-space:pre-line;";
+      p.textContent = o.message || "";
+      holder.appendChild(p);
+      var input = null;
+      if (o.field) {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = o.field.value || "";
+        if (o.field.placeholder) { input.placeholder = o.field.placeholder; }
+        if (o.field.readonly) { input.readOnly = true; }
+        input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-family:inherit;font-size:14px;margin-top:12px;";
+        holder.appendChild(input);
+      }
+      var row = document.createElement("div");
+      row.style.cssText = C.actionsStyle;
+      var yesBtn = null;
+      var keepBtn = null;
+      if (o.yes) {
+        yesBtn = document.createElement("button");
+        yesBtn.type = "button";
+        yesBtn.className = C.yes;
+        if (C.yesStyle) { yesBtn.style.cssText = C.yesStyle; }
+        yesBtn.textContent = o.yes;
+      }
+      if (o.keep) {
+        keepBtn = document.createElement("button");
+        keepBtn.type = "button";
+        keepBtn.className = C.keep;
+        if (C.keepStyle) { keepBtn.style.cssText = C.keepStyle; }
+        keepBtn.textContent = o.keep;
+      }
+      var order = C.keepFirst ? [keepBtn, yesBtn] : [yesBtn, keepBtn];
+      for (var i = 0; i < order.length; i++) { if (order[i]) { row.appendChild(order[i]); } }
+      holder.appendChild(row);
+      ov.appendChild(box);
+
+      function finish(isYes) {
+        if (done) { return; }
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        pageDialogOpen = null;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        if (isYes) {
+          if (o.onYes) { o.onYes(input ? input.value : ""); }
+        } else if (o.onKeep) {
+          o.onKeep();
+        }
+      }
+      function onKey(e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        } else if (e.key === "Enter" && input && yesBtn && e.target === input) {
+          e.preventDefault();
+          finish(true);
+        }
+      }
+      if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+      if (keepBtn) { keepBtn.addEventListener("click", function() { finish(false); }); }
+      ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+      document.addEventListener("keydown", onKey, true);
+      pageDialogOpen = { finish: finish };
+      // Not document.body: this page is also the PDF source and keeps its body free of added nodes.
+      (document.getElementById("reviewBar") || document.documentElement).appendChild(ov);
+      // Focus lands inside: the input when there is one, otherwise the safe
+      // button (Keep), never the one that does the action.
+      var first = input || keepBtn || yesBtn;
+      if (first && first.focus) { first.focus(); }
+      return true;
+    }
+    // END PAGE DIALOG
   </script>
 </body>
 </html>

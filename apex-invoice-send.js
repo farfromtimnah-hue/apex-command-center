@@ -66,6 +66,98 @@
   // window exists.
   function sendWhatsApp(inv, deps) {
     if (!inv) { return; }
+    // In-page question instead of the browser's confirm box. pageDialog runs
+    // the yes-action synchronously inside the tap on "Yes", so window.open
+    // below is still inside the user gesture and the popup-blocker fix holds.
+    if (deps.confirm !== false) {
+      var who = inv.client_name || "";
+      var amount = deps.fmtCents(inv.amount_cents);
+      var en = deps.isEn();
+      var ask = en
+        ? "Send invoice " + inv.number + " (" + amount + ") to " + who + " on WhatsApp now?"
+        : "Enviar a fatura " + inv.number + " (" + amount + ") para " + who + " no WhatsApp agora?";
+      askInPage(deps, {
+        message: ask,
+        yes: en ? "Yes, send it" : "Sim, enviar",
+        keep: en ? "Do not send" : "N\u00e3o enviar"
+      }, function() { runSend(inv, deps); });
+      return;
+    }
+    runSend(inv, deps);
+  }
+
+  // Shows the question as an in-page card: deps.ask, else the page's
+  // pageDialog, else this file's own card. It never silently does nothing.
+  function askInPage(deps, o, onYes) {
+    var fn = deps.ask || (typeof pageDialog === "function" ? pageDialog : fallbackCard);
+    o.onYes = onYes;
+    if (fn(o) === false && fn !== fallbackCard) { fallbackCard(o); }
+    return true;
+  }
+
+  // Own minimal in-page card, used only when the page offers no pageDialog (an
+  // old cached copy of the page next to this newer script). Plain inline
+  // styles; Keep is focused; Escape and a tap outside mean Keep; Yes runs once.
+  function fallbackCard(o) {
+    var done = false;
+    var ov = document.createElement("div");
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;z-index:10000;background:rgba(26,26,29,0.45);display:flex;align-items:center;justify-content:center;padding:20px;";
+    var box = document.createElement("div");
+    box.style.cssText = "background:#fff;color:#1a1a1d;border-radius:12px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;padding:22px 24px;box-sizing:border-box;font-family:sans-serif;box-shadow:0 8px 48px rgba(26,26,29,0.22);";
+    box.addEventListener("click", function(e) { e.stopPropagation(); });
+    var p = document.createElement("div");
+    p.style.cssText = "font-size:14px;line-height:1.5;white-space:pre-line;";
+    p.textContent = o.message || "";
+    box.appendChild(p);
+    var input = null;
+    if (o.field) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.value = o.field.value || "";
+      if (o.field.readonly) { input.readOnly = true; }
+      input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-size:14px;margin-top:12px;";
+      box.appendChild(input);
+    }
+    var row = document.createElement("div");
+    row.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:16px;";
+    var yesBtn = null;
+    var keepBtn = document.createElement("button");
+    keepBtn.type = "button";
+    keepBtn.textContent = o.keep || "";
+    keepBtn.style.cssText = "padding:10px 16px;border-radius:7px;border:1px solid #e8e2d9;background:transparent;color:#1a1a1d;font-size:14px;cursor:pointer;";
+    if (o.yes) {
+      yesBtn = document.createElement("button");
+      yesBtn.type = "button";
+      yesBtn.textContent = o.yes;
+      yesBtn.style.cssText = "padding:10px 16px;border-radius:7px;border:none;background:#C9A43A;color:#fff;font-size:14px;font-weight:600;cursor:pointer;";
+      row.appendChild(yesBtn);
+    }
+    row.appendChild(keepBtn);
+    box.appendChild(row);
+    ov.appendChild(box);
+    function finish(isYes) {
+      if (done) { return; }
+      done = true;
+      document.removeEventListener("keydown", onKey, true);
+      if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+      if (isYes) { if (o.onYes) { o.onYes(input ? input.value : ""); } }
+      else if (o.onKeep) { o.onKeep(); }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+    }
+    if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+    keepBtn.addEventListener("click", function() { finish(false); });
+    ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(ov);
+    if (input) { input.focus(); } else { keepBtn.focus(); }
+    return true;
+  }
+
+  function runSend(inv, deps) {
     var invoiceId = inv.id;
 
     // CONFIRM BEFORE SENDING (the invoice rows). Sending is irreversible from
@@ -74,18 +166,8 @@
     // previewed it because this button was the only one on the row. The
     // confirm names the client and the amount so a mis-click on the wrong row
     // is caught too. The review page passes confirm: false: there the person
-    // is looking at the invoice itself.
-    //
-    // Deliberately BEFORE window.open: confirm() is synchronous and preserves
-    // the user-gesture context, so the popup-blocker fix below still holds.
-    if (deps.confirm !== false) {
-      var who = inv.client_name || "";
-      var amount = deps.fmtCents(inv.amount_cents);
-      var ask = deps.isEn()
-        ? "Send invoice " + inv.number + " (" + amount + ") to " + who + " on WhatsApp now?"
-        : "Enviar a fatura " + inv.number + " (" + amount + ") para " + who + " no WhatsApp agora?";
-      if (!window.confirm(ask)) { return; }
-    }
+    // is looking at the invoice itself. (The question is asked in sendWhatsApp
+    // above, before this runs, as an in-page card.)
 
     var waWindow = window.open("", "_blank");
 
@@ -170,8 +252,15 @@
         " as sent? Use this when it was already sent some other way."
       : "Marcar a fatura " + num + " (" + amount + ") para " + who +
         " como enviada? Use quando ela ja foi enviada de outra forma.";
-    if (!window.confirm(ask)) { return; }
+    var en2 = deps.isEn();
+    askInPage(deps, {
+      message: ask,
+      yes: en2 ? "Yes, mark as sent" : "Sim, marcar como enviada",
+      keep: en2 ? "Do not mark" : "N\u00e3o marcar"
+    }, function() { runMarkSent(invoiceId, deps); });
+  }
 
+  function runMarkSent(invoiceId, deps) {
     deps.apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
       .then(function(r) { return r.json().catch(function() { return {}; }); })
       .then(function(d) {

@@ -46397,7 +46397,7 @@ var APX_INV_PAGE = "/apex-invoice-view.html";
 // what prints (layout, wording, styles): the cache is keyed on the invoice's
 // data, so without this an already printed invoice would keep serving the old
 // layout from R2.
-var APX_INV_PDF_REV = "2";
+var APX_INV_PDF_REV = "3";
 
 async function apxInvSwitches(env) {
     try {
@@ -46420,7 +46420,7 @@ function apxInvNoIndex(res) {
 async function apxInvByToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     var inv = await env.DB.prepare(
-        "SELECT i.*, c.name AS client_name, c.package, c.invoice_card_enabled " +
+        "SELECT i.*, c.name AS client_name, c.package, c.invoice_card_enabled, c.logo_url AS client_logo_url " +
         "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.public_token = ?"
     ).bind(token).first();
     if (!inv || inv.status === "void" || inv.status === "voided_mistake") { return null; }
@@ -46503,6 +46503,17 @@ async function apxInvPayload(env, inv, sw) {
     else if (inv.due_at && String(inv.due_at).slice(0, 10) < easternDateStr() && money.balance_cents > 0) { status = "overdue"; }
     else if (money.paid_cents > 0) { status = "partial"; }
 
+    // The client's own logo for the second hero tile, built the way
+    // handleGetFinanceNewInvoiceRenderData builds it: only when a logo REALLY
+    // exists, so the page never asks for an image that 404s (most clients have
+    // none, and the tile then shows the client's name). /logo-image needs no
+    // login and serves nothing but that one client's logo. The ?v= names the
+    // exact upload, so a replaced logo is a new address and a new PDF.
+    var hasLogo = !!(inv.client_logo_url && String(inv.client_logo_url).trim());
+    var clientLogoUrl = (inv.client_id && hasLogo)
+        ? (APEX_API_BASE + "/api/clients/" + inv.client_id + "/logo-image" + logoVersionParam(String(inv.client_logo_url).trim()))
+        : null;
+
     return {
         number: inv.number || "",
         status: status,
@@ -46510,6 +46521,7 @@ async function apxInvPayload(env, inv, sw) {
         issue_date: inv.issued_at ? String(inv.issued_at).slice(0, 10) : null,
         due_date: inv.due_at ? String(inv.due_at).slice(0, 10) : null,
         client_name: inv.client_name || "",
+        client_logo_url: clientLogoUrl,
         subject: subject || "",
         description: inv.notes || "",
         notes: inv.notes || "",

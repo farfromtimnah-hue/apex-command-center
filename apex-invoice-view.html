@@ -25,6 +25,32 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
     .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
     .client-logo-tile img { max-height: 58px; }
+    /* TWO-LOGO HERO, as on the staff invoice (templates/apex-invoice-template-
+       DRAFT.html): Apex's tile and the client's tile side by side, each with
+       its name under it; the client's name is the gold bar. The tile and pill
+       styles are doc-hero.css's; only the side-by-side layout is here. The
+       client's tile shows the client's logo, or the client's name when there
+       is no logo or it does not load. */
+    .header-tile-row.apx-pair { flex-direction: row; align-items: flex-start; gap: 16px; max-width: min(688px, calc(100% - 32px)); }
+    .apx-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 220px; }
+    .apx-col:first-child { flex-shrink: 0; }
+    .apx-col[hidden] { display: none; }
+    .apx-col .brand-pill { text-align: center; }
+    .brand-pill.gold-bar-label { color: var(--gold); border-color: rgba(224, 165, 38, 0.25); }
+    .brand-pill.gold-bar-label.is-long { font-size: 12px; }
+    /* A narrow screen: the two tiles share the width equally and the names
+       wrap inside their own half. (Side by side at full size needs about
+       610px.) */
+    @media (max-width: 640px) {
+      .header-tile-row.apx-pair { gap: 10px; width: calc(100% - 32px); }
+      .apx-col, .apx-col:first-child { flex: 1 1 0; min-width: 0; }
+      .hero-band.doc-screen .apx-col .client-logo-tile { width: 100%; min-width: 0; max-width: 220px; }
+      .hero-band.doc-screen .apx-col .client-logo-tile img, .apx-col .client-logo-tile .client-name-mark { max-width: 100%; }
+      .hero-band.doc-screen .apx-col .brand-pill { font-size: 13px; padding: 4px 12px; }
+    }
+    @media (max-width: 480px) {
+      .hero-band.doc-screen .apx-col .brand-pill { font-size: 11px; padding: 4px 10px; }
+    }
     .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
     h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
     .meta-area { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
@@ -90,6 +116,17 @@
     .state p { color: var(--muted); }
     .banner { border-radius: 10px; padding: 12px 14px; font-size: 14px; font-weight: 700; text-align: center; }
     .banner.draft { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; }
+    /* STAFF REVIEW MODE (?preview=1&id=, signed-in staff only). The bar is
+       built by the script only for staff and never prints. */
+    .banner.preview { background: var(--navy); border: 1px solid var(--gold); color: #fff; letter-spacing: 0.06em; }
+    .btn.is-off { opacity: 0.4; cursor: not-allowed; }
+    .review-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: #fff; border-top: 3px solid var(--gold); box-shadow: 0 -4px 18px rgba(0,0,0,0.18); padding: 10px 16px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    .review-inner { max-width: 688px; margin: 0 auto; }
+    .review-bar .btn.gold { margin-top: 0; background: var(--gold); color: var(--navy); }
+    .review-find { margin-top: 8px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; }
+    .review-find strong { overflow-wrap: anywhere; }
+    .review-links { display: flex; flex-wrap: wrap; gap: 0 20px; }
+    body.has-review-bar .wrap { padding-bottom: 270px; }
     .foot { margin-top: 18px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.7; }
     .foot a { color: var(--muted); }
     .muted { color: var(--muted); }
@@ -103,7 +140,10 @@
       .no-print { display: none !important; }
       .wrap { max-width: none; padding: 0; }
       .hero-band.doc-screen { height: 1.25in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 5px; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; bottom: 8px; gap: 16px; }
+      .apx-col { gap: 5px; }
+      /* A long client name may take two lines and still fit the band. */
+      .brand-pill.gold-bar-label.is-long { font-size: 11px; line-height: 1.3; padding: 3px 14px; }
       .hero-band.doc-screen .client-logo-tile { height: 62px; }
       .hero-band.doc-screen .client-logo-tile img { max-height: 46px; }
       /* Tightened so a one-line invoice and its footer stay on one page. */
@@ -119,9 +159,20 @@
 <body>
   <div class="hero-band doc-screen" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
-    <div class="header-tile-row">
-      <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
-      <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
+    <div class="header-tile-row apx-pair">
+      <div class="apx-col">
+        <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div>
+        <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span>
+      </div>
+      <!-- The client's tile. The name is always loaded first; the logo, when
+           there is one and it loads, takes its place. -->
+      <div class="apx-col" id="clientCol" hidden>
+        <div class="client-logo-tile">
+          <img id="clientLogo" alt="" hidden>
+          <span id="clientLogoFallback" class="client-name-mark"></span>
+        </div>
+        <span class="brand-pill gold-bar-label" id="goldBarClientName" hidden></span>
+      </div>
     </div>
   </div>
 
@@ -141,6 +192,7 @@
       <div class="card no-print" id="cardPdf"><button type="button" class="btn secondary" id="btnPdf" style="margin-top:0;"></button><div class="err hidden" role="alert" id="pdfErr"></div><button type="button" class="btn secondary hidden" id="btnPrint"></button></div>
     </div>
   </div>
+  <div class="review-bar no-print hidden" id="reviewBar"></div>
 
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
@@ -150,6 +202,31 @@
     var isRender = /[?&](render|noprint)=1/.test(qs);
     var paidReturn = /[?&]paid=1/.test(qs), paidTries = 0;
     var inv = null;
+
+    // STAFF REVIEW MODE. Asked for with ?preview=1&id=<invoice id> next to the
+    // token, and given ONLY to a signed-in staff user: the same Firebase
+    // sign-in the staff pages use, then the Worker's own staff-only routes
+    // (they answer 401/403 to anyone else). A client who opens the same
+    // address gets the normal page: nothing below is shown, built or loaded
+    // for them beyond the sign-in check itself. Never in the PDF render.
+    var previewId = (qs.match(/[?&]id=([^&#]+)/) || [])[1] || null;
+    try { previewId = previewId ? decodeURIComponent(previewId) : null; } catch (ePid) { previewId = null; }
+    var previewWanted = !isRender && !!token && !!previewId && /[?&]preview=1(&|$)/.test(qs);
+    // staff: the Worker confirmed a staff user. row: this invoice as the
+    // Finance page lists it (id, number, client WhatsApp). templates and
+    // switchOn: what the send needs, loaded before any click.
+    var REVIEW = { staff: false, row: null, templates: null, switchOn: false };
+    var SEND_JS = "apex-invoice-send.js?v=1791166922";
+    var FIREBASE_JS = ["https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"];
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+    var currentUser = null;
 
     // Every string on the page, PT (default) and EN.
     var STR = {
@@ -170,6 +247,11 @@
         payReceived: "Pagamento recebido. Obrigado!", payProcessing: "Pagamento em processamento. Atualizaremos esta fatura quando for confirmado.",
         pdf: "Baixar fatura (PDF)", pdfFail: "Não foi possível gerar o PDF agora. Use Imprimir.", print: "Imprimir",
         foot: "Fatura gerada por Apex Command Center", privacy: "Política de Privacidade", terms: "Termos de Uso",
+        previewBanner: "PR\u00c9VIA, AINDA N\u00c3O ENVIADA", reviewBar: "Revisar e enviar",
+        reviewSend: "Enviar pelo WhatsApp", reviewFind: "No WhatsApp, procure por:", reviewCopy: "Copiar", reviewCopied: "Copiado.",
+        reviewCopyFail: "N\u00e3o foi poss\u00edvel copiar. Selecione o texto e copie.",
+        reviewOther: "Enviar de outra forma", reviewTest: "Envio de teste (n\u00e3o marca como enviada)",
+        reviewMarkFail: "O WhatsApp abriu, mas n\u00e3o foi poss\u00edvel marcar a fatura como enviada: {err}. Use \"Enviar de outra forma\".",
         other: "EN"
       },
       en: {
@@ -189,6 +271,11 @@
         payReceived: "Payment received. Thank you!", payProcessing: "Payment processing. This invoice will update when it is confirmed.",
         pdf: "Download your invoice (PDF)", pdfFail: "Could not generate the PDF right now. Use Print.", print: "Print",
         foot: "Invoice generated by Apex Command Center", privacy: "Privacy Policy", terms: "Terms",
+        previewBanner: "PREVIEW, NOT SENT YET", reviewBar: "Review and send",
+        reviewSend: "Send via WhatsApp", reviewFind: "In WhatsApp, search for:", reviewCopy: "Copy", reviewCopied: "Copied.",
+        reviewCopyFail: "Could not copy. Select the text and copy it.",
+        reviewOther: "Send another way", reviewTest: "Test send (does not mark as sent)",
+        reviewMarkFail: "WhatsApp opened, but the invoice could not be marked as sent: {err}. Use \"Send another way\".",
         other: "PT"
       }
     };
@@ -337,9 +424,18 @@
           '<div class="head-row"><span class="stamp ' + statusClass(inv.status) + '">' + escHtml(statusLabel(inv.status)) + '</span>' +
           '<a class="lang-toggle no-print" id="langToggle" href="' + escHtml(langHref()) + '">' + escHtml(T("other")) + '</a></div></div></div>';
       }
+      renderHero();
+      // Staff reviewing a draft see the preview banner in place of the yellow
+      // draft one; everyone else sees the draft banner as before.
+      var reviewing = reviewDraft();
       var draft = byId("cardDraft");
       if (draft) {
-        if (inv.draft) { draft.innerHTML = '<div class="banner draft">' + escHtml(T("draftBanner")) + '</div>'; draft.classList.remove("hidden"); }
+        if (inv.draft) {
+          draft.innerHTML = reviewing
+            ? '<div class="banner preview" role="status">' + escHtml(T("previewBanner")) + '</div>'
+            : '<div class="banner draft">' + escHtml(T("draftBanner")) + '</div>';
+          draft.classList.remove("hidden");
+        }
         else { draft.classList.add("hidden"); }
       }
       var subj = byId("cardSubject");
@@ -379,9 +475,61 @@
       if (foot) {
         foot.innerHTML = escHtml(T("foot")) + '<br><span class="no-print"><a href="privacy.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("privacy")) + '</a> &middot; <a href="terms.html" target="_blank" rel="noopener noreferrer">' + escHtml(T("terms")) + '</a></span>';
       }
-      var pdf = byId("btnPdf"); if (pdf) { pdf.textContent = T("pdf"); pdf.onclick = openPdf; }
+      // While staff review a draft the PDF button is greyed out and does nothing.
+      var pdf = byId("btnPdf");
+      if (pdf) {
+        pdf.textContent = T("pdf");
+        pdf.disabled = reviewing;
+        pdf.classList.toggle("is-off", reviewing);
+        pdf.setAttribute("aria-disabled", reviewing ? "true" : "false");
+        pdf.onclick = reviewing ? null : openPdf;
+      }
+      renderReviewBar();
       var pr = byId("btnPrint"); if (pr) { pr.textContent = T("print"); pr.onclick = printWithoutToken; }
       paidNote();
+    }
+
+    // The client's tile and the gold bar, as the staff invoice does it
+    // (templates/apex-invoice-template-DRAFT.html):
+    //   - the client's NAME is always loaded into the tile first, so every path
+    //     that hides the image lands on the name and never on empty space;
+    //   - with a logo, the image shows and the name hides;
+    //   - with no logo, or when the image fails to load, the name shows;
+    //   - a name over 22 characters takes the smaller size (is-long);
+    //   - the gold bar carries the client's name in every case.
+    // The logo address comes from the Worker only when a logo really exists;
+    // /logo-image needs no login.
+    var clientLogoFailed = null;
+    function renderHero() {
+      var col = byId("clientCol"), logo = byId("clientLogo"), fb = byId("clientLogoFallback"), gold = byId("goldBarClientName");
+      var name = inv.client_name || "";
+      var url = inv.client_logo_url || "";
+      if (url && url === clientLogoFailed) { url = ""; }
+      if (fb) {
+        fb.textContent = name;
+        fb.classList.toggle("is-long", name.length > 22);
+      }
+      if (logo && url) {
+        logo.onerror = function() {
+          clientLogoFailed = url;
+          logo.hidden = true;
+          if (fb) { fb.hidden = false; }
+        };
+        logo.alt = name;
+        if (logo.getAttribute("src") !== url) { logo.src = url; }
+        logo.hidden = false;
+        if (fb) { fb.hidden = true; }
+      } else {
+        if (logo) { logo.hidden = true; }
+        if (fb) { fb.hidden = false; }
+      }
+      if (gold) {
+        gold.textContent = name;
+        gold.classList.toggle("is-long", name.length > 22);
+        gold.hidden = !name;
+      }
+      // No name and no logo: nothing to show, so no empty tile.
+      if (col) { col.hidden = !(name || url); }
     }
 
     // Ways to pay: Zelle (the handle as text and the QR as a picture, never a
@@ -462,6 +610,174 @@
         });
     }
 
+    // STAFF REVIEW MODE, the working parts.
+    // True only for confirmed staff looking at THIS invoice (the id in the
+    // address must be the invoice the token shows: same number).
+    function reviewOn() {
+      return REVIEW.staff === true && !!REVIEW.row && !!inv && !!inv.number && REVIEW.row.number === inv.number;
+    }
+    // ... and the invoice is still a draft. A sent invoice in review mode is
+    // just the page.
+    function reviewDraft() { return reviewOn() && inv.draft === true && REVIEW.row.status === "draft"; }
+
+    function loadScript(src, done) {
+      var el = document.createElement("script");
+      el.src = src;
+      el.onload = function() { done(true); };
+      el.onerror = function() { done(false); };
+      document.head.appendChild(el);
+    }
+    // The staff pages' signed-in fetch (finance-new.html apiFetch).
+    function apiFetch(path, opts) {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken().then(function(idToken) {
+        var method = (opts && opts.method) || "GET";
+        return fetch(WORKER_URL + path, { method: method, headers: { "Authorization": "Bearer " + idToken } });
+      });
+    }
+    // Three staff-only answers. The first decides: anyone who is not staff
+    // gets 401/403 there and the page stays the client's page.
+    function reviewLoadStaff() {
+      var sw = apiFetch("/api/finance-new/settings/switches").then(function(r) {
+        if (!r.ok) { throw new Error("not staff"); }
+        return r.json();
+      }).then(function(d) {
+        if (!d || d.error) { throw new Error("not staff"); }
+        REVIEW.switchOn = d.client_invoice_link_enabled === true;
+      });
+      // Prefetched, as on the Finance page, so the send can open WhatsApp
+      // inside the click. A failure leaves null and the built-in text is used,
+      // exactly as there.
+      var tp = apiFetch("/api/settings/templates").then(function(r) { return r.json(); }).then(function(d) {
+        var all = {};
+        (d.templates || []).forEach(function(t) { all[t.template_key] = t.template_text; });
+        REVIEW.templates = all;
+      }).catch(function() { REVIEW.templates = null; });
+      var rows = apiFetch("/api/finance-new/invoices").then(function(r) {
+        if (!r.ok) { throw new Error("not staff"); }
+        return r.json();
+      }).then(function(d) {
+        var list = (d && d.invoices) || [], found = null;
+        for (var i = 0; i < list.length; i++) { if (list[i].id === previewId) { found = list[i]; } }
+        if (!found) { throw new Error("invoice not found"); }
+        REVIEW.row = found;
+      });
+      return Promise.all([sw, tp, rows]).then(function() { REVIEW.staff = true; });
+    }
+    // Loads the sign-in library and the shared send code (only here, never
+    // for a client's plain link), waits for the sign-in answer, then calls
+    // done() exactly once. Every failure ends in done() with review mode off.
+    function reviewStart(done) {
+      var finished = false;
+      function finish() {
+        if (finished) { return; }
+        finished = true;
+        done();
+      }
+      // Never leave the page on "Loading" because sign-in did not answer.
+      window.setTimeout(finish, 8000);
+      loadScript(FIREBASE_JS[0], function(ok1) {
+        if (!ok1) { finish(); return; }
+        loadScript(FIREBASE_JS[1], function(ok2) {
+          if (!ok2) { finish(); return; }
+          loadScript(SEND_JS, function(ok3) {
+            if (!ok3 || !window.ApexInvoiceSend || !window.firebase) { finish(); return; }
+            try {
+              window.firebase.initializeApp(FIREBASE_CONFIG);
+              window.firebase.auth().onAuthStateChanged(function(user) {
+                if (!user) { currentUser = null; finish(); return; }
+                currentUser = user;
+                reviewLoadStaff().then(function() {
+                  // The sign-in can answer after the page already rendered
+                  // (a slow token refresh): load again, now as staff.
+                  if (finished) { load(false); } else { finish(); }
+                }, function(e) { console.error(e); finish(); });
+              });
+            } catch (e) { console.error(e); finish(); }
+          });
+        });
+      });
+    }
+
+    function reviewSay(text) { var m = byId("reviewMsg"); if (m) { m.textContent = text || ""; } }
+    function reviewSearchText() { return "APEX + " + (inv.client_name || ""); }
+    // What apex-invoice-send.js needs from this page. confirm: false, because
+    // here the person is looking at the invoice itself: one click sends.
+    function reviewDeps() {
+      return {
+        apiFetch: apiFetch,
+        templates: function() { return REVIEW.templates; },
+        clientLinkEnabled: function() { return REVIEW.switchOn === true; },
+        isEn: function() { return LANG === "en"; },
+        fmtCents: money,
+        toast: reviewSay,
+        onSent: reviewSent,
+        confirm: false,
+        onMarkFailed: function(e) {
+          reviewBusy(false);
+          reviewSay(T("reviewMarkFail", { err: (e && e.message) || "?" }));
+        }
+      };
+    }
+    function reviewBusy(on) { var b = byId("btnReviewSend"); if (b) { b.disabled = on; } }
+    // ONE click: records the invoice as sent and opens WhatsApp, in the order
+    // and with the message and link the Finance page uses (the same code).
+    function reviewSend() {
+      if (!reviewDraft()) { return; }
+      reviewBusy(true);
+      reviewSay("");
+      window.ApexInvoiceSend.sendWhatsApp(REVIEW.row, reviewDeps());
+    }
+    // Records the invoice as sent without WhatsApp, after one confirmation.
+    function reviewSendOther() {
+      if (!reviewDraft()) { return; }
+      window.ApexInvoiceSend.markSentOnly(REVIEW.row.id, REVIEW.row, reviewDeps());
+    }
+    // Opens WhatsApp with the same message. Records nothing.
+    function reviewTest() {
+      if (!reviewDraft()) { return; }
+      window.ApexInvoiceSend.testSend(REVIEW.row, reviewDeps());
+    }
+    function reviewCopy() {
+      copyText(reviewSearchText(), function(ok) { reviewSay(ok ? T("reviewCopied") : T("reviewCopyFail")); });
+    }
+    // Recorded as sent: the bar and the banner go, and the page loads again so
+    // it shows what the client now sees.
+    function reviewSent() {
+      if (REVIEW.row) { REVIEW.row.status = "sent"; }
+      var banner = byId("cardDraft");
+      if (banner) { banner.classList.add("hidden"); }
+      renderReviewBar();
+      load(false);
+    }
+    // The bar exists only while staff review a draft. It is built here, so a
+    // client's page never contains a send button at all.
+    function renderReviewBar() {
+      var bar = byId("reviewBar");
+      if (!bar) { return; }
+      if (!reviewDraft()) {
+        bar.innerHTML = "";
+        bar.classList.add("hidden");
+        document.body.classList.remove("has-review-bar");
+        return;
+      }
+      var said = byId("reviewMsg"), keep = said ? said.textContent : "";
+      var sendBtn = byId("btnReviewSend"), busy = sendBtn ? sendBtn.disabled : false;
+      bar.setAttribute("role", "region");
+      bar.setAttribute("aria-label", T("reviewBar"));
+      bar.innerHTML = '<div class="review-inner">' +
+        '<button type="button" class="btn gold" id="btnReviewSend" onclick="reviewSend()">' + escHtml(T("reviewSend")) + '</button>' +
+        '<div class="review-find"><span>' + escHtml(T("reviewFind")) + '</span><strong id="reviewFindText">' + escHtml(reviewSearchText()) + '</strong>' +
+        '<button type="button" class="linkbtn" id="btnReviewCopy" onclick="reviewCopy()">' + escHtml(T("reviewCopy")) + '</button></div>' +
+        '<div class="review-links"><button type="button" class="linkbtn" id="btnReviewOther" onclick="reviewSendOther()">' + escHtml(T("reviewOther")) + '</button>' +
+        '<button type="button" class="linkbtn" id="btnReviewTest" onclick="reviewTest()">' + escHtml(T("reviewTest")) + '</button></div>' +
+        '<div class="copy-msg" id="reviewMsg" role="status" aria-live="polite"></div></div>';
+      reviewSay(keep);
+      reviewBusy(busy);
+      bar.classList.remove("hidden");
+      document.body.classList.add("has-review-bar");
+    }
+
     function renderDone(flag) {
       if (flag !== "1") { document.body.setAttribute("data-render-done", flag); return; }
       // The Worker's PDF printer waits for this flag, then for every image.
@@ -482,7 +798,10 @@
       var first = refresh
         ? fetch(base + "/refresh", { method: "POST" }).then(function(res) { if (!res.ok) { throw new Error("refresh"); } return res; })
             .catch(function() { return fetch(base); })
-        : fetch(base + (isRender ? "?render=1" : ""));
+        // render=1 tells the Worker this is not the client opening the
+        // invoice (the PDF printer, or staff in review mode), so it is not
+        // counted as a view.
+        : fetch(base + ((isRender || REVIEW.staff) ? "?render=1" : ""));
       first
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
         .then(function(d) { inv = d.invoice; render(); show("doc"); renderDone("1"); })
@@ -493,7 +812,8 @@
       var lt = byId("loadingText"); if (lt) { lt.textContent = T("loading"); }
       var hi = byId("heroImg");
       if (hi) { hi.style.objectPosition = "50% 38%"; hi.addEventListener("load", function() { hi.hidden = false; }); hi.src = "assets/login/Picture4.jpg"; }
-      load(paidReturn && !isRender);
+      if (previewWanted) { reviewStart(function() { load(false); }); }
+      else { load(paidReturn && !isRender); }
     };
   </script>
 </body>

@@ -1,0 +1,1994 @@
+{
+ "version": 1,
+ "source": "Sorted by reading data/contract-state-riders-v1.json. Edit scripts/make-state-checklist-data.mjs, not this file.",
+ "note": "c: A = action (a tick-box line on the Before you send card), H = handled by the builder, B = background. A line with no entry is background. No lawyer has reviewed this sorting.",
+ "ref_fallback": {
+  "en": "details",
+  "pt": "detalhes"
+ },
+ "generic": {
+  "license": {
+   "c": "A",
+   "en": "Make sure your license or registration covers this job in {state}",
+   "pt": "Confira se a sua licença ou registro vale para este serviço em {state}",
+   "ref_from": "license_ref",
+   "flag": "Worded as a check: the builder cannot tell which license this job needs.",
+   "unless": "license_local"
+  },
+  "license_local": {
+   "c": "A",
+   "en": "Check whether the city or county requires a local license for this job",
+   "pt": "Confira se a cidade ou o condado exige licença local para este serviço",
+   "flag": "The research found no state-level license and did not look at cities and counties."
+  },
+  "license_word": {
+   "c": "H",
+   "why": "The contract's license line already uses the word this state uses."
+  },
+  "license_number": {
+   "c": "H",
+   "why": "Your number on file prints in the contract."
+  },
+  "license_number#missing": {
+   "c": "A",
+   "en": "Add your license or registration number in the document settings",
+   "pt": "Cadastre o número da sua licença ou registro nas configurações dos documentos",
+   "ref_from": "license_ref",
+   "unless": "license_local"
+  },
+  "written_contract": {
+   "c": "H",
+   "why": "This builder is the written contract."
+  },
+  "cancellation": {
+   "c": "H",
+   "why": "The contract states the right to cancel and counts the deadline."
+  },
+  "cancellation_days": {
+   "c": "B",
+   "why": "How the state counts the days. The builder does the counting."
+  },
+  "cancellation_deadline": {
+   "c": "H",
+   "why": "The builder computes the deadline and prints the federal notice and form."
+  },
+  "cancellation_oral": {
+   "c": "A",
+   "en": "Tell the customer out loud that they can cancel",
+   "pt": "Diga ao cliente em voz alta que ele pode cancelar",
+   "ref_from": "cancel_ref"
+  },
+  "cancellation_language": {
+   "c": "A",
+   "en": "Give the contract and the cancellation notice in the language you used to make the sale",
+   "pt": "Entregue o contrato e o aviso de cancelamento no idioma usado na venda",
+   "ref_from": "cancel_ref"
+  },
+  "cancellation_window": {
+   "c": "A",
+   "en": "Wait until the cancellation period ends before you start work or take payment",
+   "pt": "Espere o prazo de cancelamento acabar antes de começar o serviço ou receber pagamento",
+   "ref_from": "cancel_ref"
+  },
+  "deposit": {
+   "c": "B",
+   "why": "What the research found about deposit limits. When the limit is a clean number the builder compares your first payment with it."
+  },
+  "deposit_over": {
+   "c": "A",
+   "en": "Lower the first payment to {cap} or less: it is over this state's deposit limit",
+   "pt": "Reduza o primeiro pagamento para {cap} ou menos: ele passa do limite de sinal deste estado",
+   "ref_from": "deposit_ref"
+  },
+  "notice": {
+   "c": "A",
+   "en": "Attach this notice before the customer signs: {title}",
+   "pt": "Anexe este aviso antes de o cliente assinar: {title}",
+   "flag": "No sentence was written for this notice yet; this is the fallback wording."
+  },
+  "notice#prints": {
+   "c": "H",
+   "why": "This notice prints in the contract."
+  },
+  "defect": {
+   "c": "B",
+   "why": "How this state handles construction defect claims. Where the research gives a cite, the warranty and dispute clauses already point to it."
+  },
+  "pool": {
+   "c": "A",
+   "en": "Check the pool safety rules in {state} for this job",
+   "pt": "Confira as regras de segurança de piscina em {state} para este serviço",
+   "flag": "The research lists a pool rule by name only. Worded as a check."
+  },
+  "risky": {
+   "c": "A",
+   "en": "Look again at clause {option}: the research flags it in {state}",
+   "pt": "Reveja a cláusula {option}: a pesquisa aponta um risco em {state}"
+  },
+  "item": {
+   "c": "B",
+   "why": "A summary line from the research."
+  },
+  "extra": {
+   "c": "B",
+   "why": "A note from the research."
+  },
+  "status": {
+   "c": "B",
+   "why": "How far the research for this state got."
+  },
+  "cleaning_blocks": {
+   "c": "H",
+   "why": "The builder leaves the Florida cleaning notices out and prints the federal ones when they apply."
+  },
+  "cleaning_auto_renewal": {
+   "c": "B",
+   "why": "The state's automatic renewal rule, for when a plan renews by itself."
+  },
+  "cleaning_auto_renewal#renews": {
+   "c": "A",
+   "en": "This plan renews by itself: follow the state's automatic renewal rule",
+   "pt": "Este plano renova sozinho: siga a regra de renovação automática do estado"
+  },
+  "cleaning_auto_renewal#renews_no_rule": {
+   "c": "A",
+   "en": "This plan renews by itself: check whether {state} has an automatic renewal rule",
+   "pt": "Este plano renova sozinho: confira se {state} tem regra de renovação automática",
+   "flag": "The research found no rule, which is not proof that none exists."
+  },
+  "cleaning_license": {
+   "c": "B",
+   "why": "What the research found about a cleaning license."
+  },
+  "cleaning_license#check": {
+   "c": "A",
+   "en": "Check whether the city or county requires a license for cleaning",
+   "pt": "Confira se a cidade ou o condado exige licença para limpeza",
+   "flag": "The research has no note on a cleaning license for this state."
+  },
+  "cleaning_home_solicitation": {
+   "c": "B",
+   "why": "Whether the state's door-to-door rule reaches cleaning."
+  },
+  "cleaning_tax": {
+   "c": "B",
+   "why": "The builder prints no sales tax sentence outside Florida."
+  },
+  "cleaning_tax#applies": {
+   "c": "A",
+   "en": "Ask your tax professional whether to charge sales tax on this job",
+   "pt": "Pergunte ao seu contador se deve cobrar imposto sobre vendas neste serviço",
+   "flag": "The clause library holds Florida's tax rules only."
+  },
+  "fixed:1": {
+   "c": "A",
+   "en": "Take dated photos before work starts and get the condition acknowledgment signed",
+   "pt": "Tire fotos com data antes de começar e pegue a assinatura no termo de condição do imóvel",
+   "ref": "good practice",
+   "ref_pt": "boa prática"
+  },
+  "fixed:2": {
+   "c": "A",
+   "en": "Send the customer the complete signed copy as soon as both of you have signed",
+   "pt": "Envie ao cliente a cópia completa e assinada assim que os dois tiverem assinado",
+   "ref": "good practice",
+   "ref_pt": "boa prática"
+  },
+  "fixed:3": {
+   "c": "H",
+   "why": "The builder lists every field that is still empty before you send.",
+   "flag": "A statutory form prints its own blanks (a date line, a signature line) exactly as the law prints them; those are filled by hand."
+  }
+ },
+ "states": {
+  "AL": {
+   "cancel_ref": "Ala. Code 5-19-12",
+   "lines": {
+    "notice:AL-insurance": {
+     "c": "A",
+     "en": "Give the customer the written liability insurance disclosure and get it signed before work starts",
+     "pt": "Entregue ao cliente a declaração de seguro de responsabilidade por escrito e pegue a assinatura antes de começar o serviço"
+    },
+    "notice:AL-cancel-credit": {
+     "c": "H",
+     "why": "The federal cancellation notice and form print in the contract, and the research says this state accepts them instead."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "H",
+     "why": "The contract is signed by both sides in the app."
+    }
+   }
+  },
+  "AK": {
+   "cancel_ref": "AS 45.02.350",
+   "license_ref": "AS 08.18",
+   "lines": {
+    "notice:AK-cancel": {
+     "c": "H",
+     "why": "The contract's cancellation notice already counts five business days for Alaska.",
+     "flag": "The statute gives no wording of its own. Marked handled because the builder prints the notice with the five-day count; a lawyer should confirm that is enough."
+    },
+    "notice:AK-defect-notice": {
+     "c": "A",
+     "en": "For a home build or a large remodel, attach the page \"Notice of Potential Claims Must Be Provided within One Year\" and get it signed",
+     "pt": "Para construção ou reforma grande de casa, anexe a página \"Notice of Potential Claims Must Be Provided within One Year\" e pegue a assinatura"
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "AZ": {
+   "cancel_ref": "A.R.S. 44-5004",
+   "license_ref": "A.R.S. 32-1121",
+   "lines": {
+    "notice:AZ-registrar": {
+     "c": "A",
+     "en": "Attach the Registrar of Contractors complaint statement (10 point bold, with phone and website)",
+     "pt": "Anexe a declaração de reclamação do Registrar of Contractors (negrito, corpo 10, com telefone e site)"
+    },
+    "notice:AZ-pool-notice": {
+     "c": "A",
+     "en": "Hand the customer the state pool safety notice",
+     "pt": "Entregue ao cliente o aviso estadual de segurança de piscina"
+    },
+    "notice:AZ-note-statement": {
+     "c": "A",
+     "en": "If the customer signs a promissory note, put the required statement on the face of the note",
+     "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
+     "flag": "Applies only when a note is taken."
+    },
+    "notice:AZ-new-dwelling": {
+     "c": "A",
+     "en": "If you are selling a newly built home, add the Registrar complaint provision and get the buyer's initials",
+     "pt": "Se estiver vendendo uma casa recém-construída, inclua a cláusula de reclamação do Registrar e pegue as iniciais do comprador",
+     "flag": "Applies only to the sale of a new home."
+    },
+    "notice:AZ-prelim-20day": {
+     "c": "B",
+     "why": "Sent by someone else, not by you. Subcontractors and suppliers send it."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "A.R.S. 32-1158",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "Give a receipt for any cash and a copy of every signed document",
+     "pt": "Dê recibo de qualquer pagamento em dinheiro e cópia de todos os documentos assinados",
+     "flag": "The research gives no law number for this line."
+    }
+   }
+  },
+  "AR": {
+   "cancel_ref": "ACA 4-89-107",
+   "lines": {
+    "notice:AR-lien": {
+     "c": "A",
+     "en": "Attach the IMPORTANT NOTICE TO OWNER (lien notice) and get the owner's signature before work starts",
+     "pt": "Anexe o IMPORTANT NOTICE TO OWNER (aviso de gravame) e pegue a assinatura do proprietário antes de começar o serviço"
+    },
+    "notice:AR-cancel": {
+     "c": "A",
+     "en": "Attach the state cancellation statement and two copies of the NOTICE OF CANCELLATION form",
+     "pt": "Anexe a declaração de cancelamento do estado e duas vias do formulário NOTICE OF CANCELLATION"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Put up a sign with your license number at the job site",
+     "pt": "Coloque uma placa com o número da sua licença no local do serviço",
+     "flag": "The research gives no law number for the job-site sign."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "CA": {
+   "cancel_ref": "B&P 7159",
+   "license_ref": "B&P 7048",
+   "deposit_ref": "B&P 7159",
+   "lines": {
+    "cancellation_days": {
+     "c": "A",
+     "en": "If the customer is a senior citizen, allow five business days to cancel, not three",
+     "pt": "Se o cliente for idoso, dê cinco dias úteis para cancelar, não três",
+     "ref": "B&P 7159",
+     "flag": "The builder counts three business days. It does not know the customer's age."
+    },
+    "notice:CA-insurance": {
+     "c": "B",
+     "why": "Points to the insurance statements listed below."
+    },
+    "notice:CA-7159.1": {
+     "c": "A",
+     "en": "If the contract is secured by a lien on the home, give the WARNING TO BUYER on a separate signed page",
+     "pt": "Se o contrato for garantido por gravame sobre a casa, entregue o WARNING TO BUYER em página separada e assinada",
+     "flag": "Applies only when the home secures the contract."
+    },
+    "notice:CA-7191": {
+     "c": "A",
+     "en": "If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and add the NOTICE by the initials line",
+     "pt": "Se o contrato tiver cláusula de arbitragem, use o título ARBITRATION OF DISPUTES e inclua o NOTICE junto à linha de iniciais",
+     "flag": "Applies only with an arbitration clause."
+    },
+    "notice:CA-1689.7": {
+     "c": "B",
+     "why": "For sales that are not home improvement. The home improvement notice prints instead."
+    },
+    "notice:CA-1689.7-form": {
+     "c": "B",
+     "why": "For sales that are not home improvement. The home improvement form prints instead."
+    },
+    "notice:CA-7159.10": {
+     "c": "A",
+     "en": "For a service and repair job of $750 or less, use the service and repair notices instead",
+     "pt": "Para um serviço de reparo de até $750.00, use os avisos de service and repair",
+     "flag": "Applies only to a small service and repair job the customer asked for."
+    },
+    "notice:CA-7159.10-copy": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:CA-7159.10-cancel": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:CA-115924": {
+     "c": "A",
+     "en": "Give the customer the notice of the pool safety requirements",
+     "pt": "Entregue ao cliente o aviso dos requisitos de segurança de piscina"
+    },
+    "notice:CA-downpayment": {
+     "c": "A",
+     "en": "If you charge a down payment, add the down payment statement under the heading \"Downpayment\"",
+     "pt": "Se cobrar sinal, inclua a declaração de sinal sob o título \"Downpayment\""
+    },
+    "notice:CA-progress-payments": {
+     "c": "A",
+     "en": "If there are progress payments, add the progress payment statement",
+     "pt": "Se houver pagamentos por etapa, inclua a declaração de pagamentos por etapa"
+    },
+    "notice:CA-subs-disclaimer": {
+     "c": "A",
+     "en": "If you will use a subcontractor, add the subcontractor statement to the contract and to each change order",
+     "pt": "Se for usar subempreiteiro, inclua a declaração de subempreiteiro no contrato e em cada aditivo"
+    },
+    "notice:CA-cgl-none": {
+     "c": "A",
+     "en": "Add the liability insurance (CGL) statement that is true for your business",
+     "pt": "Inclua a declaração de seguro de responsabilidade (CGL) que vale para a sua empresa"
+    },
+    "notice:CA-cgl-insured": {
+     "c": "B",
+     "why": "One of four versions of the same statement. See the CGL line."
+    },
+    "notice:CA-cgl-self": {
+     "c": "B",
+     "why": "One of four versions of the same statement. See the CGL line."
+    },
+    "notice:CA-cgl-llc": {
+     "c": "B",
+     "why": "One of four versions of the same statement. See the CGL line."
+    },
+    "notice:CA-wc-exempt": {
+     "c": "A",
+     "en": "Add the workers' compensation statement that is true for your business",
+     "pt": "Inclua a declaração de workers' compensation que vale para a sua empresa"
+    },
+    "notice:CA-wc-carries": {
+     "c": "B",
+     "why": "One of two versions of the same statement. See the workers' compensation line."
+    },
+    "notice:CA-7day-notice": {
+     "c": "A",
+     "en": "For disaster repair after a declared emergency, use the Seven-Day Right to Cancel notice and form",
+     "pt": "Para reparo de desastre após emergência declarada, use o aviso e o formulário Seven-Day Right to Cancel",
+     "flag": "Applies only to disaster repair."
+    },
+    "notice:CA-7day-form": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:CA-7164-lien": {
+     "c": "A",
+     "en": "For a new single-family home, add the Mechanics Lien Warning for new homes",
+     "pt": "Para casa unifamiliar nova, inclua o Mechanics Lien Warning de casas novas",
+     "flag": "Applies only to building a new home."
+    },
+    "pool": {
+     "c": "A",
+     "en": "Make sure the pool will have two of the seven required safety features",
+     "pt": "Garanta que a piscina terá dois dos sete itens de segurança exigidos",
+     "ref": "Health & Saf. Code 115922"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "B&P 7159, 7159.5",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Check that no payment is due before the work it pays for is done",
+     "pt": "Confira se nenhum pagamento vence antes de o serviço correspondente estar feito",
+     "flag": "The builder prints the payment schedule you set; it does not compare it with the work."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "B",
+     "why": "Why the pool lines matter: the research says a pool contract missing them is void to the contractor."
+    }
+   }
+  },
+  "CO": {
+   "cancel_ref": "C.R.S. 5-3-401",
+   "lines": {
+    "notice:CO-cancel-credit": {
+     "c": "H",
+     "why": "The federal cancellation notice and form print in the contract, and the research says this state accepts them instead."
+    },
+    "notice:CO-lien-notice": {
+     "c": "B",
+     "why": "Sent by someone else, not by you. The building permit office mails it."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The warranty and dispute clauses already point to the state's defect process."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "CT": {
+   "cancel_ref": "C.G.S. 42-135a",
+   "lines": {
+    "notice:CT-email-sentence": {
+     "c": "A",
+     "en": "If you send the contract by email, add the required sentence beside the message",
+     "pt": "Se enviar o contrato por e-mail, inclua a frase exigida junto à mensagem",
+     "flag": "The app sends a link to the contract. Nobody has checked whether that message needs this sentence."
+    },
+    "notice:CT-note-statement": {
+     "c": "A",
+     "en": "If the customer signs a promissory note, put the required statement on the face of the note",
+     "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
+     "flag": "Applies only when a note is taken."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "C.G.S. 20-429",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Change orders are written and signed in the app; the signed copy has its own line."
+    }
+   }
+  },
+  "DE": {
+   "cancel_ref": "6 Del. C. ch. 44",
+   "lines": {
+    "cancellation_days": {
+     "c": "H",
+     "why": "The builder leaves Saturday out when it counts the Delaware deadline."
+    },
+    "notice:DE-ag-summary": {
+     "c": "A",
+     "en": "Attach the Attorney General's \"Summary of Your Rights\" and hand it over before the customer signs",
+     "pt": "Anexe o \"Summary of Your Rights\" do Attorney General e entregue antes de o cliente assinar"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Check the contract has a completion date, and get initials on any warranty disclaimer",
+     "pt": "Confira se o contrato tem data de conclusão e pegue as iniciais em qualquer exclusão de garantia",
+     "ref": "6 Del. Admin. Code 106",
+     "flag": "Read from a short summary line in the research."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "DC": {
+   "cancel_ref": "D.C. Code 28-3811",
+   "license_ref": "D.C. Code 47-2883.01",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Sign the contract in three copies with every blank filled in before you take any payment",
+     "pt": "Assine o contrato em três vias, com todos os campos preenchidos, antes de receber qualquer pagamento",
+     "ref": "16 DCMR 808",
+     "flag": "The rule speaks of three paper copies. Nobody has checked how an online signature meets it."
+    },
+    "notice:DC-waiver": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it. For an emergency only."
+    },
+    "notice:DC-808-15": {
+     "c": "A",
+     "en": "Add the notice about not signing in blank and getting a copy (10 point bold)",
+     "pt": "Inclua o aviso sobre não assinar em branco e receber uma cópia (negrito, corpo 10)"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Put on the contract the name and license number of each salesperson who took part",
+     "pt": "Coloque no contrato o nome e o número de licença de cada vendedor que participou",
+     "ref": "16 DCMR 808.4, 808.9"
+    },
+    "item:2": {
+     "c": "B",
+     "why": "About unlicensed persons."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    },
+    "extra:1": {
+     "c": "A",
+     "en": "Before you use this contract in D.C., have your attorney confirm it",
+     "pt": "Antes de usar este contrato em D.C., peça ao seu advogado para confirmar",
+     "ref": "16 DCMR 811"
+    }
+   }
+  },
+  "GA": {
+   "cancel_ref": "O.C.G.A. 10-1-6",
+   "lines": {
+    "notice:GA-8-2-41": {
+     "c": "A",
+     "en": "Add the notice of the contractor's right to resolve construction defects",
+     "pt": "Inclua o aviso do direito do empreiteiro de resolver defeitos de construção"
+    },
+    "notice:GA-43-41-7": {
+     "c": "A",
+     "en": "For a single-family home job over $2,500, offer a written warranty and attach it before signing",
+     "pt": "Para serviço em casa unifamiliar acima de $2,500.00, ofereça garantia por escrito e anexe antes da assinatura",
+     "flag": "The rule is about building a single-family home; the research does not say whether a remodel counts."
+    },
+    "notice:GA-553-7-01": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:GA-553-8-01": {
+     "c": "A",
+     "en": "If you work under the repair exemption without a license, tell the owner in writing that you are not licensed",
+     "pt": "Se trabalhar pela isenção de reparos sem licença, avise o proprietário por escrito que você não é licenciado"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "About lien waiver forms, which are separate documents."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "A",
+     "en": "Check whether a notice of commencement must be filed for this job",
+     "pt": "Confira se é preciso registrar um notice of commencement para este serviço",
+     "flag": "The research calls this a process, not contract text. It does not say who must file or when, so it is worded as a check."
+    }
+   }
+  },
+  "HI": {
+   "cancel_ref": "HRS 481C-2",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Get the contract signed before any work starts",
+     "pt": "Pegue o contrato assinado antes de começar qualquer serviço",
+     "ref": "HRS 444-25.5"
+    },
+    "notice:HI-lien-bond": {
+     "c": "A",
+     "en": "Explain lien rights and the bonding option to the customer out loud, and add the written provision",
+     "pt": "Explique ao cliente em voz alta os direitos de gravame e a opção de fiança, e inclua a cláusula por escrito"
+    },
+    "notice:HI-risk-of-loss": {
+     "c": "A",
+     "en": "Add the risk of loss statement in capital letters next to the owner's signature line",
+     "pt": "Inclua a declaração de risco de perda em letras maiúsculas ao lado da assinatura do proprietário"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "List the percent of the work you will subcontract, with each subcontractor's name and license number",
+     "pt": "Informe a porcentagem do serviço que será subempreitada, com o nome e o número de licença de cada subempreiteiro",
+     "ref": "HAR 16-77-80"
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "ID": {
+   "cancel_ref": "IDAPA 04.02.01.170",
+   "license_ref": "54-5214",
+   "lines": {
+    "notice:ID-disclosure": {
+     "c": "A",
+     "en": "Give the homeowner disclosure statement and get a signed acknowledgment",
+     "pt": "Entregue a declaração ao proprietário e pegue o recibo assinado"
+    },
+    "notice:ID-cancel-credit": {
+     "c": "A",
+     "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
+     "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
+     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Give the list of subcontractors and suppliers before the final payment",
+     "pt": "Entregue a lista de subempreiteiros e fornecedores antes do pagamento final",
+     "ref": "45-525"
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The research says no notice is required in the contract."
+    }
+   }
+  },
+  "IL": {
+   "cancel_ref": "815 ILCS 505/2B",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Give the customer the contract to sign before work starts",
+     "pt": "Entregue o contrato para o cliente assinar antes de começar o serviço",
+     "ref": "815 ILCS 513/15"
+    },
+    "cancellation_days": {
+     "c": "A",
+     "en": "If the customer is 65 or older and you came uninvited, allow 15 business days to cancel",
+     "pt": "Se o cliente tiver 65 anos ou mais e você veio sem ser chamado, dê 15 dias úteis para cancelar",
+     "ref": "815 ILCS 513/22",
+     "flag": "The builder counts three business days. It does not know the customer's age."
+    },
+    "notice:IL-pamphlet": {
+     "c": "A",
+     "en": "Hand the customer the \"Home Repair: Know Your Consumer Rights\" pamphlet",
+     "pt": "Entregue ao cliente o folheto \"Home Repair: Know Your Consumer Rights\""
+    },
+    "notice:IL-ack-form": {
+     "c": "A",
+     "en": "Get the Consumer Rights Acknowledgment Form signed by you and the customer",
+     "pt": "Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente"
+    },
+    "notice:IL-lien": {
+     "c": "A",
+     "en": "Give the owner the lien notice and a sworn statement before the first payment",
+     "pt": "Entregue ao proprietário o aviso de gravame e a declaração juramentada antes do primeiro pagamento"
+    },
+    "notice:IL-arbitration-margin": {
+     "c": "A",
+     "en": "If the contract has an arbitration or jury waiver clause, have the customer sign and write \"accept\" or \"reject\" beside it",
+     "pt": "Se o contrato tiver cláusula de arbitragem ou de renúncia a júri, peça ao cliente para assinar e escrever \"accept\" ou \"reject\" ao lado",
+     "flag": "Applies only with one of those clauses."
+    },
+    "notice:IL-insurance-cancel": {
+     "c": "A",
+     "en": "If insurance money pays for the job, add the insurance cancellation statement and form",
+     "pt": "Se o seguro pagar o serviço, inclua a declaração e o formulário de cancelamento de seguro",
+     "flag": "Applies only to a job paid from an insurance claim."
+    },
+    "notice:IL-insurance-cancel-form": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "Check that you carry the insurance this state requires for home repair",
+     "pt": "Confira se você tem o seguro que este estado exige para reparos residenciais",
+     "flag": "The research names insurance minimums without the amounts or a law number."
+    }
+   }
+  },
+  "IN": {
+   "cancel_ref": "IC 24-5-11-10.6",
+   "lines": {
+    "notice:IN-cancel": {
+     "c": "A",
+     "en": "If you approached the customer without being asked, attach the state cancellation notice in two copies",
+     "pt": "Se você procurou o cliente sem ser chamado, anexe o aviso de cancelamento do estado em duas vias",
+     "flag": "Applies only to a sale the customer did not ask for."
+    },
+    "notice:IN-cancel-10-6": {
+     "c": "A",
+     "en": "Give the customer the statement of the right to cancel before they sign, with the NOTICE OF CANCELLATION form in two copies",
+     "pt": "Entregue ao cliente a declaração do direito de cancelar antes de ele assinar, com o formulário NOTICE OF CANCELLATION em duas vias"
+    },
+    "notice:IN-cancel-10-6-form": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:IN-cure": {
+     "c": "A",
+     "en": "For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects",
+     "pt": "Para construção ou reforma grande de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos",
+     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "IC 24-5-11-10",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Sign the contract yourself before the customer does, and give them the fully signed copy right away",
+     "pt": "Assine o contrato antes do cliente e entregue a cópia totalmente assinada na hora",
+     "ref": "IC 24-5-11"
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "IA": {
+   "cancel_ref": "Iowa Code 555A.2, 555A.3",
+   "license_ref": "Iowa Code ch. 91C",
+   "lines": {
+    "notice:IA-lien": {
+     "c": "A",
+     "en": "If you use a subcontractor, add the mechanics lien owner notice and post the job on the state registry within 10 days",
+     "pt": "Se usar subempreiteiro, inclua o aviso de gravame ao proprietário e registre o serviço no cadastro do estado em até 10 dias",
+     "flag": "Applies only when a subcontractor is used."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "KS": {
+   "cancel_ref": "K.S.A. 50-640",
+   "lines": {
+    "notice:KS-60-4706": {
+     "c": "A",
+     "en": "For building or remodeling a home, add the notice of the contractor's right to offer to repair construction defects",
+     "pt": "Para construção ou reforma de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos de construção"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "KY": {
+   "cancel_ref": "KRS 367.450(3)",
+   "lines": {
+    "notice:KY-cure": {
+     "c": "A",
+     "en": "If you are building a home, add the builder's right to cure notice",
+     "pt": "Se estiver construindo uma casa, inclua o aviso do direito do construtor de reparar defeitos",
+     "flag": "The research does not say whether a remodel, a pool or a tile job counts."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "LA": {
+   "cancel_ref": "R.S. 9:3538",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Get the contract signed before any work starts",
+     "pt": "Pegue o contrato assinado antes de começar qualquer serviço",
+     "ref": "R.S. 37:2159"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Attach your insurance certificates to the contract",
+     "pt": "Anexe os seus certificados de seguro ao contrato",
+     "ref": "R.S. 37:2159",
+     "flag": "Read from a contents list in the research; the rest of that list is in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    },
+    "extra:1": {
+     "c": "A",
+     "en": "Check whether a notice of contract and a bond must be filed for this job",
+     "pt": "Confira se é preciso registrar um notice of contract e uma fiança para este serviço",
+     "flag": "The research calls this a process, not contract text. It does not say who must file or when, so it is worded as a check."
+    },
+    "extra:2": {
+     "c": "B",
+     "why": "Why the license matters: the research says an unlicensed contractor cannot collect here."
+    }
+   }
+  },
+  "ME": {
+   "cancel_ref": "32 M.R.S. 4661 to 4668",
+   "deposit_ref": "10 M.R.S. 1487",
+   "lines": {
+    "cancellation_window": {
+     "c": "A",
+     "en": "Do not attach materials to the home until the cancellation period ends",
+     "pt": "Não fixe materiais na casa antes de o prazo de cancelamento acabar",
+     "ref": "32 M.R.S. 4661 to 4668"
+    },
+    "notice:ME-ag": {
+     "c": "A",
+     "en": "Attach the Attorney General's consumer information addendum",
+     "pt": "Anexe o adendo de informações ao consumidor do Attorney General"
+    },
+    "notice:ME-cancel": {
+     "c": "H",
+     "why": "The federal cancellation notice prints, and the research says the state accepts it when it gives at least equal information.",
+     "flag": "Credit sales only. A lawyer should confirm the federal notice gives equal information."
+    },
+    "notice:ME-cancel-caption": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "10 M.R.S. 1487",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The builder compares your first payment with the one-third limit."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "Have the customer pick one of the three dispute options printed in the contract",
+     "pt": "Peça ao cliente para escolher uma das três opções de disputa impressas no contrato",
+     "ref": "10 M.R.S. 1487(8)",
+     "flag": "The statute prints three choices with an empty mark after each. Nobody has checked how the online page records the choice."
+    }
+   }
+  },
+  "MD": {
+   "cancel_ref": "CL 14-302, 14-302.1",
+   "deposit_ref": "BR 8-617",
+   "lines": {
+    "cancellation_days": {
+     "c": "A",
+     "en": "If the customer is 65 or older, allow seven business days to cancel",
+     "pt": "Se o cliente tiver 65 anos ou mais, dê sete dias úteis para cancelar",
+     "ref": "CL 14-302.1",
+     "flag": "The builder counts five business days. It does not know the customer's age."
+    },
+    "notice:MD-mhic": {
+     "c": "A",
+     "en": "Add the MHIC notice (mediation, Guaranty Fund, bond right) to the contract",
+     "pt": "Inclua no contrato o aviso da MHIC (mediação, Guaranty Fund, direito a fiança)"
+    },
+    "notice:MD-cancel": {
+     "c": "A",
+     "en": "Attach the state cancellation statement, and the Notice of Cancellation form on a separate sheet",
+     "pt": "Anexe a declaração de cancelamento do estado e o formulário Notice of Cancellation em folha separada"
+    },
+    "notice:MD-security": {
+     "c": "A",
+     "en": "If payment is secured by the home, add the security and rescission notice on the first page and get initials",
+     "pt": "Se o pagamento for garantido pela casa, inclua o aviso de garantia e rescisão na primeira página e pegue as iniciais",
+     "flag": "Applies only when the home secures payment."
+    },
+    "notice:MD-oral-ack": {
+     "c": "A",
+     "en": "Get the customer's signature confirming you told them about the right to cancel",
+     "pt": "Pegue a assinatura do cliente confirmando que você avisou sobre o direito de cancelar"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "BR 8-501",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "B",
+     "why": "Why the license matters: the research says an unlicensed contractor cannot collect here."
+    }
+   }
+  },
+  "MA": {
+   "cancel_ref": "M.G.L. c. 93 s. 48",
+   "license_ref": "c. 142A s. 14",
+   "lines": {
+    "deposit": {
+     "c": "A",
+     "en": "Check that the deposit is not more than one third of the price (or the cost of special-order materials, if that is more)",
+     "pt": "Confira se o sinal não passa de um terço do preço (ou do custo dos materiais sob encomenda, se for maior)",
+     "ref": "c. 142A s. 2",
+     "flag": "The limit is not one clean number, so the builder cannot compare it for you."
+    },
+    "notice:MA-142A-notices": {
+     "c": "A",
+     "en": "Add the notices of registration, cancellation, warranties and lien, and the permit paragraph",
+     "pt": "Inclua os avisos de registro, cancelamento, garantias e gravame, e o parágrafo da licença de obra (permit)"
+    },
+    "notice:MA-adr-clause": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "c. 142A s. 2",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "A",
+     "en": "Check whether a notice of contract must be filed for this job",
+     "pt": "Confira se é preciso registrar um notice of contract para este serviço",
+     "flag": "The research calls this a process, not contract text. It does not say who must file or when, so it is worded as a check."
+    }
+   }
+  },
+  "MI": {
+   "cancel_ref": "MCL 445.113",
+   "license_ref": "339.2403(f)",
+   "lines": {
+    "notice:MI-lien": {
+     "c": "A",
+     "en": "Add the Construction Lien Act statement about your license to the contract",
+     "pt": "Inclua no contrato a declaração do Construction Lien Act sobre a sua licença"
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "About lien waiver forms, which are separate documents."
+    }
+   }
+  },
+  "MN": {
+   "cancel_ref": "Minn. Stat. 325G.08",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Give the customer the written performance guidelines before they sign",
+     "pt": "Entregue ao cliente as diretrizes de desempenho por escrito antes de ele assinar",
+     "ref": "326B.809"
+    },
+    "notice:MN-lien": {
+     "c": "A",
+     "en": "If you use subcontractors or suppliers, add the mechanics lien notice to the contract",
+     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato"
+    },
+    "notice:MN-roofing-cancel": {
+     "c": "A",
+     "en": "For roofing paid by insurance, give the 72 hour cancellation statement and form before signing",
+     "pt": "Para telhado pago por seguro, entregue a declaração e o formulário de cancelamento de 72 horas antes da assinatura",
+     "flag": "Applies only to roofing paid from an insurance claim."
+    },
+    "notice:MN-roofing-cancel-form": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "MS": {
+   "cancel_ref": "75-66",
+   "lines": {
+    "notice:MS-insurance": {
+     "c": "A",
+     "en": "Add the liability insurance disclosure just above the customer's signature",
+     "pt": "Inclua a declaração de seguro de responsabilidade logo acima da assinatura do cliente"
+    },
+    "notice:MS-cancel-credit": {
+     "c": "H",
+     "why": "The federal cancellation notice and form print in the contract, and the research says this state accepts them instead."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "MO": {
+   "cancel_ref": "407.710",
+   "lines": {
+    "notice:MO-cancel-credit": {
+     "c": "A",
+     "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
+     "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
+     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+    },
+    "notice:MO-consent": {
+     "c": "A",
+     "en": "If you want your subcontractors and suppliers to keep lien rights, get the CONSENT OF OWNER signed",
+     "pt": "Se quiser que subempreiteiros e fornecedores mantenham o direito de gravame, pegue o CONSENT OF OWNER assinado pelo proprietário"
+    },
+    "notice:MO-cure": {
+     "c": "A",
+     "en": "For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects",
+     "pt": "Para construção ou reforma grande de casa, inclua o aviso do direito do empreiteiro de propor o reparo de defeitos",
+     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "MT": {
+   "cancel_ref": "MCA 30-14-505",
+   "lines": {
+    "notice:MT-defect": {
+     "c": "A",
+     "en": "Give the homeowner written notice of the construction defect process",
+     "pt": "Entregue ao proprietário o aviso por escrito do processo de defeitos de construção"
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "NE": {
+   "cancel_ref": "69-1604",
+   "lines": {
+    "item:1": {
+     "c": "B",
+     "why": "The research found no rule that puts the number on the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "Say your own name and the business name at the start of the sales visit",
+     "pt": "Diga o seu nome e o nome da empresa no começo da visita de venda",
+     "flag": "The research gives no law number for this line."
+    }
+   }
+  },
+  "NV": {
+   "cancel_ref": "NRS 598.280",
+   "lines": {
+    "notice:NV-owner-notice": {
+     "c": "A",
+     "en": "Add the four-point owner notice near the signatures and get the owner's initials",
+     "pt": "Inclua o aviso de quatro pontos ao proprietário perto das assinaturas e pegue as iniciais do proprietário"
+    },
+    "notice:NV-sub-list": {
+     "c": "A",
+     "en": "Give the owner the list of subcontractors and suppliers in writing",
+     "pt": "Entregue ao proprietário, por escrito, a lista de subempreiteiros e fornecedores"
+    },
+    "notice:NV-info-liens": {
+     "c": "A",
+     "en": "Give the owner the two state information forms (liens and contractors)",
+     "pt": "Entregue ao proprietário os dois formulários informativos do estado (gravames e empreiteiros)"
+    },
+    "notice:NV-info-contractors": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:NV-pool-rights": {
+     "c": "A",
+     "en": "Give the customer a written statement of their pool and spa rights",
+     "pt": "Entregue ao cliente uma declaração por escrito dos direitos dele sobre piscina e spa"
+    },
+    "notice:NV-pool-notice": {
+     "c": "A",
+     "en": "Add the pool and spa notice near the signatures",
+     "pt": "Inclua o aviso de piscina e spa perto das assinaturas"
+    },
+    "pool": {
+     "c": "B",
+     "why": "The two pool and spa lines on this list say what to do."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "NRS 624.970",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Check that no payment is due before the work it pays for is done",
+     "pt": "Confira se nenhum pagamento vence antes de o serviço correspondente estar feito",
+     "flag": "The builder prints the payment schedule you set; it does not compare it with the work."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "NH": {
+   "cancel_ref": "RSA 361-B:2",
+   "lines": {
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "H",
+     "why": "The contract carries the seller's name, address and the date."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "NJ": {
+   "cancel_ref": "N.J.S.A. 56:8-151",
+   "license_ref": "13:45A-17.12",
+   "lines": {
+    "notice:NJ-division": {
+     "c": "A",
+     "en": "Add the Division of Consumer Affairs statement with its toll-free number (capitals, 10 point bold)",
+     "pt": "Inclua a declaração da Division of Consumer Affairs com o telefone gratuito (maiúsculas, negrito, corpo 10)"
+    },
+    "notice:NJ-cancel": {
+     "c": "A",
+     "en": "Add the three day cancellation notice with your name, address and phone",
+     "pt": "Inclua o aviso de cancelamento de três dias com o seu nome, endereço e telefone"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "13:45A-16.2",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "Give the customer a copy of your liability insurance certificate",
+     "pt": "Entregue ao cliente uma cópia do seu certificado de seguro de responsabilidade",
+     "ref": "13:45A-17.12",
+     "flag": "The research line says \"CGL certificate\" without saying who must receive it."
+    },
+    "extra:1": {
+     "c": "B",
+     "why": "Why the registration matters: the research says an unlicensed contractor cannot collect here."
+    }
+   }
+  },
+  "NM": {
+   "cancel_ref": "NMSA 57-12-21",
+   "lines": {
+    "notice:NM-default": {
+     "c": "A",
+     "en": "Give the state's residential default disclosure form before work, signing or payment, and get it signed",
+     "pt": "Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "About bids and permit applications, not the contract."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "NY": {
+   "cancel_ref": "GBL 771",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Give the customer a copy you have signed before work starts",
+     "pt": "Entregue ao cliente uma cópia assinada por você antes de começar o serviço",
+     "ref": "GBL 771"
+    },
+    "deposit": {
+     "c": "A",
+     "en": "Put any payment you receive before the job is finished in an escrow account, or post a bond",
+     "pt": "Deposite em conta de garantia (escrow) qualquer pagamento recebido antes do fim do serviço, ou apresente uma fiança",
+     "ref": "Lien Law 71-a(4)"
+    },
+    "notice:NY-cancel": {
+     "c": "A",
+     "en": "Check that the contract states the three business day right to cancel",
+     "pt": "Confira se o contrato informa o direito de cancelar em três dias úteis",
+     "flag": "New York gives this right on every home improvement contract. The builder prints the cancellation notice only when the sale was made at the customer's home."
+    },
+    "notice:NY-insurance": {
+     "c": "A",
+     "en": "Add your insurance policy information, with the insurer's phone and address",
+     "pt": "Inclua os dados da sua apólice de seguro, com telefone e endereço da seguradora"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "GBL 771(1)",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "NC": {
+   "cancel_ref": "G.S. 14-401.13",
+   "lines": {
+    "notice:NC-cancel-credit": {
+     "c": "A",
+     "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
+     "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
+     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+    },
+    "notice:NC-cancel-credit-form": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "ND": {
+   "cancel_ref": "N.D.C.C. 51-18-04",
+   "lines": {
+    "deposit": {
+     "c": "A",
+     "en": "Do not take any advance payment until you have the customer's signed contract",
+     "pt": "Não receba nenhum adiantamento antes de ter o contrato assinado pelo cliente",
+     "ref": "N.D.C.C. ch. 51-18"
+    },
+    "cancellation_days": {
+     "c": "A",
+     "en": "If the customer is 65 or older, check whether the 15 business day period applies",
+     "pt": "Se o cliente tiver 65 anos ou mais, confira se vale o prazo de 15 dias úteis",
+     "ref": "N.D.C.C. 51-18-04",
+     "flag": "The statute says \"product\", not services, so the research is unsure it reaches a service job."
+    },
+    "notice:ND-completion": {
+     "c": "A",
+     "en": "When the job is finished, give the customer the written notice of the warranty procedure",
+     "pt": "Ao terminar o serviço, entregue ao cliente o aviso por escrito do procedimento de garantia"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has a start date and a completion date",
+     "pt": "Confira se o contrato tem data de início e data de conclusão",
+     "flag": "The research gives no law number for this line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "OH": {
+   "cancel_ref": "R.C. 1345.23",
+   "deposit_ref": "R.C. 4722",
+   "lines": {
+    "notice:OH-estimate-form": {
+     "c": "A",
+     "en": "Give the customer the estimate form at the first meeting and get their initials",
+     "pt": "Entregue ao cliente o formulário de estimativa no primeiro encontro e pegue as iniciais"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "B",
+     "why": "The owner's duty, not yours."
+    }
+   }
+  },
+  "OK": {
+   "cancel_ref": "14A 2-503",
+   "lines": {
+    "notice:OK-cancel-credit": {
+     "c": "A",
+     "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
+     "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
+     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The warranty and dispute clauses already point to the state's defect process."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "OR": {
+   "cancel_ref": "ORS 83.730",
+   "lines": {
+    "notice:OR-lien": {
+     "c": "A",
+     "en": "Give the owner the CCB \"Information Notice to Owner About Construction Lien Rights\" on or before the contract date",
+     "pt": "Entregue ao proprietário o \"Information Notice to Owner About Construction Lien Rights\" do CCB até a data do contrato"
+    },
+    "notice:OR-cancel": {
+     "c": "B",
+     "why": "The research says the statute sets no wording and does not require the contract to print this right."
+    },
+    "notice:OR-ccb": {
+     "c": "A",
+     "en": "Give the owner the CCB Consumer Protection Notice and get it signed",
+     "pt": "Entregue ao proprietário o Consumer Protection Notice do CCB e pegue a assinatura"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "PA": {
+   "cancel_ref": "73 P.S. 201-7",
+   "license_ref": "HICPA",
+   "lines": {
+    "deposit": {
+     "c": "A",
+     "en": "If the price is over $5,000, check that the deposit is not more than one third (plus special-order materials)",
+     "pt": "Se o preço passar de $5,000.00, confira se o sinal não passa de um terço (mais materiais sob encomenda)",
+     "ref": "HICPA",
+     "flag": "The limit depends on the price and on special-order materials, so the builder cannot compare it for you."
+    },
+    "notice:PA-cancel": {
+     "c": "A",
+     "en": "Check that the contract states the three business day right to cancel",
+     "pt": "Confira se o contrato informa o direito de cancelar em três dias úteis",
+     "flag": "Pennsylvania gives this right on every home improvement contract. The builder prints the cancellation notice only when the sale was made at the customer's home."
+    },
+    "notice:PA-emergency-form": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it. For an emergency the customer called about."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "HICPA section 7",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "RI": {
+   "cancel_ref": "6-28-4",
+   "lines": {
+    "notice:RI-lien-statement": {
+     "c": "H",
+     "why": "The lien notice that prints in the contract says this.",
+     "flag": "No wording is prescribed. A lawyer should confirm the printed lien notice covers it."
+    },
+    "notice:RI-cancel-form": {
+     "c": "A",
+     "en": "Attach the Notice of Cancellation, with a second copy for the customer",
+     "pt": "Anexe o Notice of Cancellation, com uma segunda via para o cliente"
+    },
+    "notice:RI-62": {
+     "c": "A",
+     "en": "If the customer is 62 or older, give the separate notice for buyers age 62 or older",
+     "pt": "Se o cliente tiver 62 anos ou mais, entregue o aviso separado para compradores com 62 anos ou mais",
+     "flag": "The builder does not know the customer's age."
+    },
+    "notice:RI-board": {
+     "c": "A",
+     "en": "Attach the Board's consumer disclosures and the Summary of Registration Law",
+     "pt": "Anexe as informações ao consumidor do Board e o Summary of Registration Law"
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "SC": {
+   "cancel_ref": "37-2-503",
+   "lines": {
+    "notice:SC-cancel": {
+     "c": "H",
+     "why": "The federal cancellation notice and form print in the contract, and the research says this state accepts them instead."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The research found no rule that puts the number on the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The research says no contract clause is required."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "If the contract has an arbitration clause, put the arbitration notice on the first page in underlined capital letters",
+     "pt": "Se o contrato tiver cláusula de arbitragem, coloque o aviso de arbitragem na primeira página em maiúsculas sublinhadas",
+     "flag": "Applies only with an arbitration clause. The research gives no law number."
+    }
+   }
+  },
+  "SD": {
+   "cancel_ref": "SDCL 37-24-5.3",
+   "lines": {
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Only if you use an excise tax license line; the research found no rule that requires it."
+    }
+   }
+  },
+  "TN": {
+   "cancel_ref": "47-18-704",
+   "deposit_ref": "62-6-510",
+   "lines": {
+    "notice:TN-owner": {
+     "c": "A",
+     "en": "Add the NOTICE TO OWNER line directly above the owner's signature",
+     "pt": "Inclua a linha NOTICE TO OWNER logo acima da assinatura do proprietário"
+    },
+    "notice:TN-board": {
+     "c": "A",
+     "en": "Add the notice that home improvement contractors must be licensed by the board, with the board's phone",
+     "pt": "Inclua o aviso de que empreiteiros de reforma precisam de licença do board, com o telefone do board"
+    },
+    "notice:TN-cancel": {
+     "c": "A",
+     "en": "Add the BUYER'S RIGHT TO CANCEL statement on the front or just above the customer's signature",
+     "pt": "Inclua a declaração BUYER'S RIGHT TO CANCEL na frente ou logo acima da assinatura do cliente"
+    },
+    "notice:TN-lien": {
+     "c": "A",
+     "en": "Give the owner the lien NOTICE TO OWNER before the work or the contract",
+     "pt": "Entregue ao proprietário o NOTICE TO OWNER de gravame antes do serviço ou do contrato"
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "TX": {
+   "cancel_ref": "Tex. Bus. & Com. Code ch. 601",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Get both spouses to sign before work starts, if the customer is married",
+     "pt": "Pegue a assinatura dos dois cônjuges antes de começar o serviço, se o cliente for casado",
+     "ref": "Tex. Prop. Code 53.254"
+    },
+    "notice:TX-homestead": {
+     "c": "A",
+     "en": "Add the homestead IMPORTANT NOTICE to the contract (10 point bold)",
+     "pt": "Inclua no contrato o IMPORTANT NOTICE de homestead (negrito, corpo 10)",
+     "ref": "Tex. Prop. Code 41.007"
+    },
+    "notice:TX-defect": {
+     "c": "A",
+     "en": "Add the construction defect notice to the contract (10 point bold)",
+     "pt": "Inclua no contrato o aviso de defeitos de construção (negrito, corpo 10)",
+     "ref": "Tex. Prop. Code 27.007"
+    },
+    "notice:TX-disclosure": {
+     "c": "A",
+     "en": "Hand the owner the disclosure statement before they sign",
+     "pt": "Entregue ao proprietário a declaração de informações antes de ele assinar",
+     "ref": "Tex. Prop. Code 53.255"
+    },
+    "notice:TX-sublist": {
+     "c": "A",
+     "en": "Give the owner the list of subcontractors and suppliers before work starts",
+     "pt": "Entregue ao proprietário a lista de subempreiteiros e fornecedores antes de começar o serviço",
+     "ref": "Tex. Prop. Code 53.256"
+    },
+    "notice:TX-sublist-waiver": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it. Only if the owner chooses to give up the list."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "UT": {
+   "cancel_ref": "Utah Code 13-11-4",
+   "lines": {
+    "notice:UT-cancel": {
+     "c": "A",
+     "en": "Put the cancellation statement on the first page in dark bold 12 point type",
+     "pt": "Coloque a declaração de cancelamento na primeira página, em negrito escuro, corpo 12"
+    },
+    "notice:UT-auto-renew": {
+     "c": "A",
+     "en": "If this is a service contract that renews for more than 12 months, put the renewal notice on the first page",
+     "pt": "Se for contrato de serviço que renova por mais de 12 meses, coloque o aviso de renovação na primeira página",
+     "flag": "Applies only to a recurring service contract."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "VT": {
+   "cancel_ref": "9 V.S.A. 2454",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "If the job is over $10,000, get the contract signed before you take a deposit",
+     "pt": "Se o serviço passar de $10,000.00, pegue o contrato assinado antes de receber o sinal",
+     "ref": "26 V.S.A. 5509"
+    },
+    "deposit": {
+     "c": "A",
+     "en": "Check that the down payment is not more than half the labor or half the materials, whichever is more",
+     "pt": "Confira se o sinal não passa de metade da mão de obra ou metade dos materiais, o que for maior",
+     "ref": "26 V.S.A. 5509",
+     "flag": "The limit is not one clean number, so the builder cannot compare it for you. The law number is the one the research gives for the written contract rule."
+    },
+    "cancellation_days": {
+     "c": "H",
+     "why": "The builder leaves Saturday out when it counts the Vermont deadline."
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "26 V.S.A. 5509",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "VA": {
+   "cancel_ref": "59.1-21.4",
+   "lines": {
+    "written_contract": {
+     "c": "A",
+     "en": "Get the contract signed by both sides before any work or payment",
+     "pt": "Pegue o contrato assinado pelas duas partes antes de qualquer serviço ou pagamento",
+     "ref": "18VAC50-22-260"
+    },
+    "notice:VA-dpor": {
+     "c": "A",
+     "en": "Give the customer the DPOR Statement of Consumer Protections and get a signed acknowledgment",
+     "pt": "Entregue ao cliente o DPOR Statement of Consumer Protections e pegue o recibo assinado"
+    },
+    "notice:VA-recovery": {
+     "c": "A",
+     "en": "Add a statement that the Contractor Transaction Recovery Fund exists and how to contact the board",
+     "pt": "Inclua uma declaração de que o Contractor Transaction Recovery Fund existe e como falar com o board"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "18VAC50-22-260 B 9",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    }
+   }
+  },
+  "WA": {
+   "cancel_ref": "RCW 63.14.154",
+   "lines": {
+    "notice:WA-cancel": {
+     "c": "A",
+     "en": "If the customer pays in more than four installments or with a service charge, add the NOTICE TO BUYER above their signature",
+     "pt": "Se o cliente pagar em mais de quatro parcelas ou com taxa de serviço, inclua o NOTICE TO BUYER acima da assinatura",
+     "flag": "Applies only to an installment sale."
+    },
+    "notice:WA-defect": {
+     "c": "A",
+     "en": "For a home build or a large remodel, add the notice of the construction defect process",
+     "pt": "Para construção ou reforma grande de casa, inclua o aviso do processo de defeitos de construção",
+     "flag": "A remodel counts only when it costs more than half the home's assessed value."
+    },
+    "notice:WA-lien-info": {
+     "c": "A",
+     "en": "Hand over L&I's construction lien information with the Notice to Customer",
+     "pt": "Entregue as informações de gravame do L&I junto com o Notice to Customer"
+    },
+    "item:1": {
+     "c": "A",
+     "en": "Keep the signed Notice to Customer for three years",
+     "pt": "Guarde o Notice to Customer assinado por três anos",
+     "ref": "RCW 18.27.114"
+    },
+    "item:2": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "extra:1": {
+     "c": "B",
+     "why": "Why the registration matters: the research says an unlicensed contractor cannot collect here."
+    }
+   }
+  },
+  "WV": {
+   "cancel_ref": "W. Va. Code 46A-2-132",
+   "license_ref": "30-42-3",
+   "lines": {
+    "notice:WV-cancel": {
+     "c": "A",
+     "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
+     "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
+     "flag": "Applies only to a sale on credit. The builder does not know how the customer pays."
+    },
+    "notice:WV-cancel-caption": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:1": {
+     "c": "H",
+     "why": "The contract prints the license or registration line."
+    },
+    "item:2": {
+     "c": "A",
+     "en": "Check that the contract has every item this state requires",
+     "pt": "Confira se o contrato tem todos os itens que este estado exige",
+     "ref": "142 CSR 5",
+     "flag": "The research names a list of things this state wants in the contract. Nobody has checked the builder against that list item by item."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Advice about which clauses to pick. A flagged clause gets its own line when it is chosen."
+    }
+   }
+  },
+  "WI": {
+   "cancel_ref": "Wis. Stat. 423.203",
+   "lines": {
+    "notice:WI-lien-waiver": {
+     "c": "A",
+     "en": "Give the Notice of Consumer's Right to Receive Lien Waivers as a separate page before signing, and keep proof",
+     "pt": "Entregue o Notice of Consumer's Right to Receive Lien Waivers em página separada antes da assinatura e guarde a prova"
+    },
+    "notice:WI-lien": {
+     "c": "A",
+     "en": "If you use subcontractors or suppliers, add the lien notice to the contract",
+     "pt": "Se usar subempreiteiros ou fornecedores, inclua o aviso de gravame no contrato"
+    },
+    "notice:WI-defect": {
+     "c": "A",
+     "en": "For building or remodeling a home, give the construction defect notice with the state brochure before signing",
+     "pt": "Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura"
+    },
+    "notice:WI-brochure": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:WI-lien-claimant": {
+     "c": "B",
+     "why": "Sent by someone else, not by you. A subcontractor or supplier serves it."
+    },
+    "notice:WI-note-legend": {
+     "c": "A",
+     "en": "If the customer signs a promissory note, put the required legend on the note",
+     "pt": "Se o cliente assinar uma nota promissória, coloque a legenda exigida na nota",
+     "flag": "Applies only when a note is taken."
+    },
+    "notice:WI-waterproof-noguarantee": {
+     "c": "A",
+     "en": "For basement waterproofing with no guarantee, add the no-guarantee statement on the face of the contract",
+     "pt": "Para impermeabilização de porão sem garantia, inclua a declaração de sem garantia na frente do contrato",
+     "flag": "Applies only to basement waterproofing."
+    },
+    "notice:WI-waterproof-dampness": {
+     "c": "B",
+     "why": "Optional: only when you choose to use it. Basement waterproofing only."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:3": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    }
+   }
+  },
+  "WY": {
+   "cancel_ref": "W.S. 40-14-253",
+   "lines": {
+    "notice:WY-lien": {
+     "c": "A",
+     "en": "Send the owner the NOTICE TO OWNER with a lien waiver form before you take any payment, including the deposit",
+     "pt": "Envie ao proprietário o NOTICE TO OWNER com um formulário de lien waiver antes de receber qualquer pagamento, inclusive o sinal"
+    },
+    "notice:WY-lien-waiver": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "notice:WY-cancel-form": {
+     "c": "H",
+     "why": "The federal cancellation notice and form print in the contract, and the research says this state accepts them instead.",
+     "flag": "Credit sales only."
+    },
+    "item:1": {
+     "c": "B",
+     "why": "Says the same thing as another line on this list."
+    },
+    "item:2": {
+     "c": "B",
+     "why": "The notice it names prints in the contract."
+    },
+    "item:3": {
+     "c": "A",
+     "en": "For exterior storm repair, check the storm repair proposal and notice rules",
+     "pt": "Para reparo externo de tempestade, confira as regras de proposta e aviso de reparo de tempestade",
+     "flag": "Applies only to storm repair. The research names the rules without detail or a law number."
+    }
+   }
+  }
+ }
+}

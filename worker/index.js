@@ -1,6 +1,7 @@
 import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
+import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.json";
 // Apex Command Center — Cloudflare Worker
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
@@ -27713,6 +27714,9 @@ var CONTRACT_STATE_LICENSE_MISSING = "{business_legal_name}. {job_state_name} li
 var CONTRACT_STATE_LICENSE_TITLE = "License or registration number";
 // Values the state rider computes: never asked and never edited in the builder.
 var CONTRACT_STATE_FIELDS = ["job_state", "job_state_name", "job_state_jurisdiction", "business_state", "business_state_name", "license_label", "defect_notice_sentence", "defect_statute_cite"];
+// Writes flags.state_checks only (json_set), so a tick never overwrites an
+// answer saved by someone else at the same moment. Binds: checks JSON, contract id, client id.
+var CONTRACT_STATE_CHECKS_SQL = "UPDATE gm_contracts SET flags_json = json_set(COALESCE(flags_json, '{}'), '$.state_checks', json(?)) WHERE id = ? AND client_id = ? AND status != 'void'";
 var CONTRACT_STATE_CHECKLIST_FIXED = [
     { en: "Take dated photos before work starts and have the customer sign the condition acknowledgment.", pt: "Tire fotos com data antes de come\u00e7ar a obra e pe\u00e7a ao cliente para assinar o termo de condi\u00e7\u00e3o do im\u00f3vel." },
     { en: "Give the customer a complete signed copy at signing.", pt: "Entregue ao cliente uma c\u00f3pia completa e assinada no momento da assinatura." },
@@ -27868,7 +27872,13 @@ function contractStateOptionWarnings(st) {
 // English and stay in English in the Portuguese view.
 function contractStateChecklist(st, job) {
     var r = st.rider || {}, lines = [], name = st.name;
-    function add(key, en, pt, warn) { lines.push({ key: key, level: warn ? "warn" : "info", en: en, pt: pt }); }
+    // meta (optional): ref = the law cite, url = the official source, variant
+    // and vars = what the "Before you send" card needs to sort and word a line.
+    function add(key, en, pt, warn, meta) {
+        var l = { key: key, level: warn ? "warn" : "info", en: en, pt: pt };
+        if (meta) { ["ref", "url", "variant", "vars"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
+        lines.push(l);
+    }
     var lic = r.license || {};
     add("license", "License or registration: " + (lic.text || "not in the research") + ".", "Licen\u00e7a ou registro: " + (lic.text || "not in the research") + ".");
     if (lic.state_level === false) {
@@ -27881,7 +27891,7 @@ function contractStateChecklist(st, job) {
     if (job.license_number) { add("license_number", "Number on file: " + job.license_number + ".", "N\u00famero cadastrado: " + job.license_number + "."); }
     else {
         add("license_number", "No license or registration number is on file. The contract prints \"not provided\". Add the number in the document settings.",
-            "Nenhum n\u00famero de licen\u00e7a ou registro cadastrado. O contrato imprime \"not provided\". Cadastre o n\u00famero nas configura\u00e7\u00f5es dos documentos.", true);
+            "Nenhum n\u00famero de licen\u00e7a ou registro cadastrado. O contrato imprime \"not provided\". Cadastre o n\u00famero nas configura\u00e7\u00f5es dos documentos.", true, { variant: "missing" });
     }
     var w = r.written_contract || {}, th = contractStateWrittenThreshold(r, job.amount_cents), money = contractMoney(job.amount_cents);
     var wEn = "Written contract: " + (w.text || "None found") + ". ", wPt = "Contrato por escrito: " + (w.text || "None found") + ". ";
@@ -27902,18 +27912,18 @@ function contractStateChecklist(st, job) {
     var cap = contractStateDepositCapCents(r, job.amount_cents);
     if (cap !== null && job.has_deposit && job.first_payment_cents > cap) {
         add("deposit_over", "The first payment on this contract (" + contractMoney(job.first_payment_cents) + ") is over that cap (" + contractMoney(cap) + ").",
-            "O primeiro pagamento deste contrato (" + contractMoney(job.first_payment_cents) + ") passa desse limite (" + contractMoney(cap) + ").", true);
+            "O primeiro pagamento deste contrato (" + contractMoney(job.first_payment_cents) + ") passa desse limite (" + contractMoney(cap) + ").", true, { vars: { cap: contractMoney(cap) } });
     }
     (r.notices || []).forEach(function(n) {
         if (!contractStateNoticeApplies(n, job)) { return; }
         var tail = (n.trigger ? " When: " + n.trigger + "." : "") + (n.format ? " Format: " + n.format + "." : "");
         var tailPt = (n.trigger ? " Quando: " + n.trigger + "." : "") + (n.format ? " Formato: " + n.format + "." : "");
         if (n.text) {
-            add("notice:" + n.id, "This notice prints in the contract: " + n.title + " (" + n.cite + ")." + tail, "Este aviso \u00e9 impresso no contrato: " + n.title + " (" + n.cite + ")." + tailPt);
+            add("notice:" + n.id, "This notice prints in the contract: " + n.title + " (" + n.cite + ")." + tail, "Este aviso \u00e9 impresso no contrato: " + n.title + " (" + n.cite + ")." + tailPt, false, { ref: n.cite, url: n.source_url, variant: "prints" });
             return;
         }
         add("notice:" + n.id, name + " requires this notice: " + n.title + " (" + n.cite + "). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs." + tail,
-            name + " exige este aviso: " + n.title + " (" + n.cite + "). O texto exato ainda n\u00e3o foi carregado. Pegue o texto na fonte oficial ou com o seu advogado e anexe antes de o cliente assinar." + tailPt, true);
+            name + " exige este aviso: " + n.title + " (" + n.cite + "). O texto exato ainda n\u00e3o foi carregado. Pegue o texto na fonte oficial ou com o seu advogado e anexe antes de o cliente assinar." + tailPt, true, { ref: n.cite, url: n.source_url, vars: { title: n.title } });
     });
     var df = r.defect_process;
     if (df && df.sentence_cite) { add("defect", "Defect process: " + df.text + ". The warranty and dispute clauses point to it (" + df.sentence_cite + ").", "Processo de defeitos: " + df.text + ". As cl\u00e1usulas de garantia e de disputas apontam para ele (" + df.sentence_cite + ")."); }
@@ -27927,7 +27937,7 @@ function contractStateChecklist(st, job) {
         var area = String(x.option).slice(0, 3);
         if ((job.selections || {})[area] !== x.option) { return; }
         add("risky:" + x.option, "Clause " + x.option + " is chosen. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Safer choice in this area: " + x.safer + "." : ""),
-            "A cl\u00e1usula " + x.option + " est\u00e1 escolhida. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Op\u00e7\u00e3o mais segura nesta \u00e1rea: " + x.safer + "." : ""), true);
+            "A cl\u00e1usula " + x.option + " est\u00e1 escolhida. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Op\u00e7\u00e3o mais segura nesta \u00e1rea: " + x.safer + "." : ""), true, { ref: /^matrix /.test(String(x.cite || "")) ? null : x.cite, vars: { option: x.option } });
     });
     var cl = r.checklist || {};
     (cl.rider_items || []).forEach(function(t, i) { add("item:" + (i + 1), "From the research for " + name + ": " + t + ".", "Da pesquisa para " + name + ": " + t + "."); });
@@ -27936,6 +27946,62 @@ function contractStateChecklist(st, job) {
         "Situa\u00e7\u00e3o da pesquisa para " + name + ": " + st.status + (r.status_reason ? " (" + r.status_reason + ")" : "") + ". Nenhum advogado revisou.");
     CONTRACT_STATE_CHECKLIST_FIXED.forEach(function(x, i) { add("fixed:" + (i + 1), x.en, x.pt); });
     return lines;
+}
+
+// ── The "Before you send" card ───────────────────────────────────────────
+// data/contract-state-checklist-v1.json sorts every checklist line into
+//   A  action: the person must do or check it themselves (a tick-box line),
+//   H  handled: the builder already does it,
+//   B  background: context only.
+// Only A lines are shown as the checklist; the rest stays readable under
+// "More about {State}". A state's own entry for a line wins over the generic
+// one; a line with no entry at all is background. NOTHING here blocks a send,
+// a signature or a preview: the card is read by the builder sheet only.
+function contractStateCheckEntry(code, line) {
+    var data = CONTRACT_STATE_CHECKLIST_V1 || {};
+    var own = (((data.states || {})[code] || {}).lines || {})[line.key];
+    if (own) { return own; }
+    var g = data.generic || {}, base = String(line.key).split(":")[0];
+    return (line.variant && (g[line.key + "#" + line.variant] || g[base + "#" + line.variant])) || g[line.key] || g[base] || null;
+}
+// The ticks saved on a contract, for this state only: a tick made while the
+// contract was in another state never shows as done.
+function contractStateChecks(flags, code) {
+    var sc = flags && flags.state_checks;
+    return sc && sc.state === code && sc.done && typeof sc.done === "object" && !Array.isArray(sc.done) ? sc.done : {};
+}
+function contractStateActionCard(st, lines, flags) {
+    if (!lines || !st || st.florida) { return null; }
+    var stData = ((CONTRACT_STATE_CHECKLIST_V1 || {}).states || {})[st.code] || {};
+    var done = contractStateChecks(flags, st.code), present = {};
+    lines.forEach(function(l) { present[l.key] = true; });
+    function fill(t, l) {
+        var out = String(t).split("{state}").join(st.name);
+        Object.keys(l.vars || {}).forEach(function(k) { out = out.split("{" + k + "}").join(String(l.vars[k])); });
+        return out;
+    }
+    var actions = [], more = [];
+    lines.forEach(function(l) {
+        var e = contractStateCheckEntry(st.code, l);
+        if (e && e.unless && present[e.unless]) { e = null; }
+        if (!e || e.c !== "A" || !e.en || !e.pt) { more.push({ key: l.key, level: l.level, en: l.en, pt: l.pt }); return; }
+        var tick = done[l.key];
+        actions.push({
+            key: l.key, en: fill(e.en, l), pt: fill(e.pt, l),
+            ref: e.ref || l.ref || (e.ref_from ? stData[e.ref_from] : null) || null, ref_pt: (e.ref && e.ref_pt) || null,
+            context_en: l.en, context_pt: l.pt, source_url: l.url || null,
+            done: tick && tick.at ? { by: tick.by || null, at: tick.at } : null
+        });
+    });
+    return { state: st.code, actions: actions, more: more, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length };
+}
+// One tick or untick. Returns the new flags.state_checks, or null when the key
+// is not one of this contract's action lines (nothing is stored for it).
+function contractStateCheckApply(flags, card, key, isDone, by, at) {
+    if (!card || !card.actions.some(function(a) { return a.key === key; })) { return null; }
+    var out = { state: card.state, done: Object.assign({}, contractStateChecks(flags, card.state)) };
+    if (isDone) { out.done[key] = { by: by || null, at: at }; } else { delete out.done[key]; }
+    return out;
 }
 
 function contractOptionTrades(tradesLine) {
@@ -28891,22 +28957,26 @@ function contractCleaningBookingPrefill(booking) {
 function contractCleaningStateChecklist(st, job) {
     var base = contractStateChecklist(st, job).filter(function(l) { return /^(cancellation|status$|fixed:)/.test(l.key); });
     var r = st.rider || {}, cz = r.cleaning || {}, name = st.name, lines = [];
-    function add(key, en, pt, warn) { lines.push({ key: key, level: warn ? "warn" : "info", en: en, pt: pt }); }
+    function add(key, en, pt, warn, meta) {
+        var l = { key: key, level: warn ? "warn" : "info", en: en, pt: pt };
+        if (meta) { ["ref", "url", "variant", "vars"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
+        lines.push(l);
+    }
     add("cleaning_blocks", "This agreement is in " + name + ": the Florida cleaning notices (continuing-services notice, Florida home solicitation statement, Florida automatic-renewal panel, Florida sales tax sentences) are not printed. The federal three-day notice and form print when they apply.",
         "Este contrato \u00e9 em " + name + ": os avisos de limpeza da Fl\u00f3rida (servi\u00e7os cont\u00ednuos, venda em domic\u00edlio da Fl\u00f3rida, renova\u00e7\u00e3o autom\u00e1tica da Fl\u00f3rida, imposto sobre vendas da Fl\u00f3rida) n\u00e3o s\u00e3o impressos. O aviso e o formul\u00e1rio federais de tr\u00eas dias s\u00e3o impressos quando se aplicam.");
     var ar = cz.auto_renewal;
     if (ar && ar.rule) {
         var tail = (ar.cite ? " (" + ar.cite + ")" : "") + "." + (ar.scope_and_confidence ? " Research note: " + ar.scope_and_confidence + "." : "");
         var tailPt = (ar.cite ? " (" + ar.cite + ")" : "") + "." + (ar.scope_and_confidence ? " Nota da pesquisa: " + ar.scope_and_confidence + "." : "");
-        add("cleaning_auto_renewal", "Automatic renewal rule: " + ar.rule + tail, "Regra de renova\u00e7\u00e3o autom\u00e1tica: " + ar.rule + tailPt, !!job.auto_renews);
+        add("cleaning_auto_renewal", "Automatic renewal rule: " + ar.rule + tail, "Regra de renova\u00e7\u00e3o autom\u00e1tica: " + ar.rule + tailPt, !!job.auto_renews, { ref: ar.cite, variant: job.auto_renews ? "renews" : null });
     } else {
         add("cleaning_auto_renewal", "Automatic renewal rule: none found in the research" + (cz.no_rule_note ? " (" + cz.no_rule_note + ")" : "") + ". That is not proof that none exists.",
-            "Regra de renova\u00e7\u00e3o autom\u00e1tica: nenhuma encontrada na pesquisa" + (cz.no_rule_note ? " (" + cz.no_rule_note + ")" : "") + ". Isso n\u00e3o prova que n\u00e3o existe.", !!job.auto_renews);
+            "Regra de renova\u00e7\u00e3o autom\u00e1tica: nenhuma encontrada na pesquisa" + (cz.no_rule_note ? " (" + cz.no_rule_note + ")" : "") + ". Isso n\u00e3o prova que n\u00e3o existe.", !!job.auto_renews, { variant: job.auto_renews ? "renews_no_rule" : null });
     }
     if (cz.license_note) { add("cleaning_license", "Cleaning licence note: " + cz.license_note, "Nota sobre licen\u00e7a de limpeza: " + cz.license_note); }
     else {
         add("cleaning_license", "Cleaning licence: no note in the research" + (cz.license_not_verified ? "; not verified" : "") + ". Check your city and county.",
-            "Licen\u00e7a de limpeza: nenhuma nota na pesquisa" + (cz.license_not_verified ? "; n\u00e3o verificado" : "") + ". Confira na sua cidade e no seu condado.");
+            "Licen\u00e7a de limpeza: nenhuma nota na pesquisa" + (cz.license_not_verified ? "; n\u00e3o verificado" : "") + ". Confira na sua cidade e no seu condado.", false, { variant: "check" });
     }
     if (cz.home_solicitation_applies_to_cleaning === true) {
         add("cleaning_home_solicitation", "Home-solicitation cancellation: the research says " + name + "'s rule reaches cleaning services.", "Cancelamento de venda em domic\u00edlio: a pesquisa diz que a regra de " + name + " alcan\u00e7a servi\u00e7os de limpeza.", !!job.sold_in_home);
@@ -28915,7 +28985,7 @@ function contractCleaningStateChecklist(st, job) {
             "Cancelamento de venda em domic\u00edlio: a pesquisa n\u00e3o encontrou que a regra de " + name + " alcan\u00e7a servi\u00e7os de limpeza. Isso n\u00e3o prova que n\u00e3o alcan\u00e7a.");
     }
     add("cleaning_tax", "Sales tax: the clause library holds Florida's rules only. This agreement prints no tax sentence for " + name + ". Ask your tax professional.",
-        "Imposto sobre vendas: a biblioteca tem s\u00f3 as regras da Fl\u00f3rida. Este contrato n\u00e3o imprime frase de imposto para " + name + ". Pergunte ao seu contador.", job.template === "T4");
+        "Imposto sobre vendas: a biblioteca tem s\u00f3 as regras da Fl\u00f3rida. Este contrato n\u00e3o imprime frase de imposto para " + name + ". Pergunte ao seu contador.", job.template === "T4", { variant: job.template === "T4" ? "applies" : null });
     var pos = 0;
     base.forEach(function(l, i) { if (/^cancellation/.test(l.key)) { pos = i + 1; } });
     return base.slice(0, pos).concat(lines, base.slice(pos));
@@ -29866,6 +29936,9 @@ async function contractInternalOut(env, id, c, user, request) {
         job_state: comp.state.code, job_state_name: comp.state.name, job_state_confirmed: comp.state.confirmed, job_state_florida: comp.state.florida,
         job_state_status: comp.state.status, cancellation_rule: comp.state.cancellation, states: contractStateList(),
         state_checklist: comp.checklist, option_warnings: comp.option_warnings,
+        // The "Before you send" card: the action lines with their ticks (who and
+        // when), and the rest of the prose. null in Florida.
+        state_card: contractStateActionCard(comp.state, comp.checklist, c.flags),
         state_neutral_options: comp.state.florida ? [] : isCleaning ? comp.cleaning.neutral_options : (function() {
             var neutral = contractNeutralOptions(ctx.lib.optionsById);
             return ctx.lib.optionsForClient.filter(function(o) { return contractOptionText(neutral[o.id], neutral) !== contractOptionText(o, ctx.lib.optionsById); }).map(function(o) { return o.id; });
@@ -29942,13 +30015,30 @@ async function handlePutGmContract(id, cid, request, env) {
         if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
         var c = await gmContractLoad(env, id, cid);
         if (!c) { return jsonErr("Contract not found", 404); }
-        var guard = await contractSellerGuard(env, user, id, c);
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (!body || typeof body !== "object") { body = {}; }
+        // A tick on the "Before you send" card and nothing else: saved on the
+        // contract's flags with who and when. Anyone who may open the contract
+        // may tick (a seller it was routed to as well), at any stage short of
+        // void, because the things to do outlast the send. It writes
+        // flags.state_checks only and never the contract's text or amounts.
+        var tickOnly = !!(body.flags && typeof body.flags === "object" && body.flags.state_check && typeof body.flags.state_check === "object" && Object.keys(body).length === 1 && Object.keys(body.flags).length === 1);
+        var guard = await contractSellerGuard(env, user, id, c, tickOnly);
         if (guard) { return guard; }
+        if (tickOnly) {
+            if (c.status === "void") { return jsonErr2("Contrato anulado: a lista n\u00e3o pode mais ser marcada.", "This contract is void: the list can no longer be ticked.", 409); }
+            var tickComp = contractCompose(await contractContext(env, id, c), c, gmEasternToday(), "live");
+            var tickKey = String(body.flags.state_check.key || "");
+            var checks = contractStateCheckApply(c.flags, contractStateActionCard(tickComp.state, tickComp.checklist, c.flags), tickKey, body.flags.state_check.done === true, actorName(user), new Date().toISOString().slice(0, 19).replace("T", " "));
+            if (!checks) { return jsonErr2("Este item n\u00e3o est\u00e1 na lista deste contrato.", "This item is not on this contract's list.", 400); }
+            await env.DB.prepare(CONTRACT_STATE_CHECKS_SQL).bind(JSON.stringify(checks), cid, id).run();
+            var ticked = await gmContractLoad(env, id, cid);
+            return jsonOk({ saved: true, contract: await contractInternalOut(env, id, ticked, user, request) });
+        }
         if (["draft", "awaiting_company", "changes_requested"].indexOf(c.status) === -1 || c.company_signed_at && !c.company_signature_voided_at) {
             return jsonErr2("Contrato assinado: para mudar, crie uma revisão.", "This contract is already signed by the company. Create a revision to change it.", 409);
         }
-        var body = {};
-        try { body = await request.json(); } catch (e2) { body = {}; }
         var ctx = await contractContext(env, id, c);
         var selections = c.selections, answers = c.answers, flags = c.flags;
         var cleaning = contractIsCleaning(c);
@@ -30051,6 +30141,9 @@ async function handlePutGmContract(id, cid, request, env) {
         // so a later change to the address never moves a contract to another
         // state behind the owner's back.
         if (!flags.job_state) { flags.job_state = comp.state.code; }
+        // "Before you send" ticks belong to one state: a contract that moved to
+        // another state starts its list with nothing ticked.
+        if (flags.state_checks && flags.state_checks.state !== comp.state.code) { delete flags.state_checks; }
         // Rule 23: the guard lives in the write. A company signature or a send
         // that lands between the read above and this write makes it a no-op.
         // G4e (drift c): a change order already signed and applied to this
@@ -30336,7 +30429,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined })) : c.flags_json, gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined })) : (c.flags && c.flags.state_checks ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
         await env.DB.prepare("UPDATE gm_contracts SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(cid, id).run();
         await gmContractEvent(env, id, newId, actorName(user), "revised", { from: cid, revision: rev });
         return jsonOk({ created: true, contract_id: newId, revision: rev });

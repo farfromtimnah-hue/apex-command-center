@@ -339,7 +339,8 @@
     { key: "construction",   pt: "Construção geral",       en: "General construction" },
     { key: "cakes",          pt: "Bolos e confeitaria",    en: "Cakes and bakery" },
     { key: "boutique",       pt: "Moda e tecidos",         en: "Boutique and fashion" },
-    { key: "water",          pt: "Filtros de água",        en: "Water filters" }
+    { key: "water",          pt: "Filtros de água",        en: "Water filters" },
+    { key: "cleaning",       pt: "Limpeza",                en: "Cleaning" }
   ];
   // Hero follow-up F1: gm_job_value_history.source and .field.
   var VALUE_HISTORY_SOURCES = [

@@ -53,7 +53,15 @@
     if (typeof pageNotice === "function") { pageNotice(msg); return; }
     if (typeof gmAsk === "function") {
       gmAsk({ message: msg, keep: document.body.classList.contains("lang-en") ? "Close" : "Fechar" });
+      return;
     }
+    // Neither helper on the page: a small message of our own, gone by itself.
+    var el = document.createElement("div");
+    el.setAttribute("role", "alert");
+    el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;";
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function() { if (el.parentNode) { el.parentNode.removeChild(el); } }, 8000);
   }
 
   function fmtNumAmerican(n) {

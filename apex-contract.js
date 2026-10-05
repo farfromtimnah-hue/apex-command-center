@@ -516,11 +516,77 @@
     else { showLink(); }
   }
 
-  // In-page question/notice: the page's own pageDialog. Returns false when the
-  // page has none, so the caller can carry on without it.
+  // In-page question/notice: the page's own pageDialog, else this file's own
+  // card (an old cached page next to this newer script must still work).
   function askPage(o) {
-    return (typeof pageDialog === "function") ? pageDialog(o) : false;
+    if (typeof pageDialog === "function") {
+      if (pageDialog(o) !== false) { return true; }
+    }
+    return fallbackCard(o);
   }
+
+  // Own minimal in-page card, used only when the page offers no pageDialog (an
+  // old cached copy of the page next to this newer script). Plain inline
+  // styles; Keep is focused; Escape and a tap outside mean Keep; Yes runs once.
+  function fallbackCard(o) {
+    var done = false;
+    var ov = document.createElement("div");
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;z-index:10000;background:rgba(26,26,29,0.45);display:flex;align-items:center;justify-content:center;padding:20px;";
+    var box = document.createElement("div");
+    box.style.cssText = "background:#fff;color:#1a1a1d;border-radius:12px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;padding:22px 24px;box-sizing:border-box;font-family:sans-serif;box-shadow:0 8px 48px rgba(26,26,29,0.22);";
+    box.addEventListener("click", function(e) { e.stopPropagation(); });
+    var p = document.createElement("div");
+    p.style.cssText = "font-size:14px;line-height:1.5;white-space:pre-line;";
+    p.textContent = o.message || "";
+    box.appendChild(p);
+    var input = null;
+    if (o.field) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.value = o.field.value || "";
+      if (o.field.readonly) { input.readOnly = true; }
+      input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-size:14px;margin-top:12px;";
+      box.appendChild(input);
+    }
+    var row = document.createElement("div");
+    row.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-top:16px;";
+    var yesBtn = null;
+    var keepBtn = document.createElement("button");
+    keepBtn.type = "button";
+    keepBtn.textContent = o.keep || "";
+    keepBtn.style.cssText = "padding:10px 16px;border-radius:7px;border:1px solid #e8e2d9;background:transparent;color:#1a1a1d;font-size:14px;cursor:pointer;";
+    if (o.yes) {
+      yesBtn = document.createElement("button");
+      yesBtn.type = "button";
+      yesBtn.textContent = o.yes;
+      yesBtn.style.cssText = "padding:10px 16px;border-radius:7px;border:none;background:#C9A43A;color:#fff;font-size:14px;font-weight:600;cursor:pointer;";
+      row.appendChild(yesBtn);
+    }
+    row.appendChild(keepBtn);
+    box.appendChild(row);
+    ov.appendChild(box);
+    function finish(isYes) {
+      if (done) { return; }
+      done = true;
+      document.removeEventListener("keydown", onKey, true);
+      if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+      if (isYes) { if (o.onYes) { o.onYes(input ? input.value : ""); } }
+      else if (o.onKeep) { o.onKeep(); }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+    }
+    if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+    keepBtn.addEventListener("click", function() { finish(false); });
+    ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(ov);
+    if (input) { input.focus(); } else { keepBtn.focus(); }
+    return true;
+  }
+
 
   // Customer link control: switch the contract's public link off and on.
   // Disabling replaces the contract's address for good.

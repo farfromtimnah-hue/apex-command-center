@@ -2078,6 +2078,137 @@ async function handlePostSummarize(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Session tasks: an approved session writes its follow-ups into `tasks`.
+//
+// Nicole chose this date so old meetings do not flood the list with overdue
+// tasks: a session whose meeting date (sessions.date) is earlier than this
+// creates nothing, no matter when it is approved.
+// ---------------------------------------------------------------------------
+var SESSION_TASKS_START_DATE = "2026-10-05";
+
+// Month abbreviations (Portuguese and English), the same map the old Tasks
+// page used (scripts/task-unification/derive.mjs MONTH_MAP).
+var SESSION_TASK_MONTHS = {
+    jan: 0, fev: 1, feb: 1, mar: 2, abr: 3, apr: 3, mai: 4, may: 4, jun: 5,
+    jul: 6, ago: 7, aug: 7, set: 8, sep: 8, out: 9, oct: 9, nov: 10, dez: 11, dec: 11
+};
+
+function sessionTaskYmd(ms) {
+    return new Date(ms).toISOString().slice(0, 10);
+}
+
+// Nicole's due-date rule: a date stated in the item ("20 Jun") wins;
+// otherwise the session date plus 7 days. Port of parseDueDate/resolveDue in
+// scripts/task-unification/derive.mjs. Returns { due, source }.
+function resolveSessionTaskDue(statedStr, sessionDate) {
+    var y = parseInt(sessionDate.slice(0, 4), 10);
+    var m = parseInt(sessionDate.slice(5, 7), 10) - 1;
+    var d = parseInt(sessionDate.slice(8, 10), 10);
+    if (statedStr) {
+        var parts = String(statedStr).trim().split(/\s+/);
+        if (parts.length >= 2) {
+            var day = parseInt(parts[0], 10);
+            var mon = SESSION_TASK_MONTHS[parts[1].toLowerCase().slice(0, 3)];
+            if (!isNaN(day) && mon !== undefined) {
+                var stated = Date.UTC(y, mon, day);
+                // A date more than six months in the past belongs to next year.
+                var now = new Date();
+                var sixAgo = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 6, now.getUTCDate());
+                if (stated < sixAgo) { stated = Date.UTC(y + 1, mon, day); }
+                return { due: sessionTaskYmd(stated), source: "stated" };
+            }
+        }
+    }
+    return { due: sessionTaskYmd(Date.UTC(y, m, d + 7)), source: "session+7" };
+}
+
+// One list field -> [{ text, due }]. The structured lists in sessions.pdf_data
+// are arrays of { text, due }. session_summaries stores each field as plain
+// prose, so a non-JSON string becomes one item; a JSON array of strings or
+// objects is also read.
+function sessionTaskItems(value) {
+    var out = [];
+    if (value === null || value === undefined || value === "") { return out; }
+    if (typeof value === "string") {
+        var t = value.trim();
+        if (!t) { return out; }
+        if (t.charAt(0) === "[") {
+            try { return sessionTaskItems(JSON.parse(t)); } catch (e) { /* plain text */ }
+        }
+        out.push({ text: t, due: null });
+        return out;
+    }
+    if (Array.isArray(value)) {
+        for (var i = 0; i < value.length; i++) {
+            var it = value[i];
+            if (typeof it === "string") {
+                if (it.trim()) { out.push({ text: it.trim(), due: null }); }
+            } else if (it && typeof it.text === "string" && it.text.trim()) {
+                out.push({ text: it.text.trim(), due: it.due || null });
+            }
+        }
+    }
+    return out;
+}
+
+// Safe to call twice and from two requests at once: each insert is guarded by
+// the table's unique index. Never throws; approval must not fail here.
+async function createTasksForApprovedSession(env, sessionId) {
+    try {
+        var s = await env.DB.prepare(
+            "SELECT id, client_id, date, pdf_data FROM sessions WHERE id = ?"
+        ).bind(sessionId).first();
+        if (!s || !s.client_id || !s.date) { return 0; }
+        var sessionDate = String(s.date).slice(0, 10);
+        if (sessionDate < SESSION_TASKS_START_DATE) { return 0; }
+
+        var ss = await env.DB.prepare(
+            "SELECT rafa_followups_pt, client_action_items_pt FROM session_summaries WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (!ss) { return 0; }
+
+        var pdf = null;
+        if (s.pdf_data) { try { pdf = JSON.parse(s.pdf_data); } catch (e) { pdf = null; } }
+        var consultant = sessionTaskItems(pdf && pdf.consultant_followups);
+        if (!consultant.length) { consultant = sessionTaskItems(ss.rafa_followups_pt); }
+        var client = sessionTaskItems(pdf && pdf.client_actions);
+        if (!client.length) { client = sessionTaskItems(ss.client_action_items_pt); }
+
+        var rows = [];
+        var seen = {};
+        var add = function (type, list) {
+            for (var i = 0; i < list.length; i++) {
+                var key = type + "|" + list[i].text;
+                if (seen[key]) { continue; }
+                seen[key] = true;
+                var r = resolveSessionTaskDue(list[i].due, sessionDate);
+                rows.push({ type: type, text: list[i].text, due: r.due, src: r.source });
+            }
+        };
+        add("consultant", consultant);
+        add("client", client);
+        if (!rows.length) { return 0; }
+        // One INSERT OR IGNORE per task. The unique index
+        // idx_tasks_session_dedupe (session_id, type, description) makes the
+        // database itself refuse a second copy, so approving twice, or two
+        // approvals at once, cannot duplicate and nothing is read first.
+        var now = new Date().toISOString();
+        var stmts = [];
+        for (var i = 0; i < rows.length; i++) {
+            stmts.push(env.DB.prepare(
+                "INSERT OR IGNORE INTO tasks (id, client_id, session_id, type, description, due_date, due_date_source, status, source, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'session', ?)"
+            ).bind(crypto.randomUUID(), s.client_id, sessionId, rows[i].type, rows[i].text, rows[i].due, rows[i].src, now));
+        }
+        await env.DB.batch(stmts);
+        return rows.length;
+    } catch (e) {
+        console.error("createTasksForApprovedSession failed for " + sessionId + ": " + (e && e.message));
+        return 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: POST /api/approve
 // Body: { session_id: string, edited_summary?: object }
 // ---------------------------------------------------------------------------
@@ -2149,6 +2280,9 @@ async function handlePostApprove(request, env) {
         }
 
         await logSessionEvent(env, body.session_id, "approved", approvedBy, null);
+
+        // Both approval statements above land here. Never fails the approval.
+        await createTasksForApprovedSession(env, body.session_id);
 
         // TODO: generate branded PDF from summary_json and deliver to client
         // Integration point: call a PDF-generation service or email provider here.

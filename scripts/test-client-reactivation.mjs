@@ -133,6 +133,7 @@ function resetDom(opts) {
   globalThis.openPackageEdit = (current) => { opened.push({ picker: "package", current }); };
   globalThis.openLeadStagePrompt = () => { opened.push({ picker: "leadStage" }); };
   globalThis.alert = (m) => { alerts.push(m); };
+  globalThis.pageNotice = (m) => { alerts.push(m); };
 }
 
 globalThis.t = (pt, en) => pt;

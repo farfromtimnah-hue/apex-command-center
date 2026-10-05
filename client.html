@@ -4001,6 +4001,139 @@
       });
     }
 
+    // BEGIN PAGE DIALOG
+    // In-page replacement for the browser's confirm box, alert box and prompt box.
+    // One helper, called from every place that used to open a browser box.
+    //   message  text shown (already in the page's language; \n is kept)
+    //   title    optional heading
+    //   yes      label of the button that does the action ("Yes, delete")
+    //   keep     label of the button that walks away ("Keep it")
+    //   field    optional {value, placeholder, readonly}: an input in the same card
+    //   onYes    called ONCE, synchronously inside the tap, with the field text
+    //   onKeep   optional, called when Keep, Escape or a tap outside closes it
+    // With no `yes` it is a plain note with one button (used to show a link
+    // that must be copied by hand). Escape and a tap outside both mean keep.
+    var PAGE_DIALOG_CLASSES = {"overlay": "modal-overlay", "box": "modal-box", "body": "modal-body", "title": "", "titleStyle": "font-size:16px;font-weight:700;", "text": "", "textStyle": "font-size:14px;line-height:1.5;", "actionsStyle": "display:flex;flex-direction:column;gap:10px;margin-top:6px;", "yes": "btn-primary", "yesStyle": "", "keep": "btn-secondary", "keepStyle": "", "keepFirst": false, "boxStyle": ""};
+    var pageDialogOpen = null;
+    function pageDialog(o) {
+      if (pageDialogOpen) { return false; }
+      var C = PAGE_DIALOG_CLASSES;
+      var prevFocus = document.activeElement;
+      var done = false;
+      var ov = document.createElement("div");
+      ov.className = C.overlay;
+      ov.style.zIndex = "10000";
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      var box = document.createElement("div");
+      box.className = C.box;
+      if (C.boxStyle) { box.style.cssText = C.boxStyle; }
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var holder = box;
+      if (C.body) {
+        holder = document.createElement("div");
+        holder.className = C.body;
+        box.appendChild(holder);
+      }
+      if (o.title) {
+        var h = document.createElement("div");
+        h.className = C.title;
+        if (C.titleStyle) { h.style.cssText = C.titleStyle; }
+        h.textContent = o.title;
+        holder.appendChild(h);
+      }
+      var p = document.createElement("div");
+      p.className = C.text;
+      p.style.cssText = (C.textStyle || "") + ";white-space:pre-line;";
+      p.textContent = o.message || "";
+      holder.appendChild(p);
+      var input = null;
+      if (o.field) {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = o.field.value || "";
+        if (o.field.placeholder) { input.placeholder = o.field.placeholder; }
+        if (o.field.readonly) { input.readOnly = true; }
+        input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-family:inherit;font-size:14px;margin-top:12px;";
+        holder.appendChild(input);
+      }
+      var row = document.createElement("div");
+      row.style.cssText = C.actionsStyle;
+      var yesBtn = null;
+      var keepBtn = null;
+      if (o.yes) {
+        yesBtn = document.createElement("button");
+        yesBtn.type = "button";
+        yesBtn.className = C.yes;
+        if (C.yesStyle) { yesBtn.style.cssText = C.yesStyle; }
+        yesBtn.textContent = o.yes;
+      }
+      if (o.keep) {
+        keepBtn = document.createElement("button");
+        keepBtn.type = "button";
+        keepBtn.className = C.keep;
+        if (C.keepStyle) { keepBtn.style.cssText = C.keepStyle; }
+        keepBtn.textContent = o.keep;
+      }
+      var order = C.keepFirst ? [keepBtn, yesBtn] : [yesBtn, keepBtn];
+      for (var i = 0; i < order.length; i++) { if (order[i]) { row.appendChild(order[i]); } }
+      holder.appendChild(row);
+      ov.appendChild(box);
+
+      function finish(isYes) {
+        if (done) { return; }
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        pageDialogOpen = null;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        if (isYes) {
+          if (o.onYes) { o.onYes(input ? input.value : ""); }
+        } else if (o.onKeep) {
+          o.onKeep();
+        }
+      }
+      function onKey(e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        } else if (e.key === "Enter" && input && yesBtn && e.target === input) {
+          e.preventDefault();
+          finish(true);
+        }
+      }
+      if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+      if (keepBtn) { keepBtn.addEventListener("click", function() { finish(false); }); }
+      ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+      document.addEventListener("keydown", onKey, true);
+      pageDialogOpen = { finish: finish };
+      document.body.appendChild(ov);
+      // Focus lands inside: the input when there is one, otherwise the safe
+      // button (Keep), never the one that does the action.
+      var first = input || keepBtn || yesBtn;
+      if (first && first.focus) { first.focus(); }
+      return true;
+    }
+    // END PAGE DIALOG
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
+
     function closeModalById(id) {
       document.getElementById(id).hidden = true;
     }
@@ -4352,7 +4485,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          window.alert("Erro: " + e.message);
+          pageNotice("Erro: " + e.message);
         });
     }
 
@@ -4393,7 +4526,7 @@
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
-        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
+        pageNotice(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
     }
 
@@ -4455,20 +4588,26 @@
       var en = document.body.classList.contains("lang-en");
       var msg = en
         ? "Revoke this salesperson's login?\n\nThey lose access immediately. Their leads are NOT deleted and stay with the business."
-        : "Revogar o login deste vendedor?\n\nEle perde o acesso imediatamente. Os leads dele NÃO são apagados e continuam com o cliente.";
-      if (!window.confirm(msg)) { return; }
-      if (btn) { btn.disabled = true; }
-      apiFetch("/api/clients/" + CLIENT_ID + "/seller-logins/" + encodeURIComponent(username), { method: "DELETE" })
-        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
-        .then(function(r) {
-          if (!r.ok) { throw new Error(r.data.error || "Error"); }
-          loadSellerSeats();
-          loadSellerLoginRequestsForClient();
-        })
-        .catch(function(e) {
-          if (btn) { btn.disabled = false; }
-          window.alert("Erro: " + e.message);
-        });
+        : "Revogar o login deste vendedor?\n\nEle perde o acesso imediatamente. Os leads dele N\u00c3O s\u00e3o apagados e continuam com o cliente.";
+      pageDialog({
+        message: msg,
+        yes: en ? "Yes, revoke the login" : "Sim, revogar o login",
+        keep: en ? "Keep the login" : "Manter o login",
+        onYes: function() {
+          if (btn) { btn.disabled = true; }
+          apiFetch("/api/clients/" + CLIENT_ID + "/seller-logins/" + encodeURIComponent(username), { method: "DELETE" })
+            .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+            .then(function(r) {
+              if (!r.ok) { throw new Error(r.data.error || "Error"); }
+              loadSellerSeats();
+              loadSellerLoginRequestsForClient();
+            })
+            .catch(function(e) {
+              if (btn) { btn.disabled = false; }
+              pageNotice("Erro: " + e.message);
+            });
+        }
+      });
     }
 
     function renderPortalAccess() {
@@ -4606,7 +4745,7 @@
           document.getElementById("modalClientLogin").hidden = false;
           loadPortalAccess();
         })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+        .catch(function(e) { pageNotice("Erro: " + e.message); });
     }
 
     // The iPhone app on the App Store. Searching the store for "Apex" does
@@ -4627,7 +4766,7 @@
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
-        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
+        pageNotice(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
     }
 
@@ -4653,7 +4792,7 @@
                   "?text=" + encodeURIComponent(msg);
       var waTab = window.open(waUrl, "_blank");
       if (!waTab) {
-        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
+        pageNotice(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
     }
 
@@ -4778,7 +4917,7 @@
           if (data.error) { throw new Error(data.error); }
           loadAssessments();
         })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+        .catch(function(e) { pageNotice("Erro: " + e.message); });
     }
 
     function deactivateAssessment(type) {
@@ -4797,14 +4936,20 @@
           "Isso não pode ser desfeito.\n\n" +
           "Se o cliente já tiver concluído, a avaliação concluída e o " +
           "relatório dela também serão apagados.";
-      if (!window.confirm(msg)) { return; }
-      apiFetch("/api/clients/" + CLIENT_ID + "/assessments/" + type, { method: "DELETE" })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          loadAssessments();
-        })
-        .catch(function(e) { window.alert("Erro: " + e.message); });
+      pageDialog({
+        message: msg,
+        yes: isEnLang ? "Yes, deactivate and delete the answers" : "Sim, desativar e apagar as respostas",
+        keep: isEnLang ? "Keep it active" : "Manter ativa",
+        onYes: function() {
+          apiFetch("/api/clients/" + CLIENT_ID + "/assessments/" + type, { method: "DELETE" })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.error) { throw new Error(data.error); }
+              loadAssessments();
+            })
+            .catch(function(e) { pageNotice("Erro: " + e.message); });
+        }
+      });
     }
 
     // ── Daily-entry field config ───────────────────────────────────────────
@@ -6053,7 +6198,7 @@
           document.getElementById("leadStageFlag").hidden = (stage !== LEAD_STAGE_FLAGGED);
         })
         .catch(function(e) {
-          window.alert("Erro: " + e.message);
+          pageNotice("Erro: " + e.message);
           document.getElementById("leadStageSelect").value = leadStageCurrent;
         });
     }
@@ -6354,7 +6499,7 @@
         ? apexOpenExternal(waUrl)
         : !!window.open(waUrl, "_blank");
       if (!opened) {
-        window.alert(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
+        pageNotice(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked — allow popups and try again."));
       }
       logContactAttempt("WhatsApp");
     }
@@ -6585,7 +6730,7 @@
           client.lead_temperature = next; paint(next);
           apiFetch("/api/clients/" + CLIENT_ID + "/lead-temperature", { method: "PATCH", body: { temperature: next } })
             .then(function(res) { if (!res.ok) { throw new Error("HTTP " + res.status); } })
-            .catch(function(e) { client.lead_temperature = prev; paint(prev); alert(t("N\u00e3o foi poss\u00edvel salvar: ", "Could not save: ") + e.message); });
+            .catch(function(e) { client.lead_temperature = prev; paint(prev); pageNotice(t("N\u00e3o foi poss\u00edvel salvar: ", "Could not save: ") + e.message); });
         };
       }
       return b;
@@ -6911,7 +7056,7 @@
         }
         if (!name) { name = clientData ? clientData.package : null; }
         if (!name) {
-          alert(t("Selecione um pacote para este cliente primeiro.",
+          pageNotice(t("Selecione um pacote para este cliente primeiro.",
                   "Assign a package to this client first."));
           return;
         }
@@ -6950,7 +7095,7 @@
             // did not happen, so the reason has to reach them.
             cancelPendingActivation();
             if (wasActivating) {
-              alert(t("Não foi possível ativar: ", "Could not activate: ") +
+              pageNotice(t("Não foi possível ativar: ", "Could not activate: ") +
                     ((e && e.message) ? e.message : ""));
             }
           });
@@ -7677,7 +7822,7 @@
       // badges render it for alice/rafa/developer only. Say that plainly
       // instead of opening a picker that isn't there.
       if (!pkgWrap) {
-        alert(t("Este cliente não tem pacote, e é preciso um para ativar. Peça a alguém com permissão para definir o pacote primeiro.",
+        pageNotice(t("Este cliente não tem pacote, e é preciso um para ativar. Peça a alguém com permissão para definir o pacote primeiro.",
                 "This client has no package, and activating requires one. Ask someone with permission to set the package first."));
         return;
       }
@@ -8685,11 +8830,19 @@
             + "but will NOT be able to download it.\n\nUpload the file so they can."
           : "Este documento ainda não tem arquivo. O cliente vai ver apenas a "
             + "prévia e NÃO vai conseguir baixar.\n\nEnvie o arquivo para que ele possa.";
-        if (!window.confirm(msg)) {
-          if (btn) { btn.disabled = false; }
-          return;
-        }
+        pageDialog({
+          message: msg,
+          yes: isEn() ? "Yes, show it to the client" : "Sim, mostrar ao cliente",
+          keep: isEn() ? "Keep it hidden" : "Manter oculto",
+          onYes: function() { sendDocumentClientVisible(doc, next, btn); },
+          onKeep: function() { if (btn) { btn.disabled = false; } }
+        });
+        return;
       }
+      sendDocumentClientVisible(doc, next, btn);
+    }
+
+    function sendDocumentClientVisible(doc, next, btn) {
       if (btn) { btn.disabled = true; }
       apiFetch("/api/clients/" + CLIENT_ID + "/documents/" + doc.id + "/client-visible", {
         method: "PATCH",
@@ -9742,14 +9895,20 @@
     }
 
     function handleEndClientVendorTerm(termsId) {
-      if (!confirm(t("Encerrar este fornecedor para este cliente?", "End this vendor for this client?"))) { return; }
-      apiFetch("/api/clients/" + CLIENT_ID + "/vendor-terms/" + termsId, { method: "DELETE" })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) { throw new Error(data.error); }
-          return loadClientVendorTerms();
-        })
-        .catch(function(e) { alert(t("Erro: ", "Error: ") + e.message); });
+      pageDialog({
+        message: t("Encerrar este fornecedor para este cliente?", "End this vendor for this client?"),
+        yes: t("Sim, encerrar o fornecedor", "Yes, end the vendor"),
+        keep: t("Manter o fornecedor", "Keep the vendor"),
+        onYes: function() {
+          apiFetch("/api/clients/" + CLIENT_ID + "/vendor-terms/" + termsId, { method: "DELETE" })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data.error) { throw new Error(data.error); }
+              return loadClientVendorTerms();
+            })
+            .catch(function(e) { pageNotice(t("Erro: ", "Error: ") + e.message); });
+        }
+      });
     }
 
     function handlePaymentMethodChange(value) {

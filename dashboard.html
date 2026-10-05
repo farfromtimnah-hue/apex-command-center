@@ -1670,6 +1670,139 @@
     // and not a spending control.
     var VOICE_MAX_SECONDS = 90;
 
+    // BEGIN PAGE DIALOG
+    // In-page replacement for the browser's confirm box, alert box and prompt box.
+    // One helper, called from every place that used to open a browser box.
+    //   message  text shown (already in the page's language; \n is kept)
+    //   title    optional heading
+    //   yes      label of the button that does the action ("Yes, delete")
+    //   keep     label of the button that walks away ("Keep it")
+    //   field    optional {value, placeholder, readonly}: an input in the same card
+    //   onYes    called ONCE, synchronously inside the tap, with the field text
+    //   onKeep   optional, called when Keep, Escape or a tap outside closes it
+    // With no `yes` it is a plain note with one button (used to show a link
+    // that must be copied by hand). Escape and a tap outside both mean keep.
+    var PAGE_DIALOG_CLASSES = {"overlay": "voice-modal-overlay", "box": "voice-modal-box", "body": "", "title": "", "titleStyle": "font-size:17px;font-weight:800;margin-bottom:8px;color:#1a1712;", "text": "voice-hint", "textStyle": "font-size:14px;color:#1a1712;margin:0;line-height:1.5;", "actionsStyle": "display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;", "yes": "btn-cta-link", "yesStyle": "", "keep": "", "keepStyle": "background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;", "keepFirst": false, "boxStyle": ""};
+    var pageDialogOpen = null;
+    function pageDialog(o) {
+      if (pageDialogOpen) { return false; }
+      var C = PAGE_DIALOG_CLASSES;
+      var prevFocus = document.activeElement;
+      var done = false;
+      var ov = document.createElement("div");
+      ov.className = C.overlay;
+      ov.style.zIndex = "10000";
+      ov.setAttribute("role", "dialog");
+      ov.setAttribute("aria-modal", "true");
+      var box = document.createElement("div");
+      box.className = C.box;
+      if (C.boxStyle) { box.style.cssText = C.boxStyle; }
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var holder = box;
+      if (C.body) {
+        holder = document.createElement("div");
+        holder.className = C.body;
+        box.appendChild(holder);
+      }
+      if (o.title) {
+        var h = document.createElement("div");
+        h.className = C.title;
+        if (C.titleStyle) { h.style.cssText = C.titleStyle; }
+        h.textContent = o.title;
+        holder.appendChild(h);
+      }
+      var p = document.createElement("div");
+      p.className = C.text;
+      p.style.cssText = (C.textStyle || "") + ";white-space:pre-line;";
+      p.textContent = o.message || "";
+      holder.appendChild(p);
+      var input = null;
+      if (o.field) {
+        input = document.createElement("input");
+        input.type = "text";
+        input.value = o.field.value || "";
+        if (o.field.placeholder) { input.placeholder = o.field.placeholder; }
+        if (o.field.readonly) { input.readOnly = true; }
+        input.style.cssText = "width:100%;box-sizing:border-box;padding:10px;border:1px solid #d8d2c8;border-radius:8px;font-family:inherit;font-size:14px;margin-top:12px;";
+        holder.appendChild(input);
+      }
+      var row = document.createElement("div");
+      row.style.cssText = C.actionsStyle;
+      var yesBtn = null;
+      var keepBtn = null;
+      if (o.yes) {
+        yesBtn = document.createElement("button");
+        yesBtn.type = "button";
+        yesBtn.className = C.yes;
+        if (C.yesStyle) { yesBtn.style.cssText = C.yesStyle; }
+        yesBtn.textContent = o.yes;
+      }
+      if (o.keep) {
+        keepBtn = document.createElement("button");
+        keepBtn.type = "button";
+        keepBtn.className = C.keep;
+        if (C.keepStyle) { keepBtn.style.cssText = C.keepStyle; }
+        keepBtn.textContent = o.keep;
+      }
+      var order = C.keepFirst ? [keepBtn, yesBtn] : [yesBtn, keepBtn];
+      for (var i = 0; i < order.length; i++) { if (order[i]) { row.appendChild(order[i]); } }
+      holder.appendChild(row);
+      ov.appendChild(box);
+
+      function finish(isYes) {
+        if (done) { return; }
+        done = true;
+        document.removeEventListener("keydown", onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        pageDialogOpen = null;
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        if (isYes) {
+          if (o.onYes) { o.onYes(input ? input.value : ""); }
+        } else if (o.onKeep) {
+          o.onKeep();
+        }
+      }
+      function onKey(e) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(false);
+        } else if (e.key === "Enter" && input && yesBtn && e.target === input) {
+          e.preventDefault();
+          finish(true);
+        }
+      }
+      if (yesBtn) { yesBtn.addEventListener("click", function() { finish(true); }); }
+      if (keepBtn) { keepBtn.addEventListener("click", function() { finish(false); }); }
+      ov.addEventListener("click", function(e) { if (e.target === ov) { finish(false); } });
+      document.addEventListener("keydown", onKey, true);
+      pageDialogOpen = { finish: finish };
+      document.body.appendChild(ov);
+      // Focus lands inside: the input when there is one, otherwise the safe
+      // button (Keep), never the one that does the action.
+      var first = input || keepBtn || yesBtn;
+      if (first && first.focus) { first.focus(); }
+      return true;
+    }
+    // END PAGE DIALOG
+
+    // In-page message for what used to be an alert box. Same wording, shown as a
+    // pill at the bottom of the screen that goes away by itself.
+    function pageNotice(msg) {
+      var el = document.getElementById("pageNotice");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "pageNotice";
+        el.setAttribute("role", "alert");
+        el.style.cssText = "position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:92vw;background:#1a1a1d;color:#fff;font-family:'Inter',sans-serif;font-size:13px;line-height:1.4;padding:11px 18px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,0.24);z-index:10001;display:none;";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(function() { el.style.display = "none"; }, 8000);
+    }
+
     function voiceEn() { return document.body.classList.contains("lang-en"); }
 
     function openVoiceModal() {
@@ -2298,7 +2431,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          window.alert("Erro: " + e.message);
+          pageNotice("Erro: " + e.message);
         });
     }
 
@@ -2330,7 +2463,7 @@
         .catch(function() { dashMessageTemplates = null; });
     }
 
-    // Replaces the old alert(). An alert gives one option — Close — and on a
+    // Replaces the old alert box. An alert gives one option — Close — and on a
     // phone the password cannot be selected out of it, so approving on mobile
     // produced a live seat whose credential nobody held.
     function showSellerCredsModal(c) {
@@ -2395,7 +2528,7 @@
         .split("{tempPassword}").join(pendingSellerCreds.temp_password);
       var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
       if (!waTab) {
-        window.alert("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
+        pageNotice("Popup bloqueado — permita popups e tente novamente. / Popup blocked — allow popups and try again.");
       }
     };
 
@@ -2599,7 +2732,7 @@
       if (btn) { btn.disabled = true; }
       apiFetch("/api/contracts/review-submissions/" + encodeURIComponent(id) + "/seen", { method: "POST" })
         .then(function() { loadContractReviewStatus("developer"); })
-        .catch(function(e) { if (btn) { btn.disabled = false; } window.alert("Erro: " + e.message); });
+        .catch(function(e) { if (btn) { btn.disabled = false; } pageNotice("Erro: " + e.message); });
     }
 
     // Contracts build (checkpoint C2): after 7 days unresolved, a job over
@@ -2730,7 +2863,7 @@
           // ONCE — only its hash is stored, so it is unrecoverable after this.
           // It MUST be surfaced here rather than silently dropped.
           //
-          // This used to be a bare alert() that told the approver to go open
+          // This used to be a bare alert box that told the approver to go open
           // the client's page to send it, on the reasoning that this queue
           // spans every client so no phone number is in scope. That reasoning
           // was wrong: NO WhatsApp send in this app depends on having a
@@ -2752,7 +2885,7 @@
         })
         .catch(function(e) {
           if (btn) { btn.disabled = false; }
-          window.alert("Erro: " + e.message);
+          pageNotice("Erro: " + e.message);
         });
     }
 
@@ -3050,25 +3183,16 @@
       // real blank-tab bug on iOS (commit afc4ee0). Everything the message
       // needs is already in memory before the click.
       //
-      // window.prompt() below does NOT break that rule and a custom modal
-      // would: prompt() blocks the thread, so the window.open() after it is
-      // still the same synchronous task the tap started, and the browser
-      // still counts it as user-activated. An HTML modal would have to
-      // resolve a callback on a later task, which is exactly the async open
-      // that shipped the blank-tab bug.
+      // The address question is an in-page card. Its send button is itself a
+      // tap, and sendReminderNow() runs synchronously inside that tap, so the
+      // window.open() is still user-activated -- no await sits in between.
       btn.onclick = (function(session, when, buttonEl) {
         return function() {
-          if (reminderNeedsAddress(session) && !askReminderAddress(session, buttonEl)) {
-            return;   // she cancelled -- nothing sent, nothing stamped
-          }
-          var msg = buildReminderMessage(session, when);
-          if (!msg) { return; }
-          var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
-          if (!waTab) {
-            window.alert("Popup bloqueado - permita popups e tente novamente. / Popup blocked - allow popups and try again.");
+          if (reminderNeedsAddress(session)) {
+            askReminderAddress(session, buttonEl, function() { sendReminderNow(session, when, buttonEl); });
             return;
           }
-          markReminderSent(session, buttonEl);
+          sendReminderNow(session, when, buttonEl);
         };
       })(m, whenWord, btn);
       row.appendChild(btn);
@@ -3147,35 +3271,54 @@
     }
 
     // ── Asking for the address ───────────────────────────────────────────
-    // Returns true to carry on with the send, false if she cancelled.
+    // Calls send() when she chooses Send; closing the card sends nothing.
     //
     // THREE OUTCOMES, and the difference between the last two is the whole
     // point of the design:
-    //   Cancel        -> false. Nothing opens, nothing is stamped sent.
-    //   Left blank    -> true, and the message goes out on the no-address
+    //   Do not send   -> Nothing opens, nothing is stamped sent.
+    //   Left blank    -> send() runs, and the message goes out on the no-address
     //                    template. This is the BYPASS: some meetings are at a
     //                    place the group already knows, and being nagged for
     //                    an address she does not have is how a feature stops
     //                    getting used.
-    //   Address typed -> true, used in this message AND written back to
+    //   Address typed -> used in this message AND written back to
     //                    sessions.location so she is never asked twice.
     //
-    // window.prompt(), not a styled modal, and not by preference: see the
-    // note on the click handler. The synchronous window.open() after this
-    // returns is the only thing standing between the WhatsApp tab and iOS's
-    // popup blocker.
-    function askReminderAddress(m, btn) {
+    // The question is an in-page card (pageDialog with an input). Its send
+    // button runs sendReminderNow() synchronously inside the tap, which is
+    // what keeps the window.open() clear of iOS's popup blocker. Closing the
+    // card (Do not send, Escape, a tap outside) sends and stamps nothing.
+    function sendReminderNow(session, when, buttonEl) {
+      var msg = buildReminderMessage(session, when);
+      if (!msg) { return; }
+      var waTab = window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+      if (!waTab) {
+        pageNotice("Popup bloqueado - permita popups e tente novamente. / Popup blocked - allow popups and try again.");
+        return;
+      }
+      markReminderSent(session, buttonEl);
+    }
+
+    function askReminderAddress(m, btn, send) {
       var en = document.body.classList.contains("lang-en");
-      var answer = window.prompt(
-        en
+      pageDialog({
+        message: en
           ? "Address for this meeting.\nLeave blank to send the reminder without an address."
           : "Endereço desta reunião.\nDeixe em branco para enviar o lembrete sem endereço.",
-        ""
-      );
-      if (answer === null) { return false; }
+        field: { value: "" },
+        yes: en ? "Send the reminder" : "Enviar o lembrete",
+        keep: en ? "Do not send" : "N\u00e3o enviar",
+        onYes: function(answer) {
+          saveReminderAddress(m, btn, answer);
+          send();
+        }
+      });
+    }
 
+    function saveReminderAddress(m, btn, answer) {
+      var en = document.body.classList.contains("lang-en");
       var addr = String(answer).trim();
-      if (!addr) { return true; }   // bypass: no-address template
+      if (!addr) { return; }   // bypass: no-address template
 
       // In memory FIRST, so reminderTplKey() and buildReminderMessage() -- both
       // called moments from now, still inside this same click -- see the
@@ -3208,12 +3351,10 @@
           console.error("[reminders] could not save the address:", err);
           m.location = null;
           if (btn) { btn.setAttribute("data-tpl-key", reminderTplKey(m)); }
-          window.alert(en
+          pageNotice(en
             ? "The reminder was sent, but the address could not be saved - it will ask again next time."
             : "O lembrete foi enviado, mas o endereço não pôde ser salvo - ele será pedido de novo na próxima vez.");
         });
-
-      return true;
     }
 
     // {when} is the literal word "hoje" / "amanha", never a calendar date.
@@ -4442,7 +4583,7 @@
   <div id="mobile-tab-bar"></div>
   <div id="mobile-more-menu"></div>
 
-  <!-- Seller credentials, shown once after an approval. Replaces an alert()
+  <!-- Seller credentials, shown once after an approval. Replaces an alert box
        whose only option was Close: on a phone the temp password could not be
        selected out of it, so seats got approved and the credential never
        reached anyone. The WhatsApp button opens wa.me with NO recipient —

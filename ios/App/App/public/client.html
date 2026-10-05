@@ -2644,6 +2644,20 @@
           </div>
         </div>
 
+        <!-- Contract status: the same figures the Finance page used to show in
+             "Where each contract stands", for THIS client only. Staff only
+             (alice, rafa, developer -- the roles the route allows); hidden
+             until loadContractStatus() decides to show it. INTERNAL. -->
+        <div class="content-card" id="sec-contractStatus" hidden>
+          <div class="content-card-header">
+            <h2 class="content-card-title">
+              <span class="show-pt">Status do contrato</span>
+              <span class="show-en">Contract status</span>
+            </h2>
+          </div>
+          <div id="contractStatusBody" style="padding:16px 20px;"></div>
+        </div>
+
         <!-- Client Portal access (login + daily-entry field config) -->
         <div class="content-card" id="sec-portalAccess">
           <div class="content-card-header">
@@ -4117,6 +4131,7 @@
       loadTasks("client");
       loadTasks("consultant");
       loadClientInvoices();
+      loadContractStatus();
       loadClientResources();
       loadClientGrowth();
       loadClientNeighbors();
@@ -11062,6 +11077,133 @@
       if (paidBtn)   { paidBtn.classList.toggle("active", tab === "paid"); }
       renderClientInvoicesByTab(tab);
     }
+
+    // ── Contract status (staff only) ───────────────────────────────────────
+    // Same data and wording as finance-new.html renderContractProgress(), for
+    // this one client. Nothing is recalculated here: every number comes from
+    // /api/finance-new/contract-progress?client_id=.
+    var contractStatusRow = null;
+    var contractStatusLoaded = false;
+
+    function ccFmtCents(cents) {
+      var v = (Number(cents) || 0) / 100;
+      return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    }
+
+    function loadContractStatus() {
+      var card = document.getElementById("sec-contractStatus");
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (!card || !CLIENT_ID || ["alice", "rafa", "developer"].indexOf(role) === -1) { return; }
+      apiFetch("/api/finance-new/contract-progress?client_id=" + encodeURIComponent(CLIENT_ID))
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (!d || d.error) { return; }
+          var rows = d.clients || [];
+          contractStatusRow = null;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].client_id === CLIENT_ID) { contractStatusRow = rows[i]; }
+          }
+          contractStatusLoaded = true;
+          renderContractStatus();
+        })
+        .catch(function() { /* a read-only summary must never break the page */ });
+    }
+
+    function renderContractStatus() {
+      var card = document.getElementById("sec-contractStatus");
+      var body = document.getElementById("contractStatusBody");
+      if (!card || !body || !contractStatusLoaded) { return; }
+      card.hidden = false;
+      var c = contractStatusRow;
+      if (!c) {
+        body.innerHTML = '<span style="color:var(--muted);font-size:13px;">' +
+          t("Nenhum contrato registrado.", "No contract on file.") + '</span>';
+        return;
+      }
+      var muted = 'color:var(--muted);font-size:11.5px;';
+      var html = "";
+      var notes = [];
+      function row(label, value) {
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;">' +
+          '<span style="color:var(--muted);font-size:13px;">' + label + '</span>' +
+          '<span style="font-size:13px;font-weight:600;text-align:right;">' + value + '</span></div>';
+      }
+      var lblTotal = t("Total", "Total");
+      var lblPaid = t("Pago", "Paid");
+      var lblLeft = t("Falta", "Left");
+      var before = c.payments_before_count
+        ? '<div style="' + muted + '">(' + c.payments_before_count + t(" antes do Apex", " before Apex") + ')</div>'
+        : "";
+
+      if (c.total_missing) {
+        var why = c.custom_pricing
+          ? t("valor combinado caso a caso", "priced by arrangement")
+          : t("total do contrato n\u00e3o definido", "contract total not set");
+        html += before + row(lblTotal, '<span style="color:var(--muted);">--</span>') +
+          row(lblPaid, ccFmtCents(c.paid_cents)) +
+          row(lblLeft, '<span style="color:var(--muted);">--</span>') +
+          '<div style="' + muted + 'padding-top:4px;">' + why + '</div>';
+        if (!c.custom_pricing) {
+          notes.push(t(
+            escHtml(c.client_name) + ": " + ccFmtCents(c.paid_cents) + " recebido, mas o total do contrato n\u00e3o est\u00e1 definido.",
+            escHtml(c.client_name) + ": " + ccFmtCents(c.paid_cents) + " received, but the contract total is not set."));
+        }
+      } else {
+        var pct = c.pct_paid === null ? 0 : Math.max(0, Math.min(100, c.pct_paid));
+        var done = c.remaining_cents === 0;
+        var green = "color:var(--green,#2e7d52);";
+        var left = c.overpaid_cents > 0
+          ? '<span style="' + green + '">+' + ccFmtCents(c.overpaid_cents) + '</span>'
+          : '<span style="' + (done ? green : "") + '">' + ccFmtCents(c.remaining_cents) + '</span>';
+        var sub = "";
+        if (c.installments_left) {
+          var unit = c.recurrence_unit === "weeks" ? t("semanais", "weekly")
+                   : c.recurrence_unit === "months" ? t("mensais", "monthly") : "";
+          sub = c.installments_left + " x " + ccFmtCents(c.installment_amount_cents) + (unit ? " " + unit : "");
+        } else if (done) {
+          sub = t("quitado", "paid off");
+        }
+        var src = c.paid_source === "bank" ? t("pelo banco", "per the bank")
+                : c.paid_source === "stripe" ? t("via Stripe", "via Stripe") : "";
+        html += before + row(lblTotal, ccFmtCents(c.total_cents)) +
+          row(lblPaid, ccFmtCents(c.paid_cents) +
+            (src ? '<div style="' + muted + 'font-weight:400;">' + src + '</div>' : "")) +
+          row(lblLeft, left) +
+          '<div style="margin-top:8px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;">' +
+            '<div style="height:100%;width:' + pct + '%;border-radius:3px;background:' +
+            (done ? 'var(--green,#2e7d52)' : 'var(--gold)') + ';"></div></div>' +
+          '<div style="' + muted + 'margin-top:3px;">' + (c.pct_paid === null ? "--" : pct + "%") +
+            (sub ? ' &middot; ' + sub : "") + '</div>';
+
+        var gap = Math.abs((c.paid_by_bank_cents || 0) - (c.paid_by_invoice_cents || 0));
+        if (gap > 0) {
+          if ((c.paid_by_bank_cents || 0) > (c.paid_by_invoice_cents || 0)) {
+            notes.push(t(
+              escHtml(c.client_name) + ": o banco mostra " + ccFmtCents(c.paid_by_bank_cents) +
+                " (" + c.bank_paid_count + " pagamentos) e as faturas mostram " +
+                ccFmtCents(c.paid_by_invoice_cents) + ". Diferen\u00e7a de " + ccFmtCents(gap) +
+                " \u2014 provavelmente de antes das faturas. Conferir \u00e0 m\u00e3o.",
+              escHtml(c.client_name) + ": the bank shows " + ccFmtCents(c.paid_by_bank_cents) +
+                " (" + c.bank_paid_count + " payments) and the invoices show " +
+                ccFmtCents(c.paid_by_invoice_cents) + ". A " + ccFmtCents(gap) +
+                " gap \u2014 probably from before invoicing. Needs checking by hand."));
+          } else {
+            notes.push(t(
+              escHtml(c.client_name) + ": as faturas mostram " + ccFmtCents(c.paid_by_invoice_cents) +
+                " e o banco s\u00f3 " + ccFmtCents(c.paid_by_bank_cents) +
+                ". Pode faltar aprovar o pagador de um pagamento.",
+              escHtml(c.client_name) + ": invoices show " + ccFmtCents(c.paid_by_invoice_cents) +
+                " and the bank only " + ccFmtCents(c.paid_by_bank_cents) +
+                ". A payer may still need approving."));
+          }
+        }
+      }
+      if (notes.length) {
+        html += '<div style="' + muted + 'margin-top:12px;line-height:1.5;">' + notes.join("<br>") + '</div>';
+      }
+      body.innerHTML = html;
+    }
+    document.addEventListener("apex:langchange", function() { renderContractStatus(); });
 
     var clientInvoicesCache = null;
 

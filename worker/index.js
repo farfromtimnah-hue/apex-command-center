@@ -37162,6 +37162,13 @@ async function handleGetContractProgress(request, env) {
             };
         });
 
+        // Optional ?client_id= narrows the answer to one client (the client
+        // profile card). No filter, same answer as before.
+        var onlyClient = new URL(request.url).searchParams.get("client_id");
+        if (onlyClient) {
+            out = out.filter(function(c) { return c.client_id === onlyClient; });
+        }
+
         return jsonOk({ clients: out });
     } catch (e) {
         return jsonErr("Error loading contract progress: " + e.message, 500);

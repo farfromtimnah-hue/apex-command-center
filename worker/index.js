@@ -11750,12 +11750,15 @@ async function handleGetClientInvoices(clientId, request, env) {
 
 var APEX_API_BASE = "https://apex-api.farfromtimnah.workers.dev";
 
-// Formats a Zoho date string (YYYY-MM-DD) to DD/MM/YYYY for display.
+// Formats a Zoho date (YYYY-MM-DD, optionally followed by a time) to MM/DD/YYYY for display.
+// Month first is the house rule for every date a person sees, in Portuguese and English.
+// Plain rearrangement of the calendar date: no Date object, no time zone conversion.
 function formatZohoDate(zohoDate) {
     if (!zohoDate) { return ""; }
-    var parts = zohoDate.split("-");
-    if (parts.length !== 3) { return zohoDate; }
-    return parts[2] + "/" + parts[1] + "/" + parts[0];
+    var raw = String(zohoDate);
+    var parts = raw.slice(0, 10).split("-");
+    if (parts.length !== 3 || parts[0].length !== 4 || parts[1].length !== 2 || parts[2].length !== 2) { return raw; }
+    return parts[1] + "/" + parts[2] + "/" + parts[0];
 }
 
 // Formats a number as a USD currency string (e.g. "$ 1,500.00").

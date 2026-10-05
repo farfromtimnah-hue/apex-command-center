@@ -1692,6 +1692,22 @@
     .task-due { font-size: 11px; color: var(--muted); }
     .task-due.is-overdue { color: #b44040; font-weight: 600; }
 
+    /* Tasks grouped under the session they came from. The header opens and
+       closes its group; a group with nothing left open goes quiet. */
+    .tsg { border-bottom: 1px solid var(--border); }
+    .tsg:last-child { border-bottom: none; }
+    .tsg-head {
+      display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+      background: none; border: 0; padding: 12px 20px; min-height: 44px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: var(--text);
+      cursor: pointer; text-align: left;
+    }
+    .tsg-chev { width: 12px; font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    .tsg-count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .tsg.is-all-done .tsg-head { color: var(--muted); font-weight: 600; }
+    .tsg-body { border-top: 1px solid var(--border); }
+    .tsg-body[hidden] { display: none; }
+
     .tasks-empty {
       padding: 24px 20px;
       font-size: 13px;
@@ -10783,10 +10799,45 @@
 
     var tasksCache = { client: [], consultant: [] };
 
-    function loadTasks(type) {
-      apiFetch("/api/clients/" + CLIENT_ID + "/tasks?type=" + type)
+    // Which session each task came from. GET /api/clients/:id/tasks does not
+    // return session_id, so the id and the session's date are read from
+    // GET /api/tasks (the Tasks page's list, staff only), once per page load.
+    // If that fails, or a task is not in it, the task simply lands in "Other".
+    var taskSessionMap = {};          // task id -> { session_id, session_date }
+    var taskSessionMapPromise = null;
+    // Group key -> open or closed, once he has opened or closed it himself, so
+    // adding a task does not snap every group back to its default.
+    var taskGroupOpen = { client: {}, consultant: {} };
+
+    var TASK_MONTHS_PT = ["janeiro", "fevereiro", "mar\u00e7o", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    var TASK_MONTHS_EN = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+
+    function loadTaskSessionMap() {
+      if (taskSessionMapPromise) { return taskSessionMapPromise; }
+      taskSessionMapPromise = apiFetch("/api/tasks")
         .then(function(res) { return res.json(); })
         .then(function(data) {
+          var rows = (data && data.tasks) || [];
+          var map = {};
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].session_id) {
+              map[rows[i].id] = { session_id: rows[i].session_id, session_date: rows[i].session_date || null };
+            }
+          }
+          taskSessionMap = map;
+        })
+        .catch(function() { taskSessionMap = {}; });
+      return taskSessionMapPromise;
+    }
+
+    function loadTasks(type) {
+      var listPromise = apiFetch("/api/clients/" + CLIENT_ID + "/tasks?type=" + type)
+        .then(function(res) { return res.json(); });
+      Promise.all([listPromise, loadTaskSessionMap()])
+        .then(function(results) {
+          var data = results[0];
           tasksCache[type] = data.tasks || [];
           renderTasksSection(type, tasksCache[type]);
         })
@@ -10795,6 +10846,105 @@
           document.getElementById(sectionId).innerHTML =
             '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar tarefas.</div>';
         });
+    }
+
+    // The session a task came from: { id, date: "YYYY-MM-DD" }, or null when it
+    // has none or the session cannot be found (both go in "Other").
+    function taskSessionInfo(task) {
+      var sid = task.session_id || null;
+      var date = task.session_date || null;
+      var hit = taskSessionMap[task.id];
+      if (!sid && hit) { sid = hit.session_id; date = hit.session_date; }
+      if (!sid) { return null; }
+      if (!date) {
+        for (var i = 0; i < sessions.length; i++) {
+          if (sessions[i].id === sid) { date = sessions[i].date; }
+        }
+      }
+      date = String(date || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { return null; }
+      return { id: sid, date: date };
+    }
+
+    // "5 de outubro de 2026" / "October 5, 2026".
+    function taskSessionDateHtml(ymd) {
+      var y = parseInt(ymd.slice(0, 4), 10);
+      var m = parseInt(ymd.slice(5, 7), 10);
+      var d = parseInt(ymd.slice(8, 10), 10);
+      return '<span class="show-pt">' + d + " de " + (TASK_MONTHS_PT[m - 1] || "") + " de " + y + '</span>' +
+             '<span class="show-en">' + (TASK_MONTHS_EN[m - 1] || "") + " " + d + ", " + y + '</span>';
+    }
+
+    // "Other" first (when it has tasks), then one group per session, newest
+    // session first. Inside a group the tasks keep the order they came in.
+    function buildTaskGroups(tasks) {
+      var other = { key: "other", date: null, tasks: [] };
+      var byId = {};
+      var list = [];
+      for (var i = 0; i < tasks.length; i++) {
+        var info = taskSessionInfo(tasks[i]);
+        if (!info) { other.tasks.push(tasks[i]); continue; }
+        if (!byId[info.id]) {
+          byId[info.id] = { key: info.id, date: info.date, tasks: [] };
+          list.push(byId[info.id]);
+        }
+        byId[info.id].tasks.push(tasks[i]);
+      }
+      list.sort(function(a, b) {
+        if (a.date !== b.date) { return a.date < b.date ? 1 : -1; }
+        return a.key < b.key ? 1 : (a.key > b.key ? -1 : 0);
+      });
+      return (other.tasks.length ? [other] : []).concat(list);
+    }
+
+    function taskGroupOpenCount(group) {
+      var n = 0;
+      for (var i = 0; i < group.tasks.length; i++) {
+        if (group.tasks[i].status !== "done") { n++; }
+      }
+      return n;
+    }
+
+    // One task row, exactly as it has always been drawn. onChange runs after
+    // its checkbox changes (and again if the save fails and it reverts).
+    function buildTaskRow(task, type, onChange) {
+      var row = document.createElement("div");
+      row.className = "task-row" + (task.status === "done" ? " is-done" : "");
+      row.setAttribute("data-task-id", task.id);
+
+      var checkEl = document.createElement("div");
+      checkEl.className = "task-check" + (task.status === "done" ? " is-done" : "");
+      checkEl.onclick = function() { toggleTaskStatus(task, type, checkEl, row, descEl, onChange); };
+
+      var bodyEl = document.createElement("div");
+      bodyEl.className = "task-body";
+
+      var descEl = document.createElement("div");
+      descEl.className = "task-desc";
+      descEl.textContent = task.description;
+
+      var metaEl = document.createElement("div");
+      metaEl.className = "task-meta";
+
+      if (task.due_date) {
+        var dueEl = document.createElement("span");
+        dueEl.className = "task-due";
+        // due_date is a local calendar date, so "is it overdue?" must
+        // compare against a local one — a UTC today marks tasks due today
+        // as overdue all evening.
+        var today = localDateStr();
+        if (task.due_date < today && task.status !== "done") {
+          dueEl.classList.add("is-overdue");
+        }
+        dueEl.textContent = formatDate(task.due_date);
+        metaEl.appendChild(dueEl);
+      }
+
+      bodyEl.appendChild(descEl);
+      bodyEl.appendChild(metaEl);
+      row.appendChild(checkEl);
+      row.appendChild(bodyEl);
+      return row;
     }
 
     function renderTasksSection(type, tasks) {
@@ -10812,56 +10962,95 @@
       }
 
       container.innerHTML = "";
-      for (var i = 0; i < tasks.length; i++) {
-        (function(task) {
-          var row = document.createElement("div");
-          row.className = "task-row" + (task.status === "done" ? " is-done" : "");
-          row.setAttribute("data-task-id", task.id);
-
-          var checkEl = document.createElement("div");
-          checkEl.className = "task-check" + (task.status === "done" ? " is-done" : "");
-          checkEl.onclick = function() { toggleTaskStatus(task, type, checkEl, row, descEl); };
-
-          var bodyEl = document.createElement("div");
-          bodyEl.className = "task-body";
-
-          var descEl = document.createElement("div");
-          descEl.className = "task-desc";
-          descEl.textContent = task.description;
-
-          var metaEl = document.createElement("div");
-          metaEl.className = "task-meta";
-
-          if (task.due_date) {
-            var dueEl = document.createElement("span");
-            dueEl.className = "task-due";
-            // due_date is a local calendar date, so "is it overdue?" must
-            // compare against a local one — a UTC today marks tasks due today
-            // as overdue all evening.
-            var today = localDateStr();
-            if (task.due_date < today && task.status !== "done") {
-              dueEl.classList.add("is-overdue");
-            }
-            dueEl.textContent = formatDate(task.due_date);
-            metaEl.appendChild(dueEl);
-          }
-
-          bodyEl.appendChild(descEl);
-          bodyEl.appendChild(metaEl);
-          row.appendChild(checkEl);
-          row.appendChild(bodyEl);
-          container.appendChild(row);
-        })(tasks[i]);
+      var groups = buildTaskGroups(tasks);
+      var newestSeen = false;
+      for (var gi = 0; gi < groups.length; gi++) {
+        // Every group starts closed except the most recent session; "Other"
+        // starts open only while it has something left to do.
+        var startOpen;
+        if (groups[gi].key === "other") {
+          startOpen = taskGroupOpenCount(groups[gi]) > 0;
+        } else {
+          startOpen = !newestSeen;
+          newestSeen = true;
+        }
+        container.appendChild(buildTaskGroup(type, groups[gi], startOpen));
       }
     }
 
-    function toggleTaskStatus(task, type, checkEl, rowEl, descEl) {
+    function buildTaskGroup(type, group, startOpen) {
+      var remembered = taskGroupOpen[type][group.key];
+      var open = (typeof remembered === "boolean") ? remembered : startOpen;
+
+      var wrap = document.createElement("div");
+      wrap.className = "tsg";
+
+      var head = document.createElement("button");
+      head.type = "button";
+      head.className = "tsg-head";
+
+      var chev = document.createElement("span");
+      chev.className = "tsg-chev";
+
+      var title = document.createElement("span");
+      title.className = "tsg-title";
+      title.innerHTML = group.key === "other"
+        ? '<span class="show-pt">Outras</span><span class="show-en">Other</span>'
+        : taskSessionDateHtml(group.date);
+
+      var count = document.createElement("span");
+      count.className = "tsg-count";
+
+      var body = document.createElement("div");
+      body.className = "tsg-body";
+
+      function setOpen(v) {
+        body.hidden = !v;
+        chev.textContent = v ? "\u25BC" : "\u25B6";
+        head.setAttribute("aria-expanded", v ? "true" : "false");
+      }
+
+      // The open-task count, and the quiet "all done" look when it reaches 0.
+      function refresh() {
+        var n = taskGroupOpenCount(group);
+        if (n === 0) {
+          count.innerHTML = '<span class="show-pt">Tudo feito</span><span class="show-en">All done</span>';
+          wrap.classList.add("is-all-done");
+        } else {
+          count.innerHTML = '<span class="show-pt">' + n + (n === 1 ? " aberta" : " abertas") + '</span>' +
+                            '<span class="show-en">' + n + " open" + '</span>';
+          wrap.classList.remove("is-all-done");
+        }
+      }
+
+      head.onclick = function() {
+        open = !open;
+        taskGroupOpen[type][group.key] = open;
+        setOpen(open);
+      };
+
+      for (var i = 0; i < group.tasks.length; i++) {
+        body.appendChild(buildTaskRow(group.tasks[i], type, refresh));
+      }
+
+      head.appendChild(chev);
+      head.appendChild(title);
+      head.appendChild(count);
+      wrap.appendChild(head);
+      wrap.appendChild(body);
+      setOpen(open);
+      refresh();
+      return wrap;
+    }
+
+    function toggleTaskStatus(task, type, checkEl, rowEl, descEl, onChange) {
       var newStatus = task.status === "done" ? "pending" : "done";
       task.status = newStatus;
 
       var isDone = newStatus === "done";
       rowEl.classList.toggle("is-done",  isDone);
       checkEl.classList.toggle("is-done", isDone);
+      if (typeof onChange === "function") { onChange(); }
 
       apiFetch("/api/tasks/" + task.id, {
         method: "PATCH",
@@ -10871,6 +11060,7 @@
         task.status = isDone ? "pending" : "done";
         rowEl.classList.toggle("is-done",  !isDone);
         checkEl.classList.toggle("is-done", !isDone);
+        if (typeof onChange === "function") { onChange(); }
       });
     }
 

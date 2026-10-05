@@ -36520,7 +36520,7 @@ async function handleGetFinanceNewRecurrenceCheck(request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: POST /api/finance-new/invoices/:id/mark-mistake — admin only.
-// Body: { reason }
+// Body: { reason, kind: "mistake"|"canceled", force }
 //
 // SOFT DELETE. Alice has created duplicate invoices more than once while
 // trying to send. The row stays in D1 forever; only its visibility changes.
@@ -36575,10 +36575,19 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
                 409);
         }
 
+        // kind: "mistake" (default, as before) -> 'voided_mistake', hidden
+        // behind the toggle; "canceled" -> 'void', which stays in the Archive
+        // tab. voided_reason starts with the kind so a person and a query can
+        // both read it: "mistake", "canceled", "canceled: client paused".
+        var kind = body.kind === "canceled" ? "canceled" : "mistake";
+        var newStatus = kind === "canceled" ? "void" : "voided_mistake";
+        var note = typeof body.reason === "string" ? body.reason.trim().slice(0, 300) : "";
+        var storedReason = note ? (kind + ": " + note) : kind;
+
         await env.DB.prepare(
-            "UPDATE invoices SET status = 'voided_mistake', voided_reason = ?, voided_by = ?, " +
+            "UPDATE invoices SET status = ?, voided_reason = ?, voided_by = ?, " +
             "voided_at = datetime('now') WHERE id = ?"
-        ).bind(body.reason || null, actorName(user), invoiceId).run();
+        ).bind(newStatus, storedReason, actorName(user), invoiceId).run();
 
         // Any match against this invoice is withdrawn too, so it stops
         // counting as a paid deposit.
@@ -36587,7 +36596,7 @@ async function handlePostFinanceNewInvoiceMarkMistake(invoiceId, request, env) {
             "WHERE invoice_id = ? AND undone_at IS NULL"
         ).bind(actorName(user), invoiceId).run();
 
-        return jsonOk({ id: invoiceId, status: "voided_mistake" });
+        return jsonOk({ id: invoiceId, status: newStatus });
     } catch (e) {
         return jsonErr("Error marking invoice as mistake: " + e.message, 500);
     }

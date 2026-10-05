@@ -36,7 +36,8 @@ const paySum = (d, id) => d.q("SELECT COALESCE(SUM(amount_cents),0) AS s, COUNT(
 // ── 1. Match approve: the paid rule ────────────────────────────────────────
 {
   const d = makeDb(MIGS); const env = { DB: d.DB };
-  const F = build(["invoicePaidCents", "handlePostFinanceNewMatchApprove", "handlePostFinanceNewMatchUndo"], ["MATCH_BATCH_CAP", "MATCH_FORCE_REVIEW_CENTS"], baseStubs);
+  // isStripeTransferText: the approve handler's alias guard (2026-10-04) calls it.
+  const F = build(["isStripeTransferText", "invoicePaidCents", "handlePostFinanceNewMatchApprove", "handlePostFinanceNewMatchUndo"], ["MATCH_BATCH_CAP", "MATCH_FORCE_REVIEW_CENTS"], baseStubs);
   seedAccounts(d); seedClient(d, "c1", "ALPHA BUILDERS");
   const approve = async (inv, txn) => (await F.handlePostFinanceNewMatchApprove(req({ matches: [{ invoice_id: inv, transaction_id: txn, match_type: "manual" }] }), env));
 

@@ -5250,16 +5250,9 @@ function gmRenderContractSheet() {
     var r = R[k] || {}; return gmSheetRowHtml("tag", escHtml(k + " · " + lockedNames[k]), r.on ? '<span class="gm-pill gm-green">✓ ' + gmT("entra", "in") + '</span>' : '<span class="gm-pill gm-muted">○ ' + gmT("não entra", "out") + '</span>', null, null, escHtml((window.GmLabels && GmLabels.contractNoticeWhy) ? GmLabels.contractNoticeWhy(r.why, isEn()) : (r.why || "")));
   }).join(""), gmT("n\u00e3o edit\u00e1veis", "not editable"));
 
-  // State riders: the owner's checklist for a job outside Florida.
-  // Information only: no tick box, no gate.
-  if (outFl && c.state_checklist && c.state_checklist.length) {
-    body += '<div class="gm-sheet-section" id="gmConStateChecklist"><p class="gm-sheet-section-title">' + gmT("Antes de enviar: " + escHtml(c.job_state_name), "Before you send: " + escHtml(c.job_state_name)) +
-      ' <span class="gm-sheet-section-note">' + gmT("s\u00f3 informa\u00e7\u00e3o; nada aqui impede o envio", "information only; nothing here stops you from sending") + '</span></p>' +
-      c.state_checklist.map(function(l) {
-        return '<p class="' + (l.level === "warn" ? "gm-warn" : "muted") + '" style="margin:6px 0;font-size:13px;">' + escHtml(isEn() ? l.en : l.pt) + '</p>';
-      }).join("") +
-      '<p class="gm-derived-note">' + gmT("Os dados legais (cita\u00e7\u00f5es e n\u00fameros) v\u00eam da pesquisa e ficam em ingl\u00eas. Nenhum advogado revisou.", "The legal facts (cites and numbers) come from the research on file. No lawyer has reviewed them.") + '</p></div>';
-  }
+  // State riders: the "Before you send" card for a job outside Florida.
+  // Nothing on it blocks a send, a signature or a preview.
+  if (outFl) { body += gmConStateCardHtml(c); }
 
   // Missing fields: human labels (F15), date pickers and number pads.
   if (c.missing && c.missing.length && !ro) {
@@ -5389,6 +5382,63 @@ function gmConSavePrice() {
   gmConSave({ contract_price_cents: Math.round(n * 100) });
 }
 function gmConSetFlag(k, v) { var flags = {}; flags[k] = v; gmConSave({ flags: flags }); }
+// The "Before you send" card. c.state_card (from the Worker) holds the lines
+// the person must act on, each with its law reference, the full text behind
+// it, and who ticked it and when; everything else the research says sits in
+// one closed "More about {State}" line. A tick is saved on the contract at
+// once. It is a record for the business only: it never blocks anything.
+function gmConStateCardHtml(c) {
+  var card = c.state_card || null;
+  var acts = (card && card.actions) || [];
+  var more = card ? (card.more || []) : (c.state_checklist || []);
+  if (!acts.length && !more.length) { return ""; }
+  var canTick = c.status !== "void";
+  var name = escHtml(c.job_state_name || "");
+  var doneCount = acts.filter(function(a) { return !!a.done; }).length;
+  var h = '<div class="gm-sheet-section" id="gmConStateChecklist">';
+  if (acts.length) {
+    h += '<p class="gm-sheet-section-title">' + gmT("Antes de enviar: " + name + " (" + doneCount + " de " + acts.length + " feitos)", "Before you send: " + name + " (" + doneCount + " of " + acts.length + " done)") +
+      ' <span class="gm-sheet-section-note">' + gmT("nada aqui impede o envio", "nothing here stops you from sending") + '</span></p>';
+    acts.forEach(function(a, i) {
+      var boxId = "gmConStChk" + i, ctxId = "gmConStCtx" + i;
+      var ref = isEn() ? (a.ref || "details") : (a.ref_pt || a.ref || "detalhes");
+      var url = /^https?:\/\//.test(String(a.source_url || "")) ? a.source_url : "";
+      h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);">' +
+        '<input type="checkbox" id="' + boxId + '" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (a.done ? " checked" : "") + (canTick ? "" : " disabled") + ' onchange="gmConStateCheck(' + i + ', this.checked)">' +
+        '<div style="flex:1 1 auto;min-width:0;"><label for="' + boxId + '">' + escHtml(isEn() ? a.en : a.pt) + '</label> ' +
+        '<a href="#" role="button" aria-expanded="false" aria-controls="' + ctxId + '" onclick="return gmConStateCtx(this, \'' + ctxId + '\')">(' + escHtml(ref) + ')</a>' +
+        (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "") +
+        '<div id="' + ctxId + '" hidden><p class="muted" style="font-size:13px;margin:6px 0;">' + escHtml(isEn() ? a.context_en : a.context_pt) + '</p>' +
+        (url ? '<p style="font-size:13px;margin:0 0 6px;"><a href="' + escHtml(url) + '" target="_blank" rel="noopener">' + gmT("Abrir a fonte oficial", "Open the official source") + '</a></p>' : "") + '</div>' +
+        '</div></div>';
+    });
+  }
+  if (more.length) {
+    h += '<details style="margin-top:' + (acts.length ? "10" : "0") + 'px;"><summary style="cursor:pointer;padding:10px 0;">' + gmT("Mais sobre " + name, "More about " + name) + '</summary>' +
+      more.map(function(l) {
+        return '<p class="' + (l.level === "warn" ? "gm-warn" : "muted") + '" style="margin:6px 0;font-size:13px;">' + escHtml(isEn() ? l.en : l.pt) + '</p>';
+      }).join("") +
+      '<p class="gm-derived-note">' + gmT("Os dados legais (cita\u00e7\u00f5es e n\u00fameros) v\u00eam da pesquisa e ficam em ingl\u00eas. Nenhum advogado revisou.", "The legal facts (cites and numbers) come from the research on file. No lawyer has reviewed them.") + '</p></details>';
+  }
+  return h + '</div>';
+}
+// Tick or untick line i of the card: saved at once with who and when.
+function gmConStateCheck(i, on) {
+  var card = gmConDetail && gmConDetail.state_card;
+  var a = card && card.actions ? card.actions[i] : null;
+  if (!a) { return; }
+  gmApi("contracts/" + encodeURIComponent(gmConDetail.id), { method: "PUT", body: { flags: { state_check: { key: a.key, done: !!on } } } })
+    .then(function(d) { gmConDetail = d.contract; gmRenderContractSheet(); })
+    .catch(function(e) { gmToast(e.message); console.error(e); gmRenderContractSheet(); });
+}
+// The law reference of a line opens and closes the full text under it.
+function gmConStateCtx(link, id) {
+  var el = document.getElementById(id);
+  if (!el) { return false; }
+  el.hidden = !el.hidden;
+  if (link) { link.setAttribute("aria-expanded", el.hidden ? "false" : "true"); }
+  return false;
+}
 function gmConSelect(areaId, optId) { var sel = {}; sel[areaId] = optId || null; gmConSave({ selections: sel }); }
 function gmConSaveAnswers() {
   var answers = {};
@@ -6052,9 +6102,9 @@ function gmDSubUpload(sid, kind, input) {
 }
 function gmDSubMsg(code) {
   var p = String(code).split(":"), k = p[0], d = p[1] ? formatDate(p[1]) : "";
-  var m = { no_license: ["sem número de licença", "no license number on file"], no_coi: ["sem certificado de seguro (COI)", "no certificate of insurance on file"], coi_expired: ["seguro (COI) venceu em " + d, "certificate of insurance expired " + d],
+  var m = { no_license: ["sem número de licença", "no license number on file"], no_coi: ["sem certificado de seguro (COI)", "no certificate of insurance on file"], coi_expired: ["seguro (COI) venceu em " + d, "insurance (COI) expired on " + d],
     no_wc: ["sem workers' comp (apólice ou isenção)", "no workers' compensation certificate or exemption on file"], wc_expired: ["workers' comp venceu em " + d, "workers' compensation expired " + d],
-    coi_expiring: ["seguro (COI) vence em " + d, "certificate of insurance expires " + d], wc_expiring: ["workers' comp vence em " + d, "workers' compensation expires " + d] };
+    coi_expiring: ["seguro (COI) vence em " + d, "insurance (COI) expires on " + d], wc_expiring: ["workers' comp vence em " + d, "workers' compensation expires " + d] };
   return m[k] ? gmT(m[k][0], m[k][1]) : String(code);
 }
 function gmDSubMsgs(codes) { return (codes || []).map(gmDSubMsg); }
@@ -7813,6 +7863,10 @@ function gmSheetKeepState(redraw) {
 }
 
 function gmOnLangChange() {
+  // Home: the attention card (subcontractor documents expiring, signed online
+  // by the customer, payments to verify) builds every word in JS and was
+  // never repainted here, so it stayed in the language it was first drawn in.
+  if (typeof gmAttentionChanged === "function") { gmAttentionChanged(gmAttention); }
   // Pipeline: the pills carry labels too, and only the visible section needs
   // re-rendering — the other two re-render when their pill is next tapped.
   if (gmCurrentTab === "gmcrm") {
@@ -11338,6 +11392,7 @@ function gmJobCreateInvoices(jobId) {
 
 var gmBkSettings = null;     // GET booking-settings: { settings, presets, event_types, link }
 var gmBkDraft = null;        // the owner's unsaved edits
+var gmBkPresetUndo = null;   // { preset, questions } from just before the last preset switch; cleared on save
 var gmBkLeadState = {};      // lead id -> { enabled, language, request } from GET leads/:id/booking
 var gmBkSendData = null;     // the link just made for the send sheet
 var GM_BK_DAYS = [
@@ -11369,6 +11424,7 @@ function gmBkLoadSettings() {
   return gmApi("booking-settings").then(function(d) {
     gmBkSettings = d;
     gmBkDraft = JSON.parse(JSON.stringify(d.settings));
+    gmBkPresetUndo = null;
     return d;
   });
 }
@@ -11422,7 +11478,9 @@ function gmBkCardHtml() {
     '<label class="field-label">' + gmT("Modelo de perguntas", "Question preset") + '</label><div class="gm-chip-set">' +
       gmBkChip(s.preset === "cleaning", "gmBkPreset('cleaning')", gmT("Limpeza residencial", "House cleaning")) +
       gmBkChip(s.preset === "general", "gmBkPreset('general')", gmT("Geral", "General")) +
-    '</div><p class="muted" style="font-size:12px;margin:6px 0 10px;">' + gmT("Escolher um modelo troca as perguntas atuais.", "Choosing a preset replaces the current questions.") + '</p>';
+    '</div><p class="muted" style="font-size:12px;margin:6px 0 10px;">' + gmT("Escolher um modelo troca as perguntas atuais.", "Choosing a preset replaces the current questions.") + '</p>' +
+    (gmBkPresetUndo ? '<p id="gmBkPresetUndoLine" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 10px;"><span>' + gmT("Perguntas trocadas.", "Questions replaced.") + '</span>' +
+      '<button type="button" class="btn-outline" style="min-height:44px;" onclick="gmBkPresetUndoDo()">' + gmT("Desfazer", "Undo") + '</button></p>' : "");
   if (!s.questions.length) { h += '<p class="muted">' + gmT("Nenhuma pergunta.", "No questions.") + '</p>'; }
   s.questions.forEach(function(q, i) {
     h += '<div class="list-row"><div class="list-main"><label style="display:flex;gap:10px;align-items:center;min-height:44px;">' +
@@ -11471,10 +11529,21 @@ function gmBkToggleDay(n) {
   gmBkRerender();
 }
 
+// Switches at once, with no browser pop-up: what was there is kept for the
+// Undo line in the card until the person saves or switches again. Nothing is
+// saved until Save.
 function gmBkPreset(name) {
-  if (gmBkDraft.questions.length && !window.confirm(gmT("Trocar as perguntas atuais pelo modelo?", "Replace the current questions with this preset?"))) { return; }
+  if (!gmBkDraft || !gmBkSettings) { return; }
+  gmBkPresetUndo = { preset: gmBkDraft.preset, questions: JSON.parse(JSON.stringify(gmBkDraft.questions || [])) };
   gmBkDraft.preset = name;
-  gmBkDraft.questions = JSON.parse(JSON.stringify(gmBkSettings.presets[name] || []));
+  gmBkDraft.questions = JSON.parse(JSON.stringify((gmBkSettings.presets || {})[name] || []));
+  gmBkRerender();
+}
+function gmBkPresetUndoDo() {
+  if (!gmBkDraft || !gmBkPresetUndo) { return; }
+  gmBkDraft.preset = gmBkPresetUndo.preset;
+  gmBkDraft.questions = gmBkPresetUndo.questions;
+  gmBkPresetUndo = null;
   gmBkRerender();
 }
 
@@ -11504,6 +11573,7 @@ function gmBkSave() {
     gmBkSettings.settings = d.settings;
     gmBkSettings.link = d.link;
     gmBkDraft = JSON.parse(JSON.stringify(d.settings));
+    gmBkPresetUndo = null;
     gmBkLeadState = {};
     gmBkRerender();
     gmToast(gmT("Salvo", "Saved"));

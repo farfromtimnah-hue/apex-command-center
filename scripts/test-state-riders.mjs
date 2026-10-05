@@ -352,7 +352,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {}
     };
     const names = Object.keys(stubs);
-    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
+    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
     return function (c) { out = null; fn(clone(c)); return out; };
   }
   async function detail(fxIn, status) {
@@ -365,10 +365,10 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       missing: comp.missing, blockers: comp.blockers, rules: comp.rules, amount_cents: comp.amount_cents, disclaimer_line: comp.disclaimer_line, fields: comp.fields, builds_pools: ctx.settings.builds_pools, safety_features: ["(a) x"],
       preview_link: "p", pdf_link: "q", custom_clauses: [], estimate_price_cents: comp.amount_cents, can_sign_as_company: true,
       job_state: comp.state.code, job_state_name: comp.state.name, job_state_confirmed: comp.state.confirmed, job_state_florida: comp.state.florida, cancellation_rule: comp.state.cancellation, states: F.contractStateList(),
-      state_checklist: comp.checklist, option_warnings: comp.option_warnings,
+      state_checklist: comp.checklist, option_warnings: comp.option_warnings, state_card: F.contractStateActionCard(comp.state, comp.checklist, r.c.flags),
       state_neutral_options: comp.state.florida ? [] : ctx.lib.optionsForClient.filter(function (o) { return F.contractOptionText(neutral[o.id], neutral) !== F.contractOptionText(o, ctx.lib.optionsById); }).map(function (o) { return o.id; }) };
   }
-  ok(cut(gm, "gmRenderContractSheet") === cut(ios, "gmRenderContractSheet") && cut(gm, "gmContractGuard") === cut(ios, "gmContractGuard") && cut(gm, "gmConSettingsHtml") === cut(ios, "gmConSettingsHtml"), "gm.js and its iOS copy carry the same builder sheet, settings card and no-contract warning");
+  ok(cut(gm, "gmRenderContractSheet") === cut(ios, "gmRenderContractSheet") && cut(gm, "gmContractGuard") === cut(ios, "gmContractGuard") && cut(gm, "gmConSettingsHtml") === cut(ios, "gmConSettingsHtml") && cut(gm, "gmConStateCardHtml") === cut(ios, "gmConStateCardHtml") && cut(gm, "gmConStateCardHtml").length > 500, "gm.js and its iOS copy carry the same builder sheet, settings card, no-contract warning and \"Before you send\" card");
   const nc = await detail(stateFx("pool-job", "NC", { selections: { C14: "C14-C" } }));
   const en = renderer(gm, true)(nc), pt = renderer(gm, false)(nc);
   ok(/for="gmConJobState">State where the work is done \*<\/label>/.test(en) && /<option value="NC" selected>North Carolina<\/option>/.test(en) && (en.match(/<option value="[A-Z]{2}"/g) || []).length === 51 && /gmConSetFlag\('job_state', this\.value\)/.test(en), "builder sheet: a required-looking state select with 51 states, the job state selected, saved through the flag mechanism");
@@ -376,7 +376,10 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   ok(/Notices inserted by rule: North Carolina/.test(en) && !/Florida notices inserted by rule/.test(en) && /Avisos inseridos por regra: North Carolina/.test(pt), "builder sheet: the locked-blocks title names the job state in both languages");
   ok(/L1 · Florida construction lien notice\|[^|]*out[^|]*\|job is in North Carolina: Florida notice not used/.test(en) && /L5-C · Florida home solicitation statement/.test(en) && /a obra fica em North Carolina: o aviso da Flórida não é usado/.test(pt), "builder sheet: a Florida block reads off with a reason that names the state, in both languages");
   ok(/<p class="gm-sheet-section-title">Before you send: North Carolina/.test(en) && /<p class="gm-sheet-section-title">Antes de enviar: North Carolina/.test(pt) && /Leave no blank spaces in the contract\./.test(en) && /Não deixe espaços em branco no contrato\./.test(pt), "builder sheet: the \"Before you send\" checklist card shows in both languages");
-  ok(!/type="checkbox"[^>]*gmConStateChecklist/.test(en) && !/<input[^>]*>[^<]*Leave no blank/.test(en), "builder sheet: the checklist has no tick box");
+  // RES-28: the card became a checklist. The lines a person must act on carry a
+  // tick box; a line the builder handles ("Leave no blank spaces") carries none
+  // and sits under "More about {State}". scripts/test-state-checklist.mjs covers the rest.
+  ok(/<input type="checkbox" id="gmConStChk0"/.test(en) && !/<input[^>]*>[^<]*Leave no blank/.test(en) && en.indexOf("<summary") < en.indexOf("Leave no blank spaces") && en.indexOf("<summary") !== -1, "builder sheet: action lines have a tick box; a handled line has none and sits under More about the state");
   ok(/caution in this state/.test(en) && /North Carolina: Jury waiver is unconscionable as a matter of law/.test(en), "builder sheet: a flagged clause option is marked in the list and warned about under the select");
   ok(!/515/.test(en) && !/gmConSafety/.test(en) && /Pool job<\/label>/.test(en), "builder sheet: outside Florida the pool question carries no Chapter 515 wording and no safety-feature select");
   ok(/Rascunho de adendo estadual, não revisado por advogado para North Carolina\./.test(pt) && /Draft rider, not reviewed by a lawyer for North Carolina\./.test(en), "builder sheet: the disclaimer is the state's, in Portuguese on the Portuguese screen");

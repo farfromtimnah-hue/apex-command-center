@@ -51,6 +51,11 @@ export async function buildComposer(src, opts) {
   if (/\nimport CONTRACT_STATE_RIDERS_V1 from /.test("\n" + src) && existsSync(ridersUrl)) {
     stubs.CONTRACT_STATE_RIDERS_V1 = JSON.parse(readFileSync(ridersUrl, "utf8"));
   }
+  // The same for the "Before you send" sorting (data/contract-state-checklist-v1.json).
+  const checklistUrl = new URL("data/contract-state-checklist-v1.json", root);
+  if (/\nimport CONTRACT_STATE_CHECKLIST_V1 from /.test("\n" + src) && existsSync(checklistUrl)) {
+    stubs.CONTRACT_STATE_CHECKLIST_V1 = JSON.parse(readFileSync(checklistUrl, "utf8"));
+  }
   const stubNames = Object.keys(stubs);
   const body = vars.map(function (v) { return varSrc(v, src); }).concat(names.map(function (n) { return fnSrc(n, src); })).join("\n") +
     "\nreturn { " + names.join(", ") + " };";

@@ -1428,47 +1428,71 @@
     .card-body-collapsible { transition: none; }
     .card-body-collapsible[hidden] { display: none !important; }
 
-    /* ─── Edit Sections / drag reorder ──────────────────────────────────── */
-    .btn-edit-sections {
-      background: rgba(26,22,18,0.45);
-      -webkit-backdrop-filter: blur(10px);
-      backdrop-filter: blur(10px);
-      color: rgba(255,255,255,0.75);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 7px;
-      padding: 6px 14px;
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
+    /* ─── Five groups, one section on screen ─────────────────────────────── */
+    /* Same design as the client portal's group strip and its drop-down
+       (portal.html .portal-group-tab / #portalGroupSheet): no second row of
+       pills, no full-screen menu. */
+    .cg-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cg-bar[hidden] { display: none; }
+    .cg-tab {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: transparent; border: 1px solid var(--border); border-radius: 20px;
+      padding: 9px 18px; min-height: 42px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: var(--muted);
+      cursor: pointer; white-space: nowrap;
     }
-    .btn-edit-sections:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
-
-    .edit-sections-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 12px;
+    .cg-tab svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .cg-tab.active { background: var(--header); color: var(--gold); border-color: var(--header); }
+    .cg-tab-short { display: none; }
+    @media (max-width: 768px) {
+      /* Phone: all five in one row, icon above a short label, like dock tabs. */
+      .cg-bar { flex-wrap: nowrap; gap: 4px; }
+      .cg-tab {
+        flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 3px;
+        padding: 8px 2px 6px; min-height: 54px; border-radius: 12px;
+        font-size: 10px;
+      }
+      .cg-tab svg { width: 22px; height: 22px; }
+      .cg-tab-long { display: none; }
+      .cg-tab-short {
+        display: block; max-width: 100%; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; line-height: 1.1;
+      }
     }
-
-    .drag-handle {
-      display: none;
-      color: var(--muted);
-      font-size: 16px;
-      cursor: grab;
-      padding: 0 6px 0 0;
-      user-select: none;
-      flex-shrink: 0;
-      line-height: 1;
+    /* A group's menu. Phone: a small pop-up just above the dock, only as tall
+       as its list, under the dock (950) so the dock stays tappable. Desktop
+       (.cg-dropdown): a drop-down pinned under the group's button. */
+    .cg-sheet { position: fixed; inset: 0; z-index: 945; }
+    .cg-sheet[hidden] { display: none; }
+    .cg-backdrop { position: absolute; inset: 0; background: rgba(20,18,16,0.45); }
+    .cg-panel {
+      position: absolute; left: 10px; right: 10px;
+      bottom: calc(58px + 10px + env(safe-area-inset-bottom));
+      max-height: calc(100vh - 58px - 40px - env(safe-area-inset-bottom)); overflow-y: auto;
+      background: #fff; border-radius: 16px; padding: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
-
-    body.is-edit-sections .drag-handle { display: block; }
-    body.is-edit-sections .collapse-btn { display: none; }
-    body.is-edit-sections .content-card-header { cursor: grab; }
-    body.is-edit-sections .card-body-collapsible { display: none !important; }
-
-    .section-drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+    .cg-sheet.cg-dropdown { z-index: 960; }
+    .cg-sheet.cg-dropdown .cg-backdrop { background: transparent; }
+    .cg-sheet.cg-dropdown .cg-panel { bottom: auto; right: auto; width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 1px solid var(--border); }
+    .cg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
+    .cg-item {
+      display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;
+      background: none; border: 0; border-radius: 10px; padding: 12px; min-height: 48px;
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left; text-decoration: none;
+    }
+    .cg-item:hover { background: var(--gold-dim); }
+    .cg-item.active { background: var(--header); color: var(--gold); }
+    /* One section on screen. Screen only: a printed page keeps every section,
+       as it always has. .cg-off never touches the hidden attribute, which
+       stays each section's own "not for this client / this role" rule. */
+    @media screen {
+      .content-card.cg-off { display: none !important; }
+      .two-col-layout.cg-one { display: block; }
+      .two-col-layout.cg-one .col-side > .info-card { display: none; }
+    }
+    @media print { .cg-bar, .cg-sheet { display: none !important; } }
 
     #sectionsList { display: flex; flex-direction: column; gap: 24px; }
 
@@ -1999,21 +2023,14 @@
             </button>
           </div>
         </div>
-        <!-- Edit Sections bar — inside hero, left-aligned below the glass tile -->
-        <div class="edit-sections-bar">
-          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
-            <span class="show-pt">&#9776; Editar Secoes</span>
-            <span class="show-en">&#9776; Edit Sections</span>
-          </button>
-          <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:rgba(201,164,58,0.7);color:#e8c96a;">
-            <span class="show-pt">Concluido</span>
-            <span class="show-en">Done</span>
-          </button>
-        </div>
       </div>
     </div>
 
     <div class="below-hero-section">
+
+    <!-- The five groups. Filled by cgRenderBar(): the order depends on the
+         signed-in role. A group opens a menu of its sections (#cgSheet). -->
+    <nav class="cg-bar" id="cgBar" hidden></nav>
 
     <!-- Leads reported in the daily log that never reached the pipeline.
          Hidden entirely when there is no gap: an always-present card reading
@@ -2032,7 +2049,6 @@
         <!-- Overview card -->
         <div class="content-card" id="sec-overview" data-section-id="overview">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
@@ -2055,7 +2071,6 @@
         <!-- Sessions section -->
         <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Sessoes</span>
               <span class="show-en">Sessions</span>
@@ -2074,7 +2089,6 @@
         <!-- Digital Presence section -->
         <div class="content-card" id="sec-dp" data-section-id="dp">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Presenca Digital</span>
               <span class="show-en">Digital Presence</span>
@@ -2096,7 +2110,6 @@
         <!-- Client Tasks section -->
         <div class="content-card" id="sec-clientTasks" data-section-id="clientTasks">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Cliente</span>
               <span class="show-en">Client Tasks</span>
@@ -2127,7 +2140,6 @@
         <!-- Consultant Tasks section -->
         <div class="content-card" id="sec-consultantTasks" data-section-id="consultantTasks">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Consultor</span>
               <span class="show-en">Consultant Tasks</span>
@@ -2158,7 +2170,6 @@
         <!-- Contacts section (moved from right column — reorderable) -->
         <div class="content-card" id="sec-contacts" data-section-id="contacts">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contatos</span>
               <span class="show-en">Contacts</span>
@@ -2320,7 +2331,6 @@
         <!-- Notes section -->
         <div class="content-card" id="sec-notes" data-section-id="notes">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Notas</span>
               <span class="show-en">Notes</span>
@@ -2342,7 +2352,6 @@
         <!-- Resources (Resource Hub) — permanent sent-history record -->
         <div class="content-card" id="sec-resources" data-section-id="resources">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Recursos</span>
               <span class="show-en">Resources</span>
@@ -2364,7 +2373,6 @@
         <!-- Growth tracking (Sales Dashboard) — monthly growth % entries -->
         <div class="content-card" id="sec-growth" data-section-id="growth">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Crescimento</span>
               <span class="show-en">Growth</span>
@@ -2388,7 +2396,6 @@
              endpoints instead of the read-only previewAs preview. -->
         <div class="content-card" id="sec-gmcrm" data-section-id="gmcrm">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Pipeline</span>
               <span class="show-en">Pipeline</span>
@@ -2406,7 +2413,6 @@
 
         <div class="content-card" id="sec-gmjobs" data-section-id="gmjobs">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Projetos</span>
               <span class="show-en">Projects</span>
@@ -2424,7 +2430,6 @@
 
         <div class="content-card" id="sec-gmfinance" data-section-id="gmfinance">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Financeiro</span>
               <span class="show-en">Finance</span>
@@ -2442,7 +2447,6 @@
 
         <div class="content-card" id="sec-gmpricing" data-section-id="gmpricing">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Pre&ccedil;os</span>
               <span class="show-en">Pricing</span>
@@ -2464,7 +2468,6 @@
              portal's Estimates tab; here an admin edits it for any client. -->
         <div class="content-card" id="sec-gmestimates" data-section-id="gmestimates">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Estimates</span>
               <span class="show-en">Estimates</span>
@@ -2485,7 +2488,6 @@
              For a lead it is pinned right under the Lead Pipeline card. -->
         <div class="content-card" id="sec-apexContract" data-section-id="apexContract" hidden>
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contrato APEX</span>
               <span class="show-en">APEX Contract</span>
@@ -2499,7 +2501,6 @@
 
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Metodo de Pagamento</span>
               <span class="show-en">Payment Method</span>
@@ -2564,7 +2565,6 @@
              /api/clients/:id/vendor-terms routes. -->
         <div class="content-card" id="sec-vendors" data-section-id="vendors">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Fornecedores</span>
               <span class="show-en">Vendors</span>
@@ -2586,7 +2586,6 @@
         <!-- Documents section (reorderable) -->
         <div class="content-card" id="sec-docs" data-section-id="docs">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Documentos</span>
               <span class="show-en">Documents</span>
@@ -3813,7 +3812,7 @@
     // here mid-meeting, and "scroll down and find the digital presence card"
     // is not something he can do while a client is talking.
     //   ?day=YYYY-MM-DD  open that day's entry under the week card
-    //   ?section=<id>    scroll that content-card into view and flash it
+    //   ?section=<id>    put that content-card on screen and flash it
     var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
     var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
 
@@ -3823,6 +3822,9 @@
     function scrollToSection(elId) {
       var el = document.getElementById(elId);
       if (!el) { return; }
+      // One section is on screen at a time: bring this element's section up
+      // first, or there is nothing to scroll to.
+      cgShowForElement(el);
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.style.transition = "background-color 0.4s";
       el.style.backgroundColor = "var(--gold-dim)";
@@ -3839,6 +3841,12 @@
       // lead was created mid-booking. It reuses createClientLogin, the ONE
       // implementation of a one-time password that can never be shown again --
       // a second one would be a second chance to get it wrong.
+      // Both dialogs belong to the Client Portal card (login + field config),
+      // so that is the section left on screen behind them. ?section= wins
+      // when a link carries both.
+      if ((DEEP_MODAL === "login" || DEEP_MODAL === "fieldconfig") && !DEEP_SECTION) {
+        cgShow("portalAccess", false);
+      }
       if (DEEP_MODAL === "login") {
         if (typeof createClientLogin === "function") { createClientLogin(); }
         return;
@@ -3851,11 +3859,21 @@
     // ?section= runs after the page has painted its cards. Only ids that are
     // really on the page resolve; anything else quietly does nothing rather
     // than scrolling to the top.
-    function applyDeepSection() {
+    function applyDeepSection(tries) {
       if (!DEEP_SECTION) { return; }
       var id = "sec-" + DEEP_SECTION.replace(/[^a-zA-Z0-9_-]/g, "");
       var el = document.getElementById(id);
       if (!el) { return; }
+      // A card the page has not decided to show yet (APEX Contract and
+      // Contract status appear after their own load) is tried again for a few
+      // seconds; one that stays hidden is hidden for a reason and is left.
+      if (el.hidden) {
+        var n = (typeof tries === "number") ? tries : 0;
+        if (n < 8) { setTimeout(function() { applyDeepSection(n + 1); }, 500); }
+        return;
+      }
+      // He already chose a section himself while this was waiting.
+      if (cgUserPicked) { return; }
       scrollToSection(id);
     }
     var clientData  = null;
@@ -4053,6 +4071,9 @@
       populateHeaderUser(email, displayName, avatarUrl);
       document.getElementById("headerRole").textContent = role;
 
+      // Before the page is shown: only the first section is on screen.
+      cgInit();
+
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
@@ -4102,6 +4123,9 @@
         fetchAndApplyRole().then(function(data) {
           if (!cachedRole) {
             setupPage(data.role);
+          } else {
+            // The cached role drew the group buttons; the fresh one orders them.
+            cgRenderBar();
           }
         }).catch(function() {
           if (!cachedRole) {
@@ -4120,7 +4144,6 @@
     // ── Load page data (parallel) ──────────────────────────────────────────
 
     function loadClientPage() {
-      initSectionOrder();
       loadMessageTemplates();
       wireCredentialTemplateEditing();
       loadClient();
@@ -5689,10 +5712,19 @@
         return;
       }
       card.hidden = false;
-      // initSectionOrder() already ran (before this async load resolved) while
-      // the card was still hidden, so pin it to the top now that it is shown.
+      // Pinned to the top of the list: for a lead the pipeline is the point
+      // of the page, and the APEX Contract card is placed right under it.
       var list = document.getElementById("sectionsList");
       if (list) { list.insertBefore(card, list.firstChild); }
+      // A lead opens on the pipeline (with the APEX Contract card under it)
+      // instead of the plain overview, unless he was sent somewhere specific
+      // or has already chosen a section.
+      if (cgCurrent === "apexContract" ||
+          (!cgUserPicked && !DEEP_SECTION && !DEEP_MODAL && cgCurrent === "overview")) {
+        cgShow("leadPipeline", false);
+      } else {
+        cgApply();
+      }
 
       leadStageCurrent = client.lead_stage && LEAD_STAGES.indexOf(client.lead_stage) >= 0
         ? client.lead_stage : "Lead";
@@ -9913,7 +9945,6 @@
     }
 
     function toggleSection(sectionKey) {
-      if (document.body.classList.contains("is-edit-sections")) { return; }
       for (var i = 0; i < COLLAPSE_SECTIONS.length; i++) {
         if (COLLAPSE_SECTIONS[i].key === sectionKey) {
           var s = COLLAPSE_SECTIONS[i];
@@ -9927,186 +9958,270 @@
       }
     }
 
-    // ── Edit Sections (drag reorder) ───────────────────────────────────────
-
-    var DEFAULT_SECTION_ORDER = [
-      "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "resources", "growth",
-      "gmcrm", "gmjobs", "gmfinance", "gmpricing", "gmestimates",
-      "apexContract", "payment", "vendors", "docs"
+    // ── Five groups, one section on screen ─────────────────────────────────
+    // The page used to be 25 cards on one long scroll. Now each card belongs
+    // to one of five groups and only one card is on screen. Same design as
+    // the client portal (PORTAL_GROUPS / portalDockTap / #portalGroupSheet).
+    //
+    // "sections" are the short names: the card's id is "sec-" + name, which
+    // is also what ?section= takes. The order here is the order in the menu.
+    // A card the page hides for its own reason (the hidden attribute: Lead
+    // Pipeline for a non-lead, APEX Contract and Contract status by role) is
+    // left out of its menu; a group with nothing to list is left out too.
+    var CG_GROUPS = [
+      { key: "overview", icon: "view",
+        pt: "Vis\u00e3o geral", en: "Overview", shortPt: "Geral", shortEn: "Overview",
+        sections: ["leadPipeline", "overview", "contacts", "notes", "portalAccess", "sellerLogins"] },
+      { key: "apexwork", icon: "peak",
+        pt: "Trabalho Apex", en: "Apex work", shortPt: "Apex", shortEn: "Apex",
+        sections: ["sessions", "clientTasks", "consultantTasks", "assessments", "resources", "docs"] },
+      { key: "results", icon: "trend",
+        pt: "Resultados", en: "Results", shortPt: "Resultados", shortEn: "Results",
+        sections: ["growth", "weeklySummary", "dp"], analyticsLink: true },
+      { key: "business", icon: "store",
+        pt: "Neg\u00f3cio do cliente", en: "Their business", shortPt: "Neg\u00f3cio", shortEn: "Business",
+        sections: ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance"] },
+      { key: "money", icon: "finance",
+        pt: "Financeiro", en: "Money", shortPt: "Financeiro", shortEn: "Money",
+        sections: ["apexContract", "contractStatus", "invoices", "payment", "vendors"] }
     ];
+    // Rafa works the client; Alice (and the developer) work the money.
+    var CG_ORDER_RAFA  = ["overview", "apexwork", "results", "business", "money"];
+    var CG_ORDER_OTHER = ["overview", "money", "apexwork", "results", "business"];
 
-    var dragSrcEl = null;
+    var cgCurrent    = "overview";   // short name of the section on screen
+    var cgUserPicked = false;        // he chose a section himself
 
-    function sectionOrderKey() {
-      return "apex_section_order_" + (CLIENT_ID || "");
+    // The developer's role switcher counts as the role being previewed.
+    function cgRole() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (role === "developer") {
+        var view = sessionStorage.getItem("apex_dev_view") || "dev";
+        if (view === "rafa" || view === "alice") { return view; }
+      }
+      return role;
     }
 
-    function loadSectionOrder() {
-      var order;
-      var stored = localStorage.getItem(sectionOrderKey());
-      if (!stored) {
-        order = DEFAULT_SECTION_ORDER.slice();
-      } else {
-        try {
-          var arr = JSON.parse(stored);
-          order = (Array.isArray(arr) && arr.length > 0) ? arr : DEFAULT_SECTION_ORDER.slice();
-        } catch(e) { order = DEFAULT_SECTION_ORDER.slice(); }
+    function cgGroupOrder() {
+      return cgRole() === "rafa" ? CG_ORDER_RAFA : CG_ORDER_OTHER;
+    }
+
+    function cgGroupByKey(key) {
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        if (CG_GROUPS[i].key === key) { return CG_GROUPS[i]; }
       }
-      // Any section in the DOM but missing from the order (added after the
-      // user saved a custom order, or missing from the default) is appended
-      // so a new section can never be silently pinned out of order.
-      var list = document.getElementById("sectionsList");
-      if (list) {
-        var cards = list.querySelectorAll("[data-section-id]");
-        for (var i = 0; i < cards.length; i++) {
-          var id = cards[i].getAttribute("data-section-id");
-          if (order.indexOf(id) === -1) { order.push(id); }
+      return null;
+    }
+
+    function cgCard(name) {
+      return document.getElementById("sec-" + name);
+    }
+
+    // The Lead Pipeline card is shown for a lead and for nobody else.
+    function cgIsLead() {
+      var card = cgCard("leadPipeline");
+      return !!(card && !card.hidden);
+    }
+
+    // For a lead the APEX Contract card sits under the Lead Pipeline card and
+    // the two are ONE screen (the Overview group's first). It is the only
+    // screen with two cards.
+    function cgLeadHasContract() {
+      var card = cgCard("apexContract");
+      return cgIsLead() && !!(card && !card.hidden);
+    }
+
+    function cgNormalize(name) {
+      if (name === "apexContract" && cgIsLead()) { return "leadPipeline"; }
+      return name;
+    }
+
+    function cgGroupOfSection(name) {
+      if (name === "apexContract" && cgIsLead()) { return cgGroupByKey("overview"); }
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        if (CG_GROUPS[i].sections.indexOf(name) !== -1) { return CG_GROUPS[i]; }
+      }
+      return null;
+    }
+
+    // What a group's menu lists right now.
+    function cgGroupSections(g) {
+      var out = [];
+      var lead = cgIsLead();
+      for (var i = 0; i < g.sections.length; i++) {
+        var name = g.sections[i];
+        var card = cgCard(name);
+        if (!card || card.hidden) { continue; }
+        // A lead's APEX Contract is on the Lead Pipeline screen, in Overview.
+        if (lead && name === "apexContract") { continue; }
+        out.push(name);
+      }
+      return out;
+    }
+
+    function cgOnScreen(name) {
+      if (name === cgCurrent) { return true; }
+      return cgCurrent === "leadPipeline" && name === "apexContract";
+    }
+
+    function cgLabelHtml(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    // A section's menu label is its own card title, read off the card, so the
+    // two can never say different things.
+    function cgSectionTitle(name, lang) {
+      var card = cgCard(name);
+      var title = card ? card.querySelector(".content-card-title") : null;
+      var span = title ? title.querySelector(".show-" + lang) : null;
+      return span ? span.innerHTML : name;
+    }
+
+    function cgSectionLabelHtml(name) {
+      var pt = cgSectionTitle(name, "pt");
+      var en = cgSectionTitle(name, "en");
+      if (name === "leadPipeline" && cgLeadHasContract()) {
+        pt += " e " + cgSectionTitle("apexContract", "pt");
+        en += " and " + cgSectionTitle("apexContract", "en");
+      }
+      return cgLabelHtml(pt, en);
+    }
+
+    // Show one section and hide the rest. Returns false when the name is not
+    // a section of this page.
+    function cgShow(name, picked) {
+      name = cgNormalize(name);
+      if (!cgCard(name) || !cgGroupOfSection(name)) { return false; }
+      cgCurrent = name;
+      if (picked) { cgUserPicked = true; }
+      cgApply();
+      return true;
+    }
+
+    // The section an element lives in, put on screen (deep links, ?day=, and
+    // gm.js asking for "its tab").
+    function cgShowForElement(el) {
+      var node = el;
+      while (node && node !== document.body) {
+        if (node.id && node.id.indexOf("sec-") === 0) {
+          var name = node.id.slice(4);
+          if (cgGroupOfSection(name)) {
+            if (!cgOnScreen(name)) { cgShow(name, false); }
+            return;
+          }
+        }
+        node = node.parentNode;
+      }
+    }
+
+    function cgApply() {
+      var layout = document.querySelector(".two-col-layout");
+      if (layout) { layout.classList.add("cg-one"); }
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        for (var j = 0; j < CG_GROUPS[i].sections.length; j++) {
+          var name = CG_GROUPS[i].sections[j];
+          var card = cgCard(name);
+          if (!card) { continue; }
+          if (cgOnScreen(name)) { card.classList.remove("cg-off"); }
+          else { card.classList.add("cg-off"); }
         }
       }
-      return order;
+      cgRenderBar();
     }
 
-    function applySectionOrder(order) {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
+    function cgInit() {
+      // A failure here must leave the old long page, never a blank one.
+      try { cgApply(); } catch (e) {}
+    }
+
+    function cgRenderBar() {
+      var bar = document.getElementById("cgBar");
+      if (!bar) { return; }
+      var order = cgGroupOrder();
+      var cur = cgGroupOfSection(cgCurrent);
+      var html = "";
       for (var i = 0; i < order.length; i++) {
-        var el = document.getElementById("sec-" + order[i]);
-        if (el) { list.appendChild(el); }
+        var g = cgGroupByKey(order[i]);
+        if (!g) { continue; }
+        if (!cgGroupSections(g).length && !g.analyticsLink) { continue; }
+        html += '<button type="button" class="cg-tab' + (cur && cur.key === g.key ? " active" : "") +
+          '" onclick="cgGroupTap(\'' + g.key + '\', this)">' +
+          (window.apexNavSvg ? window.apexNavSvg(g.icon) : "") +
+          '<span class="cg-tab-long">' + cgLabelHtml(g.pt, g.en) + '</span>' +
+          '<span class="cg-tab-short">' + cgLabelHtml(g.shortPt, g.shortEn) + '</span>' +
+          '</button>';
       }
-      // The Lead Pipeline card carries no data-section-id (it is not
-      // reorderable and only exists for leads), so the loop above would leave
-      // it wherever the re-append happened to strand it. Pin it to the top
-      // explicitly: for a lead, the pipeline is the point of the page.
-      var lead = document.getElementById("sec-leadPipeline");
-      if (lead && !lead.hidden) { list.insertBefore(lead, list.firstChild); }
+      bar.innerHTML = html;
+      bar.hidden = false;
     }
 
-    function initSectionOrder() {
-      var order = loadSectionOrder();
-      applySectionOrder(order);
+    function cgIsPhone() {
+      return !!(window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
     }
 
-    function enterEditSectionsMode() {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
-
-      document.body.classList.add("is-edit-sections");
-
-      var btnEdit = document.getElementById("btnEditSections");
-      var btnDone = document.getElementById("btnDoneSections");
-      if (btnEdit) { btnEdit.style.display = "none"; }
-      if (btnDone) { btnDone.style.display = ""; }
-
-      var cards = list.querySelectorAll("[data-section-id]");
-      for (var i = 0; i < cards.length; i++) {
-        enableDrag(cards[i]);
+    // A group button. Opens the group's menu: a drop-down under the button on
+    // a desktop, the small pop-up above the dock on a phone. Tapping the same
+    // group again closes it.
+    function cgGroupTap(key, anchor) {
+      var g = cgGroupByKey(key);
+      var sheet = document.getElementById("cgSheet");
+      var panel = document.getElementById("cgPanel");
+      if (!g || !sheet || !panel) { return; }
+      if (!sheet.hidden && sheet.getAttribute("data-group") === key) { cgSheetClose(); return; }
+      var names = cgGroupSections(g);
+      var html = '<div class="cg-title">' + cgLabelHtml(g.pt, g.en) + '</div>';
+      for (var i = 0; i < names.length; i++) {
+        html += '<button type="button" class="cg-item' + (names[i] === cgCurrent ? " active" : "") +
+          '" role="menuitem" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
+          cgSectionLabelHtml(names[i]) + '</span></button>';
       }
-    }
-
-    function exitEditSectionsMode() {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
-
-      document.body.classList.remove("is-edit-sections");
-
-      var btnEdit = document.getElementById("btnEditSections");
-      var btnDone = document.getElementById("btnDoneSections");
-      if (btnEdit) { btnEdit.style.display = ""; }
-      if (btnDone) { btnDone.style.display = "none"; }
-
-      var cards = list.querySelectorAll("[data-section-id]");
-      for (var i = 0; i < cards.length; i++) {
-        disableDrag(cards[i]);
-        cards[i].classList.remove("section-drag-over");
+      // Not a section: this client's analytics live on their own page.
+      if (g.analyticsLink) {
+        html += '<a class="cg-item" role="menuitem" href="client-analytics.html?client=' +
+          encodeURIComponent(CLIENT_ID || "") + '" onclick="cgSheetClose()"><span>' +
+          cgLabelHtml("An\u00e1lise do cliente", "Client Analytics") + '</span></a>';
       }
-
-      var order = [];
-      var ordered = list.querySelectorAll("[data-section-id]");
-      for (var j = 0; j < ordered.length; j++) {
-        order.push(ordered[j].getAttribute("data-section-id"));
-      }
-      localStorage.setItem(sectionOrderKey(), JSON.stringify(order));
-
-      initCollapseStates();
-    }
-
-    function enableDrag(el) {
-      el.setAttribute("draggable", "true");
-      el.ondragstart  = function(e) { handleDragStart(e, el); };
-      el.ondragover   = function(e) { handleDragOver(e, el); };
-      el.ondragleave  = function(e) { handleDragLeave(e, el); };
-      el.ondrop       = function(e) { handleDrop(e, el); };
-      el.ondragend    = function(e) { handleDragEnd(e, el); };
-    }
-
-    function disableDrag(el) {
-      el.setAttribute("draggable", "false");
-      el.ondragstart  = null;
-      el.ondragover   = null;
-      el.ondragleave  = null;
-      el.ondrop       = null;
-      el.ondragend    = null;
-    }
-
-    function handleDragStart(e, el) {
-      dragSrcEl = el;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", el.getAttribute("data-section-id"));
-      el.style.opacity = "0.45";
-    }
-
-    function handleDragOver(e, el) {
-      if (e.preventDefault) { e.preventDefault(); }
-      if (el === dragSrcEl) { return; }
-      e.dataTransfer.dropEffect = "move";
-      el.classList.add("section-drag-over");
-      return false;
-    }
-
-    function handleDragLeave(e, el) {
-      el.classList.remove("section-drag-over");
-    }
-
-    function handleDrop(e, el) {
-      if (e.stopPropagation) { e.stopPropagation(); }
-      if (!dragSrcEl || dragSrcEl === el) { return false; }
-
-      el.classList.remove("section-drag-over");
-
-      var list = document.getElementById("sectionsList");
-      if (!list) { return false; }
-
-      var children = list.children;
-      var srcIdx = -1;
-      var tgtIdx = -1;
-      for (var i = 0; i < children.length; i++) {
-        if (children[i] === dragSrcEl) { srcIdx = i; }
-        if (children[i] === el)        { tgtIdx = i; }
-      }
-
-      if (srcIdx === -1 || tgtIdx === -1) { return false; }
-
-      if (srcIdx < tgtIdx) {
-        list.insertBefore(dragSrcEl, el.nextSibling);
+      panel.innerHTML = html;
+      sheet.setAttribute("data-group", key);
+      var dropdown = !!anchor && !cgIsPhone();
+      if (dropdown) {
+        sheet.classList.add("cg-dropdown");
+        var r = anchor.getBoundingClientRect();
+        var top = Math.round(r.bottom + 6);
+        // Never past the right edge of the window (the panel is 260px wide).
+        var left = Math.min(Math.round(r.left), window.innerWidth - 260 - 10);
+        if (left < 10) { left = 10; }
+        panel.style.top = top + "px";
+        panel.style.left = left + "px";
+        panel.style.maxHeight = Math.max(160, window.innerHeight - top - 10) + "px";
       } else {
-        list.insertBefore(dragSrcEl, el);
+        sheet.classList.remove("cg-dropdown");
+        panel.style.top = ""; panel.style.left = ""; panel.style.maxHeight = "";
       }
-
-      return false;
+      sheet.hidden = false;
     }
 
-    function handleDragEnd(e, el) {
-      el.style.opacity = "";
-      var list = document.getElementById("sectionsList");
-      if (list) {
-        var cards = list.querySelectorAll("[data-section-id]");
-        for (var i = 0; i < cards.length; i++) {
-          cards[i].classList.remove("section-drag-over");
-        }
-      }
-      dragSrcEl = null;
+    // A drop-down pinned under its button would float away on scroll.
+    window.addEventListener("scroll", function(e) {
+      var sheet = document.getElementById("cgSheet");
+      // Scrolling a long menu itself is not the page moving.
+      if (e && e.target && e.target.id === "cgPanel") { return; }
+      if (sheet && !sheet.hidden && sheet.classList.contains("cg-dropdown")) { cgSheetClose(); }
+    }, true);
+
+    function cgSheetClose() {
+      var sheet = document.getElementById("cgSheet");
+      if (sheet) { sheet.hidden = true; }
     }
+
+    function cgSheetGo(name) {
+      cgSheetClose();
+      cgShow(name, true);
+    }
+
+    // nav.js calls this when the developer switches the previewed role; the
+    // group buttons follow it.
+    window.setView = function() { cgRenderBar(); };
 
     // ── Digital Presence ───────────────────────────────────────────────────
 
@@ -11342,6 +11457,11 @@
        must exist in the markup from page load. nav.js only fills them in;
        mobile.css alone controls their visibility and positioning. -->
   <div id="mobile-tab-bar"></div>
+  <!-- A group's sections (five groups). Filled by cgGroupTap(). -->
+  <div class="cg-sheet" id="cgSheet" hidden>
+    <div class="cg-backdrop" onclick="cgSheetClose()"></div>
+    <div class="cg-panel" id="cgPanel" role="menu"></div>
+  </div>
   <div id="mobile-more-menu"></div>
 </body>
 </html>

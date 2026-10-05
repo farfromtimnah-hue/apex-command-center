@@ -1175,7 +1175,7 @@
     "estimate_cents": 180000,
     "adjustment_cents": 0
   },
-  "disclaimer_line": "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it. State-specific rules for Texas could not be verified from official sources. Confirm licensing and notices before signing.",
+  "disclaimer_line": "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it.",
   "requires": {
     "lien_signature": false,
     "pool_ack": false,

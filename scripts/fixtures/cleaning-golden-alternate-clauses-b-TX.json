@@ -140,6 +140,22 @@
       "option_title": "Standard terms plus courtesy Portuguese translation"
     },
     {
+      "kind": "state_notice",
+      "id": "TX-cancel",
+      "title": "State cancellation statement in immediate proximity to the signature space",
+      "text": "YOU, THE BUYER, MAY CANCEL THIS TRANSACTION AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THIS TRANSACTION. SEE THE ATTACHED NOTICE OF CANCELLATION FORM FOR AN EXPLANATION OF THIS RIGHT.",
+      "cite": "B&C 601.052 to 601.054",
+      "format": "Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation"
+    },
+    {
+      "kind": "state_notice",
+      "id": "TX-cancel-form",
+      "title": "NOTICE OF CANCELLATION form (duplicate, easily detachable)",
+      "text": "NOTICE OF CANCELLATION\n\n(enter date of transaction)\n\"YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN THREE BUSINESS DAYS FROM THE ABOVE DATE.\n\"IF YOU CANCEL, ANY PROPERTY TRADED IN, ANY PAYMENTS MADE BY YOU UNDER THE CONTRACT OR SALE, AND ANY NEGOTIABLE INSTRUMENT EXECUTED BY YOU WILL BE RETURNED WITHIN 10 BUSINESS DAYS FOLLOWING RECEIPT BY THE MERCHANT OF YOUR CANCELLATION NOTICE, AND ANY SECURITY INTEREST ARISING OUT OF THE TRANSACTION WILL BE CANCELLED.\n\"IF YOU CANCEL, YOU MUST MAKE AVAILABLE TO THE MERCHANT AT YOUR RESIDENCE, IN SUBSTANTIALLY AS GOOD CONDITION AS WHEN RECEIVED, ANY GOODS DELIVERED TO YOU UNDER THIS CONTRACT OR SALE;  OR YOU MAY IF YOU WISH, COMPLY WITH THE INSTRUCTIONS OF THE MERCHANT REGARDING THE RETURN SHIPMENT OF THE GOODS AT THE MERCHANT'S EXPENSE AND RISK.\n\"IF YOU DO NOT AGREE TO RETURN THE GOODS TO THE MERCHANT OR IF THE MERCHANT DOES NOT PICK THEM UP WITHIN 20 DAYS OF THE DATE OF YOUR NOTICE OF CANCELLATION, YOU MAY RETAIN OR DISPOSE OF THE GOODS WITHOUT ANY FURTHER OBLIGATION.\n\"TO CANCEL THIS TRANSACTION, MAIL OR DELIVER A SIGNED AND DATED COPY OF THIS CANCELLATION NOTICE OR ANY OTHER WRITTEN NOTICE, OR SEND A TELEGRAM, TO (name of merchant), AT (address of merchant's place of business) NOT LATER THAN MIDNIGHT OF (date).\nI HEREBY CANCEL THIS TRANSACTION.\n(date)\n(buyer's signature)",
+      "cite": "B&C 601.053",
+      "format": "Completed notice of cancellation form attached to the contract in duplicate, easily detachable, in 10-point boldfaced type, in the same language as the contract"
+    },
+    {
       "kind": "locked",
       "id": "L5-A",
       "title": "Federal statement beside the buyer's signature (16 CFR 429.1(a))",
@@ -1467,7 +1483,7 @@
     "estimate_cents": 2400000,
     "adjustment_cents": 0
   },
-  "disclaimer_line": "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it. State-specific rules for Texas could not be verified from official sources. Confirm licensing and notices before signing.",
+  "disclaimer_line": "Draft rider, not reviewed by a lawyer for Texas. This contract was prepared with state-specific additions that no lawyer has reviewed. Have your attorney review it.",
   "requires": {
     "lien_signature": false,
     "pool_ack": false,

@@ -138,6 +138,14 @@
       "title": "Entire agreement, notices, electronic signatures, severability, governing law",
       "text": "**19. General Terms.**\n**Entire agreement.** This Contract, the Estimate, the attachments listed below and any signed Change Orders are the entire agreement between Owner and Contractor. They replace all earlier discussions, messages and proposals. Only a written document signed by both parties can change this Contract. Attachments: Estimate EST-0042-R1.\n**Notices.** Formal notices under this Contract (delay, concealed condition, suspension, termination, warranty claim, dispute) must be in writing and sent to the addresses in Section 1, by email and by one of: hand delivery, certified mail, or a nationally recognized courier. A termination notice from Contractor is also sent by certified mail, return receipt requested. Day-to-day scheduling messages may be sent by text or messaging app.\n**Electronic signatures and records.** Before signing, Owner consented to receive and sign this Contract electronically on the consent screen that is part of the signing record. Electronic signatures on this Contract, its notices and Change Orders have the same effect as handwritten signatures under the federal Electronic Signatures in Global and National Commerce Act and the Uniform Electronic Transactions Act as adopted in Massachusetts. Each party will receive a complete copy of the signed Contract. Owner may request a paper copy at no charge by contacting Contractor.\n**Severability.** If any part of this Contract is found unenforceable, the rest remains in effect, and the unenforceable part will be applied to the greatest extent the law allows.\n**Governing law.** The laws of the State of Massachusetts govern this Contract.\n**No waiver.** Accepting a late payment or allowing a delay once does not waive the right to insist on the terms later.\n**Assignment.** Neither party may assign this Contract without the other's written consent, except that Contractor may use licensed subcontractors for parts of the Work and remains responsible for their work.",
       "option_title": "Standard general terms"
+    },
+    {
+      "kind": "state_notice",
+      "id": "MA-blank-spaces",
+      "title": "\"Do not sign this contract if there are any blank spaces\" line",
+      "text": "Do not sign this contract if there are any blank spaces",
+      "cite": "c. 142A s. 2",
+      "format": "Ten point bold type or larger, directly above the space provided for the signature"
     }
   ],
   "notice_form_text": null,

@@ -140,6 +140,30 @@
       "option_title": "Standard general terms"
     },
     {
+      "kind": "state_notice",
+      "id": "MA-blank-spaces",
+      "title": "\"Do not sign this contract if there are any blank spaces\" line",
+      "text": "Do not sign this contract if there are any blank spaces",
+      "cite": "c. 142A s. 2",
+      "format": "Ten point bold type or larger, directly above the space provided for the signature"
+    },
+    {
+      "kind": "state_notice",
+      "id": "MA-cancel",
+      "title": "State cancellation statement near the buyer's signature",
+      "text": "You may cancel this agreement if it has been signed by a party thereto at a place other than an address of the seller, which may be his main office or branch thereof, provided you notify the seller in writing at his main office or branch by ordinary mail posted, by telegram sent or by delivery, not later than midnight of the third business day following the signing of this agreement.\n\nSee the attached notice of cancellation form for an explanation of this right.",
+      "cite": "M.G.L. c. 93 s. 48(B)",
+      "format": "Statement on the front page in immediate proximity to the space reserved for the buyer's signature, in boldface type of a minimum size of ten points"
+    },
+    {
+      "kind": "state_notice",
+      "id": "MA-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form attached to the agreement and easily detachable",
+      "text": "NOTICE OF CANCELLATION\n\n(Enter date of transaction)(Date)\n\nYou may cancel this transaction, without any penalty or obligation, within three business days from the above date.\n\nIf you cancel, any property traded in, any payments made by you under the agreement, and any negotiable instrument executed by you will be returned within ten business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be cancelled.\n\nIf you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this agreement; or you may if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.\n\nIf you do make the goods available to the seller and the seller does not pick them up within twenty days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.\n\nTo cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to\n\nto ___,\n\n(Name of seller)\n\nat ___ not later\n\n(Address of seller's place of business)\n\nthan midnight of ___.\n (Date)\n\nI hereby cancel this transaction.\n\n___\n (Date)\n\n___\n(Buyer's signature)",
+      "cite": "M.G.L. c. 93 s. 48(B)",
+      "format": "Completed form in duplicate, easily detachable, attached to the agreement, in ten point boldface, in the same language as the agreement"
+    },
+    {
       "kind": "locked",
       "id": "L5-A",
       "title": "Federal statement beside the buyer's signature (16 CFR 429.1(a))",

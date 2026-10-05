@@ -280,6 +280,7 @@
       var activeClass = (activePage === item.href) ? " apex-nav-active" : "";
       html +=
         '<a class="apex-nav-item' + activeClass + '" href="' + item.href + '"' +
+        ' data-apex-track="nav:' + item.key + '"' +
         ' data-tip-pt="' + item.tipPt + '" data-tip-en="' + item.tipEn + '">';
       html += '<span class="apex-nav-icon">' + navSvg(item.icon) + '</span>';
       html += '<span class="apex-nav-label">';
@@ -384,6 +385,52 @@
     }
     refreshToggleIcon();
   };
+
+  // ── Quiet count of what staff click (staff only, never shown) ────────────
+  // window.apexTrack(control, clientId) is a fixed contract: other pages call
+  // it too. Fire and forget: it never throws, never waits, never delays a
+  // click. It does nothing unless the signed-in role is alice, rafa or
+  // developer, and nothing on portal.html. The Worker needs the Authorization
+  // header, which sendBeacon cannot carry, so this is fetch with keepalive.
+  window.apexTrack = function (control, clientId) {
+    try {
+      var role = sessionStorage.getItem("apex_role");
+      if (role !== "alice" && role !== "rafa" && role !== "developer") { return; }
+      var page = getActivePage().replace(/\.html$/, "");
+      if (page === "portal") { return; }
+      var fb = window.firebase;
+      if (!fb || !fb.auth || !fb.auth().currentUser) { return; }
+      var body = { page: String(page), control: String(control) };
+      if (clientId) { body.client_id = String(clientId); }
+      if (role === "developer") {
+        var dv = sessionStorage.getItem("apex_dev_view");
+        if (dv === "alice" || dv === "rafa") { body.preview = true; }
+      }
+      var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+      fb.auth().currentUser.getIdToken().then(function (token) {
+        return fetch(workerUrl + "/api/staff/click", {
+          method: "POST",
+          keepalive: true,
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      }).then(function () {}, function () {});
+    } catch (e) { /* never throws */ }
+  };
+
+  // One listener for every tracked menu item, dock spot, dock tool and the gear.
+  document.addEventListener("click", function (ev) {
+    try {
+      var el = ev.target;
+      while (el && el !== document) {
+        if (el.getAttribute && el.getAttribute("data-apex-track")) {
+          window.apexTrack(el.getAttribute("data-apex-track"));
+          return;
+        }
+        el = el.parentNode;
+      }
+    } catch (e) { /* never throws */ }
+  }, true);
 
   // ── Public: dev view switcher ─────────────────────────────────────────────
   window.apexNavSetView = function (v) {
@@ -731,7 +778,7 @@
           ' aria-haspopup="menu" aria-expanded="false" onclick="apexDockGroupToggle(\'' + t.key + '\')">';
       } else {
         var activeCls = (activePage === t.href) ? " m-tab-active" : "";
-        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '">';
+        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '" data-apex-track="dock:' + t.key + '">';
       }
       barHtml += '<span class="m-tab-ico">' + navSvg(t.icon) + '</span>';
       barHtml += '<span class="m-tab-label">' + buildMobileLabelSpan(t) + '</span>';
@@ -768,6 +815,7 @@
       gear = document.createElement("a");
       gear.id = "apexNavGear";
       gear.href = def.href;
+      gear.setAttribute("data-apex-track", "gear:settings");
       gear.setAttribute("aria-label", "Configurações / Settings");
       gear.innerHTML = navSvg(def.icon);
       var before = host.querySelector(".lang-btn");
@@ -808,6 +856,10 @@
       if (mobileDockSpots[i].group && mobileDockSpots[i].key === key) { group = mobileDockSpots[i]; }
     }
     if (!group || !group.items.length) { return; }
+    var gm = document.getElementById("mobile-more-menu");
+    if (!(gm && gm.classList.contains("mg-open") && gm.getAttribute("data-group") === key)) {
+      window.apexTrack("dockgroup:" + key);
+    }
     if (group.items.length < 2) {
       window.apexDockGroupClose();
       window.location.href = mobileGroupLanding(group).href;
@@ -827,6 +879,7 @@
       var m = group.items[i];
       var here = (activePage === m.href);
       html += '<a class="mg-item' + (here ? " mg-item-active" : "") + '" role="menuitem" href="' + m.href + '"' +
+        ' data-apex-track="docktool:' + m.key + '"' +
         (here ? ' aria-current="page"' : '') + '>';
       html += '<span class="mg-item-ico">' + navSvg(m.icon) + '</span>';
       html += '<span class="mg-item-label">' + buildMobileLabelSpan(m) + '</span>';

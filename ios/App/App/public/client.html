@@ -10823,12 +10823,6 @@
 
     var tasksCache = { client: [], consultant: [] };
 
-    // Which session each task came from. GET /api/clients/:id/tasks does not
-    // return session_id, so the id and the session's date are read from
-    // GET /api/tasks (the Tasks page's list, staff only), once per page load.
-    // If that fails, or a task is not in it, the task simply lands in "Other".
-    var taskSessionMap = {};          // task id -> { session_id, session_date }
-    var taskSessionMapPromise = null;
     // Group key -> open or closed, once he has opened or closed it himself, so
     // adding a task does not snap every group back to its default.
     var taskGroupOpen = { client: {}, consultant: {} };
@@ -10838,30 +10832,10 @@
     var TASK_MONTHS_EN = ["January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"];
 
-    function loadTaskSessionMap() {
-      if (taskSessionMapPromise) { return taskSessionMapPromise; }
-      taskSessionMapPromise = apiFetch("/api/tasks")
+    function loadTasks(type) {
+      apiFetch("/api/clients/" + CLIENT_ID + "/tasks?type=" + type)
         .then(function(res) { return res.json(); })
         .then(function(data) {
-          var rows = (data && data.tasks) || [];
-          var map = {};
-          for (var i = 0; i < rows.length; i++) {
-            if (rows[i].session_id) {
-              map[rows[i].id] = { session_id: rows[i].session_id, session_date: rows[i].session_date || null };
-            }
-          }
-          taskSessionMap = map;
-        })
-        .catch(function() { taskSessionMap = {}; });
-      return taskSessionMapPromise;
-    }
-
-    function loadTasks(type) {
-      var listPromise = apiFetch("/api/clients/" + CLIENT_ID + "/tasks?type=" + type)
-        .then(function(res) { return res.json(); });
-      Promise.all([listPromise, loadTaskSessionMap()])
-        .then(function(results) {
-          var data = results[0];
           tasksCache[type] = data.tasks || [];
           renderTasksSection(type, tasksCache[type]);
         })
@@ -10873,12 +10847,12 @@
     }
 
     // The session a task came from: { id, date: "YYYY-MM-DD" }, or null when it
-    // has none or the session cannot be found (both go in "Other").
+    // has none or the session cannot be found (both go in "Other"). The task
+    // route sends session_id and session_date with each task; the sessions
+    // this page already loaded are the fallback for the date.
     function taskSessionInfo(task) {
       var sid = task.session_id || null;
       var date = task.session_date || null;
-      var hit = taskSessionMap[task.id];
-      if (!sid && hit) { sid = hit.session_id; date = hit.session_date; }
       if (!sid) { return null; }
       if (!date) {
         for (var i = 0; i < sessions.length; i++) {

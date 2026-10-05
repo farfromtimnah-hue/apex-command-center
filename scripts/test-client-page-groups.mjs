@@ -183,13 +183,15 @@ function checkCopy(label, path) {
   // ── Tasks grouped by session ─────────────────────────────────────────────
   const tctx = { sessions: [{ id: "s-page", date: "2026-08-03" }] };
   vm.createContext(tctx);
-  vm.runInContext(slice(src, "    var taskSessionMap = {};", "    function loadTaskSessionMap()") +
+  vm.runInContext(slice(src, "    var TASK_MONTHS_PT = [", "    function loadTasks(type)") +
     slice(src, "    // The session a task came from:", "    // One task row, exactly as it has always been drawn."), tctx);
-  vm.runInContext("taskSessionMap = { t1: { session_id: 's-old', session_date: '2026-09-07' }, t2: { session_id: 's-new', session_date: '2026-10-05' }, t3: { session_id: 's-new', session_date: '2026-10-05' }, t6: { session_id: 's-page', session_date: null }, t7: { session_id: 's-gone', session_date: null } };", tctx);
   tctx.tasks = [
-    { id: "t1", status: "pending" }, { id: "t2", status: "done" }, { id: "t3", status: "pending" },
-    { id: "t4", status: "pending", source: "voice" }, { id: "t5", status: "done" },
-    { id: "t6", status: "done" }, { id: "t7", status: "pending" }
+    { id: "t1", status: "pending", session_id: "s-old", session_date: "2026-09-07" },
+    { id: "t2", status: "done", session_id: "s-new", session_date: "2026-10-05" },
+    { id: "t3", status: "pending", session_id: "s-new", session_date: "2026-10-05" },
+    { id: "t4", status: "pending", source: "voice", session_id: null, session_date: null }, { id: "t5", status: "done" },
+    { id: "t6", status: "done", session_id: "s-page", session_date: null },
+    { id: "t7", status: "pending", session_id: "s-gone", session_date: null }
   ];
   const g = vm.runInContext("buildTaskGroups(tasks).map(function(x) { return { key: x.key, date: x.date, ids: x.tasks.map(function(t) { return t.id; }), open: taskGroupOpenCount(x) }; })", tctx);
   ok(same(g.map((x) => x.key), ["other", "s-new", "s-old", "s-page"]), label + ": task groups are Other first, then sessions newest first");
@@ -200,7 +202,36 @@ function checkCopy(label, path) {
   ok(html === '<span class="show-pt">5 de outubro de 2026</span><span class="show-en">October 5, 2026</span>', label + ": a session header reads 5 de outubro de 2026 / October 5, 2026");
   ok(vm.runInContext("taskSessionDateHtml('2026-03-01')", tctx).indexOf("1 de março de 2026") !== -1, label + ": March is written março");
   ok(/startOpen = taskGroupOpenCount\(groups\[gi\]\) > 0;[\s\S]{0,120}startOpen = !newestSeen;/.test(src), label + ": Other starts open only with an open task; of the sessions only the newest starts open");
+  ok(!/apiFetch\("\/api\/tasks"\)|taskSessionMap/.test(src), label + ": the page no longer downloads every client's tasks to find a task's session");
   ok(/id="btnAddClientTask" onclick="openAddTaskForm\('client'\)"/.test(src) && /id="btnAddConsultantTask" onclick="openAddTaskForm\('consultant'\)"/.test(src), label + ": both Add task controls are where they were");
+}
+
+// ── The Worker route the task sections read ───────────────────────────────
+// Its two SELECTs, lifted out of worker/index.js and run on an in-memory
+// SQLite: every task comes back with session_id, session_date and source,
+// and a task with no session is still returned.
+{
+  const worker = readFileSync(new URL("worker/index.js", root), "utf8");
+  const fn = slice(worker, "async function handleGetClientTasks(", "\n}\n");
+  const sqls = [...fn.matchAll(/env\.DB\.prepare\(([\s\S]*?)\)\.bind\(/g)].map((m) => vm.runInNewContext(m[1]));
+  ok(sqls.length === 2 && sqls.every((q) => /LEFT JOIN sessions/.test(q) && !/INNER JOIN/i.test(q)), "Worker: both task SELECTs LEFT JOIN sessions");
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE sessions (id TEXT PRIMARY KEY, date TEXT, created_at TEXT);" +
+    "CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, session_id TEXT, type TEXT, description TEXT, due_date TEXT, status TEXT, source TEXT, created_at TEXT);" +
+    "INSERT INTO sessions VALUES ('s1', '2026-10-05', '2026-10-05T10:00:00Z');" +
+    "INSERT INTO tasks VALUES ('a', 'c1', 's1', 'client', 'from a session', '2026-10-10', 'pending', 'session', '2026-10-05T11:00:00Z');" +
+    "INSERT INTO tasks VALUES ('b', 'c1', NULL, 'client', 'spoken', NULL, 'pending', 'voice', '2026-10-05T12:00:00Z');" +
+    "INSERT INTO tasks VALUES ('c', 'c1', 's-gone', 'consultant', 'session row missing', NULL, 'done', 'session', '2026-10-05T13:00:00Z');" +
+    "INSERT INTO tasks VALUES ('d', 'c2', 's1', 'client', 'another client', NULL, 'pending', 'session', '2026-10-05T14:00:00Z');");
+  const byType = db.prepare(sqls[0]).all("c1", "client");
+  const all = db.prepare(sqls[1]).all("c1");
+  const row = (rows, id) => rows.filter((r) => r.id === id)[0] || {};
+  ok(same(byType.map((r) => r.id).sort(), ["a", "b"]) && same(all.map((r) => r.id).sort(), ["a", "b", "c"]), "Worker: the route returns this client's tasks only, with and without ?type=");
+  ok(row(all, "a").session_id === "s1" && row(all, "a").session_date === "2026-10-05" && row(byType, "a").session_date === "2026-10-05", "Worker: a task from a session carries session_id and the session's date");
+  ok(row(all, "b").session_id === null && row(all, "b").session_date === null && row(all, "b").source === "voice", "Worker: a task with no session is still returned, with its source");
+  ok(row(all, "c").session_id === "s-gone" && row(all, "c").session_date === null, "Worker: a task whose session row is missing is still returned, with no date");
+  ok(["id", "client_id", "type", "description", "due_date", "status", "created_at"].every((k) => k in row(all, "a")), "Worker: every field the route returned before is still returned");
 }
 
 checkCopy("root", "client.html");

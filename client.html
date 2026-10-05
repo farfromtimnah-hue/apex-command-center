@@ -10140,6 +10140,7 @@
       var panel = document.getElementById("cgPanel");
       if (!g || !sheet || !panel) { return; }
       if (!sheet.hidden && sheet.getAttribute("data-group") === key) { cgSheetClose(); return; }
+      cgTrack("client:group:" + key);
       var names = cgGroupSections(g);
       var html = '<div class="cg-title">' + cgLabelHtml(g.pt, g.en) + '</div>';
       for (var i = 0; i < names.length; i++) {
@@ -10190,8 +10191,31 @@
 
     function cgSheetGo(name) {
       cgSheetClose();
+      cgTrack("client:section:" + name);
       cgShow(name, true);
     }
+
+    // Staff click counter (nav.js, window.apexTrack). Optional: with the
+    // function missing, or throwing, the page behaves exactly the same.
+    function cgTrack(control) {
+      try {
+        if (typeof window.apexTrack === "function") { window.apexTrack(control, CLIENT_ID); }
+      } catch (e) {}
+    }
+
+    // The buttons that left the hero, counted where they now live. One
+    // listener on the document, so no button's own handler is touched (and
+    // the Results menu's link, which is drawn on demand, is covered too).
+    var CG_TRACKED_BUTTONS = ["btnNewSession", "btnScheduleSession", "btnHeaderPdf",
+      "btnAttachResource", "btnClientAnalytics", "btnViewPortal", "btnHeroLogo"];
+    document.addEventListener("click", function(e) {
+      var node = e.target;
+      while (node && node !== document) {
+        if (node.id === "btnMeetingPrep") { cgTrack("client:btn:meetingprep"); return; }
+        if (node.id && CG_TRACKED_BUTTONS.indexOf(node.id) !== -1) { cgTrack("client:btn:" + node.id); return; }
+        node = node.parentNode;
+      }
+    }, true);
 
     // nav.js calls this when the developer switches the previewed role; the
     // group buttons follow it.

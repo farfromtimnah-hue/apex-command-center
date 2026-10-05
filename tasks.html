@@ -1267,7 +1267,10 @@
           due:         r.due_date || null,
           dueDate:     dueDate,
           overdue:     (!isDone && dueDate) ? dueDate < today : false,
-          clientName:  r.client_name || "—",
+          // A task may have no client at all (a spoken to-do): then there
+          // is no name to show. The dash is only for a client whose row is
+          // missing.
+          clientName:  r.client_name || (r.client_id ? "—" : ""),
           clientId:    r.client_id || null,
           sessionDate: r.session_date || null,
           sessionId:   r.session_id || null
@@ -1795,7 +1798,8 @@
         var sep = document.createElement("span");
         sep.style.cssText = "color:var(--border);font-size:11px;";
         sep.textContent = "·";
-        meta.appendChild(sep);
+        // No separator in front of the first item (a task with no client).
+        if (meta.childNodes.length) { meta.appendChild(sep); }
 
         var sdEl = document.createElement("span");
         sdEl.className = "task-session-date";
@@ -1810,7 +1814,7 @@
         var sep2 = document.createElement("span");
         sep2.style.cssText = "color:var(--border);font-size:11px;";
         sep2.textContent = "·";
-        meta.appendChild(sep2);
+        if (meta.childNodes.length) { meta.appendChild(sep2); }
 
         var dueEl = document.createElement("span");
         dueEl.className = "task-due" + (task.overdue && !isDone ? " overdue" : "");

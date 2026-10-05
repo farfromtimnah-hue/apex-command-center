@@ -62,6 +62,7 @@ const fns = ["logoVersionParam", "apxInvSwitches", "apxInvNoIndex", "apxInvByTok
   ok(r.status === 200 && inv.number === "INV-9001" && inv.status === "open" && inv.draft === false, "a sent invoice reads open");
   ok(inv.balance_cents === 250000 && inv.paid_cents === 0 && inv.total_cents === 250000 && inv.subtotal_cents === 250000, "balance = total when nothing is paid");
   ok(inv.subject === "Consultoria de outubro" && inv.items[0].description === "Consultoria de outubro" && inv.description === "Obrigado pela parceria.", "subject is line_description; description is the notes");
+  ok(inv.business && inv.business.name === "Apex Business & Leadership" && inv.business.address === "Tampa, FL" && inv.business.website === "apexbusiness.pro", "the payload carries Apex's own name, city and website for the footer line");
   ok(inv.client_name === "ALPHA BUILDERS" && !/alpha\.test|8135550199/.test(JSON.stringify(inv)), "client name only: no email or phone anywhere in the payload");
   ok(!/nicole/i.test(JSON.stringify(inv)), "nothing in the payload names Nicole");
   ok(inv.payment && inv.payment.zelle_handle === "pay@apex.test" && inv.payment.zelle_qr_url === "https://api.test/api/business/qr-image", "Zelle handle and QR come from business_settings");
@@ -313,7 +314,7 @@ function seedCharge(d, id, cents, extra) {
   ok(row.metadata_invoice_id === "inv-1" && row.metadata_club_reg_id === null && row.pm_type === "us_bank_account" && row.metadata_client_id === "c1" && row.amount_cents === 139700, "a charge stamped for an invoice also stores the invoice id and the payment method type");
 }
 
-// The client's logo for the second hero tile (2026-10-04): an address only
+// The client's logo for the "Billed to" box (2026-10-04): an address only
 // when a logo really exists, pointing at the login-free /logo-image route.
 {
   const d = world(); const env = { DB: d.DB };
@@ -321,7 +322,7 @@ function seedCharge(d, id, cents, extra) {
   seedInvoice(d, "301", "sent", { token: TOK("c") });
   const pay = async () => (await F.handleGetPublicApexInvoice(TOK("c"), req({}, "https://x.test/api/public/apex-invoices/" + TOK("c") + "?render=1"), env)).data.invoice;
   let p = await pay();
-  ok(p.client_logo_url === null && p.client_name === "ALPHA BUILDERS", "a client with no logo: client_logo_url is null and the name is there for the tile");
+  ok(p.client_logo_url === null && p.client_name === "ALPHA BUILDERS", "a client with no logo: client_logo_url is null and the name is there for the Billed to box");
   d.raw.exec("UPDATE clients SET logo_url = '   ' WHERE id = 'c1'");
   ok((await pay()).client_logo_url === null, "a blank logo value is no logo");
   d.raw.exec("UPDATE clients SET logo_url = 'logos/c1-1790000000.png' WHERE id = 'c1'");
@@ -332,10 +333,10 @@ function seedCharge(d, id, cents, extra) {
   ok(/segs\[3\] === "logo-image" && method === "GET"\) \{\s*return handleGetClientLogoImage\(cid, request, env\);/.test(workerSrc) &&
      !/authenticate\(/.test(workerSrc.slice(workerSrc.indexOf("async function handleGetClientLogoImage"), workerSrc.indexOf("// Route: PATCH /api/clients/:id"))),
      "/logo-image answers with no login check (handleGetClientLogoImage never calls authenticate)");
-  ok(/var APX_INV_PDF_REV = "3";/.test(workerSrc), "the PDF cache revision was bumped for the new hero");
+  ok(/var APX_INV_PDF_REV = "4";/.test(workerSrc), "the PDF cache revision was bumped for the logo in the Billed to box");
 }
 
-// The page's hero and review-mode rules, run on the page's own functions with
+// The page's Billed to box, hero and review-mode rules, run on the page's own functions with
 // a stand-in for the few elements they touch.
 {
   const html = readFileSync(new URL("apex-invoice-view.html", root), "utf8");
@@ -353,25 +354,77 @@ function seedCharge(d, id, cents, extra) {
   };
   const el = () => { const c = new Set(); const e = { textContent: "", hidden: true, alt: "", onerror: null, attrs: {}, classList: { toggle: (n, on) => { if (on) { c.add(n); } else { c.delete(n); } }, contains: (n) => c.has(n) },
     getAttribute: (k) => (k in e.attrs ? e.attrs[k] : null) }; Object.defineProperty(e, "src", { set: (v) => { e.attrs.src = v; }, get: () => e.attrs.src }); return e; };
-  const hero = (inv) => {
-    const els = { clientCol: el(), clientLogo: el(), clientLogoFallback: el(), goldBarClientName: el() };
-    const run = new Function("els", "inv", "var clientLogoFailed = null; function byId(id) { return els[id] || null; }\n" + cut("renderHero") + "\nrenderHero(); return { again: function(next) { inv = next; renderHero(); } };");
-    return Object.assign(els, run(els, inv));
+  // The Billed to box: the page's own three functions, with a stand-in for the
+  // one element they touch. draw() is what render() does: build the box, then
+  // watch the image if the box has one.
+  const escHtml = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const billed = (inv, lang) => {
+    const run = new Function("escHtml", "T", "inv", "var clientLogoFailed = null; var logoEl = null; var box = { html: '', logo: null };\n" +
+      "function byId(id) { return id === 'clientLogo' ? logoEl : null; }\n" + cut("clientLogoUrl") + "\n" + cut("billedToHtml") + "\n" + cut("watchClientLogo") + "\n" +
+      "box.draw = function(next) { if (next) { inv = next; } box.html = billedToHtml(); logoEl = box.html.indexOf('id=\"clientLogo\"') >= 0 ? box.mk() : null; box.logo = logoEl; watchClientLogo(); return box; };\nreturn box;");
+    const box = run(escHtml, (k) => (k === "billedTo" ? (lang === "en" ? "Billed to" : "Faturado para") : k), inv);
+    box.mk = el;
+    return box.draw();
   };
   const LOGO = "https://api.test/api/clients/c1/logo-image?v=c1-1";
-  let h = hero({ client_name: "ALPHA BUILDERS", client_logo_url: null });
-  ok(h.clientLogoFallback.textContent === "ALPHA BUILDERS" && h.clientLogoFallback.hidden === false && h.clientLogo.hidden === true && h.clientCol.hidden === false, "no logo: the client's name shows in the tile and the image is hidden");
-  ok(h.goldBarClientName.textContent === "ALPHA BUILDERS" && h.goldBarClientName.hidden === false, "no logo: the gold bar carries the client's name");
-  h = hero({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
-  ok(h.clientLogoFallback.textContent === "ALPHA BUILDERS" && h.clientLogoFallback.hidden === true && h.clientLogo.hidden === false && h.clientLogo.src === LOGO && h.clientLogo.alt === "ALPHA BUILDERS", "with a logo: the name is loaded first, then the image shows and the name hides");
-  ok(h.goldBarClientName.textContent === "ALPHA BUILDERS" && h.goldBarClientName.hidden === false, "with a logo: the gold bar still carries the client's name");
-  h.clientLogo.onerror();
-  ok(h.clientLogo.hidden === true && h.clientLogoFallback.hidden === false, "the image fails to load: the name shows in the tile");
-  h.again({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
-  ok(h.clientLogo.hidden === true && h.clientLogoFallback.hidden === false, "a later redraw does not bring the failed image back");
-  const n22 = "A".repeat(22), n23 = "A".repeat(23);
-  ok(!hero({ client_name: n22 }).clientLogoFallback.classList.contains("is-long") && hero({ client_name: n23 }).clientLogoFallback.classList.contains("is-long"), "a name over 22 characters takes the smaller size (22 does not, 23 does)");
-  ok(hero({ client_name: "", client_logo_url: null }).clientCol.hidden === true, "no name and no logo: no empty tile");
+  const NAME_ONLY = '<div class="k">Faturado para</div><div class="who">ALPHA BUILDERS</div>';
+  let h = billed({ client_name: "ALPHA BUILDERS", client_logo_url: null });
+  ok(h.html === NAME_ONLY && h.logo === null, "no logo: the box is the label and the bold name only, with no image and nothing in its place");
+  ok(billed({ client_name: "ALPHA BUILDERS", client_logo_url: "" }).html === NAME_ONLY && billed({ client_name: "ALPHA BUILDERS" }).html === NAME_ONLY, "an empty or missing logo address is no logo too");
+  h = billed({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
+  ok(h.html === '<div class="k">Faturado para</div><img class="who-logo" id="clientLogo" alt="" src="' + LOGO + '"><div class="who">ALPHA BUILDERS</div>', "with a logo: the label, then the logo, then the bold name, in that order");
+  ok(billed({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO }, "en").html.indexOf('<div class="k">Billed to</div><img class="who-logo"') === 0, "the same box in English");
+  ok(typeof h.logo.onerror === "function" && h.logo.hidden !== false, "with a logo: the image is watched for a failed load");
+  h.logo.hidden = false;
+  h.logo.onerror();
+  ok(h.logo.hidden === true && h.html.indexOf('<div class="who">ALPHA BUILDERS</div>') > 0, "the image fails to load: the image is hidden and the bold name stays");
+  h.draw({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
+  ok(h.html === NAME_ONLY && h.logo === null, "a later redraw does not try the failed image again: name only");
+  h.draw({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO + "2" });
+  ok(h.logo !== null && h.html.indexOf('src="' + LOGO + '2"') > 0, "a different logo address after a failure is still shown");
+  ok(billed({ client_name: "", client_logo_url: null }).html === '<div class="k">Faturado para</div><div class="who"></div>', "no name and no logo: the box is as it was for a missing name (label and an empty name line), no image");
+  h = billed({ client_name: 'A <b> & "C"', client_logo_url: LOGO + '&x="><script>' });
+  ok(h.html.indexOf("<b>") < 0 && h.html.indexOf("<script>") < 0 && h.html.indexOf('src="' + LOGO + '&amp;x=&quot;&gt;&lt;script&gt;"') > 0, "the name and the logo address are escaped going into the box");
+  ok(/'<div class="meta-area"><div class="meta-left">' \+ billedToHtml\(\) \+ '<\/div>' \+/.test(html) && /billedToHtml\(\)[\s\S]*?\n\s*watchClientLogo\(\);/.test(cut("render")), "render() draws the box with billedToHtml and then watches the image");
+  ok(!/fromLines|class="from"|\.meta-left \.from/.test(html) && !/business|b\.address|b\.website/.test(cut("billedToHtml")) && !/business|footBiz/.test(html.slice(html.indexOf('var meta = byId("cardMeta");'), html.indexOf('var draft = byId("cardDraft");'))),
+    "the box no longer carries Apex's own name, address and website lines");
+
+  // Apex's own details: the first footer line, above the links and the PDF box.
+  const footBiz = (business) => new Function("escHtml", "inv", cut("footBizHtml") + "\nreturn footBizHtml();")(escHtml, { business });
+  const BIZ = { name: "Apex Business & Leadership", address: "Tampa, FL", website: "apexbusiness.pro" };
+  ok(footBiz(BIZ) === '<div class="foot-biz" id="footBiz">Apex Business &amp; Leadership &middot; Tampa, FL &middot; apexbusiness.pro</div>', "the footer line carries the name, the city and the website from the invoice data, in that order, with a middle dot between them");
+  ok(footBiz(BIZ).indexOf("<a") < 0 && footBiz(BIZ).indexOf("no-print") < 0, "the website is plain text, not a link, and the line is not hidden in print");
+  ok(footBiz({ name: "Apex Business & Leadership", website: "apexbusiness.pro" }) === '<div class="foot-biz" id="footBiz">Apex Business &amp; Leadership &middot; apexbusiness.pro</div>' && footBiz(undefined) === "" && footBiz({}) === "", "a missing part leaves no stray dot, and no details at all leaves no line");
+  ok(footBiz({ name: "<b>x</b>" }).indexOf("<b>") < 0, "the footer values are escaped");
+  ok(!/\bT\(|LANG/.test(cut("footBizHtml")), "the footer line is the same in Portuguese and English");
+  const footSet = (html.match(/foot\.innerHTML = ([^\n]*);\n/) || [])[1] || "";
+  ok(footSet.indexOf("footBizHtml() + '<span class=\"no-print\"><a href=\"privacy.html\"") === 0 && footSet.indexOf('T("privacy")') < footSet.indexOf('T("terms")') && /escHtml\(T\("terms"\)\) \+ '<\/a><\/span>'$/.test(footSet),
+    "the footer reads: Apex's details first, then the two links straight under them, and nothing else");
+  ok(!/gerada por|generated by|Apex Command Center/i.test(html) && !/T\("foot"\)|\bfoot: "/.test(html), "the generated-by line is gone: no text in either language and nothing that draws it");
+  ok(html.indexOf('<div class="foot" id="foot"></div>') > 0 && html.indexOf('<div class="foot" id="foot"></div>') < html.indexOf('id="cardPdf"') && html.indexOf('id="cardPdf"') < html.indexOf('id="reviewBar"'),
+    "the footer sits above the PDF box, and both are outside the staff review bar");
+  ok(!/footBiz/.test(cut("renderReviewBar")) && /body\.has-review-bar \.wrap \{ padding-bottom: 270px; \}/.test(html), "the review bar does not carry the line, and the page still leaves room under the footer for the bar");
+
+  // The logo's size and look, on screen, on a phone and in print.
+  const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
+  const rule = (css.match(/\.meta-left \.who-logo \{([^}]*)\}/) || [])[1] || "";
+  ok(/max-height: 56px;/.test(rule) && /max-width: min\(100%, 220px\);/.test(rule) && /width: auto;/.test(rule) && /height: auto;/.test(rule) && /object-fit: contain;/.test(rule) && /display: block;/.test(rule),
+    "the logo is at most 56px tall, never wider than the left column, and keeps its shape");
+  ok(!/background|border|box-shadow|text-align|float/.test(rule), "the logo sits straight on the white box, left aligned: no tile, no border, no shadow");
+  ok(/\.meta-left \.who-logo\[hidden\] \{ display: none; \}/.test(css), "a hidden logo takes no space");
+  ok(/\.meta-left \{ flex: 1; min-width: 0;/.test(css) && /\.meta-right \{ flex: 0 1 260px;/.test(css), "the left column can shrink and the right column keeps its own width, so the logo cannot push the number and dates");
+  const print = css.slice(css.indexOf("@media print"));
+  ok(print.indexOf("foot-biz") < 0 && /\.foot \{ margin-top: 18px; text-align: center; font-size: 12px; color: var\(--muted\); line-height: 1\.7; \}/.test(css) && !/\.foot-biz \{[^}]*(font-size|color|text-align)/.test(css),
+    "the footer line takes the footer's own small, quiet, centered style and no print rule hides it");
+  ok(print.indexOf("who-logo") < 0 && print.indexOf(".who") < 0 && print.indexOf("meta-left") < 0, "print and PDF: no print rule hides or resizes the logo or the name, so they print as on screen");
+  ok(/var imgs = Array\.prototype\.slice\.call\(document\.images\);/.test(html) && /render\(\); show\("doc"\); renderDone\("1"\);/.test(html), "the PDF printer's ready flag still waits for every image, drawn after the box is built");
+
+  // The hero: Apex's tile and its label, nothing of the client's.
+  const heroHtml = html.slice(html.indexOf('<div class="hero-band doc-screen" id="hero"'), html.indexOf('<div class="wrap" role="main">'));
+  ok(heroHtml.replace(/\s+/g, " ").trim() === '<div class="hero-band doc-screen" id="hero" role="banner"> <img class="hero-img" id="heroImg" alt="" hidden> <div class="header-tile-row"> <div class="client-logo-tile"><img id="bizLogo" src="assets/apex-logo.png" alt="APEX"></div> <span class="brand-pill" id="bizName">APEX Business &amp; Leadership</span> </div> </div>',
+    "the hero holds the Apex tile and the APEX Business & Leadership label only");
+  ok(!/clientCol|clientLogoFallback|goldBarClientName|gold-bar-label|apx-col|apx-pair|client-name-mark|renderHero|is-long/.test(html), "nothing of the client's hero tile or gold bar is left: no markup, no styles (screen, phone, print), no code");
+  ok((html.match(/id="clientLogo"/g) || []).length === 1 && html.indexOf('id="clientLogo"') > html.indexOf("function billedToHtml"), "the client's logo is built in one place only, the Billed to box");
 
   const review = (REVIEW, inv) => new Function("REVIEW", "inv", cut("reviewOn") + "\n" + cut("reviewDraft") + "\nreturn [reviewOn(), reviewDraft()];")(REVIEW, inv);
   const draft = { number: "INV-1", draft: true }, row = { id: "i1", number: "INV-1", status: "draft" };
@@ -385,10 +438,16 @@ function seedCharge(d, id, cents, extra) {
     "the send controls are built only by renderReviewBar; the page as served holds an empty, hidden, never-printed bar and no script tags");
   ok(/if \(!reviewDraft\(\)\) \{\s*bar\.innerHTML = "";/.test(js), "the bar is emptied whenever this is not staff reviewing a draft");
   ok(/"apex-invoice-send\.js\?v=\d+"/.test(js), "the shared send code is loaded by name with a ?v= marker");
-  const pairs = [["PREVIEW, NOT SENT YET", "PR\\u00c9VIA, AINDA N\\u00c3O ENVIADA"], ["Send via WhatsApp", "Enviar pelo WhatsApp"], ["Send another way", "Enviar de outra forma"], ["Test send (does not mark as sent)", "Envio de teste (n\\u00e3o marca como enviada)"],
+  const pairs = [["PREVIEW, NOT SENT YET", "PR\\u00c9VIA, AINDA N\\u00c3O ENVIADA"], ["Send via WhatsApp", "Enviar pelo WhatsApp"], ["Send another way", "Enviar de outra forma"],
     ["In WhatsApp, search for:", "No WhatsApp, procure por:"], ["Copy", "Copiar"], ["Copied.", "Copiado."]];
   const miss = pairs.filter(p => js.indexOf('"' + p[0] + '"') < 0 || js.indexOf('"' + p[1] + '"') < 0);
   ok(miss.length === 0, "every new label is there in English and Portuguese" + (miss.length ? ": MISSING " + JSON.stringify(miss) : ""));
+  const barSrc = cut("renderReviewBar");
+  ok(!/reviewTest|btnReviewTest|testSend|Test send|Envio de teste/i.test(html), "the test send is gone from the page: no control, no label in either language, no click handler");
+  ok(JSON.stringify(barSrc.match(/id="[A-Za-z]+"/g)) === JSON.stringify(['id="btnReviewSend"', 'id="reviewFindText"', 'id="btnReviewCopy"', 'id="btnReviewOther"', 'id="reviewMsg"']) && JSON.stringify(barSrc.match(/onclick="[A-Za-z]+\(\)"/g)) === JSON.stringify(['onclick="reviewSend()"', 'onclick="reviewCopy()"', 'onclick="reviewSendOther()"']),
+    "the review bar holds the send button, the search line with Copy, and Send another way, and nothing else");
+  ok(/window\.ApexInvoiceSend\.sendWhatsApp\(REVIEW\.row, reviewDeps\(\)\);/.test(cut("reviewSend")) && /window\.ApexInvoiceSend\.markSentOnly\(REVIEW\.row\.id, REVIEW\.row, reviewDeps\(\)\);/.test(cut("reviewSendOther")) && !/ApexInvoiceSend|window\.open|wa\.me/.test(cut("reviewCopy")) && (js.match(/window\.ApexInvoiceSend\.[A-Za-z]+/g) || []).sort().join() === "window.ApexInvoiceSend.markSentOnly,window.ApexInvoiceSend.sendWhatsApp" && !/wa\.me|whatsapp:\/\//.test(js),
+    "the page reaches WhatsApp only through the shared send that marks the invoice sent; Copy copies the search text and Send another way only marks sent");
   ok(/return "APEX \+ " \+ \(inv\.client_name \|\| ""\);/.test(js), "the WhatsApp search text is APEX + the client's name");
 }
 
@@ -409,7 +468,7 @@ function seedCharge(d, id, cents, extra) {
     "Pagar com cartão", "Pay by card", "Pagamento recebido. Obrigado!", "Payment received. Thank you!", "Pagamento em processamento. Atualizaremos esta fatura quando for confirmado.", "Payment processing. This invoice will update when it is confirmed.",
     "Rascunho: esta fatura ainda não foi enviada.", "Draft: this invoice has not been sent yet.", "Paga integralmente", "Paid in full", "Saldo a pagar agora", "Balance due now", "Em aberto", "Vencida", "Parcialmente paga", "Partially paid",
     "Faturado para", "Billed to", "Data da fatura", "Invoice date", "Vencimento", "Due date", "Valor unitário", "Unit price", "Observações", "Formas de pagamento", "Ways to pay", "Esta fatura não está disponível.", "This invoice is not available.",
-    "Baixar fatura (PDF)", "Download your invoice (PDF)", "Não foi possível gerar o PDF agora. Use Imprimir.", "Could not generate the PDF right now. Use Print.", "Fatura gerada por Apex Command Center", "Invoice generated by Apex Command Center",
+    "Baixar fatura (PDF)", "Download your invoice (PDF)", "Não foi possível gerar o PDF agora. Use Imprimir.", "Could not generate the PDF right now. Use Print.", 
     "Política de Privacidade", "Privacy Policy", "Termos de Uso"];
   const missing = must.filter(s => html.indexOf(s) < 0);
   ok(missing.length === 0, "every specified PT and EN string is on the page" + (missing.length ? ": MISSING " + JSON.stringify(missing) : ""));

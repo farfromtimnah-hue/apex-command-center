@@ -93,11 +93,12 @@
     // address bar there. The ?t= and ?b= addresses work as before.
     var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
     var docSiteSlug = null;       // the general link's slug, on the readable address
+    var generalSlug = (siteSlug && !leadToken) ? siteSlug : null;   // set when this visit came from a general link
     if (docLink) {
       var docValue = String(docLink.token || "");
       if (docLink.kind === "booking" && /^[a-f0-9]{48}$/.test(docValue)) { leadToken = docValue; siteSlug = null; }
       if (docLink.kind === "booking-site" && /^[a-z2-7]{10,40}$/.test(docValue)) {
-        siteSlug = docValue; leadToken = null; docSiteSlug = docValue;
+        siteSlug = docValue; leadToken = null; docSiteSlug = docValue; generalSlug = docValue;
         // A visit booked from this general link in this tab: a refresh
         // finds it again (the old address keeps its token in the bar instead).
         try {
@@ -105,6 +106,14 @@
           if (docKept && /^[a-f0-9]{48}$/.test(docKept)) { leadToken = docKept; siteSlug = null; }
         } catch (e) { /* ignore */ }
       }
+    }
+    // A lead token that was made by a booking from the general link in this tab
+    // remembers which general link it came from (the old address keeps it in the bar).
+    if (leadToken && !generalSlug) {
+      try {
+        var madeFrom = window.sessionStorage.getItem("bk_site_" + leadToken);
+        if (madeFrom && /^[a-z2-7]{10,40}$/.test(madeFrom)) { generalSlug = madeFrom; }
+      } catch (e) { /* ignore */ }
     }
     var lang = "en";
     var D = null;                 // the public payload
@@ -496,9 +505,11 @@
         // A general-link booking now has a token of its own: use it from here,
         // and keep it in the address so a refresh finds the booking.
         leadToken = res.token; siteSlug = null;
+        if (generalSlug) {
+          try { window.sessionStorage.setItem("bk_token_" + generalSlug, res.token); window.sessionStorage.setItem("bk_site_" + res.token, generalSlug); } catch (e) { /* ignore */ }
+        }
         if (docLink) {
           // The readable address stays as it is; the token is kept for this tab.
-          try { if (docSiteSlug) { window.sessionStorage.setItem("bk_token_" + docSiteSlug, res.token); } } catch (e) { /* ignore */ }
         } else {
           try { history.replaceState(null, "", window.location.pathname + "?t=" + res.token); } catch (e) { /* ignore */ }
         }
@@ -588,6 +599,25 @@
       var k = byId("btnCancelKeep"); if (k) { k.disabled = off; }
     }
 
+    // forget the saved token of a general-link booking (it was cancelled, or is gone)
+    function dropSaved() {
+      try {
+        if (generalSlug) { window.sessionStorage.removeItem("bk_token_" + generalSlug); }
+        if (leadToken) { window.sessionStorage.removeItem("bk_site_" + leadToken); }
+      } catch (e) { /* ignore */ }
+    }
+
+    // back to the general link's empty form
+    function startGeneral() {
+      if (!generalSlug) { return; }
+      dropSaved();
+      leadToken = null; siteSlug = generalSlug; doneLocal = null; changing = false;
+      chosenDate = null; chosenTime = null; cust = {}; answers = {}; editing = {};
+      if (!docLink) { try { history.replaceState(null, "", window.location.pathname + "?b=" + generalSlug); } catch (e) { /* ignore */ } }
+      var l = byId("stepLoading"); if (l) { show("stepLoading"); }
+      load();
+    }
+
     function doCancel() {
       if (busy) { return; }
       busy = true;
@@ -596,7 +626,14 @@
         busy = false;
         if (r.status === 200) {
           var el = byId("stepDone");
-          if (el) { el.innerHTML = '<div class="card"><div class="state"><h3 role="heading" aria-level="1">' + T("Visita cancelada.", "Your visit is cancelled.") + '</h3><p>' + T("Se quiser, fale com ", "If you like, contact ") + escHtml(D.business.name || "") + (D.business.phone ? " - " + escHtml(fmtPhone(D.business.phone)) : "") + '.</p></div></div>'; }
+          var again = generalSlug ? '<button type="button" class="btn" id="btnBookNew" style="margin-top:14px;">' + T("Agendar nova visita", "Book a new visit") + '</button>' : "";
+          if (el) { el.innerHTML = '<div class="card"><div class="state"><h3 role="heading" aria-level="1">' + T("Visita cancelada.", "Your visit is cancelled.") + '</h3><p>' + T("Se quiser, fale com ", "If you like, contact ") + escHtml(D.business.name || "") + (D.business.phone ? " - " + escHtml(fmtPhone(D.business.phone)) : "") + '.</p>' + again + '</div></div>'; }
+          if (generalSlug) {
+            // a refresh now opens the general form; the button does the same without a refresh
+            dropSaved();
+            if (!docLink) { try { history.replaceState(null, "", window.location.pathname + "?b=" + generalSlug); } catch (e) { /* ignore */ } }
+            var nb = byId("btnBookNew"); if (nb) { nb.onclick = startGeneral; }
+          }
           show("stepDone");
           return;
         }
@@ -624,16 +661,29 @@
     function load() {
       var path = leadToken ? "/api/public/booking/lead/" + leadToken : (siteSlug ? "/api/public/booking/site/" + siteSlug : null);
       if (!path) { D = { active: false, business: {} }; renderInactive(); return; }
+      var usedToken = leadToken;
       fetch(WORKER_URL + path)
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
         .then(function(d) {
+          if (usedToken && generalSlug && d && !d.active) { throw new Error("gone"); }
           D = d;
           if (D.business) { applyBranding(D.business); }
           if (firstLoad) { setLang(D.language === "pt" ? "pt" : "en"); firstLoad = false; }
           seed();
           render();
         })
-        .catch(function(e) { console.error(e); D = { active: false, business: {} }; renderInactive(); });
+        .catch(function(e) {
+          console.error(e);
+          // A saved general-link booking that is gone or inactive: drop it and open the general form.
+          if (usedToken && generalSlug && leadToken === usedToken) {
+            dropSaved();
+            leadToken = null; siteSlug = generalSlug; doneLocal = null;
+            if (!docLink) { try { history.replaceState(null, "", window.location.pathname + "?b=" + generalSlug); } catch (e2) { /* ignore */ } }
+            load();
+            return;
+          }
+          D = { active: false, business: {} }; renderInactive();
+        });
     }
 
     window.onload = function() {

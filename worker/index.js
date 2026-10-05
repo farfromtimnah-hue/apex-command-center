@@ -27692,7 +27692,9 @@ var CONTRACT_ROUTE_DEFAULT_MESSAGE = "O contrato {contract_number} de {job_name}
 var CONTRACT_SIGNING_FIELDS = ["owner_signature_lien_notice", "owner_signature_lien_notice_date", "owner_signature_pool_ack", "owner_signature_pool_ack_date",
     "owner_initials_arbitration", "contractor_initials_arbitration", "owner_initials_jury", "contractor_initials_jury", "owner_marketing_consent_checkbox",
     "transaction_date", "cancellation_deadline_date", "company_signed_at", "mutual_execution_deadline", "pool_docs_delivered_at", "pool_docs_delivery_method",
-    "ch515_doc_version", "drowning_pub_version", "customer_signature", "customer_signature_date"];
+    "ch515_doc_version", "drowning_pub_version", "customer_signature", "customer_signature_date",
+    // State parts (RES-36): filled by the page from what the customer and the company signed.
+    "state_part_signature", "state_part_date", "state_part_company_signature", "state_part_company_date", "state_part_initials", "state_deadline_7"];
 
 // ── State riders ──────────────────────────────────────────────────────────
 // The clause library is Florida law. A job in any other state (or DC) is
@@ -27876,7 +27878,7 @@ function contractStateChecklist(st, job) {
     // and vars = what the "Before you send" card needs to sort and word a line.
     function add(key, en, pt, warn, meta) {
         var l = { key: key, level: warn ? "warn" : "info", en: en, pt: pt };
-        if (meta) { ["ref", "url", "variant", "vars", "sys"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
+        if (meta) { ["ref", "url", "variant", "vars", "sys", "plan"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
         lines.push(l);
     }
     var lic = r.license || {};
@@ -27916,11 +27918,22 @@ function contractStateChecklist(st, job) {
     }
     (r.notices || []).forEach(function(n) {
         if (!contractStateNoticeApplies(n, job)) { return; }
+        // A line about the Notice of Cancellation exists only on a contract that carries one.
+        var ownEntry = contractStateCheckEntry(st.code, { key: "notice:" + n.id });
+        if (ownEntry && ownEntry.when_cancel && !job.sold_in_home) { return; }
         var tail = (n.trigger ? " When: " + n.trigger + "." : "") + (n.format ? " Format: " + n.format + "." : "");
         var tailPt = (n.trigger ? " Quando: " + n.trigger + "." : "") + (n.format ? " Formato: " + n.format + "." : "");
         // sys: the builder printed ("print") or handed over ("deliver") this
         // notice by itself, from the official wording on file (job.sys_lines).
         var sysMode = (job.sys_lines || {})["notice:" + n.id] || null;
+        // RES-36: a line the builder finishes (parts, list, message, agency
+        // document). The official wording is on file; the card says where it stands.
+        var fin = (job.finish || {})["notice:" + n.id] || null;
+        if (fin) {
+            add("notice:" + n.id, name + " requires this: " + n.title + " (" + n.cite + "). The official wording is on file." + tail,
+                name + " exige isto: " + n.title + " (" + n.cite + "). O texto oficial est\u00e1 arquivado." + tailPt, fin.state !== "ok", { ref: n.cite, url: n.source_url, vars: { title: n.title }, plan: fin });
+            return;
+        }
         if (sysMode === "deliver") {
             add("notice:" + n.id, "This document is given to the customer with the contract, before they sign: " + n.title + " (" + n.cite + ")." + tail, "Este documento \u00e9 entregue ao cliente junto com o contrato, antes de ele assinar: " + n.title + " (" + n.cite + ")." + tailPt, false, { ref: n.cite, url: n.source_url, variant: "prints", vars: { title: n.title }, sys: sysMode });
             return;
@@ -27947,7 +27960,7 @@ function contractStateChecklist(st, job) {
             "A cl\u00e1usula " + x.option + " est\u00e1 escolhida. " + x.reason + " (" + x.cite + ")." + (x.safer ? " Op\u00e7\u00e3o mais segura nesta \u00e1rea: " + x.safer + "." : ""), true, { ref: /^matrix /.test(String(x.cite || "")) ? null : x.cite, vars: { option: x.option } });
     });
     var cl = r.checklist || {};
-    (cl.rider_items || []).forEach(function(t, i) { add("item:" + (i + 1), "From the research for " + name + ": " + t + ".", "Da pesquisa para " + name + ": " + t + "."); });
+    (cl.rider_items || []).forEach(function(t, i) { add("item:" + (i + 1), "From the research for " + name + ": " + t + ".", "Da pesquisa para " + name + ": " + t + ".", false, { plan: (job.finish || {})["item:" + (i + 1)] || null }); });
     (cl.extra || []).forEach(function(t, i) { add("extra:" + (i + 1), t, t, true); });
     add("status", "Research status for " + name + ": " + st.status + (r.status_reason ? " (" + r.status_reason + ")" : "") + ". No lawyer has reviewed it.",
         "Situa\u00e7\u00e3o da pesquisa para " + name + ": " + st.status + (r.status_reason ? " (" + r.status_reason + ")" : "") + ". Nenhum advogado revisou.");
@@ -28030,6 +28043,226 @@ function contractStatePrintPlan(st, job, facts) {
     });
     return out;
 }
+// ── RES-36: finishing a line whose wording is on file ─────────────────────
+// data/contract-state-checklist-v1.json says, line by line, what the law asks
+// beyond the words: where the notice sits (first page, above the signature,
+// under a named heading, on the face of the contract), how it must look, a
+// separate page the customer signs, initials, blanks to fill, a business fact
+// that picks the true statement, a list, a sentence beside the message, an
+// agency document. The builder does each of those here. The wording is always
+// the notice's own text_on_file. NOTHING here blocks a send, a signature or a
+// preview: a part that cannot be completed leaves its line waiting or with a
+// person.
+var CONTRACT_STATE_FINISH_KINDS = ["parts", "list", "email", "official"];
+// What a blank is filled from, and how the card names the field when it is empty.
+var CONTRACT_STATE_FIELD_LABELS = {
+    business_legal_name: { en: "your business's legal name (document settings)", pt: "a raz\u00e3o social da empresa (configura\u00e7\u00f5es dos documentos)" },
+    business_address: { en: "your business address (document settings)", pt: "o endere\u00e7o da empresa (configura\u00e7\u00f5es dos documentos)" },
+    business_phone: { en: "your business phone (document settings)", pt: "o telefone da empresa (configura\u00e7\u00f5es dos documentos)" },
+    business_email: { en: "your business email (document settings)", pt: "o e-mail da empresa (configura\u00e7\u00f5es dos documentos)" },
+    property_address: { en: "the property address (on the lead or the estimate)", pt: "o endere\u00e7o do im\u00f3vel (no lead ou no or\u00e7amento)" },
+    company_signer_name: { en: "the name of the person who signs for the company (contract settings)", pt: "o nome de quem assina pela empresa (configura\u00e7\u00f5es do contrato)" },
+    biz_cgl_insurer: { en: "your insurance company's name (contract settings)", pt: "o nome da sua seguradora (configura\u00e7\u00f5es do contrato)" },
+    biz_cgl_phone: { en: "your insurance company's phone (contract settings)", pt: "o telefone da sua seguradora (configura\u00e7\u00f5es do contrato)" },
+    biz_cgl_policy: { en: "your liability policy number (contract settings)", pt: "o n\u00famero da sua ap\u00f3lice de responsabilidade (configura\u00e7\u00f5es do contrato)" }
+};
+function contractStateBizDefs() { return (CONTRACT_STATE_CHECKLIST_V1 || {}).biz_facts || {}; }
+function contractStateAskDefs() { return (CONTRACT_STATE_CHECKLIST_V1 || {}).ask || {}; }
+// The business facts asked once in the settings: { cgl: "yes" | ... | null }.
+function contractStateBiz(settings) {
+    var defs = contractStateBizDefs(), vals = (settings && settings.values) || {}, out = {};
+    Object.keys(defs).forEach(function(k) {
+        var val = vals[defs[k].key];
+        out[k] = (defs[k].options || []).some(function(o) { return o.v === val; }) ? val : null;
+    });
+    return out;
+}
+// The values a blank may be filled from, for this contract.
+function contractStateFillValues(v, settings, flags) {
+    var vals = (settings && settings.values) || {}, sv = (flags && flags.state_values) || {};
+    var out = { business_legal_name: v.business_legal_name || "", business_address: v.business_address || "", business_phone: v.business_phone ? contractFmtPhone(v.business_phone) : "",
+        business_email: v.business_email || "", property_address: v.property_address || "", company_signer_name: (settings && settings.owner_signer_name) || "",
+        biz_cgl_insurer: vals.ins_cgl_insurer || "", biz_cgl_phone: vals.ins_cgl_phone ? contractFmtPhone(vals.ins_cgl_phone) : "", biz_cgl_policy: vals.ins_cgl_policy || "" };
+    Object.keys(contractStateAskDefs()).forEach(function(k) { out["sv_" + k] = typeof sv[k] === "string" ? sv[k].trim() : ""; });
+    return out;
+}
+function contractStateFieldLabel(k) {
+    if (/^sv_/.test(k)) {
+        var a = contractStateAskDefs()[k.slice(3)];
+        if (a) { return { en: "\"" + a.en + "\" (asked on this card)", pt: "\"" + a.pt + "\" (perguntado neste cart\u00e3o)" }; }
+    }
+    return CONTRACT_STATE_FIELD_LABELS[k] || { en: k, pt: k };
+}
+function contractStatePartOfficial(n) {
+    return !!n && typeof n.text_on_file === "string" && n.text_on_file.length > 0 && n.source_status === "VERBATIM-OFFICIAL" && !n.hold_reason;
+}
+// One part's text: the wording on file with its blanks filled. Returns
+// { text, missing: [field] }. A value that only exists when someone signs
+// (CONTRACT_SIGNING_FIELDS) stays a {token}.
+function contractStatePartText(n, p, values) {
+    var text = String(n.text_on_file || ""), missing = [];
+    (p.fill || []).forEach(function(f) { text = f[2] === "re" ? text.replace(new RegExp(f[0], "g"), f[1]) : text.split(f[0]).join(f[1]); });
+    text = text.replace(/\{([a-z0-9_]+)\}/g, function(m, k) {
+        if (CONTRACT_SIGNING_FIELDS.indexOf(k) !== -1) { return m; }
+        if (!Object.prototype.hasOwnProperty.call(values, k)) { return m; }
+        if (!values[k]) { if (missing.indexOf(k) === -1) { missing.push(k); } return m; }
+        return String(values[k]);
+    });
+    return { text: text, missing: missing };
+}
+// The subcontractors and suppliers of the project, as the list prints them.
+function contractStateListRows(parties) {
+    var rows = [];
+    ((parties && parties.subs) || []).forEach(function(s) { rows.push({ kind: "subcontractor", name: s.name || "", trade: s.trade || "", license: s.license_number || "", address: s.address || "", phone: s.phone || "" }); });
+    ((parties && parties.suppliers) || []).forEach(function(s) { rows.push({ kind: "supplier", name: s.name || "", trade: s.supplies || "", license: "", address: s.address || "", phone: s.phone || "" }); });
+    return rows;
+}
+// Every finish line of this state, for this job: { line key: plan }.
+// plan.state: ok | off (the fact is No) | ask (needs a Yes first) | wait_biz |
+// wait_fields | wait_list_empty | wait_list | no_part (nothing official to
+// print for this business) | no_slot (the agency's file is not loaded).
+// x = { values, biz, slots, parties }.
+function contractStateFinishPlan(st, job, facts, x) {
+    var out = {};
+    if (!st || st.florida || !st.rider) { return out; }
+    var lines = ((((CONTRACT_STATE_CHECKLIST_V1 || {}).states || {})[st.code] || {}).lines) || {}, byId = {};
+    (st.rider.notices || []).forEach(function(n) { byId[n.id] = n; });
+    x = x || {};
+    var values = x.values || {}, biz = x.biz || {}, slots = x.slots || {};
+    Object.keys(lines).forEach(function(key) {
+        var e = lines[key];
+        if (!e || e.c !== "A" || CONTRACT_STATE_FINISH_KINDS.indexOf(e.sys) === -1) { return; }
+        var own = /^notice:/.test(key) ? byId[key.slice(7)] : null;
+        if (own && !contractStateNoticeApplies(own, job)) { return; }
+        if (e.when_cancel && !job.sold_in_home) { return; }
+        var plan = { line: key, sys: e.sys, state: "ok", missing: [], parts: [], slot: null, list: null, biz_key: e.biz_key || null };
+        out[key] = plan;
+        if (e.fact && contractStateFactIs(facts, e.fact, "no")) { plan.state = "off"; return; }
+        if (e.only_yes && e.fact && !contractStateFactIs(facts, e.fact, "yes")) { plan.state = "ask"; return; }
+        var use = e.parts || [];
+        if (e.biz_key) {
+            if (!biz[e.biz_key]) { plan.state = "wait_biz"; return; }
+            use = use.filter(function(p) { return !p.biz || p.biz[1] === biz[e.biz_key]; });
+            if (!use.length) { plan.state = "no_part"; return; }
+        }
+        if (e.needs_slot && !slots[e.needs_slot]) { plan.state = "no_slot"; plan.slot = { slot: e.needs_slot, ack: false, loaded: false, version: null }; return; }
+        var bad = false;
+        use.forEach(function(p) {
+            var n = byId[p.n];
+            if (!contractStatePartOfficial(n)) { bad = true; return; }
+            var t = contractStatePartText(n, p, values);
+            t.missing.forEach(function(k) { if (plan.missing.indexOf(k) === -1) { plan.missing.push(k); } });
+            plan.parts.push({ id: n.id, mode: p.as || "print", title: p.heading || n.title, heading: !!p.heading, text: t.text, cite: n.cite || null, format: n.format || null,
+                place: p.place || null, style: p.style || null, sign: !!p.sign, company_sign: !!p.company_sign, initials: !!p.initials, choose: p.choose || null,
+                copies: p.copies || 1, bare: !!p.bare, date_above: !!p.date_above });
+        });
+        if (bad) { plan.state = "no_part"; plan.parts = []; return; }
+        if (plan.missing.length) { plan.state = "wait_fields"; }
+        if (e.sys === "official") {
+            var sl = slots[e.official.slot] || null;
+            plan.slot = { slot: e.official.slot, ack: !!e.official.ack, loaded: !!sl, version: sl ? sl.version || null : null, title: own ? own.title : e.official.slot, cite: own ? own.cite || null : null };
+            if (!sl) { plan.state = "no_slot"; }
+        }
+        if (e.sys === "list") {
+            var rows = contractStateListRows(x.parties), need = [];
+            rows.forEach(function(r) {
+                if (!r.address) { need.push({ name: r.name, field: "address" }); }
+                if (!r.phone) { need.push({ name: r.name, field: "phone" }); }
+            });
+            plan.list = { rows: rows, need: need };
+            if (!rows.length) { plan.state = "wait_list_empty"; } else if (need.length) { plan.state = "wait_list"; }
+        }
+    });
+    return out;
+}
+// The parts that become sections of the contract. An agency-document line
+// prints its own notice even while the agency's file is missing.
+function contractStateFinishSections(plans) {
+    var out = [];
+    Object.keys(plans || {}).forEach(function(key) {
+        var p = plans[key];
+        if (p.sys !== "parts" && p.sys !== "official") { return; }
+        if (p.state !== "ok" && !(p.sys === "official" && p.state === "no_slot")) { return; }
+        p.parts.forEach(function(part) { out.push({ line: key, part: part }); });
+    });
+    return out;
+}
+// What the customer's page asks for, beyond the contract signature.
+function contractStateFinishRequires(plans) {
+    var out = { sign: [], initials: [], choose: [], ack: [] };
+    Object.keys(plans || {}).forEach(function(key) {
+        var p = plans[key];
+        if (p.state !== "ok") { return; }
+        p.parts.forEach(function(part) {
+            if (part.sign) { out.sign.push(part.id); }
+            if (part.initials) { out.initials.push(part.id); }
+            if (part.choose) { out.choose.push({ id: part.id, options: part.choose }); }
+        });
+        if (p.sys === "official" && p.slot && p.slot.ack) { out.ack.push(p.slot.slot); }
+    });
+    return out;
+}
+// The same, read from the sections the customer actually reads (the text the
+// company signed, once it has): a contract signed by the company before a
+// part existed never asks the customer for it, and a part that IS in the
+// signed text is always accepted. ack (agency documents) stays as planned.
+function contractStateRequiresFromSections(sections, planned) {
+    var out = { sign: [], initials: [], choose: [], ack: ((planned && planned.ack) || []).slice() };
+    (sections || []).forEach(function(s) {
+        if (!s || s.system !== true || !s.line) { return; }
+        if (s.sign) { out.sign.push(s.id); }
+        if (s.initials) { out.initials.push(s.id); }
+        if (s.choose) { out.choose.push({ id: s.id, options: s.choose }); }
+    });
+    return out;
+}
+// What the customer did on those parts: flags.state_done = { sign: { id: {
+// name, at } }, initials: { id: { initials, name, at } }, choose: { id: {
+// index, initials, name, at } }, ack: { slot: { name, at } }, evidence: [{ at,
+// name, ip, ua, consent }] }.
+function contractStateDone(flags) {
+    var d = (flags && flags.state_done) || {};
+    return { sign: d.sign || {}, initials: d.initials || {}, choose: d.choose || {}, ack: d.ack || {}, evidence: d.evidence || [] };
+}
+// Reads what the customer's page sent (body.state_parts) against what this
+// contract asks for. Returns the new flags.state_done, or null when nothing
+// new was given. Never refuses: a part left out stays waiting.
+function contractStateDoneApply(flags, req, given, signer, at, ip, ua) {
+    var cur = contractStateDone(flags), next = { sign: Object.assign({}, cur.sign), initials: Object.assign({}, cur.initials), choose: Object.assign({}, cur.choose), ack: Object.assign({}, cur.ack), evidence: cur.evidence.slice() };
+    var changed = false;
+    given = given && typeof given === "object" ? given : {};
+    var gs = given.sign || {}, gi = given.initials || {}, gc = given.choose || {}, ga = given.ack || {};
+    (req.sign || []).forEach(function(id) {
+        var nm = gmStr(gs[id], 120);
+        if (nm && !next.sign[id]) { next.sign[id] = { name: nm, at: at, kind: "typed" }; changed = true; }
+    });
+    (req.initials || []).forEach(function(id) {
+        var ini = gmStr(gi[id], 8);
+        if (ini && !next.initials[id]) { next.initials[id] = { initials: ini, name: signer, at: at }; changed = true; }
+    });
+    (req.choose || []).forEach(function(c) {
+        var g = gc[c.id], ini = g ? gmStr(g.initials, 8) : null, idx = g ? Math.round(Number(g.index)) : -1;
+        if (ini && idx >= 0 && idx < c.options.length && !next.choose[c.id]) { next.choose[c.id] = { index: idx, initials: ini, name: signer, at: at }; changed = true; }
+    });
+    (req.ack || []).forEach(function(slot) {
+        if (ga[slot] === true && !next.ack[slot]) { next.ack[slot] = { name: signer, at: at }; changed = true; }
+    });
+    if (!changed) { return null; }
+    next.evidence.push({ at: at, name: signer, ip: ip || null, ua: ua || null, consent: true });
+    return next;
+}
+// Writes flags.state_done only (json_set). Binds: record JSON, contract id.
+var CONTRACT_STATE_DONE_SQL = "UPDATE gm_contracts SET flags_json = json_set(COALESCE(flags_json, '{}'), '$.state_done', json(?)), updated_at = datetime('now') WHERE id = ? AND status != 'void'";
+// Where a part sits, in words for the card.
+function contractStatePartWhere(part) {
+    if (part.mode === "page") { return { en: "on its own page", pt: "em p\u00e1gina pr\u00f3pria" }; }
+    if (part.place === "first_page") { return { en: "on the first page", pt: "na primeira p\u00e1gina" }; }
+    if (part.place === "above_signature") { return { en: "directly above the customer's signature", pt: "logo acima da assinatura do cliente" }; }
+    if (part.place === "face") { return { en: "on the face of the contract, apart from the other provisions", pt: "na frente do contrato, separado das outras cl\u00e1usulas" }; }
+    if (part.heading) { return { en: "under the heading \"" + part.title + "\"", pt: "sob o t\u00edtulo \"" + part.title + "\"" }; }
+    if (/^after:/.test(String(part.place || ""))) { return { en: "right after the clause it belongs to", pt: "logo depois da cl\u00e1usula a que pertence" }; }
+    return { en: "in the contract", pt: "no contrato" };
+}
 // Does this contract ask for a second customer signer? Only in a state whose
 // list has a "both spouses sign" line, and only when its fact (married) was
 // answered Yes or Not sure on this contract. A contract with no answer (every
@@ -28107,6 +28340,95 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
     if ((e.sys === "print" || e.sys === "deliver") && x && x.frozen) {
         var ids = e.sys === "deliver" && e.docs ? e.docs : [String(l.key).replace(/^notice:/, "")];
         if (!ids.every(function(id) { return x.frozen[id]; })) { return null; }
+    }
+    // RES-36: a line the builder finishes by itself. l.plan = its plan for
+    // this contract (contractStateFinishPlan). null = left with a person.
+    if (CONTRACT_STATE_FINISH_KINDS.indexOf(e.sys) !== -1) {
+        var plan = l.plan || null, sd = contractStateDone(flags);
+        if (!plan || plan.state === "off" || plan.state === "ask" || plan.state === "no_part" || plan.state === "no_slot") { return null; }
+        if (plan.state === "wait_biz") {
+            var bq = contractStateBizDefs()[plan.biz_key] || {};
+            return wait("Waiting: answer \"" + (bq.en || plan.biz_key) + "\" in the contract settings. The statement that is true for your business then prints by itself.",
+                "Aguardando: responda \"" + (bq.pt || plan.biz_key) + "\" nas configura\u00e7\u00f5es do contrato. A declara\u00e7\u00e3o que vale para a sua empresa passa a ser impressa sozinha.");
+        }
+        if (plan.state === "wait_fields") {
+            var labels = plan.missing.map(contractStateFieldLabel);
+            return wait("Waiting: add " + labels.map(function(b) { return b.en; }).join("; ") + ". The system fills the blank as soon as it is saved.",
+                "Aguardando: informe " + labels.map(function(b) { return b.pt; }).join("; ") + ". O sistema preenche o espa\u00e7o assim que for salvo.");
+        }
+        if (plan.state === "wait_list_empty") {
+            return wait("Waiting: add this job's subcontractors and suppliers to the project (name, address and telephone). The system builds the list from them.",
+                "Aguardando: cadastre no projeto os subempreiteiros e fornecedores deste servi\u00e7o (nome, endere\u00e7o e telefone). O sistema monta a lista com eles.");
+        }
+        if (plan.state === "wait_list") {
+            var needEn = plan.list.need.map(function(nd) { return "the " + (nd.field === "phone" ? "telephone" : "address") + " of " + nd.name; });
+            var needPt = plan.list.need.map(function(nd) { return (nd.field === "phone" ? "o telefone" : "o endere\u00e7o") + " de " + nd.name; });
+            return wait("Waiting: add " + needEn.join("; ") + " in the project.", "Aguardando: informe " + needPt.join("; ") + " no projeto.");
+        }
+        // A contract the company signed before the builder printed these
+        // parts never claims to carry them.
+        if (x && x.frozen && plan.parts.some(function(p) { return p.mode !== "message" && p.mode !== "list_notice" && !x.frozen[p.id]; })) { return null; }
+        var sendWaitEn = "The system will do this when you send the contract: ", sendWaitPt = "O sistema faz isto quando voc\u00ea enviar o contrato: ";
+        if (e.sys === "list") {
+            var nRows = plan.list.rows.length;
+            if (sentAt) {
+                return done(sentAt, "The list (" + nRows + " name" + (nRows === 1 ? "" : "s") + ") is on the customer's contract link, sent " + when(sentAt) + ". It follows the project: a change to the project's subcontractors or suppliers shows on the link.",
+                    "A lista (" + nRows + " nome" + (nRows === 1 ? "" : "s") + ") est\u00e1 no link do contrato do cliente, enviado em " + when(sentAt) + ". Ela acompanha o projeto: uma mudan\u00e7a nos subempreiteiros ou fornecedores do projeto aparece no link.", sentCause());
+            }
+            return wait(sendWaitEn + "the list rides on the customer's contract link and follows the project's records.", sendWaitPt + "a lista vai no link do contrato do cliente e acompanha os registros do projeto.");
+        }
+        var dl = (x && x.delivery) || null;
+        function deliveredCause(at) { var p = staff(dl && dl.by, null), t = byLine("Sent", "Enviado", p, at); return { action: "state_delivered", at: at, by: [p], en: t.en, pt: t.pt }; }
+        if (e.sys === "email") {
+            var noteAt = dl && dl.message_note_at;
+            if (noteAt) { return done(noteAt, "The required sentence was placed beside the message that sent the contract, " + when(noteAt) + ".", "A frase exigida foi colocada junto \u00e0 mensagem que enviou o contrato, em " + when(noteAt) + ".", deliveredCause(noteAt)); }
+            if (sentAt) { return wait("Waiting: this contract was sent before the system added the sentence. Open Send again: the message then carries it.", "Aguardando: este contrato foi enviado antes de o sistema incluir a frase. Abra Enviar de novo: a mensagem passa a levar a frase."); }
+            return wait(sendWaitEn + "the required sentence goes beside the message.", sendWaitPt + "a frase exigida vai junto \u00e0 mensagem.");
+        }
+        if (e.sys === "official") {
+            var slot = plan.slot || {}, ackRec = slot.ack ? sd.ack[slot.slot] : null, docAt = dl && dl.slots ? dl.slots[slot.slot] : null;
+            if (sentAt && !docAt) { return wait("Waiting: the agency's document was loaded after this contract was sent. Open Send again so the customer is sent to it.", "Aguardando: o documento oficial foi carregado depois que este contrato foi enviado. Abra Enviar de novo para o cliente receber."); }
+            if (!sentAt) { return wait(sendWaitEn + "the agency's own document is shown to the customer before they sign.", sendWaitPt + "o documento oficial do \u00f3rg\u00e3o \u00e9 mostrado ao cliente antes de ele assinar."); }
+            if (slot.ack && !ackRec) {
+                return wait("Waiting: the customer's link shows the document and asks for the signed acknowledgment in the same visit as the contract signature.",
+                    "Aguardando: o link do cliente mostra o documento e pede o recibo assinado na mesma visita em que o contrato \u00e9 assinado.");
+            }
+            if (ackRec) {
+                var ak = cust(ackRec.name), akN = shown(ak);
+                return done(ackRec.at, "The agency's own document was given with the contract and the customer signed the acknowledgment " + when(ackRec.at) + ".",
+                    "O documento oficial foi entregue junto com o contrato e o cliente assinou o recibo em " + when(ackRec.at) + ".",
+                    { action: "state_document_acknowledged", at: ackRec.at, by: [ak], en: "Acknowledged" + (akN ? " by " + akN + ", " : " ") + when(ackRec.at), pt: "Recibo assinado" + (akN ? " por " + akN + ", " : " em ") + when(ackRec.at) });
+            }
+            return done(docAt, "The agency's own document" + (slot.version ? " (" + slot.version + ")" : "") + " was given to the customer with the contract, sent " + when(docAt) + "." + (c.first_viewed_at ? " The customer opened it " + when(c.first_viewed_at) + "." : ""),
+                "O documento oficial do \u00f3rg\u00e3o" + (slot.version ? " (" + slot.version + ")" : "") + " foi entregue ao cliente junto com o contrato, enviado em " + when(docAt) + "." + (c.first_viewed_at ? " O cliente abriu em " + when(c.first_viewed_at) + "." : ""), deliveredCause(docAt));
+        }
+        // sys "parts": printed where the law says; a part the customer signs,
+        // initials or chooses is done when they did it.
+        var wheres = plan.parts.map(contractStatePartWhere);
+        var whereEn = wheres.map(function(w) { return w.en; }).filter(function(w, i, a) { return a.indexOf(w) === i; }).join(" and ");
+        var wherePt = wheres.map(function(w) { return w.pt; }).filter(function(w, i, a) { return a.indexOf(w) === i; }).join(" e ");
+        var pending = [], lastAt = null, lastName = null, acted = false;
+        plan.parts.forEach(function(p) {
+            [["sign", sd.sign], ["initials", sd.initials], ["choose", sd.choose]].forEach(function(pair) {
+                if (!p[pair[0]]) { return; }
+                acted = true;
+                var rec = pair[1][p.id];
+                if (!rec) { pending.push(pair[0]); return; }
+                if (!lastAt || rec.at > lastAt) { lastAt = rec.at; lastName = rec.name || null; }
+            });
+        });
+        if (!acted) {
+            return done(companyAt, "Printed " + whereEn + "." + (companyAt ? " Locked in when the company signed." : ""), "Impresso " + wherePt + "." + (companyAt ? " Travado quando a empresa assinou." : ""), textCause());
+        }
+        if (pending.length) {
+            var askEn = pending.indexOf("sign") !== -1 ? "a separate signature" : "initials", askPt = pending.indexOf("sign") !== -1 ? "uma assinatura separada" : "as iniciais";
+            return wait("Waiting: printed " + whereEn + ". The customer's link asks for " + askEn + " on it in the same visit as the contract signature.",
+                "Aguardando: impresso " + wherePt + ". O link do cliente pede " + askPt + " na mesma visita em que o contrato \u00e9 assinado.");
+        }
+        var sg = cust(lastName), sgN = shown(sg);
+        return done(lastAt, "Printed " + whereEn + ". The customer completed it " + when(lastAt) + ", in the same visit as the contract signature.",
+            "Impresso " + wherePt + ". O cliente concluiu em " + when(lastAt) + ", na mesma visita em que o contrato foi assinado.",
+            { action: "state_part_signed", at: lastAt, by: [sg], en: "Done" + (sgN ? " by " + sgN + ", " : " ") + when(lastAt), pt: "Feito" + (sgN ? " por " + sgN + ", " : " em ") + when(lastAt) });
     }
     if (e.sys === "print") {
         if (l.sys !== "print") { return null; }
@@ -28186,22 +28508,31 @@ function contractStateSysStatus(e, l, st, flags, facts, x) {
 // it, who sent the signed copy. Never throws: a failed read leaves the line
 // waiting.
 async function contractStateSysLoad(env, c) {
-    var out = { c: c, ack: null, copy_sent_at: null, frozen: null, who: {} };
+    var out = { c: c, ack: null, copy_sent_at: null, frozen: null, who: {}, delivery: null };
     try {
         if (c.snapshot_r2_key && c.company_signed_at && !c.company_signature_voided_at) {
             var snap = await contractR2Json(env, c.snapshot_r2_key);
             if (snap) {
                 out.frozen = {};
-                (snap.sections || []).forEach(function(sec) { if (sec.system && (sec.kind === "state_notice" || sec.kind === "state_document")) { out.frozen[sec.id] = true; } });
+                (snap.sections || []).forEach(function(sec) { if (sec.system && (sec.kind === "state_notice" || sec.kind === "state_document" || sec.kind === "state_page")) { out.frozen[sec.id] = true; } });
             }
         }
         var ack = await env.DB.prepare("SELECT signed_at, payload_json, signer_name, created_by FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'before_photos' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(c.client_id, c.job_id).first();
         var photos = ack ? ((gmDocParseJsonObject(ack.payload_json, {}) || {}).photos || []).length : 0;
         if (ack && ack.signed_at && photos > 0) { out.ack = { signed_at: ack.signed_at, photos: photos, signer_name: ack.signer_name || null, created_by: ack.created_by || null }; }
         // Oldest first, so the last one of each action wins.
-        var evs = (await env.DB.prepare("SELECT action, actor, detail_json, created_at FROM gm_contract_events WHERE contract_id = ? AND client_id = ? AND action IN ('company_signed','sent','signed_copy_sent') ORDER BY created_at").bind(c.id, c.client_id).all()).results || [];
+        var evs = (await env.DB.prepare("SELECT action, actor, detail_json, created_at FROM gm_contract_events WHERE contract_id = ? AND client_id = ? AND action IN ('company_signed','sent','signed_copy_sent','state_delivered') ORDER BY created_at").bind(c.id, c.client_id).all()).results || [];
         evs.forEach(function(ev) {
             var d = gmDocParseJsonObject(ev.detail_json, {}) || {};
+            // RES-36: what went out with a send. The first time each thing
+            // went out is the time kept.
+            if (ev.action === "state_delivered") {
+                out.delivery = out.delivery || { message_note_at: null, slots: {}, by: null };
+                if (d.message_note && !out.delivery.message_note_at) { out.delivery.message_note_at = ev.created_at || null; }
+                (d.slots || []).forEach(function(sl) { if (!out.delivery.slots[sl]) { out.delivery.slots[sl] = ev.created_at || null; } });
+                out.delivery.by = { id: d.actor_id || null, name: ev.actor || null, role: d.actor_role || null, at: ev.created_at || null };
+                return;
+            }
             var w = { id: d.actor_id || null, name: ev.actor || null, role: d.actor_role || null, at: ev.created_at || null };
             if (ev.action === "signed_copy_sent") { out.who.copy = w; out.copy_sent_at = ev.created_at || null; }
             else if (ev.action === "sent") { out.who.sent = w; }
@@ -28220,7 +28551,7 @@ function contractStateActionCard(st, lines, flags, sys, causes) {
     var stData = (data.states || {})[st.code] || {};
     var kinds = data.sys_kinds || {}, defs = contractStateFactDefs();
     var facts = st.facts || contractStateFacts(flags, null);
-    var done = contractStateChecks(flags, st.code), present = {}, asked = {};
+    var done = contractStateChecks(flags, st.code), present = {}, asked = {}, wanted = {};
     lines.forEach(function(l) { present[l.key] = true; });
     function fill(t, l) {
         var out = String(t).split("{state}").join(st.name);
@@ -28258,14 +28589,35 @@ function contractStateActionCard(st, lines, flags, sys, causes) {
             if (status.cause) { a.sys.who_en = status.who_en; a.sys.who_pt = status.who_pt; a.sys.action = status.cause.action; a.sys.auto = status.cause.auto; }
             if (causes && status.done) { causes[l.key] = status.cause || { action: e.sys, at: status.at, auto: true, by: [] }; }
         }
+        // RES-36: the agency's own file is not loaded. The line stays with a
+        // person; only Apex staff are told why (contractStateCardFor).
+        if (!status && l.plan && l.plan.state === "no_slot") { a.staff_en = "Waiting: official document not loaded"; a.staff_pt = "Aguardando: documento oficial n\u00e3o carregado"; a.staff_slot = l.plan.slot ? l.plan.slot.slot : null; }
+        if (e.ask && l.plan && l.plan.state !== "off" && l.plan.state !== "ask") { e.ask.forEach(function(k) { wanted[k] = true; }); }
         actions.push(a);
+        // The piece of a line no system can do keeps its own hand tick, once
+        // the system has taken the rest.
+        if (status && e.also) {
+            var alsoTick = done[l.key + "#also"];
+            actions.push({ key: l.key + "#also", kind: "person", en: fill(e.also.en, l), pt: fill(e.also.pt, l), ref: a.ref, ref_pt: a.ref_pt, context_en: l.en, context_pt: l.pt, source_url: l.url || null,
+                done: alsoTick && alsoTick.at ? { by: gmDisplayActor(alsoTick.by), at: alsoTick.at } : null });
+        }
     });
+    // The per-contract values a blank needs (asked on the card, in the data file's order).
+    var askDefs = contractStateAskDefs(), savedValues = (flags && flags.state_values) || {};
+    var values = Object.keys(askDefs).filter(function(k) { return wanted[k]; }).map(function(k) { return { key: k, en: askDefs[k].en, pt: askDefs[k].pt, value: typeof savedValues[k] === "string" ? savedValues[k] : "" }; });
     // The one-question facts this state's lines depend on, in the data file's order.
     var questions = Object.keys(defs).filter(function(k) { return asked[k] && defs[k].en; }).map(function(k) {
         return { key: k, en: defs[k].en, pt: defs[k].pt, answer: facts[k] ? facts[k].answer : null, known: !!(facts[k] && facts[k].known) };
     });
-    return { state: st.code, actions: actions, more: more, facts: questions, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length,
+    return { state: st.code, actions: actions, more: more, facts: questions, values: values, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length,
         second_signer: contractSecondSignerWanted(st.code, flags) ? { signed: contractSecondSigner(flags) ? { name: contractSecondSigner(flags).name || null, at: contractSecondSigner(flags).at } : null } : null };
+}
+// The card a screen gets. "Waiting: official document not loaded" is for Apex
+// staff only: a contractor cannot load an agency's file, so they are not told.
+function contractStateCardFor(card, isStaff) {
+    if (!card || isStaff) { return card; }
+    card.actions.forEach(function(a) { delete a.staff_en; delete a.staff_pt; delete a.staff_slot; });
+    return card;
 }
 // One tick or untick. Returns the new flags.state_checks, or null when the key
 // is not one of this contract's hand-ticked lines (nothing is stored for it):
@@ -28286,9 +28638,10 @@ function contractStateCheckApply(flags, card, key, isDone, by, at) {
 // (they hold logins, and a developer's name must never reach a screen); the
 // card carries what a person may read.
 function contractFlagsOut(flags) {
-    if (!flags || (!flags.state_sys && !flags.state_checks)) { return flags; }
+    if (!flags || (!flags.state_sys && !flags.state_checks && !flags.state_done)) { return flags; }
     var out = Object.assign({}, flags);
     delete out.state_sys;
+    if (out.state_done) { out.state_done = Object.assign({}, out.state_done); delete out.state_done.evidence; }
     if (out.state_checks && out.state_checks.done) {
         var done = {};
         Object.keys(out.state_checks.done).forEach(function(k) { var t = out.state_checks.done[k] || {}; done[k] = { by: gmDisplayActor(t.by), at: t.at || null }; });
@@ -28500,7 +28853,11 @@ async function contractContext(env, clientId, c) {
         var sc = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_job_subcontractors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL").bind(clientId, c.job_id).first();
         subCount = (sc && sc.n) || 0;
     } catch (eS) { console.error("subcontractor count for contract", eS && eS.message); }
-    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib, booking: booking, job_sub_count: subCount };
+    // RES-36: the project's subcontractors and suppliers (the list a state
+    // asks for) and the agency documents Apex staff loaded.
+    var parties = await contractJobParties(env, clientId, c.job_id);
+    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib, booking: booking, job_sub_count: subCount,
+        job_parties: parties, state_slots: contractStateSlots(admin) };
 }
 
 // Contract price and schedule from the accepted estimates (change orders add
@@ -28540,7 +28897,7 @@ function contractEstimateSums(ests) {
 //                so the frozen text never carries a guess;
 //   "signed"   — re-rendered at homeowner signing from the real Eastern
 //                transaction date and deadline.
-var CONTRACT_SIGNING_TIME_KEYS = ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method"];
+var CONTRACT_SIGNING_TIME_KEYS = ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method", "state_deadline_7"];
 var CONTRACT_UNSIGNED_TEXT = {
     transaction_date: "Date of your signature",
     cancellation_deadline_date: "the third business day after Owner signs",
@@ -28548,7 +28905,9 @@ var CONTRACT_UNSIGNED_TEXT = {
     pool_docs_delivered_at: "the date Owner signs this Contract",
     pool_docs_delivery_method: "electronic delivery on the signing page",
     company_signed_at: "the date Contractor signs (shown once Contractor signs)",
-    mutual_execution_deadline: "72 hours after Contractor signs"
+    mutual_execution_deadline: "72 hours after Contractor signs",
+    // A state form with a seven business day period (California disaster repair).
+    state_deadline_7: "the seventh business day after you sign"
 };
 function contractSigningTimeVars(v, c, mode) {
     if (mode === "template") { CONTRACT_SIGNING_TIME_KEYS.forEach(function(k) { v[k] = "{" + k + "}"; }); return; }
@@ -28557,6 +28916,7 @@ function contractSigningTimeVars(v, c, mode) {
         v.cancellation_deadline_date = c.cancellation_deadline ? contractFmtDate(c.cancellation_deadline) : CONTRACT_UNSIGNED_TEXT.cancellation_deadline_date;
         v.pool_docs_delivered_at = c.pool_ack_at ? contractFmtEastern(c.pool_ack_at) : (c.homeowner_signed_at ? contractFmtEastern(c.homeowner_signed_at) : CONTRACT_UNSIGNED_TEXT.pool_docs_delivered_at);
         v.pool_docs_delivery_method = CONTRACT_UNSIGNED_TEXT.pool_docs_delivery_method;
+        v.state_deadline_7 = c.transaction_date ? contractFmtDate(contractCancellationDeadline(c.transaction_date, { business_days: 7, saturday_counts: true })) : CONTRACT_UNSIGNED_TEXT.state_deadline_7;
         return;
     }
     CONTRACT_SIGNING_TIME_KEYS.forEach(function(k) { v[k] = CONTRACT_UNSIGNED_TEXT[k]; });
@@ -28584,7 +28944,7 @@ function contractFillSigningTime(text, v, isNotice) {
     out = out.split("**the day Owner signs**").join("**" + v.transaction_date + "**");
     out = out.split("On the date Owner signs this Contract,").join("On " + v.pool_docs_delivered_at + ",");
     var vv = Object.assign({}, v); vv.cancellation_deadline_date = deadline;
-    ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method", "company_signed_at", "mutual_execution_deadline", "ch515_doc_version", "drowning_pub_version"].forEach(function(k) {
+    ["transaction_date", "cancellation_deadline_date", "pool_docs_delivered_at", "pool_docs_delivery_method", "company_signed_at", "mutual_execution_deadline", "ch515_doc_version", "drowning_pub_version", "state_deadline_7"].forEach(function(k) {
         if (vv[k] !== undefined && vv[k] !== null && vv[k] !== "") { out = out.split("{" + k + "}").join(vv[k]); }
     });
     return out;
@@ -28864,6 +29224,34 @@ function contractCompose(ctx, c, today, mode) {
     var locked = {};
     lib.locked_blocks.forEach(function(b) { locked[b.id] = b; });
     var sections = [], missing = {}, blockers = [], used = {};
+    // RES-36: outside Florida the finish lines are planned before the body is
+    // laid out, because a part can belong on the first page or right after a
+    // clause area. finishAt = { place: [{ line, part }] }.
+    var finishPlans = {}, finishAt = {}, finishFacts = null, finishJob = null;
+    if (outFl) {
+        finishJob = { amount_cents: amount, sold_in_home: soldInHome, is_pool: !!flags.is_pool, residential: residential };
+        var parties = ctx.job_parties || { subs: [], suppliers: [] };
+        finishFacts = contractStateFacts(flags, { subs: (ctx.job_sub_count > 0 || (parties.suppliers || []).length > 0) ? true : null, arbitration: c.selections.C14 === "C14-B", arb_or_jury: c.selections.C14 === "C14-B" || c.selections.C14 === "C14-C",
+            deposit: built.sums.schedule.length >= 2, progress: built.sums.schedule.length >= 3, small_repair: amount > 75000 ? false : null, installments: built.sums.schedule.length > 4 ? true : null });
+        finishPlans = contractStateFinishPlan(st, finishJob, finishFacts, { values: contractStateFillValues(v, ctx.settings, flags), biz: contractStateBiz(ctx.settings), slots: ctx.state_slots || {}, parties: parties });
+        contractStateFinishSections(finishPlans).forEach(function(fp) {
+            var where = fp.part.mode === "page" ? "page" : (fp.part.place || "body");
+            if (/^after:/.test(where) && !c.selections[where.slice(6)]) { where = "body"; }
+            (finishAt[where] = finishAt[where] || []).push(fp);
+        });
+    }
+    function addFinish(where) {
+        (finishAt[where] || []).forEach(function(fp) {
+            var part = fp.part, extra = { cite: part.cite, format: part.format, system: true, line: fp.line, place: part.mode === "page" ? "page" : (part.place || "body") };
+            if (part.style) { extra.emphasis = part.style; }
+            if (part.heading) { extra.heading = true; }
+            if (part.place === "above_signature") { extra.beside_signature = true; }
+            ["sign", "company_sign", "initials", "bare", "date_above"].forEach(function(k) { if (part[k]) { extra[k] = true; } });
+            if (part.choose) { extra.choose = part.choose; }
+            if (part.copies > 1) { extra.copies = part.copies; }
+            add(part.mode === "page" ? "state_page" : "state_notice", part.id, part.title, part.text, extra);
+        });
+    }
     function add(kind, id, title, text, extra) {
         contractMissing(text).forEach(function(k) { (used[k] = used[k] || []).push(id); });
         var filled = contractFill(text, v);
@@ -28875,6 +29263,9 @@ function contractCompose(ctx, c, today, mode) {
         sections.push(sec);
     }
     if (outFl) {
+        // A notice the law puts on the first page, or on the face of the
+        // contract apart from the other provisions, comes before everything.
+        addFinish("first_page"); addFinish("face");
         // Never a blocker outside Florida: a missing number prints as "not provided".
         add("locked", "L4", CONTRACT_STATE_LICENSE_TITLE, v.license_number ? CONTRACT_STATE_LICENSE_LINE + (v.qualifier_name ? CONTRACT_STATE_LICENSE_QUALIFIER : "") : CONTRACT_STATE_LICENSE_MISSING);
     } else {
@@ -28888,6 +29279,7 @@ function contractCompose(ctx, c, today, mode) {
         if (optId === "custom" && custom) {
             var txt = custom.status === "approved_with_edits" && custom.revised_text ? custom.revised_text : custom.text;
             add("custom", "custom:" + areaId, contractAreaHeading(lib, areaId, st.florida, areaId), txt, { custom_status: custom.status });
+            if (outFl) { addFinish("after:" + areaId); }
             return;
         }
         var o = byId[optId];
@@ -28902,6 +29294,7 @@ function contractCompose(ctx, c, today, mode) {
         // F5: the homeowner reads the AREA title; the option title is the
         // contractor's own label and stays in option_title.
         add("clause", o.id, contractAreaHeading(lib, areaId, st.florida, o.title), text, { option_title: o.title });
+        if (outFl) { addFinish("after:" + areaId); }
         if (areaId === "C04" && rules.L7.on && locked.L7) {
             var l7 = (locked.L7.extra_blocks || [])[0] || "";
             add("locked", "L7", locked.L7.title, l7);
@@ -28925,7 +29318,7 @@ function contractCompose(ctx, c, today, mode) {
                 has_deposit: built.sums.schedule.length >= 2, first_payment_cents: built.sums.schedule.length ? (built.sums.schedule[0].amount_cents || 0) : 0 };
     // The one-question facts, and what this contract and the project already
     // record (never asked): the dispute clause chosen, a subcontractor assigned.
-    var stateFacts = outFl ? contractStateFacts(flags, { subs: ctx.job_sub_count > 0 ? true : null, arbitration: c.selections.C14 === "C14-B", arb_or_jury: c.selections.C14 === "C14-B" || c.selections.C14 === "C14-C" }) : null;
+    var stateFacts = outFl ? finishFacts : null;
     if (outFl) {
         ((st.rider && st.rider.notices) || []).forEach(function(n) {
             if (n.text && contractStateNoticeApplies(n, job)) { add("state_notice", n.id, n.title, String(n.text), { cite: n.cite || null, format: n.format || null }); }
@@ -28941,6 +29334,10 @@ function contractCompose(ctx, c, today, mode) {
             add(p.mode === "deliver" ? "state_document" : "state_notice", n.id, n.title, String(n.text_on_file), extra);
             job.sys_lines[p.line] = p.mode; job.sys_lines["notice:" + n.id] = p.mode;
         });
+        // RES-36: the finish lines' parts that sit in the body, above the
+        // signature, or on their own page.
+        addFinish("body"); addFinish("above_signature"); addFinish("page");
+        job.finish = finishPlans;
     }
     if (rules.L5.on) {
         if (locked["L5-C"] && !outFl) { add("locked", "L5-C", locked["L5-C"].title, locked["L5-C"].text); }
@@ -28978,6 +29375,9 @@ function contractCompose(ctx, c, today, mode) {
         state: outFl ? { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation, facts: stateFacts } :
             { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation },
         checklist: outFl ? contractStateChecklist(st, job) : null,
+        // RES-36: what the customer's page asks for beyond the contract
+        // signature, and the plans the card reads. Absent in Florida.
+        state_finish: outFl ? { plans: finishPlans, requires: contractStateFinishRequires(finishPlans) } : undefined,
         option_warnings: outFl ? contractStateOptionWarnings(st) : {},
         requires: { lien_signature: rules.L1.on, pool_ack: rules.L6.on, cancellation: rules.L5.on,
                     marketing_checkbox: c.selections.C18 === "C18-B" || c.selections.C18 === "C18-C",
@@ -29748,6 +30148,9 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         // asked for on this page after the first one has signed. null when
         // the contract does not ask for one. It never holds anything up.
         second_signer: contractSecondSignerWanted(comp.state.code, c.flags) ? { signed: contractSecondSigner(c.flags) ? { signer_name: contractSecondSigner(c.flags).name || "", signed_at: contractSecondSigner(c.flags).at, kind: "typed" } : null } : null,
+        // RES-36: what the page asks for on the state parts and what was done,
+        // the agency documents shown before signing, and the list.
+        state_parts: contractStatePublicParts(c, comp, tokenBase),
         homeowner_initials: c.homeowner_signed_at ? (c.homeowner_initials || null) : null,
         marketing_consent: c.homeowner_signed_at ? !!c.marketing_consent : null,
         transaction_date: c.transaction_date || null,
@@ -29776,6 +30179,30 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         pdf_link: APEX_API_BASE + "/api/public/pdf/contract/" + c.public_token,
         change_request_text: c.change_request_text, decline_reason: c.decline_reason
     };
+}
+
+// What the customer's page and the PDF need for the state parts. null when
+// the contract has none (always in Florida). No IP and no device here.
+function contractStatePublicParts(c, comp, tokenBase) {
+    var fin = comp.state_finish;
+    if (!fin) { return null; }
+    var done = contractStateDone(c.flags), docs = [], list = null, plans = fin.plans || {};
+    Object.keys(plans).forEach(function(key) {
+        var p = plans[key];
+        if (p.sys === "official" && p.slot && p.slot.loaded) {
+            docs.push({ slot: p.slot.slot, title: p.slot.title, cite: p.slot.cite, version: p.slot.version, ack: !!p.slot.ack, url: tokenBase + "/state-doc/" + encodeURIComponent(p.slot.slot),
+                acknowledged: done.ack[p.slot.slot] ? { signer_name: done.ack[p.slot.slot].name, signed_at: done.ack[p.slot.slot].at } : null });
+        }
+        if (p.sys === "list" && p.list && p.list.rows.length && p.state !== "off") {
+            var note = p.parts.filter(function(x) { return x.mode === "list_notice"; })[0] || null;
+            list = { rows: p.list.rows, notice: note ? { text: note.text, cite: note.cite, emphasis: note.style } : null, complete: p.state === "ok" };
+        }
+    });
+    var req = fin.requires;
+    if (!req.sign.length && !req.initials.length && !req.choose.length && !docs.length && !list && !Object.keys(done.sign).length && !Object.keys(done.initials).length && !Object.keys(done.choose).length) { return null; }
+    function pub(map) { var o = {}; Object.keys(map).forEach(function(k) { o[k] = { signer_name: map[k].name || null, signed_at: map[k].at, initials: map[k].initials || undefined, index: map[k].index }; }); return o; }
+    return { requires: { sign: req.sign, initials: req.initials, choose: req.choose, ack: docs.filter(function(d) { return d.ack; }).map(function(d) { return d.slot; }) },
+        done: { sign: pub(done.sign), initials: pub(done.initials), choose: pub(done.choose) }, docs: docs, list: list };
 }
 
 async function contractR2Json(env, key) {
@@ -29858,6 +30285,8 @@ async function contractPublicView(env, c, ctx, origin, opts) {
         if (!opts || !opts.internal) { delete t.option_title; }
         return t;
     });
+    // RES-36: the page asks only for the parts that are in the text it shows.
+    if (pub.state_parts) { pub.state_parts.requires = contractStateRequiresFromSections(pub.sections, pub.state_parts.requires); }
     pub.signed_render = signedRender;
     return pub;
 }
@@ -29959,6 +30388,8 @@ async function handleGetContractSettings(id, request, env) {
         return jsonOk({
             settings: settings,
             states: contractStateList(),
+            // RES-36: the business facts a state statement must be true about (asked in the settings).
+            state_biz: contractStateBizDefs(),
             salespeople: salespeople,
             suggested: {
                 owner_signer_phone: doc.phone || null,
@@ -30298,7 +30729,7 @@ async function contractInternalOut(env, id, c, user, request) {
         state_checklist: comp.checklist, option_warnings: comp.option_warnings,
         // The "Before you send" card: the action lines with their ticks (who and
         // when), and the rest of the prose. null in Florida.
-        state_card: contractStateActionCard(comp.state, comp.checklist, c.flags, comp.state.florida ? null : await contractStateSysLoad(env, c)),
+        state_card: contractStateCardFor(contractStateActionCard(comp.state, comp.checklist, c.flags, comp.state.florida ? null : await contractStateSysLoad(env, c)), !!(user && (isAdminRole(user) || contractIsReviewer(user)))),
         state_neutral_options: comp.state.florida ? [] : isCleaning ? comp.cleaning.neutral_options : (function() {
             var neutral = contractNeutralOptions(ctx.lib.optionsById);
             return ctx.lib.optionsForClient.filter(function(o) { return contractOptionText(neutral[o.id], neutral) !== contractOptionText(o, ctx.lib.optionsById); }).map(function(o) { return o.id; });
@@ -30485,6 +30916,16 @@ async function handlePutGmContract(id, cid, request, env) {
                     if (fv === null) { delete factsNow[k]; } else if (CONTRACT_STATE_FACT_ANSWERS.indexOf(fv) !== -1) { factsNow[k] = fv; }
                 });
                 flags.state_facts = factsNow;
+            }
+            // RES-36: the per-contract values a state blank needs (asked on the card).
+            if (body.flags.state_values && typeof body.flags.state_values === "object") {
+                var askDefs = contractStateAskDefs(), valuesNow = Object.assign({}, flags.state_values || {});
+                Object.keys(body.flags.state_values).forEach(function(k) {
+                    if (!askDefs[k]) { return; }
+                    var sv = gmStr(body.flags.state_values[k], 400);
+                    if (sv) { valuesNow[k] = sv; } else { delete valuesNow[k]; }
+                });
+                flags.state_values = valuesNow;
             }
             if (body.flags.job_state !== undefined) {
                 var pickedState = contractStateCode(body.flags.job_state);
@@ -30722,6 +31163,19 @@ async function handlePostGmContractSend(id, cid, request, env) {
             job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
             seller_name: (await gmDocSenderFirstName(env, user, id, ctx.client, ctx.doc)), link: link
         });
+        // RES-36: a state that wants a sentence beside the message that
+        // delivers the contract (Connecticut). The official wording, on its
+        // own lines right under the message.
+        var besideMsg = contractStateMessageNote(comp);
+        if (besideMsg) { msg = msg + "\n\n" + besideMsg; }
+        // What went out with this send (the sentence, the agency documents
+        // loaded at this moment): the card's lines read this record, so a
+        // contract sent before a document was loaded never claims it.
+        var sentSlots = contractStateLoadedSlots(comp);
+        if (besideMsg || sentSlots.length) {
+            await gmContractEvent(env, id, cid, actorName(user), "state_delivered", { message_note: !!besideMsg, slots: sentSlots, actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
+            if (c.status !== "company_signed") { await contractStateSysStamp(env, id, cid); }
+        }
         if (c.status === "company_signed") {
             await gmContractEvent(env, id, cid, actorName(user), "sent", { actor_id: contractActorRecord(user).id, actor_role: contractActorRecord(user).role });
             await contractStateSysStamp(env, id, cid);
@@ -30733,6 +31187,41 @@ async function handlePostGmContractSend(id, cid, request, env) {
     }
 }
 
+// The statements a state wants repeated on each change order of a contract:
+// [{ id, text, cite }]. Only a line whose fact was answered Yes on the
+// contract (or that the project already records), only official wording.
+function contractStateCoStatements(flags, subCount) {
+    var code = contractStateCode(flags && flags.job_state), out = [];
+    if (!code || code === "FL") { return out; }
+    var lines = ((((CONTRACT_STATE_CHECKLIST_V1 || {}).states || {})[code] || {}).lines) || {}, rider = contractStateRider(code) || {};
+    var facts = contractStateFacts(flags, { subs: subCount > 0 ? true : null });
+    Object.keys(lines).forEach(function(key) {
+        var e = lines[key];
+        if (!e || !e.co_parts) { return; }
+        if (e.fact && !contractStateFactIs(facts, e.fact, "yes")) { return; }
+        e.co_parts.forEach(function(id) {
+            var n = (rider.notices || []).filter(function(x) { return x.id === id; })[0];
+            if (contractStatePartOfficial(n)) { out.push({ id: n.id, text: String(n.text_on_file), cite: n.cite || null }); }
+        });
+    });
+    return out;
+}
+// The agency documents this contract hands over that are loaded right now: [slot].
+function contractStateLoadedSlots(comp) {
+    var plans = (comp && comp.state_finish && comp.state_finish.plans) || {}, out = [];
+    Object.keys(plans).forEach(function(k) { var p = plans[k]; if (p.sys === "official" && p.slot && p.slot.loaded && out.indexOf(p.slot.slot) === -1) { out.push(p.slot.slot); } });
+    return out;
+}
+// The sentence(s) a state wants beside the message that delivers the
+// contract, or "" (always "" in Florida).
+function contractStateMessageNote(comp) {
+    var plans = (comp && comp.state_finish && comp.state_finish.plans) || {}, out = [];
+    Object.keys(plans).forEach(function(k) {
+        if (plans[k].sys !== "email" || plans[k].state !== "ok") { return; }
+        plans[k].parts.forEach(function(p) { if (p.mode === "message") { out.push(p.text); } });
+    });
+    return out.join("\n\n");
+}
 // F44: the homeowner's copy of a fully signed contract. {mark:true} records
 // the send (the send sheet's buttons); otherwise it only builds the message.
 var CONTRACT_SIGNED_COPY_MESSAGE = "Hi {customer_first_name}, it's {seller_name} from {business_name}. Here is your signed copy of {document} for {job_name}: {link}";
@@ -30807,7 +31296,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined, state_sys: undefined })) : (c.flags && (c.flags.state_checks || c.flags.second_signer || c.flags.state_sys) ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined, second_signer: undefined, state_sys: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined, state_sys: undefined, state_done: undefined })) : (c.flags && (c.flags.state_checks || c.flags.second_signer || c.flags.state_sys || c.flags.state_done) ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined, second_signer: undefined, state_sys: undefined, state_done: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
         await env.DB.prepare("UPDATE gm_contracts SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(cid, id).run();
         await gmContractEvent(env, id, newId, actorName(user), "revised", { from: cid, revision: rev });
         return jsonOk({ created: true, contract_id: newId, revision: rev });
@@ -31061,6 +31550,9 @@ async function handlePostPublicContractSign(token, request, env) {
         await env.DB.batch(valBatch);
         await gmContractEvent(env, c.client_id, c.id, signer, "homeowner_signed", { kind: kind, ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash, lien: comp.requires.lien_signature, pool_ack: comp.requires.pool_ack, cancellation_deadline: deadline });
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
+        // RES-36: the separate pages, initials and acknowledgments of the
+        // state parts, signed in this same visit under the same consent.
+        try { await contractStateDoneSave(env, c, comp, body.state_parts, signer, signedAt, ip, ua); } catch (eSP) { console.error("state parts at signing", eSP && eSP.message); }
         await contractStateSysStamp(env, c.client_id, c.id);
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
@@ -31101,6 +31593,197 @@ async function handlePostPublicContractSecondSign(token, request, env) {
     }
 }
 
+// ── RES-36: what the finish lines read and write outside the contract row ──
+// The project's subcontractors (with the address and telephone the list
+// needs) and suppliers. Every read tolerates a database that does not have
+// migrations/state_finish.sql yet: the list is then empty or has no address.
+async function contractJobParties(env, clientId, jobId) {
+    var out = { subs: [], suppliers: [], updated_at: null };
+    try {
+        out.subs = (await env.DB.prepare("SELECT s.*, js.created_at AS assigned_at FROM gm_job_subcontractors js JOIN gm_subcontractors s ON s.id = js.subcontractor_id WHERE js.client_id = ? AND js.job_id = ? AND js.removed_at IS NULL ORDER BY s.name").bind(clientId, jobId).all()).results || [];
+    } catch (e1) { console.error("job subcontractors for the state list", e1 && e1.message); }
+    try {
+        out.suppliers = (await env.DB.prepare("SELECT * FROM gm_job_suppliers WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY name").bind(clientId, jobId).all()).results || [];
+    } catch (e2) { /* the table arrives with migrations/state_finish.sql */ }
+    out.subs.concat(out.suppliers).forEach(function(r) { var t = r.updated_at || r.assigned_at || r.created_at || null; if (t && (!out.updated_at || t > out.updated_at)) { out.updated_at = t; } });
+    return out;
+}
+// The agency documents Apex staff loaded: { slot: { key, version } }, read
+// from the admin settings (keys "state_doc:<slot>" and "state_doc_version:<slot>").
+function contractStateSlots(admin) {
+    var out = {};
+    Object.keys(admin || {}).forEach(function(k) {
+        var m = /^state_doc:([A-Za-z0-9.-]{1,40})$/.exec(k);
+        if (m && admin[k]) { out[m[1]] = { key: admin[k], version: admin["state_doc_version:" + m[1]] || null }; }
+    });
+    return out;
+}
+// Every agency-document slot the data file names: [{ slot, state, title, cite, ack }].
+function contractStateSlotList() {
+    var out = [], states = (CONTRACT_STATE_CHECKLIST_V1 || {}).states || {};
+    Object.keys(states).forEach(function(code) {
+        var lines = states[code].lines || {}, rider = contractStateRider(code) || {};
+        Object.keys(lines).forEach(function(key) {
+            var e = lines[key];
+            if (!e || e.sys !== "official" || !e.official) { return; }
+            var n = (rider.notices || []).filter(function(x) { return x.id === e.official.slot; })[0] || (rider.notices || []).filter(function(x) { return "notice:" + x.id === key; })[0] || {};
+            out.push({ slot: e.official.slot, state: code, state_name: contractStateName(code), title: n.title || e.official.slot, cite: n.cite || null, source_url: n.source_url || null, ack: !!e.official.ack });
+        });
+    });
+    return out;
+}
+async function handleGetContractStateDocs(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user) && !isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var slots = contractStateSlots(await contractAdminSettings(env));
+        return jsonOk({ slots: contractStateSlotList().map(function(s) { return Object.assign({}, s, { loaded: !!slots[s.slot], version: slots[s.slot] ? slots[s.slot].version : null }); }) });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// POST multipart "file" (PDF, exactly as the agency publishes it) + "version".
+async function handlePostContractStateDoc(slot, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user)) { return jsonErr("Forbidden", 403); }
+        if (!contractStateSlotList().some(function(s) { return s.slot === slot; })) { return jsonErr("Not found", 404); }
+        var form = await request.formData();
+        var file = form.get("file"), versionLabel = gmStr(form.get("version"), 80);
+        if (!file || typeof file.arrayBuffer !== "function") { return jsonErr("file is required", 400); }
+        if (file.type !== "application/pdf") { return jsonErr("Envie um PDF. / Upload a PDF.", 400); }
+        if (file.size > 15 * 1024 * 1024) { return jsonErr("PDF too large (15MB limit)", 400); }
+        if (!versionLabel) { return jsonErr("Informe a vers\u00e3o do documento (por exemplo a data da publica\u00e7\u00e3o). / Enter the document's version (for example its publication date).", 400); }
+        // Never overwritten: every upload is a new object keyed by time.
+        var key = "contracts/admin/statedoc-" + slot.toLowerCase().replace(/[^a-z0-9]/g, "") + "-" + Date.now() + ".pdf";
+        await env.ASSETS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: "application/pdf" } });
+        var actor = actorName(user), up = "INSERT INTO contract_admin_settings (key, value, set_by, set_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = datetime('now')";
+        await env.DB.batch([env.DB.prepare(up).bind("state_doc:" + slot, key, actor), env.DB.prepare(up).bind("state_doc_version:" + slot, versionLabel, actor)]);
+        return jsonOk({ saved: true, slot: slot, version: versionLabel });
+    } catch (e) { return jsonErr("Error uploading document: " + e.message, 500); }
+}
+async function contractStateDocResponse(env, slot) {
+    var sl = contractStateSlots(await contractAdminSettings(env))[slot];
+    if (!sl || !/^contracts\/admin\/statedoc-[a-z0-9]+-\d+\.pdf$/.test(sl.key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    var obj = await env.ASSETS.get(sl.key);
+    if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "application/pdf", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=300", "Content-Disposition": "inline; filename=\"" + slot + ".pdf\"" }) });
+}
+async function handleGetContractStateDoc(slot, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!contractIsReviewer(user) && !isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        return await contractStateDocResponse(env, slot);
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// The customer's own link serves the agency's file, unaltered.
+async function handleGetPublicContractStateDoc(token, slot, request, env) {
+    try {
+        var c = await contractByToken(env, token);
+        if (!c || c.status === "draft") { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+        return await contractStateDocResponse(env, slot);
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// Records what the customer signed, initialed, chose or acknowledged on the
+// state parts. Called inside the contract signature itself (same visit, same
+// consent) and by the customer's link afterwards for a part that was left
+// out. Never throws into the signature: the contract is already signed.
+async function contractStateDoneSave(env, c, comp, given, signer, at, ip, ua) {
+    if (!comp || !comp.state_finish) { return null; }
+    // What may be signed is what the customer was shown: the text the company
+    // signed (the snapshot), or the live text when there is none.
+    var snap = c.snapshot_r2_key ? await contractR2Json(env, c.snapshot_r2_key) : null;
+    var req = contractStateRequiresFromSections(snap && snap.sections ? snap.sections : comp.sections, comp.state_finish.requires);
+    var next = contractStateDoneApply(c.flags, req, given, signer, at, ip, ua);
+    if (!next) { return null; }
+    await env.DB.prepare(CONTRACT_STATE_DONE_SQL).bind(JSON.stringify(next), c.id).run();
+    c.flags = Object.assign({}, c.flags, { state_done: next });
+    await gmContractEvent(env, c.client_id, c.id, signer, "state_parts_signed", { ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash || null,
+        signed: Object.keys(next.sign), initials: Object.keys(next.initials), chosen: Object.keys(next.choose), acknowledged: Object.keys(next.ack) });
+    return next;
+}
+// A state part the first visit left out (a page cached before this build):
+// the customer's link asks for it afterwards. Consent is required, as for
+// the contract signature; nothing waits for it.
+async function handlePostPublicContractStateParts(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        var c = await contractByToken(env, token);
+        if (!c) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (!body || body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        var signer = gmStr(body.signer_name, 120) || c.homeowner_signer_name;
+        if (!signer) { return jsonErr("Please type your name", 400); }
+        if (c.status !== "completed" || !c.homeowner_signed_at) { return jsonErr("These are signed together with the contract.", 409); }
+        var ctx = await contractContext(env, c.client_id, c);
+        var comp = contractCompose(ctx, c, gmEasternToday(), "live");
+        var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        var saved = await contractStateDoneSave(env, c, comp, body.state_parts, signer, new Date().toISOString().slice(0, 19).replace("T", " "), ip, ua);
+        if (!saved) { return jsonErr("Nothing new to record.", 409); }
+        await contractStateSysStamp(env, c.client_id, c.id);
+        docPdfAfterFinal(request, env, "contract", token);
+        return jsonOk({ signed: true });
+    } catch (e) {
+        return jsonErr("Error signing: " + e.message, 500);
+    }
+}
+// The project's suppliers (name, address, telephone, what they supply), for
+// the subcontractor and supplier list a state asks for.
+//   GET  /api/clients/:id/gm/jobs/:jobId/suppliers
+//   POST /api/clients/:id/gm/jobs/:jobId/suppliers   { name, address, phone, supplies } | { id, ...fields } | { remove_id }
+async function handleGetGmJobSuppliers(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var rows = [];
+        try { rows = (await env.DB.prepare("SELECT id, name, address, phone, supplies, created_at FROM gm_job_suppliers WHERE client_id = ? AND job_id = ? AND removed_at IS NULL ORDER BY name").bind(id, jobId).all()).results || []; }
+        catch (eT) { return jsonOk({ suppliers: [], ready: false }); }
+        return jsonOk({ suppliers: rows, ready: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+async function handlePostGmJobSupplier(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        if (sessionSellerName(user)) { return jsonErr("Forbidden", 403); }
+        if (!(await gmJobBelongsToClient(env, id, jobId))) { return jsonErr("Project not found", 404); }
+        var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
+        try {
+            if (body.remove_id) {
+                await env.DB.prepare("UPDATE gm_job_suppliers SET removed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND job_id = ? AND removed_at IS NULL").bind(gmStr(body.remove_id, 80), id, jobId).run();
+            } else if (body.id) {
+                var sets = [], binds = [];
+                [["name", 200], ["address", 300], ["phone", 40], ["supplies", 200]].forEach(function(f) { if (body[f[0]] !== undefined) { sets.push(f[0] + " = ?"); binds.push(gmStr(body[f[0]], f[1])); } });
+                if (!sets.length) { return jsonErr("Nothing to update", 400); }
+                if (body.name !== undefined && !gmStr(body.name, 200)) { return jsonErr2("Informe o nome.", "Name is required", 400); }
+                sets.push("updated_at = datetime('now')"); binds.push(gmStr(body.id, 80), id, jobId);
+                await gmRunUpdate(env, "UPDATE gm_job_suppliers SET " + sets.join(", ") + " WHERE id = ? AND client_id = ? AND job_id = ?", binds);
+            } else {
+                var name = gmStr(body.name, 200); if (!name) { return jsonErr2("Informe o nome.", "Name is required", 400); }
+                await env.DB.prepare("INSERT INTO gm_job_suppliers (id, client_id, job_id, name, address, phone, supplies, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                    .bind(crypto.randomUUID(), id, jobId, name, gmStr(body.address, 300), gmStr(body.phone, 40), gmStr(body.supplies, 200), actorName(user)).run();
+            }
+        } catch (eT) {
+            if (/no such table/i.test(String(eT && eT.message))) { return jsonErr2("Os fornecedores ainda n\u00e3o est\u00e3o dispon\u00edveis. Fale com a Apex.", "Suppliers are not available yet. Contact Apex.", 409); }
+            throw eT;
+        }
+        await contractStateSysStampJob(env, id, jobId);
+        return jsonOk({ saved: true });
+    } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// The project's records changed: every live contract of the project
+// re-reads its system lines (the list line ticks or goes back to waiting).
+async function contractStateSysStampJob(env, clientId, jobId) {
+    try {
+        var rows = (await env.DB.prepare("SELECT id FROM gm_contracts WHERE client_id = ? AND job_id = ? AND status NOT IN ('void','superseded')").bind(clientId, jobId).all()).results || [];
+        for (var i = 0; i < rows.length; i++) { await contractStateSysStamp(env, clientId, rows[i].id); }
+    } catch (e) { console.error("state list after a project change", e && e.message); }
+}
 // Changes requested after the company signed VOID the company signature.
 async function handlePostPublicContractRespond(token, kind, request, env) {
     try {
@@ -31285,7 +31968,16 @@ async function coPublicPayload(env, co, origin) {
     // state's label (null for Florida and for a contract with no job state).
     var stateDisclaimer = contractStateDisclaimerFor(contract ? (gmDocParseJsonObject(contract.flags_json, {}) || {}).job_state : null);
     var tokenBase = origin + "/api/public/change-orders/" + co.public_token;
+    // RES-36: a statement a state wants repeated on every change order
+    // (California: the subcontractor statement, when a subcontractor is used).
+    var stateStatements = [];
+    try {
+        var coFlags = contract ? (gmDocParseJsonObject(contract.flags_json, {}) || {}) : {};
+        var coSubs = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_job_subcontractors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL").bind(co.client_id, co.job_id).first();
+        stateStatements = contractStateCoStatements(coFlags, (coSubs && coSubs.n) || 0);
+    } catch (eCs) { console.error("state statements on a change order", eCs && eCs.message); }
     return {
+        state_statements: stateStatements,
         number: co.number, status: co.status, description: co.description, items: co.items,
         amount_cents: co.amount_cents, price_before_cents: co.price_before_cents, price_after_cents: co.price_after_cents, schedule_days: co.schedule_days,
         payment_change: co.payment_change, payment_note: co.payment_note,
@@ -32453,15 +33145,28 @@ async function handlePutGmSubcontractor(id, sid, request, env) {
             if (kind === "wc") { var wk = form.get("wc_kind"); sets.push("wc_kind = ?"); binds.push(wk === "exemption" ? "exemption" : "policy"); }
         } else {
             var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
-            [["name", 200], ["trade", 80], ["license_number", 60], ["coi_expires", 10], ["wc_expires", 10], ["notes", 500]].forEach(function(f) { if (body[f[0]] !== undefined) { sets.push(f[0] + " = ?"); binds.push(gmStr(body[f[0]], f[1])); } });
+            [["name", 200], ["trade", 80], ["license_number", 60], ["coi_expires", 10], ["wc_expires", 10], ["notes", 500], ["address", 300], ["phone", 40]].forEach(function(f) { if (body[f[0]] !== undefined) { sets.push(f[0] + " = ?"); binds.push(gmStr(body[f[0]], f[1])); } });
+            // RES-36: the address and telephone live in columns added by
+            // migrations/state_finish.sql. Until it has run, say so plainly.
+            if ((body.address !== undefined || body.phone !== undefined) && !(await contractSubContactReady(env))) { return jsonErr2("O endere\u00e7o e o telefone do subempreiteiro ainda n\u00e3o est\u00e3o dispon\u00edveis. Fale com a Apex.", "The subcontractor's address and telephone are not available yet. Contact Apex.", 409); }
             if (body.wc_kind !== undefined) { sets.push("wc_kind = ?"); binds.push(["policy", "exemption"].indexOf(body.wc_kind) === -1 ? null : body.wc_kind); }
             if (body.archived !== undefined) { sets.push("archived = ?"); binds.push(body.archived ? 1 : 0); }
         }
         if (!sets.length) { return jsonErr("Nothing to update", 400); }
         sets.push("updated_at = datetime('now')"); binds.push(sid, id);
         await gmRunUpdate(env, "UPDATE gm_subcontractors SET " + sets.join(", ") + " WHERE id = ? AND client_id = ?", binds);
+        // The list a state asks for follows the records: re-read the system
+        // lines of every project this subcontractor is on.
+        try {
+            var subJobs = (await env.DB.prepare("SELECT DISTINCT job_id FROM gm_job_subcontractors WHERE client_id = ? AND subcontractor_id = ? AND removed_at IS NULL").bind(id, sid).all()).results || [];
+            for (var sj = 0; sj < subJobs.length; sj++) { await contractStateSysStampJob(env, id, subJobs[sj].job_id); }
+        } catch (eSJ) { console.error("state list after a subcontractor change", eSJ && eSJ.message); }
         return jsonOk({ saved: true });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
+}
+// Has migrations/state_finish.sql run (gm_subcontractors.address and .phone)?
+async function contractSubContactReady(env) {
+    try { await env.DB.prepare("SELECT address, phone FROM gm_subcontractors LIMIT 1").first(); return true; } catch (e) { return false; }
 }
 async function handleGetGmSubcontractorFile(id, sid, kind, request, env) {
     try {
@@ -32484,6 +33189,7 @@ async function handlePostGmJobSubcontractor(id, jobId, request, env) {
         var body = {}; try { body = await request.json(); } catch (e2) { body = {}; }
         if (body.remove_id) {
             await env.DB.prepare("UPDATE gm_job_subcontractors SET removed_at = datetime('now') WHERE id = ? AND client_id = ? AND job_id = ? AND removed_at IS NULL").bind(gmStr(body.remove_id, 80), id, jobId).run();
+            await contractStateSysStampJob(env, id, jobId);
             return jsonOk({ removed: true });
         }
         var s = await env.DB.prepare("SELECT * FROM gm_subcontractors WHERE id = ? AND client_id = ?").bind(gmStr(body.subcontractor_id, 80), id).first();
@@ -32491,6 +33197,7 @@ async function handlePostGmJobSubcontractor(id, jobId, request, env) {
         var dw = dSubWarnings(s, gmEasternToday());
         var aid = crypto.randomUUID();
         await env.DB.prepare("INSERT INTO gm_job_subcontractors (id, client_id, job_id, subcontractor_id, warning_json, assigned_by) VALUES (?, ?, ?, ?, ?, ?)").bind(aid, id, jobId, s.id, JSON.stringify(dw.warnings), actorName(user)).run();
+        await contractStateSysStampJob(env, id, jobId);
         return jsonOk({ assigned: true, warnings: dw.warnings, expiring: dw.expiring, warning_codes: dw.warning_codes, expiring_codes: dw.expiring_codes });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
@@ -45471,9 +46178,11 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/voice"        && method === "POST") { return handlePostSessionsVoice(request, env); }
         // Client contract builder: clause library + Rafael's review (checkpoint A).
         // Contract builder (checkpoint B): public homeowner routes.
-        var pubCon = path.match(/^\/api\/public\/contracts\/([a-f0-9]{48})(?:\/(sign|second-sign|changes|decline)|\/signature-image\/(company|homeowner|lien)|\/pool-doc\/(ch515|drowning))?$/);
+        var pubCon = path.match(/^\/api\/public\/contracts\/([a-f0-9]{48})(?:\/(sign|second-sign|state-parts|changes|decline)|\/signature-image\/(company|homeowner|lien)|\/pool-doc\/(ch515|drowning)|\/state-doc\/([A-Za-z0-9.-]{1,40}))?$/);
         if (pubCon) {
-            if (!pubCon[2] && !pubCon[3] && !pubCon[4] && method === "GET") { return handleGetPublicContract(pubCon[1], request, env); }
+            if (!pubCon[2] && !pubCon[3] && !pubCon[4] && !pubCon[5] && method === "GET") { return handleGetPublicContract(pubCon[1], request, env); }
+            if (pubCon[2] === "state-parts" && method === "POST") { return esignSignWithConsent(env, request, "contract", pubCon[1], handleGetPublicContract, handlePostPublicContractStateParts); }
+            if (pubCon[5] && method === "GET") { return handleGetPublicContractStateDoc(pubCon[1], pubCon[5], request, env); }
             if (pubCon[2] === "sign" && method === "POST") { return esignSignWithConsent(env, request, "contract", pubCon[1], handleGetPublicContract, handlePostPublicContractSign); }
             if (pubCon[2] === "second-sign" && method === "POST") { return handlePostPublicContractSecondSign(pubCon[1], request, env); }
             if ((pubCon[2] === "changes" || pubCon[2] === "decline") && method === "POST") { return handlePostPublicContractRespond(pubCon[1], pubCon[2], request, env); }
@@ -45528,6 +46237,11 @@ async function handleFetch(request, env, ctx) {
         var cDocMatch = path.match(/^\/api\/contracts\/admin-docs\/(ch515|drowning)$/);
         if (cDocMatch && method === "POST") { return handlePostContractAdminDoc(cDocMatch[1], request, env); }
         if (cDocMatch && method === "GET")  { return handleGetContractAdminDoc(cDocMatch[1], request, env); }
+        // RES-36: the agency documents a state wants handed over unaltered.
+        if (path === "/api/contracts/state-docs" && method === "GET") { return handleGetContractStateDocs(request, env); }
+        var cStateDocMatch = path.match(/^\/api\/contracts\/state-docs\/([A-Za-z0-9.-]{1,40})$/);
+        if (cStateDocMatch && method === "POST") { return handlePostContractStateDoc(cStateDocMatch[1], request, env); }
+        if (cStateDocMatch && method === "GET")  { return handleGetContractStateDoc(cStateDocMatch[1], request, env); }
         if (path === "/api/sessions/voice-flagged" && method === "GET") { return handleGetVoiceFlagged(request, env); }
         var gdMatch = path.match(/^\/api\/sessions\/([^\/]+)\/google-event$/);
         if (gdMatch && method === "DELETE") {
@@ -46142,6 +46856,8 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 6 && gmCol === "subcontractors" && method === "PUT") { return handlePutGmSubcontractor(cid, segs[5], request, env); }
                 if (segs.length === 8 && gmCol === "subcontractors" && segs[6] === "file" && method === "GET") { return handleGetGmSubcontractorFile(cid, segs[5], segs[7], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "subcontractors" && method === "POST") { return handlePostGmJobSubcontractor(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "suppliers" && method === "GET") { return handleGetGmJobSuppliers(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "suppliers" && method === "POST") { return handlePostGmJobSupplier(cid, segs[5], request, env); }
                 // Change orders + the no-contract notice (checkpoint C).
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "change-orders" && method === "POST") { return handlePostGmJobChangeOrder(cid, segs[5], request, env); }
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "contract-status" && method === "GET") { return handleGetGmJobContractStatus(cid, segs[5], request, env); }

@@ -253,7 +253,9 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   }
   // all states: every notice that prints, in full
   {
-    let all = "Every state notice that prints in a contract (read this file to see every word a customer could see).\nFlorida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.\n\n", total = 0, sysTotal = 0;
+    let all = "Every state notice that prints in a contract (read this file to see every word a customer could see).\nFlorida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.\nA part marked PLACED BY THE SYSTEM (RES-36) has its blanks filled by the builder; here a filled blank shows as [BUSINESS NAME] and the like.\nA {token} in braces is drawn by the page: a signature, a date, initials.\n\n", total = 0, sysTotal = 0, finTotal = 0;
+    const seenFin = {};
+    const sortingData = JSON.parse(readFileSync(new URL("data/contract-state-checklist-v1.json", root), "utf8"));
     NON_FL.forEach(function (c) {
       const pr = data.riders[c].notices.filter(function (n) { return n.text; });
       all += "################ " + data.riders[c].name + " (" + c + ") - status: " + data.riders[c].status + " - prints: " + pr.length + " of " + data.riders[c].notices.length + " notices\n\n";
@@ -272,9 +274,35 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
         total++; sysTotal++;
         all += "--- " + n.title + " (" + n.cite + ") --- " + (p.mode === "deliver" ? "GIVEN TO THE CUSTOMER WITH THE CONTRACT BY THE SYSTEM" : "PRINTED BY THE SYSTEM") + "\nState: " + rd.name + "\nTrigger: " + n.trigger + "\nPrints when: " + JSON.stringify(n.applies) + (e.fact ? ", unless the answer to the question \"" + e.fact + "\" is No" : "") + "\nFormat rule: " + n.format + "\nLook applied: " + (p.style ? JSON.stringify(p.style) : "same as the rest of the document") + "\nSource: " + n.source_status + " " + n.source_url + " (" + n.source_date + ")\nBlanks to fill: none\nTEXT:\n" + n.text_on_file + "\n\n";
       });
-      if (!pr.length && !plan.length) { all += "(nothing prints for this state)\n\n"; }
+      // RES-36: the parts the builder places, styles, fills and has signed
+      // (every question answered Yes, the business facts answered, sample
+      // values in the blanks so a reader sees where each one goes).
+      const yesFacts = {};
+      Object.keys(sortingData.facts).forEach(function (k) { if (sortingData.facts[k].en) { yesFacts[k] = "yes"; } });
+      const sample = { business_legal_name: "[BUSINESS NAME]", business_address: "[BUSINESS ADDRESS]", business_phone: "[BUSINESS PHONE]", business_email: "[BUSINESS EMAIL]", property_address: "[PROPERTY ADDRESS]", company_signer_name: "[COMPANY SIGNER]", biz_cgl_insurer: "[INSURER]", biz_cgl_phone: "[INSURER PHONE]", biz_cgl_policy: "[POLICY NUMBER]" };
+      Object.keys(sortingData.ask || {}).forEach(function (k) { sample["sv_" + k] = "[" + k.toUpperCase() + "]"; });
+      let finCount = 0;
+      ["yes", "no", "self", "llc"].forEach(function (cgl, round) {
+        const fin = F.contractStateFinishPlan(stSys, { sold_in_home: true, is_pool: true, residential: true, amount_cents: 60000, selections: {} }, F.contractStateFacts({ state_facts: yesFacts }, { deposit: true, progress: true, arbitration: true, arb_or_jury: true }),
+          { values: sample, biz: { cgl: cgl, wc: round === 0 ? "yes" : "no_employees" }, slots: {}, parties: { subs: [{ name: "[SUBCONTRACTOR]", address: "[ADDRESS]", phone: "[PHONE]" }], suppliers: [] } });
+        Object.keys(fin).forEach(function (key) {
+          const e = F.contractStateCheckEntry(c, { key: key });
+          // The business-fact versions are listed once each; everything else once.
+          if (round > 0 && !(e.biz_key && fin[key].parts.length)) { return; }
+          if (round > 1 && e.biz_key !== "cgl") { return; }
+          fin[key].parts.forEach(function (part) {
+            if (round > 0 && seenFin[part.id]) { return; }
+            seenFin[part.id] = true;
+            total++; finTotal++; finCount++;
+            const does = [part.sign ? "customer signs and dates it" : "", part.company_sign ? "company signature shown" : "", part.initials ? "customer initials beside it" : "", part.choose ? "customer initials one choice" : "", part.copies > 1 ? part.copies + " copies in the PDF" : ""].filter(Boolean).join("; ");
+            all += "--- " + part.title + (part.cite ? " (" + part.cite + ")" : "") + " --- PLACED BY THE SYSTEM (RES-36)\nState: " + rd.name + "\nWhere: " + F.contractStatePartWhere(part).en + "\nType: " + (part.style ? JSON.stringify(part.style) : "as the rest of the contract") + (does ? "\nAlso: " + does : "") +
+              (e.fact && sortingData.facts[e.fact] && sortingData.facts[e.fact].en ? "\nOnly when: \"" + sortingData.facts[e.fact].en + "\" " + (e.only_yes ? "Yes" : "is not No") : "") + (e.biz_key ? "\nOnly when the business fact \"" + e.biz_key + "\" is answered in the settings" : "") + "\nFormat rule: " + part.format + "\n\n" + part.text + "\n\n";
+          });
+        });
+      });
+      if (!pr.length && !plan.length && !finCount) { all += "(nothing prints for this state)\n\n"; }
     });
-    all = "Total notices that print: " + total + " (" + sysTotal + " of them printed or handed over by the system itself, RES-35)\n" + all;
+    all = "Total notices that print: " + total + " (" + sysTotal + " of them printed or handed over by the system itself, RES-35; " + finTotal + " more placed, filled or signed by the system, RES-36)\n" + all;
     writeFileSync(new URL("scripts/fixtures/state-notices-all.txt", root), all);
     made.push("scripts/fixtures/state-notices-all.txt");
   }
@@ -363,7 +391,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {}
     };
     const names = Object.keys(stubs);
-    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
+    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\n" + cut(src, "gmConStateValuesHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
     return function (c) { out = null; fn(clone(c)); return out; };
   }
   async function detail(fxIn, status) {

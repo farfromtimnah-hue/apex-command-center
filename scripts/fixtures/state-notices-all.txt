@@ -1,6 +1,8 @@
-Total notices that print: 94 (12 of them printed or handed over by the system itself, RES-35)
+Total notices that print: 139 (12 of them printed or handed over by the system itself, RES-35; 45 more placed, filled or signed by the system, RES-36)
 Every state notice that prints in a contract (read this file to see every word a customer could see).
 Florida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.
+A part marked PLACED BY THE SYSTEM (RES-36) has its blanks filled by the builder; here a filled blank shows as [BUSINESS NAME] and the like.
+A {token} in braces is drawn by the page: a signature, a date, initials.
 
 ################ Alabama (AL) - status: notice text still needs official copy - prints: 0 of 2 notices
 
@@ -8,7 +10,15 @@ Florida is the baseline and is not listed. Blanks are printed exactly as the sta
 
 ################ Alaska (AK) - status: notice text still needs official copy - prints: 0 of 2 notices
 
-(nothing prints for this state)
+--- Notice of Potential Claims Must Be Provided within One Year (AS 09.45.893) --- PLACED BY THE SYSTEM (RES-36)
+State: Alaska
+Where: on its own page
+Type: {"bold":true,"caps":true}
+Also: customer signs and dates it
+Only when: "Is this a new home, or a remodel that costs more than half of the home's assessed value?" Yes
+Format rule: Separate page attached to the contract, titled at the top, conspicuous, signed by the purchaser
+
+ALASKA LAW AT AS 09.45.881 — 09.45.899 CONTAINS IMPORTANT REQUIREMENTS THAT YOU MUST FOLLOW BEFORE YOU MAY FILE A COURT ACTION FOR DEFECTIVE DESIGN, CONSTRUCTION, OR REMODELING AGAINST THE DESIGNER, BUILDER, OR REMODELER OF YOUR HOME. WITHIN ONE YEAR OF THE DISCOVERY OF A DESIGN, CONSTRUCTION, OR REMODELING DEFECT, BEFORE YOU FILE A COURT ACTION, YOU MUST DELIVER TO THE DESIGNER, BUILDER, OR REMODELER A WRITTEN NOTICE OF ANY DESIGN, CONSTRUCTION, OR REMODELING CONDITIONS YOU ALLEGE ARE DEFECTIVE IN ORDER TO PROVIDE YOUR DESIGNER, BUILDER, OR REMODELER WITH THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE DESIGNER, BUILDER, OR REMODELER. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY AFFECT YOUR RIGHT TO FILE A COURT ACTION. ALASKA LAW AT AS 09.45.895 CONTAINS LIMITATIONS TO THE AMOUNT OF DAMAGES THAT MAY BE RECOVERED IN A COURT ACTION FOR DEFECTIVE DESIGN, CONSTRUCTION, OR REMODELING.
 
 ################ Arizona (AZ) - status: notice text still needs official copy - prints: 2 of 7 notices
 
@@ -68,9 +78,59 @@ NOTICE TO BUYER
 
 5. It shall not be legal for the seller to enter your premises unlawfully or commit any breach of the peace to repossess goods purchased under this agreement.
 
+--- Registrar complaint provision in a contract for sale of a newly constructed dwelling (A.R.S. 12-1365(A)) --- PLACED BY THE SYSTEM (RES-36)
+State: Arizona
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Also: customer initials beside it
+Only when: "Is this the sale or construction of a newly built home?" Yes
+Format rule: Prominently displayed, at least ten point bold type; buyer initials the provision
+
+Under Arizona Revised Statutes section 32-1155, a buyer of a dwelling has the right to file a written complaint against the homebuilder with the Arizona registrar of contractors within two years after the close of escrow or actual occupancy, whichever occurs first, for the commission of an act in violation of Arizona Revised Statutes section 32-1154, subsection A.
+
 ################ Arkansas (AR) - status: notice text still needs official copy - prints: 0 of 2 notices
 
-(nothing prints for this state)
+--- IMPORTANT NOTICE TO OWNER (lien notice) (ACA 18-44-115(a)(7)) --- PLACED BY THE SYSTEM (RES-36)
+State: Arkansas
+Where: on its own page
+Type: {"bold":true,"caps":true}
+Also: customer signs and dates it; company signature shown
+Format rule: Conspicuous, boldface, worded exactly as stated in all capital letters; may be incorporated into the contract or affixed to it; owner signature not required when sent by certified mail
+
+IMPORTANT NOTICE TO OWNER
+
+I UNDERSTAND THAT EACH CONTRACTOR, SUBCONTRACTOR, LABORER,
+SUPPLIER, ARCHITECT, ENGINEER, SURVEYOR, APPRAISER, LANDSCAPER,
+ABSTRACTOR, OR TITLE INSURANCE AGENT SUPPLYING LABOR, SERVICES,
+MATERIAL, OR FIXTURES IS ENTITLED TO A LIEN AGAINST THE PROPERTY IF
+NOT PAID IN FULL FOR THE LABOR, SERVICES, MATERIALS, OR FIXTURES USED
+TO IMPROVE, CONSTRUCT, OR INSURE OR EXAMINE TITLE TO THE PROPERTY
+EVEN THOUGH THE FULL CONTRACT PRICE MAY HAVE BEEN PAID TO THE
+CONTRACTOR. I REALIZE THAT THIS LIEN CAN BE ENFORCED BY THE SALE OF
+THE PROPERTY IF NECESSARY. I AM ALSO AWARE THAT PAYMENT MAY BE
+WITHHELD TO THE CONTRACTOR IN THE AMOUNT OF THE COST OF ANY
+SERVICES, FIXTURES, MATERIALS, OR LABOR NOT PAID FOR. I KNOW THAT IT
+IS ADVISABLE TO, AND I MAY, REQUIRE THE CONTRACTOR TO FURNISH TO ME A
+TRUE AND CORRECT FULL LIST OF ALL SUPPLIERS AND SERVICE PROVIDERS
+UNDER THE CONTRACT, AND I MAY CHECK WITH THEM TO DETERMINE IF ALL
+MATERIALS, LABOR, FIXTURES, AND SERVICES FURNISHED FOR THE PROPERTY
+HAVE BEEN PAID FOR. I MAY ALSO REQUIRE THE CONTRACTOR TO PRESENT
+LIEN WAIVERS BY ALL SUPPLIERS AND SERVICE PROVIDERS, STATING THAT
+THEY HAVE BEEN PAID IN FULL FOR SUPPLIES AND SERVICES PROVIDED UNDER
+THE CONTRACT, BEFORE I PAY THE CONTRACTOR IN FULL. IF A SUPPLIER OR
+OTHER SERVICE PROVIDER HAS NOT BEEN PAID, I MAY PAY THE SUPPLIER OR
+OTHER SERVICE PROVIDER AND CONTRACTOR WITH A CHECK MADE PAYABLE
+TO THEM JOINTLY.
+
+SIGNED: {state_part_signature}
+ADDRESS OF PROPERTY: [PROPERTY ADDRESS]
+DATE: {state_part_date}
+
+I HEREBY CERTIFY THAT THE SIGNATURE ABOVE IS THAT OF THE OWNER, REGISTERED
+AGENT OF THE OWNER, OR AUTHORIZED AGENT OF THE OWNER OF THE PROPERTY AT THE
+ADDRESS SET OUT ABOVE.
+{state_part_company_signature}
+CONTRACTOR
 
 ################ California (CA) - status: notice text still needs official copy - prints: 6 of 27 notices
 
@@ -200,6 +260,243 @@ I hereby cancel this transaction.
 
 (Buyer’s signature)
 
+--- WARNING TO BUYER: putting up your home as security (door-to-door home improvement contract secured by a lien on real property) (B&P 7159.1) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: on its own page
+Type: {"bold":true,"min_pt":18}
+Also: customer signs and dates it
+Only when: "Is payment secured by the customer's home (a lien or mortgage)?" Yes
+Format rule: 18 point boldface, separate piece of paper, signed and dated by the buyer, same language as the contract, signed copy handed over at signing
+
+WARNING TO BUYER: IF YOU SIGN THE CONTRACT WHICH ACCOMPANIES THIS NOTICE, YOU WILL BE PUTTING UP YOUR HOME AS SECURITY. THIS MEANS THAT YOUR HOME COULD BE SOLD WITHOUT YOUR PERMISSION AND WITHOUT ANY COURT ACTION IF YOU MISS ANY PAYMENT REQUIRED BY THIS CONTRACT.
+
+--- ARBITRATION OF DISPUTES (B&P 7191) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "ARBITRATION OF DISPUTES"
+Type: {"bold":true,"min_pt":10,"caps":true}
+Also: customer initials beside it
+Format rule: Clause titled ARBITRATION OF DISPUTES; 10 point roman boldface (or red 8 point boldface), capitals if typed; the NOTICE sits immediately before and after the initials line
+
+NOTICE: BY INITIALING IN THE SPACE BELOW YOU ARE AGREEING TO HAVE ANY DISPUTE ARISING OUT OF THE MATTERS INCLUDED IN THE ‛ARBITRATION OF DISPUTES’ PROVISION DECIDED BY NEUTRAL ARBITRATION AS PROVIDED BY CALIFORNIA LAW AND YOU ARE GIVING UP ANY RIGHTS YOU MIGHT POSSESS TO HAVE THE DISPUTE LITIGATED IN A COURT OR JURY TRIAL. BY INITIALING IN THE SPACE BELOW YOU ARE GIVING UP YOUR JUDICIAL RIGHTS TO DISCOVERY AND APPEAL, UNLESS THOSE RIGHTS ARE SPECIFICALLY INCLUDED IN THE ‛ARBITRATION OF DISPUTES’ PROVISION. IF YOU REFUSE TO SUBMIT TO ARBITRATION AFTER AGREEING TO THIS PROVISION, YOU MAY BE COMPELLED TO ARBITRATE UNDER THE AUTHORITY OF THE BUSINESS AND PROFESSIONS CODE OR OTHER APPLICABLE LAWS. YOUR AGREEMENT TO THIS ARBITRATION PROVISION IS VOLUNTARY.” “WE HAVE READ AND UNDERSTAND THE FOREGOING AND AGREE TO SUBMIT DISPUTES ARISING OUT OF THE MATTERS INCLUDED IN THE ‛ARBITRATION OF DISPUTES’ PROVISION TO NEUTRAL ARBITRATION.
+
+--- Notice to the Buyer: service and repair contract requirements (B&P 7159.10(e)(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: in the contract
+Type: {"bold":true,"min_pt":12}
+Also: customer signs and dates it
+Only when: "Is this a service and repair job of $750.00 or less that the customer called you about?" Yes
+Format rule: At least 12-point boldface type, signed and dated by the buyer
+
+Notice to the Buyer: The law requires that service and repair contracts must meet all of the following requirements:
+
+(A) The price must be no more than seven hundred and fifty dollars ($750).
+
+(B) You, the buyer, must have initiated contact with the contractor to request the work.
+
+(C) The contractor must not sell you goods or services beyond those reasonably necessary to take care of the particular problem that caused you to contact the contractor.
+
+(D) No payment is due and the contractor may not accept any payment until the work is completed.
+
+--- Notice to the Buyer: entitled to a signed copy before work starts (service and repair) (B&P 7159.10(e)(3)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: in the contract
+Type: {"bold":true,"min_pt":12}
+Only when: "Is this a service and repair job of $750.00 or less that the customer called you about?" Yes
+Format rule: At least 12-point boldface type
+
+Notice to the Buyer: You are entitled to a completely filled in and signed copy of this agreement before any work may be started.
+
+--- YOUR RIGHTS TO CANCEL BEFORE WORK BEGINS (service and repair) (B&P 7159.10(e)(12)(A)(i)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: directly above the customer's signature
+Type: {"bold":true,"min_pt":12}
+Only when: "Is this a service and repair job of $750.00 or less that the customer called you about?" Yes
+Format rule: At least 12-point boldface type, in immediate proximity to the buyer's signature space, dated and signed by the buyer; may be attached if the contract has a checkbox statement
+
+YOUR RIGHTS TO CANCEL BEFORE WORK BEGINS
+
+(A) You, the buyer, have the right to cancel this contract until:
+
+1. You receive a copy of this contract signed and dated by you and the contractor; and
+
+2. The contractor starts work.
+
+(B) However, even if the work has begun you, the buyer, may still cancel the contract for any of the reasons specified in items 1 through 4 of this paragraph. If any of these reasons occur, you may cancel the contract within three business days of signing the contract for normal service and repairs, or within seven business days of signing a contract to repair or correct conditions resulting from any sudden or catastrophic event for which a state of emergency has been declared by the President of the United States or the Governor, or for which a local emergency has been declared by the executive officer or governing body of any city, county, or city and county:
+
+1. You may cancel the contract if the price, including all labor and materials, is more than seven hundred fifty dollars ($750).
+
+2. You may cancel the contract if you did not initiate the contact with the contractor to request the work.
+
+3. You may cancel the contract if the contractor sold you goods or services beyond those reasonably necessary to take care of the particular problem that caused you to contact the contractor.
+
+4. You may cancel the contract if the payment was due or the contractor accepted any money before the work was complete.
+
+(C) If any of these reasons for canceling occurred, you may cancel the contract as specified under paragraph (B) above by e-mailing, mailing, faxing, or delivering a written notice to the contractor at the contractor’s place of business within three business days or, if applicable, seven business days of the date you received a signed and dated copy of this contract. Include your name, your address, and the date you received a signed copy of the contract and this notice.
+
+If you cancel, the contractor must return to you anything you paid within 10 days of receiving the notice of cancellation. For your part, you must make available to the contractor at your residence, in substantially as good condition as you received it, any goods delivered to you under this contract. Or, you may, if you wish, comply with the contractor’s instructions on how to return the goods at the contractor’s expense and risk. If you make the goods available to the contractor and the contractor does not pick them up within 20 days of the date of your notice of cancellation, you may keep them without any further obligation. If you fail to make the goods available to the contractor, or if you agree to return the goods to the contractor and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+--- Downpayment (B&P 7159(d)(8)(C)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Downpayment"
+Type: {"bold":true,"min_pt":12}
+Format rule: At least 12-point boldface type, in the downpayment details under the heading 'Downpayment'
+
+THE DOWNPAYMENT MAY NOT EXCEED $1,000 OR 10 PERCENT OF THE CONTRACT PRICE, WHICHEVER IS LESS.
+
+--- Statement for the schedule of progress payments (B&P 7159(d)(9)(C)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: right after the clause it belongs to
+Type: {"bold":true,"min_pt":12}
+Format rule: At least 12-point boldface type, in the section reserved for the progress payments
+
+The schedule of progress payments must specifically describe each phase of work, including the type and amount of work or services scheduled to be supplied in each phase, along with the amount of each proposed progress payment. IT IS AGAINST THE LAW FOR A CONTRACTOR TO COLLECT PAYMENT FOR WORK NOT YET COMPLETED, OR FOR MATERIALS NOT YET DELIVERED. HOWEVER, A CONTRACTOR MAY REQUIRE A DOWNPAYMENT.
+
+--- Subcontractor disclaimer (B&P 7159(c)(7)(B)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: in the contract
+Type: as the rest of the contract
+Only when: "Will subcontractors or suppliers work on this job?" Yes
+Format rule: Contract states whether a subcontractor will be used, with a box to be checked
+
+One or more subcontractors will be used on this project, and the contractor is aware that a list of subcontractors is required to be provided, upon request, along with the names, contact information, license number, and classification of those subcontractors.
+
+--- Commercial General Liability Insurance (CGL) (B&P 7159(e)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Commercial General Liability Insurance (CGL)"
+Type: as the rest of the contract
+Only when the business fact "cgl" is answered in the settings
+Format rule: Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] carries commercial general liability insurance written by [INSURER]. You may call [INSURER] at [INSURER PHONE] to check the contractor’s insurance coverage.
+
+--- Workers’ Compensation Insurance (B&P 7159(e)(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Workers’ Compensation Insurance"
+Type: as the rest of the contract
+Only when the business fact "wc" is answered in the settings
+Format rule: Under the heading 'Workers’ Compensation Insurance' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] carries workers’ compensation insurance for all employees.
+
+--- Seven-Day Right to Cancel (disaster repair) (B&P 7159(e)(7)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: directly above the customer's signature
+Type: {"bold":true,"min_pt":12}
+Also: customer signs and dates it
+Only when: "Is this a repair of damage from a disaster with a declared state of emergency?" Yes
+Format rule: At least 12-point boldface type, in immediate proximity to a space reserved for the owner's signature, signed and dated by the owner, same language as the oral sales presentation; may be attached if the contract has a checkbox statement
+
+Seven-Day Right to Cancel
+
+You, the buyer, have the right to cancel this contract within seven business days. You may cancel by emailing, mailing, faxing, or delivering a written notice to the contractor at the contractor’s place of business by midnight of the seventh business day after you received a signed and dated copy of the contract that includes this notice. Include your name, your address, and the date you received the signed copy of the contract and this notice.
+
+If you cancel, the contractor must return to you anything you paid within 10 days of receiving the notice of cancellation. For your part, you must make available to the contractor at your residence, in substantially as good condition as you received them, goods delivered to you under this contract or sale. Or, you may, if you wish, comply with the contractor’s instructions on how to return the goods at the contractor’s expense and risk. If you do make the goods available to the contractor and the contractor does not pick them up within 20 days of the date of your notice of cancellation, you may keep them without any further obligation. If you fail to make the goods available to the contractor, or if you agree to return the goods to the contractor and fail to do so, then you remain liable for performance of all obligations under the contract.
+
+--- Notice of Cancellation form (seven-day, disaster repair) (B&P 7159(e)(7)(B)(vi)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: on its own page
+Type: {"bold":true,"min_pt":10}
+Also: 2 copies in the PDF
+Only when: "Is this a repair of damage from a disaster with a declared state of emergency?" Yes
+Format rule: Completed form in duplicate, attached to the agreement and easily detachable, same language as the contract
+
+“Notice of Cancellation”
+
+{transaction_date}
+
+(Date)
+
+“You may cancel this transaction, without any penalty or obligation, within seven business days from the above date.
+
+If you cancel, any property traded in, any payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be canceled.
+
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale, or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller’s expense and risk.
+
+If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.”
+
+To cancel this transaction, email, mail, or deliver a signed and dated copy of this cancellation notice, or any other written notice, or send a telegram
+
+to [BUSINESS NAME],
+
+/name of seller/
+
+at [BUSINESS ADDRESS]
+
+/address of seller’s place of business/
+
+not later than midnight of {state_deadline_7}.
+
+(Date)
+
+I hereby cancel this transaction.
+
+(Date)
+
+(Buyer’s signature)
+
+--- Mechanics Lien Warning (B&P 7164(b)(4)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Mechanics Lien Warning"
+Type: as the rest of the contract
+Only when: "Is this the sale or construction of a newly built home?" Yes
+Format rule: Statement with the heading 'Mechanics Lien Warning'
+
+MECHANICS LIEN WARNING:
+
+Anyone who helps improve your property, but who is not paid, may record what is called a mechanics lien on your property. A mechanics lien is a claim, like a mortgage or home equity loan, made against your property and recorded with the county recorder.
+
+Even if you pay your contractor in full, unpaid subcontractors, suppliers, and laborers who helped to improve your property may record mechanics liens and sue you in court to foreclose the lien. If a court finds the lien is valid, you could be forced to pay twice or have a court officer sell your home to pay the lien. Liens can also affect your credit.
+
+To preserve their right to record a lien, each subcontractor and material supplier must provide you with a document called a ‘Preliminary Notice.’ This notice is not a lien. The purpose of the notice is to let you know that the person who sends you the notice has the right to record a lien on your property if he or she is not paid.
+
+BE CAREFUL. The Preliminary Notice can be sent up to 20 days after the subcontractor starts work or the supplier provides material. This can be a big problem if you pay your contractor before you have received the Preliminary Notices.
+
+You will not get Preliminary Notices from your prime contractor or other persons you contract with directly or from laborers who work on your project. The law assumes that you already know they are improving your property.
+
+PROTECT YOURSELF FROM LIENS. You can protect yourself from liens by getting a list from your contractor of all the subcontractors and material suppliers that work on your project. Find out from your contractor when these subcontractors started work and when these suppliers delivered goods or materials. Then wait 20 days, paying attention to the Preliminary Notices you receive.
+
+PAY WITH JOINT CHECKS. One way to protect yourself is to pay with a joint check. When your contractor tells you it is time to pay for the work of a subcontractor or supplier who has provided you with a Preliminary Notice, write a joint check payable to both the contractor and the subcontractor or material supplier.
+
+For other ways to prevent liens, visit CSLB’s Web site at www.cslb.ca.gov or call CSLB at 800-321-CSLB (2752).
+
+REMEMBER, IF YOU DO NOTHING, YOU RISK HAVING A LIEN PLACED ON YOUR HOME. This can mean that you may have to pay twice, or face the forced sale of your home to pay what you owe.
+
+--- Commercial General Liability Insurance (CGL) (B&P 7159(e)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Commercial General Liability Insurance (CGL)"
+Type: as the rest of the contract
+Only when the business fact "cgl" is answered in the settings
+Format rule: Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] does not carry commercial general liability insurance.
+
+--- Workers’ Compensation Insurance (B&P 7159(e)(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Workers’ Compensation Insurance"
+Type: as the rest of the contract
+Only when the business fact "wc" is answered in the settings
+Format rule: Under the heading 'Workers’ Compensation Insurance' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] has no employees and is exempt from workers’ compensation requirements.
+
+--- Commercial General Liability Insurance (CGL) (B&P 7159(e)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Commercial General Liability Insurance (CGL)"
+Type: as the rest of the contract
+Only when the business fact "cgl" is answered in the settings
+Format rule: Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] is self-insured.
+
+--- Commercial General Liability Insurance (CGL) (B&P 7159(e)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: California
+Where: under the heading "Commercial General Liability Insurance (CGL)"
+Type: as the rest of the contract
+Only when the business fact "cgl" is answered in the settings
+Format rule: Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)
+
+[BUSINESS NAME] is a limited liability company that carries liability insurance or maintains other security as required by law. You may call [INSURER] at [INSURER PHONE] to check on the contractor’s insurance coverage or security.
+
 ################ Colorado (CO) - status: notice text still needs official copy - prints: 0 of 2 notices
 
 (nothing prints for this state)
@@ -259,6 +556,14 @@ I hereby cancel this transaction.
 Dated:
 
 Signed:
+
+--- Sentence to place beside an emailed copy of the agreement (C.G.S. 42-135a(10)) --- PLACED BY THE SYSTEM (RES-36)
+State: Connecticut
+Where: in the contract
+Type: as the rest of the contract
+Format rule: Immediately adjacent to the body of the message, in at least twelve-point type or the size of the body of the message if larger
+
+PLEASE REVIEW IMPORTANT INFORMATION ABOUT YOUR RIGHT TO CANCEL THIS AGREEMENT IN THE “NOTICE OF CANCELLATION” BEING PROVIDED TO YOU.
 
 ################ Delaware (DE) - status: draft rider ready - prints: 2 of 3 notices
 
@@ -459,6 +764,39 @@ YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN 3 BUS
 ...................
 (Buyer's signature)
 
+--- Owner lien notice and sworn statement (770 ILCS 60/5(b)) --- PLACED BY THE SYSTEM (RES-36)
+State: Illinois
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Format rule: 10 point bold
+
+THE LAW REQUIRES THAT THE CONTRACTOR SHALL SUBMIT A SWORN STATEMENT OF PERSONS FURNISHING LABOR, SERVICES, MATERIAL, FIXTURES, APPARATUS OR MACHINERY, OR FORMS OR FORM WORK BEFORE ANY PAYMENTS ARE REQUIRED TO BE MADE TO THE CONTRACTOR.
+
+--- Insurance-proceeds jobs: 10 point bold cancellation statement (815 ILCS 513/18(f) and (g)) --- PLACED BY THE SYSTEM (RES-36)
+State: Illinois
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Only when: "Is an insurance claim paying for this job?" Yes
+Format rule: Statement in at least 10 point boldface inside the contract; the duplicate NOTICE OF CANCELLATION is the separate notice IL-insurance-cancel-form
+
+You may cancel this contract at any time before midnight on the earlier of the fifth business day after you have received written notification from your insurer that all or any part of the claim or contract is not a covered loss under the insurance policy or the thirtieth business day after your insurer has received properly executed proof(s) of loss from you. See attached notice of cancellation form for an explanation of this right.
+
+--- Insurance-proceeds jobs: duplicate NOTICE OF CANCELLATION (815 ILCS 513/18(g)) --- PLACED BY THE SYSTEM (RES-36)
+State: Illinois
+Where: on its own page
+Type: {"bold":true,"min_pt":10}
+Also: 2 copies in the PDF
+Only when: "Is an insurance claim paying for this job?" Yes
+Format rule: Completed form in duplicate, attached to the contract but easily detachable, boldface type of a minimum size of 10 points, appropriate fields completed by the contractor
+
+NOTICE OF CANCELLATION
+    If you are notified by your insurer that all or any part of the claim or contract is not a covered loss under the insurance policy, you may cancel the contract by mailing or delivering a signed and dated copy of this cancellation notice or any other written notice to [BUSINESS NAME] at [BUSINESS ADDRESS] at any time prior to midnight on the earlier of the fifth business day after you have received such notice from your insurer or the thirtieth business day after your insurer has received properly executed proof(s) of loss from you. If you cancel, any payments made by you under the contract, other than payments for goods or services related to a catastrophe which you agreed in writing to be necessary to prevent damage to your property, will be returned to you within 10 business days following receipt by the contractor of your cancellation notice.
+    I HEREBY CANCEL THIS TRANSACTION
+    ................................
+    (date)
+    ................................
+    (insured's signature)
+
 ################ Indiana (IN) - status: notice text still needs official copy - prints: 0 of 4 notices
 
 --- Notice of the contractor's right to offer to cure construction defects (IC 32-27-3-12) --- PRINTED BY THE SYSTEM
@@ -485,6 +823,44 @@ IC 32-27-3 CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW
       THE BUILDER OR CONTRACTOR. THERE ARE STRICT DEADLINES AND
       PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY
      AFFECT YOUR ABILITY TO FILE A LAWSUIT.
+
+--- Statement of right to cancel, furnished to the consumer before the contract is signed (IC 24-5-11-10.6) --- PLACED BY THE SYSTEM (RES-36)
+State: Indiana
+Where: in the contract
+Type: as the rest of the contract
+Format rule: Fixed statement furnished before the contract is signed (no type size)
+
+"You may cancel this contract
+      at any time before midnight on the third business day after the later of the following:
+         (A) The date this contract is signed by you and [BUSINESS NAME].
+         (B) If applicable, the date you receive written notification from your insurance
+         company of a final determination as to whether all or any part of your claim or this
+         contract is a covered loss under your insurance policy.
+      See attached notice of cancellation form for an explanation of this right."
+
+--- Duplicate NOTICE OF CANCELLATION form attached to the contract and easily detachable (IC 24-5-11-10.6(b)(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: Indiana
+Where: on its own page
+Type: {"bold":true,"min_pt":10}
+Also: 2 copies in the PDF
+Format rule: Form furnished in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract but easily detachable, in at least 10 point boldface type
+
+NOTICE OF CANCELLATION
+      You may cancel this contract by mailing, delivering, or submitting by electronic mail
+      a signed and dated copy of this cancellation notice or any other written notice to [BUSINESS NAME] at [BUSINESS ADDRESS], or [BUSINESS EMAIL], at any time before midnight on the third
+      business day after the later of the following:
+         (A) The date this contract is signed by you and [BUSINESS NAME].
+         (B) If applicable, the date you receive written notification from your insurance
+         company of a final determination as to whether all or any part of your claim or this
+         contract is a covered loss under your insurance policy.
+      If you cancel this contract, any payments made by you under the contract will be
+      returned to you within ten (10) business days following receipt by [BUSINESS NAME] of your cancellation notice, minus any amounts you
+      may owe for work already done by [BUSINESS NAME].
+      I HEREBY CANCEL THIS TRANSACTION
+      _______________________________
+      (date)
+      _______________________________
+      (consumer's signature)
 
 ################ Iowa (IA) - status: draft rider ready - prints: 2 of 3 notices
 
@@ -541,6 +917,16 @@ NOTICE OF CANCELLATION
                    (Date)
                    ............................................
                    (Buyer’s signature)
+
+--- Mechanics lien owner notice (Iowa Code 572.13) --- PLACED BY THE SYSTEM (RES-36)
+State: Iowa
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Only when: "Will subcontractors or suppliers work on this job?" is not No
+Format rule: Written, boldface, at least 10 point, in the contract or a separate notice; must carry the registry web address (sos.iowa.gov/MNLR) and toll-free number (1-888-767-8683); registry posting within 10 days (572.13A)
+
+Persons or companies furnishing labor or materials for the improvement of real property may enforce a lien upon the improved property if they are not paid for their contributions, even if the parties have no direct contractual relationship with the owner. The mechanics’ notice and lien registry provides a listing of all persons or companies furnishing labor or materials who have posted a lien or who may post a lien upon the improved property.
+The owner notice shall include the MNLR Internet Web site address (sos.iowa.gov/MNLR) and MNLR toll-free telephone number (1-888-767-8683).
 
 ################ Kansas (KS) - status: draft rider ready - prints: 2 of 3 notices
 
@@ -702,7 +1088,15 @@ Any alteration or deviation from the above contractual specifications that resul
 
 ################ Maryland (MD) - status: notice text still needs official copy - prints: 0 of 4 notices
 
-(nothing prints for this state)
+--- Security-interest and rescission notice (BR 8-501(c)(2) and (3)) --- PLACED BY THE SYSTEM (RES-36)
+State: Maryland
+Where: on the first page
+Type: {"bold":true,"min_pt":10}
+Also: customer initials beside it
+Only when: "Is payment secured by the customer's home (a lien or mortgage)?" Yes
+Format rule: 10 point bold on the first page, owner initials
+
+This contract creates a mortgage or lien against your property to secure payment and may cause a loss of your property if you fail to pay the amount agreed upon. You have the right to consult an attorney. You have the right to rescind this contract within 3 business days after the date you sign it by notifying the contractor in writing that you are rescinding the contract.
 
 ################ Massachusetts (MA) - status: notice text still needs official copy - prints: 3 of 5 notices
 
@@ -870,9 +1264,41 @@ TEXT:
 (a) Any person or company supplying labor or materials for this improvement to your property may file a lien against your property if that person or company is not paid for the contributions.
 (b) Under Minnesota law, you have the right to pay persons who supplied labor or materials for this improvement directly and deduct this amount from our contract price, or withhold the amounts due them from us until 120 days after completion of the improvement unless we give you a lien waiver signed by persons who supplied any labor or material for the improvement and who gave you timely notice.
 
+--- Insurance-paid roofing: 72 hour statement (Minn. Stat. 326B.811 subd. 2(a)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: Minnesota
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Only when: "Is this roofing work paid by an insurance claim?" Yes
+Format rule: Statement in boldface type of at least ten points, given before the contract is entered
+
+You may cancel this contract at any time within 72 hours after you have been notified that your insurer has denied your claim to pay for the goods and services to be provided under this contract. See attached notice of cancellation form for an explanation of this right.
+
+--- Insurance-paid roofing: duplicate NOTICE OF CANCELLATION form (Minn. Stat. 326B.811 subd. 2(a)(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: Minnesota
+Where: on its own page
+Type: {"bold":true,"min_pt":10}
+Also: 2 copies in the PDF
+Only when: "Is this roofing work paid by an insurance claim?" Yes
+Format rule: Fully completed form in duplicate, attached to the contract and easily detachable, in boldface type of at least ten points
+
+NOTICE OF CANCELLATION
+If your insurer denies your claim to pay for goods and services to be provided under this contract, you may cancel the contract by mailing or delivering a signed and dated copy of this cancellation notice or any other written notice to [BUSINESS NAME] at [BUSINESS ADDRESS] at any time within 72 hours after you have been notified that your claim has been denied. If you cancel, any payments made by you under the contract will be returned within ten business days following receipt by the contractor of your cancellation notice.
+I HEREBY CANCEL THIS TRANSACTION.
+.
+(date)
+.
+(Insured's signature)
+
 ################ Mississippi (MS) - status: notice text still needs official copy - prints: 0 of 2 notices
 
-(nothing prints for this state)
+--- Liability insurance disclosure (73-59-11) --- PLACED BY THE SYSTEM (RES-36)
+State: Mississippi
+Where: directly above the customer's signature
+Type: {"bold":true,"larger":true}
+Only when the business fact "cgl" is answered in the settings
+Format rule: Placed on the contracting document immediately before the space for the purchaser's signature, in bold and conspicuous type larger than the rest of the contract
+
+Mississippi law requires that I inform you that I DO carry general liability insurance insuring my work under this contract. The name of the insurer is [INSURER], and the policy number is [POLICY NUMBER]. By your signature below, you signify your understanding and acknowledgement of this fact.
 
 ################ Missouri (MO) - status: notice text still needs official copy - prints: 1 of 4 notices
 
@@ -897,6 +1323,17 @@ Source: VERBATIM-OFFICIAL https://revisor.mo.gov/main/OneSection.aspx?section=43
 Blanks to fill: none
 TEXT:
 SECTIONS 436.350 TO 436.365 OF MISSOURI REVISED STATUTES PROVIDE YOU WITH CERTAIN RIGHTS IF YOU HAVE A DISPUTE WITH A CONTRACTOR REGARDING CONSTRUCTION DEFECTS. EXCEPT FOR CLAIMS FILED IN SMALL CLAIMS COURT, IF YOU HAVE A DISPUTE WITH A CONTRACTOR, YOU MUST DELIVER TO THE CONTRACTOR A WRITTEN CLAIM OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR CONTRACTOR THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE CONTRACTOR. READ THIS NOTICE CAREFULLY. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER SECTIONS 436.350 TO 436.365 WHICH MUST BE OBEYED IN ORDER TO PRESERVE YOUR ABILITY TO FILE A LAWSUIT. OTHER THAN REPAIRS TO WORK DONE BY THE CONTRACTOR THAT ARE NECESSARY TO PROTECT THE LIFE, HEALTH, OR SAFETY OF PERSONS LIVING IN A RESIDENCE, OR TO AVOID ADDITIONAL SIGNIFICANT AND MATERIAL DAMAGE TO THE RESIDENCE PURSUANT TO SUBSECTION 10 OF SECTION 436.356, YOU MAY NOT INCLUDE IN CLAIMS AGAINST YOUR CONTRACTOR THE COSTS OF OTHER REPAIRS YOU PERFORM BEFORE YOU ARE ENTITLED TO FILE A LAWSUIT UNDER SECTIONS 436.350 TO 436.365.
+
+--- CONSENT OF OWNER (lets subcontractors and suppliers file mechanic's liens) (RSMo 429.013(2)) --- PLACED BY THE SYSTEM (RES-36)
+State: Missouri
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Also: customer signs and dates it
+Only when: "Do you want your subcontractors and suppliers to keep lien rights on this job?" Yes
+Format rule: Ten point bold type, signed separately from the 429.012 notice
+
+CONSENT OF OWNER
+CONSENT IS HEREBY GIVEN FOR FILING OF MECHANIC'S LIENS BY ANY PERSON WHO SUPPLIES MATERIALS OR SERVICES FOR THE WORK DESCRIBED IN THIS CONTRACT ON THE PROPERTY ON WHICH IT IS LOCATED IF HE IS NOT PAID.
 
 ################ Montana (MT) - status: notice text still needs official copy - prints: 2 of 3 notices
 
@@ -1210,6 +1647,42 @@ _______________
  "
  (buyer's signature)
 
+--- Buyer statement near the signature (credit home-solicitation sale) (G.S. 25A-40(a) (home-solicitation sale defined in 25A-38)) --- PLACED BY THE SYSTEM (RES-36)
+State: North Carolina
+Where: directly above the customer's signature
+Type: {"bold":true,"min_pt":10}
+Only when: "Is the customer paying on credit (in installments or with a finance charge)?" Yes
+Format rule: Mailing text
+
+You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached Notice of Cancellation form for an explanation of this right.
+
+--- Notice of Cancellation form, in duplicate (credit home-solicitation sale) (G.S. 25A-40(b)) --- PLACED BY THE SYSTEM (RES-36)
+State: North Carolina
+Where: on its own page
+Type: {"bold":true,"min_pt":10}
+Also: 2 copies in the PDF
+Only when: "Is the customer paying on credit (in installments or with a finance charge)?" Yes
+Format rule: Completed form in duplicate, attached to the contract and easily detachable, in 10 point bold face, in the same language as the contract
+
+Notice of Cancellation
+ {transaction_date}
+ (date)
+You may cancel this transaction, without any penalty or obligation, within three business days from the above date.
+If you cancel, any property traded in, and payments made by you under the contract or sale, and any negotiable instrument executed by you will be returned within 10 business days following receipt by the seller of your cancellation notice, and any security interest arising out of the transaction will be canceled.
+If you cancel, you must make available to the seller at your residence, in substantially as good condition as when received, any goods delivered to you under this contract or sale; or you may, if you wish, comply with the instructions of the seller regarding the return shipment of the goods at the seller's expense and risk.
+If you do make the goods available to the seller and the seller does not pick them up within 20 days of the date of your notice of cancellation, you may retain or dispose of the goods without any further obligation. If you fail to make the goods available to the seller, or if you agree to return the goods to the seller and fail to do so, then you remain liable for performance of all obligations under the contract.
+To cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice or any other written notice, or send a telegram to [BUSINESS NAME]
+                                  (name of seller)
+at [BUSINESS ADDRESS],
+          (address of seller's place of business)
+not later than midnight of {cancellation_deadline_date}
+                                                 (date)
+I hereby cancel this transaction.
+______________________
+                    (date)
+                    _____________________
+                               (Buyer's Signature)
+
 ################ North Dakota (ND) - status: notice text still needs official copy - prints: 3 of 4 notices
 
 --- NOTICE TO BUYER (personal solicitation sale) (N.D.C.C. 51-18-04 (NOTICE TO BUYER)) ---
@@ -1329,6 +1802,19 @@ TEXT:
 "EXCESS COSTS
 IF AT ANY TIME A HOME CONSTRUCTION SERVICE REQUIRES EXTRA COSTS ABOVE THE COST SPECIFIED OR ESTIMATED IN THE CONTRACT THAT WERE REASONABLY UNFORESEEN, BUT NECESSARY, AND THE TOTAL OF ALL EXTRA COSTS TO DATE EXCEEDS FIVE THOUSAND DOLLARS OVER THE COURSE OF THE ENTIRE HOME CONSTRUCTION CONTRACT, YOU HAVE A RIGHT TO AN ESTIMATE OF THOSE EXCESS COSTS BEFORE THE HOME CONSTRUCTION SERVICE SUPPLIER BEGINS WORK RELATED TO THOSE COSTS. INITIAL YOUR CHOICE OF THE TYPE OF ESTIMATE YOU REQUIRE:
 _____ written estimate _____ oral estimate"
+
+--- Estimate form with the customer's initials (written, oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)) --- PLACED BY THE SYSTEM (RES-36)
+State: Ohio
+Where: in the contract
+Type: as the rest of the contract
+Also: customer initials one choice
+Format rule: Form given at the first face to face contact and before work starts; may be separate or part of another form; also told to the customer orally
+
+Estimate
+You have the right to an estimate if the expected cost of repairs or services will be more than twenty-five dollars. Initial your choice:
+_____ written estimate
+_____ oral estimate
+_____ no estimate
 
 ################ Oklahoma (OK) - status: notice text still needs official copy - prints: 0 of 1 notices
 
@@ -1489,6 +1975,17 @@ Blanks to fill: none
 TEXT:
 Notice to buyer: (1) Do not sign this agreement if any of the spaces intended for the agreed terms to the extent of then available information are left blank. (2) You are entitled to a copy of this agreement at the time you sign it. (3) You may at any time pay off the full, unpaid balance due under this agreement and in so doing you may be entitled to receive a partial rebate of the finance and insurance charges. (4) The seller has no right to unlawfully enter your premises or commit any breach of the peace to repossess goods purchased under this agreement. (5) You may cancel this agreement if it has not been signed at the main office or a branch office of the seller, provided you notify the seller at his or her main office or branch office shown in the agreement by registered or certified mail, that shall be posted not later than midnight of the third calendar day after the day on which the buyer signs the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. See the attached notice of cancellation form for an explanation of buyer’s rights.
 
+--- Notice of Cancellation (5-65-27) --- PLACED BY THE SYSTEM (RES-36)
+State: Rhode Island
+Where: on its own page
+Type: {"bold":true}
+Only when: "Is the customer 62 or older?" Yes
+Format rule: Separate Notice of Cancellation under the conspicuous caption, worded 'this agreement' and 'consumer's signing' (not the 6-28-4 wording)
+
+You may cancel this agreement, without any penalty or obligation, within three (3) business days from the above date. If you cancel, your cancellation notice must state that you do not wish to be bound by the agreement and mailed by registered or certified mail not later than midnight three (3) days following the consumer’s signing the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. All cancellations must be mailed to:
+
+[BUSINESS NAME], [BUSINESS ADDRESS].
+
 ################ South Carolina (SC) - status: draft rider ready - prints: 0 of 1 notices
 
 (nothing prints for this state)
@@ -1624,6 +2121,15 @@ KNOW YOUR RIGHTS AND RESPONSIBILITIES UNDER THE LAW.  You are about to enter int
 "OBTAIN A LIEN RELEASE AND A BILLS-PAID AFFIDAVIT. When you receive a notice of claim, do not release withheld funds without obtaining a signed and notarized release of lien and claim from the claimant.  You can also reduce the risk of having a claim filed by a subcontractor or supplier by requiring as a condition of each payment made by you or your lender that your contractor furnish you with an affidavit stating that all bills have been paid.  Under Texas law, on final completion of the work and before final payment, the contractor is required to furnish you with an affidavit stating that all bills have been paid.  If the contractor discloses any unpaid bill in the affidavit, you should withhold payment in the amount of the unpaid bill until you receive a waiver of lien or release from that subcontractor or supplier.
 "OBTAIN TITLE INSURANCE PROTECTION. You may be able to obtain a title insurance policy to insure that the title to your property and the existing improvements on your property are free from liens claimed by subcontractors and suppliers.  If your policy is issued before the improvements are completed and covers the value of the improvements to be completed, you should obtain, on the completion of the improvements and as a condition of your final payment, a 'completion of improvements' policy endorsement.  This endorsement will protect your property from liens claimed by subcontractors and suppliers that may arise from the date the original title policy is issued to the date of the endorsement.
 
+--- Subcontractor and supplier list: the 10 point bold NOTICE that the list must carry (Prop. Code 53.256) --- PLACED BY THE SYSTEM (RES-36)
+State: Texas
+Where: in the contract
+Type: {"bold":true,"min_pt":10}
+Only when: "Will subcontractors or suppliers work on this job?" is not No
+Format rule: Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold
+
+NOTICE:  THIS LIST OF SUBCONTRACTORS AND SUPPLIERS MAY NOT BE A FINAL LISTING. UNLESS YOU SIGN A WAIVER OF YOUR RIGHT TO RECEIVE UPDATED INFORMATION, THE CONTRACTOR IS REQUIRED BY LAW TO SUPPLY UPDATED INFORMATION, AS THE INFORMATION BECOMES AVAILABLE, FOR EACH SUBCONTRACTOR OR SUPPLIER USED IN THE WORK PERFORMED ON YOUR RESIDENCE.
+
 ################ Utah (UT) - status: notice text still needs official copy - prints: 1 of 3 notices
 
 --- Protection against liens and civil action notice (owner steps to lien protection) (Utah Code 38-11-108; Utah Admin. Code R156-38a-108) ---
@@ -1640,6 +2146,14 @@ X. PROTECTION AGAINST LIENS AND CIVIL ACTION. Notice is hereby provided in accor
 (c) the owner paid in full the contracting entity in accordance with the written contract and any written or oral amendments to the contract; or
 (2) the amount of the general contract between the owner and the original contractor totals no more than $5,000."
 (3) An owner who can establish compliance with either section (1) or (2) may perfect the owner's protection by applying for a Certificate of Compliance with the Division of Occupational and Professional Licensing. The application is available at www.dopl.utah.gov/rlrf.
+
+--- Direct solicitation sale cancellation notice (12 point dark bold, first page) (Utah Code 13-11-4(2)(m), (3)) --- PLACED BY THE SYSTEM (RES-36)
+State: Utah
+Where: on the first page
+Type: {"bold":true,"min_pt":12}
+Format rule: Conspicuous statement in dark bold, at least 12-point type, on the first page of the purchase documentation; no separate state form
+
+YOU, THE BUYER, MAY CANCEL THIS CONTRACT AT ANY TIME PRIOR TO MIDNIGHT OF THE THIRD BUSINESS DAY AFTER THE DATE OF THE TRANSACTION OR RECEIPT OF THE PRODUCT, WHICHEVER IS LATER.
 
 ################ Vermont (VT) - status: draft rider ready - prints: 2 of 2 notices
 
@@ -1773,9 +2287,35 @@ Blanks to fill: none
 TEXT:
 CHAPTER 64.50 RCW CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW BEFORE YOU MAY FILE A LAWSUIT FOR DEFECTIVE CONSTRUCTION AGAINST THE SELLER OR BUILDER OF YOUR HOME. FORTY-FIVE DAYS BEFORE YOU FILE YOUR LAWSUIT, YOU MUST DELIVER TO THE SELLER OR BUILDER A WRITTEN NOTICE OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR SELLER OR BUILDER THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE BUILDER OR SELLER. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY AFFECT YOUR ABILITY TO FILE A LAWSUIT.
 
+--- NOTICE TO BUYER (cancellation right, retail installment contract) (RCW 63.14.154; RCW 63.14.040(2)(e)) --- PLACED BY THE SYSTEM (RES-36)
+State: Washington
+Where: directly above the customer's signature
+Type: {"bold":true,"min_pt":10}
+Only when: "Will the customer pay in more than four installments, or with a service charge?" Yes
+Format rule: Item (e) of the NOTICE TO BUYER, in ten point boldface type or larger directly above the buyer's signature space; cancel by certified mail, return receipt requested, posted by midnight of the third day excluding Sundays and holidays
+
+NOTICE TO BUYER:
+
+(a) Do not sign this contract before you read it or if any spaces intended for the agreed terms, except as to unavailable information, are blank.
+
+(b) You are entitled to a copy of this contract at the time you sign it.
+
+(c) You may at any time pay off the full unpaid balance due under this contract, and in so doing you may receive a partial rebate of the service charge.
+
+(d) The service charge does not exceed [SERVICE_CHARGE_PCT]% per annum computed monthly.
+
+(e) You may cancel this contract if it is solicited in person, and you sign it, at a place other than the seller's business address shown on the contract, by sending notice of such cancellation by certified mail return receipt requested to the seller at his or her address shown on the contract which notice shall be posted not later than midnight of the third day (excluding Sundays and holidays) following your signing this contract. If you choose to cancel this contract, you must return or make available to the seller at the place of delivery any merchandise, in its original condition, received by you under this contract.
+
 ################ West Virginia (WV) - status: draft rider ready - prints: 0 of 2 notices
 
-(nothing prints for this state)
+--- BUYER'S RIGHT TO CANCEL (46A-2-132; 46A-2-133 (statement); 46A-1-102(22) (definition)) --- PLACED BY THE SYSTEM (RES-36)
+State: West Virginia
+Where: directly above the customer's signature
+Type: {"bold":true}
+Only when: "Is the customer paying on credit (in installments or with a finance charge)?" Yes
+Format rule: Mailing counts
+
+If this agreement was solicited at a place other than the seller's business establishment at a fixed location and you decide you do not want these goods or services, you may cancel this agreement by mailing a notice to the seller. The notice must say that you do not want the goods or services and must be mailed before midnight of the third business day after you sign this agreement. The notice must be mailed to: [BUSINESS NAME], [BUSINESS ADDRESS].
 
 ################ Wisconsin (WI) - status: notice text still needs official copy - prints: 2 of 10 notices
 
@@ -1810,6 +2350,35 @@ Blanks to fill: none
 TEXT:
 As required by the Wisconsin construction lien law, claimant hereby notifies owner that persons or companies performing, furnishing, or procuring labor, services, materials, plans, or specifications for the construction on owner’s land may have lien rights on owner’s land and buildings if not paid. Those entitled to lien rights, in addition to the undersigned claimant, are those who contract directly with the owner or those who give the owner notice within 60 days after they first perform, furnish, or procure labor, services, materials, plans or specifications for the construction. Accordingly, owner probably will receive notices from those who perform, furnish, or procure labor, services, materials, plans, or specifications for the construction, and should give a copy of each notice received to the mortgage lender, if any. Claimant agrees to cooperate with the owner and the owner’s lender, if any, to see that all potential lien claimants are duly paid
 
+--- Notice of Consumer's Right to Receive Lien Waivers, as a separate document (ATCP 110.025) --- PLACED BY THE SYSTEM (RES-36)
+State: Wisconsin
+Where: on its own page
+Type: as the rest of the contract
+Also: customer signs and dates it
+Format rule: In writing, the verbatim statement only, as a separate document, in a clear and conspicuous font, in a format the buyer can retain
+
+Notice of Consumer’s Right to Receive Lien Waivers
+If a consumer requests lien waivers, a seller of home improvement services must provide lien waivers from all contractors, subcontractors, and material suppliers. This Wisconsin law protects consumers from having liens filed against their property. Lien waivers prevent the filing of a lien on your home in the event that a contractor does not pay suppliers or subcontractors.
+For more information about home improvement law, contact the Wisconsin Consumer Protection Bureau at 1-800-422-7128 or www.datcp.wi.gov.
+
+--- Defect notice and brochure (101.148; 895.07(13)) --- PLACED BY THE SYSTEM (RES-36)
+State: Wisconsin
+Where: in the contract
+Type: {"bold":true}
+Format rule: Notice worded substantially as given, conspicuous and in writing, may be included within the contract; delivered together with a copy of the DSPS brochure
+
+NOTICE CONCERNING CONSTRUCTION DEFECTS
+Wisconsin law contains important requirements you must follow before you may file a lawsuit for defective construction against the contractor who constructed your dwelling or completed your remodeling project or against a window or door supplier or manufacturer. Section 895.07 (2) and (3) of the Wisconsin statutes requires you to deliver to the contractor a written notice of any construction conditions you allege are defective before you file your lawsuit, and you must provide your contractor or window or door supplier the opportunity to make an offer to repair or remedy the alleged construction defects. You are not obligated to accept any offer made by the contractor or window or door supplier. All parties are bound by applicable warranty provisions.
+
+--- Basement waterproofing: no-guarantee disclaimer (ATCP 110.09(3)(j)) --- PLACED BY THE SYSTEM (RES-36)
+State: Wisconsin
+Where: on the face of the contract, apart from the other provisions
+Type: {"bold":true}
+Only when: "Is this basement waterproofing sold with no guarantee?" Yes
+Format rule: On the face of the contract, separate from other provisions, in bold face type
+
+THE BASEMENT WATERPROOFING SERVICES PROVIDED BY THIS CONTRACT ARE NOT GUARANTEED.
+
 ################ Wyoming (WY) - status: draft rider ready - prints: 2 of 5 notices
 
 --- BUYER'S RIGHT TO CANCEL statement (10 point bold, next to the buyer's signature) (40-14-253(b); 40-12-104(d)) ---
@@ -1836,4 +2405,115 @@ Blanks to fill: none
 TEXT:
 Buyer's
 right to cancel
+
+--- NOTICE TO OWNER (preliminary notice of right to lien) (W.S. 29-10-101(a); 29-2-112) --- PLACED BY THE SYSTEM (RES-36)
+State: Wyoming
+Where: on its own page
+Type: as the rest of the contract
+Also: company signature shown
+Format rule: Substantially the statutory form; no type size; the notice says a lien waiver form is attached
+
+NOTICE TO OWNER
+
+The undersigned party is providing work or materials to the
+property described below. Failure of payment due and owing to a
+contractor, subcontractor or materialman for work performed or
+materials provided to the project located on the property can
+result in the filing of a lien against the property. To avoid
+this result, when paying for labor and materials you may ask the
+contractor, subcontractor or materialman for "lien waivers" from
+all persons supplying materials or services. Failure to secure
+lien waivers may result in your paying for labor and materials
+twice. A form of lien waiver is attached to this notice.
+
+Name, address and telephone number of contractor, subcontractor
+or materialman, and contact person:
+[BUSINESS NAME]
+[BUSINESS ADDRESS]
+[BUSINESS PHONE], [COMPANY SIGNER]
+
+MATERIALS PROVIDED OR WORK PERFORMED:
+[WORK_DESCRIPTION]
+
+PROPERTY DESCRIPTION:
+[PROPERTY_DESCRIPTION]
+
+ADDRESS:
+[PROPERTY ADDRESS]
+LEGAL DESCRIPTION:
+[LEGAL_DESCRIPTION]
+
+SIGNED: {state_part_company_signature}
+
+DATE: {state_part_company_date}
+
+--- LIEN WAIVER form attached to the NOTICE TO OWNER (W.S. 29-10-101(b)) --- PLACED BY THE SYSTEM (RES-36)
+State: Wyoming
+Where: on its own page
+Type: as the rest of the contract
+Format rule: Substantially the statutory form, with a notarial acknowledgment block
+
+LIEN WAIVER
+
+TO:_____________________         PROJECT:_____________________
+
+FROM:________________________
+
+DATE:________________________
+
+PAYMENT: $____________________
+
+In consideration of the PAYMENT received to date, the
+undersigned does hereby waive, release, and relinquish any and
+all claim and/or right of lien against the project and the real
+property improvements thereto for labor and/or materials
+furnished for use in construction of the project; provided
+however, the undersigned reserves all claims and/or rights of
+lien as to monies withheld as retainage in the amount of
+$_______________, and any labor and/or materials hereafter
+furnished for which payment has not yet been made. The
+undersigned has not been paid the sum of $________________ for
+work performed and/or materials provided under contract on this
+project and retains the right to file a lien against the
+property and pursue any and all actions to recover the full
+amount due, including any and all equitable claims. The
+undersigned acknowledges receipt of payment for work performed
+or materials provided and acknowledges that this waiver may be
+relied upon by the owner even if the undersigned accepts payment
+in uncertified funds and such payment is subsequently dishonored
+or revoked, in which case this lien waiver shall remain in full
+force and effect. The foregoing waiver shall not apply,
+however, if payment tendered by the owner is dishonored or
+revoked.
+
+By:__________________________________
+
+subcontractor/materialman/employee
+
+Title:_______________________________
+
+Date:________________________________
+
+STATE OF __________________      )
+
+                                 )ss.
+
+COUNTY OF ________________       )
+
+     This instrument was acknowledged before me on this _____
+day of _____________, 20___, by _____________________ (name of
+person) as lien claimant or ______________________ (title,
+position or type of authority granted by lien claimant) of
+_____________________________ (lien claimant).
+
+     IN WITNESS THEREOF, I have hereunto set my hand and affixed
+my official seal on the day and year last above written.
+
+______________________________
+
+Notarial officer
+
+My Commission Expires:
+
+Seal:
 

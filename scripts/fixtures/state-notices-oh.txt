@@ -1,7 +1,7 @@
 State notices a customer would see: Ohio (OH), residential job, $12,500.00, sold at the customer's home.
 Status: draft rider ready
 
-== PRINTED IN THE CONTRACT (2) ==
+== PRINTED IN THE CONTRACT (3) ==
 
 --- Home solicitation statement near the buyer's signature (R.C. 1345.23) ---
 You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached notice of cancellation for an explanation of this right.
@@ -22,8 +22,15 @@ Date
 (Buyer's signature)
 ______________________________
 
+--- Estimate form with the customer's initials (written, oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)) ---
+Estimate
+You have the right to an estimate if the expected cost of repairs or services will be more than twenty-five dollars. Initial your choice:
+_____ written estimate
+_____ oral estimate
+_____ no estimate
+
 == OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
 
 - [info] This notice prints in the contract: Home solicitation statement near the buyer's signature (R.C. 1345.23). When: Off-premises sales. Format: Statement clearly and conspicuously on the copy of the contract left with the buyer, bold-face type of at least ten points, in immediate proximity to the buyer's signature space.
 - [info] This notice prints in the contract: NOTICE OF CANCELLATION form, in duplicate (R.C. 1345.23(B)(2)). When: Home solicitation sale: solicitation at the residence, including after an invitation by the buyer. Format: Completed form in duplicate, attached to the contract signed by the buyer and easily detachable, ten-point bold-face type, in the same language as the contract.
-- [warn] Ohio requires this notice: Estimate form with the customer's initials (written, oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Repairs or services over $25 with face to face contact, which covers jobs under $25,000 and cleaning. Format: Form given at the first face to face contact and before work starts; may be separate or part of another form; also told to the customer orally.
+- [info] Ohio requires this: Estimate form with the customer's initials (written, oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)). The official wording is on file. When: Repairs or services over $25 with face to face contact, which covers jobs under $25,000 and cleaning. Format: Form given at the first face to face contact and before work starts; may be separate or part of another form; also told to the customer orally.

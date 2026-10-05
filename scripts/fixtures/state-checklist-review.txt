@@ -45,10 +45,10 @@ General notes (a doubt about a rule every state shares):
   9. A statutory form prints its own blanks (a date line, a signature line) exactly as the law
      prints them; those are filled by hand.
 
-Totals over all states: 584 ACTION, 357 HANDLED, 404 BACKGROUND.
-Of the ACTION lines: 84 the system does, 99 the system can see, 401 person only.
+Totals over all states: 586 ACTION, 357 HANDLED, 404 BACKGROUND.
+Of the ACTION lines: 118 the system does, 99 the system can see, 369 person only.
 The short version is in scripts/fixtures/state-checklist-summary.txt.
-Marked UNSURE: 84 lines with a doubt of their own, plus 294 that point to a general note.
+Marked UNSURE: 93 lines with a doubt of their own, plus 294 that point to a general note.
 
 To change a sorting or a sentence: edit scripts/make-state-checklist-data.mjs, then run the three
 commands at the top of that file.
@@ -196,14 +196,14 @@ On the card: 9 action lines at most. Under "More about Alaska": 15 lines.
 
   ACTION      For a home build or a large remodel, attach the page "Notice of Potential Claims Must Be Provided within One Year" and get it signed (AS 09.45.893)
               Portuguese (draft): Para construção ou reforma grande de casa, anexe a página "Notice of Potential Claims Must Be Provided within One Year" e pegue a assinatura
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: "Notice of Potential Claims Must Be Provided within One Year" page, signed by the customer / Página "Notice of Potential Claims Must Be Provided within One Year", assinada pelo cliente
               Asked first: "Is this a new home, or a remodel that costs more than half of the home's assessed
               value?" No takes this line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: Alaska requires this notice: Notice of Potential Claims Must Be Provided within
-              One Year (separate signed page attached to the contract) (AS 09.45.893). The exact wording is
-              not loaded yet. Get it from the official source or your attorney and attach it before the
-              customer signs. When: Contract to design, construct or remodel a dwelling (single-family house,
-              duplex or multi-family unit); remodel means a change ...
+              Old card text: Alaska requires this: Notice of Potential Claims Must Be Provided within One Year
+              (separate signed page attached to the contract) (AS 09.45.893). The official wording is on file.
+              When: Contract to design, construct or remodel a dwelling (single-family house, duplex or
+              multi-family unit); remodel means a change worth more than 25 percent of the structure's value.
+              Format: Separate page attached to the contract, ...
               [line: notice:AK-defect-notice]
 
   ACTION      Check the pool safety rules in Alaska for this job (details)
@@ -340,9 +340,8 @@ On the card: 15 action lines at most. Under "More about Arizona": 14 lines.
   ACTION      Hand the customer the state pool safety notice (A.R.S. 36-1681(E))
               Portuguese (draft): Entregue ao cliente o aviso estadual de segurança de piscina
               Who does it: PERSON ONLY
-              Old card text: Arizona requires this notice: Pool safety notice handed to the buyer (A.R.S.
-              36-1681(E)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Agreement to build a swimming pool or
+              Old card text: Arizona requires this: Pool safety notice handed to the buyer (A.R.S.
+              36-1681(E)). The official wording is on file. When: Agreement to build a swimming pool or
               contained body of water. Format: A notice explaining safety education and responsibilities of
               pool ownership as approved by the Department of Health Services.
               [line: notice:AZ-pool-notice]
@@ -362,12 +361,14 @@ On the card: 15 action lines at most. Under "More about Arizona": 14 lines.
 
   ACTION      If you are selling a newly built home, add the Registrar complaint provision and get the buyer's initials (A.R.S. 12-1365(A))
               Portuguese (draft): Se estiver vendendo uma casa recém-construída, inclua a cláusula de reclamação do Registrar e pegue as iniciais do comprador
-              Who does it: PERSON ONLY
-              Old card text: Arizona requires this notice: Registrar complaint provision in a contract for
-              sale of a newly constructed dwelling (A.R.S. 12-1365(A)). The exact wording is not loaded yet.
-              Get it from the official source or your attorney and attach it before the customer signs. When:
-              Written contract for the sale of a newly constructed dwelling by the seller responsible for the
-              original construction. Format: Prominently ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Registrar complaint provision printed in the contract (10 point bold), with the buyer's initials / Cláusula de reclamação do Registrar impressa no contrato (negrito, corpo 10), com as iniciais do comprador
+              Asked first: "Is this the sale or construction of a newly built home?" No takes this line off
+              the card. Yes, Not sure or no answer keeps it.
+              Old card text: Arizona requires this: Registrar complaint provision in a contract for sale of a
+              newly constructed dwelling (A.R.S. 12-1365(A)). The official wording is on file. When: Written
+              contract for the sale of a newly constructed dwelling by the seller responsible for the original
+              construction. Format: Prominently displayed, at least ten point bold type; buyer initials the
+              provision.
               UNSURE: Applies only to the sale of a new home.
               [line: notice:AZ-new-dwelling]
 
@@ -507,12 +508,12 @@ On the card: 12 action lines at most. Under "More about Arkansas": 12 lines.
 
   ACTION      Attach the IMPORTANT NOTICE TO OWNER (lien notice) and get the owner's signature before work starts (ACA 18-44-115(a)(7))
               Portuguese (draft): Anexe o IMPORTANT NOTICE TO OWNER (aviso de gravame) e pegue a assinatura do proprietário antes de começar o serviço
-              Who does it: PERSON ONLY
-              Old card text: Arkansas requires this notice: IMPORTANT NOTICE TO OWNER (lien notice) (ACA
-              18-44-115(a)(7)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Residential real estate of four or fewer
-              units; before work; unless a bond is supplied. Format: Conspicuous, boldface, worded exactly as
-              stated in all capital letters; may be incorporated ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: IMPORTANT NOTICE TO OWNER (lien notice) signed by the owner / IMPORTANT NOTICE TO OWNER (aviso de gravame) assinado pelo proprietário
+              Old card text: Arkansas requires this: IMPORTANT NOTICE TO OWNER (lien notice) (ACA
+              18-44-115(a)(7)). The official wording is on file. When: Residential real estate of four or
+              fewer units; before work; unless a bond is supplied. Format: Conspicuous, boldface, worded
+              exactly as stated in all capital letters; may be incorporated into the contract or affixed to
+              it; owner signature not required when sent by certified mail.
               [line: notice:AR-lien]
 
   ACTION      Attach the state cancellation statement and two copies of the NOTICE OF CANCELLATION form (ACA 4-89-107 and 4-89-108(c))
@@ -667,38 +668,42 @@ On the card: 24 action lines at most. Under "More about California": 28 lines.
 
   ACTION      If the contract is secured by a lien on the home, give the WARNING TO BUYER on a separate signed page (B&P 7159.1)
               Portuguese (draft): Se o contrato for garantido por gravame sobre a casa, entregue o WARNING TO BUYER em página separada e assinada
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: WARNING TO BUYER on its own page (18 point bold), signed and dated by the buyer / WARNING TO BUYER em página própria (negrito, corpo 18), assinado e datado pelo comprador
               Asked first: "Is payment secured by the customer's home (a lien or mortgage)?" No takes this
               line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: California requires this notice: WARNING TO BUYER: putting up your home as
-              security (door-to-door home improvement contract secured by a lien on real property) (B&P
-              7159.1). The exact wording is not loaded yet. Get it from the official source or your attorney
-              and attach it before the customer signs. When: Door-to-door sale of home improvement goods or
-              services in a contract that contains or is secured by a lien ...
+              Old card text: California requires this: WARNING TO BUYER: putting up your home as security
+              (door-to-door home improvement contract secured by a lien on real property) (B&P 7159.1). The
+              official wording is on file. When: Door-to-door sale of home improvement goods or services in a
+              contract that contains or is secured by a lien on real property. Format: 18 point boldface,
+              separate piece of paper, signed and dated by the buyer, ...
               UNSURE: Applies only when the home secures the contract.
               [line: notice:CA-7159.1]
 
   ACTION      If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and add the NOTICE by the initials line (B&P 7191)
               Portuguese (draft): Se o contrato tiver cláusula de arbitragem, use o título ARBITRATION OF DISPUTES e inclua o NOTICE junto à linha de iniciais
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: ARBITRATION OF DISPUTES notice printed after the arbitration clause, with the buyer's initials / Aviso ARBITRATION OF DISPUTES impresso depois da cláusula de arbitragem, com as iniciais do comprador
               Not asked: Read from the dispute clause chosen in this contract. When the answer is No this line
               is off the card.
-              Old card text: California requires this notice: ARBITRATION OF DISPUTES title and NOTICE before
-              the initials line (B&P 7191). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: Contract for work on
+              Old card text: California requires this: ARBITRATION OF DISPUTES title and NOTICE before the
+              initials line (B&P 7191). The official wording is on file. When: Contract for work on
               residential property with four or fewer units that contains an arbitration clause. Format:
-              Clause titled ARBITRATION OF DISPUTES; 10 point roman ...
-              UNSURE: Applies only with an arbitration clause.
+              Clause titled ARBITRATION OF DISPUTES; 10 point roman boldface (or red 8 point boldface),
+              capitals if typed; the NOTICE sits immediately before and after the ...
+              UNSURE: The statute puts the NOTICE right before the initials line and the WE HAVE READ sentence
+              right after it. The copy on file holds both in one block, so both print together with the
+              initials after them. A lawyer should confirm.
               [line: notice:CA-7191]
 
   ACTION      For a service and repair job of $750 or less, use the service and repair notices instead (B&P 7159.10(e)(2))
               Portuguese (draft): Para um serviço de reparo de até $750.00, use os avisos de service and repair
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: Notice to the Buyer: service and repair contract
-              requirements (B&P 7159.10(e)(2)). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: Service and repair
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Service and repair notices printed in the contract (12 point bold), signed and dated by the buyer / Avisos de service and repair impressos no contrato (negrito, corpo 12), assinados e datados pelo comprador
+              Asked first: "Is this a service and repair job of $750.00 or less that the customer called you
+              about?" No takes this line off the card. Yes, Not sure or no answer keeps it.
+              Old card text: California requires this: Notice to the Buyer: service and repair contract
+              requirements (B&P 7159.10(e)(2)). The official wording is on file. When: Service and repair
               contract of $750 or less that the customer asked for, with no payment before the work is done
-              and nothing sold beyond the problem. Format: At least ...
+              and nothing sold beyond the problem. Format: At least 12-point boldface type, signed and dated
+              by the buyer.
               UNSURE: Applies only to a small service and repair job the customer asked for.
               [line: notice:CA-7159.10]
 
@@ -713,75 +718,82 @@ On the card: 24 action lines at most. Under "More about California": 28 lines.
 
   ACTION      If you charge a down payment, add the down payment statement under the heading "Downpayment" (B&P 7159(d)(8)(C))
               Portuguese (draft): Se cobrar sinal, inclua a declaração de sinal sob o título "Downpayment"
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: Downpayment statement (B&P 7159(d)(8)(C)). The
-              exact wording is not loaded yet. Get it from the official source or your attorney and attach it
-              before the customer signs. When: Only if a downpayment will be charged (a contractor furnishing
-              an approved bond is exempt, B&P 7159.5(a)(8)). Format: At least 12-point boldface type, in the
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Down payment statement printed under the heading "Downpayment" (12 point bold) / Declaração de sinal impressa sob o título "Downpayment" (negrito, corpo 12)
+              Not asked: Read from this contract's payment schedule. When the answer is No this line is off
+              the card.
+              Old card text: California requires this: Downpayment statement (B&P 7159(d)(8)(C)). The official
+              wording is on file. When: Only if a downpayment will be charged (a contractor furnishing an
+              approved bond is exempt, B&P 7159.5(a)(8)). Format: At least 12-point boldface type, in the
               downpayment details under the heading 'Downpayment'.
               [line: notice:CA-downpayment]
 
   ACTION      If there are progress payments, add the progress payment statement (B&P 7159(d)(9)(C))
               Portuguese (draft): Se houver pagamentos por etapa, inclua a declaração de pagamentos por etapa
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: Statement for the schedule of progress payments
-              (B&P 7159(d)(9)(C)). The exact wording is not loaded yet. Get it from the official source or
-              your attorney and attach it before the customer signs. When: Only if progress payments other
-              than the downpayment are to be made before the project is completed. Format: At least 12-point
-              boldface type, in the section reserved for the ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Progress payment statement printed with the payment schedule (12 point bold) / Declaração de pagamentos por etapa impressa junto à tabela de pagamentos (negrito, corpo 12)
+              Not asked: Read from this contract's payment schedule. When the answer is No this line is off
+              the card.
+              Old card text: California requires this: Statement for the schedule of progress payments (B&P
+              7159(d)(9)(C)). The official wording is on file. When: Only if progress payments other than the
+              downpayment are to be made before the project is completed. Format: At least 12-point boldface
+              type, in the section reserved for the progress payments.
               [line: notice:CA-progress-payments]
 
   ACTION      If you will use a subcontractor, add the subcontractor statement to the contract and to each change order (B&P 7159(c)(7)(B))
               Portuguese (draft): Se for usar subempreiteiro, inclua a declaração de subempreiteiro no contrato e em cada aditivo
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Subcontractor statement printed in the contract and on each change order / Declaração de subempreiteiro impressa no contrato e em cada aditivo
               Asked first: "Will subcontractors or suppliers work on this job?" No takes this line off the
               card. Yes, Not sure or no answer keeps it.
-              Old card text: California requires this notice: Subcontractor disclaimer (B&P 7159(c)(7)(B)).
-              The exact wording is not loaded yet. Get it from the official source or your attorney and attach
-              it before the customer signs. When: If the 'Yes' box is checked, indicating that a subcontractor
+              Old card text: California requires this: Subcontractor disclaimer (B&P 7159(c)(7)(B)). The
+              official wording is on file. When: If the 'Yes' box is checked, indicating that a subcontractor
               will be used on the project; the same disclaimer goes on each change order. Format: Contract
-              states whether a subcontractor will be used, with ...
+              states whether a subcontractor will be used, with a box to be checked.
               [line: notice:CA-subs-disclaimer]
 
   ACTION      Add the liability insurance (CGL) statement that is true for your business (B&P 7159(e)(1))
               Portuguese (draft): Inclua a declaração de seguro de responsabilidade (CGL) que vale para a sua empresa
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: CGL statement: does not carry insurance (B&P
-              7159(e)(1)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Notice concerning commercial general
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Liability insurance (CGL) statement that is true for your business, printed under its heading / Declaração de seguro de responsabilidade (CGL) que vale para a sua empresa, impressa sob o título
+              Old card text: California requires this: CGL statement: does not carry insurance (B&P
+              7159(e)(1)). The official wording is on file. When: Notice concerning commercial general
               liability insurance, provided to the owner as part of the contract form (or attached if the
-              contract says so); the contractor prints whichever statement ...
+              contract says so); the contractor prints whichever statement is both relevant and correct.
+              Format: Under the heading 'Commercial General Liability Insurance (CGL)' ...
               [line: notice:CA-cgl-none]
 
   ACTION      Add the workers' compensation statement that is true for your business (B&P 7159(e)(2))
               Portuguese (draft): Inclua a declaração de workers' compensation que vale para a sua empresa
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: Workers' compensation statement: no employees,
-              exempt (B&P 7159(e)(2)). The exact wording is not loaded yet. Get it from the official source or
-              your attorney and attach it before the customer signs. When: Notice concerning workers'
-              compensation insurance, provided to the owner as part of the contract form (or attached if the
-              contract says so); the contractor prints whichever ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Workers' compensation statement that is true for your business, printed under its heading / Declaração de workers' compensation que vale para a sua empresa, impressa sob o título
+              Old card text: California requires this: Workers' compensation statement: no employees, exempt
+              (B&P 7159(e)(2)). The official wording is on file. When: Notice concerning workers' compensation
+              insurance, provided to the owner as part of the contract form (or attached if the contract says
+              so); the contractor prints whichever statement is correct. Format: Under the heading 'Workers’
+              Compensation Insurance' (a separate quotation ...
+              UNSURE: The statute gives a statement for a business with no employees and for one that carries
+              the insurance. A business with employees and no insurance has no statement to print; the line
+              then stays with a person.
               [line: notice:CA-wc-exempt]
 
   ACTION      For disaster repair after a declared emergency, use the Seven-Day Right to Cancel notice and form (B&P 7159(e)(7))
               Portuguese (draft): Para reparo de desastre após emergência declarada, use o aviso e o formulário Seven-Day Right to Cancel
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: Seven-Day Right to Cancel (disaster repair) (B&P
-              7159(e)(7)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Contract written for the repair or
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Seven-Day Right to Cancel notice by the signature (12 point bold) and its form in two copies / Aviso Seven-Day Right to Cancel junto à assinatura (negrito, corpo 12) e o formulário em duas vias
+              Asked first: "Is this a repair of damage from a disaster with a declared state of emergency?" No
+              takes this line off the card. Yes, Not sure or no answer keeps it.
+              Old card text: California requires this: Seven-Day Right to Cancel (disaster repair) (B&P
+              7159(e)(7)). The official wording is on file. When: Contract written for the repair or
               restoration of residential premises damaged by a sudden or catastrophic event for which a state
-              of emergency has been declared (federal, governor or ...
+              of emergency has been declared (federal, governor or local). Format: At least 12-point boldface
+              type, in immediate proximity to a space reserved for the ...
               UNSURE: Applies only to disaster repair.
               [line: notice:CA-7day-notice]
 
   ACTION      For a new single-family home, add the Mechanics Lien Warning for new homes (B&P 7164(b)(4))
               Portuguese (draft): Para casa unifamiliar nova, inclua o Mechanics Lien Warning de casas novas
-              Who does it: PERSON ONLY
-              Old card text: California requires this notice: MECHANICS LIEN WARNING (new single-family
-              dwelling contract) (B&P 7164(b)(4)). The exact wording is not loaded yet. Get it from the
-              official source or your attorney and attach it before the customer signs. When: Contract for
-              construction of a single-family dwelling to be retained by the owner for at least one year (not
-              a remodel). Format: Statement with the heading 'Mechanics ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Mechanics Lien Warning for new homes printed under its heading / Mechanics Lien Warning de casas novas impresso sob o título
+              Asked first: "Is this the sale or construction of a newly built home?" No takes this line off
+              the card. Yes, Not sure or no answer keeps it.
+              Old card text: California requires this: MECHANICS LIEN WARNING (new single-family dwelling
+              contract) (B&P 7164(b)(4)). The official wording is on file. When: Contract for construction of
+              a single-family dwelling to be retained by the owner for at least one year (not a remodel).
+              Format: Statement with the heading 'Mechanics Lien Warning'.
               UNSURE: Applies only to building a new home.
               [line: notice:CA-7164-lien]
 
@@ -1082,14 +1094,15 @@ On the card: 13 action lines at most. Under "More about Connecticut": 15 lines.
 
   ACTION      If you send the contract by email, add the required sentence beside the message (C.G.S. 42-135a(10))
               Portuguese (draft): Se enviar o contrato por e-mail, inclua a frase exigida junto à mensagem
-              Who does it: PERSON ONLY
-              Old card text: Connecticut requires this notice: Sentence to place beside an emailed copy of the
-              agreement (C.G.S. 42-135a(10)). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: When a digital copy of
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Required sentence placed beside the message that sends the contract / Frase exigida colocada junto à mensagem que envia o contrato
+              Old card text: Connecticut requires this: Sentence to place beside an emailed copy of the
+              agreement (C.G.S. 42-135a(10)). The official wording is on file. When: When a digital copy of
               the agreement is provided by email or another electronic delivery method. Format: Immediately
-              adjacent to the body of the message, in at least ...
-              UNSURE: The app sends a link to the contract. Nobody has checked whether that message needs this
-              sentence.
+              adjacent to the body of the message, in at least twelve-point type or the size of the body of
+              the message if larger.
+              UNSURE: The app builds the message and the person sends it (text, WhatsApp or email). The
+              sentence is added to every such message. Its type size inside another app cannot be set from
+              here.
               [line: notice:CT-email-sentence]
 
   ACTION      If the customer signs a promissory note, put the required statement on the face of the note (C.G.S. 42-136(b))
@@ -1247,11 +1260,11 @@ On the card: 12 action lines at most. Under "More about Delaware": 14 lines.
   ACTION      Attach the Attorney General's "Summary of Your Rights" and hand it over before the customer signs (6 Del. Admin. Code 106, 3.1.11)
               Portuguese (draft): Anexe o "Summary of Your Rights" do Attorney General e entregue antes de o cliente assinar
               Who does it: PERSON ONLY
-              Old card text: Delaware requires this notice: Attorney General "Summary of Your Rights as a
-              Consumer in Home Improvement Transactions" (attach) (6 Del. Admin. Code 106, 3.1.11). The exact
-              wording is not loaded yet. Get it from the official source or your attorney and attach it before
-              the customer signs. When: Every home improvement contract (not new construction or a rebuild of
-              all or substantially all of a single-family ...
+              Old card text: Delaware requires this: Attorney General "Summary of Your Rights as a Consumer in
+              Home Improvement Transactions" (attach) (6 Del. Admin. Code 106, 3.1.11). The official wording
+              is on file. When: Every home improvement contract (not new construction or a rebuild of all or
+              substantially all of a single-family dwelling); handed over before the buyer signs, and again
+              with a written addition to the job. Format: ...
               [line: notice:DE-ag-summary]
 
   ACTION      Check the pool safety rules in Delaware for this job (details)
@@ -1881,7 +1894,7 @@ On the card: 13 action lines at most. Under "More about Idaho": 14 lines.
 
   ACTION      Give the list of subcontractors and suppliers before the final payment (45-525)
               Portuguese (draft): Entregue a lista de subempreiteiros e fornecedores antes do pagamento final
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: List of subcontractors and suppliers given to the owner with the contract / Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato
               Asked first: "Will subcontractors or suppliers work on this job?" No takes this line off the
               card. Yes, Not sure or no answer keeps it.
               Old card text: From the research for Idaho: 45-525 homeowner disclosure (four rights) over
@@ -2020,30 +2033,36 @@ On the card: 16 action lines at most. Under "More about Illinois": 16 lines.
   ACTION      Hand the customer the "Home Repair: Know Your Consumer Rights" pamphlet (815 ILCS 513)
               Portuguese (draft): Entregue ao cliente o folheto "Home Repair: Know Your Consumer Rights"
               Who does it: PERSON ONLY
-              Old card text: Illinois requires this notice: "Home Repair: Know Your Consumer Rights" pamphlet
-              and signed Consumer Rights Acknowledgment Form (815 ILCS 513). The exact wording is not loaded
-              yet. Get it from the official source or your attorney and attach it before the customer signs.
+              Old card text: Illinois requires this: "Home Repair: Know Your Consumer Rights" pamphlet and
+              signed Consumer Rights Acknowledgment Form (815 ILCS 513). The official wording is on file.
               When: Every home repair contract: the pamphlet is handed over; the signed Consumer Rights
-              Acknowledgment Form is added when the contract is over ...
+              Acknowledgment Form is added when the contract is over $1,000. Format: 12 point; the official
+              pamphlet must be attached from the agency's current copy.
               [line: notice:IL-pamphlet]
 
   ACTION      Get the Consumer Rights Acknowledgment Form signed by you and the customer (815 ILCS 513/20(a))
               Portuguese (draft): Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente
               Who does it: PERSON ONLY
-              Old card text: Illinois requires this notice: Consumer Rights Acknowledgment Form sentence (815
-              ILCS 513/20(a)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Contract over $1,000: the consumer signs
-              and dates an acknowledgment of receipt of the pamphlet; the contractor or representative also
-              signs and dates it, with the business name and ...
+              Old card text: Illinois requires this: Consumer Rights Acknowledgment Form sentence (815 ILCS
+              513/20(a)). The official wording is on file. When: Contract over $1,000: the consumer signs and
+              dates an acknowledgment of receipt of the pamphlet; the contractor or representative also signs
+              and dates it, with the business name and address; duplicate, incorporated into the pamphlet.
+              Format: Separate acknowledgment form entitled ...
               [line: notice:IL-ack-form]
 
   ACTION      Give the owner the lien notice and a sworn statement before the first payment (770 ILCS 60/5(b))
               Portuguese (draft): Entregue ao proprietário o aviso de gravame e a declaração juramentada antes do primeiro pagamento
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Lien notice printed in the contract (10 point bold) / Aviso de gravame impresso no contrato (negrito, corpo 10)
+  ACTION      Give the owner your sworn statement of everyone furnishing labor or materials before the first payment (770 ILCS 60/5(b))
+              Portuguese (draft): Entregue ao proprietário a sua declaração juramentada de todos que fornecem mão de obra ou materiais antes do primeiro pagamento
               Who does it: PERSON ONLY
-              Old card text: Illinois requires this notice: Owner lien notice and sworn statement (770 ILCS
-              60/5(b)). The exact wording is not loaded yet. Get it from the official source or your attorney
-              and attach it before the customer signs. When: Owner-occupied single family, before first
-              payment. Format: 10 point bold.
+              Why a person: A sworn statement is sworn by a person before a notary.
+              [line: notice:IL-lien#also]
+              Old card text: Illinois requires this: Owner lien notice and sworn statement (770 ILCS 60/5(b)).
+              The official wording is on file. When: Owner-occupied single family, before first payment.
+              Format: 10 point bold.
+              UNSURE: The notice is for an owner-occupied single-family home. The system prints it on every
+              residential job (the safe side).
               [line: notice:IL-lien]
 
   ACTION      If the contract has an arbitration or jury waiver clause, have the customer sign and write "accept" or "reject" beside it (815 ILCS 513/15.1)
@@ -2061,14 +2080,14 @@ On the card: 16 action lines at most. Under "More about Illinois": 16 lines.
 
   ACTION      If insurance money pays for the job, add the insurance cancellation statement and form (815 ILCS 513/18(f) and (g))
               Portuguese (draft): Se o seguro pagar o serviço, inclua a declaração e o formulário de cancelamento de seguro
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Insurance cancellation statement printed in the contract and its form in two copies / Declaração de cancelamento de seguro impressa no contrato e o formulário em duas vias
               Asked first: "Is an insurance claim paying for this job?" No takes this line off the card. Yes,
               Not sure or no answer keeps it.
-              Old card text: Illinois requires this notice: Insurance-proceeds jobs: 10 point bold
-              cancellation statement (815 ILCS 513/18(f) and (g)). The exact wording is not loaded yet. Get it
-              from the official source or your attorney and attach it before the customer signs. When:
-              Contract to be paid from the proceeds of a property and casualty insurance policy. Format:
-              Statement in at least 10 point boldface inside the contract; the ...
+              Old card text: Illinois requires this: Insurance-proceeds jobs: 10 point bold cancellation
+              statement (815 ILCS 513/18(f) and (g)). The official wording is on file. When: Contract to be
+              paid from the proceeds of a property and casualty insurance policy. Format: Statement in at
+              least 10 point boldface inside the contract; the duplicate NOTICE OF CANCELLATION is the
+              separate notice IL-insurance-cancel-form.
               UNSURE: Applies only to a job paid from an insurance claim.
               [line: notice:IL-insurance-cancel]
 
@@ -2195,12 +2214,12 @@ On the card: 12 action lines at most. Under "More about Indiana": 14 lines.
 
   ACTION      Give the customer the statement of the right to cancel before they sign, with the NOTICE OF CANCELLATION form in two copies (IC 24-5-11-10.6)
               Portuguese (draft): Entregue ao cliente a declaração do direito de cancelar antes de ele assinar, com o formulário NOTICE OF CANCELLATION em duas vias
-              Who does it: PERSON ONLY
-              Old card text: Indiana requires this notice: Statement of right to cancel, furnished to the
-              consumer before the contract is signed (IC 24-5-11-10.6). The exact wording is not loaded yet.
-              Get it from the official source or your attorney and attach it before the customer signs. When:
-              Every home improvement contract over $150 entered into after June 30, 2017, whether or not the
-              sale was door to door. Format: Fixed statement ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Statement of the right to cancel printed in the contract and the NOTICE OF CANCELLATION form in two copies / Declaração do direito de cancelar impressa no contrato e o formulário NOTICE OF CANCELLATION em duas vias
+              Old card text: Indiana requires this: Statement of right to cancel, furnished to the consumer
+              before the contract is signed (IC 24-5-11-10.6). The official wording is on file. When: Every
+              home improvement contract over $150 entered into after June 30, 2017, whether or not the sale
+              was door to door. Format: Fixed statement furnished before the contract is signed (no type
+              size).
               [line: notice:IN-cancel-10-6]
 
   ACTION      For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects (IC 32-27-3-12)
@@ -2359,15 +2378,22 @@ On the card: 11 action lines at most. Under "More about Iowa": 16 lines.
 
   ACTION      If you use a subcontractor, add the mechanics lien owner notice and post the job on the state registry within 10 days (Iowa Code 572.13)
               Portuguese (draft): Se usar subempreiteiro, inclua o aviso de gravame ao proprietário e registre o serviço no cadastro do estado em até 10 dias
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Mechanics lien owner notice printed in the contract (10 point bold) / Aviso de gravame ao proprietário impresso no contrato (negrito, corpo 10)
               Asked first: "Will subcontractors or suppliers work on this job?" No takes this line off the
               card. Yes, Not sure or no answer keeps it.
-              Old card text: Iowa requires this notice: Mechanics lien owner notice (Iowa Code 572.13). The
-              exact wording is not loaded yet. Get it from the official source or your attorney and attach it
-              before the customer signs. When: Residential, only when a subcontractor is used. Format:
-              Written, boldface, at least 10 point, in the contract or a separate notice; must carry the
-              registry web address (sos.iowa.gov/MNLR) and toll-free ...
-              UNSURE: Applies only when a subcontractor is used.
+  ACTION      Post the job on the state's mechanics lien registry within 10 days (Iowa Code 572.13)
+              Portuguese (draft): Registre o serviço no cadastro de gravames do estado em até 10 dias
+              Who does it: PERSON ONLY
+              Why a person: The registry is the state's own website; only a person with the contractor's
+              account can post there.
+              [line: notice:IA-lien#also]
+              Old card text: Iowa requires this: Mechanics lien owner notice (Iowa Code 572.13). The official
+              wording is on file. When: Residential, only when a subcontractor is used. Format: Written,
+              boldface, at least 10 point, in the contract or a separate notice; must carry the registry web
+              address (sos.iowa.gov/MNLR) and toll-free number (1-888-767-8683); registry posting within 10
+              days (572.13A).
+              UNSURE: The copy on file ends with one sentence that is an instruction (it carries the registry
+              address and number the notice must show). It prints as it is on file. A lawyer should confirm.
               [line: notice:IA-lien]
 
   ACTION      Check the pool safety rules in Iowa for this job (details)
@@ -2891,11 +2917,13 @@ On the card: 12 action lines at most. Under "More about Maine": 18 lines.
   ACTION      Attach the Attorney General's consumer information addendum (10 M.R.S. 1487)
               Portuguese (draft): Anexe o adendo de informações ao consumidor do Attorney General
               Who does it: PERSON ONLY
-              Old card text: Maine requires this notice: Attorney General consumer information addendum and
-              conspicuous notice with the AG website and phone (10 M.R.S. 1487). The exact wording is not
-              loaded yet. Get it from the official source or your attorney and attach it before the customer
-              signs. When: Over $3,000. Format: The Attorney General's whole addendum attached to every
-              contract over $3,000, kept current from the agency's file ...
+              Old card text: Maine requires this: Attorney General consumer information addendum and
+              conspicuous notice with the AG website and phone (10 M.R.S. 1487). The official wording is on
+              file. When: Over $3,000. Format: The Attorney General's whole addendum attached to every
+              contract over $3,000, kept current from the agency's file and never edited; the 1487(14) notice
+              must be clear and conspicuous and carry the website address and ...
+              UNSURE: The addendum changes (it lists contractors the State has sued). Apex staff must load the
+              current copy each time the Attorney General updates it.
               [line: notice:ME-ag]
 
   ACTION      Check the pool safety rules in Maine for this job (details)
@@ -3092,13 +3120,12 @@ On the card: 16 action lines at most. Under "More about Maryland": 13 lines.
 
   ACTION      If payment is secured by the home, add the security and rescission notice on the first page and get initials (BR 8-501(c)(2) and (3))
               Portuguese (draft): Se o pagamento for garantido pela casa, inclua o aviso de garantia e rescisão na primeira página e pegue as iniciais
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Security and rescission notice on the first page (10 point bold), with the owner's initials / Aviso de garantia e rescisão na primeira página (negrito, corpo 10), com as iniciais do proprietário
               Asked first: "Is payment secured by the customer's home (a lien or mortgage)?" No takes this
               line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: Maryland requires this notice: Security-interest and rescission notice (BR
-              8-501(c)(2) and (3)). The exact wording is not loaded yet. Get it from the official source or
-              your attorney and attach it before the customer signs. When: Only when payment is secured by an
-              interest in residential real estate. Format: 10 point bold on the first page, owner initials.
+              Old card text: Maryland requires this: Security-interest and rescission notice (BR 8-501(c)(2)
+              and (3)). The official wording is on file. When: Only when payment is secured by an interest in
+              residential real estate. Format: 10 point bold on the first page, owner initials.
               UNSURE: Applies only when the home secures payment.
               [line: notice:MD-security]
 
@@ -3549,14 +3576,14 @@ On the card: 12 action lines at most. Under "More about Minnesota": 15 lines.
 
   ACTION      For roofing paid by insurance, give the 72 hour cancellation statement and form before signing (Minn. Stat. 326B.811 subd. 2(a)(1))
               Portuguese (draft): Para telhado pago por seguro, entregue a declaração e o formulário de cancelamento de 72 horas antes da assinatura
-              Who does it: PERSON ONLY
-              Asked first: "Is an insurance claim paying for this job?" No takes this line off the card. Yes,
-              Not sure or no answer keeps it.
-              Old card text: Minnesota requires this notice: Insurance-paid roofing: 72 hour statement (Minn.
-              Stat. 326B.811 subd. 2(a)(1)). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: A written contract for
-              roofing goods and services to be paid from property or casualty insurance proceeds, given before
-              the contract is entered. Format: Statement in ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: 72 hour cancellation statement printed in the contract and its form in two copies / Declaração de cancelamento de 72 horas impressa no contrato e o formulário em duas vias
+              Asked first: "Is this roofing work paid by an insurance claim?" No takes this line off the card.
+              Yes, Not sure or no answer keeps it.
+              Old card text: Minnesota requires this: Insurance-paid roofing: 72 hour statement (Minn. Stat.
+              326B.811 subd. 2(a)(1)). The official wording is on file. When: A written contract for roofing
+              goods and services to be paid from property or casualty insurance proceeds, given before the
+              contract is entered. Format: Statement in boldface type of at least ten points, given before the
+              contract is entered.
               UNSURE: Applies only to roofing paid from an insurance claim.
               [line: notice:MN-roofing-cancel]
 
@@ -3672,12 +3699,15 @@ On the card: 9 action lines at most. Under "More about Mississippi": 14 lines.
 
   ACTION      Add the liability insurance disclosure just above the customer's signature (73-59-11)
               Portuguese (draft): Inclua a declaração de seguro de responsabilidade logo acima da assinatura do cliente
-              Who does it: PERSON ONLY
-              Old card text: Mississippi requires this notice: Liability insurance disclosure (73-59-11). The
-              exact wording is not loaded yet. Get it from the official source or your attorney and attach it
-              before the customer signs. When: At the time of contracting, for a licensed residential builder,
-              remodeler or roofer. Format: Placed on the contracting document immediately before the space for
-              the purchaser's signature, in bold and ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Liability insurance disclosure printed just above the customer's signature (bold, larger type) / Declaração de seguro de responsabilidade impressa logo acima da assinatura do cliente (negrito, letra maior)
+              Old card text: Mississippi requires this: Liability insurance disclosure (73-59-11). The
+              official wording is on file. When: At the time of contracting, for a licensed residential
+              builder, remodeler or roofer. Format: Placed on the contracting document immediately before the
+              space for the purchaser's signature, in bold and conspicuous type larger than the rest of the
+              contract.
+              UNSURE: The Board's wording exists only for a contractor who DOES carry general liability
+              insurance. For any other answer there is nothing official to print and the line stays with a
+              person.
               [line: notice:MS-insurance]
 
   ACTION      Check the pool safety rules in Mississippi for this job (details)
@@ -3798,12 +3828,14 @@ On the card: 10 action lines at most. Under "More about Missouri": 16 lines.
 
   ACTION      If you want your subcontractors and suppliers to keep lien rights, get the CONSENT OF OWNER signed (RSMo 429.013(2))
               Portuguese (draft): Se quiser que subempreiteiros e fornecedores mantenham o direito de gravame, pegue o CONSENT OF OWNER assinado pelo proprietário
-              Who does it: PERSON ONLY
-              Old card text: Missouri requires this notice: CONSENT OF OWNER (lets subcontractors and
-              suppliers file mechanic's liens) (RSMo 429.013(2)). The exact wording is not loaded yet. Get it
-              from the official source or your attorney and attach it before the customer signs. When: Repair,
-              remodeling or addition on owner-occupied residential property of four units or less, if the
-              contractor wants its subcontractors and suppliers to have ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: CONSENT OF OWNER printed in the contract (10 point bold) and signed by the owner on its own / CONSENT OF OWNER impresso no contrato (negrito, corpo 10) e assinado à parte pelo proprietário
+              Asked first: "Do you want your subcontractors and suppliers to keep lien rights on this job?" No
+              takes this line off the card. Yes, Not sure or no answer keeps it.
+              Old card text: Missouri requires this: CONSENT OF OWNER (lets subcontractors and suppliers file
+              mechanic's liens) (RSMo 429.013(2)). The official wording is on file. When: Repair, remodeling
+              or addition on owner-occupied residential property of four units or less, if the contractor
+              wants its subcontractors and suppliers to have lien rights. Format: Ten point bold type, signed
+              separately from the 429.012 notice.
               [line: notice:MO-consent]
 
   ACTION      For a home build or a large remodel, add the notice of the contractor's right to offer to cure defects (RSMo 436.353(2))
@@ -4214,14 +4246,15 @@ On the card: 17 action lines at most. Under "More about Nevada": 16 lines.
 
   ACTION      Give the owner the list of subcontractors and suppliers in writing (NRS 624.600)
               Portuguese (draft): Entregue ao proprietário, por escrito, a lista de subempreiteiros e fornecedores
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: List of subcontractors and suppliers given to the owner with the contract / Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato
               Asked first: "Will subcontractors or suppliers work on this job?" No takes this line off the
               card. Yes, Not sure or no answer keeps it.
-              Old card text: Nevada requires this notice: Subcontractor and supplier list and lien notice (NRS
-              624.600). The exact wording is not loaded yet. Get it from the official source or your attorney
-              and attach it before the customer signs. When: Single-family owner-occupied. Format: Provided to
-              the owner in writing; no type size; the two informational forms are fixed text under NAC 624.693
-              and 624.6932 (loaded as their own notices).
+              Old card text: Nevada requires this: Subcontractor and supplier list and lien notice (NRS
+              624.600). The official wording is on file. When: Single-family owner-occupied. Format: Provided
+              to the owner in writing; no type size; the two informational forms are fixed text under NAC
+              624.693 and 624.6932 (loaded as their own notices).
+              UNSURE: NRS 624.600 also asks for a lien notice and prescribes no wording for it. The two state
+              information forms (liens and contractors) already go to the owner with the contract.
               [line: notice:NV-sub-list]
 
   ACTION      Give the owner the two state information forms (liens and contractors) (NAC 624.693; NRS 624.600(1)(c)(2))
@@ -4650,10 +4683,9 @@ On the card: 11 action lines at most. Under "More about New Mexico": 15 lines.
   ACTION      Give the state's residential default disclosure form before work, signing or payment, and get it signed (60-13-19)
               Portuguese (draft): Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura
               Who does it: PERSON ONLY
-              Old card text: New Mexico requires this notice: Residential default disclosure (CID-approved
-              form) (60-13-19). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Before work, signature or payment.
-              Format: CID-approved form, signed; attach the agency's current copy.
+              Old card text: New Mexico requires this: Residential default disclosure (CID-approved form)
+              (60-13-19). The official wording is on file. When: Before work, signature or payment. Format:
+              CID-approved form, signed; attach the agency's current copy.
               [line: notice:NM-default]
 
   ACTION      Check the pool safety rules in New Mexico for this job (details)
@@ -4936,14 +4968,13 @@ On the card: 11 action lines at most. Under "More about North Carolina": 16 line
 
   ACTION      If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign (G.S. 25A-40(a) (home-solicitation sale defined in 25A-38))
               Portuguese (draft): Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Credit-sale cancellation statement by the signature and the Notice of Cancellation form in two copies / Declaração de cancelamento de venda a crédito junto à assinatura e o formulário Notice of Cancellation em duas vias
               Asked first: "Is the customer paying on credit (in installments or with a finance charge)?" No
               takes this line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: North Carolina requires this notice: Buyer statement near the signature (credit
-              home-solicitation sale) (G.S. 25A-40(a) (home-solicitation sale defined in 25A-38)). The exact
-              wording is not loaded yet. Get it from the official source or your attorney and attach it before
-              the customer signs. When: Consumer credit sale solicited and signed at the residence; a cash
-              sale is outside the statute (federal rule only). ...
+              Old card text: North Carolina requires this: Buyer statement near the signature (credit
+              home-solicitation sale) (G.S. 25A-40(a) (home-solicitation sale defined in 25A-38)). The
+              official wording is on file. When: Consumer credit sale solicited and signed at the residence; a
+              cash sale is outside the statute (federal rule only). Format: Mailing text.
               UNSURE: Applies only to a sale on credit. The builder asks whether the customer pays on credit.
               [line: notice:NC-cancel-credit]
 
@@ -5241,12 +5272,14 @@ On the card: 12 action lines at most. Under "More about Ohio": 19 lines.
 
   ACTION      Give the customer the estimate form at the first meeting and get their initials (Ohio Adm. Code 109:4-3-05(A)(1))
               Portuguese (draft): Entregue ao cliente o formulário de estimativa no primeiro encontro e pegue as iniciais
-              Who does it: PERSON ONLY
-              Old card text: Ohio requires this notice: Estimate form with the customer's initials (written,
-              oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)). The exact wording is not loaded yet. Get
-              it from the official source or your attorney and attach it before the customer signs. When:
-              Repairs or services over $25 with face to face contact, which covers jobs under $25,000 and
-              cleaning. Format: Form given at the first face to face ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Estimate form printed in the contract, with the customer's initials on their choice / Formulário de estimativa impresso no contrato, com as iniciais do cliente na opção escolhida
+              Old card text: Ohio requires this: Estimate form with the customer's initials (written, oral or
+              no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)). The official wording is on file. When: Repairs
+              or services over $25 with face to face contact, which covers jobs under $25,000 and cleaning.
+              Format: Form given at the first face to face contact and before work starts; may be separate or
+              part of another form; also told to the customer ...
+              UNSURE: The rule wants the form at the first face to face contact and also said out loud. The
+              system gives it with the contract; saying it out loud stays with the person.
               [line: notice:OH-estimate-form]
 
   ACTION      Check the pool safety rules in Ohio for this job (details)
@@ -5504,21 +5537,21 @@ On the card: 12 action lines at most. Under "More about Oregon": 17 lines.
   ACTION      Give the owner the CCB "Information Notice to Owner About Construction Lien Rights" on or before the contract date (ORS 87.093)
               Portuguese (draft): Entregue ao proprietário o "Information Notice to Owner About Construction Lien Rights" do CCB até a data do contrato
               Who does it: PERSON ONLY
-              Old card text: Oregon requires this notice: Information Notice to Owner About Construction Lien
-              Rights (CCB form) (ORS 87.093). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: Residential construction
-              or improvement contracts over $2,000, delivered on or before the contract date (within five days
-              if the price grows past $2,000); not needed ...
+              Old card text: Oregon requires this: Information Notice to Owner About Construction Lien Rights
+              (CCB form) (ORS 87.093). The official wording is on file. When: Residential construction or
+              improvement contracts over $2,000, delivered on or before the contract date (within five days if
+              the price grows past $2,000); not needed when the owner is a licensed contractor; failure bars
+              the lien. Format: CCB form; attach the agency's ...
               [line: notice:OR-lien]
 
   ACTION      Give the owner the CCB Consumer Protection Notice and get it signed (ORS 701.330(1); OAR 812-001-0200(2))
               Portuguese (draft): Entregue ao proprietário o Consumer Protection Notice do CCB e pegue a assinatura
               Who does it: PERSON ONLY
-              Old card text: Oregon requires this notice: Consumer Protection Notice (CCB form) (ORS
-              701.330(1); OAR 812-001-0200(2)). The exact wording is not loaded yet. Get it from the official
-              source or your attorney and attach it before the customer signs. When: Residential contracts
-              where a written contract is required (over $2,000), delivered on or before the date the contract
-              is entered into. Format: CCB form with signature lines ...
+              Old card text: Oregon requires this: Consumer Protection Notice (CCB form) (ORS 701.330(1); OAR
+              812-001-0200(2)). The official wording is on file. When: Residential contracts where a written
+              contract is required (over $2,000), delivered on or before the date the contract is entered
+              into. Format: CCB form with signature lines for the contractor and the property owner; attach
+              the agency's current copy.
               [line: notice:OR-ccb]
 
   ACTION      Check the pool safety rules in Oregon for this job (details)
@@ -5811,25 +5844,23 @@ On the card: 11 action lines at most. Under "More about Rhode Island": 17 lines.
 
   ACTION      If the customer is 62 or older, give the separate notice for buyers age 62 or older (5-65-27)
               Portuguese (draft): Se o cliente tiver 62 anos ou mais, entregue o aviso separado para compradores com 62 anos ou mais
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Separate Notice of Cancellation for buyers age 62 or older, with your name and address filled in / Notice of Cancellation separado para compradores com 62 anos ou mais, com o seu nome e endereço preenchidos
               Asked first: "Is the customer 62 or older?" No takes this line off the card. Yes, Not sure or no
               answer keeps it.
-              Old card text: Rhode Island requires this notice: Notice for buyers age 62 or older (5-65-27).
-              The exact wording is not loaded yet. Get it from the official source or your attorney and attach
-              it before the customer signs. When: In-home solicitation of an elderly person for contractor
-              work at the consumer's primary residence, including telephonic or online, except transactions
-              the consumer initiated. Format: Separate Notice of ...
+              Old card text: Rhode Island requires this: Notice for buyers age 62 or older (5-65-27). The
+              official wording is on file. When: In-home solicitation of an elderly person for contractor work
+              at the consumer's primary residence, including telephonic or online, except transactions the
+              consumer initiated. Format: Separate Notice of Cancellation under the conspicuous caption,
+              worded 'this agreement' and 'consumer's signing' (not the ...
               UNSURE: The builder does not know the customer's age.
               [line: notice:RI-62]
 
   ACTION      Attach the Board's consumer disclosures and the Summary of Registration Law (5-65)
               Portuguese (draft): Anexe as informações ao consumidor do Board e o Summary of Registration Law
               Who does it: PERSON ONLY
-              Old card text: Rhode Island requires this notice: Board consumer disclosures, insurance
-              statement and Summary of Registration Law (5-65). The exact wording is not loaded yet. Get it
-              from the official source or your attorney and attach it before the customer signs. When:
-              Contracts over $1,000; Summary of Registration Law at the start. Format: Attach the agency's
-              current copy.
+              Old card text: Rhode Island requires this: Board consumer disclosures, insurance statement and
+              Summary of Registration Law (5-65). The official wording is on file. When: Contracts over
+              $1,000; Summary of Registration Law at the start. Format: Attach the agency's current copy.
               [line: notice:RI-board]
 
   ACTION      Check the pool safety rules in Rhode Island for this job (details)
@@ -6394,14 +6425,14 @@ On the card: 14 action lines at most. Under "More about Texas": 17 lines.
 
   ACTION      Give the owner the list of subcontractors and suppliers before work starts (Tex. Prop. Code 53.256)
               Portuguese (draft): Entregue ao proprietário a lista de subempreiteiros e fornecedores antes de começar o serviço
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: List of subcontractors and suppliers given to the owner with the contract / Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato
               Asked first: "Will subcontractors or suppliers work on this job?" No takes this line off the
               card. Yes, Not sure or no answer keeps it.
-              Old card text: Texas requires this notice: Subcontractor and supplier list: the 10 point bold
-              NOTICE that the list must carry (Prop. Code 53.256). The exact wording is not loaded yet. Get it
-              from the official source or your attorney and attach it before the customer signs. When:
-              Original contractor, before construction starts, on a residential construction contract. Format:
-              Written list with the NOTICE in at least 10 point ...
+              Old card text: Texas requires this: Subcontractor and supplier list: the 10 point bold NOTICE
+              that the list must carry (Prop. Code 53.256). The official wording is on file. When: Original
+              contractor, before construction starts, on a residential construction contract. Format: Written
+              list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract
+              in at least 10 point bold.
               [line: notice:TX-sublist]
 
   ACTION      Check the pool safety rules in Texas for this job (details)
@@ -6528,12 +6559,15 @@ On the card: 10 action lines at most. Under "More about Utah": 14 lines.
 
   ACTION      Put the cancellation statement on the first page in dark bold 12 point type (Utah Code 13-11-4(2)(m), (3))
               Portuguese (draft): Coloque a declaração de cancelamento na primeira página, em negrito escuro, corpo 12
-              Who does it: PERSON ONLY
-              Old card text: Utah requires this notice: Direct solicitation sale cancellation notice (12 point
-              dark bold, first page) (Utah Code 13-11-4(2)(m), (3)). The exact wording is not loaded yet. Get
-              it from the official source or your attorney and attach it before the customer signs. When: Sale
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Cancellation statement on the first page (dark bold, 12 point) / Declaração de cancelamento na primeira página (negrito escuro, corpo 12)
+              Old card text: Utah requires this: Direct solicitation sale cancellation notice (12 point dark
+              bold, first page) (Utah Code 13-11-4(2)(m), (3)). The official wording is on file. When: Sale
               over $25 made other than at the supplier's established place of business after the supplier's
-              personal contact (in person, mail, email, fax ...
+              personal contact (in person, mail, email, fax or telephone). Format: Conspicuous statement in
+              dark bold, at least 12-point type, on the first page ...
+              UNSURE: The words in parentheses in the statute are an instruction to the seller (it may give a
+              longer period), not words to print. The system leaves them out and keeps the three business
+              days.
               [line: notice:UT-cancel]
 
   ACTION      If this is a service contract that renews for more than 12 months, put the renewal notice on the first page (Utah Code 15-10-201(2)(a))
@@ -6816,11 +6850,10 @@ On the card: 11 action lines at most. Under "More about Virginia": 13 lines.
   ACTION      Give the customer the DPOR Statement of Consumer Protections and get a signed acknowledgment (18VAC50-22-260 B 9 h)
               Portuguese (draft): Entregue ao cliente o DPOR Statement of Consumer Protections e pegue o recibo assinado
               Who does it: PERSON ONLY
-              Old card text: Virginia requires this notice: DPOR Statement of Consumer Protections
-              (18VAC50-22-260 B 9 h). The exact wording is not loaded yet. Get it from the official source or
-              your attorney and attach it before the customer signs. When: Residential. Format: Handed to the
-              consumer with the contract; the contract carries the consumer's signed acknowledgment of having
-              been provided with and read it; the form may be ...
+              Old card text: Virginia requires this: DPOR Statement of Consumer Protections (18VAC50-22-260 B
+              9 h). The official wording is on file. When: Residential. Format: Handed to the consumer with
+              the contract; the contract carries the consumer's signed acknowledgment of having been provided
+              with and read it; the form may be reproduced but not altered.
               [line: notice:VA-dpor]
 
   ACTION      Add a statement that the Contractor Transaction Recovery Fund exists and how to contact the board (18VAC50-22-260 B 9 k)
@@ -6943,12 +6976,14 @@ On the card: 12 action lines at most. Under "More about Washington": 15 lines.
 
   ACTION      If the customer pays in more than four installments or with a service charge, add the NOTICE TO BUYER above their signature (RCW 63.14.154; RCW 63.14.040(2)(e))
               Portuguese (draft): Se o cliente pagar em mais de quatro parcelas ou com taxa de serviço, inclua o NOTICE TO BUYER acima da assinatura
-              Who does it: PERSON ONLY
-              Old card text: Washington requires this notice: NOTICE TO BUYER (cancellation right, retail
-              installment contract) (RCW 63.14.154; RCW 63.14.040(2)(e)). The exact wording is not loaded yet.
-              Get it from the official source or your attorney and attach it before the customer signs. When:
-              Retail installment transaction (a service charge, or no charge and more than four installments)
-              solicited in person or by commercial telephone ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: NOTICE TO BUYER printed directly above the buyer's signature (10 point bold) / NOTICE TO BUYER impresso logo acima da assinatura do comprador (negrito, corpo 10)
+              Asked first: "Will the customer pay in more than four installments, or with a service charge?"
+              No takes this line off the card. Yes, Not sure or no answer keeps it.
+              Old card text: Washington requires this: NOTICE TO BUYER (cancellation right, retail installment
+              contract) (RCW 63.14.154; RCW 63.14.040(2)(e)). The official wording is on file. When: Retail
+              installment transaction (a service charge, or no charge and more than four installments)
+              solicited in person or by commercial telephone solicitation at a place other than the seller's
+              address on the contract; not a motor vehicle sale. ...
               UNSURE: Applies only to an installment sale.
               [line: notice:WA-cancel]
 
@@ -6967,11 +7002,11 @@ On the card: 12 action lines at most. Under "More about Washington": 15 lines.
   ACTION      Hand over L&I's construction lien information with the Notice to Customer (RCW 60.04.255(2))
               Portuguese (draft): Entregue as informações de gravame do L&I junto com o Notice to Customer
               Who does it: PERSON ONLY
-              Old card text: Washington requires this notice: L&I construction lien information handed over
-              with the Notice to Customer (RCW 60.04.255(2)). The exact wording is not loaded yet. Get it from
-              the official source or your attorney and attach it before the customer signs. When: Every
-              customer who must receive the Notice to Customer (residential work of $1,000 or more). Format: A
-              copy of L&I's master informational material on ...
+              Old card text: Washington requires this: L&I construction lien information handed over with the
+              Notice to Customer (RCW 60.04.255(2)). The official wording is on file. When: Every customer who
+              must receive the Notice to Customer (residential work of $1,000 or more). Format: A copy of
+              L&I's master informational material on construction liens, handed over with the Notice to
+              Customer.
               [line: notice:WA-lien-info]
 
   ACTION      Check the pool safety rules in Washington for this job (details)
@@ -7096,14 +7131,13 @@ On the card: 10 action lines at most. Under "More about West Virginia": 12 lines
 
   ACTION      If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign (46A-2-132; 46A-2-133 (statement); 46A-1-102(22) (definition))
               Portuguese (draft): Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: BUYER'S RIGHT TO CANCEL statement printed by the signature, with your name and address filled in / Declaração BUYER'S RIGHT TO CANCEL impressa junto à assinatura, com o seu nome e endereço preenchidos
               Asked first: "Is the customer paying on credit (in installments or with a finance charge)?" No
               takes this line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: West Virginia requires this notice: Cancellation notice (46A-2-132; 46A-2-133
-              (statement); 46A-1-102(22) (definition)). The exact wording is not loaded yet. Get it from the
-              official source or your attorney and attach it before the customer signs. When: Home
+              Old card text: West Virginia requires this: Cancellation notice (46A-2-132; 46A-2-133
+              (statement); 46A-1-102(22) (definition)). The official wording is on file. When: Home
               solicitation sale: a consumer credit sale over $25 solicited away from the seller's business
-              establishment (a cash job is under the federal rule only). ...
+              establishment (a cash job is under the federal rule only). Format: Mailing counts.
               UNSURE: Applies only to a sale on credit. The builder asks whether the customer pays on credit.
               [line: notice:WV-cancel]
 
@@ -7231,12 +7265,12 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
 
   ACTION      Give the Notice of Consumer's Right to Receive Lien Waivers as a separate page before signing, and keep proof (ATCP 110.025)
               Portuguese (draft): Entregue o Notice of Consumer's Right to Receive Lien Waivers em página separada antes da assinatura e guarde a prova
-              Who does it: PERSON ONLY
-              Old card text: Wisconsin requires this notice: Notice of Consumer's Right to Receive Lien
-              Waivers, as a separate document (ATCP 110.025). The exact wording is not loaded yet. Get it from
-              the official source or your attorney and attach it before the customer signs. When: Home
-              improvement contract; given before the buyer and seller enter into the contract, and the seller
-              keeps evidence the buyer received it. Format: In writing, ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Notice of Consumer's Right to Receive Lien Waivers on its own page, with proof the customer received it / Notice of Consumer's Right to Receive Lien Waivers em página própria, com prova de que o cliente recebeu
+              Old card text: Wisconsin requires this: Notice of Consumer's Right to Receive Lien Waivers, as a
+              separate document (ATCP 110.025). The official wording is on file. When: Home improvement
+              contract; given before the buyer and seller enter into the contract, and the seller keeps
+              evidence the buyer received it. Format: In writing, the verbatim statement only, as a separate
+              document, in a clear and conspicuous font, in a format the ...
               [line: notice:WI-lien-waiver]
 
   ACTION      If you use subcontractors or suppliers, add the lien notice to the contract (779.02(2)(a))
@@ -7254,11 +7288,13 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
   ACTION      For building or remodeling a home, give the construction defect notice with the state brochure before signing (101.148; 895.07(13))
               Portuguese (draft): Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura
               Who does it: PERSON ONLY
-              Old card text: Wisconsin requires this notice: Defect notice and brochure (101.148; 895.07(13)).
-              The exact wording is not loaded yet. Get it from the official source or your attorney and attach
-              it before the customer signs. When: Contract to construct or remodel a dwelling (pools,
+              Old card text: Wisconsin requires this: Defect notice and brochure (101.148; 895.07(13)). The
+              official wording is on file. When: Contract to construct or remodel a dwelling (pools,
               hardscape, porches, garages and basements are in; repair or maintenance only jobs are out);
-              delivered before entering a written contract, or before ...
+              delivered before entering a written contract, or before work starts if the contract is oral.
+              Format: Notice worded substantially as given, conspicuous and in ...
+              UNSURE: The notice is for building or remodeling a home (not repair or maintenance only). The
+              system prints it on every residential job (the safe side).
               [line: notice:WI-defect]
 
   ACTION      If the customer signs a promissory note, put the required legend on the note (ATCP 110.06(3))
@@ -7276,12 +7312,13 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
 
   ACTION      For basement waterproofing with no guarantee, add the no-guarantee statement on the face of the contract (ATCP 110.09(3)(j))
               Portuguese (draft): Para impermeabilização de porão sem garantia, inclua a declaração de sem garantia na frente do contrato
-              Who does it: PERSON ONLY
-              Old card text: Wisconsin requires this notice: Basement waterproofing: no-guarantee disclaimer
-              (ATCP 110.09(3)(j)). The exact wording is not loaded yet. Get it from the official source or
-              your attorney and attach it before the customer signs. When: Basement waterproofing contract
-              where the seller's services are not guaranteed. Format: On the face of the contract, separate
-              from other provisions, in bold face type.
+              Who does it: THE SYSTEM DOES IT. On the card it reads: No-guarantee statement on the face of the contract, apart from the other provisions (bold) / Declaração de sem garantia na frente do contrato, separada das outras cláusulas (negrito)
+              Asked first: "Is this basement waterproofing sold with no guarantee?" No takes this line off the
+              card. Yes, Not sure or no answer keeps it.
+              Old card text: Wisconsin requires this: Basement waterproofing: no-guarantee disclaimer (ATCP
+              110.09(3)(j)). The official wording is on file. When: Basement waterproofing contract where the
+              seller's services are not guaranteed. Format: On the face of the contract, separate from other
+              provisions, in bold face type.
               UNSURE: Applies only to basement waterproofing.
               [line: notice:WI-waterproof-noguarantee]
 
@@ -7418,12 +7455,14 @@ On the card: 11 action lines at most. Under "More about Wyoming": 18 lines.
 
   ACTION      Send the owner the NOTICE TO OWNER with a lien waiver form before you take any payment, including the deposit (W.S. 29-10-101(a); 29-2-112)
               Portuguese (draft): Envie ao proprietário o NOTICE TO OWNER com um formulário de lien waiver antes de receber qualquer pagamento, inclusive o sinal
-              Who does it: PERSON ONLY
-              Old card text: Wyoming requires this notice: NOTICE TO OWNER (preliminary notice of right to
-              lien) (W.S. 29-10-101(a); 29-2-112). The exact wording is not loaded yet. Get it from the
-              official source or your attorney and attach it before the customer signs. When: Contractor,
-              before receiving any payment including advances; sent to the record owner, with a lien waiver
-              form attached. Format: Substantially the statutory form; no ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: NOTICE TO OWNER, filled in and signed by the company, given to the owner with the lien waiver form / NOTICE TO OWNER, preenchido e assinado pela empresa, entregue ao proprietário com o formulário de lien waiver
+              Old card text: Wyoming requires this: NOTICE TO OWNER (preliminary notice of right to lien)
+              (W.S. 29-10-101(a); 29-2-112). The official wording is on file. When: Contractor, before
+              receiving any payment including advances; sent to the record owner, with a lien waiver form
+              attached. Format: Substantially the statutory form; no type size; the notice says a lien waiver
+              form is attached.
+              UNSURE: The owner gets the notice with the contract, so before any payment made after the
+              contract is sent. A payment taken before the contract is sent is outside what the system sees.
               [line: notice:WY-lien]
 
   ACTION      Check the pool safety rules in Wyoming for this job (details)

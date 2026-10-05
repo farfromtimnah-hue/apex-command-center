@@ -26,9 +26,11 @@
 //   H(why, flag)     the builder already does it.
 //   B(why, flag)     context only.
 // {state} in a sentence becomes the state's name.
-import { writeFileSync } from "node:fs";
+//                    RES-36 (see FINISH below): parts, only_yes, biz_key, ask, also,
+//                    official = how the system finishes a line whose wording is on file.
+import { writeFileSync, readFileSync } from "node:fs";
 
-function A(en, pt, o) { o = o || {}; var x = { c: "A", en: en, pt: pt }; ["ref", "ref_pt", "ref_from", "flag", "unless", "sys", "sys_en", "sys_pt", "fact", "style", "docs", "needs"].forEach(function (k) { if (o[k]) { x[k] = o[k]; } }); return x; }
+function A(en, pt, o) { o = o || {}; var x = { c: "A", en: en, pt: pt }; ["ref", "ref_pt", "ref_from", "flag", "unless", "sys", "sys_en", "sys_pt", "fact", "style", "docs", "needs", "outside"].forEach(function (k) { if (o[k]) { x[k] = o[k]; } }); return x; }
 function H(why, flag) { var x = { c: "H", why: why }; if (flag) { x.flag = flag; } return x; }
 function B(why, flag) { var x = { c: "B", why: why }; if (flag) { x.flag = flag; } return x; }
 
@@ -45,7 +47,15 @@ var SYS = {
   signed: "sees",         // the company and the customer have both signed
   sent: "sees",           // the company has signed and the contract was sent
   license: "sees",        // the license number is on file
-  deposit: "sees"         // the first payment is within the state's limit
+  deposit: "sees",        // the first payment is within the state's limit
+  parts: "does",          // RES-36: prints the notice where and how the law says, with its
+                          // blanks filled, and collects the signature or initials it needs
+                          // inside the customer's own signing visit
+  list: "does",           // builds the subcontractor and supplier list from the project and
+                          // gives it to the customer with the contract
+  email: "does",          // puts the required sentence beside the message that sends the contract
+  official: "does"        // hands over the agency's own document (loaded by Apex staff) with
+                          // the contract, and collects the signed acknowledgment when required
 };
 // The one-question facts. Asked in "This contract", Yes / No / Not sure, and
 // only in a state that has a line depending on the fact. "Not sure" and no
@@ -63,6 +73,15 @@ var FACTS = {
   insurance_paid: { en: "Is an insurance claim paying for this job?", pt: "Um seguro vai pagar este servi\u00e7o?" },
   note: { en: "Is the customer signing a promissory note?", pt: "O cliente vai assinar uma nota promiss\u00f3ria?" },
   secured: { en: "Is payment secured by the customer's home (a lien or mortgage)?", pt: "O pagamento \u00e9 garantido pela casa do cliente (gravame ou hipoteca)?" },
+  new_home: { en: "Is this the sale or construction of a newly built home?", pt: "\u00c9 a venda ou a constru\u00e7\u00e3o de uma casa nova?" },
+  disaster: { en: "Is this a repair of damage from a disaster with a declared state of emergency?", pt: "\u00c9 um reparo de dano causado por desastre com estado de emerg\u00eancia declarado?" },
+  small_repair: { en: "Is this a service and repair job of $750.00 or less that the customer called you about?", pt: "\u00c9 um servi\u00e7o de reparo de at\u00e9 $750.00 que o cliente pediu?" },
+  installments: { en: "Will the customer pay in more than four installments, or with a service charge?", pt: "O cliente vai pagar em mais de quatro parcelas, ou com taxa de servi\u00e7o?" },
+  roof_insurance: { en: "Is this roofing work paid by an insurance claim?", pt: "\u00c9 um servi\u00e7o de telhado pago por seguro?" },
+  lien_consent: { en: "Do you want your subcontractors and suppliers to keep lien rights on this job?", pt: "Voc\u00ea quer que seus subempreiteiros e fornecedores mantenham o direito de gravame neste servi\u00e7o?" },
+  waterproof: { en: "Is this basement waterproofing sold with no guarantee?", pt: "\u00c9 impermeabiliza\u00e7\u00e3o de por\u00e3o vendida sem garantia?" },
+  deposit: { known: "Read from this contract's payment schedule." },
+  progress: { known: "Read from this contract's payment schedule." },
   arbitration: { known: "Read from the dispute clause chosen in this contract." },
   arb_or_jury: { known: "Read from the dispute clause chosen in this contract." }
 };
@@ -85,8 +104,9 @@ function credit(flag) {
 }
 function note() {
   return A("If the customer signs a promissory note, put the required statement on the face of the note",
-    "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota", { fact: "note", needs: "The statement goes on the face of the note, which is not a document the builder makes.", flag: "Applies only when a note is taken." });
+    "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota", { fact: "note", outside: OUT_NOTE_TEXT, flag: "Applies only when a note is taken." });
 }
+var OUT_NOTE_TEXT = "The statement goes on the promissory note. Apex does not make promissory notes, so only a person can put it there.";
 function filing(en, pt) { return A(en, pt, { flag: "The research calls this a process, not contract text. It does not say who must file or when, so it is worded as a check." }); }
 var PAY_AHEAD = A("Check that no payment is due before the work it pays for is done", "Confira se nenhum pagamento vence antes de o serviço correspondente estar feito",
   { flag: "The builder prints the payment schedule you set; it does not compare it with the work." });
@@ -479,14 +499,225 @@ S.WY = { cancel_ref: "W.S. 40-14-253", lines: {
   "item:3": A("For exterior storm repair, check the storm repair proposal and notice rules", "Para reparo externo de tempestade, confira as regras de proposta e aviso de reparo de tempestade", { flag: "Applies only to storm repair. The research names the rules without detail or a law number." })
 } };
 
+// ── RES-36: finish the lines whose wording is on file ─────────────────────
+// A line is left for a person only when no system could do it. FIN gives the
+// builder what each such line was missing. It is merged onto the rows above
+// (FIN[state][line key]), so the sorting above stays readable.
+//   sys "parts"   the line is done by printing its parts. A part is one
+//                 notice from the rider data (n = its id; the wording is the
+//                 notice's own text_on_file, copied by the loader, never typed
+//                 here) plus how the law says it must be given:
+//                   as: "page"       its own page (default: inside the contract)
+//                   place            "first_page" | "above_signature" | "face" |
+//                                    "after:C04" (right after that clause area)
+//                   heading          the heading the law names (read by script
+//                                    from the rider data: see heading())
+//                   style            { bold, min_pt, caps, larger }
+//                   sign             the customer signs and dates this part
+//                   company_sign     the company's signature shows on it too
+//                   initials         the customer initials beside it
+//                   choose           the customer initials ONE of these blanks
+//                   copies: 2        "in duplicate": printed twice in the PDF
+//                   bare             the page carries the statement only
+//                   date_above       the transaction date prints above it
+//                   fill             [[find, value]] or [[pattern, value, "re"]]:
+//                                    a blank and what the system puts there
+//                   biz              [fact, answer]: this version is the true one
+//   only_yes      the part states a fact or asks for a signature, so it is
+//                 used only when the question was answered Yes (no answer or
+//                 "Not sure" leaves the line with a person, never a guess).
+//   biz_key       the business fact (document settings) that picks the part.
+//   ask           per-contract values the blanks need and Apex does not keep.
+//   also          the piece of the line no system can do: its own hand-tick line.
+//   official      { slot, ack }: the agency's own file, loaded by Apex staff.
+//   when_cancel   the line exists only when the contract carries a Notice of
+//                 Cancellation (sold at the customer's home).
+//   outside       why the line stays with a person for good (outside Apex).
+var RIDERS = JSON.parse(readFileSync(new URL("../data/contract-state-riders-v1.json", import.meta.url), "utf8"));
+function notice(id) {
+  var n = ((RIDERS.riders[id.slice(0, 2)] || {}).notices || []).filter(function (x) { return x.id === id; })[0];
+  if (!n) { throw new Error("no such notice: " + id); }
+  return n;
+}
+// A heading the law names is read from the rider data by pattern, never typed.
+function heading(id, field, re) {
+  var n = notice(id), src = field === "quote_note" ? ((n.range || {}).quote_note || "") : (field === "text" ? (n.text_on_file || "") : (n[field] || ""));
+  var m = re.exec(src);
+  if (!m) { throw new Error("heading not found for " + id + " in " + field); }
+  return m[1];
+}
+var B12 = { bold: true, min_pt: 12 };
+var SELLER = "{business_legal_name}", SELLER_ADDR = "{business_address}";
+var ONLY_APEX_TEXT = "The system does this line once the customer has what the law asks for inside their own signing visit.";
+var BIZ = {
+  cgl: { key: "ins_cgl", en: "Does your business carry commercial general liability insurance?", pt: "A sua empresa tem seguro de responsabilidade civil geral (CGL)?",
+    options: [{ v: "yes", en: "Yes", pt: "Sim" }, { v: "no", en: "No", pt: "Não" }, { v: "self", en: "Self-insured", pt: "Autossegurada" },
+      { v: "llc", en: "LLC with liability insurance or other security required by law", pt: "LLC com seguro ou outra garantia exigida por lei" }],
+    extra: [{ key: "ins_cgl_insurer", en: "Insurance company (name)", pt: "Seguradora (nome)", when: ["yes", "llc"] },
+      { key: "ins_cgl_phone", en: "Insurance company's phone", pt: "Telefone da seguradora", when: ["yes", "llc"] },
+      { key: "ins_cgl_policy", en: "Policy number", pt: "Número da apólice", when: ["yes"] }] },
+  wc: { key: "ins_wc", en: "Does your business carry workers' compensation insurance?", pt: "A sua empresa tem seguro de acidentes de trabalho (workers' compensation)?",
+    options: [{ v: "yes", en: "Yes, for all employees", pt: "Sim, para todos os funcionários" }, { v: "no", en: "No", pt: "Não" }, { v: "no_employees", en: "No employees", pt: "Sem funcionários" }], extra: [] }
+};
+var ASK = {
+  service_charge_pct: { en: "Service charge rate, percent per year (for example 12)", pt: "Taxa de serviço, por cento ao ano (por exemplo 12)" },
+  legal_description: { en: "Legal description of the property (from the deed or the county record)", pt: "Descrição legal do imóvel (da escritura ou do registro do condado)" },
+  property_description: { en: "Short description of the property", pt: "Descrição curta do imóvel" },
+  work_description: { en: "Materials provided or work performed", pt: "Materiais fornecidos ou serviço feito" }
+};
+function cancelForm(id, fill) { return { n: id, as: "page", copies: 2, style: BOLD10, fill: fill }; }
+var NAME_ADDR = [["(name of contractor)", SELLER], ["(address of contractor's place of business)", SELLER_ADDR]];
+var LIST_EN = "List of subcontractors and suppliers given to the owner with the contract", LIST_PT = "Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato";
+var OUT_NOTE = "The statement goes on the promissory note. Apex does not make promissory notes, so only a person can put it there.";
+var FIN = {
+  AK: { "notice:AK-defect-notice": { sys: "parts", only_yes: true, parts: [{ n: "AK-defect-notice", as: "page", heading: heading("AK-defect-notice", "title", /^(.+?) \(/), style: { bold: true, caps: true }, sign: true }],
+    sys_en: "\"Notice of Potential Claims Must Be Provided within One Year\" page, signed by the customer", sys_pt: "Página \"Notice of Potential Claims Must Be Provided within One Year\", assinada pelo cliente" } },
+  AZ: { "notice:AZ-note-statement": { outside: OUT_NOTE },
+    "notice:AZ-pool-notice": { sys: "official", official: { slot: "AZ-pool-notice" }, sys_en: "State pool safety notice given to the customer with the contract", sys_pt: "Aviso estadual de seguran\u00e7a de piscina entregue ao cliente junto com o contrato" },
+    "notice:AZ-new-dwelling": { sys: "parts", fact: "new_home", only_yes: true, parts: [{ n: "AZ-new-dwelling", style: BOLD10, initials: true }],
+      sys_en: "Registrar complaint provision printed in the contract (10 point bold), with the buyer's initials", sys_pt: "Cláusula de reclamação do Registrar impressa no contrato (negrito, corpo 10), com as iniciais do comprador" } },
+  AR: { "notice:AR-lien": { sys: "parts", parts: [{ n: "AR-lien", as: "page", style: { bold: true, caps: true }, sign: true, company_sign: true,
+      fill: [["SIGNED:______________________________", "SIGNED: {state_part_signature}"], ["ADDRESS OF PROPERTY: _______________", "ADDRESS OF PROPERTY: {property_address}"], ["DATE:_____________", "DATE: {state_part_date}"], ["__________________\nCONTRACTOR", "{state_part_company_signature}\nCONTRACTOR"]] }],
+    sys_en: "IMPORTANT NOTICE TO OWNER (lien notice) signed by the owner", sys_pt: "IMPORTANT NOTICE TO OWNER (aviso de gravame) assinado pelo proprietário" } },
+  CA: {
+    "notice:CA-7159.1": { sys: "parts", only_yes: true, parts: [{ n: "CA-7159.1", as: "page", style: { bold: true, min_pt: 18 }, sign: true }],
+      sys_en: "WARNING TO BUYER on its own page (18 point bold), signed and dated by the buyer", sys_pt: "WARNING TO BUYER em página própria (negrito, corpo 18), assinado e datado pelo comprador" },
+    "notice:CA-7191": { sys: "parts", parts: [{ n: "CA-7191", place: "after:C14", heading: heading("CA-7191", "format", /titled ([A-Z ]+);/), style: { bold: true, min_pt: 10, caps: true }, initials: true }],
+      sys_en: "ARBITRATION OF DISPUTES notice printed after the arbitration clause, with the buyer's initials", sys_pt: "Aviso ARBITRATION OF DISPUTES impresso depois da cláusula de arbitragem, com as iniciais do comprador",
+      flag: "The statute puts the NOTICE right before the initials line and the WE HAVE READ sentence right after it. The copy on file holds both in one block, so both print together with the initials after them. A lawyer should confirm." },
+    "notice:CA-7159.10": { sys: "parts", fact: "small_repair", only_yes: true, parts: [{ n: "CA-7159.10", style: B12, sign: true }, { n: "CA-7159.10-copy", style: B12 }, { n: "CA-7159.10-cancel", place: "above_signature", style: B12 }],
+      sys_en: "Service and repair notices printed in the contract (12 point bold), signed and dated by the buyer", sys_pt: "Avisos de service and repair impressos no contrato (negrito, corpo 12), assinados e datados pelo comprador" },
+    "notice:CA-downpayment": { sys: "parts", fact: "deposit", parts: [{ n: "CA-downpayment", place: "after:C04", heading: heading("CA-downpayment", "format", /heading '([^']+)'/), style: B12 }],
+      sys_en: "Down payment statement printed under the heading \"Downpayment\" (12 point bold)", sys_pt: "Declaração de sinal impressa sob o título \"Downpayment\" (negrito, corpo 12)" },
+    "notice:CA-progress-payments": { sys: "parts", fact: "progress", parts: [{ n: "CA-progress-payments", place: "after:C04", style: B12 }],
+      sys_en: "Progress payment statement printed with the payment schedule (12 point bold)", sys_pt: "Declaração de pagamentos por etapa impressa junto à tabela de pagamentos (negrito, corpo 12)" },
+    "notice:CA-subs-disclaimer": { sys: "parts", only_yes: true, parts: [{ n: "CA-subs-disclaimer" }], co_parts: ["CA-subs-disclaimer"],
+      sys_en: "Subcontractor statement printed in the contract and on each change order", sys_pt: "Declaração de subempreiteiro impressa no contrato e em cada aditivo" },
+    "notice:CA-cgl-none": { sys: "parts", biz_key: "cgl", parts: [
+        { n: "CA-cgl-none", biz: ["cgl", "no"], heading: heading("CA-cgl-none", "format", /heading '([^']+)'/), fill: [[heading("CA-cgl-none", "text", /^(\([^)]*\))/), SELLER]] },
+        { n: "CA-cgl-insured", biz: ["cgl", "yes"], heading: heading("CA-cgl-insured", "format", /heading '([^']+)'/), fill: [[heading("CA-cgl-insured", "text", /^(\([^)]*\))/), SELLER], ["(the insurance company)", "{biz_cgl_insurer}"], ["__________", "{biz_cgl_phone}"]] },
+        { n: "CA-cgl-self", biz: ["cgl", "self"], heading: heading("CA-cgl-self", "format", /heading '([^']+)'/), fill: [[heading("CA-cgl-self", "text", /^(\([^)]*\))/), SELLER]] },
+        { n: "CA-cgl-llc", biz: ["cgl", "llc"], heading: heading("CA-cgl-llc", "format", /heading '([^']+)'/), fill: [[heading("CA-cgl-llc", "text", /^(\([^)]*\))/), SELLER], ["(the insurance company or trust company or bank)", "{biz_cgl_insurer}"], ["____", "{biz_cgl_phone}"]] }],
+      sys_en: "Liability insurance (CGL) statement that is true for your business, printed under its heading", sys_pt: "Declaração de seguro de responsabilidade (CGL) que vale para a sua empresa, impressa sob o título" },
+    "notice:CA-wc-exempt": { sys: "parts", biz_key: "wc", parts: [
+        { n: "CA-wc-exempt", biz: ["wc", "no_employees"], heading: heading("CA-wc-exempt", "format", /heading '([^']+)'/), fill: [[heading("CA-wc-exempt", "text", /^(\([^)]*\))/), SELLER]] },
+        { n: "CA-wc-carries", biz: ["wc", "yes"], heading: heading("CA-wc-carries", "format", /heading '([^']+)'/), fill: [[heading("CA-wc-carries", "text", /^(\([^)]*\))/), SELLER]] }],
+      sys_en: "Workers' compensation statement that is true for your business, printed under its heading", sys_pt: "Declaração de workers' compensation que vale para a sua empresa, impressa sob o título",
+      flag: "The statute gives a statement for a business with no employees and for one that carries the insurance. A business with employees and no insurance has no statement to print; the line then stays with a person." },
+    "notice:CA-7day-notice": { sys: "parts", fact: "disaster", only_yes: true, parts: [{ n: "CA-7day-notice", place: "above_signature", style: B12, sign: true },
+        cancelForm("CA-7day-form", [["/enter date of transaction/", "{transaction_date}"], ["to ,", "to " + SELLER + ","], ["at\n\n/address", "at " + SELLER_ADDR + "\n\n/address"], ["not later than midnight of .", "not later than midnight of {state_deadline_7}."]])],
+      sys_en: "Seven-Day Right to Cancel notice by the signature (12 point bold) and its form in two copies", sys_pt: "Aviso Seven-Day Right to Cancel junto à assinatura (negrito, corpo 12) e o formulário em duas vias" },
+    "notice:CA-7164-lien": { sys: "parts", fact: "new_home", only_yes: true, parts: [{ n: "CA-7164-lien", heading: heading("CA-7164-lien", "format", /heading '([^']+)'/) }],
+      sys_en: "Mechanics Lien Warning for new homes printed under its heading", sys_pt: "Mechanics Lien Warning de casas novas impresso sob o título" }
+  },
+  CT: { "notice:CT-note-statement": { outside: OUT_NOTE },
+    "notice:CT-email-sentence": { sys: "email", when_cancel: true, parts: [{ n: "CT-email-sentence", as: "message" }], sys_en: "Required sentence placed beside the message that sends the contract", sys_pt: "Frase exigida colocada junto à mensagem que envia o contrato",
+      flag: "The app builds the message and the person sends it (text, WhatsApp or email). The sentence is added to every such message. Its type size inside another app cannot be set from here." } },
+  DE: { "notice:DE-ag-summary": { sys: "official", official: { slot: "DE-ag-summary" }, sys_en: "Attorney General's \"Summary of Your Rights\" given to the customer before they sign", sys_pt: "\"Summary of Your Rights\" do Attorney General entregue ao cliente antes de ele assinar" } },
+  ID: { "item:2": { sys: "list", sys_en: LIST_EN, sys_pt: LIST_PT } },
+  IL: {
+    "notice:IL-pamphlet": { sys: "official", official: { slot: "IL-pamphlet" }, sys_en: "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer before they sign", sys_pt: "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente antes de ele assinar" },
+    "notice:IL-ack-form": { sys: "parts", needs_slot: "IL-pamphlet", parts: [{ n: "IL-ack-form", as: "page", heading: heading("IL-ack-form", "format", /entitled ([A-Za-z ]+),/), sign: true, company_sign: true, copies: 2 }],
+      sys_en: "Consumer Rights Acknowledgment Form signed by the customer and the company, in two copies", sys_pt: "Consumer Rights Acknowledgment Form assinado pelo cliente e pela empresa, em duas vias" },
+    "notice:IL-lien": { sys: "parts", parts: [{ n: "IL-lien", style: BOLD10 }], sys_en: "Lien notice printed in the contract (10 point bold)", sys_pt: "Aviso de gravame impresso no contrato (negrito, corpo 10)",
+      also: { en: "Give the owner your sworn statement of everyone furnishing labor or materials before the first payment", pt: "Entregue ao proprietário a sua declaração juramentada de todos que fornecem mão de obra ou materiais antes do primeiro pagamento", why: "A sworn statement is sworn by a person before a notary." },
+      flag: "The notice is for an owner-occupied single-family home. The system prints it on every residential job (the safe side)." },
+    "notice:IL-insurance-cancel": { sys: "parts", only_yes: true, parts: [{ n: "IL-insurance-cancel", style: BOLD10 }, cancelForm("IL-insurance-cancel-form", NAME_ADDR)],
+      sys_en: "Insurance cancellation statement printed in the contract and its form in two copies", sys_pt: "Declaração de cancelamento de seguro impressa no contrato e o formulário em duas vias" }
+  },
+  IN: { "notice:IN-cancel-10-6": { sys: "parts", parts: [{ n: "IN-cancel-10-6", fill: [["\\(name\\s+of\\s+real\\s+property\\s+improvement\\s+supplier\\)", SELLER, "re"]] },
+      cancelForm("IN-cancel-10-6-form", [["\\(name\\s+of\\s+real\\s+property\\s+improvement\\s+supplier\\)", SELLER, "re"], ["\\(address\\s+of\\s+real\\s+property\\s+improvement\\s+supplier's\\s+place\\s+of\\s+business\\)", SELLER_ADDR, "re"],
+        ["\\(electronic\\s+mail\\s+address\\s+described\\s+in\\s+section\\s+10\\(a\\)\\(2\\)\\(A\\)\\s+or\\s+10\\(a\\)\\(2\\)\\(B\\)\\(iii\\)\\s+of\\s+this\\s+chapter\\)", "{business_email}", "re"]])],
+    sys_en: "Statement of the right to cancel printed in the contract and the NOTICE OF CANCELLATION form in two copies", sys_pt: "Declaração do direito de cancelar impressa no contrato e o formulário NOTICE OF CANCELLATION em duas vias" } },
+  IA: { "notice:IA-lien": { sys: "parts", parts: [{ n: "IA-lien", style: BOLD10 }], sys_en: "Mechanics lien owner notice printed in the contract (10 point bold)", sys_pt: "Aviso de gravame ao proprietário impresso no contrato (negrito, corpo 10)",
+    also: { en: "Post the job on the state's mechanics lien registry within 10 days", pt: "Registre o serviço no cadastro de gravames do estado em até 10 dias", why: "The registry is the state's own website; only a person with the contractor's account can post there." },
+    flag: "The copy on file ends with one sentence that is an instruction (it carries the registry address and number the notice must show). It prints as it is on file. A lawyer should confirm." } },
+  MD: { "notice:MD-security": { sys: "parts", only_yes: true, parts: [{ n: "MD-security", place: "first_page", style: BOLD10, initials: true }],
+    sys_en: "Security and rescission notice on the first page (10 point bold), with the owner's initials", sys_pt: "Aviso de garantia e rescisão na primeira página (negrito, corpo 10), com as iniciais do proprietário" } },
+  ME: { "notice:ME-ag": { sys: "official", official: { slot: "ME-ag" }, sys_en: "Attorney General's consumer information addendum given to the customer with the contract", sys_pt: "Adendo de informa\u00e7\u00f5es ao consumidor do Attorney General entregue ao cliente junto com o contrato",
+    flag: "The addendum changes (it lists contractors the State has sued). Apex staff must load the current copy each time the Attorney General updates it." } },
+  NM: { "notice:NM-default": { sys: "official", official: { slot: "NM-default", ack: true }, sys_en: "State residential default disclosure form given to the customer, with their signed acknowledgment", sys_pt: "Formul\u00e1rio estadual de residential default disclosure entregue ao cliente, com o recibo assinado" } },
+  OR: { "notice:OR-lien": { sys: "official", official: { slot: "OR-lien" }, sys_en: "CCB \"Information Notice to Owner About Construction Lien Rights\" given to the owner with the contract", sys_pt: "\"Information Notice to Owner About Construction Lien Rights\" do CCB entregue ao propriet\u00e1rio junto com o contrato" },
+    "notice:OR-ccb": { sys: "official", official: { slot: "OR-ccb", ack: true }, sys_en: "CCB Consumer Protection Notice given to the owner, with their signed acknowledgment", sys_pt: "Consumer Protection Notice do CCB entregue ao propriet\u00e1rio, com o recibo assinado" } },
+  MN: { "notice:MN-roofing-cancel": { sys: "parts", fact: "roof_insurance", only_yes: true, parts: [{ n: "MN-roofing-cancel", style: BOLD10 }, cancelForm("MN-roofing-cancel-form", NAME_ADDR)],
+    sys_en: "72 hour cancellation statement printed in the contract and its form in two copies", sys_pt: "Declaração de cancelamento de 72 horas impressa no contrato e o formulário em duas vias" } },
+  MS: { "notice:MS-insurance": { sys: "parts", biz_key: "cgl", parts: [{ n: "MS-insurance", biz: ["cgl", "yes"], place: "above_signature", style: { bold: true, larger: true },
+      fill: [["The name of the insurer is __________________", "The name of the insurer is {biz_cgl_insurer}"], ["the policy number is _________________", "the policy number is {biz_cgl_policy}"]] }],
+    sys_en: "Liability insurance disclosure printed just above the customer's signature (bold, larger type)", sys_pt: "Declaração de seguro de responsabilidade impressa logo acima da assinatura do cliente (negrito, letra maior)",
+    flag: "The Board's wording exists only for a contractor who DOES carry general liability insurance. For any other answer there is nothing official to print and the line stays with a person." } },
+  MO: { "notice:MO-consent": { sys: "parts", fact: "lien_consent", only_yes: true, parts: [{ n: "MO-consent", style: BOLD10, sign: true }],
+    sys_en: "CONSENT OF OWNER printed in the contract (10 point bold) and signed by the owner on its own", sys_pt: "CONSENT OF OWNER impresso no contrato (negrito, corpo 10) e assinado à parte pelo proprietário" } },
+  NV: { "notice:NV-sub-list": { sys: "list", sys_en: LIST_EN, sys_pt: LIST_PT, flag: "NRS 624.600 also asks for a lien notice and prescribes no wording for it. The two state information forms (liens and contractors) already go to the owner with the contract." } },
+  NC: { "notice:NC-cancel-credit": { sys: "parts", only_yes: true, parts: [{ n: "NC-cancel-credit", place: "above_signature", style: BOLD10 },
+      cancelForm("NC-cancel-credit-form", [[" (enter date of transaction)", " {transaction_date}"], ["send a telegram to _________________", "send a telegram to " + SELLER], ["at______________________________,", "at " + SELLER_ADDR + ","], ["not later than midnight of __________________", "not later than midnight of {cancellation_deadline_date}"]])],
+    sys_en: "Credit-sale cancellation statement by the signature and the Notice of Cancellation form in two copies", sys_pt: "Declaração de cancelamento de venda a crédito junto à assinatura e o formulário Notice of Cancellation em duas vias" } },
+  OH: { "notice:OH-estimate-form": { sys: "parts", parts: [{ n: "OH-estimate-form", choose: ["_____ written estimate", "_____ oral estimate", "_____ no estimate"] }],
+    sys_en: "Estimate form printed in the contract, with the customer's initials on their choice", sys_pt: "Formulário de estimativa impresso no contrato, com as iniciais do cliente na opção escolhida",
+    flag: "The rule wants the form at the first face to face contact and also said out loud. The system gives it with the contract; saying it out loud stays with the person." } },
+  RI: { "notice:RI-board": { sys: "official", official: { slot: "RI-board" }, sys_en: "Board's consumer disclosures and Summary of Registration Law given to the customer with the contract", sys_pt: "Informa\u00e7\u00f5es ao consumidor do Board e Summary of Registration Law entregues ao cliente junto com o contrato" },
+    "notice:RI-62": { sys: "parts", only_yes: true, parts: [{ n: "RI-62", as: "page", heading: heading("RI-62", "quote_note", /caption '([^']+)'/), date_above: true, style: BOLD,
+      fill: [["(insert name and address of the seller)", SELLER + ", " + SELLER_ADDR]] }],
+    sys_en: "Separate Notice of Cancellation for buyers age 62 or older, with your name and address filled in", sys_pt: "Notice of Cancellation separado para compradores com 62 anos ou mais, com o seu nome e endereço preenchidos" } },
+  TX: { "notice:TX-sublist": { sys: "list", parts: [{ n: "TX-sublist", as: "list_notice", style: BOLD10 }], sys_en: LIST_EN, sys_pt: LIST_PT } },
+  UT: { "notice:UT-cancel": { sys: "parts", parts: [{ n: "UT-cancel", place: "first_page", style: B12, fill: [[" (or time period reflecting the supplier's cancellation policy but not less than three business days)", ""]] }],
+    sys_en: "Cancellation statement on the first page (dark bold, 12 point)", sys_pt: "Declaração de cancelamento na primeira página (negrito escuro, corpo 12)",
+    flag: "The words in parentheses in the statute are an instruction to the seller (it may give a longer period), not words to print. The system leaves them out and keeps the three business days." } },
+  VA: { "notice:VA-dpor": { sys: "official", official: { slot: "VA-dpor", ack: true }, sys_en: "DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment", sys_pt: "DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado" } },
+  WA: { "notice:WA-lien-info": { sys: "official", official: { slot: "WA-lien-info" }, sys_en: "L&I's construction lien information given to the customer with the contract", sys_pt: "Informa\u00e7\u00f5es de gravame do L&I entregues ao cliente junto com o contrato" },
+    "notice:WA-cancel": { sys: "parts", fact: "installments", only_yes: true, ask: ["service_charge_pct"], parts: [{ n: "WA-cancel", place: "above_signature", style: BOLD10, fill: [[". . . .% (must be filled in)", "{sv_service_charge_pct}%"]] }],
+    sys_en: "NOTICE TO BUYER printed directly above the buyer's signature (10 point bold)", sys_pt: "NOTICE TO BUYER impresso logo acima da assinatura do comprador (negrito, corpo 10)" } },
+  WV: { "notice:WV-cancel": { sys: "parts", only_yes: true, parts: [{ n: "WV-cancel", place: "above_signature", heading: heading("WV-cancel-caption", "text", /^([\s\S]+)$/), style: BOLD, fill: [["(Name and mailing address of seller)", SELLER + ", " + SELLER_ADDR]] }],
+    sys_en: "BUYER'S RIGHT TO CANCEL statement printed by the signature, with your name and address filled in", sys_pt: "Declaração BUYER'S RIGHT TO CANCEL impressa junto à assinatura, com o seu nome e endereço preenchidos" } },
+  WI: {
+    "notice:WI-lien-waiver": { sys: "parts", parts: [{ n: "WI-lien-waiver", as: "page", bare: true, sign: true }],
+      sys_en: "Notice of Consumer's Right to Receive Lien Waivers on its own page, with proof the customer received it", sys_pt: "Notice of Consumer's Right to Receive Lien Waivers em página própria, com prova de que o cliente recebeu" },
+    "notice:WI-defect": { sys: "official", official: { slot: "WI-brochure" }, parts: [{ n: "WI-defect", style: BOLD }],
+      sys_en: "Construction defect notice printed in the contract and the state brochure given with it", sys_pt: "Aviso de defeitos de construção impresso no contrato e o folheto do estado entregue junto",
+      flag: "The notice is for building or remodeling a home (not repair or maintenance only). The system prints it on every residential job (the safe side)." },
+    "notice:WI-note-legend": { outside: OUT_NOTE },
+    "notice:WI-waterproof-noguarantee": { sys: "parts", fact: "waterproof", only_yes: true, parts: [{ n: "WI-waterproof-noguarantee", place: "face", style: BOLD }],
+      sys_en: "No-guarantee statement on the face of the contract, apart from the other provisions (bold)", sys_pt: "Declaração de sem garantia na frente do contrato, separada das outras cláusulas (negrito)" }
+  },
+  WY: { "notice:WY-lien": { sys: "parts", ask: ["work_description", "property_description", "legal_description"], parts: [{ n: "WY-lien", as: "page", company_sign: true, fill: [
+        ["(and contact person:\\n)_+\\n_+\\n_+", "$1" + SELLER + "\n" + SELLER_ADDR + "\n{business_phone}, {company_signer_name}", "re"],
+        ["(MATERIALS PROVIDED OR WORK PERFORMED:\\n)_+\\n_+\\n_+", "$1{sv_work_description}", "re"],
+        ["(PROPERTY DESCRIPTION:\\n)_+\\n_+\\n_+", "$1{sv_property_description}", "re"],
+        ["(ADDRESS:\\n)_+\\n_+\\n_+", "$1{property_address}", "re"],
+        ["(LEGAL DESCRIPTION:\\n)_+\\n_+\\n_+", "$1{sv_legal_description}", "re"],
+        ["SIGNED: ________________", "SIGNED: {state_part_company_signature}"], ["DATE: __________________", "DATE: {state_part_company_date}"]] },
+      { n: "WY-lien-waiver", as: "page" }],
+    sys_en: "NOTICE TO OWNER, filled in and signed by the company, given to the owner with the lien waiver form", sys_pt: "NOTICE TO OWNER, preenchido e assinado pela empresa, entregue ao proprietário com o formulário de lien waiver",
+    flag: "The owner gets the notice with the contract, so before any payment made after the contract is sent. A payment taken before the contract is sent is outside what the system sees." } }
+};
+Object.keys(FIN).forEach(function (code) {
+  Object.keys(FIN[code]).forEach(function (key) {
+    var row = S[code].lines[key], add = FIN[code][key];
+    if (!row || row.c !== "A") { throw new Error("FIN: no action line " + code + " " + key); }
+    delete row.needs;
+    Object.keys(add).forEach(function (k) { row[k] = add[k]; });
+    // Every blank named here must really be in the wording on file.
+    (row.parts || []).forEach(function (p) {
+      var n = notice(p.n), text = String(n.text_on_file || "");
+      if (!text || n.source_status !== "VERBATIM-OFFICIAL" || n.hold_reason) { throw new Error("FIN: " + p.n + " is not an official verbatim copy on file"); }
+      (p.fill || []).forEach(function (f) {
+        var hit = f[2] === "re" ? new RegExp(f[0]).test(text) : text.indexOf(f[0]) !== -1;
+        if (!hit) { throw new Error("FIN: blank not found in " + p.n + ": " + f[0]); }
+      });
+      (p.choose || []).forEach(function (c) { if (text.indexOf(c) === -1) { throw new Error("FIN: choice not found in " + p.n + ": " + c); } });
+    });
+  });
+});
+
 Object.keys(FIXED).forEach(function (k) { generic[k] = FIXED[k]; });
 
 var out = {
-  version: 2,
+  version: 3,
   source: "Sorted by reading data/contract-state-riders-v1.json. Edit scripts/make-state-checklist-data.mjs, not this file.",
   note: "c: A = action (a line on the Before you send card), H = handled by the builder, B = background. A line with no entry is background. An action line with sys is done or seen by the system (sys_kinds says which); without sys it is ticked by a person. fact = the one-question fact the line depends on. No lawyer has reviewed this sorting.",
   sys_kinds: SYS,
   facts: FACTS,
+  biz_facts: BIZ,
+  ask: ASK,
   ref_fallback: { en: "details", pt: "detalhes" },
   generic: generic,
   states: S

@@ -117,6 +117,19 @@
        (bold, never under 10 point; 12 point where the statute says so). */
     .locked.sys-em p { font-size: 10.5pt; font-weight: 700; }
     .locked.sys-em12 p { font-size: 12pt; }
+    /* RES-36: the type a statute states, a notice set apart on the face of
+       the contract, a heading the law names, a separately signed page. */
+    .locked.sys-em18 p { font-size: 18pt; line-height: 1.25; }
+    .locked.sys-larger p { font-size: 12pt; }
+    .locked.sys-caps p { text-transform: uppercase; }
+    .locked.state-face { border: 1.5pt solid #000; padding: 6pt; }
+    .state-h { font-size: 11pt; font-weight: 800; margin-bottom: 3pt; }
+    .sp-rec { font-size: 9pt; margin: 2pt 0 8pt; }
+    .sp-rec .tok-typed { font-size: 13pt; }
+    .sp-page-h { font-size: 13pt; font-weight: 800; margin-bottom: 6pt; padding-top: 0.2in; }
+    .sp-copy { font-size: 8pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6pt; }
+    .sp-list { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    .sp-list td, .sp-list th { border-bottom: 0.5pt solid #999; padding: 4pt 4pt 4pt 0; text-align: left; vertical-align: top; }
     .statedoc-h { font-size: 12pt; font-weight: 800; margin-bottom: 2pt; }
     .statedoc-note { font-size: 8.5pt; color: var(--muted); margin-bottom: 6pt; }
     .statedoc p { font-size: 10pt; margin-bottom: 5pt; white-space: pre-wrap; }
@@ -342,6 +355,18 @@
       if (k === "owner_marketing_consent_checkbox") { return con.marketing_consent ? "[X]" : "[ ]"; }
       if (k === "customer_signature") { return tokSig(hs || null, ownerName); }
       if (k === "customer_signature_date") { return hs ? escHtml(fmtDate(hs.signed_at)) : tokLine(false); }
+      // State parts (RES-36): the signature, date and initials of the part being printed.
+      if (k === "state_part_signature" || k === "state_part_date") {
+        var spRec = curPart ? spDone("sign", curPart.id) : null;
+        if (k === "state_part_date") { return spRec ? escHtml(fmtDate(spRec.signed_at)) : tokLine(false); }
+        return spRec ? '<span class="tok-typed">' + escHtml(spRec.signer_name || "") + '</span>' : tokLine(true);
+      }
+      if (k === "state_part_company_signature") { return tokSig(cs ? { kind: cs.kind, image_url: cs.image_url } : null, cs ? cs.signer_name : ""); }
+      if (k === "state_part_company_date") { return cs ? escHtml(fmtDate(cs.signed_at)) : tokLine(false); }
+      if (k === "state_part_initials") {
+        var spIni = curPart ? (spDone("choose", curPart.id) || spDone("initials", curPart.id)) : null;
+        return spIni ? '<span class="tok-typed">' + escHtml(spIni.initials || "") + '</span>' : tokLine(false);
+      }
       console.error("[contract] unfilled placeholder removed from homeowner text: {" + name + "}");
       return "";
     }
@@ -367,6 +392,80 @@
     // Every page of a contract that is not signed by both parties says so.
     function unsignedBandHtml() { return con && con.status !== "completed" && con.status !== "void" ? '<div class="nsband">NOT SIGNED - FOR REVIEW</div>' : ""; }
     function paraFmt(t) { return richHtml(t); }
+    // ── State parts (RES-36) ─────────────────────────────────────────────
+    // A notice a state wants in a set place, in a stated type, on its own
+    // signed page, or with initials. con.state_parts carries what was signed.
+    var curPart = null;   // the part whose text is being printed (for its tokens)
+    function sp() { return (con && con.state_parts) || null; }
+    function spDone(kind, id) { var x = sp(); var d = x && x.done && x.done[kind]; return d && d[id] ? d[id] : null; }
+    function spEm(s) {
+      var em = s.system === true && s.emphasis ? s.emphasis : null;
+      if (!em) { return ""; }
+      return " sys-em" + (em.min_pt >= 18 ? " sys-em18" : (em.min_pt >= 12 ? " sys-em12" : "")) + (em.caps ? " sys-caps" : "") + (em.larger ? " sys-larger" : "");
+    }
+    function spFmt(s) { return function(t) { curPart = s; var h = richHtml(t); curPart = null; return h; }; }
+    function spText(s) {
+      var text = flowText(s.text), ch = s.choose ? spDone("choose", s.id) : null;
+      if (ch && s.choose[ch.index]) { text = text.split(s.choose[ch.index]).join(s.choose[ch.index].replace(/^_+/, "{state_part_initials}")); }
+      return text;
+    }
+    // The line under a part: who signed or initialed it and when, or the
+    // empty lines that wait for it.
+    function spRecordHtml(s) {
+      var h = "", cs = con.company_signature;
+      if (s.sign) {
+        var sg = spDone("sign", s.id);
+        h += sg ? '<div class="sp-rec">' + partyWord() + ' signature on this notice: <span class="tok-typed">' + escHtml(sg.signer_name || "") + '</span> &nbsp; Date and time: ' + escHtml(fmtDateTime(sg.signed_at)) + ' &nbsp; (signed electronically - typed name)</div>'
+          : '<div class="sp-rec">' + partyWord() + ' signature on this notice: ' + tokLine(true) + ' &nbsp; Date: ' + tokLine(false) + '</div>';
+      }
+      if (s.company_sign) {
+        h += cs ? '<div class="sp-rec">Contractor: ' + (cs.kind === "drawn" && cs.image_url ? '<img class="tok-sig" src="' + escHtml(cs.image_url) + '" alt="Signature">' : '<span class="tok-typed">' + escHtml(cs.signer_name || "") + '</span>') + ' &nbsp; Date and time: ' + escHtml(fmtDateTime(cs.signed_at)) + '</div>'
+          : '<div class="sp-rec">Contractor: ' + tokLine(true) + ' &nbsp; Date: ' + tokLine(false) + '</div>';
+      }
+      if (s.initials) {
+        var ini = spDone("initials", s.id);
+        h += ini ? '<div class="sp-rec">' + partyWord() + ' initials beside this provision: <span class="tok-typed">' + escHtml(ini.initials || "") + '</span> &nbsp; ' + escHtml(fmtDateTime(ini.signed_at)) + '</div>'
+          : '<div class="sp-rec">' + partyWord() + ' initials beside this provision: ' + tokLine(false) + '</div>';
+      }
+      if (s.choose) {
+        var ch = spDone("choose", s.id);
+        if (ch) { h += '<div class="sp-rec">Initialed by the ' + partyWord().toLowerCase() + ' ' + escHtml(fmtDateTime(ch.signed_at)) + '</div>'; }
+      }
+      return h;
+    }
+    // A part printed inside the contract: its heading, its words, its record.
+    function spPushBody(blocks, s) {
+      if (s.title) { blocks.push({ html: '<div class="blk ' + (s.heading ? "state-h" : "locked-h") + '">' + escHtml(s.title) + '</div>', kind: "block", keepWithNext: true }); }
+      var open = '<div class="blk locked' + spEm(s) + (s.place === "face" || s.place === "first_page" ? " state-face" : "") + '">';
+      paras(spText(s)).forEach(function(p) { blocks.push(paraBlock(open, '</div>', p, spFmt(s))); });
+      var rec = spRecordHtml(s);
+      if (rec) { blocks.push({ html: '<div class="blk">' + rec + '</div>', kind: "block" }); }
+    }
+    // A part printed right above the signatures (inside the signature block).
+    function spBesideHtml(s) {
+      var em = s.emphasis || {};
+      var size = em.min_pt >= 18 ? "18pt" : (em.min_pt >= 12 || em.larger ? "12pt" : "10pt");
+      curPart = s;
+      var h = (s.title && s.heading ? '<div class="state-h" style="margin-top:6pt;">' + escHtml(s.title) + '</div>' : "") +
+        '<div style="font-weight:' + (em.bold ? "700" : "400") + ';font-size:' + size + ';margin:6pt 0;' + (em.caps ? "text-transform:uppercase;" : "") + '">' +
+        paras(spText(s)).map(function(p) { return '<p style="margin:0 0 4pt;">' + withTokens(escHtml(p).replace(/\*\*/g, "").replace(/\n/g, "<br>")) + '</p>'; }).join("") + '</div>';
+      curPart = null;
+      return h + spRecordHtml(s);
+    }
+    // A separate page: starts its own page; "in duplicate" prints it twice.
+    function spPushPage(blocks, s) {
+      var copies = s.copies > 1 ? s.copies : 1;
+      for (var n = 1; n <= copies; n++) {
+        var head = '<div class="blk">' + (copies > 1 ? '<div class="sp-copy">Copy ' + n + ' of ' + copies + ' (' + (n === 1 ? partyWord() + " keeps" : partyWord() + " uses to cancel") + ')</div>' : "") +
+          (s.bare ? "" : '<div class="sp-page-h">' + escHtml(s.title || "") + '</div>') +
+          (s.date_above ? '<p style="font-size:10pt;font-weight:700;margin:0 0 6pt;">Date of transaction: ' + escHtml(con.transaction_date ? fmtDate(con.transaction_date) : "the date the " + partyWord().toLowerCase() + " signs") + '</p>' : "") + '</div>';
+        blocks.push({ html: head, kind: "block", startPage: true, keepWithNext: true });
+        var rec = s.bare ? "" : spRecordHtml(s);
+        var pp = paras(spText(s)), open = '<div class="blk locked' + spEm(s) + '">';
+        pp.forEach(function(p, i) { blocks.push(paraBlock(open, '</div>', p, spFmt(s), { endPage: !rec && i === pp.length - 1 })); });
+        if (rec) { blocks.push({ html: '<div class="blk">' + rec + '</div>', kind: "block" }); }
+      }
+    }
 
     function buildBlocks() {
       var b = con.business;
@@ -405,8 +504,12 @@
 
       // Body sections in payload order; L1, L5-A and L5-B are pulled out and
       // placed by rule.
-      var lien = null, l5a = null, beside = [], stateDocs = [];
+      var lien = null, l5a = null, beside = [], stateDocs = [], statePages = [];
       (con.sections || []).forEach(function(s) {
+        // RES-36: a separate page a state asks for goes after the signature
+        // page; a part placed or styled by rule prints itself.
+        if (s.kind === "state_page") { statePages.push(s); return; }
+        if (s.system === true && s.line && s.beside_signature !== true) { spPushBody(blocks, s); return; }
         // A document the state wants the customer to have before signing:
         // placed after the signature page, starting its own page.
         if (s.kind === "state_document") { stateDocs.push(s); return; }
@@ -440,6 +543,7 @@
       var sig = '<div class="blk sigblock"><div class="t">Signatures</div>';
       if (reqs.cancellation && l5a) { sig += '<div class="l5a">' + escHtml(l5a.text).replace(/\*\*/g, "") + '</div>'; }
       beside.forEach(function(s) {
+        if (s.system === true && s.line) { sig += spBesideHtml(s); return; }
         var f = s.format || {};
         if (s.date_above) { sig += '<p style="font-size:10pt;font-weight:700;margin:6pt 0 2pt;">Date: ' + escHtml(fmtDate(con.transaction_date || con.contract_date)) + '</p>'; }
         sig += '<div style="font-weight:700;font-size:' + (f.min_pt >= 12 ? "12pt" : "10pt") + ';margin:6pt 0;' + (f.box ? "border:1.5pt solid #000;padding:6pt;" : "") + '">' +
@@ -449,6 +553,17 @@
         (con.second_signer ? sigCell("Second owner", con.second_signer.signed, "") : "") + '</div>';
       if (con.homeowner_signature && con.homeowner_initials) { sig += '<div class="k" style="margin-top:8pt;">' + partyWord() + ' initials</div><div>' + escHtml(con.homeowner_initials) + '</div>'; }
       if (con.cancellation && con.cancellation.deadline_date) { sig += '<p style="font-size:9pt;margin-top:8pt;">The ' + partyWord() + ' may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the attached Notice of Cancellation.</p>'; }
+      // RES-36: what else was signed in the same visit (a page that carries
+      // the statement only keeps its proof here), and the agency documents.
+      statePages.forEach(function(s) {
+        if (!s.bare || !s.sign) { return; }
+        var br = spDone("sign", s.id);
+        sig += '<p style="font-size:9pt;margin-top:6pt;">' + escHtml(s.title || "") + ': ' + (br ? 'received and signed by ' + escHtml(br.signer_name || "") + ' on ' + escHtml(fmtDateTime(br.signed_at)) + ' (signed electronically - typed name).' : 'given to the ' + partyWord().toLowerCase() + ' as a separate page with this contract.') + '</p>';
+      });
+      ((sp() && sp().docs) || []).forEach(function(d) {
+        sig += '<p style="font-size:9pt;margin-top:6pt;">Official document given with this contract before signing: ' + escHtml(d.title || "") + (d.version ? ' (' + escHtml(d.version) + ')' : "") + (d.cite ? ', ' + escHtml(d.cite) : "") + '.' +
+          (d.ack ? (d.acknowledged ? ' The ' + partyWord().toLowerCase() + ' acknowledged receiving and reading it: ' + escHtml(d.acknowledged.signer_name || "") + ', ' + escHtml(fmtDateTime(d.acknowledged.signed_at)) + '.' : ' Acknowledgment: ' + tokLine(true)) : "") + '</p>';
+      });
       if (con.content_hash) { sig += '<div class="hash" style="margin-top:8pt;">Document hash (SHA-256): ' + escHtml(con.content_hash) + '</div>'; }
       if (con.signed_render_hash) { sig += '<div class="hash" style="margin-top:3pt;">Signed copy hash (SHA-256): ' + escHtml(con.signed_render_hash) + '</div>'; }
       if (con.disclaimer_line) { sig += '<div class="disclaimer">' + escHtml(con.disclaimer_line) + '</div>'; }
@@ -472,6 +587,16 @@
           blocks.push({ html: '<div class="blk noc noc-label"><div class="copy">Notice of Cancellation - copy ' + n + ' of 2 (' + (n === 1 ? "Buyer keeps" : "Buyer uses to cancel") + ')</div></div>', kind: "block", startPage: true });
           np.forEach(function(p, i) { blocks.push(paraBlock('<div class="blk noc">', '</div>', p, paraFmt, { endPage: i === np.length - 1 })); });
         });
+      }
+      // RES-36: the separate pages a state asks for, then the list of
+      // subcontractors and suppliers as the project records it.
+      statePages.forEach(function(s) { spPushPage(blocks, s); });
+      var spl = sp() && sp().list;
+      if (spl && spl.rows && spl.rows.length) {
+        blocks.push({ html: '<div class="blk"><div class="sp-page-h">Subcontractors and suppliers</div><table class="sp-list"><tr><th>Name</th><th>Work or supplies</th><th>Address</th><th>Telephone</th></tr>' +
+          spl.rows.map(function(r) { return '<tr><td>' + escHtml(r.name) + (r.license ? '<br>License ' + escHtml(r.license) : "") + '</td><td>' + (r.kind === "supplier" ? "Supplier" : "Subcontractor") + (r.trade ? ": " + escHtml(r.trade) : "") + '</td><td>' + escHtml(r.address || "") + '</td><td>' + escHtml(r.phone || "") + '</td></tr>'; }).join("") +
+          '</table></div>', kind: "block", startPage: true });
+        if (spl.notice) { paras(flowText(spl.notice.text)).forEach(function(p) { blocks.push(paraBlock('<div class="blk locked sys-em">', '</div>', p, paraFmt)); }); }
       }
       // State documents handed over with the contract (official wording on
       // file): each starts its own page and ends it.

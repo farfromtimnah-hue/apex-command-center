@@ -164,7 +164,7 @@ const PICKS = ["TX", "CA", "MA"];
   }
   const gates = ["handlePostGmContractSend", "handlePostGmContractCompanySign", "handlePostGmContractRoute", "handlePostPublicContractSign", "handleGetGmContractPreview", "handlePostGmContractSignedCopy", "contractPublicPayload", "contractPublicView", "contractCompose", "contractCleaningCompose"];
   ok(gates.every(function (n) { const s = fnSrc(n, workerSrc); return !/state_checks|state_card|contractStateActionCard|contractStateCheckApply|contractStateChecks\(|contractStateCheckEntry/.test(s); }), "send, company sign, route, customer sign, preview, signed copy, the customer's view and the composer never read the ticks");
-  ok((workerSrc.match(/state_card:/g) || []).length === 1 && /state_card: contractStateActionCard\(comp\.state, comp\.checklist, c\.flags, comp\.state\.florida \? null : await contractStateSysLoad\(env, c\)\)/.test(fnSrc("contractInternalOut", workerSrc)), "the card goes out in one place only: the builder's own payload");
+  ok((workerSrc.match(/state_card:/g) || []).length === 1 && /state_card: contractStateCardFor\(contractStateActionCard\(comp\.state, comp\.checklist, c\.flags, comp\.state\.florida \? null : await contractStateSysLoad\(env, c\)\), /.test(fnSrc("contractInternalOut", workerSrc)), "the card goes out in one place only: the builder's own payload");
   const put = fnSrc("handlePutGmContract", workerSrc);
   ok(/var tickOnly = /.test(put) && /contractSellerGuard\(env, user, id, c, tickOnly\)/.test(put) && put.indexOf("if (tickOnly) {") < put.indexOf("Create a revision to change it"), "a tick is its own small save: the seller guard still runs (a routed seller may tick), and it is handled before the \"already signed\" refusal");
 }

@@ -3836,8 +3836,9 @@
       apiFetch("/api/finance-new/invoices/" + invoiceId + "/client-link", { method: "POST" })
         .then(function(r) { return r.json().catch(function() { return {}; }); })
         .then(function(d) {
-          if (!d || d.error || !d.link) { throw new Error((d && d.error) || "erro"); }
-          var m = /[?&]t=([^&#]+)/.exec(String(d.link));
+          if (!d || d.error || (!d.direct_url && !d.link)) { throw new Error((d && d.error) || "erro"); }
+          var m = /[?&]t=([^&#]+)/.exec(String(d.direct_url || ""));
+          if (!m) { m = /[?&]t=([^&#]+)/.exec(String(d.link || "")); }
           if (!m) { throw new Error("erro"); }
           var url = "apex-invoice-view.html?t=" + m[1] + "&preview=1&id=" + encodeURIComponent(invoiceId);
           if (win) { win.location.href = url; } else { window.open(url, "_blank"); }

@@ -9,7 +9,7 @@
       "format": "Handed to the consumer with the contract; the contract carries the consumer's signed acknowledgment of having been provided with and read it; the form may be reproduced but not altered",
       "support": "A signed acknowledgment by the consumer that the consumer has been provided with and read the Department of Professional and Occupational Regulation statement of protection available to consumers through the Board for Contractors",
       "summary_row": "DPOR Statement of Consumer Protections (the document the consumer must acknowledge)",
-      "mode": "print",
+      "mode": "on_file",
       "block": "DPOR Statement of Consumer Protections (Board for Contractors form)",
       "block_index": 0
     },
@@ -19,7 +19,9 @@
       "cite": "18VAC50-22-260 B 9 k",
       "trigger": "Residential contracting (excluding subcontractors and routine maintenance or service contracts)",
       "format": "A statement in the contract that the Recovery Fund exists, with how to contact the board for claim information",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "A statement notifying consumers of the existence of the Virginia Contractor Transaction Recovery Fund that includes information on how to contact the board for claim information.",
       "mode": "none",
       "hold_reason": "no prescribed wording; the regulation only requires a statement that the Recovery Fund exists with how to contact the board for claim information"
@@ -30,8 +32,41 @@
       "format": "Bold face of at least ten points under the caption BUYER'S RIGHT TO CANCEL, on the front of the contract or immediately above the buyer's signature; the federal form is accepted if it has at least the same information",
       "support": "Appear on the front side of the receipt or contract, or immediately above the buyer's signature, in bold face type of a minimum size of ten points under the conspicuous caption: \"BUYER'S RIGHT TO CANCEL,\"",
       "summary_row": "Home solicitation: definitions, cancellation, BUYER'S RIGHT TO CANCEL statement and form, refunds, services",
-      "mode": "none",
-      "hold_reason": "the only block is the five whole statute sections 59.1-21.2 to 59.1-21.6; the statement and notice form sit inside section 21.4 among operative rules that should not print in the customer's contract"
+      "mode": "print",
+      "block": "Va. Code 59.1-21.2 to 59.1-21.6 (Virginia Home Solicitation Sales Act)",
+      "block_index": 2,
+      "start": "If this agreement was solicited at a residence",
+      "end": "(Buyer's signature)",
+      "quote_note": "The statute's opening quotation mark before If and the closing quotation mark after (Buyer's signature) are excluded: the markers lie inside them.",
+      "blanks": [
+        "_________________________ (Date of Transaction)",
+        "_________________________ (name of seller)",
+        "_________________________ (address of seller's place of business)",
+        "____________________ (Date) cancel-by date after midnight of",
+        "_________________________ (Date) above the buyer's signature",
+        "________________________________________ (Buyer's signature)"
+      ],
+      "boundary_unsure": "None on the edges: the form is the quoted alternative (i); alternative (ii) (federal form) follows after the closing quote. The caption BUYER'S RIGHT TO CANCEL is required above it but is quoted separately in the instruction sentence, so it is its own notice, VA-cancel-caption."
+    },
+    {
+      "id": "VA-cancel-caption",
+      "title": "Caption BUYER'S RIGHT TO CANCEL above the statement",
+      "cite": "Va. Code 59.1-21.4(2)(a)",
+      "trigger": "Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25",
+      "format": "Conspicuous caption in bold face of at least ten points, on the front of the contract or immediately above the buyer's signature, directly over the statement and form",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "under the conspicuous caption: \"BUYER'S RIGHT TO CANCEL,\"",
+      "summary_row": "Home solicitation: definitions, cancellation, BUYER'S RIGHT TO CANCEL statement and form, refunds, services",
+      "mode": "print",
+      "block": "Va. Code 59.1-21.2 to 59.1-21.6 (Virginia Home Solicitation Sales Act)",
+      "block_index": 2,
+      "start": "BUYER'S",
+      "end": "RIGHT TO CANCEL",
+      "quote_note": "The statute puts the caption inside quotation marks with a comma before the closing mark; the cut is only the words BUYER'S RIGHT TO CANCEL (quotes and comma excluded).",
+      "blanks": [],
+      "boundary_unsure": "The comma inside the statute's quotation marks is punctuation of the sentence, not part of the caption; excluded."
     }
   ],
   "changes": [
@@ -54,6 +89,11 @@
       "path": "cleaning.auto_renewal.scope_and_confidence",
       "new": "OFFICIAL; the statute text was read",
       "support": "59.1-207.45 ff. (matrix: SECONDARY): now official, full chapter below."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "Eleven minimum contents (a to k) incl. contractor name, address, license number, class and classifications (18VAC50-22-260 B 9), signed by both before work or payment",
+      "support": "Item i is \"Contractor's name, address, license number, class of license, and classifications or specialty services\", so the license line is inside the list, not an extra."
     }
   ],
   "unsure": [
@@ -61,6 +101,8 @@
     "VA-dpor: the regulation excludes subcontractors and routine maintenance or service contracts, which the builder cannot tell apart, so the residential trigger may be broader than the rule.",
     "VA-recovery: added because the regulation requires the statement in the contract, but no wording is prescribed, so nothing is loaded.",
     "VA-cancel: the sale is outside the Virginia act when the buyer invited the visit or there were prior negotiations, which the builder only partly knows (sold at home), so the print trigger is approximate.",
-    "cancellation.no_work_or_payment_in_window: left false; 21.6(3) only says a seller who performs services before cancellation gets no compensation."
+    "cancellation.no_work_or_payment_in_window: left false; 21.6(3) only says a seller who performs services before cancellation gets no compensation.",
+    "VA-dpor: changed from print to on_file: the form is a separate Board document handed to the consumer; only the signed acknowledgment (item h) belongs in the contract, and its wording is not prescribed. The cut is the whole form block, starting with the line 'Revised 4/29/2025 (effective 07/01/2025)' (whole block, no markers, the title is split over two lines).",
+    "VA-cancel and VA-cancel-caption: the form is printed with sold_in_home. The caption is a separate notice because the statute quotes it apart from the form; the builder will place them in that order but layout (caption directly above the statement, on the front or above the signature) is not a trigger."
   ]
 }

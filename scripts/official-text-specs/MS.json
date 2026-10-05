@@ -8,15 +8,25 @@
       "format": "Placed on the contracting document immediately before the space for the purchaser's signature, in bold and conspicuous type larger than the rest of the contract",
       "support": "This disclosure shall be placed on the contracting document immediately before the space reserved on the document for the signature of the purchaser, shall be in bold and conspicuous type with a font size larger than the font appearing on the remainder of the contract",
       "summary_row": "General liability insurance disclosure: exact words, placement, type size",
-      "mode": "none",
-      "hold_reason": "The block also contains Rule 1.2 (the job-site permit sign), which is not contract text, and the Board's rule gives the sentence only in the \"I DO carry\" form with blanks for insurer and policy number; there is no official wording for a contractor who does not carry insurance."
+      "mode": "on_file",
+      "block": "1. Board rules 1.2 and 1.3 (Liability Insurance Disclosure Statement)",
+      "block_index": 0,
+      "start": "Mississippi law requires that I inform you that I DO carry",
+      "end": "acknowledgement of this fact.",
+      "quote_note": "None: the sentence is not in quotation marks; it follows 'shall be in words as follows:' and ends at the paragraph's end, before the 'Source:' line.",
+      "blanks": [
+        "blank line after 'The name of the insurer is'",
+        "blank line after 'the policy number is'"
+      ],
+      "boundary_unsure": "Edges are certain. Stored, not printed (decision for a person): the only official wording is the 'I DO carry general liability insurance' form; the Board gives no variant for a contractor who does not carry insurance, so printing it on every licensed contract could state something untrue. Switch to print only if every contractor using the builder carries insurance."
     },
     {
       "id": "MS-cancel-credit",
       "format": "Under the conspicuous caption BUYER'S RIGHT TO CANCEL; no type size stated; the Federal Trade Commission form is accepted instead",
       "support": "No type size is stated.",
       "summary_row": "\"BUYER'S RIGHT TO CANCEL\" statement (credit sales at the home)",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "source status is VERBATIM-SECONDARY (Justia mirror via a page reader), which the loader does not accept; also credit-sale only and the 5 percent retention wording conflicts with the federal full refund"
     }
   ],
   "changes": [
@@ -29,6 +39,7 @@
   "unsure": [
     "MS-insurance: the rule makes every licensed residential builder, remodeler or roofer print the disclosure, so it should print for every licensed contract, but the block mixes in Rule 1.2 and has no variant for an uninsured contractor, so it is held.",
     "MS-cancel-credit: the state text is VERBATIM-SECONDARY (Justia mirror), so it cannot be loaded; also credit versus cash sale is not something the builder knows, and the 5 percent retention wording conflicts with the federal full refund.",
-    "mirror_source left false: the insurance disclosure comes from the Board's own publication, only the cancellation chapter comes from a mirror."
+    "mirror_source left false: the insurance disclosure comes from the Board's own publication, only the cancellation chapter comes from a mirror.",
+    "MS-insurance: stored on file only (not printed) because the single official sentence says 'I DO carry' insurance; unsure whether it belongs in every contract; the rule itself requires a licensed builder, remodeler or roofer to give the disclosure at contracting."
   ]
 }

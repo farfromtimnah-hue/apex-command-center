@@ -20,17 +20,49 @@
     },
     {
       "id": "ID-cancel-door",
-      "title": "Door-to-door sale: cancellation statement beside the signature and duplicate NOTICE OF CANCELLATION form",
+      "title": "State cancellation statement near the signature (door-to-door sale)",
       "cite": "IDAPA 04.02.01.170 (Rule 170)",
       "trigger": "Door-to-door sale of $25 or more, cash or credit, made away from the seller's place of business, including after the customer invites the contractor",
-      "format": "Statement in 10 point type next to the customer's signature; form in duplicate, detachable, 10 point bold; both in the same language as the sales talk; oral notice required",
-      "applies": { "sold_in_home": true },
-      "support": "it is **not limited to credit sales**. Its definition covers any \"sale, lease, or rental of goods or services primarily for personal, family, or household purposes, with a purchase price of twenty-five dollars ($25) or more",
+      "format": "Statement in ten point type in immediate proximity to the space reserved in the contract for the consumer's signature (or front page of the receipt); contract in the same language as the oral sales presentation, showing date, seller name and street address; oral notice also required; the duplicate form is the separate notice ID-cancel-door-form",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "the following statement in ten (10) point type in immediate proximity to the space reserved in the contract for the signature of the consumer or on the front page of the receipt if a contract is not used:",
       "summary_row": "Door-to-door cooling-off rule (cash and credit sales): contract statement and NOTICE OF CANCELLATION",
-      "mode": "none",
+      "mode": "print",
       "block": "IDAPA 04.02.01.170. Cooling-off period for door-to-door sales (Rule 170)",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole Rule 170 (items 01 to 10); only items 01 and 02 are the statement and form, the rest are seller duties and bans, so the block cannot be printed as one notice."
+      "start": "YOU, THE BUYER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "None: the rule prints the statement on its own line without quotation marks after 'the following statement in ten (10) point type ... is not used:'.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges: the statement is one paragraph on its own line, followed by a blank line and item 02."
+    },
+    {
+      "id": "ID-cancel-door-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form (door-to-door sale)",
+      "cite": "IDAPA 04.02.01.170 (Rule 170), item 02",
+      "trigger": "Door-to-door sale of $25 or more, cash or credit, including a visit the customer invited, where the agreement is made away from the seller's trade premises",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, ten point bold face type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies before handing them over (item 03)",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned “NOTICE OF CANCELLATION,” which shall be attached to the contract or receipt and easily detachable, and contain in ten (10) point bold face type the following statement in the same language, e.g., Spanish, as that used in the contract:",
+      "summary_row": "Door-to-door cooling-off rule (cash and credit sales): contract statement and NOTICE OF CANCELLATION",
+      "mode": "print",
+      "block": "IDAPA 04.02.01.170. Cooling-off period for door-to-door sales (Rule 170)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "NOT LATER THAN MIDNIGHT OF (Date).",
+      "quote_note": "None: the form is set off under the heading NOTICE OF CANCELLATION on its own line, no quotation marks. The start marker repeats (the item 01 statement and item 02's own caption sentence contain it), so the third occurrence, the heading line of the form, is used.",
+      "blanks": [
+        "enter date of transaction",
+        "Date (line under it)",
+        "(address of seller’s place of business) inside the last paragraph",
+        "(Date) after 'NOT LATER THAN MIDNIGHT OF'"
+      ],
+      "boundary_unsure": "Edges are clear (heading line to the closing '(Date).' before item 03). The printed Idaho form has no seller-name blank and no 'I HEREBY CANCEL THIS TRANSACTION' signature block; nothing was added. The blanks have no underscore lines in the rule's text."
     }
   ],
   "changes": [
@@ -58,10 +90,17 @@
       "path": "cancellation.text",
       "new": "Three business days, Saturday not counted (IDAPA 04.02.01.170); oral notice; statement beside the signature and duplicate form; credit sales also under 28-43-402",
       "support": "Idaho needs its own cancellation block: capital-letter sentence beside the signature, duplicate detachable form, oral notice, same language as the sales talk."
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Notice and Opportunity to Repair (6-2503) is a pre-suit step only; no notice is required in the contract",
+      "support": "the official text contains no requirement to print a notice in the contract. It is a litigation precondition only."
     }
   ],
   "unsure": [
     "ID-cancel-door: the rule reaches any door-to-door sale for personal, family or household purposes at $25 or more, and the builder only knows 'sold at the customer's home', so whether every in-home contract is covered (for example work on a rental) is not settled.",
-    "ID-disclosure: the statute prescribes no wording, only four items the disclosure shall include plus an acknowledgment, so it is unclear whether the owner wants those four items printed in the contract itself."
+    "ID-disclosure: the statute prescribes no wording, only four items the disclosure shall include plus an acknowledgment, so it is unclear whether the owner wants those four items printed in the contract itself.",
+    "ID-cancel-door and ID-cancel-door-form: the rule's form has no seller-name line and no buyer cancel-and-sign block (the file says the federal form's closing lines would satisfy both); the loader prints only what the rule prints.",
+    "ID-disclosure: held because 45-525(2) lists four required contents ('The disclosure shall include the following:' items (a) to (d)) and prescribes no wording; the file says the four items 'can be printed as written', so Nicole may prefer to load them."
   ]
 }

@@ -8,12 +8,41 @@
       "cite": "R.S. 9:3539(B)",
       "trigger": "Noncredit home solicitation sale: consumer sale of $25 or more solicited in person at any place other than the seller's business establishment; a sale the consumer initiated by contacting the seller at his business establishment is outside it",
       "format": "Under the conspicuous caption CONSUMER'S RIGHT TO CANCEL, exact wording; agreement dated the day the consumer actually signs; the FTC 16 CFR 429 form counts as compliance (9:3539(D))",
-      "support": "A \"noncredit home solicitation sale\" is a consumer sale involving a cash price of twenty-five dollars or more for goods or services or both",
-      "mode": "none",
+      "support": "read as follows",
+      "mode": "print",
       "block": "R.S. 9:3539 (Form of agreement or offer; statement of consumer's right; compliance)",
       "block_index": 0,
-      "hold_reason": "The block is the whole of R.S. 9:3539 (seller duties, early cancellation, federal-form compliance) around the statement in subsection (B); printing it would put non-notice statute text in the customer's contract.",
-      "summary_row": "CONSUMER'S RIGHT TO CANCEL statement"
+      "summary_row": "CONSUMER'S RIGHT TO CANCEL statement",
+      "start": "If this agreement was solicited at your residence",
+      "end": "return all of your cash down payment.",
+      "quote_note": "Excluded: the statute's opening and closing quotation marks around the statement; the statement's own final period (inside the closing quote) is included.",
+      "blanks": [
+        "(Insert name and mailing address of seller)"
+      ],
+      "boundary_unsure": "none: set off by quotation marks after 'read as follows'. Printed for any job sold at the customer's home; the $25 floor and the solicited-away-from-business exclusion are facts the builder does not know. The FTC 16 CFR 429 form is also accepted (9:3539(D)).",
+      "applies": {
+        "sold_in_home": true
+      }
+    },
+    {
+      "id": "LA-cancel-caption",
+      "title": "Conspicuous caption for the CONSUMER'S RIGHT TO CANCEL statement",
+      "cite": "R.S. 9:3539(B)(1)",
+      "trigger": "Noncredit home solicitation sale: consumer sale of $25 or more solicited in person at any place other than the seller's business establishment; a sale the consumer initiated by contacting the seller at his business establishment is outside it",
+      "format": "Conspicuous caption placed over the statement; no point size or bold rule",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Formatting rule: \"appear under the conspicuous caption: \"CONSUMER'S RIGHT TO CANCEL\"\"",
+      "summary_row": "CONSUMER'S RIGHT TO CANCEL statement",
+      "mode": "print",
+      "block": "R.S. 9:3539 (Form of agreement or offer; statement of consumer's right; compliance)",
+      "block_index": 0,
+      "start": "CONSUMER'S RIGHT TO",
+      "end": "CANCEL",
+      "quote_note": "Excluded: the statute's quotation marks around the caption and the comma after the closing quote.",
+      "blanks": [],
+      "boundary_unsure": "none: the caption is the words inside the quotation marks after 'appear under the conspicuous caption:'."
     }
   ],
   "changes": [
@@ -31,6 +60,7 @@
   "unsure": [
     "LA-cancel: the file says whether the 5 percent fee may be kept when the FTC form is used is not answered by the text, so the fee is stated in cancellation.text only.",
     "LA-cancel: the builder only knows 'sold at the customer's home', not whether the sale was solicited away from a business establishment or initiated by the consumer at it.",
-    "cancellation.no_work_or_payment_in_window left unchanged: 9:3541(C) says the seller gets no compensation except the cancellation fee for services done before cancellation, which is not a ban on starting work."
+    "cancellation.no_work_or_payment_in_window left unchanged: 9:3541(C) says the seller gets no compensation except the cancellation fee for services done before cancellation, which is not a ban on starting work.",
+    "LA-cancel-caption: separate notice id so the conspicuous caption prints with the statement; no placement rule in the file."
   ]
 }

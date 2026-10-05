@@ -11,8 +11,42 @@
     {
       "id": "MT-cancel",
       "summary_row": "Notice of right to cancel (cancellation card)",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the card wording it holds operative rules (subsection (2) on late cancellation and when the three days start) and the history line, which should not print in the customer's contract"
+      "mode": "print",
+      "title": "Personal solicitation cancellation card, text part (3 business days)",
+      "cite": "MCA 30-14-505(1)(a)",
+      "format": "Printed in capital and lowercase letters of not less than 10-point boldfaced type with the seller's name and business address",
+      "support": "printed in capital and lowercase letters of not less than 10-point boldfaced type with the seller's name and business address and the statement set forth in subsection (1)(b)",
+      "block": "MCA 30-14-505. Notice of right to cancel",
+      "block_index": 0,
+      "start": "YOU MAY CANCEL THIS SALE WITHIN THREE BUSINESS DAYS.",
+      "end": "(date)",
+      "quote_note": "None: the statute does not use quotation marks. The paragraph label (a) is left out by starting at the first word of the text; the cut ends at (date) before the label (b).",
+      "blanks": [
+        "(date)"
+      ],
+      "boundary_unsure": "Edges are certain. The statute also requires the seller's name and business address on the card; that is not part of the wording, so it is not in the cut and the contract must carry it separately. The statute alternatively accepts the FTC door-to-door statement in place of this text."
+    },
+    {
+      "id": "MT-cancel-slip",
+      "title": "Personal solicitation cancellation card, tear-off part (CONTRACT CANCELED)",
+      "cite": "MCA 30-14-505(1)(b)",
+      "trigger": "Over $25; skip when the buyer contacted the seller first",
+      "format": "Same card as MT-cancel: capital and lowercase letters of not less than 10-point boldfaced type with the seller's name and business address",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "the statement set forth in subsection (1)(b)",
+      "summary_row": "Notice of right to cancel (cancellation card)",
+      "mode": "print",
+      "block": "MCA 30-14-505. Notice of right to cancel",
+      "block_index": 0,
+      "start": "CONTRACT CANCELED",
+      "end": "(Buyer's signature)",
+      "quote_note": "None: the statute does not use quotation marks. The paragraph label (b) is left out by starting at the first word of the text.",
+      "blanks": [
+        "(Buyer's signature)"
+      ],
+      "boundary_unsure": "Edges are certain: the text ends at (Buyer's signature) and subsection (2) starts on the next line. The tear-off must be printed together with MT-cancel as one card."
     }
   ],
   "changes": [
@@ -23,7 +57,8 @@
     }
   ],
   "unsure": [
-    "MT-cancel: the official card wording (30-14-505(1)(a) and (b)) is the right text to print, but the file only offers it inside the whole section block, so it is held rather than loaded.",
-    "MT-defect: printing a short notice of 70-19-426, 70-19-428 and 70-19-427 in the contract would meet the law, but no official wording exists to copy."
+    "MT-cancel: now cut out of the 30-14-505 block in two parts (see the next entry).",
+    "MT-defect: printing a short notice of 70-19-426, 70-19-428 and 70-19-427 in the contract would meet the law, but no official wording exists to copy.",
+    "MT-cancel / MT-cancel-slip: the two parts (a) and (b) of 30-14-505(1) are loaded as two notices because the paragraph label (b) sits between them in the block; they form one tear-off card and must print together, with the seller's name and business address which the statute also requires but does not word."
   ]
 }

@@ -14,13 +14,46 @@
     },
     {
       "id": "DE-cancel",
-      "format": "Statement near the signature in 10 point bold in an ink color different from the rest of the contract, ending with the sentence about the attached notice form, plus a detachable duplicate NOTICE OF CANCELLATION; the contract in the language of the sales talk; oral notice also required",
+      "format": "Statement in bold type of at least 10 point in immediate proximity to the buyer's signature space, in an ink color different from the rest of the contract; ends with the sentence about the attached notice form; the contract in the language of the sales talk; oral notice also required (the duplicate form is the separate notice DE-cancel-form)",
       "support": "shall be printed in an ink of a conspicuous color other than that used for the rest of the contract and/or receipt",
       "summary_row": "Door-to-door statement, Notice of Cancellation form, oral notice, definitions",
-      "mode": "none",
+      "mode": "print",
       "block": "4. 6 Del. C. 4403 and 4404 (Home Solicitation Sales Act: definitions, statement, Notice of Cancellation)",
       "block_index": 0,
-      "hold_reason": "The block is the whole of sections 4403 and 4404, with the definitions and nine seller duties around the statement and the form, so printing it would put non-notice statute text in the contract; the statement and the form need to be cut out by hand."
+      "title": "State cancellation statement near the signature (door-to-door sale)",
+      "start": "YOU, THE BUYER, MAY CANCEL THIS TRANSACTION",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "The statute's opening and closing curly quotation marks around the statement are excluded by placing the markers inside them. The closing mark follows the final period, which is inside the cut.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges: the statement is a single quoted paragraph introduced by 'in substantially the following form:'. Note the statute also requires it in a conspicuous ink color different from the rest of the contract; that is formatting, not wording."
+    },
+    {
+      "id": "DE-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form (door-to-door sale)",
+      "cite": "6 Del. C. 4404(2)",
+      "trigger": "Door-to-door sale or a sale made away from the seller's place of business, $25 or more",
+      "format": "Form in duplicate, attached to the contract and easily detachable, in 10 point bold type, in the same language as the contract; seller completes name, address and last cancellation date on both copies before handing them over",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned “Notice of Cancellation,” which shall be attached to the contract or receipt and easily detachable, and which shall contain in 10-point, bold-faced type the following information and statements in the same language",
+      "summary_row": "Door-to-door statement, Notice of Cancellation form, oral notice, definitions",
+      "mode": "print",
+      "block": "4. 6 Del. C. 4403 and 4404 (Home Solicitation Sales Act: definitions, statement, Notice of Cancellation)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(Buyer’s signature)",
+      "quote_note": "The statute's opening curly quotation mark before NOTICE OF CANCELLATION and the closing curly mark after (Buyer’s signature) are excluded by placing the markers inside them. Blank lines inside the form are the official page layout and stay. The start marker repeats (the capitals also appear in the statement in 4404(1)), so the second occurrence is used.",
+      "blanks": [
+        "(Enter date of transaction)",
+        "(Name of seller)",
+        "(Address at seller’s place of business)",
+        "(Date) after 'not later than midnight of'",
+        "(Date) after 'I hereby cancel this transaction.'",
+        "(Buyer’s signature)"
+      ],
+      "boundary_unsure": "None on the edges. The odd line break before ', at' is as the official page prints it."
     }
   ],
   "changes": [
@@ -61,7 +94,8 @@
   ],
   "unsure": [
     "DE-ag-summary: the text is stored on file only, because the AG requires the official letterhead and layout and the stored block is a text layer of the PDF; the official PDF itself should be attached.",
-    "DE-cancel: the statute allows the federal-style notice only through Chapter 44's own form, and one notice covers both the statement and the form, so both are held together.",
-    "DE written additions: the AG FAQ says a written addition must be accompanied by a copy of the summary, which the builder cannot detect."
+    "DE written additions: the AG FAQ says a written addition must be accompanied by a copy of the summary, which the builder cannot detect.",
+    "DE-cancel: the statement and the form are now two notices (DE-cancel and DE-cancel-form), each cut by markers; both print only for sold_in_home jobs, which only approximates 'a place other than the place of business of the seller'.",
+    "DE-cancel-form: the seller must fill in the name, address and the last cancellation date (not earlier than the third business day) on both copies before handing them over (4404(3)); the builder prints the blanks as they appear."
   ]
 }

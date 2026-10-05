@@ -6,7 +6,7 @@
 //   node scripts/official-text-apply.mjs --apply        write the data file and the change log
 // Spec shape: see scripts/official-text-specs/README.md
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { parseStateFile, baseStatus, norm } from "./official-text-lib.mjs";
+import { parseStateFile, baseStatus, norm, cutRange } from "./official-text-lib.mjs";
 
 var root = new URL("../", import.meta.url);
 var DATA = new URL("data/contract-state-riders-v1.json", root);
@@ -72,7 +72,7 @@ export function processState(code, rider, spec, errors, log) {
     var st = row ? baseStatus(row.status) : "NOT OBTAINED";
     if (row && !st) { err(id + ": unreadable status " + row.status); }
     n.source_status = st; n.source_url = row ? row.url : null; n.source_date = row ? row.date : null; n.text_status = st;
-    delete n.hold_reason; delete n.text_on_file; n.text = null;
+    delete n.hold_reason; delete n.text_on_file; delete n.range; n.text = null;
     var mode = sn.mode || "none";
     if (mode === "print" || mode === "on_file") {
       var cond = st === "VERBATIM-OFFICIAL" || st === "VERBATIM-NEAR-OFFICIAL";
@@ -80,15 +80,32 @@ export function processState(code, rider, spec, errors, log) {
       var blk = f.blocks.filter(function (b) { return b.heading === sn.block && b.index === (sn.block_index || 0); })[0];
       if (!blk) { err(id + ": block not found: " + sn.block + " #" + (sn.block_index || 0)); }
       else if (cond) {
-        if (/omitted/i.test(blk.text)) { err(id + ": block contains 'omitted'; must be held"); }
+        var isRange = sn.start !== undefined || sn.end !== undefined;
+        if (!isRange && /omitted/i.test(blk.text)) { err(id + ": block contains 'omitted'; must be held"); }
         if (!blk.text.trim()) { err(id + ": empty block"); }
+        var body = blk.text;
+        if (sn.start !== undefined || sn.end !== undefined) {
+          var rg = { start: sn.start, end: sn.end, start_occurrence: sn.start_occurrence, end_occurrence: sn.end_occurrence };
+          var cut = cutRange(blk.text, rg);
+          if (cut.error) { err(id + ": " + cut.error); body = ""; }
+          else {
+            body = cut.text;
+            if (/omitted/i.test(body)) { err(id + ": cut text contains 'omitted'; must be held"); }
+            if (!sn.quote_note) { err(id + ": a range needs quote_note saying how the statute's own quotation marks were handled"); }
+            if (!Array.isArray(sn.blanks)) { err(id + ": a range needs blanks (an array, empty if none)"); }
+            n.range = { block: blk.heading, block_index: blk.index, start: rg.start, end: rg.end, quote_note: sn.quote_note || "", blanks: sn.blanks || [] };
+            if (rg.start_occurrence) { n.range.start_occurrence = rg.start_occurrence; }
+            if (rg.end_occurrence) { n.range.end_occurrence = rg.end_occurrence; }
+            if (sn.boundary_unsure) { n.range.boundary_unsure = sn.boundary_unsure; }
+          }
+        }
         if (mode === "print") {
           var ks = Object.keys(n.applies || {});
           if (!n.applies || ks.some(function (k) { return PRINT_KEYS.indexOf(k) === -1; })) { err(id + ": applies has keys the builder cannot decide; use mode on_file"); }
           if (/credit|age|homestead|insur/i.test(n.trigger || "") && !/every/i.test(n.trigger || "")) { /* judgement call, listed in unsure */ }
-          n.text = blk.text;
-        } else { n.text_on_file = blk.text; }
-        log.push({ state: code, field: "notices." + id + "." + (mode === "print" ? "text" : "text_on_file"), old: null, new: "(copied from \"" + blk.heading + "\", block " + blk.index + ", " + blk.text.length + " characters)", support: row ? row.item + " | " + row.status + " | " + row.url : null });
+          n.text = body;
+        } else { n.text_on_file = body; }
+        log.push({ state: code, field: "notices." + id + "." + (mode === "print" ? "text" : "text_on_file"), old: null, new: "(copied from \"" + blk.heading + "\", block " + blk.index + ", " + body.length + " characters" + (n.range ? ", cut by start/end markers" : ", whole block") + ")", support: row ? row.item + " | " + row.status + " | " + row.url : null });
       }
     } else {
       if (st && (st === "VERBATIM-OFFICIAL" || st === "VERBATIM-NEAR-OFFICIAL") && !sn.hold_reason) { err(id + ": official text exists but is not loaded and no hold_reason given"); }
@@ -116,7 +133,10 @@ export function processState(code, rider, spec, errors, log) {
 function loadSpec(code) { var u = new URL(code + ".json", SPECS); return existsSync(u) ? JSON.parse(readFileSync(u, "utf8")) : null; }
 var args = process.argv.slice(2);
 if (import.meta.url === new URL("file://" + process.argv[1]).href) {
-  var data = JSON.parse(readFileSync(DATA, "utf8"));
+  // --baseline <file>: read the starting data from this file (the data file as it was before the first load) instead of the data file itself
+  var bi = args.indexOf("--baseline");
+  var baselineUrl = bi !== -1 ? new URL("file://" + (args[bi + 1].charAt(0) === "/" ? args[bi + 1] : process.cwd() + "/" + args[bi + 1])) : new URL("scripts/fixtures/riders-baseline-16890ad.json", root);
+  var data = JSON.parse(readFileSync(baselineUrl, "utf8"));
   var codes = args[0] === "--check" ? [args[1]] : readdirSync(SPECS).filter(function (x) { return /^[A-Z]{2}\.json$/.test(x); }).map(function (x) { return x.slice(0, 2); });
   var errors = [], log = [], summary = {};
   codes.forEach(function (code) {

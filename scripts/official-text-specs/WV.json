@@ -8,8 +8,34 @@
       "trigger": "Home solicitation sale: a consumer credit sale over $25 solicited away from the seller's business establishment (a cash job is under the federal rule only)",
       "support": "The definition is 46A-1-102(22): \"a consumer credit sale in excess of $25 in which the buyer receives a solicitation of the sale at a place other than the seller's business establishment at a fixed location and the buyer's agreement or offer to purchase is there given\"",
       "summary_row": "Right to cancel; BUYER'S RIGHT TO CANCEL statement; refund; buyer's duty",
-      "mode": "none",
-      "hold_reason": "The statement is inside the block holding the whole of 46A-2-133 plus 46A-2-132, 134 and 135, with operative rules around it (the buyer's handwritten date, the federal-form safe harbor, refunds), and the credit-sale trigger cannot be decided by the builder."
+      "mode": "on_file",
+      "block": "W. Va. Code 46A-2-132 to 46A-2-135 (home solicitation sales)",
+      "block_index": 1,
+      "start": "If this agreement was solicited at a place other than the seller's business establishment",
+      "end": "(Name and mailing address of seller).",
+      "quote_note": "The statute's opening quotation mark before If and closing quotation mark after the final period are excluded: the markers lie inside them.",
+      "blanks": [
+        "(Name and mailing address of seller)"
+      ],
+      "boundary_unsure": "None on the edges (quoted after 'read as follows:'). Text is from the statute 46A-2-133, which has two sentences more than the Attorney General rule 142 CSR 5-3.2.2 version; the rule's version was not used. Stored not printed: applies to credit sales over $25 only."
+    },
+    {
+      "id": "WV-cancel-caption",
+      "title": "Caption BUYER'S RIGHT TO CANCEL above the statement",
+      "cite": "W. Va. Code 46A-2-133",
+      "trigger": "Home solicitation sale: a consumer credit sale over $25 solicited away from the seller's business establishment (a cash job is under the federal rule only)",
+      "format": "Conspicuous caption (no point size) over the statement of the buyer's rights",
+      "applies": {},
+      "support": "The statement must appear under the conspicuous caption:\"BUYER'S RIGHT TO CANCEL\" and read as follows:",
+      "summary_row": "Right to cancel; BUYER'S RIGHT TO CANCEL statement; refund; buyer's duty",
+      "mode": "on_file",
+      "block": "W. Va. Code 46A-2-132 to 46A-2-135 (home solicitation sales)",
+      "block_index": 1,
+      "start": "BUYER'S",
+      "end": "RIGHT TO CANCEL",
+      "quote_note": "The statute's quotation marks around the caption are excluded: the markers lie inside them.",
+      "blanks": [],
+      "boundary_unsure": "None. Stored with the statement: credit sales only."
     }
   ],
   "changes": [
@@ -48,6 +74,7 @@
     "WV-cancel: the statement applies only to credit sales over $25, which the builder cannot tell, so it could only ever be stored, not printed; it is held because its block is a whole section with other operative rules.",
     "142 CSR 5-3.1.17 (disclose that a note may be assigned and label it a Consumer Note) and the Board's APPENDIX A form were not added as notices: the first has no fixed sentence and depends on a credit note, the second is a model contract the Board posts, not a required notice.",
     "WV-cancel: the rule text of 142 CSR 5-3.2.2 omits the sentence about mailing before midnight of the third business day that the statute 46A-2-133 includes, so the two versions of the statement differ.",
-    "55-2-6a repose of ten years has no field in the rider (defect_process is null), so it was not entered."
+    "55-2-6a repose of ten years has no field in the rider (defect_process is null), so it was not entered.",
+    "WV-cancel and WV-cancel-caption: stored (on_file), never printed: West Virginia's right to cancel covers consumer credit sales over $25 only, which the builder cannot tell. The statute 46A-2-133 text was cut; 142 CSR 5-3.2.2 words the statement differently (omits two sentences, including the one about mailing before midnight of the third business day)."
   ]
 }

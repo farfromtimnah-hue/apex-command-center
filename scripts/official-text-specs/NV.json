@@ -6,12 +6,19 @@
       "id": "NV-fund",
       "title": "Residential Construction Recovery Fund statement",
       "format": "Written statement in substantially the form given, in any agreement or contract for qualified services; inside a 624.970 contract the 10 point bold rule applies",
-      "support": "\"in substantially the following form\"; must be \"in any agreement or contract for qualified services\"",
+      "support": "The written statement must be in substantially the following form:",
       "summary_row": "Residential Construction Recovery Fund statement",
-      "mode": "none",
+      "mode": "print",
       "block": "NRS 624.520: Residential Construction Recovery Fund statement",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole section 624.520; besides the statement it holds the fine amounts and the rule on where the Board deposits money, so printing it would put non-notice statute text in the contract."
+      "applies": {
+        "residential": true
+      },
+      "trigger": "Residential contractor contracting with an owner; written statement in any agreement or contract for qualified services",
+      "start": "RESIDENTIAL CONSTRUCTION RECOVERY FUND",
+      "end": "you may contact the State Contractors’ Board.",
+      "quote_note": "No quotation marks in the statute; the caption RESIDENTIAL CONSTRUCTION RECOVERY FUND is the first line of the cut (it is part of the form set off after 'must be in substantially the following form:'); subsection 2 (fines) is not cut.",
+      "blanks": []
     },
     {
       "id": "NV-owner-notice",
@@ -39,12 +46,18 @@
       "cite": "NAC 624.693; NRS 624.600(1)(c)(2)",
       "trigger": "General building contractor contracting with the owner of a single-family residence",
       "format": "Fixed wording (\"must be as follows\"), capitals as shown; given to the owner in writing",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "Both forms are now captured from the official NAC page: NAC 624.693 (liens) and NAC 624.6932 (contractors). Both \"must be as follows\", so they are fixed text.",
       "summary_row": "Informational form regarding mechanics' and materialmen's liens",
       "mode": "on_file",
       "block": "NAC 624.693: Informational form regarding mechanics' and materialmen's liens",
-      "block_index": 0
+      "block_index": 0,
+      "start": "Any person who provides work, materials or equipment with a value of $500 or more to improve your property should be paid",
+      "end": "(2) IF A LIEN IS FILED AGAINST YOUR PROPERTY.",
+      "quote_note": "No quotation marks; the form follows 'must be as follows:' and the lead-in sentence and the history line are excluded.",
+      "blanks": []
     },
     {
       "id": "NV-info-contractors",
@@ -52,26 +65,64 @@
       "cite": "NAC 624.6932; NRS 624.600(1)(c)(1)",
       "trigger": "General building contractor contracting with the owner of a single-family residence",
       "format": "Fixed wording (\"must be as follows\"); given to the owner in writing",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "Both forms are now captured from the official NAC page: NAC 624.693 (liens) and NAC 624.6932 (contractors). Both \"must be as follows\", so they are fixed text.",
       "summary_row": "Informational form regarding contractors (Board website and telephone numbers)",
       "mode": "on_file",
       "block": "NAC 624.6932: Informational form regarding contractors (Board website and telephone numbers)",
-      "block_index": 0
+      "block_index": 0,
+      "start": "Contractors are required by law to be licensed and regulated",
+      "end": "You may also file a complaint against a contractor at the same website and telephone numbers.",
+      "quote_note": "No quotation marks; the form follows 'must be as follows:' and the lead-in sentence and the history line are excluded.",
+      "blanks": []
     },
     {
       "id": "NV-cancel",
-      "title": "Door-to-door sale: cancellation statement beside the signature, duplicate NOTICE OF CANCELLATION form and oral notice",
-      "cite": "NRS 598.240 (statement), 598.250 (form), 598.280 (oral notice)",
+      "title": "Door-to-door sale: cancellation statement beside the buyer's signature",
+      "cite": "NRS 598.240",
       "trigger": "Door-to-door sale of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not",
-      "format": "Statement in bold type next to the buyer's signature; form in duplicate, detachable, boldface; both in the language of the sales talk; buyer also told orally",
-      "applies": { "sold_in_home": true },
-      "support": "Yes, on the official text: \"whether at the specific invitation of the buyer or not\" (NRS 598.180).",
+      "format": "Statement in bold type in immediate proximity to the buyer's signature space (or on the front page of the receipt); in the language of the sales presentation",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "NRS 598.240 statement: \"You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction.",
       "summary_row": "Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
-      "mode": "none",
+      "mode": "print",
       "block": "NRS 598.140 to 598.2801: Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole range 598.140 to 598.2801 with definitions, penalties and unlawful acts around the statement and form, so it cannot be printed as one notice."
+      "start": "You, the buyer, may cancel this transaction",
+      "end": "for explanation of this right.",
+      "quote_note": "No quotation marks in the statute; the statement follows 'in substantially the following form:'.",
+      "blanks": []
+    },
+    {
+      "id": "NV-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "NRS 598.250",
+      "trigger": "Door-to-door sale of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not",
+      "format": "Fully completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract or receipt and easily detachable, in boldface type, in the language of the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "NRS 598.250 sets out the full NOTICE OF CANCELLATION form (below). Bold type is required; no point size is given.",
+      "summary_row": "Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
+      "mode": "print",
+      "block": "NRS 598.140 to 598.2801: Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(Buyer’s signature)",
+      "quote_note": "The statute prints the form without quotation marks, after 'must contain in boldface type the following information and statements ...:'; the caption line is the first line of the cut; dot leaders are the statute's own blanks.",
+      "blanks": [
+        "(Enter date of transaction) / Date line",
+        "send a telegram to ..... (Name of seller) line",
+        "at ..... (Address of seller's place of business) line",
+        "not later than midnight of ..... line (date)",
+        "..... (Date) line under I hereby cancel this transaction",
+        "..... (Buyer’s signature) line"
+      ]
     },
     {
       "id": "NV-pool-rights",
@@ -79,7 +130,9 @@
       "cite": "NRS 624.935(5)",
       "trigger": "Contract for work on a residential pool or spa",
       "format": "Written statement explaining the customer's rights under NRS 624.900 to 624.965 and other relevant statutes; no wording prescribed",
-      "applies": { "is_pool": true },
+      "applies": {
+        "is_pool": true
+      },
       "support": "Requires \"a written statement explaining the rights of the customer\"; no wording prescribed.",
       "summary_row": "Pool and spa: contractor duties and customer rights statement",
       "mode": "none",
@@ -93,7 +146,10 @@
       "cite": "NRS 624.940(3)(b)",
       "trigger": "Pool or spa contract over $1,000",
       "format": "In close proximity to the signatures; all written information in the contract in at least 10-point bold type",
-      "applies": { "is_pool": true, "over_cents": 100000 },
+      "applies": {
+        "is_pool": true,
+        "over_cents": 100000
+      },
       "support": "The pool notice near the signatures has two points (Board contact, bond right), not the four in NRS 624.970.",
       "summary_row": "Pool and spa contract: mandatory contents",
       "mode": "none",
@@ -143,6 +199,7 @@
     "NV-fund: the statement is required of a residential contractor in any agreement for qualified services; whether that means every residential contract or only owner-occupied single-family ones is not settled, and the block is held anyway.",
     "NV-info-liens and NV-info-contractors: duty falls on a general building contractor with the owner of a single-family residence; the builder cannot tell single-family or owner-occupied, so the text is stored on file only.",
     "NV-owner-notice, NV-pool-rights, NV-pool-notice: the statutes require a notice but prescribe no wording, so nothing is loaded.",
-    "NV-pool-notice and NV-pool-rights: added from the pool sections; unclear whether the owner wants them on the checklist for every pool contract."
+    "NV-pool-notice and NV-pool-rights: added from the pool sections; unclear whether the owner wants them on the checklist for every pool contract.",
+    "NV-cancel-form: the oral notice (NRS 598.280) has no wording and is not loaded; the form is meant to be handed over completed by the seller (NRS 598.250 'fully completed form'), so its blanks stay as printed."
   ]
 }

@@ -4,26 +4,49 @@
   "notices": [
     {
       "id": "CA-7159",
-      "cite": "B&P 7159, 7159.5",
-      "support": "For remodels the duty is 7159(c)(6) (no fixed words, near the signatures); 7164 is for new single-family dwellings.",
+      "cite": "B&P 7159(e)(4)",
+      "support": "A notice with the heading “Mechanics Lien Warning” written as follows:",
       "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
-      "mode": "none",
-      "hold_reason": "The only block is the complete text of B&P 7159, which holds the contract content rules, the CGL and workers' compensation choices, the lien warning, the CSLB notice and the three, five and seven-day cancel notices together with the Notice of Cancellation form; printing it would put non-notice statute text in the contract, and the individual notices cannot be taken out as separate blocks."
+      "mode": "print",
+      "title": "MECHANICS LIEN WARNING",
+      "trigger": "Home improvement contracts over $500 (a contractor furnishing an approved bond may leave it out, B&P 7159.5(a)(8))",
+      "format": "Heading 'Mechanics Lien Warning'; provided to the owner as part of the contract form",
+      "applies": {
+        "over_cents": 50000
+      },
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "MECHANICS LIEN WARNING:",
+      "end": "face the forced sale of your home to pay what you owe.",
+      "quote_note": "The statute's opening quotation mark (before MECHANICS LIEN WARNING:) and closing mark (after 'what you owe.') are excluded by placing the markers inside them. The inner single quotation marks around 'Preliminary Notice' are the statute's and stay.",
+      "blanks": []
     },
     {
       "id": "CA-cslb",
-      "support": "Home improvement and service and repair contracts print the \"Information about the Contractors State License Board (CSLB)\" notice \"in at least 12-point type\"",
-      "summary_row": "CSLB notice (12 point for home improvement and service and repair; 10 point statement for other prime contracts)",
-      "mode": "none",
-      "hold_reason": "The block is the whole of B&P 7030, which holds two different statements (the 10 point statement for other prime contracts and the 12 point notice for home improvement) plus the discipline rule; printing it would put the wrong statement and non-notice text in a home improvement contract."
+      "support": "The following notice shall be provided in at least 12-point typeface:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "print",
+      "title": "Information about the Contractors State License Board (CSLB)",
+      "cite": "B&P 7159(e)(5); 7030(b)",
+      "trigger": "Every home improvement contract (and service and repair contract)",
+      "format": "At least 12-point typeface, provided as part of the contract form",
+      "applies": {},
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "Information about the Contractors State License Board (CSLB): CSLB is the state consumer",
+      "end": "Write CSLB at P.O. Box 26000, Sacramento, CA 95826.",
+      "quote_note": "The statute's opening quotation mark (before 'Information about') and closing mark (after '95826.') are excluded by placing the markers inside them.",
+      "blanks": [],
+      "boundary_unsure": "The same notice is printed again in B&P 7030(b) with the words 'disciplinary actions and civil judgments' (no comma); the 7159(e)(5) text, amended 2025 and printed in the contract section itself, has 'disciplinary actions, and civil judgments'. The 7159(e)(5) text was used."
     },
     {
       "id": "CA-insurance",
-      "cite": "B&P 7159(c)(6), 7159(e)(1), 7159(e)(2)",
-      "support": "For remodels the duty is 7159(c)(6) (no fixed words, near the signatures); 7164 is for new single-family dwellings.",
+      "cite": "B&P 7159(c)(6)",
+      "support": "a notice stating that the owner or tenant has the right to require the contractor to have a performance and payment bond",
       "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
       "mode": "none",
-      "hold_reason": "The CGL and workers' compensation notices exist only inside the complete B&P 7159 block, and each one offers several statements of which only the correct one is printed; the bond notice has no fixed wording. Printing the block would put non-notice statute text in the contract."
+      "hold_reason": "The statements for CGL and workers' compensation insurance are loaded as separate stored notices (CA-cgl-*, CA-wc-*); the bond notice in 7159(c)(6) has no fixed wording, only a description of what it must say.",
+      "title": "Insurance and bond notices (see CA-cgl-*, CA-wc-*); bond notice has no prescribed wording"
     },
     {
       "id": "CA-7159.1",
@@ -31,11 +54,19 @@
       "cite": "B&P 7159.1",
       "trigger": "Door-to-door sale of home improvement goods or services in a contract that contains or is secured by a lien on real property",
       "format": "18 point boldface, separate piece of paper, signed and dated by the buyer, same language as the contract, signed copy handed over at signing",
-      "applies": { "sold_in_home": true },
+      "applies": {
+        "sold_in_home": true
+      },
       "support": "the contract shall be accompanied by the following notice in 18-point boldfaced type",
       "summary_row": "Door-to-door home improvement contract secured by a lien on the home: 18 point WARNING TO BUYER",
-      "mode": "none",
-      "hold_reason": "The block is the whole of B&P 7159.1, including the exemptions and the rule that a security interest without the notice is void, so printing it would put non-notice statute text in the contract; also whether a lien secures the contract is not known to the builder."
+      "mode": "on_file",
+      "block": "B&P 7159.1 (door-to-door contract secured by the home)",
+      "block_index": 0,
+      "start": "WARNING TO BUYER: IF YOU SIGN THE CONTRACT",
+      "end": "REQUIRED BY THIS CONTRACT.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": [],
+      "boundary_unsure": "Only the capital-letter warning in quotation marks is cut; the sentences that follow it (separate paper, signed and dated, copy handed over) are rules, not part of the notice."
     },
     {
       "id": "CA-7191",
@@ -43,35 +74,57 @@
       "cite": "B&P 7191",
       "trigger": "Contract for work on residential property with four or fewer units that contains an arbitration clause",
       "format": "Clause titled ARBITRATION OF DISPUTES; 10 point roman boldface (or red 8 point boldface), capitals if typed; the NOTICE sits immediately before and after the initials line",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "the provision shall be clearly titled",
       "summary_row": "Arbitration clause title and NOTICE (residential, four or fewer units)",
-      "mode": "none",
-      "hold_reason": "The block is the whole of B&P 7191, including the enforceability rule and the board's discipline authority, so printing it would put non-notice statute text in the contract; the notice is also only needed when the contract has an arbitration clause."
+      "mode": "on_file",
+      "block": "B&P 7191 (arbitration notice, residential four or fewer units)",
+      "block_index": 0,
+      "start": "NOTICE: BY INITIALING IN THE SPACE BELOW",
+      "end": "TO NEUTRAL ARBITRATION.",
+      "quote_note": "The opening quotation mark before NOTICE and the closing mark after the last sentence are excluded. The statute's two quotations are printed on one line as '...VOLUNTARY.” “WE HAVE READ...'; the closing and opening marks between them stay in the cut. The inner single quotation marks around ARBITRATION OF DISPUTES stay.",
+      "blanks": [],
+      "boundary_unsure": "The statute prints two quoted paragraphs side by side (the NOTICE and the WE HAVE READ sentence). Both are cut as one range. The 'ARBITRATION OF DISPUTES' title and the initials line are not part of the cut."
     },
     {
       "id": "CA-1689.7",
-      "title": "Home solicitation cancellation statement near the signature and Notice of Cancellation form (sales other than home improvement and service and repair contracts)",
-      "cite": "Civ. Code 1689.7",
-      "trigger": "Home solicitation sale of $25 or more made away from the seller's trade premises that is not a home improvement or service and repair contract (for example a recurring cleaning plan sold at the home)",
-      "format": "Statement at least 10 point boldface in immediate proximity to the buyer's signature; duplicate detachable Notice of Cancellation form, at least 10 point; same language as the sales presentation; oral notice",
-      "applies": { "sold_in_home": true },
-      "support": "shall contain in immediate proximity to the space reserved for the buyer",
+      "title": "Home solicitation statement near the signature: three business days (other buyers)",
+      "cite": "Civ. Code 1689.7(a)(1)(B)",
+      "trigger": "Home solicitation sale of $25 or more made away from the seller's trade premises, other than contracts written under B&P 7151.2 or 7159.10 (home improvement and service and repair contracts use their own notices)",
+      "format": "Conspicuous, in a size equal to at least 10-point boldface type, in immediate proximity to the space reserved for the buyer's signature; same language as the oral sales presentation",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a conspicuous statement in a size equal to at least 10-point boldface type, as follows",
       "summary_row": "Home solicitation: statement near signature, first-page seller details, Notice of Cancellation form, oral notice",
-      "mode": "none",
-      "hold_reason": "The block is the whole of Civ. Code 1689.7, with several versions of the statement (senior, disaster, emergency response unit, home improvement) and other rules around them, so printing it would put non-notice statute text in the contract."
+      "mode": "on_file",
+      "block": "Civ. Code 1689.7 (home solicitation statement and Notice of Cancellation)",
+      "block_index": 0,
+      "start": "You, the buyer, may cancel this transaction at any time prior to midnight of the thi",
+      "end": "rd business day after the date of this transaction. See the attached notice of cancellation form for an explanation of this right.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The two markers split the word 'third' because the same closing sentence appears three more times (fifth and seventh business day versions) and the loader needs a unique end.",
+      "blanks": [],
+      "boundary_unsure": "Only the version for 'all other buyers' (clause (B)) is cut; the senior citizen (fifth day), emergency response unit and disaster (seventh day) versions are not."
     },
     {
       "id": "CA-7159.10",
-      "title": "Service and repair contract notices ($750 or less)",
-      "cite": "B&P 7159.10",
+      "title": "Notice to the Buyer: service and repair contract requirements",
+      "cite": "B&P 7159.10(e)(2)",
       "trigger": "Service and repair contract of $750 or less that the customer asked for, with no payment before the work is done and nothing sold beyond the problem",
-      "format": "Several notices, 10 point boldface type notice and 12 point boldface notices signed and dated by the buyer",
+      "format": "At least 12-point boldface type, signed and dated by the buyer",
       "applies": {},
-      "support": "Every service and repair contract described in subdivision (a) shall provide the following information, notices, and disclosures in the contract",
+      "support": "A notice in at least 12-point boldface type, signed and dated by the buyer: “Notice to the Buyer: The law requires that service and repair contracts must meet all of the following requirements:",
       "summary_row": "Service and repair contract ($750 or less): contents and notices",
-      "mode": "none",
-      "hold_reason": "The block is the whole of B&P 7159.10, which mixes the definition, the contract content rules and the notices, so printing it would put non-notice statute text in the contract; whether the customer asked for the work is not known to the builder."
+      "mode": "on_file",
+      "block": "B&P 7159.10 (service and repair contract, $750 or less)",
+      "block_index": 0,
+      "start": "Notice to the Buyer: The law requires that service and repair contracts must meet",
+      "end": "may not accept any payment until the work is completed.",
+      "quote_note": "The opening quotation mark (before 'Notice to the Buyer') and the closing mark (after 'completed.') are excluded by placing the markers inside them. The (A) to (D) labels lie inside the statute's quotation and stay.",
+      "blanks": [],
+      "boundary_unsure": "The statute's quotation opens before 'Notice to the Buyer' and closes after item (D); the cut covers exactly that quoted range."
     },
     {
       "id": "CA-115924",
@@ -79,11 +132,423 @@
       "cite": "Health & Saf. Code 115924",
       "trigger": "Agreement to build a swimming pool or spa, or to do permitted work on one",
       "format": "No wording or type size prescribed",
-      "applies": { "is_pool": true },
+      "applies": {
+        "is_pool": true
+      },
       "support": "shall give the consumer notice of the requirements of this article",
       "summary_row": "Pool or spa agreement: notice of the pool safety article; two of seven safety features",
       "mode": "none",
       "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "CA-copy-statement",
+      "title": "You are entitled to a completely filled in copy of this agreement",
+      "cite": "B&P 7159(d)(4)",
+      "trigger": "Home improvement contracts over $500",
+      "format": "At least 12-point boldface type",
+      "applies": {
+        "over_cents": 50000
+      },
+      "support": "The following statement in at least 12-point boldface type: “You are entitled to a completely filled in copy of this agreement, signed by both you and the contractor, before any work may be started.”",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "print",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "You are entitled to a completely filled in copy of this agreement",
+      "end": "before any work may be started.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-extra-work-note",
+      "title": "Note About Extra Work and Change Orders",
+      "cite": "B&P 7159(d)(13)",
+      "trigger": "Home improvement contracts over $500",
+      "format": "Under the heading 'Note About Extra Work and Change Orders' (the heading is a separate quotation in the statute and is not part of the cut)",
+      "applies": {
+        "over_cents": 50000
+      },
+      "support": "The heading: “Note About Extra Work and Change Orders,” followed by the following statement:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "print",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "Extra Work and Change Orders become part of the contract once",
+      "end": "schedule of progress payments.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": [],
+      "boundary_unsure": "The statute puts the heading in its own quotation marks in the line before; the heading is not in the cut because the statement lies on a separate line after the words 'followed by the following statement:'. The printer must put the heading above the statement."
+    },
+    {
+      "id": "CA-downpayment",
+      "title": "Downpayment statement",
+      "cite": "B&P 7159(d)(8)(C)",
+      "trigger": "Only if a downpayment will be charged (a contractor furnishing an approved bond is exempt, B&P 7159.5(a)(8))",
+      "format": "At least 12-point boldface type, in the downpayment details under the heading 'Downpayment'",
+      "applies": {
+        "downpayment": true
+      },
+      "support": "The following statement in at least 12-point boldface type:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "THE DOWNPAYMENT MAY NOT EXCEED $1,000",
+      "end": "WHICHEVER IS LESS.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-progress-payments",
+      "title": "Statement for the schedule of progress payments",
+      "cite": "B&P 7159(d)(9)(C)",
+      "trigger": "Only if progress payments other than the downpayment are to be made before the project is completed",
+      "format": "At least 12-point boldface type, in the section reserved for the progress payments",
+      "applies": {
+        "progress_payments": true
+      },
+      "support": "The section of the contract reserved for the progress payments shall include the following statement in at least 12-point boldface type:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "The schedule of progress payments must specifically describe each phase of work",
+      "end": "HOWEVER, A CONTRACTOR MAY REQUIRE A DOWNPAYMENT.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-subs-disclaimer",
+      "title": "Subcontractor disclaimer",
+      "cite": "B&P 7159(c)(7)(B)",
+      "trigger": "If the 'Yes' box is checked, indicating that a subcontractor will be used on the project; the same disclaimer goes on each change order",
+      "format": "Contract states whether a subcontractor will be used, with a box to be checked",
+      "applies": {
+        "subcontractors": true
+      },
+      "support": "If checked “Yes,” indicating that a subcontractor will be used on the project, the contract shall contain a disclaimer that states the following:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "One or more subcontractors will be used on this project",
+      "end": "classification of those subcontractors.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-cgl-none",
+      "title": "CGL statement: does not carry insurance",
+      "cite": "B&P 7159(e)(1)",
+      "trigger": "Notice concerning commercial general liability insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is both relevant and correct",
+      "format": "Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Commercial General Liability Insurance (CGL),” followed by whichever of the following statements is both relevant and correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‛This contractor’) does not carry commercial",
+      "end": "liability insurance.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay. Leading label (The name on the license or ‛This contractor’) is a blank.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence"
+      ]
+    },
+    {
+      "id": "CA-cgl-insured",
+      "title": "CGL statement: carries insurance written by an insurer",
+      "cite": "B&P 7159(e)(1)",
+      "trigger": "Notice concerning commercial general liability insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is both relevant and correct",
+      "format": "Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Commercial General Liability Insurance (CGL),” followed by whichever of the following statements is both relevant and correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‛This contractor’) carries commercial general liability insurance written by",
+      "end": "to check the contractor’s insurance coverage.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay. Leading label (The name on the license or ‛This contractor’) is a blank.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence",
+        "(the insurance company) after 'written by'",
+        "__________ (the telephone number after 'You may call (the insurance company) at')"
+      ]
+    },
+    {
+      "id": "CA-cgl-self",
+      "title": "CGL statement: self-insured",
+      "cite": "B&P 7159(e)(1)",
+      "trigger": "Notice concerning commercial general liability insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is both relevant and correct",
+      "format": "Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Commercial General Liability Insurance (CGL),” followed by whichever of the following statements is both relevant and correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‛This contractor’) is self-",
+      "end": "insured.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay. Leading label (The name on the license or ‛This contractor’) is a blank.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence"
+      ]
+    },
+    {
+      "id": "CA-cgl-llc",
+      "title": "CGL statement: limited liability company",
+      "cite": "B&P 7159(e)(1)",
+      "trigger": "Notice concerning commercial general liability insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is both relevant and correct",
+      "format": "Under the heading 'Commercial General Liability Insurance (CGL)' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Commercial General Liability Insurance (CGL),” followed by whichever of the following statements is both relevant and correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‘This contractor’) is a limited liability company that carries liability insurance",
+      "end": "to check on the contractor’s insurance coverage or security.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay. Leading label (The name on the license or ‛This contractor’) is a blank.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence",
+        "(the insurance company or trust company or bank)",
+        "____ (the telephone number after 'at')"
+      ]
+    },
+    {
+      "id": "CA-wc-exempt",
+      "title": "Workers' compensation statement: no employees, exempt",
+      "cite": "B&P 7159(e)(2)",
+      "trigger": "Notice concerning workers' compensation insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is correct",
+      "format": "Under the heading 'Workers’ Compensation Insurance' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Workers’ Compensation Insurance” followed by whichever of the following statements is correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‛This contractor’) has no employees",
+      "end": "exempt from workers’ compensation requirements.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence"
+      ]
+    },
+    {
+      "id": "CA-wc-carries",
+      "title": "Workers' compensation statement: carries insurance",
+      "cite": "B&P 7159(e)(2)",
+      "trigger": "Notice concerning workers' compensation insurance, provided to the owner as part of the contract form (or attached if the contract says so); the contractor prints whichever statement is correct",
+      "format": "Under the heading 'Workers’ Compensation Insurance' (a separate quotation in the statute, not part of the cut)",
+      "applies": {
+        "insurance_status": true
+      },
+      "support": "The notice shall include the heading “Workers’ Compensation Insurance” followed by whichever of the following statements is correct:",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "(The name on the license or ‛This contractor’) carries workers’ compensation insurance",
+      "end": "for all employees.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The nested single quotation marks around This contractor are the statute's and stay.",
+      "blanks": [
+        "(The name on the license or ‛This contractor’) at the start of the sentence"
+      ]
+    },
+    {
+      "id": "CA-7day-notice",
+      "title": "Seven-Day Right to Cancel (disaster repair)",
+      "cite": "B&P 7159(e)(7)",
+      "trigger": "Contract written for the repair or restoration of residential premises damaged by a sudden or catastrophic event for which a state of emergency has been declared (federal, governor or local)",
+      "format": "At least 12-point boldface type, in immediate proximity to a space reserved for the owner's signature, signed and dated by the owner, same language as the oral sales presentation; may be attached if the contract has a checkbox statement",
+      "applies": {
+        "disaster_repair": true
+      },
+      "support": "The following notice entitled “Seven-Day Right to Cancel” shall be provided to the buyer for any contract that is written for the repair or restoration of residential premises damaged by any sudden or catastrophic event",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "Seven-Day Right to Cancel",
+      "start_occurrence": 3,
+      "end": "to the contractor and fail to do so, then you remain liable for performance of all obligations under the contract.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The start marker is the third occurrence of the heading text in the block (the first two are in running text, the fourth and fifth are later).",
+      "blanks": [],
+      "boundary_unsure": "Start is the heading inside the quotation mark; the notice ends at the closing quotation mark after the paragraph about goods."
+    },
+    {
+      "id": "CA-7day-form",
+      "title": "Notice of Cancellation form (seven-day, disaster repair)",
+      "cite": "B&P 7159(e)(7)(B)(vi)",
+      "trigger": "Same as the Seven-Day Right to Cancel notice",
+      "format": "Completed form in duplicate, attached to the agreement and easily detachable, same language as the contract",
+      "applies": {
+        "disaster_repair": true
+      },
+      "support": "The notice shall be accompanied by a completed form in duplicate, captioned “Notice of Cancellation,” which shall also be attached to the agreement or offer to purchase and be easily detachable",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "on_file",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "“Notice of Cancellation”",
+      "start_occurrence": 5,
+      "end": "(Buyer’s signature)",
+      "quote_note": "The statute's own quotation marks inside the form (around the caption, around the middle paragraphs) are kept byte for byte because they lie between the markers; the start marker includes the quotation marks around the caption; the form ends at the buyer's signature line, outside any quotation mark.",
+      "blanks": [
+        "/enter date of transaction/ with '(Date)' under it",
+        "to ____ (blank before the comma, then /name of seller/)",
+        "at ____ /address of seller’s place of business/",
+        "not later than midnight of ____ (blank before the period) with '(Date)' under it",
+        "I hereby cancel this transaction. with '(Date)' under it",
+        "(Buyer’s signature)"
+      ],
+      "boundary_unsure": "The statute mixes quotation marks inside the form (caption in quotes, middle paragraphs in quotes, signature lines outside any quote). The end is the buyer's signature line, the last line of the form; the next line is a separate rule (II/(f))."
+    },
+    {
+      "id": "CA-1689.7-form",
+      "title": "Notice of Cancellation form (home solicitation sales other than home improvement)",
+      "cite": "Civ. Code 1689.7(c)(1)",
+      "trigger": "Same as CA-1689.7",
+      "format": "Completed form in duplicate, attached to the agreement and easily detachable, at least 10-point type, same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "captioned “Notice of Cancellation” which shall be attached to the agreement or offer to purchase and be easily detachable, and which shall contain in type of at least 10-point the following statement",
+      "summary_row": "Home solicitation: statement near signature, first-page seller details, Notice of Cancellation form, oral notice",
+      "mode": "on_file",
+      "block": "Civ. Code 1689.7 (home solicitation statement and Notice of Cancellation)",
+      "block_index": 0,
+      "start": "“Notice of Cancellation”",
+      "start_occurrence": 2,
+      "end": "(Buyer’s signature)",
+      "quote_note": "The statute's own quotation marks inside the form (around the caption, around the middle paragraphs) are kept byte for byte because they lie between the markers; the start marker includes the quotation marks around the caption; the form ends at the buyer's signature line, outside any quotation mark.",
+      "blanks": [
+        "/enter date of transaction/ with '(Date)' under it",
+        "to _____ /name of seller/ _____ ,",
+        "at _____ /address of seller’s place of business/ _____",
+        "not later than midnight of(Date).",
+        "I hereby cancel this transaction. _____ (Date) _____",
+        "_____ (Buyer’s signature)"
+      ],
+      "boundary_unsure": "The end is the buyer's signature line, the last line of the form; the next paragraph (2) changes 'three' to 'five' for seniors and is not part of the form."
+    },
+    {
+      "id": "CA-7159.10-copy",
+      "title": "Notice to the Buyer: entitled to a signed copy before work starts (service and repair)",
+      "cite": "B&P 7159.10(e)(3)",
+      "trigger": "Same as CA-7159.10",
+      "format": "At least 12-point boldface type",
+      "applies": {
+        "service_and_repair": true
+      },
+      "support": "The notice in at least 12-point boldface type: “Notice to the Buyer: You are entitled to a completely filled in and signed copy of this agreement before any work may be started.”",
+      "summary_row": "Service and repair contract ($750 or less): contents and notices",
+      "mode": "on_file",
+      "block": "B&P 7159.10 (service and repair contract, $750 or less)",
+      "block_index": 0,
+      "start": "Notice to the Buyer: You are entitled to a completely filled in and signed copy",
+      "end": "before any work may be started.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-7159.10-cancel",
+      "title": "YOUR RIGHTS TO CANCEL BEFORE WORK BEGINS (service and repair)",
+      "cite": "B&P 7159.10(e)(12)(A)(i)",
+      "trigger": "Same as CA-7159.10",
+      "format": "At least 12-point boldface type, in immediate proximity to the buyer's signature space, dated and signed by the buyer; may be attached if the contract has a checkbox statement",
+      "applies": {
+        "service_and_repair": true
+      },
+      "support": "the following statement, in at least 12-point boldface type, which shall be dated and signed by the buyer:",
+      "summary_row": "Service and repair contract ($750 or less): contents and notices",
+      "mode": "on_file",
+      "block": "B&P 7159.10 (service and repair contract, $750 or less)",
+      "block_index": 0,
+      "start": "YOUR RIGHTS TO CANCEL BEFORE WORK BEGINS",
+      "end": "all obligations under the contract.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The (A) to (C) labels and numbered items lie inside the statute's quotation and stay.",
+      "blanks": [],
+      "boundary_unsure": "Clause (ii) (change 'three' to 'five' for senior citizens) follows the closing quotation mark and is not in the cut."
+    },
+    {
+      "id": "CA-7164-lien",
+      "title": "MECHANICS LIEN WARNING (new single-family dwelling contract)",
+      "cite": "B&P 7164(b)(4)",
+      "trigger": "Contract for construction of a single-family dwelling to be retained by the owner for at least one year (not a remodel)",
+      "format": "Statement with the heading 'Mechanics Lien Warning'",
+      "applies": {
+        "new_construction": true
+      },
+      "support": "(4) A statement with the heading “Mechanics Lien Warning” as follows:",
+      "summary_row": "New single-family dwelling contract: contents, Mechanics Lien Warning, bond notice",
+      "mode": "on_file",
+      "block": "B&P 7164 (new single-family dwelling contract)",
+      "block_index": 0,
+      "start": "MECHANICS LIEN WARNING:",
+      "end": "face the forced sale of your home to pay what you owe.",
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them. The inner single quotation marks around 'Preliminary Notice' stay.",
+      "blanks": []
+    },
+    {
+      "id": "CA-3day-notice",
+      "title": "Three-Day Right to Cancel (home improvement contracts)",
+      "cite": "B&P 7159(e)(6)(B)(i)",
+      "trigger": "Home improvement contract, unless negotiated at the contractor's place of business, or subject to the Seven-Day notice, or an alarm company contract; five business days for a buyer who is a senior citizen",
+      "format": "At least 12-point boldface type, in immediate proximity to a space reserved for the owner's signature, signed and dated; same language as the oral sales presentation; may be attached if the contract has a checkbox statement",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "The notice set forth in subparagraph (B) and entitled “Three-Day Right to Cancel,” or entitled “Five-Day Right to Cancel” for contracts with a senior citizen, shall be provided to the buyer unless the contract is",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "print",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "Three-Day Right to Cancel",
+      "start_occurrence": 2,
+      "end": "to the contractor and fail to do so, then you remain liable for performance of all obligations under the contract.",
+      "end_occurrence": 1,
+      "quote_note": "The statute's opening and closing quotation marks are excluded by placing the markers inside them.",
+      "blanks": []
+    },
+    {
+      "id": "CA-3day-form",
+      "title": "Notice of Cancellation form (three-day, home improvement)",
+      "cite": "B&P 7159(e)(6)(C)(vi)",
+      "trigger": "Same as the Three-Day Right to Cancel notice",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "The notice shall be accompanied by a completed form in duplicate, captioned “Notice of Cancellation,” which also shall be attached to the agreement or offer to purchase and be easily detachable",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "print",
+      "block": "B&P 7159 (home improvement contract, complete section)",
+      "block_index": 0,
+      "start": "“Notice of Cancellation”",
+      "start_occurrence": 4,
+      "end": "(Buyer’s signature)",
+      "end_occurrence": 1,
+      "quote_note": "The statute's own quotation marks inside the form (around the caption, around the middle paragraphs) are kept byte for byte because they lie between the markers; the start marker includes the quotation marks around the caption; the form ends at the buyer's signature line, outside any quotation mark.",
+      "blanks": [
+        "/enter date of transaction/ with '(Date)' under it",
+        "to ____ (blank before the comma, then /name of seller/)",
+        "at ____ /address of seller’s place of business/",
+        "not later than midnight of ____ (blank before the period) with '(Date)' under it",
+        "I hereby cancel this transaction. with '(Date)' under it",
+        "(Buyer’s signature)"
+      ]
     }
   ],
   "changes": [
@@ -136,6 +601,15 @@
     "cancellation.oral_notice: set to true from Civ. Code 1689.7(f), which has no exception for home improvement contracts, but 7159 itself does not repeat the oral duty.",
     "defect_process.unresolved: set to false because the file settles it from the statute text, but the file calls this a reading of the text, not a legal opinion.",
     "written_contract: 7159.5 applies to every home improvement contract with no dollar floor (state file conflict 6), so the $500 threshold is only the 7159 package threshold; left unchanged.",
-    "CA-7164 (new single-family dwelling contract) was not added because it does not cover remodels."
+    "CA-7164 (new single-family dwelling contract) was not added because it does not cover remodels.",
+    "CA-7159 is now the Mechanics Lien Warning (it was the whole 7159 package). The three-day cancel notice and its form are in pending_ranges_blocked_by_loader (loader limit), not loaded.",
+    "CA-copy-statement, CA-extra-work-note and CA-7159 print for contracts over $500 (B&P 7159(b)), but contracts of $750 or less that meet all the service and repair conditions use B&P 7159.10 instead; the builder cannot tell.",
+    "CA-extra-work-note: the heading 'Note About Extra Work and Change Orders' is a separate quoted phrase in the statute and cannot be joined to the statement, so only the statement is cut.",
+    "Not loaded (headings or described, not worded): 7159(d)(3), (5), (6), (7), (10), (11), (12) headings; (c)(3)(B) first-page items; (c)(4) lien-release statement; (c)(6) bond notice; (e)(3) change-order notice; 7164(d) bond notice; checkbox statements for attached notices; five-day (senior) versions; 7159.10 headings and the parts-offer statements.",
+    "CA-downpayment and CA-progress-payments are stored, not printed: the builder cannot tell whether a downpayment or progress payments are charged, and bonded contractors are exempt (7159.5(a)(8)).",
+    "CA-cgl-*, CA-wc-*, CA-subs-disclaimer are stored: which statement applies depends on facts the builder does not hold.",
+    "CA-cslb: the 7159(e)(5) wording was used, not 7030(b); they differ by one comma ('disciplinary actions, and civil judgments').",
+    "CA-1689.7: stored because home improvement contracts are excluded from it and the builder cannot tell a home improvement job from a cleaning plan.",
+    "CA-7164-lien: new-construction only, stored."
   ]
 }

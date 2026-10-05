@@ -16,12 +16,19 @@
       "cite": "AS 09.45.893",
       "trigger": "Contract to design, construct or remodel a dwelling (single-family house, duplex or multi-family unit); remodel means a change worth more than 25 percent of the structure's value",
       "format": "Separate page attached to the contract, titled at the top, conspicuous, signed by the purchaser",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "must be included on a separate page attached to the contract and must contain a title at the top of the page that reads",
       "summary_row": "Defect notice on a separate signed page attached to the contract (dwelling design, construction or remodel)",
       "mode": "on_file",
       "block": "AS 09.45.893. Notice required in contract",
-      "block_index": 0
+      "block_index": 0,
+      "start": "ALASKA LAW AT AS 09.45.881",
+      "end": "FOR DEFECTIVE DESIGN, CONSTRUCTION, OR REMODELING.",
+      "quote_note": "none: the statute form after 'in substantially the following form:' is not in quotation marks. The required page title (set in subsection (b), in quotation marks) is not part of this cut and is separate.",
+      "blanks": [],
+      "boundary_unsure": "The cut is the capital-letter paragraph that follows 'in substantially the following form:' to the end of the block. The page title in (b) and the purchaser signature line (b) are not inside the form and are not cut."
     }
   ],
   "changes": [
@@ -49,10 +56,21 @@
       "path": "cleaning.auto_renewal.cite",
       "new": "AS 45.45.920",
       "support": "AS 45.45.920 | VERBATIM-OFFICIAL"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Defect notice page (AS 09.45.893) titled \"Notice of Potential Claims Must Be Provided within One Year\", signed by the purchaser, attached to a dwelling design, construction or remodel contract",
+      "support": "The official text of 08.18.025 requires the endorsement, not a contract statement."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "Registration number, name, mailing and principal address on contract and ads (AS 08.18.051, official text)",
+      "support": "Advertising and contracts must also include the contractor's registration number."
     }
   ],
   "unsure": [
     "AK-defect-notice: the builder cannot tell whether a job is a dwelling or a remodel worth more than 25 percent of the structure, so the page is stored on file instead of printed.",
-    "AK-cancel: the statute requires a written notice of the five business day right but prescribes no sentence, so nothing is loaded."
+    "AK-cancel: the statute requires a written notice of the five business day right but prescribes no sentence, so nothing is loaded.",
+    "checklist item 2 (Alaska): the old item asked for a residential endorsement statement in the contract; the second pass says the endorsement is required but no statement is. Replaced by the AS 09.45.893 defect notice page, which is the contract item the file does show."
   ]
 }

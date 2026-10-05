@@ -5,30 +5,73 @@
     {
       "id": "IA-cancel",
       "trigger": "Door-to-door sale of $25 or more, including a visit the buyer invited, where the buyer's agreement is made away from the seller's place of business",
-      "support": "555A.1(3)(a): \"purchase price of twenty-five dollars or more ... in which the seller or the seller's representative personally solicits the sale, including those in response to or following an invitation by the buyer",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in boldface type of a minimum size of ten points, a statement in substantially the following form:",
       "summary_row": "Buyer statement near signature",
-      "mode": "none",
+      "mode": "print",
       "block": "Iowa Code chapter 555A: door-to-door sales (whole chapter: 555A.1 to 555A.6)",
       "block_index": 0,
-      "hold_reason": "The only block is the whole of chapter 555A (definitions, seller duties, effect on debts, penalties) around the statement and form; printing the block would put non-notice statute text in the contract."
+      "title": "State cancellation statement near the signature (door-to-door sale)",
+      "format": "Statement near the signature space in boldface type of at least ten points, in the same language as the oral sales presentation; oral notice also required; the duplicate form is the separate notice IA-cancel-form",
+      "start": "You, the buyer, may cancel this transaction",
+      "end": "this right.",
+      "quote_note": "None: the statute prints the statement without quotation marks, indented, after 'in substantially the following form:'. The first line's leading spaces are outside the cut; the PDF's line breaks and indentation on the later lines are inside it, as printed.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. The statement is the indented paragraph after the colon; it ends at 'this right.' before the bracketed history line."
+    },
+    {
+      "id": "IA-cancel-form",
+      "title": "Duplicate NOTICE OF CANCELLATION form (door-to-door sale)",
+      "cite": "Iowa Code 555A.3",
+      "trigger": "Door-to-door sale of $25 or more, including a visit the buyer invited, where the buyer's agreement is made away from the seller's place of business",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, in ten point boldface type, in the same language as the contract; seller completes name, address, date of transaction and last cancellation date on both copies (555A.4(1))",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned “Notice of Cancellation”, which shall be attached to the contract or receipt and easily detachable, and which shall contain in ten point boldface type the following information and statements in the same language as that used in the contract:",
+      "summary_row": "NOTICE OF CANCELLATION duplicate form",
+      "mode": "print",
+      "block": "Iowa Code chapter 555A: door-to-door sales (whole chapter: 555A.1 to 555A.6)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(Buyer’s signature)",
+      "quote_note": "None: the form is set off under the heading NOTICE OF CANCELLATION; the statute prints it without quotation marks. Dotted lines are the Code's blanks and stay. A page break left two blank lines before 'I hereby cancel this transaction.'; they are inside the cut as printed.",
+      "blanks": [
+        "(enter date of transaction) (dotted line above it)",
+        "(Name of seller) (dotted line before it)",
+        "(Address of seller’s place of business) (dotted line before it)",
+        "(Date) after 'not later than midnight of' (dotted line before it)",
+        "(Date) under 'I hereby cancel this transaction.' (dotted line above it)",
+        "(Buyer’s signature) (dotted line above it)"
+      ],
+      "boundary_unsure": "None on the edges (caption line to the signature caption). The seller-name and address captions sit inline in the PDF paragraph as printed."
     },
     {
       "id": "IA-lien",
       "format": "Written, boldface, at least 10 point, in the contract or a separate notice; must carry the registry web address (sos.iowa.gov/MNLR) and toll-free number (1-888-767-8683); registry posting within 10 days (572.13A)",
       "support": "The owner notice shall include the MNLR Internet Web site address (sos.iowa.gov/MNLR) and MNLR toll-free telephone number (1-888-767-8683).",
-      "summary_row": "Owner notice (residential, when a subcontractor is or will be used)",
-      "mode": "none",
-      "block": "Iowa Code 572.13: general contractor owner notice",
+      "summary_row": "Registry internet address and toll-free number that the owner notice must contain",
+      "mode": "on_file",
+      "block": "Secretary of State, \"Mechanics Liens\" page: where the notice goes and the address and number to print",
       "block_index": 0,
-      "hold_reason": "The only block is the whole section 572.13, with the lien-loss and scope subsections around the notice, and it does not contain the registry address and toll-free number the notice must carry; printing it would put non-notice statute text in the contract."
+      "start": "Persons or companies furnishing labor or materials",
+      "end": "(1-888-767-8683).",
+      "quote_note": "None: the agency page prints the language without quotation marks after 'The following language must be included'.",
+      "blanks": [],
+      "boundary_unsure": "The notice paragraph is clear, but the agency page follows it with the sentence 'The owner notice shall include the MNLR Internet Web site address ... (1-888-767-8683).', which is an instruction that supplies the address and number rather than a sentence of the notice; it is inside the cut so the stored text carries the registry address and number (572.13(2) requires them in the notice). Whoever prints it must decide how to show them. The statute's own 572.13(1) text lacks them. The agency page says ten points and omits 'boldface'; the statute requires boldface."
     }
   ],
   "changes": [
-    { "path": "cancellation.day_count_note", "new": "Saturday is not counted: a business day is any calendar day except Saturday, Sunday, or public holiday (Iowa Code 555A.1(1)).", "support": "555A.1(1): \"any calendar day except Saturday, Sunday, or public holiday, including holidays observed on Mondays.\"" }
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Saturday is not counted: a business day is any calendar day except Saturday, Sunday, or public holiday (Iowa Code 555A.1(1)).",
+      "support": "555A.1(1): \"any calendar day except Saturday, Sunday, or public holiday, including holidays observed on Mondays.\""
+    }
   ],
   "unsure": [
     "IA-lien: the notice is only required when the general contractor uses or will use a subcontractor, which the builder cannot tell; the statute copy and the Secretary of State page differ on boldface (statute requires it).",
     "IA-lien: the longer notice in 572.13A(3)(a) is sent by the registry, not the contractor, so it was not added as a contract notice.",
-    "IA-cancel: statement and form are in a single whole-chapter block, so nothing is loaded."
+    "IA-cancel: statement and form are in a single whole-chapter block, so nothing is loaded.",
+    "IA-lien: stored on file, not printed, because it is only required when the general contractor uses or will use a subcontractor (not decidable by the builder); it could print for residential jobs if Nicole prefers an extra notice to a missed one.",
+    "IA-cancel and IA-cancel-form: the cuts keep the PDF's line breaks and indentation as printed in the stored block."
   ]
 }

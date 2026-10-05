@@ -10,16 +10,53 @@
       "summary_row": "Form of agreement, statement of buyer's rights (adopts FTC notice)",
       "mode": "none",
       "hold_reason": "no prescribed wording; the statute only requires a statement that complies with the FTC notice of cancellation rule"
+    },
+    {
+      "id": "CO-lien-notice",
+      "title": "IMPORTANT NOTICE TO OWNERS (mechanics' lien notice, mailed by the building permit office)",
+      "cite": "C.R.S. 38-22-105.5(2)",
+      "trigger": "Residential remodel permit for a property of four or fewer living units; sent by the permit-issuing agency by first-class mail, not by the contractor; not required for new residential construction or more than four living units",
+      "format": "At least ten-point bold-faced type if printed, or capital letters if typewritten; identifies the contractor by name and address",
+      "applies": {
+        "residential": true
+      },
+      "support": "Sent by \"the agency or other authority issuing the permit\", by first-class mail to the property, not by the contractor.",
+      "summary_row": "Notice of lien law (sent by the building permit office, not the contractor)",
+      "mode": "on_file",
+      "block": "C.R.S. 38-22-105.5. Notice of lien law",
+      "block_index": 0,
+      "start": "IMPORTANT NOTICE TO OWNERS: UNDER COLORADO LAW",
+      "end": "YOU SHOULD TAKE WHATEVER STEPS NECESSARY TO PROTECT YOUR PROPERTY.",
+      "quote_note": "none: the notice follows 'shall state substantially as follows:' and is not in quotation marks.",
+      "blanks": [],
+      "boundary_unsure": "The statute says the notice must also identify the contractor by name and address; no blank for that is printed in the statute text, so none is listed. Start and end are the first and last words of the capital-letter paragraph; subsection (3), which follows, is not in the cut."
     }
   ],
   "changes": [
-    { "path": "cancellation.text", "new": "Federal for cash sales; state home solicitation covers credit sales only (C.R.S. 5-3-401, official text)", "support": "'Home solicitation sale' means a consumer credit sale of goods or services in which the seller or a person acting for the seller personally solicits the sale" },
-    { "path": "defect_process.text", "new": "CDARA 13-20-803.5, 75 days before filing an action (90 days for commercial property)", "support": "No later than seventy-five days before filing an action against a construction professional, or no later than ninety days before filing the action in the case of a commercial property" },
-    { "path": "cleaning.auto_renewal.rule", "new": "Reminder 25 to 40 days before renewal, retainable acknowledgment, easy cancellation; a renewal term over one year needs express written consent", "support": "A renewal term longer than one year needs \"express written consent\"." },
-    { "path": "cleaning.auto_renewal.scope_and_confidence", "new": "OFFICIAL text (CRS 2026, olls.info); since February 16, 2026 a consumer includes business customers; no exemption for cleaning or home services", "support": "No exemption for cleaning or home services appears in subsection (5)." }
+    {
+      "path": "cancellation.text",
+      "new": "Federal for cash sales; state home solicitation covers credit sales only (C.R.S. 5-3-401, official text)",
+      "support": "'Home solicitation sale' means a consumer credit sale of goods or services in which the seller or a person acting for the seller personally solicits the sale"
+    },
+    {
+      "path": "defect_process.text",
+      "new": "CDARA 13-20-803.5, 75 days before filing an action (90 days for commercial property)",
+      "support": "No later than seventy-five days before filing an action against a construction professional, or no later than ninety days before filing the action in the case of a commercial property"
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Reminder 25 to 40 days before renewal, retainable acknowledgment, easy cancellation; a renewal term over one year needs express written consent",
+      "support": "A renewal term longer than one year needs \"express written consent\"."
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "OFFICIAL text (CRS 2026, olls.info); since February 16, 2026 a consumer includes business customers; no exemption for cleaning or home services",
+      "support": "No exemption for cleaning or home services appears in subsection (5)."
+    }
   ],
   "unsure": [
     "CO-cancel-credit: Colorado prints no wording of its own (it adopts the FTC notice), so nothing is loaded; the notice also only applies to credit sales, which the builder cannot tell.",
-    "The permit-office lien notice (38-22-105.5) is mailed by the permit office, not the contractor, so it was not added as a contract notice."
+    "CO-lien-notice: new id, stored on file only. The permit office mails this notice, not the contractor, so it is not part of the contract; the file says a contractor may choose to reproduce it.",
+    "CO checklist item 1 ('Defect clause pointing to CDARA notice of claim') is not required by the statute (the file says 13-20-803.5 does not require any notice to be printed in a contract); left unchanged since it is a recommended clause, not shown to be wrong."
   ]
 }

@@ -9,8 +9,14 @@
       "format": "In writing, the verbatim statement only, as a separate document, in a clear and conspicuous font, in a format the buyer can retain",
       "support": "The notice shall be provided as a separate document, written in a clear and conspicuous font, in a format that the buyer can retain.",
       "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
-      "mode": "none",
-      "hold_reason": "the block is the whole of ATCP 110.025, which also carries the seller's duty to hand over actual lien waivers on request, so printing it would put non-notice rule text in the contract"
+      "mode": "on_file",
+      "block": "Wis. Admin. Code ATCP 110.025",
+      "block_index": 0,
+      "start": "Notice of Consumer’s Right to Receive Lien Waivers",
+      "end": "www.datcp.wi.gov.",
+      "quote_note": "No quotation marks; the rule says the notice consists of 'the following, verbatim statement' and the statement follows set off, headed by its own title (included).",
+      "blanks": [],
+      "boundary_unsure": "None. Title line through the contact line; stored not printed because the rule requires it as a separate document given before the contract."
     },
     {
       "id": "WI-lien",
@@ -18,8 +24,15 @@
       "format": "Included in the written contract and a copy of the contract given to the owner; at least 8-point bold type if printed, or capital letters if typewritten; substantially the stated language",
       "support": "shall be in at least 8-point bold type, if printed, or in capital letters, if typewritten",
       "summary_row": "Lien notice in the contract",
-      "mode": "none",
-      "hold_reason": "the block is the whole of 779.02 (exceptions, subcontractor notice, trust fund and theft rules, lender duties) around the notice, so printing it would put non-notice statute text in the contract"
+      "mode": "on_file",
+      "applies": {},
+      "block": "Wis. Stat. 779.02 (lien notice; see sub. (2)(a))",
+      "block_index": 0,
+      "start": "As required by the Wisconsin construction lien law",
+      "end": "are duly paid",
+      "quote_note": "The statute's opening curly quotation mark before As and its closing curly quotation mark after 'duly paid' are excluded: markers lie inside them. The statute prints its period after the closing mark, so the cut ends without a period.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges (quoted). The notice is needed only where the prime contractor uses subcontractors, suppliers or service providers and no sub. (1) exception applies, which the builder cannot tell; set to print for every contract as the notice is harmless where not needed. Stored, not printed: the trigger (prime contractor who uses subcontractors, with exceptions) is not something the builder knows."
     },
     {
       "id": "WI-defect",
@@ -27,8 +40,14 @@
       "format": "Notice worded substantially as given, conspicuous and in writing, may be included within the contract; delivered together with a copy of the DSPS brochure",
       "support": "The notice required under par. (a) shall be conspicuous and in writing and may be included within the contract between the contractor and the consumer.",
       "summary_row": "Notice Concerning Construction Defects (contract or separate)",
-      "mode": "none",
-      "hold_reason": "the block is the whole of 101.148, which also carries the definitions and delivery rules around the notice, so printing it would put non-notice statute text in the contract"
+      "mode": "on_file",
+      "block": "Wis. Stat. 101.148 (Contractor notices)",
+      "block_index": 0,
+      "start": "NOTICE CONCERNING CONSTRUCTION DEFECTS",
+      "end": "All parties are bound by applicable warranty provisions.",
+      "quote_note": "No quotation marks; the notice is the heading and paragraph set off after 'a notice worded substantially as follows:' (heading included).",
+      "blanks": [],
+      "boundary_unsure": "None. Stored not printed because it applies only to a contract to construct or remodel a dwelling (not maintenance or repair only), which the builder cannot tell, and it is delivered with a brochure."
     },
     {
       "id": "WI-brochure",
@@ -48,8 +67,111 @@
       "format": "Two copies of a typed or printed notice in capital and lowercase letters of not less than 12-point boldface, under the conspicuous caption CUSTOMER'S RIGHT TO CANCEL; also in the other language when the merchant regularly uses it and the customer's principal language is that language; a federal cancellation form is accepted",
       "support": "Compliance with requirements of federal statutes, rules or regulations governing form of notice of right of cancellation, in consumer approval transactions otherwise subject to this chapter, shall be deemed to satisfy the notice requirements of this chapter.",
       "summary_row": "CUSTOMER'S RIGHT TO CANCEL notice",
-      "mode": "none",
-      "hold_reason": "the block is the whole of 423.203, which also carries the other-language rule, the delivery timing rule and a penalty cross-reference around the notice, so printing it would put non-notice statute text in the contract"
+      "mode": "print",
+      "block": "Wis. Stat. 423.203 (Notice to customer)",
+      "block_index": 0,
+      "start": "You may cancel this agreement by mailing a written notice",
+      "end": "provided by the seller for your records.",
+      "quote_note": "No outer quotation marks (the statute says 'Read as follows:'). The inner curly quotation marks around I hereby cancel are the statute's own and stay.",
+      "blanks": [
+        "(insert name and mailing address of seller)"
+      ],
+      "boundary_unsure": "None. Caption is its own notice, WI-cancel-caption. The statute requires 2 copies on a page the customer can use as the notice, bilingual when the merchant regularly uses another language, delivery after the credit disclosures; those are layout/process, not triggers."
+    },
+    {
+      "id": "WI-cancel-caption",
+      "title": "Caption CUSTOMER'S RIGHT TO CANCEL above the notice",
+      "cite": "Wis. Stat. 423.203(1)(b)",
+      "trigger": "Consumer approval transaction: solicited face to face away from the merchant's regular place of business, or by mail or telephone, and signed away from it, on credit or cash over $25",
+      "format": "Conspicuous caption over the notice, capital and lowercase letters in not less than 12-point boldface type",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Appear under the conspicuous caption: “CUSTOMER’S RIGHT TO CANCEL”",
+      "summary_row": "CUSTOMER'S RIGHT TO CANCEL notice",
+      "mode": "print",
+      "block": "Wis. Stat. 423.203 (Notice to customer)",
+      "block_index": 0,
+      "start": "CUSTOMER’S",
+      "end": "RIGHT TO CANCEL",
+      "quote_note": "The statute's curly quotation marks around the caption are excluded (markers lie inside them); the apostrophe in CUSTOMER’S is the statute's curly one.",
+      "blanks": [],
+      "boundary_unsure": "None."
+    },
+    {
+      "id": "WI-lien-claimant",
+      "title": "Lien notice a non-prime claimant serves on the owner",
+      "cite": "Wis. Stat. 779.02(2)(b)",
+      "trigger": "Subcontractor or supplier (not the prime contractor) serving notice on the owner within 60 days of first work",
+      "format": "Written notice in 2 signed copies, substantially in the stated language with blanks accurately filled in",
+      "applies": {},
+      "support": "The notice to the owner shall be in substantially the following language, with blanks accurately filled in",
+      "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
+      "mode": "on_file",
+      "block": "Wis. Stat. 779.02 (lien notice; see sub. (2)(a))",
+      "block_index": 0,
+      "start": "As a part of your construction contract, your prime contractor",
+      "end": "is included in the job",
+      "quote_note": "The statute's opening and closing curly quotation marks are excluded: markers lie inside them; the period follows the closing mark and is excluded.",
+      "blanks": [
+        ".... (give date)",
+        ".... (give legal description, street address or other clear description)"
+      ],
+      "boundary_unsure": "None. A claimant's notice, not part of the prime contract: stored only."
+    },
+    {
+      "id": "WI-note-legend",
+      "title": "Legend on a home improvement promissory note or instrument",
+      "cite": "ATCP 110.06(3)",
+      "trigger": "Any promissory note or instrument (other than a check) used with a home improvement contract",
+      "format": "In contrasting bold-face type on the note",
+      "applies": {},
+      "support": "No seller shall use any promissory note or instrument, other than a check, in connection to a home improvement contract unless it bears the following statement in contrasting bold-face type",
+      "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
+      "mode": "on_file",
+      "block": "Wis. Admin. Code ATCP 110.06",
+      "block_index": 0,
+      "start": "This is a home improvement instrument and is non-negotiable.",
+      "end": "Every holder takes subject to claims and defenses of the maker or obligor.",
+      "quote_note": "The statute's opening and closing curly quotation marks are excluded: markers lie inside them.",
+      "blanks": [],
+      "boundary_unsure": "None. Goes on a note, not in the contract: stored only."
+    },
+    {
+      "id": "WI-waterproof-noguarantee",
+      "title": "Basement waterproofing: no-guarantee disclaimer",
+      "cite": "ATCP 110.09(3)(j)",
+      "trigger": "Basement waterproofing contract where the seller's services are not guaranteed",
+      "format": "On the face of the contract, separate from other provisions, in bold face type",
+      "applies": {},
+      "support": "which shall be set forth on the face of the contract, separate and apart from all other contract provisions, and in bold face type",
+      "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
+      "mode": "on_file",
+      "block": "Wis. Admin. Code ATCP 110.09",
+      "block_index": 0,
+      "start": "THE BASEMENT WATERPROOFING SERVICES PROVIDED BY THIS CONTRACT",
+      "end": "ARE NOT GUARANTEED.",
+      "quote_note": "The statute's opening and closing curly quotation marks are excluded: markers lie inside them.",
+      "blanks": [],
+      "boundary_unsure": "None. Stored: applies only to basement waterproofing jobs with no guarantee, which the builder cannot tell."
+    },
+    {
+      "id": "WI-waterproof-dampness",
+      "title": "Basement waterproofing: dampness exclusion statement",
+      "cite": "ATCP 110.09(4)(b)",
+      "trigger": "Basement waterproofing guarantee that excludes basement dampness, if the buyer agrees in writing",
+      "format": "In bold face type in the guarantee or the contract",
+      "applies": {},
+      "support": "the guarantee or contract contains the following statement in bold face type",
+      "summary_row": "Home Improvement Practices, whole chapter (110.01 to 110.09) incl. lien waiver notice 110.025, contract contents 110.05, note legend 110.06, cancellation 110.07",
+      "mode": "on_file",
+      "block": "Wis. Admin. Code ATCP 110.09",
+      "block_index": 0,
+      "start": "THE GUARANTEE PROVIDED HEREIN DOES NOT COVER DAMPNESS",
+      "end": "IT DOES COVER ANY WATER LEAKAGE OR FLOW.",
+      "quote_note": "The statute's opening and closing curly quotation marks are excluded: markers lie inside them.",
+      "blanks": [],
+      "boundary_unsure": "None. Stored: optional, only for basement waterproofing guarantees."
     }
   ],
   "changes": [
@@ -67,12 +189,24 @@
       "path": "defect_process.text",
       "new": "895.07: 90 working days before suit; repose 7 years (893.89)",
       "support": "893.89 repose, 7 versus 10 years: SEVEN."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "ATCP 110.025 lien waiver notice, verbatim, as a separate document given before the contract; keep evidence the buyer received it",
+      "support": "The seller shall retain evidence of the buyer’s acknowledgement of receipt of the notice."
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "101.148 defect notice with the DSPS brochure; 423.203 CUSTOMER'S RIGHT TO CANCEL notice in 2 copies, 12 point bold, also in the other language when the merchant regularly uses it and the customer's principal language is that language",
+      "support": "The bilingual rule (423.203(2)) is triggered by the merchant regularly using another language in advertising, forms or face-to-face negotiations AND the customer's principal language being that language."
     }
   ],
   "unsure": [
-    "WI-lien-waiver, WI-lien, WI-defect and WI-cancel: every official text is inside a whole statute or rule section with operative rules around the notice, so all are held rather than loaded.",
     "WI-brochure: added because 101.148(2)(a) requires the brochure to be delivered with the notice, but the only copy in the file is a city copy (VERBATIM-SECONDARY), so no text is loaded.",
     "WI-cancel: the cite on the existing entry was 423.202 but the notice wording is in 423.203, so I changed the cite to 423.203; 423.202.",
-    "WI-lien-waiver: ATCP 110.025 reaches home improvement, which excludes new residences and major renovations, a distinction the builder cannot decide."
+    "WI-lien-waiver: ATCP 110.025 reaches home improvement, which excludes new residences and major renovations, a distinction the builder cannot decide.",
+    "WI-lien: printed for every contract (applies {}); the statute requires it only for a prime contractor who uses subcontractors, suppliers or service providers and no 779.02(1) exception applies. Not decidable by the builder; printing it is harmless where not needed.",
+    "WI-cancel and WI-cancel-caption: print for sold_in_home; a consumer approval transaction also includes mail and telephone sales. The notice must be given in 2 copies, after the credit disclosures, and bilingual when 423.203(2) applies: layout and process, not decided here.",
+    "WI-defect and WI-lien-waiver: stored (on_file); defect applies to construct or remodel only, and the lien waiver notice must be a separate document. WI-lien-claimant, WI-note-legend, WI-waterproof-noguarantee, WI-waterproof-dampness: new, stored only (not contract text for every job)."
   ]
 }

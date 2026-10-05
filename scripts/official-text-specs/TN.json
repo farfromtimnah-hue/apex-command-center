@@ -6,7 +6,8 @@
     {
       "id": "TN-owner",
       "summary_row": "Home improvement contract contents; NOTICE TO OWNER line",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "Source is a secondary mirror (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts VERBATIM-OFFICIAL or VERBATIM-NEAR-OFFICIAL rows."
     },
     {
       "id": "TN-board",
@@ -21,7 +22,8 @@
       "format": "On the front side of the receipt or contract, or immediately above the buyer's signature, under the conspicuous caption, readily legible",
       "support": "Caption \"BUYER'S RIGHT TO CANCEL\" must be \"conspicuous\" and the statement \"readily legible\", placed \"on the front side of the receipt or contract, or immediately above the buyer's signature\".",
       "summary_row": "Home solicitation: definitions, right, BUYER'S RIGHT TO CANCEL statement, refunds, services, no waiver",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "Source is a secondary mirror (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts VERBATIM-OFFICIAL or VERBATIM-NEAR-OFFICIAL rows."
     },
     {
       "id": "TN-lien",
@@ -29,10 +31,13 @@
       "cite": "T.C.A. 66-11-203",
       "trigger": "Contractor about to contract to improve owner-occupied residential real property (one to four units); delivered before the work or the contract",
       "format": "Written notice in substantially the statute's form, delivered by registered mail or otherwise",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "66-11-203 requires a contractor about to contract to improve residential real property to deliver a written notice to the owner \"prior to commencing the improvement ... or making of the contract\"",
       "summary_row": "Lien NOTICE TO OWNER before residential work (NEW, missed by first pass)",
-      "mode": "none"
+      "mode": "none",
+      "hold_reason": "Source is a secondary mirror (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts VERBATIM-OFFICIAL or VERBATIM-NEAR-OFFICIAL rows."
     }
   ],
   "changes": [
@@ -43,7 +48,10 @@
     },
     {
       "path": "deposit_cap.fraction",
-      "new": [1, 3],
+      "new": [
+        1,
+        3
+      ],
       "support": "no deposit over one third of the contract price at or before signing unless a bond is furnished"
     },
     {

@@ -5,22 +5,93 @@
     {
       "id": "NC-cancel",
       "trigger": "Off-premises sale of consumer goods or services of $25 or more, including a visit the customer invited; not a visit the customer asked for only to repair or maintain the customer's property",
-      "format": "Statement in boldface, at least 10 points, next to the customer's signature (second sentence points to the attached form); duplicate detachable NOTICE OF CANCELLATION form in boldface, at least 10 points; both in the same language as the sales talk",
-      "support": "Invited visits ARE covered.",
+      "format": "Statement in boldface, at least 10 points, in immediate proximity to the space reserved in the contract for the buyer's signature, in the same language as the sales talk",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in boldface type of a minimum size of 10 points, a statement in substantially the following form:",
       "summary_row": "Off-premises sale: contract statement, NOTICE OF CANCELLATION form, oral notice, definitions, exclusions",
-      "mode": "none",
+      "mode": "print",
       "block": "G.S. 14-401.13 (off-premises sales), whole section",
       "block_index": 0,
-      "hold_reason": "The state file's block is the whole section 14-401.13; around the statement and form it holds misdemeanor penalties, refund duties, the roofing rule and definitions, so printing it would put non-notice statute text in the contract."
+      "title": "Buyer statement near the signature (off-premises sale)",
+      "cite": "G.S. 14-401.13(a)(1)",
+      "start": "You, the buyer, may cancel this transaction at any time prior to midnight",
+      "end": "for an explanation of this right.",
+      "quote_note": "The statute's opening and closing quotation marks are left out: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [],
+      "boundary_unsure": "None; edges are certain."
     },
     {
       "id": "NC-cancel-credit",
-      "cite": "G.S. 25A-40 (home-solicitation sale defined in 25A-38)",
-      "support": "Its form differs slightly from 14-401.13 (no antique sentence; caption \"Notice of Cancellation\" in lower case).",
+      "cite": "G.S. 25A-40(a) (home-solicitation sale defined in 25A-38)",
+      "support": "in immediate proximity to the space reserved for the signature of the buyer in bold face type of a minimum size of 10 points, a statement in substantially the following form:",
       "summary_row": "Home-solicitation sale (consumer CREDIT sales): definition, right, statement and form",
       "mode": "on_file",
       "block": "G.S. 25A-38, 25A-39, 25A-40 (credit home-solicitation sales)",
-      "block_index": 2
+      "block_index": 2,
+      "title": "Buyer statement near the signature (credit home-solicitation sale)",
+      "start": "You, the buyer, may cancel this transaction at any time prior to midnight",
+      "end": "for an explanation of this right.",
+      "quote_note": "The statute's opening and closing quotation marks are left out: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. Stored, not printed: consumer CREDIT sales only, which the builder cannot tell."
+    },
+    {
+      "id": "NC-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate (off-premises sale)",
+      "cite": "G.S. 14-401.13(a)(2)",
+      "trigger": "Off-premises sale of consumer goods or services of $25 or more, including a visit the customer invited; not a visit the customer asked for only to repair or maintain the customer's property",
+      "format": "Completed form in duplicate, attached to the contract or receipt and easily detachable, in boldface of at least 10 points, in the same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned \"NOTICE OF CANCELLATION\", which shall be attached to the contract or receipt and easily detachable",
+      "summary_row": "Off-premises sale: contract statement, NOTICE OF CANCELLATION form, oral notice, definitions, exclusions",
+      "mode": "print",
+      "block": "G.S. 14-401.13 (off-premises sales), whole section",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(buyer's signature)",
+      "quote_note": "The start marker is the first word after the statute's opening quotation mark. The official HTML prints the closing quotation mark on its own line between '(date)' and '(buyer's signature)', so that one closing mark is part of the cut (ending at it would drop the signature caption).",
+      "blanks": [
+        "(enter date of transaction)",
+        "(date) under it",
+        "(name of seller)",
+        "line before (address of seller's place of business)",
+        "line before (date) in the not-later-than sentence",
+        "line above (date) after I hereby cancel this transaction.",
+        "(buyer's signature) with no signature line printed above it"
+      ],
+      "boundary_unsure": "The end (the signature caption) is certain. The statute's closing quotation mark sits on its own line right before '(buyer's signature)' in the official HTML and is therefore inside the cut as a stray mark; copied as printed."
+    },
+    {
+      "id": "NC-cancel-credit-form",
+      "title": "Notice of Cancellation form, in duplicate (credit home-solicitation sale)",
+      "cite": "G.S. 25A-40(b)",
+      "trigger": "Consumer credit sale of goods or services solicited and signed at the residence; a cash sale is outside the statute (federal rule only)",
+      "format": "Completed form in duplicate, attached to the contract and easily detachable, in 10 point bold face, in the same language as the contract",
+      "applies": {
+        "sold_in_home": true,
+        "credit_sale": true
+      },
+      "support": "a completed form in duplicate, captioned \"Notice of Cancellation,\" which shall be attached to the contract and easily detachable",
+      "summary_row": "Home-solicitation sale (consumer CREDIT sales): definition, right, statement and form",
+      "mode": "on_file",
+      "block": "G.S. 25A-38, 25A-39, 25A-40 (credit home-solicitation sales)",
+      "block_index": 2,
+      "start": "Notice of Cancellation",
+      "start_occurrence": 3,
+      "end": "(Buyer's Signature)",
+      "quote_note": "The statute's opening and closing quotation marks are left out: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [
+        "(enter date of transaction)",
+        "(date) under it",
+        "blank line before (name of seller)",
+        "blank line before (address of seller's place of business)",
+        "blank line before (date) in the not-later-than sentence",
+        "line above (date) after I hereby cancel this transaction.",
+        "signature line above (Buyer's Signature)"
+      ],
+      "boundary_unsure": "None on the edges. Stored, not printed: credit sales only. The statute's layout spaces are copied as printed."
     }
   ],
   "changes": [
@@ -57,10 +128,18 @@
       "path": "cleaning.home_solicitation_applies_to_cleaning",
       "new": true,
       "support": "Consumer Goods or Services. - Goods or services purchased, leased, or rented primarily for personal, family, or household purposes"
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "No other state's law and no out-of-state forum in a contract to improve NC real property (22B-2, 22B-3)",
+      "support": "A provision in any contract, subcontract, or purchase order for the improvement of real property in this State, or the providing of materials therefor, is void and against public policy if it makes the contract, subcontract, or purchase order subject to the laws of another state, or provides that the exclusive forum for any litigation, arbitration, or other dispute resolution process is located in another state."
     }
   ],
   "unsure": [
     "NC-cancel: the notice applies to any off-premises sale of $25 or more including invited visits, but the builder only knows 'sold at the customer's home'; held anyway because the block is the whole statute section.",
-    "NC-cancel-credit: stored on file only, because it applies to consumer credit sales and the builder does not know whether a sale is on credit; the block holds the 25A-40 statement and form together as one notice."
+    "NC-cancel-credit: stored on file only, because it applies to consumer credit sales and the builder does not know whether a sale is on credit; the block holds the 25A-40 statement and form together as one notice.",
+    "NC-cancel / NC-cancel-form: printed for 'sold at the customer's home'; the statute covers an off-premises sale of $25 or more including invited visits but not a visit the customer asked for only to repair or maintain, which the builder cannot tell.",
+    "NC-cancel-credit and NC-cancel-credit-form: the credit-sale statement and form are loaded as two separate notices, both stored on file only.",
+    "checklist.rider_items.0 corrected: the old text said 'NC county venue', which the file does not support; 22B-2 and 22B-3 only bar another state's law or forum."
   ]
 }

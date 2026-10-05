@@ -10,16 +10,47 @@
     },
     {
       "id": "NM-cancel",
-      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
+      "title": "State cancellation statement near the buyer's signature",
       "cite": "NMSA 1978, 57-12-21",
       "trigger": "Door-to-door sale: consumer goods or services of $25 or more, solicited in person (including after an invitation by the buyer) with the agreement made away from the seller's place of business, and seller-initiated telephone sales",
-      "format": "Statement in bold face, minimum ten points, in immediate proximity to the buyer's signature space; NOTICE OF CANCELLATION in duplicate, attached and easily detachable, ten-point bold; in the language of the sales presentation; oral notice",
-      "support": "The official definition includes sales \"in response to or following an invitation by the buyer\".",
-      "mode": "none",
+      "format": "Statement in bold face, minimum ten points, in immediate proximity to the buyer's signature space (or on the front page of a receipt if no contract); in the language of the sales presentation",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in bold face type of a minimum size of ten points, a statement in substantially the following form",
+      "mode": "print",
       "block": "NMSA 1978, 57-12-21. Door-to-door sales; contracts; requirements; prohibitions",
       "block_index": 0,
-      "hold_reason": "The block is the whole of 57-12-21 (seller prohibitions, refund duties, definitions and exclusions) around the statement and the NOTICE OF CANCELLATION form; printing it would put non-notice statute text in the customer's contract.",
-      "summary_row": "Door-to-door sales: contract statement, NOTICE OF CANCELLATION, oral notice, definitions"
+      "summary_row": "Door-to-door sales: contract statement, NOTICE OF CANCELLATION, oral notice, definitions",
+      "start": "You, the buyer, may cancel this transaction",
+      "end": "explanation of this right.",
+      "quote_note": "The statute prints the statement inside quotation marks; the markers sit inside them, so the opening quotation mark and the closing quotation mark (and the semicolon after it) are excluded.",
+      "blanks": []
+    },
+    {
+      "id": "NM-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "NMSA 1978, 57-12-21 A(2)",
+      "trigger": "Door-to-door sale: consumer goods or services of $25 or more, solicited in person (including after an invitation by the buyer) with the agreement made away from the seller's place of business",
+      "format": "Completed form in duplicate, captioned NOTICE OF CANCELLATION, attached to the contract or receipt and easily detachable, ten-point bold face, in the same language as the contract",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "a completed form in duplicate, captioned \"NOTICE OF CANCELLATION\", that shall be attached to the contract or receipt and easily detachable",
+      "summary_row": "Door-to-door sales: contract statement, NOTICE OF CANCELLATION, oral notice, definitions",
+      "mode": "print",
+      "block": "NMSA 1978, 57-12-21. Door-to-door sales; contracts; requirements; prohibitions",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(buyer's signature)",
+      "quote_note": "The form is printed inside quotation marks starting at the caption line; the start marker sits inside the opening quotation mark and the end marker stops before the closing quotation mark and semicolon, so both quotation marks are excluded.",
+      "blanks": [
+        "date (line under the NOTICE OF CANCELLATION caption)",
+        "(name of seller) line",
+        "at ___ (address of seller's place of business)",
+        "not later than midnight of ___ (date)",
+        "(date) line under I hereby cancel this transaction",
+        "(buyer's signature) line"
+      ],
+      "boundary_unsure": "Start marker is the second occurrence of NOTICE OF CANCELLATION in the block (the first is the sentence 'captioned \"NOTICE OF CANCELLATION\"'). The text layer is a pdftotext extract with hard line wraps; the cut keeps those line breaks and the run-together word 'tenpoint' is not inside the cut."
     }
   ],
   "changes": [
@@ -42,10 +73,15 @@
       "path": "license.text",
       "new": "CID license under CILA; handyman exemption up to $7,200 compensation a year with an annual declaration filed with the division",
       "support": "Handyman exemption is confirmed at $7,200 a year with an annual declaration"
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "CID residential default disclosure form (60-13-19(C)) given in writing before work starts, a contract is signed or funds are paid",
+      "support": "Before work is commenced, a contract is signed or funds are paid for any residential contracting, the contractor shall disclose in writing to the owner, on a form approved by the division"
     }
   ],
   "unsure": [
     "NM-default: the CID-approved residential disclosure form was not obtained, so no wording is loaded; the statute requires it in writing on a division-approved form before work, signature or payment.",
-    "NM-cancel: the builder only knows 'sold at the customer's home', but the statute covers any sale agreed away from the seller's place of business and seller-initiated telephone sales."
+    "NM-cancel and NM-cancel-form: the builder only knows 'sold at the customer's home', but the statute covers any sale agreed away from the seller's place of business and seller-initiated telephone sales. The statute also requires the form to be completed (seller name, address, dates) by the seller before it is handed over, and an oral notice; the cut text keeps the blanks as printed."
   ]
 }

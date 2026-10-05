@@ -37,3 +37,24 @@ export function baseStatus(s) {
   return m ? m[1] : null;
 }
 export function norm(s) { return String(s).replace(/\s+/g, " ").trim(); }
+
+// Cuts a notice out of one block: copies the characters from the start marker through the end marker,
+// both markers included, byte for byte. range = { start, end, start_occurrence, end_occurrence } (occurrences are 1-based, default 1;
+// the end marker is searched only AFTER the start marker). Returns { text } or { error }.
+export function cutRange(blockText, range) {
+  if (!range || typeof range.start !== "string" || typeof range.end !== "string" || !range.start || !range.end) { return { error: "range needs start and end markers" }; }
+  function nth(hay, needle, from, k) {
+    var pos = from - 1, c = 0;
+    while (c < k) { pos = hay.indexOf(needle, pos + 1); if (pos === -1) { return -1; } c++; }
+    return pos;
+  }
+  var so = range.start_occurrence || 1, eo = range.end_occurrence || 1;
+  var a = nth(blockText, range.start, 0, so);
+  if (a === -1) { return { error: "start marker not found (occurrence " + so + "): " + range.start.slice(0, 60) }; }
+  if (range.start_occurrence === undefined && blockText.indexOf(range.start, a + 1) !== -1) { return { error: "start marker occurs more than once; give start_occurrence or a longer marker: " + range.start.slice(0, 60) }; }
+  var from = a + range.start.length;
+  var b = nth(blockText, range.end, from, eo);
+  if (b === -1) { return { error: "end marker not found after the start marker (occurrence " + eo + "): " + range.end.slice(0, 60) }; }
+  if (range.end_occurrence === undefined && blockText.indexOf(range.end, b + 1) !== -1) { return { error: "end marker occurs more than once after the start; give end_occurrence or a longer marker: " + range.end.slice(0, 60) }; }
+  return { text: blockText.slice(a, b + range.end.length) };
+}

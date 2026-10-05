@@ -17,11 +17,22 @@
       "cite": "Ala. Code 5-19-12",
       "trigger": "Consumer credit sale solicited at a place other than the seller's place of business; a cash sale is outside the statute (federal rule only)",
       "format": "Under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold or placement rule; the FTC notice may be delivered instead",
-      "applies": { "sold_in_home": true, "credit_sale": true },
+      "applies": {
+        "sold_in_home": true,
+        "credit_sale": true
+      },
       "support": "So it reaches CREDIT sales only; a cash job is under the federal rule alone.",
       "summary_row": "Home solicitation sale: right to cancel, BUYER'S RIGHT TO CANCEL statement, FTC alternative (NEW, first pass found none)",
-      "mode": "none",
-      "hold_reason": "The only block is the whole of Ala. Code 5-19-12, which also holds the buyer and seller duties and the emergency waiver rule around the statement, so printing it would put non-notice statute text in the contract; credit versus cash sale is also not something the builder knows."
+      "mode": "on_file",
+      "block": "Ala. Code 5-19-12 (home solicitation sale)",
+      "block_index": 0,
+      "start": "“BUYER’S RIGHT TO CANCEL”",
+      "end": "(insert name and mailing address of seller)",
+      "quote_note": "Both of the statute's quotation marks around the caption are included, and so are the opening mark before 'If this agreement' and the closing mark after the blank line: the whole quoted statement is cut with its own quotation marks, byte for byte. The statute's parenthetical label after the blank is kept.",
+      "blanks": [
+        "_______________________________________________ (insert name and mailing address of seller)"
+      ],
+      "boundary_unsure": "Start and end are set by the statute's own words ('containing the following under the conspicuous caption:' then the caption and the quoted paragraph). The parenthetical '(insert name and mailing address of seller)' sits after the closing quote mark; I included it as the label of the blank. The 'Alternately, the seller may deliver the FTC notice' sentence that follows is NOT in the cut."
     }
   ],
   "changes": [
@@ -44,12 +55,19 @@
       "path": "license.text",
       "new": "HBLB residential home builder license when cost exceeds $10,000 (roofing over $2,500); pools over $5,000 via the General Contractors board (which board governs unresolved)",
       "support": "Pool threshold is \"exceeding\" $5,000, not \"$5,000 or more\"."
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Written liability insurance disclosure before work starts (34-14A-19): insured builder, signed or initialed by builder and homeowner; uninsured builder, signed by both and attested by one witness the homeowner picks",
+      "support": "Only if the builder does NOT have or maintain insurance must it be \"signed by the residential home builder and the homeowner, and attested by one witness selected by the homeowner.\""
     }
   ],
   "unsure": [
     "AL-insurance: the statute fixes who signs and what must be disclosed but no sentence, so there is nothing to load; whether to print a contractor-written clause is the owner's call.",
     "AL-cancel-credit: added because the file shows a credit-sale statement the first pass missed; it prints only for credit sales, which the builder does not know, so even if the section were loadable it would have to be stored, not printed.",
     "Not added: 34-14A-7(f) (contract must contain the license number) and (h) (resiliency disclosure) only list required content with no prescribed sentence; the license line already covers (f).",
-    "license.text: 34-8-7(a)(2) exempts construction or repair of any residential swimming pool from the general contractor chapter, and the file says which board governs a residential pool is not answered, so that wording was left as unresolved."
+    "license.text: 34-8-7(a)(2) exempts construction or repair of any residential swimming pool from the general contractor chapter, and the file says which board governs a residential pool is not answered, so that wording was left as unresolved.",
+    "AL-cancel-credit: stored on file only (credit sales only; the builder does not know whether a job is a credit sale).",
+    "AL checklist item 3 ('offer and acceptance signed by all') is not shown in the second-pass file, which only says each licensee must use a valid written contract containing the license number (34-14A-7(f)); left unchanged because the file does not contradict it."
   ]
 }

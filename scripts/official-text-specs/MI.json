@@ -10,12 +10,46 @@
     },
     {
       "id": "MI-cancel",
-      "cite": "MCL 445.113 (statement and notice of cancellation); 445.112 (right to cancel)",
-      "format": "Statement in immediate proximity to the buyer's signature; notice of cancellation in duplicate, attached or printed on the reverse; not less than 10-point bold and 2 points larger than the contract text",
-      "support": "Michigan does have a fixed statement and a fixed duplicate notice. The statement has three sentences, the third unique to Michigan (courier pick-up). Type rule: \"not less than 10-point bold type and shall be 2 points larger than the text of the contract\".",
+      "cite": "MCL 445.113(1) (statement); 445.112 (right to cancel)",
+      "format": "Statement in immediate proximity to the space reserved for the buyer's signature; not less than 10-point bold and 2 points larger than the contract text",
+      "support": "The agreement or offer to purchase shall contain a statement substantially as follows in immediate proximity to the space reserved in the agreement or offer to purchase for the signature of the buyer:",
       "summary_row": "Buyer statement near signature (three sentences, incl. courier sentence) and duplicate notice of cancellation",
-      "mode": "none",
-      "hold_reason": "The block is the whole of MCL 445.113 with subsections 4 to 6 (exceptions for telephone and utility sales) around the notices, and the official PDF prints the literal characters &quot; for the notice's quotation marks."
+      "mode": "print",
+      "title": "Buyer statement near the signature (home solicitation sale)",
+      "block": "MCL 445.113: written agreement, buyer statement, notice of cancellation",
+      "block_index": 0,
+      "start": "You, the buyer, may cancel this transaction at any time prior to midnight",
+      "end": "in which you can cancel the transaction.",
+      "quote_note": "The statute's opening and closing quotation marks are left out: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": []
+    },
+    {
+      "id": "MI-cancel-form",
+      "title": "Notice of cancellation, in duplicate (home solicitation sale)",
+      "cite": "MCL 445.113(2) (notice of cancellation); 445.112 (right to cancel)",
+      "trigger": "Door-to-door sale or a sale made away from the seller's place of business or solicited at the home",
+      "format": "Notice of cancellation in duplicate, attached to the buyer's copy or printed on the reverse side of it; not less than 10-point bold and 2 points larger than the contract text",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "The seller shall attach to the copy or cause to be printed on the reverse side of the written agreement or offer to purchase retained by the buyer a notice of cancellation in duplicate that shall appear as follows:",
+      "summary_row": "Buyer statement near signature (three sentences, incl. courier sentence) and duplicate notice of cancellation",
+      "mode": "print",
+      "block": "MCL 445.113: written agreement, buyer statement, notice of cancellation",
+      "block_index": 0,
+      "start": "notice of cancellation",
+      "start_occurrence": 3,
+      "end": "(buyer's signature)",
+      "quote_note": "The PDF prints the notice's opening and closing quotation marks as the literal characters &quot;. The start marker is placed after the opening one and the end marker before the closing one, so neither is in the cut.",
+      "blanks": [
+        "(enter date of transaction)",
+        "(date) line under the date of transaction",
+        "(name of seller)",
+        "(address of seller's place of business)",
+        "line for the not-later-than date, with (date)",
+        "I hereby cancel this transaction: line for the date, with (date)",
+        "buyer signature line with (buyer's signature)"
+      ]
     }
   ],
   "changes": [

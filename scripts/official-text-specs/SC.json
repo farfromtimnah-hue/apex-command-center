@@ -8,10 +8,17 @@
       "format": "Under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold, placement or detachable form rule; the federal notice may be printed instead",
       "support": "A cash or check job with no credit is outside the article; the federal rule governs it.",
       "summary_row": "Right to cancel, BUYER'S RIGHT TO CANCEL statement, refund, services, FTC option",
-      "mode": "none",
+      "mode": "on_file",
       "block": "S.C. Code 37-2-501 to 37-2-506 (home solicitation sales)",
       "block_index": 2,
-      "hold_reason": "The block is the whole section 37-2-503, with rules about the written agreement, the copy to the buyer and late cancellation around the statement, so printing it would put non-notice statute text in the contract; the statement itself needs to be cut out by hand. Also it applies only to credit sales, which the builder cannot tell."
+      "start": "If you decide you do not want",
+      "end": "(insert name & mailing address of seller)",
+      "quote_note": "The statute opens the statement with a quotation mark after \"read as follows:\"; the start marker sits inside it, so the opening quotation mark is excluded. The closing quotation mark is NOT excluded: in the state file the seller blank prints as a line holding only .\" (the underscores are missing), followed by the caption line, so the cut ends at the caption and carries that .\" line.",
+      "blanks": [
+        "the blank line for the seller name and mailing address (prints as a line holding only .\"; underscores lost in the state file)",
+        "(insert name & mailing address of seller)"
+      ],
+      "boundary_unsure": "End edge: the cut includes the stray line .\" (period and closing quotation mark) before the caption, exactly as the block prints it, because the caption belongs to the form and sits after it. The state file layout note confirms the blank prints that way. Stored on file only (credit sales only; the federal notice may be printed instead), so it never prints."
     }
   ],
   "changes": [
@@ -34,10 +41,26 @@
       "path": "license.text",
       "new": "Residential Builders Commission license (ch. 59): residential builder when the job costs more than $5,000, residential specialty contractor when more than $500; Contractor's Licensing Board (ch. 11) over $10,000; the Commission is the exclusive licensor for residential-only work",
       "support": "The commission is the exclusive licensing and registration entity for persons who engage solely in residential building and in residential specialty contracting."
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "License number and classification (no South Carolina rule found that puts the license number on the contract)",
+      "support": "License number on the contract: no such requirement in the sections read."
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "40-59-810 to 860 cure process applies by statute (90 day notice of claim, 30 day response); no contract clause is required",
+      "support": "it prescribes NO notice that must be printed in the contract"
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "BUYER'S RIGHT TO CANCEL on credit sales (or the federal notice instead); arbitration notice on first page in underlined capitals only if the contract has an arbitration clause",
+      "support": "Notice that a contract is subject to arbitration pursuant to this chapter shall be typed in underlined capital letters"
     }
   ],
   "unsure": [
     "SC-cancel: the statute allows the federal notice instead of the South Carolina statement, so the owner may prefer to print only the federal notice; and it applies only to credit sales, which the builder cannot detect.",
-    "SC arbitration notice (15-48-10): underlined capitals on the first page of the contract, but no wording is prescribed, so I did not add a notice for it."
+    "SC arbitration notice (15-48-10): underlined capitals on the first page of the contract, but no wording is prescribed, so I did not add a notice for it.",
+    "SC-cancel: the statement is stored on file only (credit sales only; 37-2-503(2)(a) and 37-2-506 accept the federal notice). The block prints the seller blank as a line holding only .\" with the caption (insert name & mailing address of seller) below it."
   ]
 }

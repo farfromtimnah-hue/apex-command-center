@@ -8,8 +8,38 @@
       "format": "Statement under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold, placement or detachable form rule",
       "support": "Caption must be \"conspicuous\"; no point size, no bold rule, no placement rule, no detachable form.",
       "summary_row": "BUYER'S RIGHT TO CANCEL statement",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the BUYER'S RIGHT TO CANCEL statement it holds operative rules (subsection (1) on the written agreement, subsection (3) on late cancellation) and a history line that should not print in the customer's contract"
+      "mode": "print",
+      "block": "KRS 367.430 (BUYER'S RIGHT TO CANCEL statement)",
+      "block_index": 0,
+      "start": "If this agreement was solicited to your residence and you do",
+      "end": "......................................................................",
+      "end_occurrence": 2,
+      "quote_note": "Excluded: the statute's opening quotation mark before 'If this agreement' and its closing quotation mark after the second dotted line. The statement's own words and both dotted address lines are included.",
+      "blanks": [
+        "two dotted lines (......) for the seller's address to which the notice must be mailed"
+      ],
+      "boundary_unsure": "none: the statement is set off by quotation marks after 'Read as follows:'. Ends at the second 70-dot line (end_occurrence 2).",
+      "title": "BUYER'S RIGHT TO CANCEL statement"
+    },
+    {
+      "id": "KY-cancel-caption",
+      "title": "Conspicuous caption for the BUYER'S RIGHT TO CANCEL statement",
+      "cite": "KRS 367.430(2)(a)",
+      "trigger": "Seller solicits in person at the buyer's residence; sales under $25 and sales made after prior negotiations or at the seller's fixed business location are excluded",
+      "format": "Conspicuous caption placed over the statement; no point size or bold rule",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "Caption must be \"conspicuous\"; no point size, no bold rule, no placement rule, no detachable form.",
+      "summary_row": "BUYER'S RIGHT TO CANCEL statement",
+      "mode": "print",
+      "block": "KRS 367.430 (BUYER'S RIGHT TO CANCEL statement)",
+      "block_index": 0,
+      "start": "BUYER'S RIGHT TO",
+      "end": "CANCEL",
+      "quote_note": "Excluded: the statute's quotation marks around the caption and the comma inside the closing quote (the comma is the statute's own punctuation).",
+      "blanks": [],
+      "boundary_unsure": "none: the caption is the words inside the quotation marks after 'Appear under the conspicuous caption:'."
     },
     {
       "id": "KY-pool",
@@ -25,8 +55,14 @@
       "applies": {},
       "support": "411.260 requires a conspicuous notice \"upon entering into a contract for the construction of a residence\" in substantially the statutory form",
       "summary_row": "Builder notice of right to cure (NEW, missed by first pass)",
-      "mode": "none",
-      "hold_reason": "the block is the whole statute section; besides the notice wording it holds subsection (1) on who must give it and subsection (3) on the effect of not giving it, plus history lines, which should not print in the customer's contract; whether it reaches remodel, pool or tile work is also not stated"
+      "mode": "on_file",
+      "block": "KRS 411.260 (Builder notice of right to cure (NEW, missed by first pass))",
+      "block_index": 0,
+      "start": "SECTIONS 411.250 TO 411.260 OF THE KENTUCKY REVISED STATUTES",
+      "end": "LAWSUIT.",
+      "quote_note": "Excluded: the statute's opening quotation mark before SECTIONS and the closing quotation mark after LAWSUIT.",
+      "blanks": [],
+      "boundary_unsure": "none: set off by quotation marks after 'in substantially the following form'. Stored on file, not printed, because the file does not say whether a remodel, pool or tile job is 'construction of a residence'."
     }
   ],
   "changes": [
@@ -39,11 +75,17 @@
       "path": "cancellation.day_count_note",
       "new": "Home solicitation loans secured by the buyer's principal dwelling have until midnight of the tenth business day (KRS 367.420(6)); the file does not say whether Saturday counts.",
       "support": "the buyer shall have the right to rescind or cancel the transaction until midnight of the tenth business day following the later of the consummation of the loan transaction"
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Builder's notice of right to cure construction defects, KRS 411.260 (conspicuous, substantially the statutory form, may be part of the contract)",
+      "support": "The matrix's Kentucky pool barrier item should be removed unless a later act is found."
     }
   ],
   "unsure": [
-    "KY-cancel: the BUYER'S RIGHT TO CANCEL statement belongs in the contract, but the file only offers it inside the whole 367.430 block, so it is held.",
-    "KY-cure: the builder's right-to-cure notice belongs in the contract for the construction of a residence, but the file does not say whether remodels, pools or tile work count, and the block is a whole section, so it is held.",
+    "KY-cancel: the statement must be in a home solicitation sale agreement; printed for any job sold at the customer's home. The $25 floor, prior-negotiations and emergency exclusions are facts the builder does not know.",
+    "KY-cancel-caption: a separate notice id so the conspicuous caption prints with the statement; the file gives no placement rule.",
+    "KY-cure: stored on file, not printed; belongs in the contract for the construction of a residence, but the file does not say whether remodels, pools or tile work count.",
     "cancellation.saturday_counts: the file gives no definition of business day for Kentucky, so true is left as it was."
   ]
 }

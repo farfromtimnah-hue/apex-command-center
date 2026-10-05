@@ -77,12 +77,23 @@
       "path": "cleaning.auto_renewal.cite",
       "new": "13-12-1 to 13-12-5",
       "support": "O.C.G.A. 13-12-1 to 13-12-5"
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Lien waivers substantially follow the 44-14-366 forms in at least 12 point; no advance waivers (44-14-366)",
+      "support": "Lien waivers: confirmed 12 point, \"substantially follow the language\", advance waivers \"null, void, and unenforceable\""
+    },
+    {
+      "path": "checklist.rider_items.2",
+      "new": "Defect notice (8-2-41) for licensed contractors, with the FBPA 30 day demand in mind; sole-negligence indemnity void (13-8-2(b)); auto-renewal notice",
+      "support": "First pass rider item 2 (\"clause naming the FBPA 30 day written demand\") is better served by the 8-2-41 statutory notice for licensed contractors."
     }
   ],
   "unsure": [
     "GA-8-2-41: the notice is for contractors who must hold the Chapter 41 license; the builder cannot tell whether a given job needs that license, so applies is left as every contract, but the text is only secondary so nothing prints.",
     "GA-43-41-7 and GA-553-7-01: whether a remodel or pool counts as a covered single-family residence contract is not stated in the file.",
     "Lien waiver and affidavit forms (O.C.G.A. 44-14-366) are handed over at payment, not with the contract, and the file's copy is flattened, so no notice was added for them.",
-    "O.C.G.A. 10-1-6 (home solicitation) prescribes no printed statement, so no notice was added."
+    "O.C.G.A. 10-1-6 (home solicitation) prescribes no printed statement, so no notice was added.",
+    "GA: no notice is cut. GA-8-2-41 (the only one with printed wording) comes from the Release 86 mirror, status VERBATIM-SECONDARY, so the loader cannot load it; the two rules (553-7-.01, 553-8-.01) prescribe no wording. GA cancellation.business_days stays 3: the only cancellation period shown (10-1-6) is three business days."
   ]
 }

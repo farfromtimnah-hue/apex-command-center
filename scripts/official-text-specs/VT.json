@@ -4,15 +4,50 @@
   "notices": [
     {
       "id": "VT-cancel",
-      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
-      "cite": "9 V.S.A. 2454(b)",
+      "title": "State cancellation statement in immediate proximity to the signature space",
+      "cite": "9 V.S.A. 2454(b)(1)",
       "trigger": "Home solicitation sale of $5.00 or more, personally solicited or consummated at the consumer's residence or place of business or employment",
-      "support": "The price floor is \"$5.00 or more\" (not $25)",
-      "mode": "none",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the consumer or on the front page of the receipt if a contract is not used and in boldface type of a minimum size of 10 points, a statement in substantially the following form",
+      "mode": "print",
       "block": "1. 9 V.S.A. 2454, Purchase contracts; rescission (complete)",
       "block_index": 0,
-      "hold_reason": "The block is the whole of 9 V.S.A. 2454 (cancellation rules, refunds, goods return, seller duties) around the statement and the NOTICE OF CANCELLATION form; printing it would put non-notice statute text in the customer's contract.",
-      "summary_row": "Home solicitation: statement beside the signature, NOTICE OF CANCELLATION, oral notice, language rule, no pay for services"
+      "summary_row": "Home solicitation: statement beside the signature, NOTICE OF CANCELLATION, oral notice, language rule, no pay for services",
+      "format": "In immediate proximity to the space reserved in the contract for the consumer's signature (or on the front page of the receipt), boldface of at least 10 points, substantially in the statutory form; the contract must be in the language the sale was principally negotiated in",
+      "applies": {
+        "sold_in_home": true
+      },
+      "start": "You, the buyer, may cancel this transaction at any time",
+      "end": "explanation of this right.",
+      "quote_note": "The statute does not use quotation marks; the statement is a paragraph set off after 'a statement in substantially the following form:'.",
+      "blanks": [],
+      "boundary_unsure": "None. One-sentence pair set off on its own paragraph; ends at 'explanation of this right.'"
+    },
+    {
+      "id": "VT-cancel-form",
+      "title": "NOTICE OF CANCELLATION form (attached to the contract, easily detachable)",
+      "cite": "9 V.S.A. 2454(b)(2)(A)",
+      "trigger": "Home solicitation sale of $5.00 or more, personally solicited or consummated at the consumer's residence or place of business or employment",
+      "format": "Attached to the contract or receipt, easily detachable, printed in not less than 10-point boldface type; seller completes both copies and leaves one with the consumer",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "The notice of cancellation shall contain the following information and statements, printed in not less than 10-point boldface type:",
+      "summary_row": "Home solicitation: statement beside the signature, NOTICE OF CANCELLATION, oral notice, language rule, no pay for services",
+      "mode": "print",
+      "block": "1. 9 V.S.A. 2454, Purchase contracts; rescission (complete)",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "end": "(buyer’s signature)",
+      "quote_note": "The statute does not use quotation marks; the form is set off after 'printed in not less than 10-point boldface type:'. The end marker contains the statute's curly apostrophe.",
+      "blanks": [
+        "(enter date of transaction) with its dotted line and (date)",
+        "(name of seller) dotted line",
+        "(address of seller’s place of business) dotted line",
+        "not later than midnight of ......(date)",
+        "dotted line above (date) under I hereby cancel this transaction.",
+        "dotted line above (buyer’s signature)"
+      ],
+      "boundary_unsure": "None on the start; the end is the last line of the form, before paragraph (B) (instructions to the seller). The statement's blanks sit on lines of dots exactly as printed."
     }
   ],
   "changes": [
@@ -54,6 +89,7 @@
   ],
   "unsure": [
     "VT-cancel: the statute covers sales consummated at the consumer's residence or place of business or employment, but the builder only knows 'sold at the customer's home', so a sale at a place of business is not caught by applies.",
-    "cancellation.no_work_or_payment_in_window left unchanged: the statute says the seller is entitled to no compensation for services performed before cancellation, which is not a ban on starting work."
+    "cancellation.no_work_or_payment_in_window left unchanged: the statute says the seller is entitled to no compensation for services performed before cancellation, which is not a ban on starting work.",
+    "VT-cancel split into VT-cancel (the statement near the signature) and VT-cancel-form (new). Both print for sold_in_home; the statute also covers sales at a place of business or employment, which sold_in_home does not catch. Layout (statement next to the signature, form detachable) is not a trigger."
   ]
 }

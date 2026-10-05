@@ -6,36 +6,107 @@
       "id": "MN-lien",
       "trigger": "Residential contracts where the contractor has contracted or will contract with subcontractors or material suppliers; not required for a wholly residential improvement of more than four family units",
       "format": "At least 10-point bold type if printed, or capital letters if typewritten, in the written contract; the owner also gets a copy of the written contract",
-      "support": "Every person who enters into a contract with the owner for the improvement of real property and who has contracted or will contract with any subcontractors or material suppliers to provide labor, skill or materials for the improvement shall include in any written contract with the owner the notice required in this subdivision",
+      "support": "shall include in any written contract with the owner the notice required in this subdivision",
       "summary_row": "Lien notice in the contract (two lettered paragraphs)",
-      "mode": "none",
+      "mode": "on_file",
       "block": "Minn. Stat. 514.011: notice (subdivision 1 is the contractor's contract notice)",
       "block_index": 0,
-      "hold_reason": "The block is the whole section 514.011, with the subcontractor's notice, supplier rules and exceptions around the contractor's notice, so printing it would put non-notice statute text in the contract; the two lettered paragraphs need to be cut out by hand. It is also owed only when subcontractors or suppliers are used, which the builder cannot tell."
+      "start": "(a) Any person or company supplying labor or materials for this improvement to your property",
+      "end": "who gave you timely notice.",
+      "quote_note": "Only the words inside the statute's quotation marks are cut: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [],
+      "boundary_unsure": "Boundaries are clear (the two lettered paragraphs inside the statute's quotation marks). Stored, not printed, because it is owed only when the contractor uses or will use subcontractors or material suppliers, which the builder cannot tell."
     },
     {
       "id": "MN-cancel",
       "trigger": "Home solicitation sale: improvements or services bought for personal, family or household use, price more than $25, solicited and agreed away from the seller's place of business; an invited visit is still covered unless the buyer gives a handwritten, dated, signed waiver",
-      "support": "a sale of goods, services, or improvements to real property by a seller who regularly engages in transactions of the same kind, purchased primarily for personal, family or household purposes, and not for agricultural purposes, with a purchase price of more than $25",
+      "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in boldface type of a minimum size of ten points, a statement in substantially the following form:",
       "summary_row": "Home solicitation: oral notice, buyer statement, duplicate NOTICE OF CANCELLATION",
-      "mode": "none",
+      "mode": "print",
       "block": "Minn. Stat. 325G.08: writing, notice of right to cancel, notice of cancellation",
       "block_index": 0,
-      "hold_reason": "The block is the whole section 325G.08, with the seller's duties and the alternative federal notice rule around the statement and the form, so printing it would put non-notice statute text in the contract; the statement and the form need to be cut out by hand."
+      "title": "Buyer statement near the signature (home solicitation sale)",
+      "cite": "Minn. Stat. 325G.08 subd. 1(b)",
+      "format": "Statement in immediate proximity to the space reserved in the contract for the buyer's signature, in boldface type of at least ten points; the seller also tells the buyer orally",
+      "start": "You, the buyer, may cancel this purchase at any time prior to midnight",
+      "end": "for an explanation of this right.",
+      "quote_note": "Only the words inside the statute's quotation marks are cut: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": []
+    },
+    {
+      "id": "MN-cancel-form",
+      "title": "NOTICE OF CANCELLATION form, in duplicate (home solicitation sale)",
+      "cite": "Minn. Stat. 325G.08 subd. 1(c)",
+      "trigger": "Home solicitation sale: improvements or services bought for personal, family or household use, price more than $25, solicited and agreed away from the seller's place of business; an invited visit is still covered unless the buyer gives a handwritten, dated, signed waiver",
+      "format": "Fully completed form in duplicate, attached to the contract or receipt and easily detachable, in boldface type of at least ten points",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "furnish each buyer a fully completed form in duplicate, captioned, \"NOTICE OF CANCELLATION,\" which shall be attached to the contract or receipt and easily detachable",
+      "summary_row": "Home solicitation: oral notice, buyer statement, duplicate NOTICE OF CANCELLATION",
+      "mode": "print",
+      "block": "Minn. Stat. 325G.08: writing, notice of right to cancel, notice of cancellation",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "(Buyer's signature)",
+      "quote_note": "The start marker is the first word after the statute's opening quotation mark. The Revisor page prints the closing quotation mark inside the form, on the line '. \"' just above '(Buyer's signature)', so that one closing mark is part of the cut (ending at the closing mark would drop the signature caption).",
+      "blanks": [
+        "(enter type of goods or services purchased) with its blank line (goods or services)",
+        "(enter date of transaction) with its blank line (date)",
+        "(Name of seller)",
+        "(Address of Seller's Place of Business)",
+        "(Date) in the not-later-than sentence",
+        "blank line above (Date) after I HEREBY CANCEL THIS TRANSACTION.",
+        "blank line above (Buyer's signature)"
+      ],
+      "boundary_unsure": "The Revisor extraction shows each dotted blank as a single '.' line and puts the statute's closing quotation mark on the line before '(Buyer's signature)'. The end of the form (the signature caption) is certain; the stray quotation mark and the '.' lines are copied as printed."
     },
     {
       "id": "MN-roofing-cancel",
-      "title": "Insurance-paid roofing: 72 hour statement and duplicate NOTICE OF CANCELLATION",
-      "cite": "Minn. Stat. 326B.811",
+      "title": "Insurance-paid roofing: 72 hour statement",
+      "cite": "Minn. Stat. 326B.811 subd. 2(a)(1)",
       "trigger": "A written contract for roofing goods and services to be paid from property or casualty insurance proceeds, given before the contract is entered",
-      "format": "Statement in boldface type of at least ten points, plus a detachable fully completed NOTICE OF CANCELLATION form in duplicate",
-      "applies": { "residential": true },
-      "support": "So it reaches a builder or remodeler only when the insured work is roofing.",
+      "format": "Statement in boldface type of at least ten points, given before the contract is entered",
+      "applies": {
+        "residential": true
+      },
+      "support": "furnish the insured with a statement in boldface type of a minimum size of ten points, in substantially the following form:",
       "summary_row": "Insurance-paid roofing services: 72 hour statement and duplicate NOTICE OF CANCELLATION",
-      "mode": "none",
+      "mode": "on_file",
       "block": "Minn. Stat. 326B.811: insurance-paid roofing contract, right to cancel",
       "block_index": 0,
-      "hold_reason": "The block is the whole section 326B.811, with the right to cancel, return of payments and definitions around the statement and form, so printing it would put non-notice statute text in the contract. It also applies only to insurance-paid roofing, which the builder cannot tell."
+      "start": "You may cancel this contract at any time within 72 hours",
+      "end": "for an explanation of this right.",
+      "quote_note": "Only the words inside the statute's quotation marks are cut: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. Stored, not printed: the contract is paid from insurance proceeds and only for roofing, which the builder cannot tell."
+    },
+    {
+      "id": "MN-roofing-cancel-form",
+      "title": "Insurance-paid roofing: duplicate NOTICE OF CANCELLATION form",
+      "cite": "Minn. Stat. 326B.811 subd. 2(a)(2)",
+      "trigger": "A written contract for roofing goods and services to be paid from property or casualty insurance proceeds, given before the contract is entered",
+      "format": "Fully completed form in duplicate, attached to the contract and easily detachable, in boldface type of at least ten points",
+      "applies": {
+        "residential": true
+      },
+      "support": "furnish each insured a fully completed form in duplicate, captioned \"NOTICE OF CANCELLATION,\" which shall be attached to the contract and easily detachable",
+      "summary_row": "Insurance-paid roofing services: 72 hour statement and duplicate NOTICE OF CANCELLATION",
+      "mode": "on_file",
+      "block": "Minn. Stat. 326B.811: insurance-paid roofing contract, right to cancel",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 2,
+      "end": "(Insured's signature)",
+      "quote_note": "Only the words inside the statute's quotation marks are cut: the start marker is the first word after the opening mark and the end marker is the last word before the closing mark.",
+      "blanks": [
+        "(name of contractor)",
+        "(address of contractor's place of business)",
+        "blank line above (date)",
+        "blank line above (Insured's signature)"
+      ],
+      "boundary_unsure": "Edges are certain. The Revisor extraction shows each dotted blank as a single '.' line; copied as printed."
     }
   ],
   "changes": [

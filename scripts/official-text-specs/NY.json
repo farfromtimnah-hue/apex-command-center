@@ -5,8 +5,15 @@
     {
       "id": "NY-lien",
       "summary_row": "Mechanic's lien notice, bold face",
-      "mode": "none",
-      "hold_reason": "The lien notice wording sits only inside the block that is the whole of GBL 771 (every contract requirement), so printing it would put non-notice statute text in the contract; the escrow or bond notice in 771(1)(e) has no prescribed wording, only content."
+      "mode": "print",
+      "block": "1. GBL 771, contract provisions (the full section)",
+      "block_index": 0,
+      "start": "Any contractor, subcontractor, or materialman who provides",
+      "end": "to discharge a mechanic's lien",
+      "quote_note": "The statute prints the notice inside quotation marks; the markers sit inside them, so the opening quotation mark and the closing quotation mark are excluded. In the official text the closing quotation mark comes before the final period, so the cut ends at the word lien with no period.",
+      "blanks": [],
+      "boundary_unsure": "The statute's closing quotation mark precedes the final period, so the cut text has no period after 'lien'. The edges themselves (inside the quotation marks) are certain; the missing period is the only question.",
+      "support": "Such home improvement contract shall also contain the following notice to the owner in clear and conspicuous bold face type:"
     },
     {
       "id": "NY-cancel",
@@ -28,11 +35,18 @@
       "cite": "Personal Property Law 428(1)(a)",
       "trigger": "Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller",
       "format": "In immediate proximity to the buyer's signature space, not less than ten-point bold, in the language of the sales presentation",
-      "applies": { "sold_in_home": true },
+      "applies": {
+        "sold_in_home": true
+      },
       "support": "in immediate proximity to the space reserved in the contract for the signature of the buyer or on the front page of the receipt if a contract is not used and in not less than ten-point bold face type, a statement in substantially the following form",
       "summary_row": "Door-to-door statement beside the signature",
-      "mode": "none",
-      "hold_reason": "The statement is inside the block that is the whole of Personal Property Law 428, interleaved with the form and with subdivisions 2 to 5 (oral notice, no waiver, refund policy), so printing the block would put non-notice statute text in the contract."
+      "mode": "print",
+      "block": "6. Personal Property Law 428, door-to-door statement and NOTICE OF CANCELLATION form",
+      "block_index": 0,
+      "start": "YOU, THE BUYER, MAY CANCEL",
+      "end": "FOR AN EXPLANATION OF THIS RIGHT.",
+      "quote_note": "The statute prints the statement inside quotation marks; the markers sit inside them, so both quotation marks are excluded.",
+      "blanks": []
     },
     {
       "id": "NY-ppl428-form",
@@ -40,11 +54,27 @@
       "cite": "Personal Property Law 428(1)(b)",
       "trigger": "Door-to-door sale: the buyer's agreement is made away from the seller's place of business, including after the buyer invited the seller",
       "format": "Completed form in duplicate, attached to the contract and easily detachable, not less than ten-point bold, in the language of the contract",
-      "applies": { "sold_in_home": true },
+      "applies": {
+        "sold_in_home": true
+      },
       "support": "which shall be attached to the contract or receipt and easily detachable",
       "summary_row": "NOTICE OF CANCELLATION form, in duplicate",
-      "mode": "none",
-      "hold_reason": "The form is inside the block that is the whole of Personal Property Law 428, interleaved with the statement and with subdivisions 2 to 5 (oral notice, no waiver, refund policy), so printing the block would put non-notice statute text in the contract."
+      "mode": "print",
+      "block": "6. Personal Property Law 428, door-to-door statement and NOTICE OF CANCELLATION form",
+      "block_index": 0,
+      "start": "NOTICE OF CANCELLATION",
+      "start_occurrence": 3,
+      "end": "(Buyer's Signature)",
+      "quote_note": "The form is not printed inside quotation marks (the caption is quoted once in the lead-in sentence, which is outside the cut); none to handle.",
+      "blanks": [
+        "(enter date of transaction) / (Date) line under the caption",
+        "Name of Seller",
+        "Address of Seller (Place of Business)",
+        "NOT LATER THAN MIDNIGHT OF (Date)",
+        "I HEREBY CANCEL THIS TRANSACTION (Date)",
+        "(Buyer's Signature)"
+      ],
+      "boundary_unsure": "Start marker is the third occurrence of NOTICE OF CANCELLATION in the block (the first is inside the statement 'SEE THE ATTACHED NOTICE OF CANCELLATION FORM', the second the lead-in 'captioned \"NOTICE OF CANCELLATION\"'). The end is the form's last line; the statute then continues 'and the seller shall complete both copies ...', which is an instruction to the seller and is not cut. The researcher's extract flattened the form's address block, so the lines '(Name of Seller), AT Address of Seller / ____ (Place of Business) NOT LATER THAN MIDNIGHT OF / ____ ____ (Date)' print in that scrambled layout exactly as in the file."
     }
   ],
   "changes": [
@@ -56,8 +86,9 @@
   ],
   "unsure": [
     "NY-cancel and NY-insurance: GBL 771(1)(h) and (i) prescribe content but no sentence, so no text is loaded; the owner writes the wording.",
-    "NY-ppl428-statement and NY-ppl428-form were added because the file says a contract signed at the customer's home needs them; the oral notice in 428(2) and the refund-policy disclosure in 428(4) are rules the contract builder does not print, so oral_notice and same_language were left unchanged because the existing cancellation fields describe the GBL 771 right that applies to every contract, not only door-to-door sales.",
     "Lien Law 71-a(3)(e) bold statement was not added: the file says it applies to new residential construction sales, not home improvement contracts.",
-    "GOL 5-903 (cleaning auto-renewal): the file says whether a recurring cleaning contract is a service contract on real property is a reading the text does not settle, so cleaning was left unchanged."
+    "GOL 5-903 (cleaning auto-renewal): the file says whether a recurring cleaning contract is a service contract on real property is a reading the text does not settle, so cleaning was left unchanged.",
+    "NY-lien: printed on contracts over $500 (GBL 771 applies to home improvement contracts over $500 per the existing applies); the cut is the quoted notice only, without the closing period.",
+    "NY-ppl428-statement and NY-ppl428-form: the builder only knows 'sold at the customer's home', but the statute covers any sale agreed away from the seller's place of business. The oral notice in 428(2) and the refund-policy disclosure in 428(4) are not part of the cut and are not printed. The form's address block is scrambled in the file's extract and is printed as extracted."
   ]
 }

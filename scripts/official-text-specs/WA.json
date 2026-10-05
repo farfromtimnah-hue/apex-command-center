@@ -6,11 +6,27 @@
       "id": "WA-customer",
       "trigger": "Residential repair, alteration or construction of four or fewer units or accessory structures when the bid or contract price is $1,000 or more (a commercial building at $1,000 to under $60,000 also)",
       "format": "Given before starting work, in substantially the statutory form using lower case and upper case twelve-point and bold type where appropriate; the form has a customer signature line; the contractor keeps the signed copy at least three years",
-      "applies": { "at_least_cents": 100000, "residential": true },
+      "applies": {
+        "at_least_cents": 100000,
+        "residential": true
+      },
       "support": "substantially the following form using lower case and upper case twelve-point and bold type where appropriate, prior to starting work on the project",
       "summary_row": "Notice to Customer disclosure statement (residential jobs of $1,000 or more)",
-      "mode": "none",
-      "hold_reason": "the only block is the whole section 18.27.114; around the notice it holds operative subsections (record keeping, expiry notice, lien bar, exemptions, infraction, L&I model forms) that should not print in the customer's contract"
+      "mode": "print",
+      "block": "RCW 18.27.114: Notice to Customer disclosure statement (residential jobs of $1,000 or more)",
+      "block_index": 0,
+      "start": "NOTICE TO CUSTOMER",
+      "end": "(Signature of customer)",
+      "quote_note": "The statute's opening quotation mark before NOTICE TO CUSTOMER and its closing quotation mark after (Signature of customer) are excluded: markers lie inside them. The inner quotation marks around LIEN RELEASE are the statute's own and stay.",
+      "blanks": [
+        "registration no. . . .",
+        "bond or deposit of . . . . .",
+        "expiration date of this contractor's registration . . . . ..",
+        "payments of valid claims up to . . . . .",
+        "dotted signature line . . . . . . . . . . . . . . . . . .",
+        "(Signature of customer)"
+      ],
+      "boundary_unsure": "None. Quoted form after 'in substantially the following form using lower case and upper case twelve-point and bold type'. The statute's own dot leaders are the blanks and are left exactly as printed."
     },
     {
       "id": "WA-cancel",
@@ -20,8 +36,16 @@
       "format": "Item (e) of the NOTICE TO BUYER, in ten point boldface type or larger directly above the buyer's signature space; cancel by certified mail, return receipt requested, posted by midnight of the third day excluding Sundays and holidays",
       "support": "Formatting rules: \"in ten point boldface type or larger directly above the space reserved in the contract for the signature of the buyer\". Applies only to retail installment contracts.",
       "summary_row": "Retail installment contract contents and NOTICE TO BUYER",
-      "mode": "none",
-      "hold_reason": "the block is the whole section 63.14.040 with the contract-contents rules around the notice, and the notice applies only to credit or installment sales, which the builder does not know"
+      "mode": "on_file",
+      "block": "RCW 63.14.040: Retail installment contract contents and NOTICE TO BUYER",
+      "block_index": 0,
+      "start": "NOTICE TO BUYER:",
+      "end": "received by you under this contract.",
+      "quote_note": "The statute's opening quotation mark before NOTICE TO BUYER: and closing quotation mark after the last sentence are excluded: markers lie inside them.",
+      "blanks": [
+        "item (d): . . . .% (must be filled in) per annum computed monthly"
+      ],
+      "boundary_unsure": "Edges are certain (quoted text). Item (e) is only needed when the contract is solicited in person away from the seller's address (the sentence after the quote); the cut includes item (e) in full as one block. Stored not printed: retail installment (credit) contracts only."
     },
     {
       "id": "WA-defect",
@@ -29,11 +53,19 @@
       "cite": "RCW 64.50.050",
       "trigger": "A contract for sale, construction or substantial remodel of a residence (a remodel costing more than half the assessed value)",
       "format": "Conspicuous; may be part of the contract; in substantially the statutory capital-letter form",
-      "applies": { "residential": true },
+      "applies": {
+        "residential": true
+      },
       "support": "RCW 64.50.050 requires the notice \"upon entering into a contract for sale, construction, or substantial remodel of a residence\", \"conspicuous\", \"may be included as part of the underlying contract\".",
       "summary_row": "Construction defect notice to homeowner in the contract (new construction and substantial remodel)",
-      "mode": "none",
-      "hold_reason": "the block is the whole section 64.50.050 with operative subsections (1) and (3) around the notice, and whether it applies depends on the assessed value of the home, which the builder does not know"
+      "mode": "on_file",
+      "block": "RCW 64.50.050 (version effective until January 1, 2028): Construction defect notice to homeowner in the contract (new construction and substantial remodel)",
+      "block_index": 0,
+      "start": "CHAPTER 64.50 RCW CONTAINS IMPORTANT REQUIREMENTS",
+      "end": "ABILITY TO FILE A LAWSUIT.",
+      "quote_note": "No quotation marks in the statute: the notice is the paragraph set off after 'in substantially the following form:'.",
+      "blanks": [],
+      "boundary_unsure": "None on the edges. Stored not printed because the duty depends on the assessed value of the home (substantial remodel) and the version shown is the one 'effective until January 1, 2028' (a 2028 version has the same wording)."
     },
     {
       "id": "WA-lien-info",
@@ -41,7 +73,10 @@
       "cite": "RCW 60.04.255(2)",
       "trigger": "Every customer who must receive the Notice to Customer (residential work of $1,000 or more)",
       "format": "A copy of L&I's master informational material on construction liens, handed over with the Notice to Customer",
-      "applies": { "at_least_cents": 100000, "residential": true },
+      "applies": {
+        "at_least_cents": 100000,
+        "residential": true
+      },
       "support": "Every contractor shall provide a copy of the informational material described in RCW 60.04.250 to customers required to receive contractor disclosure notice under RCW 18.27.114.",
       "summary_row": "Lien informational material to be handed to 18.27.114 customers",
       "mode": "none",
@@ -63,6 +98,11 @@
       "path": "cleaning.home_solicitation_applies_to_cleaning",
       "new": false,
       "support": "No general state home solicitation act for non-installment sales was located in this pass"
+    },
+    {
+      "path": "checklist.rider_items.0",
+      "new": "18.27.114 Notice to Customer, substantially in the statutory form in 12 point and bold, given before starting work, with a customer signature line; contractor keeps the signed copy three years",
+      "support": "It does not itself say the customer must sign before work; it says the contractor \"must retain a signed copy ... for a minimum of three years\""
     }
   ],
   "unsure": [
@@ -70,6 +110,8 @@
     "WA-cancel: moved the wording source to the NOTICE TO BUYER in 63.14.040(2)(e) because 63.14.154 itself has no notice sentence; the block is the whole section and the trigger turns on credit terms, so nothing is loaded.",
     "WA-defect: added because the law puts a capital-letter notice in contracts for new construction or a substantial remodel; the trigger needs the assessed value of the home, so it could only be stored even once held text is cleared.",
     "WA-lien-info: added because the law hands the L&I lien pamphlet over with the Notice to Customer; no text exists to load.",
-    "cleaning.home_solicitation_applies_to_cleaning: changed to false because the state cancellation right reaches only installment sales; a cleaning plan paid in five or more installments would be covered."
+    "cleaning.home_solicitation_applies_to_cleaning: changed to false because the state cancellation right reaches only installment sales; a cleaning plan paid in five or more installments would be covered.",
+    "WA-cancel and WA-defect: now stored (on_file), not printed. WA-cancel reaches retail installment contracts only; WA-defect depends on the assessed value of the home.",
+    "WA-customer: now printed for residential jobs of $1,000 or more; the statute also covers commercial buildings of $1,000 to under $60,000, which the builder cannot tell."
   ]
 }

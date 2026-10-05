@@ -4869,6 +4869,7 @@ function gmConCleaningQuestionsHtml(c, ro) {
     q += gmSheetRowHtml("tag", gmT("Modelo", "Template"), escHtml(gmConTemplateLabel(tpl)));
     q += gmSheetRowHtml("tag", Q.consumer, yn(consumer));
     q += gmSheetRowHtml("tag", Q.sold, yn(f.sold_in_home !== false));
+    if (outFl) { q += gmConStateFactsHtml(c, true); }
     q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
     if (f.oral_notice && f.oral_notice.at) { q += gmSheetRowHtml("check", gmT("Aviso em voz alta confirmado", "Oral notice confirmed"), escHtml(f.oral_notice.by || ""), null, null, escHtml(formatDateTimeUTC(f.oral_notice.at))); }
     q += gmSheetRowHtml("clock", gmT("Proposta v\u00e1lida at\u00e9", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
@@ -4880,6 +4881,7 @@ function gmConCleaningQuestionsHtml(c, ro) {
     '<p class="muted" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Trocar o modelo troca as cl\u00e1usulas oferecidas. Depois que a empresa assina, n\u00e3o muda mais.", "Changing the template changes the clauses offered. Once the company signs, it cannot change.") + '</p>';
   q += gmConYesNoHtml(Q.consumer, "consumer", consumer);
   q += gmConYesNoHtml(Q.sold, "sold_in_home", f.sold_in_home !== false);
+  if (outFl) { q += gmConStateFactsHtml(c, false); }
   if (tpl === "T2") { q += gmConYesNoHtml(Q.further, "further_visits", f.further_visits === true ? true : false); }
   if (sel.CL09 === "CL09-B") { q += gmConYesNoHtml(Q.term12, "term_12_plus", f.term_12_plus === true ? true : false); }
   q += gmConYesNoHtml(Q.post, "post_construction", f.post_construction === true ? true : false);
@@ -5325,6 +5327,7 @@ function gmRenderContractSheet() {
     q += gmSheetRowHtml("tag", gmT("Vendido durante uma visita à casa do cliente?", "Sold during a visit to the customer's home?"), f.sold_in_home !== false ? gmT("Sim", "Yes") : gmT("Não", "No"));
     q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
     q += gmSheetRowHtml("tag", gmT("Tipo do imóvel", "Property type"), escHtml(propLabel));
+    if (outFl) { q += gmConStateFactsHtml(c, true); }
     if (c.builds_pools) {
       q += gmSheetRowHtml("tag", gmT("Obra de piscina", "Pool job"), f.is_pool ? gmT("Sim", "Yes") : gmT("Não", "No"));
       if (f.is_pool && !outFl) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
@@ -5334,6 +5337,7 @@ function gmRenderContractSheet() {
     q += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Vendido durante uma visita à casa do cliente?", "Was this sold during a visit to the customer's home?") + '</span>' +
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home !== false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', true)">' + gmT("Sim", "Yes") + '</button>' +
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home === false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', false)">' + gmT("Não", "No") + '</button></div>';
+    if (outFl) { q += gmConStateFactsHtml(c, false); }
   }
   if (c.rules && c.rules.L5 && c.rules.L5.on) {
     var canRule = c.cancellation_rule || { business_days: 3, saturday_counts: true };
@@ -5508,11 +5512,32 @@ function gmConSavePrice() {
   gmConSave({ contract_price_cents: Math.round(n * 100) });
 }
 function gmConSetFlag(k, v) { var flags = {}; flags[k] = v; gmConSave({ flags: flags }); }
+// The one-question facts the "Before you send" lines depend on
+// (c.state_card.facts): Yes / No / Not sure, asked in "This contract". A fact
+// the project already records shows its answer and is not asked.
+function gmConStateFactsHtml(c, ro) {
+  var facts = (c.state_card && c.state_card.facts) || [];
+  var names = { yes: gmT("Sim", "Yes"), no: gmT("N\u00e3o", "No"), unsure: gmT("N\u00e3o sei", "Not sure") };
+  return facts.map(function(q) {
+    var label = escHtml(isEn() ? q.en : q.pt);
+    if (ro || q.known) {
+      return gmSheetRowHtml("tag", label, q.answer ? escHtml(names[q.answer]) : "", null, null, q.known ? gmT("O projeto j\u00e1 registra isto.", "The project already records this.") : (q.answer ? "" : gmT("Sem resposta", "Not answered")));
+    }
+    return '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + label + '</span>' +
+      ["yes", "no", "unsure"].map(function(v) {
+        return '<button type="button" class="gm-choice-chip' + (q.answer === v ? " gm-chip-sel" : "") + '" onclick="gmConSetFact(\'' + escHtml(q.key) + '\', \'' + v + '\')">' + names[v] + '</button>';
+      }).join("") + '</div>';
+  }).join("");
+}
+function gmConSetFact(k, v) { var facts = {}; facts[k] = v; gmConSave({ flags: { state_facts: facts } }); }
 // The "Before you send" card. c.state_card (from the Worker) holds the lines
 // the person must act on, each with its law reference, the full text behind
 // it, and who ticked it and when; everything else the research says sits in
 // one closed "More about {State}" line. A tick is saved on the contract at
 // once. It is a record for the business only: it never blocks anything.
+// A line the system does or sees (a.kind "does" / "sees") ticks itself: it
+// shows "Done by the system" with the time and one line of evidence, or what
+// the system is waiting for, and a person cannot tick or untick it.
 function gmConStateCardHtml(c) {
   var card = c.state_card || null;
   var acts = (card && card.actions) || [];
@@ -5529,11 +5554,19 @@ function gmConStateCardHtml(c) {
       var boxId = "gmConStChk" + i, ctxId = "gmConStCtx" + i;
       var ref = isEn() ? (a.ref || "details") : (a.ref_pt || a.ref || "detalhes");
       var url = /^https?:\/\//.test(String(a.source_url || "")) ? a.source_url : "";
-      h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);">' +
-        '<input type="checkbox" id="' + boxId + '" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (a.done ? " checked" : "") + (canTick ? "" : " disabled") + ' onchange="gmConStateCheck(' + i + ', this.checked)">' +
+      var sysLine = a.kind && a.kind !== "person" && a.sys;
+      var box = sysLine ?
+        '<input type="checkbox" id="' + boxId + '" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (a.sys.done ? " checked" : "") + ' disabled aria-describedby="' + boxId + 'Sys">' :
+        '<input type="checkbox" id="' + boxId + '" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (a.done ? " checked" : "") + (canTick ? "" : " disabled") + ' onchange="gmConStateCheck(' + i + ', this.checked)">';
+      var under = sysLine ?
+        '<div id="' + boxId + 'Sys" class="muted" style="font-size:12px;margin-top:2px;">' +
+          (a.sys.done ? '<span class="gm-pill gm-green">\u2713 ' + gmT("Feito pelo sistema", "Done by the system") + '</span>' + (a.sys.at ? " " + escHtml(formatDateTimeUTC(a.sys.at)) : "") + '<br>' : "") +
+          escHtml(isEn() ? a.sys.en : a.sys.pt) + '</div>' :
+        (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "");
+      h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);">' + box +
         '<div style="flex:1 1 auto;min-width:0;"><label for="' + boxId + '">' + escHtml(isEn() ? a.en : a.pt) + '</label> ' +
         '<a href="#" role="button" aria-expanded="false" aria-controls="' + ctxId + '" onclick="return gmConStateCtx(this, \'' + ctxId + '\')">(' + escHtml(ref) + ')</a>' +
-        (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "") +
+        under +
         '<div id="' + ctxId + '" hidden><p class="muted" style="font-size:13px;margin:6px 0;">' + escHtml(isEn() ? a.context_en : a.context_pt) + '</p>' +
         (url ? '<p style="font-size:13px;margin:0 0 6px;"><a href="' + escHtml(url) + '" target="_blank" rel="noopener">' + gmT("Abrir a fonte oficial", "Open the official source") + '</a></p>' : "") + '</div>' +
         '</div></div>';
@@ -5553,6 +5586,7 @@ function gmConStateCheck(i, on) {
   var card = gmConDetail && gmConDetail.state_card;
   var a = card && card.actions ? card.actions[i] : null;
   if (!a) { return; }
+  if (a.kind && a.kind !== "person" && a.sys) { gmRenderContractSheet(); return; }
   gmApi("contracts/" + encodeURIComponent(gmConDetail.id), { method: "PUT", body: { flags: { state_check: { key: a.key, done: !!on } } } })
     .then(function(d) { gmConDetail = d.contract; gmRenderContractSheet(); })
     .catch(function(e) { gmToast(e.message); console.error(e); gmRenderContractSheet(); });

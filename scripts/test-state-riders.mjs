@@ -253,7 +253,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
   }
   // all states: every notice that prints, in full
   {
-    let all = "Every state notice that prints in a contract (read this file to see every word a customer could see).\nFlorida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.\n\n", total = 0;
+    let all = "Every state notice that prints in a contract (read this file to see every word a customer could see).\nFlorida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.\n\n", total = 0, sysTotal = 0;
     NON_FL.forEach(function (c) {
       const pr = data.riders[c].notices.filter(function (n) { return n.text; });
       all += "################ " + data.riders[c].name + " (" + c + ") - status: " + data.riders[c].status + " - prints: " + pr.length + " of " + data.riders[c].notices.length + " notices\n\n";
@@ -261,9 +261,20 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
         total++;
         all += "--- " + n.title + " (" + n.cite + ") ---\nState: " + data.riders[c].name + "\nTrigger: " + n.trigger + "\nPrints when: " + JSON.stringify(n.applies) + "\nFormat rule: " + n.format + "\nSource: " + n.source_status + " " + n.source_url + " (" + n.source_date + ")\n" + (n.range ? "Blanks to fill: " + (n.range.blanks.length ? n.range.blanks.join(" | ") : "none") + "\n" : "") + "TEXT:\n" + n.text + "\n\n";
       });
-      if (!pr.length) { all += "(nothing prints for this state)\n\n"; }
+      // RES-35: the notices the builder prints or hands over by itself, from
+      // the official wording on file (a residential job, every one-question
+      // fact unanswered, which is the safe side: they print).
+      const rd = data.riders[c], cn = rd.cancellation || {};
+      const stSys = { code: c, name: rd.name, florida: false, rider: rd, status: rd.status, cancellation: { business_days: Math.round(Number(cn.business_days)) || 3, saturday_counts: cn.saturday_counts !== false } };
+      const plan = F.contractStatePrintPlan(stSys, { sold_in_home: true, is_pool: true, residential: true, amount_cents: 10000000, selections: {} }, F.contractStateFacts({}, null));
+      plan.forEach(function (p) {
+        const n = p.notice, e = F.contractStateCheckEntry(c, { key: p.line });
+        total++; sysTotal++;
+        all += "--- " + n.title + " (" + n.cite + ") --- " + (p.mode === "deliver" ? "GIVEN TO THE CUSTOMER WITH THE CONTRACT BY THE SYSTEM" : "PRINTED BY THE SYSTEM") + "\nState: " + rd.name + "\nTrigger: " + n.trigger + "\nPrints when: " + JSON.stringify(n.applies) + (e.fact ? ", unless the answer to the question \"" + e.fact + "\" is No" : "") + "\nFormat rule: " + n.format + "\nLook applied: " + (p.style ? JSON.stringify(p.style) : "same as the rest of the document") + "\nSource: " + n.source_status + " " + n.source_url + " (" + n.source_date + ")\nBlanks to fill: none\nTEXT:\n" + n.text_on_file + "\n\n";
+      });
+      if (!pr.length && !plan.length) { all += "(nothing prints for this state)\n\n"; }
     });
-    all = "Total notices that print: " + total + "\n" + all;
+    all = "Total notices that print: " + total + " (" + sysTotal + " of them printed or handed over by the system itself, RES-35)\n" + all;
     writeFileSync(new URL("scripts/fixtures/state-notices-all.txt", root), all);
     made.push("scripts/fixtures/state-notices-all.txt");
   }
@@ -352,7 +363,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {}
     };
     const names = Object.keys(stubs);
-    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
+    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
     return function (c) { out = null; fn(clone(c)); return out; };
   }
   async function detail(fxIn, status) {

@@ -146,6 +146,10 @@
     .clause .clause-title { font-weight: 800; font-size: 15px; padding: 8px 0 4px; border-bottom: 2px solid var(--brand-accent); margin-bottom: 6px; }
     .clause p { font-size: 14px; margin: 0 0 8px; line-height: 1.55; }
     .clause.locked p { font-weight: 700; }
+    /* A state notice the builder prints by itself: the look the statute states
+       (bold; 14px is 10.5 point, 16px is 12 point). */
+    .clause.sys-em p { font-weight: 700; font-size: 14px; }
+    .clause.sys-em12 p { font-size: 16px; }
     /* L1: 12pt+ bold capitals, its own card, its own signature (statute format). */
     .lien-card p { font-size: 16px; font-weight: 800; text-transform: uppercase; line-height: 1.45; }
     .lien-card .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
@@ -292,6 +296,10 @@
         })
         .catch(function(e) { if (w) { w.close(); } if (err) { sayErr(err, e.message); } console.error(e); });
     }
+    // A notice the builder copied from an official file can carry the hard line
+    // wraps of the page it came from (a line break followed by indentation).
+    // Those are joined for display only; the words are not touched.
+    function flowText(text) { return String(text || "").replace(/[ \t\f]*\n[ \t\f]{2,}/g, " ").replace(/\f/g, ""); }
     // Markdown-light: **bold** and blank-line paragraphs; single newlines stay
     // as line breaks (the statutory forms rely on them).
     function richHtml(text) {
@@ -460,7 +468,14 @@
           h += '</div><div class="card" id="poolCard"><h2>Pool safety documents</h2><div class="clause locked">' + richHtml(s.text) + '</div>' + poolDocsHtml() + '</div><div class="card">';
           return;
         }
-        h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.text) + '</div>';
+        // A document the state wants the customer to have before signing
+        // (official wording on file): its own card, above the signature.
+        if (s.kind === "state_document") {
+          h += '</div><div class="card state-doc"><h2>' + escHtml(s.title || "") + '</h2><p class="small muted">This document is given to you with this contract' + (s.cite ? ' (' + escHtml(s.cite) + ')' : "") + '. Please read it before you sign.</p><div class="clause">' + richHtml(flowText(s.text)) + '</div></div><div class="card">';
+          return;
+        }
+        var em = s.system === true && s.emphasis ? s.emphasis : null;
+        h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + (em ? " sys-em" + (em.min_pt >= 12 ? " sys-em12" : "") : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.system === true ? flowText(s.text) : s.text) + '</div>';
       });
       h += '</div>';
       if (besideSections().length) { h += '<div class="card" id="besideCard">' + besideHtml() + '</div>'; }
@@ -546,7 +561,8 @@
       var head = con.status === "completed" ? "Signed by both parties" : "Signed";
       var h = '<div class="state"><h3 class="ok" aria-level="2">' + head + '</h3>' +
         (hs ? '<p>Signed by ' + escHtml(hs.signer_name || "") + (hs.signed_at ? ' on ' + escHtml(fmtDateTime(hs.signed_at)) : "") + '.</p>' : "") +
-        '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) + '</div>';
+        '<div class="signed-grid">' + signatureCell("Company signature", con.company_signature, con.business.name) + signatureCell("Owner signature", hs, con.customer_name) +
+        (con.second_signer ? signatureCell("Second owner signature", con.second_signer.signed, "") : "") + '</div>';
       if (con.cancellation && con.cancellation.sold_in_home && con.cancellation.deadline_date) {
         h += '<p style="margin-top:12px;font-weight:700;">You may cancel this transaction until midnight of ' + escHtml(fmtDate(con.cancellation.deadline_date)) + '. See the Notice of Cancellation below.</p>';
       }
@@ -573,7 +589,7 @@
       if (con.status === "homeowner_signed" || con.status === "completed") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml();
+        card.innerHTML = secondSignHtml() + '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml();
         return;
       }
       if (isPreviewDraft()) {
@@ -814,6 +830,37 @@
       }
       var btn = byId("btnSign"); if (btn) { btn.disabled = true; }
       fetch(WORKER_URL + "/api/public/contracts/" + token + "/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
+        .then(function() { window.scrollTo(0, 0); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
+    // The second customer signer (a state that wants both spouses to sign):
+    // asked for here once the first owner has signed. Typed name with the same
+    // electronic consent. It never holds the contract up.
+    function secondSignHtml() {
+      var ss = con.second_signer;
+      if (!ss || ss.signed || con.status !== "completed") { return ""; }
+      if (previewId) { return '<div class="step"><h3>Second owner signature</h3><p class="muted small">The second owner or spouse signs here, on the homeowner\'s link.</p></div>'; }
+      return '<div class="step" id="secondSignStep"><h3>Second owner signature</h3>' +
+        '<p class="small">This contract asks for the signature of a second owner or spouse. That person signs here.</p>' +
+        '<label for="signer2">Second owner\'s full name</label><input type="text" id="signer2" autocomplete="off">' +
+        '<p class="muted small">The typed name will be used as the signature.</p>' +
+        esignConsentHtml(con.business, "", "btnSign2") +
+        '<div class="err" role="alert" id="sign2Err"></div>' +
+        '<button type="button" class="btn" id="btnSign2" onclick="signSecond()" disabled>Sign as second owner</button></div>';
+    }
+    function signSecond() {
+      var err = byId("sign2Err"); if (!err) { return; }
+      err.textContent = "";
+      var el = byId("signer2");
+      var signer = el ? el.value.trim() : "";
+      if (!signer) { sayErr(err, "Please type the second owner's full name."); return; }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
+      var btn = byId("btnSign2"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/second-sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ signer_name: signer, consent: true, consent_text_version: ESIGN_CONSENT_VERSION }) })
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } return load(); })
         .then(function() { window.scrollTo(0, 0); })

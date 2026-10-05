@@ -1,4 +1,4 @@
-Total notices that print: 82
+Total notices that print: 94 (12 of them printed or handed over by the system itself, RES-35)
 Every state notice that prints in a contract (read this file to see every word a customer could see).
 Florida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.
 
@@ -461,7 +461,30 @@ YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN 3 BUS
 
 ################ Indiana (IN) - status: notice text still needs official copy - prints: 0 of 4 notices
 
-(nothing prints for this state)
+--- Notice of the contractor's right to offer to cure construction defects (IC 32-27-3-12) --- PRINTED BY THE SYSTEM
+State: Indiana
+Trigger: Contract for sale, construction, or substantial remodeling of a residence (remodeling counts only when its total cost exceeds 50 percent of the assessed value)
+Prints when: {"residential":true}, unless the answer to the question "big_build" is No
+Format rule: Conspicuous capitals notice in substantially the statutory form; may be included in the contract; no type size stated
+Look applied: {"bold":true}
+Source: VERBATIM-OFFICIAL https://iga.in.gov/ic/2026/Title_32.pdf (Indiana Code 2026)
+Blanks to fill: none
+TEXT:
+IC 32-27-3 CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW
+      BEFORE YOU MAY FILE A LAWSUIT FOR DEFECTIVE CONSTRUCTION
+      AGAINST THE CONTRACTOR OR BUILDER OF YOUR HOME. SIXTY (60)
+      DAYS BEFORE YOU FILE YOUR LAWSUIT, YOU MUST DELIVER TO THE
+      CONTRACTOR OR BUILDER A WRITTEN NOTICE OF ANY CONSTRUCTION
+      CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR
+      CONTRACTOR OR BUILDER THE OPPORTUNITY TO MAKE AN OFFER TO
+      REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO
+      ACCEPT ANY OFFER MADE BY THE BUILDER OR CONTRACTOR.
+      HOWEVER, IF YOU UNREASONABLY REJECT A REASONABLE WRITTEN
+      OFFER AND COMMENCE AN ACTION AGAINST THE BUILDER OR
+      CONTRACTOR, A COURT MAY AWARD ATTORNEY'S FEES AND COSTS TO
+      THE BUILDER OR CONTRACTOR. THERE ARE STRICT DEADLINES AND
+      PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY
+     AFFECT YOUR ABILITY TO FILE A LAWSUIT.
 
 ################ Iowa (IA) - status: draft rider ready - prints: 2 of 3 notices
 
@@ -557,6 +580,17 @@ I HEREBY CANCEL THIS TRANSACTION.
 ________________ ________________________________________
 (Date) (Buyer's Signature)
 
+--- Notice to the homeowner of the contractor's right to offer to repair construction defects (K.S.A. 60-4706) --- PRINTED BY THE SYSTEM
+State: Kansas
+Trigger: Contract for construction or remodel of a dwelling
+Prints when: {"residential":true}
+Format rule: Conspicuous; may be part of the contract; substantially the statutory form
+Look applied: {"bold":true}
+Source: VERBATIM-OFFICIAL https://www.ksrevisor.gov/statutes/chapters/ch60/060_047_0006.html (History: L. 2003, ch. 74, § 6; July 1.)
+Blanks to fill: none
+TEXT:
+Kansas law contains important requirements you must follow before you may file a lawsuit for defective construction against the contractor who constructed your home. Ninety days before you file your lawsuit, you must deliver to the contractor a written notice of any construction conditions you allege are defective and provide your contractor the opportunity to make an offer to repair or pay for the defects. You are not obligated to accept any offer made by the contractor. There are strict deadlines and procedures under state law, and failure to follow them may affect your ability to file a lawsuit.
+
 ################ Kentucky (KY) - status: draft rider ready - prints: 2 of 3 notices
 
 --- BUYER'S RIGHT TO CANCEL statement (KRS 367.430) ---
@@ -584,6 +618,27 @@ Source: VERBATIM-OFFICIAL https://apps.legislature.ky.gov/law/statutes/statute.a
 Blanks to fill: none
 TEXT:
 BUYER'S RIGHT TO CANCEL
+
+--- Builder's right to cure construction defects notice (KRS 411.260(2)) --- PRINTED BY THE SYSTEM
+State: Kentucky
+Trigger: Contract for the construction of a residence (single-family house up to a quadraplex, or a condominium unit); the file does not say whether a remodel, pool or tile job counts
+Prints when: {}
+Format rule: Conspicuous notice in substantially the statutory capital-letter form; may be part of the contract
+Look applied: {"bold":true}
+Source: VERBATIM-OFFICIAL https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=17798 (Effective: June 24, 2003)
+Blanks to fill: none
+TEXT:
+SECTIONS 411.250 TO 411.260 OF THE KENTUCKY REVISED STATUTES
+      CONTAIN IMPORTANT REQUIREMENTS YOU MUST FOLLOW BEFORE
+      YOU MAY FILE A LAWSUIT FOR DEFECTIVE CONSTRUCTION AGAINST
+      THE BUILDER OF YOUR HOME. YOU MUST DELIVER TO THE BUILDER A
+      WRITTEN NOTICE OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE
+      ARE DEFECTIVE AND PROVIDE YOUR BUILDER THE OPPORTUNITY TO
+      MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT
+      OBLIGATED TO ACCEPT ANY OFFER MADE BY THE BUILDER. THERE
+      ARE STRICT DEADLINES AND PROCEDURES UNDER STATE LAW, AND
+      FAILURE TO FOLLOW THEM MAY AFFECT YOUR ABILITY TO FILE A
+      LAWSUIT.
 
 ################ Louisiana (LA) - status: draft rider ready - prints: 2 of 2 notices
 
@@ -803,6 +858,18 @@ I HEREBY CANCEL THIS TRANSACTION.
 . "
 (Buyer's signature)
 
+--- Mechanics lien notice (514.011) --- PRINTED BY THE SYSTEM
+State: Minnesota
+Trigger: Residential contracts where the contractor has contracted or will contract with subcontractors or material suppliers; not required for a wholly residential improvement of more than four family units
+Prints when: {"residential":true}, unless the answer to the question "subs" is No
+Format rule: At least 10-point bold type if printed, or capital letters if typewritten, in the written contract; the owner also gets a copy of the written contract
+Look applied: {"bold":true,"min_pt":10}
+Source: VERBATIM-OFFICIAL https://www.revisor.mn.gov/statutes/cite/514.011 (2025 Minnesota Statutes (page heading); History line under each section)
+Blanks to fill: none
+TEXT:
+(a) Any person or company supplying labor or materials for this improvement to your property may file a lien against your property if that person or company is not paid for the contributions.
+(b) Under Minnesota law, you have the right to pay persons who supplied labor or materials for this improvement directly and deduct this amount from our contract price, or withhold the amounts due them from us until 120 days after completion of the improvement unless we give you a lien waiver signed by persons who supplied any labor or material for the improvement and who gave you timely notice.
+
 ################ Mississippi (MS) - status: notice text still needs official copy - prints: 0 of 2 notices
 
 (nothing prints for this state)
@@ -819,6 +886,17 @@ Blanks to fill: none
 TEXT:
 NOTICE TO OWNER
 FAILURE OF THIS CONTRACTOR TO PAY THOSE PERSONS SUPPLYING MATERIAL OR SERVICES TO COMPLETE THIS CONTRACT CAN RESULT IN THE FILING OF A MECHANIC'S LIEN ON THE PROPERTY WHICH IS THE SUBJECT OF THIS CONTRACT PURSUANT TO CHAPTER 429, RSMO. TO AVOID THIS RESULT YOU MAY ASK THIS CONTRACTOR FOR "LIEN WAIVERS" FROM ALL PERSONS SUPPLYING MATERIAL OR SERVICES FOR THE WORK DESCRIBED IN THIS CONTRACT. FAILURE TO SECURE LIEN WAIVERS MAY RESULT IN YOUR PAYING FOR LABOR AND MATERIAL TWICE.
+
+--- Notice of contractor's right to offer to cure construction defects (RSMo 436.353(2)) --- PRINTED BY THE SYSTEM
+State: Missouri
+Trigger: Contract for sale, construction or substantial remodel of a residence (remodel costing more than half the assessed value)
+Prints when: {"residential":true}, unless the answer to the question "big_build" is No
+Format rule: Conspicuous capital-letter notice in substantially the statutory form; may be part of the contract; no type size stated
+Look applied: {"bold":true}
+Source: VERBATIM-OFFICIAL https://revisor.mo.gov/main/OneSection.aspx?section=436.353 (Effective - 28 Aug 2005)
+Blanks to fill: none
+TEXT:
+SECTIONS 436.350 TO 436.365 OF MISSOURI REVISED STATUTES PROVIDE YOU WITH CERTAIN RIGHTS IF YOU HAVE A DISPUTE WITH A CONTRACTOR REGARDING CONSTRUCTION DEFECTS. EXCEPT FOR CLAIMS FILED IN SMALL CLAIMS COURT, IF YOU HAVE A DISPUTE WITH A CONTRACTOR, YOU MUST DELIVER TO THE CONTRACTOR A WRITTEN CLAIM OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR CONTRACTOR THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE CONTRACTOR. READ THIS NOTICE CAREFULLY. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER SECTIONS 436.350 TO 436.365 WHICH MUST BE OBEYED IN ORDER TO PRESERVE YOUR ABILITY TO FILE A LAWSUIT. OTHER THAN REPAIRS TO WORK DONE BY THE CONTRACTOR THAT ARE NECESSARY TO PROTECT THE LIFE, HEALTH, OR SAFETY OF PERSONS LIVING IN A RESIDENCE, OR TO AVOID ADDITIONAL SIGNIFICANT AND MATERIAL DAMAGE TO THE RESIDENCE PURSUANT TO SUBSECTION 10 OF SECTION 436.356, YOU MAY NOT INCLUDE IN CLAIMS AGAINST YOUR CONTRACTOR THE COSTS OF OTHER REPAIRS YOU PERFORM BEFORE YOU ARE ENTITLED TO FILE A LAWSUIT UNDER SECTIONS 436.350 TO 436.365.
 
 ################ Montana (MT) - status: notice text still needs official copy - prints: 2 of 3 notices
 
@@ -923,6 +1001,44 @@ I hereby cancel this transaction.
 .....................................................................
 
 (Buyer’s signature)
+
+--- Informational form: mechanics' and materialmen's liens (NAC 624.693; NRS 624.600(1)(c)(2)) --- GIVEN TO THE CUSTOMER WITH THE CONTRACT BY THE SYSTEM
+State: Nevada
+Trigger: General building contractor contracting with the owner of a single-family residence
+Prints when: {"residential":true}
+Format rule: Fixed wording ("must be as follows"), capitals as shown; given to the owner in writing
+Look applied: same as the rest of the document
+Source: VERBATIM-OFFICIAL https://www.leg.state.nv.us/nac/NAC-624.html (page header "[Rev. 6/7/2026 11:04:35 AM]")
+Blanks to fill: none
+TEXT:
+Any person who provides work, materials or equipment with a value of $500 or more to improve your property should be paid for the work performed or materials or equipment provided under this contract. If the person is not paid, the person has the legal right to place a lien upon your property as part of a legal process to obtain payment.
+
+You may receive from one or more of the people who provided work, materials or equipment with a value of $500 or more to improve your property a document titled “Pre-Lien Notice,” “Preliminary Notice,” “Notice of Right to Lien” or a similar title. THIS DOCUMENT IS NOT A LIEN AND HAS NO EFFECT ON YOUR PROPERTY. This document is required to be given by any person if he or she later must resort to filing a lien for nonpayment.
+
+If a person who has provided work, materials or equipment with a value of $500 or more to improve your property has given you a Pre-Lien Notice, Preliminary Notice, Notice of Right to Lien or a document with a similar title and is not paid for the work performed or the materials or equipment provided, the person may file a lien. The formal document used to file a lien will be titled “Notice of Lien.” If you receive a Notice of Lien, this means that the placement of a lien upon your property is being pursued.
+
+EVERY contractor, subcontractor or supplier who furnishes work, materials or equipment to improve your property and has been paid in full or in part should provide you with a signed document called an “Unconditional Waiver and Release” that should accurately reflect the amount you have paid the contractor, subcontractor or supplier. This document terminates all lien rights of the contractor, subcontractor or supplier as to the amount you paid.
+
+AT THE END OF YOUR PROJECT, YOU SHOULD INSIST THAT YOUR GENERAL CONTRACTOR PROVIDE YOU WITH AN UNCONDITIONAL WAIVER AND RELEASE UPON FINAL PAYMENT FROM EVERY SUBCONTRACTOR OR SUPPLIER THAT THE GENERAL CONTRACTOR HIRED TO IMPROVE YOUR PROPERTY.
+
+LIEN LAW IS COMPLEX. TO PROTECT YOURSELF FULLY, YOU SHOULD CONSULT AN ATTORNEY:
+
+(1) BEFORE YOU SIGN A CONSTRUCTION CONTRACT; OR
+
+(2) IF A LIEN IS FILED AGAINST YOUR PROPERTY.
+
+--- Informational form: contractors (Board website and telephone numbers) (NAC 624.6932; NRS 624.600(1)(c)(1)) --- GIVEN TO THE CUSTOMER WITH THE CONTRACT BY THE SYSTEM
+State: Nevada
+Trigger: General building contractor contracting with the owner of a single-family residence
+Prints when: {"residential":true}
+Format rule: Fixed wording ("must be as follows"); given to the owner in writing
+Look applied: same as the rest of the document
+Source: VERBATIM-OFFICIAL https://www.leg.state.nv.us/nac/NAC-624.html (page header "[Rev. 6/7/2026 11:04:35 AM]")
+Blanks to fill: none
+TEXT:
+Contractors are required by law to be licensed and regulated by the State Contractors’ Board. The State Contractors’ Board has jurisdiction to investigate complaints that are filed against contractors. Any questions concerning a contractor may be referred to the State Contractors’ Board.
+
+A contractor is required to include the contractor’s license number on all of his or her advertising, vehicles, bids and contracts. You may contact the State Contractors’ Board to find out if a contractor has a valid license and, if so, the status of that license and the status of any disciplinary action by visiting the website of the Board at http://www.nvcontractorsboard.com or calling the Board at the telephone number: (702) 486-1100 or (775) 688-1141. You may also file a complaint against a contractor at the same website and telephone numbers.
 
 ################ New Hampshire (NH) - status: draft rider ready - prints: 2 of 2 notices
 
@@ -1461,6 +1577,53 @@ I HEREBY CANCEL THIS TRANSACTION.
 (date)
 (buyer's signature)
 
+--- IMPORTANT NOTICE (homestead) (Prop. Code 41.007) --- PRINTED BY THE SYSTEM
+State: Texas
+Trigger: Contracts for improvements to an existing residence that are homestead lien contracts
+Prints when: {"residential":true}, unless the answer to the question "homestead" is No
+Format rule: 10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.
+Look applied: {"bold":true,"min_pt":10}
+Source: VERBATIM-OFFICIAL https://tcss.legis.texas.gov/resources/PR/htm/PR.41.htm (No date on page; file Last-Modified 2026-04-10; last amended eff. 2007-09-01)
+Blanks to fill: none
+TEXT:
+IMPORTANT NOTICE:  You and your contractor are responsible for meeting the terms and conditions of this contract.  If you sign this contract and you fail to meet the terms and conditions of this contract, you may lose your legal ownership rights in your home.  KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW.
+
+--- Defect notice (Prop. Code 27.007) --- PRINTED BY THE SYSTEM
+State: Texas
+Trigger: Residential
+Prints when: {"residential":true}
+Format rule: 10 point bold; $500 penalty for omission
+Look applied: {"bold":true,"min_pt":10}
+Source: VERBATIM-OFFICIAL https://tcss.legis.texas.gov/resources/PR/htm/PR.27.htm (same; last amended eff. 2023-09-01)
+Blanks to fill: none
+TEXT:
+This contract is subject to Chapter 27 of the Texas Property Code.  The provisions of that chapter may affect your right to recover damages arising from a construction defect.  If you have a complaint concerning a construction defect and that defect has not been corrected as may be required by law or by contract, you must provide the notice required by Chapter 27 of the Texas Property Code to the contractor by certified mail, return receipt requested, not later than the 60th day before the date you file suit to recover damages in a court of law or initiate arbitration.  The notice must refer to Chapter 27 of the Texas Property Code and must describe the construction defect.  If requested by the contractor, you must provide the contractor an opportunity to inspect and cure the defect as provided by Section 27.004 of the Texas Property Code.
+
+--- Owner disclosure statement (Prop. Code 53.255) --- GIVEN TO THE CUSTOMER WITH THE CONTRACT BY THE SYSTEM
+State: Texas
+Trigger: Original contractor, delivered to the owner before the residential construction contract is executed by the owner
+Prints when: {"residential":true}
+Format rule: A separate statement handed over before signing; no type size stated; must read substantially similar to the statute
+Look applied: same as the rest of the document
+Source: VERBATIM-OFFICIAL https://tcss.legis.texas.gov/resources/PR/htm/PR.53.htm (last amended eff. 2022-01-01)
+Blanks to fill: none
+TEXT:
+KNOW YOUR RIGHTS AND RESPONSIBILITIES UNDER THE LAW.  You are about to enter into a transaction to build a new home or remodel existing residential property.  Texas law requires your contractor to provide you with this brief overview of some of your rights, responsibilities, and risks in this transaction.
+"CONVEYANCE TO CONTRACTOR NOT REQUIRED.  Your contractor may not require you to convey your real property to your contractor as a condition to the agreement for the construction of improvements on your property.
+"KNOW YOUR CONTRACTOR.  Before you enter into your agreement for the construction of improvements to your real property, make sure that you have investigated your contractor.  Obtain and verify references from other people who have used the contractor for the type and size of construction project on your property.
+"GET IT IN WRITING.  Make sure that you have a written agreement with your contractor that includes: (1)  a description of the work the contractor is to perform; (2)  the required or estimated time for completion of the work; (3)  the cost of the work or how the cost will be determined; and (4)  the procedure and method of payment, including provisions for statutory reservation of funds and conditions for final payment.  If your contractor made a promise, warranty, or representation to you concerning the work the contractor is to perform, make sure that promise, warranty, or representation is specified in the written agreement.  An oral promise that is not included in the written agreement may not be enforceable under Texas law.
+"READ BEFORE YOU SIGN.  Do not sign any document before you have read and understood it.  NEVER SIGN A DOCUMENT THAT INCLUDES AN UNTRUE STATEMENT.  Take your time in reviewing documents.  If you borrow money from a lender to pay for the improvements, you are entitled to have the loan closing documents furnished to you for review at least one business day before the closing.  Do not waive this requirement unless a bona fide emergency or another good cause exists, and make sure you understand the documents before you sign them.  If you fail to comply with the terms of the documents, you could lose your property.  You are entitled to have your own attorney review any documents.  If you have any question about the meaning of a document, consult an attorney.
+"GET A LIST OF SUBCONTRACTORS AND SUPPLIERS. Before construction commences, your contractor is required to provide you with a list of the subcontractors and suppliers the contractor intends to use on your project.  Your contractor is required to supply updated information on any subcontractors and suppliers added after the list is provided.  Your contractor is not required to supply this information if you sign a written waiver of your rights to receive this information.
+"MONITOR THE WORK. Lenders and governmental authorities may inspect the work in progress from time to time for their own purposes.  These inspections are not intended as quality control inspections.  Quality control is a matter for you and your contractor.  To ensure that your home is being constructed in accordance with your wishes and specifications, you should inspect the work yourself or have your own independent inspector review the work in progress.
+"MONITOR PAYMENTS. If you use a lender, your lender is required to provide you with a periodic statement showing the money disbursed by the lender from the proceeds of your loan.  Each time your contractor requests payment from you or your lender for work performed, your contractor is also required to furnish you with a disbursement statement that lists the name and address of each subcontractor or supplier that the contractor intends to pay from the requested funds. Review these statements and make sure that the money is being properly disbursed.
+"CLAIMS BY SUBCONTRACTORS AND SUPPLIERS. Under Texas law, if a subcontractor or supplier who furnishes labor or materials for the construction of improvements on your property is not paid, you may become liable and your property may be subject to a lien for the unpaid amount, even if you have not contracted directly with the subcontractor or supplier.  To avoid liability, you should take the following actions:
+(1)  If you receive a written notice from a subcontractor or supplier, you should withhold payment from your contractor for the amount of the claim stated in the notice until the dispute between your contractor and the subcontractor or supplier is resolved.  If your lender is disbursing money directly to your contractor, you should immediately provide a copy of the notice to your lender and instruct the lender to withhold payment in the amount of the claim stated in the notice.  If you continue to pay the contractor after receiving the written notice without withholding the amount of the claim, you may be liable and your property may be subject to a lien for the amount you failed to withhold.
+(2)  During construction and for 30 days after final completion, termination, or abandonment of the contract by the contractor, you should reserve or cause your lender to reserve 10 percent of the amount of payments made for the work performed by your contractor.   If you choose not to reserve the 10 percent for at least 30 days after final completion, termination, or abandonment of the contract by the contractor and if a valid claim is timely made by a claimant and your contractor fails to pay the claim, you may be personally liable and your property may be subject to a lien up to the amount that you failed to reserve.
+"If a claim is not paid within a certain time period, the claimant is required to file a mechanic's lien affidavit in the real property records in the county where the property is located.  A mechanic's lien affidavit is not a lien on your property, but the filing of the affidavit could result in a court imposing a lien on your property if the claimant is successful in litigation to enforce the lien claim.
+"SOME CLAIMS MAY NOT BE VALID. When you receive a written notice of a claim or when a mechanic's lien affidavit is filed on your property, you should know your legal rights and responsibilities regarding the claim.  Not all claims are valid.  A notice of a claim by a subcontractor or supplier is required to be sent, and the mechanic's lien affidavit is required to be filed, within strict time periods.  The notice and the affidavit must contain certain information.  All claimants may not fully comply with the legal requirements to collect on a claim.  If you have paid the contractor in full before receiving a notice of a claim and have withheld the 10 percent of the contract price or value of work, you may not be liable for that claim.  Accordingly, you should consult your attorney when you receive a written notice of a claim to determine the true extent of your liability or potential liability for that claim.
+"OBTAIN A LIEN RELEASE AND A BILLS-PAID AFFIDAVIT. When you receive a notice of claim, do not release withheld funds without obtaining a signed and notarized release of lien and claim from the claimant.  You can also reduce the risk of having a claim filed by a subcontractor or supplier by requiring as a condition of each payment made by you or your lender that your contractor furnish you with an affidavit stating that all bills have been paid.  Under Texas law, on final completion of the work and before final payment, the contractor is required to furnish you with an affidavit stating that all bills have been paid.  If the contractor discloses any unpaid bill in the affidavit, you should withhold payment in the amount of the unpaid bill until you receive a waiver of lien or release from that subcontractor or supplier.
+"OBTAIN TITLE INSURANCE PROTECTION. You may be able to obtain a title insurance policy to insure that the title to your property and the existing improvements on your property are free from liens claimed by subcontractors and suppliers.  If your policy is issued before the improvements are completed and covers the value of the improvements to be completed, you should obtain, on the completion of the improvements and as a condition of your final payment, a 'completion of improvements' policy endorsement.  This endorsement will protect your property from liens claimed by subcontractors and suppliers that may arise from the date the original title policy is issued to the date of the endorsement.
+
 ################ Utah (UT) - status: notice text still needs official copy - prints: 1 of 3 notices
 
 --- Protection against liens and civil action notice (owner steps to lien protection) (Utah Code 38-11-108; Utah Admin. Code R156-38a-108) ---
@@ -1599,6 +1762,17 @@ I have received a copy of this disclosure statement.
 
 (Signature of customer)
 
+--- Notice to homeowner of the construction defect process (RCW 64.50.050) --- PRINTED BY THE SYSTEM
+State: Washington
+Trigger: A contract for sale, construction or substantial remodel of a residence (a remodel costing more than half the assessed value)
+Prints when: {"residential":true}, unless the answer to the question "big_build" is No
+Format rule: Conspicuous; may be part of the contract; in substantially the statutory capital-letter form
+Look applied: {"bold":true}
+Source: VERBATIM-OFFICIAL https://app.leg.wa.gov/rcw/default.aspx?cite=64.50.050 (No "current through" date on the page; last session law shown: [ 2002 c 323 s 6.])
+Blanks to fill: none
+TEXT:
+CHAPTER 64.50 RCW CONTAINS IMPORTANT REQUIREMENTS YOU MUST FOLLOW BEFORE YOU MAY FILE A LAWSUIT FOR DEFECTIVE CONSTRUCTION AGAINST THE SELLER OR BUILDER OF YOUR HOME. FORTY-FIVE DAYS BEFORE YOU FILE YOUR LAWSUIT, YOU MUST DELIVER TO THE SELLER OR BUILDER A WRITTEN NOTICE OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR SELLER OR BUILDER THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE BUILDER OR SELLER. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER STATE LAW, AND FAILURE TO FOLLOW THEM MAY AFFECT YOUR ABILITY TO FILE A LAWSUIT.
+
 ################ West Virginia (WV) - status: draft rider ready - prints: 0 of 2 notices
 
 (nothing prints for this state)
@@ -1624,6 +1798,17 @@ Source: VERBATIM-OFFICIAL https://docs.legis.wisconsin.gov/document/statutes/423
 Blanks to fill: none
 TEXT:
 CUSTOMER’S RIGHT TO CANCEL
+
+--- Lien notice in the contract (779.02(2)(a)) --- PRINTED BY THE SYSTEM
+State: Wisconsin
+Trigger: Prime contractor who has contracted or will contract with subcontractors, suppliers or service providers, under a written contract with the owner; if no written contract, a separate notice within 10 days after the first labor or materials; exceptions in 779.02(1)
+Prints when: {}, unless the answer to the question "subs" is No
+Format rule: Included in the written contract and a copy of the contract given to the owner; at least 8-point bold type if printed, or capital letters if typewritten; substantially the stated language
+Look applied: {"bold":true,"min_pt":8}
+Source: VERBATIM-OFFICIAL https://docs.legis.wisconsin.gov/document/statutes/779.02 (2023-24 Wisconsin Statutes updated through 2025 Wis. Act 247, in effect on October 1, 2026 (Published 10-1-26))
+Blanks to fill: none
+TEXT:
+As required by the Wisconsin construction lien law, claimant hereby notifies owner that persons or companies performing, furnishing, or procuring labor, services, materials, plans, or specifications for the construction on owner’s land may have lien rights on owner’s land and buildings if not paid. Those entitled to lien rights, in addition to the undersigned claimant, are those who contract directly with the owner or those who give the owner notice within 60 days after they first perform, furnish, or procure labor, services, materials, plans or specifications for the construction. Accordingly, owner probably will receive notices from those who perform, furnish, or procure labor, services, materials, plans, or specifications for the construction, and should give a copy of each notice received to the mortgage lender, if any. Claimant agrees to cooperate with the owner and the owner’s lender, if any, to see that all potential lien claimants are duly paid
 
 ################ Wyoming (WY) - status: draft rider ready - prints: 2 of 5 notices
 

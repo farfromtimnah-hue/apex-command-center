@@ -27876,7 +27876,7 @@ function contractStateChecklist(st, job) {
     // and vars = what the "Before you send" card needs to sort and word a line.
     function add(key, en, pt, warn, meta) {
         var l = { key: key, level: warn ? "warn" : "info", en: en, pt: pt };
-        if (meta) { ["ref", "url", "variant", "vars"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
+        if (meta) { ["ref", "url", "variant", "vars", "sys"].forEach(function(k) { if (meta[k]) { l[k] = meta[k]; } }); }
         lines.push(l);
     }
     var lic = r.license || {};
@@ -27918,8 +27918,15 @@ function contractStateChecklist(st, job) {
         if (!contractStateNoticeApplies(n, job)) { return; }
         var tail = (n.trigger ? " When: " + n.trigger + "." : "") + (n.format ? " Format: " + n.format + "." : "");
         var tailPt = (n.trigger ? " Quando: " + n.trigger + "." : "") + (n.format ? " Formato: " + n.format + "." : "");
-        if (n.text) {
-            add("notice:" + n.id, "This notice prints in the contract: " + n.title + " (" + n.cite + ")." + tail, "Este aviso \u00e9 impresso no contrato: " + n.title + " (" + n.cite + ")." + tailPt, false, { ref: n.cite, url: n.source_url, variant: "prints" });
+        // sys: the builder printed ("print") or handed over ("deliver") this
+        // notice by itself, from the official wording on file (job.sys_lines).
+        var sysMode = (job.sys_lines || {})["notice:" + n.id] || null;
+        if (sysMode === "deliver") {
+            add("notice:" + n.id, "This document is given to the customer with the contract, before they sign: " + n.title + " (" + n.cite + ")." + tail, "Este documento \u00e9 entregue ao cliente junto com o contrato, antes de ele assinar: " + n.title + " (" + n.cite + ")." + tailPt, false, { ref: n.cite, url: n.source_url, variant: "prints", vars: { title: n.title }, sys: sysMode });
+            return;
+        }
+        if (n.text || sysMode) {
+            add("notice:" + n.id, "This notice prints in the contract: " + n.title + " (" + n.cite + ")." + tail, "Este aviso \u00e9 impresso no contrato: " + n.title + " (" + n.cite + ")." + tailPt, false, { ref: n.cite, url: n.source_url, variant: "prints", vars: sysMode ? { title: n.title } : null, sys: sysMode });
             return;
         }
         add("notice:" + n.id, name + " requires this notice: " + n.title + " (" + n.cite + "). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs." + tail,
@@ -27970,10 +27977,191 @@ function contractStateChecks(flags, code) {
     var sc = flags && flags.state_checks;
     return sc && sc.state === code && sc.done && typeof sc.done === "object" && !Array.isArray(sc.done) ? sc.done : {};
 }
-function contractStateActionCard(st, lines, flags) {
+// ── The system's own lines ───────────────────────────────────────────────
+// An action line is one of three kinds, decided from the data file:
+//   does    the builder does it by itself (prints the notice from the official
+//           wording on file, hands the document over with the contract),
+//   sees    a person does it inside Apex and the builder notices,
+//   person  nothing in Apex can do or see it: a hand tick, as before.
+// A "does" or "sees" line ticks itself and cannot be ticked or unticked by
+// hand. Before the thing has happened it says what it is waiting for.
+// A line that depends on ONE fact the builder does not know (homestead,
+// married, ...) gets one Yes / No / Not sure question; "Not sure" and no
+// answer both take the safe side. NOTHING here blocks anything.
+var CONTRACT_STATE_FACT_ANSWERS = ["yes", "no", "unsure"];
+// Writes flags.second_signer only, once, on a contract the first customer
+// has already signed. Binds: signer JSON, contract id.
+var CONTRACT_SECOND_SIGNER_SQL = "UPDATE gm_contracts SET flags_json = json_set(COALESCE(flags_json, '{}'), '$.second_signer', json(?)), updated_at = datetime('now') WHERE id = ? AND status = 'completed' AND homeowner_signed_at IS NOT NULL AND json_extract(COALESCE(flags_json, '{}'), '$.second_signer.at') IS NULL";
+function contractStateFactDefs() { return (CONTRACT_STATE_CHECKLIST_V1 || {}).facts || {}; }
+// The answers to the one-question facts: { key: { answer: "yes" | "no" |
+// "unsure" | null, known } }. known (optional) = what the contract or the
+// project already records: { key: true | false }; those are never asked.
+function contractStateFacts(flags, known) {
+    var defs = contractStateFactDefs(), saved = (flags && flags.state_facts) || {}, out = {};
+    Object.keys(defs).forEach(function(k) {
+        out[k] = { answer: CONTRACT_STATE_FACT_ANSWERS.indexOf(saved[k]) !== -1 ? saved[k] : null, known: false };
+        if (known && (known[k] === true || known[k] === false)) { out[k] = { answer: known[k] ? "yes" : "no", known: true }; }
+    });
+    return out;
+}
+function contractStateFactIs(facts, key, answer) { return !!(facts && facts[key] && facts[key].answer === answer); }
+// May the builder print this notice by itself? Only an official verbatim copy
+// that is on file, is not on hold, and has no blank a person must fill.
+function contractStateNoticePrintable(n) {
+    return !!n && !n.text && typeof n.text_on_file === "string" && n.text_on_file.length > 0 && n.source_status === "VERBATIM-OFFICIAL" &&
+        !n.hold_reason && !(n.range && n.range.blanks && n.range.blanks.length);
+}
+// The notices the builder prints or hands over by itself for this job:
+// [{ line, notice, mode: "print" | "deliver", style }]. The wording is the
+// notice's own text_on_file, never anything else.
+function contractStatePrintPlan(st, job, facts) {
+    var out = [];
+    if (!st || st.florida || !st.rider) { return out; }
+    var byId = {};
+    (st.rider.notices || []).forEach(function(n) { byId[n.id] = n; });
+    (st.rider.notices || []).forEach(function(n) {
+        var e = contractStateCheckEntry(st.code, { key: "notice:" + n.id });
+        if (!e || e.c !== "A" || (e.sys !== "print" && e.sys !== "deliver")) { return; }
+        if (e.fact && contractStateFactIs(facts, e.fact, "no")) { return; }
+        if (!contractStateNoticeApplies(n, job)) { return; }
+        var docs = (e.sys === "deliver" && e.docs ? e.docs : [n.id]).map(function(id) { return byId[id]; });
+        if (!docs.every(contractStateNoticePrintable)) { return; }
+        docs.forEach(function(d) { out.push({ line: "notice:" + n.id, notice: d, mode: e.sys, style: e.style || null }); });
+    });
+    return out;
+}
+// Does this contract ask for a second customer signer? Only in a state whose
+// list has a "both spouses sign" line, and only when its fact (married) was
+// answered Yes or Not sure on this contract. A contract with no answer (every
+// contract written before the question existed) never asks. code = the
+// contract's job state.
+function contractSecondSignerWanted(code, flags) {
+    if (!code || code === "FL" || (flags && flags.kind === "cleaning")) { return false; }
+    var lines = (((CONTRACT_STATE_CHECKLIST_V1 || {}).states || {})[code] || {}).lines || {};
+    var e = Object.keys(lines).map(function(k) { return lines[k]; }).filter(function(x) { return x.c === "A" && x.sys === "second_signer"; })[0];
+    if (!e) { return false; }
+    var facts = contractStateFacts(flags, null);
+    return !e.fact || contractStateFactIs(facts, e.fact, "yes") || contractStateFactIs(facts, e.fact, "unsure");
+}
+function contractSecondSigner(flags) { return flags && flags.second_signer && flags.second_signer.at ? flags.second_signer : null; }
+// Where one system line stands: { done, at, en, pt }, or null when the system
+// cannot do or see it on this contract (the line is then a hand tick).
+// x (optional) = what contractStateSysLoad read: { c, ack, copy_sent_at, frozen }.
+// frozen = the system notices inside the text the company signed: a contract
+// signed before the builder printed a notice never claims to carry it.
+function contractStateSysStatus(e, l, st, flags, facts, x) {
+    var c = (x && x.c) || {}, when = contractFmtEastern;
+    function done(at, en, pt) { return { done: true, at: at || null, en: en, pt: pt }; }
+    function wait(en, pt) { return { done: false, at: null, en: en, pt: pt }; }
+    var companyAt = c.company_signed_at && !c.company_signature_voided_at ? c.company_signed_at : null;
+    var second = contractSecondSigner(flags);
+    var title = (l.vars && l.vars.title) || "";
+    if ((e.sys === "print" || e.sys === "deliver") && x && x.frozen) {
+        var ids = e.sys === "deliver" && e.docs ? e.docs : [String(l.key).replace(/^notice:/, "")];
+        if (!ids.every(function(id) { return x.frozen[id]; })) { return null; }
+    }
+    if (e.sys === "print") {
+        if (l.sys !== "print") { return null; }
+        return done(companyAt, "Printed in the contract under \"" + title + "\"." + (companyAt ? " Locked in when the company signed." : ""),
+            "Impresso no contrato em \"" + title + "\"." + (companyAt ? " Travado quando a empresa assinou." : ""));
+    }
+    if (e.sys === "deliver") {
+        if (l.sys !== "deliver") { return null; }
+        if (c.sent_at) {
+            return done(c.sent_at, "Given to the customer with the contract, sent " + when(c.sent_at) + "." + (c.first_viewed_at ? " The customer opened it " + when(c.first_viewed_at) + "." : ""),
+                "Entregue ao cliente junto com o contrato, enviado em " + when(c.sent_at) + "." + (c.first_viewed_at ? " O cliente abriu em " + when(c.first_viewed_at) + "." : ""));
+        }
+        return wait("The system will do this when you send the contract: the document is part of what the customer reads before signing.",
+            "O sistema faz isto quando você enviar o contrato: o documento faz parte do que o cliente lê antes de assinar.");
+    }
+    if (e.sys === "signed_copy") {
+        var needSecond = contractSecondSignerWanted(st.code, flags) && !second;
+        if (c.status === "completed" && c.homeowner_signed_at && !needSecond) {
+            var last = second ? second.at : c.homeowner_signed_at;
+            return done(last, "The customer's link became the complete signed copy when the last signature was made, " + when(last) + "." + (x && x.copy_sent_at ? " You also sent it " + when(x.copy_sent_at) + "." : ""),
+                "O link do cliente virou a cópia completa e assinada quando a última assinatura foi feita, em " + when(last) + "." + (x && x.copy_sent_at ? " Você também enviou em " + when(x.copy_sent_at) + "." : ""));
+        }
+        return wait("The system will do this when everyone has signed: the customer's link becomes the complete signed copy.",
+            "O sistema faz isto quando todos tiverem assinado: o link do cliente vira a cópia completa e assinada.");
+    }
+    if (e.sys === "language") {
+        if (!contractStateFactIs(facts, "sale_english", "yes")) { return null; }
+        return done(companyAt, "The contract and the cancellation notice are in English, the language of the sale.", "O contrato e o aviso de cancelamento estão em inglês, o idioma da venda.");
+    }
+    if (e.sys === "second_signer") {
+        // No answer yet: the line stays a hand tick, and the question is asked.
+        if (!second && !contractSecondSignerWanted(st.code, flags)) { return null; }
+        if (second) { return done(second.at, "Second signer " + (second.name || "") + " signed " + when(second.at) + ".", "Segundo assinante " + (second.name || "") + " assinou em " + when(second.at) + "."); }
+        if (c.homeowner_signed_at) {
+            return wait("Waiting: the second signer has not signed yet. The customer's link asks for the second signature.",
+                "Aguardando: o segundo assinante ainda não assinou. O link do cliente pede a segunda assinatura.");
+        }
+        return wait("Waiting: the customer's link asks for the customer's signature and then the second signer's.",
+            "Aguardando: o link do cliente pede a assinatura do cliente e depois a do segundo assinante.");
+    }
+    if (e.sys === "photos") {
+        var ack = x && x.ack;
+        if (ack && ack.signed_at) {
+            return done(ack.signed_at, "The customer signed the condition acknowledgment with " + ack.photos + " photo" + (ack.photos === 1 ? "" : "s") + " " + when(ack.signed_at) + ".",
+                "O cliente assinou o termo de condição do imóvel com " + ack.photos + " foto" + (ack.photos === 1 ? "" : "s") + " em " + when(ack.signed_at) + ".");
+        }
+        return wait("Waiting: send the photos for acknowledgment from the project. The system sees it when the customer signs.",
+            "Aguardando: envie as fotos para o cliente confirmar, pelo projeto. O sistema vê quando o cliente assinar.");
+    }
+    if (e.sys === "signed") {
+        if (c.status === "completed" && c.homeowner_signed_at) {
+            return done(c.homeowner_signed_at, "Company signed " + when(c.company_signed_at) + "; customer signed " + when(c.homeowner_signed_at) + ".",
+                "Empresa assinou em " + when(c.company_signed_at) + "; cliente assinou em " + when(c.homeowner_signed_at) + ".");
+        }
+        return wait("Waiting: the company and the customer have not both signed yet.", "Aguardando: a empresa e o cliente ainda não assinaram os dois.");
+    }
+    if (e.sys === "sent") {
+        if (companyAt && c.sent_at) {
+            return done(c.sent_at, "Signed by the company " + when(companyAt) + " and sent to the customer " + when(c.sent_at) + ".", "Assinado pela empresa em " + when(companyAt) + " e enviado ao cliente em " + when(c.sent_at) + ".");
+        }
+        return wait("Waiting: sign for the company and send the contract.", "Aguardando: assine pela empresa e envie o contrato.");
+    }
+    if (e.sys === "license") {
+        return wait("Waiting: add your license or registration number in the document settings. The system sees it as soon as it is saved.",
+            "Aguardando: cadastre o número da sua licença ou registro nas configurações dos documentos. O sistema vê assim que for salvo.");
+    }
+    if (e.sys === "deposit") {
+        var cap = (l.vars && l.vars.cap) || "";
+        return wait("Waiting: lower the first payment to " + cap + " or less. The system sees it as soon as the payment schedule changes.",
+            "Aguardando: reduza o primeiro pagamento para " + cap + " ou menos. O sistema vê assim que os pagamentos mudarem.");
+    }
+    return null;
+}
+// What the system lines read outside the contract row itself: the signed
+// before-work photo acknowledgment of the job and the "signed copy sent"
+// event. Never throws: a failed read leaves the line waiting.
+async function contractStateSysLoad(env, c) {
+    var out = { c: c, ack: null, copy_sent_at: null, frozen: null };
+    try {
+        if (c.snapshot_r2_key && c.company_signed_at && !c.company_signature_voided_at) {
+            var snap = await contractR2Json(env, c.snapshot_r2_key);
+            if (snap) {
+                out.frozen = {};
+                (snap.sections || []).forEach(function(sec) { if (sec.system && (sec.kind === "state_notice" || sec.kind === "state_document")) { out.frozen[sec.id] = true; } });
+            }
+        }
+        var ack = await env.DB.prepare("SELECT signed_at, payload_json FROM gm_job_acks WHERE client_id = ? AND job_id = ? AND kind = 'before_photos' AND status = 'signed' ORDER BY signed_at DESC LIMIT 1").bind(c.client_id, c.job_id).first();
+        var photos = ack ? ((gmDocParseJsonObject(ack.payload_json, {}) || {}).photos || []).length : 0;
+        if (ack && ack.signed_at && photos > 0) { out.ack = { signed_at: ack.signed_at, photos: photos }; }
+        var ev = await env.DB.prepare("SELECT created_at FROM gm_contract_events WHERE contract_id = ? AND client_id = ? AND action = 'signed_copy_sent' ORDER BY created_at DESC LIMIT 1").bind(c.id, c.client_id).first();
+        if (ev && ev.created_at) { out.copy_sent_at = ev.created_at; }
+    } catch (e) { console.error("state card system lines", e && e.message); }
+    return out;
+}
+// sys (optional) = contractStateSysLoad's result. Without it every system
+// line that needs a signature, a send or a photo set shows as waiting.
+function contractStateActionCard(st, lines, flags, sys) {
     if (!lines || !st || st.florida) { return null; }
-    var stData = ((CONTRACT_STATE_CHECKLIST_V1 || {}).states || {})[st.code] || {};
-    var done = contractStateChecks(flags, st.code), present = {};
+    var data = CONTRACT_STATE_CHECKLIST_V1 || {};
+    var stData = (data.states || {})[st.code] || {};
+    var kinds = data.sys_kinds || {}, defs = contractStateFactDefs();
+    var facts = st.facts || contractStateFacts(flags, null);
+    var done = contractStateChecks(flags, st.code), present = {}, asked = {};
     lines.forEach(function(l) { present[l.key] = true; });
     function fill(t, l) {
         var out = String(t).split("{state}").join(st.name);
@@ -27985,20 +28173,42 @@ function contractStateActionCard(st, lines, flags) {
         var e = contractStateCheckEntry(st.code, l);
         if (e && e.unless && present[e.unless]) { e = null; }
         if (!e || e.c !== "A" || !e.en || !e.pt) { more.push({ key: l.key, level: l.level, en: l.en, pt: l.pt }); return; }
+        if (e.fact && defs[e.fact]) {
+            asked[e.fact] = true;
+            // The answer is No: the line does not apply to this contract.
+            if (contractStateFactIs(facts, e.fact, "no")) {
+                var q = defs[e.fact];
+                more.push({ key: l.key, level: "info",
+                    en: "Does not apply to this contract" + (q.en ? " (\"" + q.en + "\" No)" : " (" + q.known + ")") + ": " + fill(e.en, l) + ".",
+                    pt: "Não se aplica a este contrato" + (q.pt ? " (\"" + q.pt + "\" Não)" : "") + ": " + fill(e.pt, l) + "." });
+                return;
+            }
+        }
+        if (e.sys === "language") { asked.sale_english = true; }
+        var status = e.sys && kinds[e.sys] ? contractStateSysStatus(e, l, st, flags, facts, sys || null) : null;
+        var kind = status ? kinds[e.sys] : "person";
         var tick = done[l.key];
-        actions.push({
-            key: l.key, en: fill(e.en, l), pt: fill(e.pt, l),
+        var a = {
+            key: l.key, kind: kind, en: fill(status && e.sys_en ? e.sys_en : e.en, l), pt: fill(status && e.sys_pt ? e.sys_pt : e.pt, l),
             ref: e.ref || l.ref || (e.ref_from ? stData[e.ref_from] : null) || null, ref_pt: (e.ref && e.ref_pt) || null,
             context_en: l.en, context_pt: l.pt, source_url: l.url || null,
-            done: tick && tick.at ? { by: tick.by || null, at: tick.at } : null
-        });
+            done: status ? (status.done ? { by: null, at: status.at, system: true } : null) : (tick && tick.at ? { by: tick.by || null, at: tick.at } : null)
+        };
+        if (status) { a.sys = { done: status.done, at: status.at, en: status.en, pt: status.pt }; }
+        actions.push(a);
     });
-    return { state: st.code, actions: actions, more: more, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length };
+    // The one-question facts this state's lines depend on, in the data file's order.
+    var questions = Object.keys(defs).filter(function(k) { return asked[k] && defs[k].en; }).map(function(k) {
+        return { key: k, en: defs[k].en, pt: defs[k].pt, answer: facts[k] ? facts[k].answer : null, known: !!(facts[k] && facts[k].known) };
+    });
+    return { state: st.code, actions: actions, more: more, facts: questions, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length,
+        second_signer: contractSecondSignerWanted(st.code, flags) ? { signed: contractSecondSigner(flags) ? { name: contractSecondSigner(flags).name || null, at: contractSecondSigner(flags).at } : null } : null };
 }
 // One tick or untick. Returns the new flags.state_checks, or null when the key
-// is not one of this contract's action lines (nothing is stored for it).
+// is not one of this contract's hand-ticked lines (nothing is stored for it):
+// a line the system does or sees is never ticked or unticked by hand.
 function contractStateCheckApply(flags, card, key, isDone, by, at) {
-    if (!card || !card.actions.some(function(a) { return a.key === key; })) { return null; }
+    if (!card || !card.actions.some(function(a) { return a.key === key && (a.kind || "person") === "person"; })) { return null; }
     var out = { state: card.state, done: Object.assign({}, contractStateChecks(flags, card.state)) };
     if (isDone) { out.done[key] = { by: by || null, at: at }; } else { delete out.done[key]; }
     return out;
@@ -28159,7 +28369,14 @@ async function contractContext(env, clientId, c) {
     if (contractIsCleaning(c) && c.lead_id) {
         try { booking = await contractCleaningBooking(env, clientId, c.lead_id); } catch (eB) { console.error("booking answers for contract", eB && eB.message); }
     }
-    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib, booking: booking };
+    // State riders: a subcontractor already assigned to the project answers
+    // the "subcontractors or suppliers?" fact, so it is never asked.
+    var subCount = 0;
+    try {
+        var sc = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_job_subcontractors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL").bind(clientId, c.job_id).first();
+        subCount = (sc && sc.n) || 0;
+    } catch (eS) { console.error("subcontractor count for contract", eS && eS.message); }
+    return { job: job, lead: lead, estimates: ests, doc: doc, settings: settings, client: client, admin: admin, lib: lib, booking: booking, job_sub_count: subCount };
 }
 
 // Contract price and schedule from the accepted estimates (change orders add
@@ -28582,9 +28799,23 @@ function contractCompose(ctx, c, today, mode) {
     // wording (text). Until then it is a line on the owner's checklist.
     var job = { amount_cents: amount, sold_in_home: soldInHome, is_pool: !!flags.is_pool, residential: residential, selections: c.selections || {}, license_number: v.license_number || "",
                 has_deposit: built.sums.schedule.length >= 2, first_payment_cents: built.sums.schedule.length ? (built.sums.schedule[0].amount_cents || 0) : 0 };
+    // The one-question facts, and what this contract and the project already
+    // record (never asked): the dispute clause chosen, a subcontractor assigned.
+    var stateFacts = outFl ? contractStateFacts(flags, { subs: ctx.job_sub_count > 0 ? true : null, arbitration: c.selections.C14 === "C14-B", arb_or_jury: c.selections.C14 === "C14-B" || c.selections.C14 === "C14-C" }) : null;
     if (outFl) {
         ((st.rider && st.rider.notices) || []).forEach(function(n) {
             if (n.text && contractStateNoticeApplies(n, job)) { add("state_notice", n.id, n.title, String(n.text), { cite: n.cite || null, format: n.format || null }); }
+        });
+        // The system's own lines: a notice whose official wording is on file
+        // prints by itself ("print"), and a document the customer must get
+        // before signing rides with the contract ("deliver"). emphasis = the
+        // look the statute states (bold, minimum point size).
+        job.sys_lines = {};
+        contractStatePrintPlan(st, job, stateFacts).forEach(function(p) {
+            var n = p.notice, extra = { cite: n.cite || null, format: n.format || null, system: true };
+            if (p.style) { extra.emphasis = p.style; }
+            add(p.mode === "deliver" ? "state_document" : "state_notice", n.id, n.title, String(n.text_on_file), extra);
+            job.sys_lines[p.line] = p.mode; job.sys_lines["notice:" + n.id] = p.mode;
         });
     }
     if (rules.L5.on) {
@@ -28620,7 +28851,8 @@ function contractCompose(ctx, c, today, mode) {
     return {
         sections: sections, notice_form_text: noticeForm, rules: rules, missing: missingList, blockers: blockers, fields: fields,
         amount_cents: amount, vars: v, sums: built.sums, disclaimer_line: disclaimer,
-        state: { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation },
+        state: outFl ? { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation, facts: stateFacts } :
+            { code: st.code, name: st.name, florida: st.florida, confirmed: st.confirmed, status: st.status, business_state: st.business_state, cancellation: st.cancellation },
         checklist: outFl ? contractStateChecklist(st, job) : null,
         option_warnings: outFl ? contractStateOptionWarnings(st) : {},
         requires: { lien_signature: rules.L1.on, pool_ack: rules.L6.on, cancellation: rules.L5.on,
@@ -29388,6 +29620,10 @@ async function contractPublicPayload(env, c, ctx, origin, opts) {
         homeowner_signature: c.homeowner_signed_at ? { signer_name: c.homeowner_signer_name, signed_at: c.homeowner_signed_at, kind: c.homeowner_signature_kind, image_url: c.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(c.homeowner_signed_ua) } : null,
         lien_signature: c.lien_signed_at ? { signed_at: c.lien_signed_at, kind: c.lien_signature_kind, signer_name: c.homeowner_signer_name, image_url: c.lien_signature_r2_key ? tokenBase + "/signature-image/lien" : null } : null,
         pool_ack: c.pool_ack_at ? { signed_at: c.pool_ack_at, delivered_at: c.pool_ack_at, method: "electronic delivery on this page" } : null,
+        // A state that wants both spouses to sign: the second customer signer,
+        // asked for on this page after the first one has signed. null when
+        // the contract does not ask for one. It never holds anything up.
+        second_signer: contractSecondSignerWanted(comp.state.code, c.flags) ? { signed: contractSecondSigner(c.flags) ? { signer_name: contractSecondSigner(c.flags).name || "", signed_at: contractSecondSigner(c.flags).at, kind: "typed" } : null } : null,
         homeowner_initials: c.homeowner_signed_at ? (c.homeowner_initials || null) : null,
         marketing_consent: c.homeowner_signed_at ? !!c.marketing_consent : null,
         transaction_date: c.transaction_date || null,
@@ -29938,7 +30174,7 @@ async function contractInternalOut(env, id, c, user, request) {
         state_checklist: comp.checklist, option_warnings: comp.option_warnings,
         // The "Before you send" card: the action lines with their ticks (who and
         // when), and the rest of the prose. null in Florida.
-        state_card: contractStateActionCard(comp.state, comp.checklist, c.flags),
+        state_card: contractStateActionCard(comp.state, comp.checklist, c.flags, comp.state.florida ? null : await contractStateSysLoad(env, c)),
         state_neutral_options: comp.state.florida ? [] : isCleaning ? comp.cleaning.neutral_options : (function() {
             var neutral = contractNeutralOptions(ctx.lib.optionsById);
             return ctx.lib.optionsForClient.filter(function(o) { return contractOptionText(neutral[o.id], neutral) !== contractOptionText(o, ctx.lib.optionsById); }).map(function(o) { return o.id; });
@@ -30030,7 +30266,10 @@ async function handlePutGmContract(id, cid, request, env) {
             if (c.status === "void") { return jsonErr2("Contrato anulado: a lista n\u00e3o pode mais ser marcada.", "This contract is void: the list can no longer be ticked.", 409); }
             var tickComp = contractCompose(await contractContext(env, id, c), c, gmEasternToday(), "live");
             var tickKey = String(body.flags.state_check.key || "");
-            var checks = contractStateCheckApply(c.flags, contractStateActionCard(tickComp.state, tickComp.checklist, c.flags), tickKey, body.flags.state_check.done === true, actorName(user), new Date().toISOString().slice(0, 19).replace("T", " "));
+            var tickCard = contractStateActionCard(tickComp.state, tickComp.checklist, c.flags, await contractStateSysLoad(env, c));
+            var checks = contractStateCheckApply(c.flags, tickCard, tickKey, body.flags.state_check.done === true, actorName(user), new Date().toISOString().slice(0, 19).replace("T", " "));
+            // A line the system does or sees is never ticked or unticked by hand.
+            if (!checks && tickCard && tickCard.actions.some(function(a) { return a.key === tickKey; })) { return jsonErr2("O sistema marca esta linha sozinho.", "The system ticks this line by itself.", 409, { code: "system_line" }); }
             if (!checks) { return jsonErr2("Este item n\u00e3o est\u00e1 na lista deste contrato.", "This item is not on this contract's list.", 400); }
             await env.DB.prepare(CONTRACT_STATE_CHECKS_SQL).bind(JSON.stringify(checks), cid, id).run();
             var ticked = await gmContractLoad(env, id, cid);
@@ -30112,6 +30351,16 @@ async function handlePutGmContract(id, cid, request, env) {
                 // LC2-C: the seller confirms the oral notice; who and when are stored.
                 if (body.flags.oral_notice_done === true) { flags.oral_notice = { by: actorName(user), at: new Date().toISOString().slice(0, 19).replace("T", " ") }; }
                 else if (body.flags.oral_notice_done === false) { delete flags.oral_notice; }
+            }
+            // The one-question facts: "yes" / "no" / "unsure", or null to clear.
+            if (body.flags.state_facts && typeof body.flags.state_facts === "object") {
+                var factDefs = contractStateFactDefs(), factsNow = Object.assign({}, flags.state_facts || {});
+                Object.keys(body.flags.state_facts).forEach(function(k) {
+                    if (!factDefs[k] || !factDefs[k].en) { return; }
+                    var fv = body.flags.state_facts[k];
+                    if (fv === null) { delete factsNow[k]; } else if (CONTRACT_STATE_FACT_ANSWERS.indexOf(fv) !== -1) { factsNow[k] = fv; }
+                });
+                flags.state_facts = factsNow;
             }
             if (body.flags.job_state !== undefined) {
                 var pickedState = contractStateCode(body.flags.job_state);
@@ -30429,7 +30678,7 @@ async function handlePostGmContractRevise(id, cid, request, env) {
         await env.DB.prepare(
             "INSERT INTO gm_contracts (id, client_id, job_id, lead_id, estimate_ids_json, number, revision, status, library_version, template_scope, selections_json, answers_json, flags_json, contract_date, offer_expiry_date, public_token, created_by) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined })) : (c.flags && c.flags.state_checks ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
+        ).bind(newId, id, c.job_id, c.lead_id, c.estimate_ids_json, c.number, rev, c.library_version, c.template_scope, c.selections_json, c.answers_json, contractIsCleaning(c) ? JSON.stringify(Object.assign({}, c.flags, { oral_notice: undefined, state_checks: undefined })) : (c.flags && (c.flags.state_checks || c.flags.second_signer) ? JSON.stringify(Object.assign({}, c.flags, { state_checks: undefined, second_signer: undefined })) : c.flags_json), gmEasternToday(), gmDateAddDays(gmEasternToday(), 30), gmEstNewToken(), actorName(user)).run();
         await env.DB.prepare("UPDATE gm_contracts SET status = 'superseded', updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status NOT IN ('void','completed')").bind(cid, id).run();
         await gmContractEvent(env, id, newId, actorName(user), "revised", { from: cid, revision: rev });
         return jsonOk({ created: true, contract_id: newId, revision: rev });
@@ -30685,6 +30934,37 @@ async function handlePostPublicContractSign(token, request, env) {
         if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_signed", field: "contract", old_value: c.status, new_value: contractDisplayNumber(c), reason: "signed online (" + kind + ")" + (deadline ? "; cancellation until " + deadline : "") }]); }
         docPdfAfterFinal(request, env, "contract", token);
         return jsonOk({ signed: true, cancellation_deadline_date: deadline });
+    } catch (e) {
+        return jsonErr("Error signing contract: " + e.message, 500);
+    }
+}
+
+// The second customer signer (a state that wants both spouses to sign). Typed
+// name with consent, on the customer's own link, after the first customer has
+// signed. Stored in flags.second_signer; the contract's status, amounts and
+// frozen text are not touched, and nothing waits for it.
+async function handlePostPublicContractSecondSign(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 20, 60);
+        if (limited) { return limited; }
+        var c = await contractByToken(env, token);
+        if (!c) { return jsonErr("Not found", 404); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        if (!body || body.consent !== true) { return jsonErr("Please agree to sign electronically", 400); }
+        var signer = gmStr(body.signer_name, 120);
+        if (!signer) { return jsonErr("Please type your name", 400); }
+        if (!contractSecondSignerWanted(contractStateCode(c.flags && c.flags.job_state), c.flags)) { return jsonErr("This contract does not ask for a second signature.", 409); }
+        if (c.status !== "completed" || !c.homeowner_signed_at) { return jsonErr("The second signature comes after the first signature.", 409); }
+        var ip = request.headers.get("CF-Connecting-IP") || null, ua = (request.headers.get("User-Agent") || "").slice(0, 400) || null;
+        var signedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+        var res = await env.DB.prepare(CONTRACT_SECOND_SIGNER_SQL).bind(JSON.stringify({ name: signer, at: signedAt, kind: "typed", ip: ip, ua: ua }), c.id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("The second signature is already on this contract.", 409); }
+        await gmContractEvent(env, c.client_id, c.id, signer, "second_signer_signed", { kind: "typed", ip: ip, device: gmEstSummarizeUa(ua), hash: c.content_hash });
+        if (c.lead_id) { await gmLogLeadEvents(env, c.client_id, c.lead_id, signer, [{ action: "contract_second_signer_signed", field: "contract", old_value: null, new_value: contractDisplayNumber(c), reason: "second signer signed online (typed)" }]); }
+        // The stored PDF waits for this signature (docPdfByToken), so it is made now.
+        docPdfAfterFinal(request, env, "contract", token);
+        return jsonOk({ signed: true });
     } catch (e) {
         return jsonErr("Error signing contract: " + e.message, 500);
     }
@@ -43868,13 +44148,18 @@ async function docPdfByToken(env, kind, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     var r;
     if (kind === "contract") {
-        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
+        r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token, flags_json FROM gm_contracts WHERE public_token = ? AND link_disabled_at IS NULL").bind(token).first();
         if (!r || r.status === "draft" || r.status === "awaiting_company") { return null; }
         if (r.status === "superseded") {
-            r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
+            r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token, flags_json FROM gm_contracts WHERE client_id = ? AND number = ? AND status NOT IN ('void','superseded','draft','awaiting_company') ORDER BY revision DESC LIMIT 1").bind(r.client_id, r.number).first();
             if (!r) { return null; }
         }
-        return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed", token: r.public_token };
+        // A contract that asks for a second customer signer is stored as a
+        // PDF only once that signature is on it, so the stored copy carries
+        // both. Until then every download is a fresh render.
+        var conFlags = gmDocParseJsonObject(r.flags_json, {}) || {};
+        var waitsSecond = contractSecondSignerWanted(contractStateCode(conFlags.job_state), conFlags) && !contractSecondSigner(conFlags);
+        return { kind: kind, id: r.id, client_id: r.client_id, number: docPdfRevNumber(r.number, r.revision), status: r.status, final: r.status === "completed" && !waitsSecond, token: r.public_token };
     }
     if (kind === "estimate") {
         r = await env.DB.prepare("SELECT id, client_id, number, revision, status, public_token, valid_until, link_disabled_at, link_enabled_at FROM gm_estimates WHERE public_token = ?").bind(token).first();
@@ -45047,10 +45332,11 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/sessions/voice"        && method === "POST") { return handlePostSessionsVoice(request, env); }
         // Client contract builder: clause library + Rafael's review (checkpoint A).
         // Contract builder (checkpoint B): public homeowner routes.
-        var pubCon = path.match(/^\/api\/public\/contracts\/([a-f0-9]{48})(?:\/(sign|changes|decline)|\/signature-image\/(company|homeowner|lien)|\/pool-doc\/(ch515|drowning))?$/);
+        var pubCon = path.match(/^\/api\/public\/contracts\/([a-f0-9]{48})(?:\/(sign|second-sign|changes|decline)|\/signature-image\/(company|homeowner|lien)|\/pool-doc\/(ch515|drowning))?$/);
         if (pubCon) {
             if (!pubCon[2] && !pubCon[3] && !pubCon[4] && method === "GET") { return handleGetPublicContract(pubCon[1], request, env); }
             if (pubCon[2] === "sign" && method === "POST") { return esignSignWithConsent(env, request, "contract", pubCon[1], handleGetPublicContract, handlePostPublicContractSign); }
+            if (pubCon[2] === "second-sign" && method === "POST") { return handlePostPublicContractSecondSign(pubCon[1], request, env); }
             if ((pubCon[2] === "changes" || pubCon[2] === "decline") && method === "POST") { return handlePostPublicContractRespond(pubCon[1], pubCon[2], request, env); }
             if (pubCon[3] && method === "GET") { return handleGetPublicContractSignature(pubCon[1], pubCon[3], request, env); }
             if (pubCon[4] && method === "GET") { return handleGetPublicContractPoolDoc(pubCon[1], pubCon[4], request, env); }

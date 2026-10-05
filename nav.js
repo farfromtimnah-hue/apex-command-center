@@ -202,7 +202,12 @@
 
       /* Nav sidebar shell */
       "#appHeader { justify-content: flex-end; }" +
-      "#navSidebar { width: 240px; height: calc(100vh - 64px); background: #1a1a1d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease; border-right: 1px solid #2a2a2e; }" +
+      /* min-height, not height: the rail used to be exactly one screen minus
+         the header, so on a short screen the list (flex: 1) was squeezed and its
+         last item sat cut off above the DEV switcher. Now the rail is at least
+         that tall and grows to fit its items; align-self keeps it from
+         stretching to the full length of a long page. */
+      "#navSidebar { width: 240px; min-height: calc(100vh - 64px); align-self: flex-start; background: #1a1a1d; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease; border-right: 1px solid #2a2a2e; }" +
       "#navSidebar.apex-nav-collapsed { width: 72px; }" +
 
       /* Logo row */
@@ -210,7 +215,7 @@
       ".apex-nav-logo-img { height: 28px; width: auto; display: block; }" +
 
       /* Items list */
-      ".apex-nav-items { flex: 1; padding: 8px 0; overflow-y: auto; overflow-x: hidden; }" +
+      ".apex-nav-items { flex: 1 0 auto; padding: 8px 0; overflow-y: auto; overflow-x: hidden; }" +
       "a.apex-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 500; text-decoration: none; position: relative; transition: color 0.15s, background 0.15s; white-space: nowrap; font-family: 'Inter', sans-serif; }" +
       "a.apex-nav-item:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06); }" +
       "a.apex-nav-item.apex-nav-active { color: #C9A43A; }" +

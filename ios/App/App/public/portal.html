@@ -3638,7 +3638,14 @@
     }
 
     function wsRemoveRange(rangeId) {
-      if (!window.confirm(isEn() ? "Remove this blocked period?" : "Remover este período bloqueado?")) { return; }
+      gmAsk({
+        message: isEn() ? "Remove this blocked period?" : "Remover este período bloqueado?",
+        yes: isEn() ? "Yes, remove it" : "Sim, remover",
+        keep: isEn() ? "Keep it" : "Manter",
+        onYes: function() { wsRemoveRangeDo(rangeId); }
+      });
+    }
+    function wsRemoveRangeDo(rangeId) {
       apiFetch("/api/clients/" + clientId + "/blocked-ranges/" + rangeId, { method: "DELETE" })
         .then(function() { return loadEntryState().catch(function() {}); })
         .then(function() { loadWorkSettings(); })
@@ -6006,9 +6013,16 @@
         renderXray();
         return;
       }
-      if (!window.confirm(isEn()
-        ? "Submit your answers? They cannot be changed after finishing."
-        : "Enviar suas respostas? Após concluir, não será possível alterá-las.")) { return; }
+      gmAsk({
+        message: isEn()
+          ? "Submit your answers? They cannot be changed after finishing."
+          : "Enviar suas respostas? Após concluir, não será possível alterá-las.",
+        yes: isEn() ? "Yes, submit my answers" : "Sim, enviar minhas respostas",
+        keep: isEn() ? "Keep editing" : "Continuar editando",
+        onYes: function() { xraySubmitDo(); }
+      });
+    }
+    function xraySubmitDo() {
       apiFetch("/api/clients/" + clientId + "/assessments/business_xray/answers",
         { method: "PUT", body: { draft: false, answers: xrayAnswers, profile: xrayProfile } })
         .then(function(res) { return res.json(); })
@@ -6392,9 +6406,18 @@
         }
         return;
       }
-      if (!window.confirm(isEn()
-        ? "Submit your answers? They cannot be changed after finishing."
-        : "Enviar suas respostas? Após concluir, não será possível alterá-las.")) { return; }
+      gmAsk({
+        message: isEn()
+          ? "Submit your answers? They cannot be changed after finishing."
+          : "Enviar suas respostas? Após concluir, não será possível alterá-las.",
+        yes: isEn() ? "Yes, submit my answers" : "Sim, enviar minhas respostas",
+        keep: isEn() ? "Keep editing" : "Continuar editando",
+        onYes: function() { spaSubmitDo(key); }
+      });
+    }
+    function spaSubmitDo(key) {
+      var conf = spaConf(key);
+      var st = spaState[key];
       apiFetch("/api/clients/" + clientId + "/assessments/" + conf.type + "/answers",
         { method: "PUT", body: { draft: false, answers: st.answers } })
         .then(function(res) { return res.json(); })
@@ -7415,7 +7438,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1791235556"></script>
+  <script src="gm.js?v=1791235930"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

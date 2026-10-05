@@ -415,6 +415,92 @@ function gmToastRunAction() {
   if (fn) { fn(); }
 }
 
+// ── In-page confirmation / input (no browser pop-ups) ────────────────────
+// ONE helper for every "are you sure?" and every one-line input. It stacks
+// ABOVE any open sheet (own overlay, no history entry) so "keep" simply
+// removes it and leaves the sheet underneath untouched. Escape, a tap on the
+// dark area and the keep button all mean keep: nothing is sent.
+//   o.message  text; the first paragraph is the title, the rest the body
+//   o.yes      label of the action button (says what it does); omit for a
+//              notice-only card
+//   o.keep     label of the keep button
+//   o.input    optional { value, multiline, readonly }: the typed text is
+//              passed to onYes
+//   o.onYes    called ONCE, after the card is gone
+var gmAskEl = null;
+var gmAskPrevFocus = null;
+function gmAskClose() {
+  if (gmAskEl && gmAskEl.parentNode) { gmAskEl.parentNode.removeChild(gmAskEl); }
+  gmAskEl = null;
+  var back = gmAskPrevFocus;
+  gmAskPrevFocus = null;
+  if (back && back.focus) { try { back.focus(); } catch (e) {} }
+}
+function gmAsk(o) {
+  if (gmAskEl) { gmAskClose(); }
+  var parts = String(o.message || "").split("\n\n");
+  var title = parts.shift();
+  var rest = parts.join("\n\n");
+  var inp = o.input || null;
+  var done = false;
+  var overlay = document.createElement("div");
+  overlay.className = "gm-sheet-overlay gm-ask";
+  overlay.style.zIndex = "1200";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  var h = '<div class="gm-sheet"><div class="gm-sheet-grabber"></div>' +
+    '<div class="gm-sheet-head"><div class="gm-sheet-title">' + escHtml(title) + '</div></div>';
+  if (rest) { h += '<p style="white-space:pre-line;margin:0 0 6px;font-size:14px;line-height:1.5;">' + escHtml(rest) + '</p>'; }
+  if (inp) {
+    h += '<div class="gm-editor-input">' + (inp.multiline
+      ? '<textarea id="gmAskInput"' + (inp.readonly ? ' readonly' : '') + '>' + escHtml(inp.value || "") + '</textarea>'
+      : '<input type="text" id="gmAskInput"' + (inp.readonly ? ' readonly' : '') + ' value="' + escHtml(inp.value || "") + '">') + '</div>';
+  }
+  if (o.yes) { h += '<button type="button" class="gm-btn-primary" id="gmAskYes">' + escHtml(o.yes) + '</button>'; }
+  h += '<button type="button" class="gm-btn-secondary" id="gmAskKeep">' + escHtml(o.keep) + '</button></div>';
+  overlay.innerHTML = h;
+  overlay.addEventListener("click", function(ev) {
+    if (ev.target === overlay) { gmAskClose(); }
+  });
+  gmAskPrevFocus = document.activeElement || null;
+  document.body.appendChild(overlay);
+  gmAskEl = overlay;
+  var keepBtn = document.getElementById("gmAskKeep");
+  var yesBtn = document.getElementById("gmAskYes");
+  var field = document.getElementById("gmAskInput");
+  if (keepBtn) { keepBtn.addEventListener("click", gmAskClose); }
+  if (yesBtn) {
+    yesBtn.addEventListener("click", function() {
+      if (done) { return; }
+      done = true;
+      var val = field ? field.value : null;
+      gmAskClose();
+      if (o.onYes) { o.onYes(val); }
+    });
+  }
+  // Focus moves into the card: the input when there is one (text selected
+  // for a read-only copy field), otherwise the SAFE button (keep).
+  if (field) { field.focus(); if (inp && inp.readonly && field.select) { field.select(); } }
+  else if (keepBtn) { keepBtn.focus(); }
+  return overlay;
+}
+// Capture phase, so Escape closes the card before any layer under it.
+document.addEventListener("keydown", function(ev) {
+  if (!gmAskEl) { return; }
+  if (ev.key === "Escape") {
+    gmAskClose();
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  } else if (ev.key === "Tab") {
+    var btns = gmAskEl.querySelectorAll("textarea, input, button");
+    if (btns.length) {
+      var first = btns[0], last = btns[btns.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { last.focus(); ev.preventDefault(); }
+      else if (!ev.shiftKey && document.activeElement === last) { first.focus(); ev.preventDefault(); }
+    }
+  }
+}, true);
+
 // ── Shared single-field editor ───────────────────────────────────────────
 // Progressive disclosure: tap a field row → a sheet with that ONE input.
 // type: text | textarea | tel | currency | number | date | datetime | choice
@@ -2928,24 +3014,35 @@ function gmEditNote(parentType, parentId, noteId) {
   var k = gmNotesKey(parentType, parentId);
   var note = (gmNotes[k] || []).filter(function(n) { return n.id === noteId; })[0];
   if (!note) { return; }
-  var next = window.prompt(gmT("Editar nota", "Edit note"), note.body);
-  if (next === null) { return; }
-  next = next.trim();
-  if (!next) { return; }
-  gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId),
-        { method: "PUT", body: { body: next } })
-    .then(function(d) {
-      gmNotes[k] = (gmNotes[k] || []).map(function(n) { return n.id === noteId ? d.note : n; });
-      gmRenderNotes(parentType, parentId);
-      gmToast(gmT("Nota atualizada.", "Note updated."));
-    })
-    .catch(function(e) {
-      gmToast(gmT("Erro ao atualizar a nota: ", "Could not update the note: ") + e.message);
-    });
+  gmAsk({
+    message: gmT("Editar nota", "Edit note"),
+    input: { value: note.body, multiline: true },
+    yes: gmT("Salvar nota", "Save note"), keep: gmT("Manter a nota", "Keep the note"),
+    onYes: function(next) {
+      next = String(next || "").trim();
+      if (!next) { return; }
+      gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId),
+            { method: "PUT", body: { body: next } })
+        .then(function(d) {
+          gmNotes[k] = (gmNotes[k] || []).map(function(n) { return n.id === noteId ? d.note : n; });
+          gmRenderNotes(parentType, parentId);
+          gmToast(gmT("Nota atualizada.", "Note updated."));
+        })
+        .catch(function(e) {
+          gmToast(gmT("Erro ao atualizar a nota: ", "Could not update the note: ") + e.message);
+        });
+    }
+  });
 }
 
 function gmDeleteNote(parentType, parentId, noteId) {
-  if (!window.confirm(gmT("Excluir esta nota?", "Delete this note?"))) { return; }
+  gmAsk({
+    message: gmT("Excluir esta nota?", "Delete this note?"),
+    yes: gmT("Sim, excluir", "Yes, delete"), keep: gmT("Manter", "Keep it"),
+    onYes: function() { gmDeleteNoteDo(parentType, parentId, noteId); }
+  });
+}
+function gmDeleteNoteDo(parentType, parentId, noteId) {
   var k = gmNotesKey(parentType, parentId);
   gmApi(gmNotesPath(parentType, parentId) + "/" + encodeURIComponent(noteId), { method: "DELETE" })
     .then(function() {
@@ -2991,7 +3088,13 @@ function gmUploadLeadFile(leadId, input) {
 }
 
 function gmDeleteLeadFile(leadId, fileId) {
-  if (!window.confirm(gmT("Remover este arquivo?", "Remove this file?"))) { return; }
+  gmAsk({
+    message: gmT("Remover este arquivo?", "Remove this file?"),
+    yes: gmT("Sim, remover", "Yes, remove"), keep: gmT("Manter", "Keep it"),
+    onYes: function() { gmDeleteLeadFileDo(leadId, fileId); }
+  });
+}
+function gmDeleteLeadFileDo(leadId, fileId) {
   gmApi("leads/" + encodeURIComponent(leadId) + "/files/" + encodeURIComponent(fileId),
         { method: "DELETE" })
     .then(function() {
@@ -3228,8 +3331,15 @@ function gmSaveLeadField(key, value, after, reason) {
 
 function gmDeleteLead() {
   var lead = gmDetailLead;
-  if (!window.confirm(gmT("Excluir o lead \"" + lead.cliente + "\"? Essa ação não pode ser desfeita.",
-                          "Delete lead \"" + lead.cliente + "\"? This cannot be undone."))) { return; }
+  gmAsk({
+    message: gmT("Excluir o lead \"" + lead.cliente + "\"? Essa ação não pode ser desfeita.",
+                          "Delete lead \"" + lead.cliente + "\"? This cannot be undone."),
+    yes: gmT("Sim, excluir o lead", "Yes, delete the lead"), keep: gmT("Manter o lead", "Keep the lead"),
+    onYes: function() { gmDeleteLeadDo(); }
+  });
+}
+function gmDeleteLeadDo() {
+  var lead = gmDetailLead;
   gmApi("leads/" + lead.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); gmLoadCrmSilent(); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
@@ -3342,9 +3452,17 @@ function gmOpenBase(idx) {
 function gmReactivateBase() {
   var row = gmSheetRow;
   if (!row) { return; }
-  if (!window.confirm(gmT(
+  gmAsk({
+    message: gmT(
     "Reativar \"" + row.cliente + "\"?\n\nIsso cria um novo lead no CRM com origem “Base de Clientes” e marca este cliente como Reativado.",
-    "Reactivate \"" + row.cliente + "\"?\n\nThis creates a new CRM lead with source “Base de Clientes” and marks this customer as Reativado."))) { return; }
+    "Reactivate \"" + row.cliente + "\"?\n\nThis creates a new CRM lead with source “Base de Clientes” and marks this customer as Reativado."),
+    yes: gmT("Sim, criar o lead", "Yes, create the lead"), keep: gmT("N\u00e3o criar", "Do not create it"),
+    onYes: function() { gmReactivateBaseDo(); }
+  });
+}
+function gmReactivateBaseDo() {
+  var row = gmSheetRow;
+  if (!row) { return; }
   gmApi("base-ouro/" + row.id + "/reactivate", {
     method: "POST",
     body: { data_lead: gmNowLocalIso(), mes_lead: gmCurrentCycleMonth() }
@@ -4269,8 +4387,16 @@ function gmPricingSave() {
 function gmPricingDelete() {
   var d = gmPricingDraft;
   if (!d || !d.id) { return; }
-  if (!window.confirm(gmT("Excluir \"" + (d.item || "") + "\"? Essa ação não pode ser desfeita.",
-                          "Delete \"" + (d.item || "") + "\"? This cannot be undone."))) { return; }
+  gmAsk({
+    message: gmT("Excluir \"" + (d.item || "") + "\"? Essa ação não pode ser desfeita.",
+                          "Delete \"" + (d.item || "") + "\"? This cannot be undone."),
+    yes: gmT("Sim, excluir", "Yes, delete"), keep: gmT("Manter", "Keep it"),
+    onYes: function() { gmPricingDeleteDo(); }
+  });
+}
+function gmPricingDeleteDo() {
+  var d = gmPricingDraft;
+  if (!d || !d.id) { return; }
   gmApi("pricing/" + d.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); gmLoadPricing(); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
@@ -5736,7 +5862,14 @@ function gmLinkControl(kind, id, disable) {
           "Disable this document's link?\n\nWhile it is disabled, anyone who opens the link sees that it is not valid and cannot view, sign or pay.\n\nThe document's old address stops working for good. If you enable it again, send the link to the customer again.")
     : gmT("Ativar o link deste documento?\n\nO documento volta a abrir, em um endereço novo. Envie o link outra vez ao cliente.",
           "Enable this document's link?\n\nThe document opens again, at a new address. Send the link to the customer again.");
-  if (!window.confirm(msg)) { return; }
+  gmAsk({
+    message: msg,
+    yes: disable ? gmT("Sim, desativar o link", "Yes, disable the link") : gmT("Sim, ativar o link", "Yes, enable the link"),
+    keep: disable ? gmT("Manter ativo", "Keep it enabled") : gmT("Manter desativado", "Keep it disabled"),
+    onYes: function() { gmLinkControlDo(kind, id, disable); }
+  });
+}
+function gmLinkControlDo(kind, id, disable) {
   gmApi(GM_LINK_KIND_PATH[kind] + "/" + encodeURIComponent(id) + "/" + (disable ? "disable-link" : "enable-link"), { method: "POST" })
     .then(function(d) {
       gmToast(d && d.link_disabled ? gmT("Link desativado", "Link disabled") : gmT("Link ativado", "Link enabled"));
@@ -6745,7 +6878,13 @@ function gmUploadJobPhoto(jobId, input) {
 }
 
 function gmDeleteJobPhoto(jobId, photoId) {
-  if (!window.confirm(gmT("Remover esta foto?", "Remove this photo?"))) { return; }
+  gmAsk({
+    message: gmT("Remover esta foto?", "Remove this photo?"),
+    yes: gmT("Sim, remover", "Yes, remove"), keep: gmT("Manter", "Keep it"),
+    onYes: function() { gmDeleteJobPhotoDo(jobId, photoId); }
+  });
+}
+function gmDeleteJobPhotoDo(jobId, photoId) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/photos/" + encodeURIComponent(photoId),
         { method: "DELETE" })
     .then(function() {
@@ -7438,8 +7577,16 @@ function gmSaveSimpleField(kind, key, value) {
 function gmDeleteSimple() {
   var spec = gmSimpleSpec(gmSheetKind);
   var row = gmSheetRow;
-  if (!window.confirm(gmT("Excluir \"" + (row[spec.nameKey] || "") + "\"? Essa ação não pode ser desfeita.",
-                          "Delete \"" + (row[spec.nameKey] || "") + "\"? This cannot be undone."))) { return; }
+  gmAsk({
+    message: gmT("Excluir \"" + (row[spec.nameKey] || "") + "\"? Essa ação não pode ser desfeita.",
+                          "Delete \"" + (row[spec.nameKey] || "") + "\"? This cannot be undone."),
+    yes: gmT("Sim, excluir", "Yes, delete"), keep: gmT("Manter", "Keep it"),
+    onYes: function() { gmDeleteSimpleDo(); }
+  });
+}
+function gmDeleteSimpleDo() {
+  var spec = gmSimpleSpec(gmSheetKind);
+  var row = gmSheetRow;
   gmApi(spec.collection + "/" + row.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); spec.reload(); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
@@ -7784,10 +7931,15 @@ function gmCopyReferralLink() {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(function() {
       gmToast(gmT("Link copiado ✓", "Link copied ✓"));
-    }).catch(function() { window.prompt(gmT("Copie o link:", "Copy the link:"), url); });
+    }).catch(function() { gmCopyLinkCard(url); });
   } else {
-    window.prompt(gmT("Copie o link:", "Copy the link:"), url);
+    gmCopyLinkCard(url);
   }
+}
+
+// Clipboard unavailable: show the link in a selected, read-only field to copy by hand.
+function gmCopyLinkCard(url) {
+  gmAsk({ message: gmT("Copie o link:", "Copy the link:"), input: { value: url, readonly: true }, keep: gmT("Fechar", "Close") });
 }
 
 function gmShareReferralLink() {
@@ -8087,6 +8239,27 @@ function gmCalChip(ev) {
   return btn;
 }
 
+// A visit booked through the online booking page lands twice: as the calendar
+// event the booking creates (carries lead_id) AND as the lead's own visit date
+// (a derived "lead" entry). Show it once, as the visit: a lead-derived entry
+// is left out when a calendar event for the same lead at the same date and
+// time is already in the list. Nothing is written or changed; this only
+// decides what is drawn.
+function gmCalHm(t) { return t ? String(t).slice(0, 5) : ""; }
+function gmCalDropLeadDupes(events) {
+  var list = events || [];
+  var seen = {};
+  list.forEach(function(ev) {
+    if (ev && ev.kind !== "lead" && ev.lead_id && ev.date) {
+      seen[ev.lead_id + "|" + ev.date + "|" + gmCalHm(ev.start_time)] = true;
+    }
+  });
+  return list.filter(function(ev) {
+    if (!ev || ev.kind !== "lead" || !ev.lead_id) { return true; }
+    return !seen[ev.lead_id + "|" + ev.date + "|" + gmCalHm(ev.start_time)];
+  });
+}
+
 function gmRenderCalendar() {
   var body = document.getElementById("gmCalendarBody");
   if (!gmConfig || !gmCalData) { return; }
@@ -8119,7 +8292,7 @@ function gmRenderCalendar() {
 
   CalendarGrid.renderCalendar(document.getElementById("gmCalGrid"), {
     anchor: gmCalMonth,
-    events: gmCalData.events || [],
+    events: gmCalDropLeadDupes(gmCalData.events),
     en: isEn(),
     selectedDate: gmCalSelDate,
     renderChip: gmCalChip,
@@ -8463,7 +8636,14 @@ function gmCalSave() {
 
 function gmCalDelete() {
   if (!gmCalDraft.id) { return; }
-  if (!window.confirm(gmT("Excluir este evento?", "Delete this event?"))) { return; }
+  gmAsk({
+    message: gmT("Excluir este evento?", "Delete this event?"),
+    yes: gmT("Sim, excluir o evento", "Yes, delete the event"), keep: gmT("Manter o evento", "Keep the event"),
+    onYes: function() { gmCalDeleteDo(); }
+  });
+}
+function gmCalDeleteDo() {
+  if (!gmCalDraft.id) { return; }
   gmApi("events/" + encodeURIComponent(gmCalDraft.id), { method: "DELETE" })
     .then(function() {
       gmSheetClose();
@@ -9115,8 +9295,14 @@ function gmStripeConnect(btn) {
   }).catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
 }
 function gmStripeDisconnect() {
-  if (!window.confirm(gmT("Desconectar o Stripe? As faturas deixam de mostrar o botão de cartão. A sua conta Stripe não é apagada.",
-                          "Disconnect Stripe? Invoices stop showing the card button. Your Stripe account is not deleted."))) { return; }
+  gmAsk({
+    message: gmT("Desconectar o Stripe? As faturas deixam de mostrar o botão de cartão. A sua conta Stripe não é apagada.",
+                          "Disconnect Stripe? Invoices stop showing the card button. Your Stripe account is not deleted."),
+    yes: gmT("Sim, desconectar o Stripe", "Yes, disconnect Stripe"), keep: gmT("Manter conectado", "Keep it connected"),
+    onYes: function() { gmStripeDisconnectDo(); }
+  });
+}
+function gmStripeDisconnectDo() {
   gmApi("stripe/disconnect", { method: "POST", body: {} }).then(function() { gmStripeLoad(true); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }

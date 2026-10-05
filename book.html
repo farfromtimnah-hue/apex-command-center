@@ -87,6 +87,25 @@
     var qs = window.location.search;
     var leadToken = (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
     var siteSlug = (qs.match(/[?&]b=([a-z2-7]{10,40})/) || [])[1] || null;
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token (a lead's link) or the business's slug
+    // (the general link) over in window.DOC_PAGE_LINK, so neither is in the
+    // address bar there. The ?t= and ?b= addresses work as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docSiteSlug = null;       // the general link's slug, on the readable address
+    if (docLink) {
+      var docValue = String(docLink.token || "");
+      if (docLink.kind === "booking" && /^[a-f0-9]{48}$/.test(docValue)) { leadToken = docValue; siteSlug = null; }
+      if (docLink.kind === "booking-site" && /^[a-z2-7]{10,40}$/.test(docValue)) {
+        siteSlug = docValue; leadToken = null; docSiteSlug = docValue;
+        // A visit booked from this general link in this tab: a refresh
+        // finds it again (the old address keeps its token in the bar instead).
+        try {
+          var docKept = window.sessionStorage.getItem("bk_token_" + docValue);
+          if (docKept && /^[a-f0-9]{48}$/.test(docKept)) { leadToken = docKept; siteSlug = null; }
+        } catch (e) { /* ignore */ }
+      }
+    }
     var lang = "en";
     var D = null;                 // the public payload
     var cust = {};                // what the customer has typed
@@ -391,7 +410,12 @@
         // A general-link booking now has a token of its own: use it from here,
         // and keep it in the address so a refresh finds the booking.
         leadToken = res.token; siteSlug = null;
-        try { history.replaceState(null, "", window.location.pathname + "?t=" + res.token); } catch (e) { /* ignore */ }
+        if (docLink) {
+          // The readable address stays as it is; the token is kept for this tab.
+          try { if (docSiteSlug) { window.sessionStorage.setItem("bk_token_" + docSiteSlug, res.token); } } catch (e) { /* ignore */ }
+        } else {
+          try { history.replaceState(null, "", window.location.pathname + "?t=" + res.token); } catch (e) { /* ignore */ }
+        }
       }
       if (leadToken) { load(); return; }
       doneLocal = res.booking;

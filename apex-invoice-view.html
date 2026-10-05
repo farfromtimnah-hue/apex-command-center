@@ -162,7 +162,12 @@
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var qs = window.location.search;
-    var token = (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token over in window.DOC_PAGE_LINK, so it is
+    // never in the address bar there. The ?t= address works as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (qs.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
     var LANG = /[?&]lang=en(&|$)/.test(qs) ? "en" : "pt";
     var isRender = /[?&](render|noprint)=1/.test(qs);
     var paidReturn = /[?&]paid=1/.test(qs), paidTries = 0;
@@ -295,10 +300,13 @@
     }
 
     // The other language: same URL, lang swapped. No storage of any kind.
+    // A full address (origin included): on doc.resonateai.online the page
+    // has a <base> pointing at the main site, and a bare path would leave
+    // the readable address.
     function langHref() {
       var other = LANG === "pt" ? "en" : "pt";
       var q = window.location.search.replace(/([?&])lang=[^&]*&?/g, "$1").replace(/[?&]$/, "");
-      return window.location.pathname + q + (q ? "&" : "?") + "lang=" + other;
+      return window.location.origin + window.location.pathname + q + (q ? "&" : "?") + "lang=" + other;
     }
 
     // Copy to the clipboard, three ways: the async API inside the tap, then a

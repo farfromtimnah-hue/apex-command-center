@@ -44,13 +44,13 @@ function fakeStripe() {
   };
 }
 const stubsFor = (st, extra) => Object.assign({}, baseStubs, {
-  easternDateStr: () => "2026-10-04", APEX_API_BASE: "https://api.test", DEFAULT_ORIGIN: "https://apex.test",
+  easternDateStr: () => "2026-10-04", APEX_API_BASE: "https://api.test", DEFAULT_ORIGIN: "https://apex.test", DOC_LINK_ORIGIN: "https://doc.test",
   gmEstPublicRateLimit: async () => null, crypto: globalThis.crypto, REQUEST_CTX: new WeakMap(),
   apxStripePost: st.apxStripePost, notifyNicoleTelegram: st.notifyNicoleTelegram, APX_STRIPE_ACH_ENABLED: false
 }, extra || {});
 const stubs = stubsFor(fakeStripe());
 const fns = ["logoVersionParam", "apxInvSwitches", "apxInvNoIndex", "apxInvByToken", "apxInvEasternDate", "apxInvMoney", "apxInvPayload", "apxInvPayBlock", "handleGetPublicApexInvoice",
-  "apxPayLockTake", "apxPayLockRelease", "apxInvRetireLinks", "apxInvEnsurePayLinks", "apxInvAfterView", "apxUsd", "applyStripeChargesToApexInvoices"];
+  "apxPayLockTake", "apxPayLockRelease", "apxInvRetireLinks", "apxInvEnsurePayLinks", "docLinkAddressFor", "apxInvAfterView", "apxUsd", "applyStripeChargesToApexInvoices"];
 
 {
   const d = world(); const env = { DB: d.DB };
@@ -185,6 +185,13 @@ const fns = ["logoVersionParam", "apxInvSwitches", "apxInvNoIndex", "apxInvByTok
   r = await F.apxInvEnsurePayLinks(env, invRow("106"));
   fakeStripe.failKind = null;
   ok(r.created.length === 1 && r.created[0].kind === "card" && /us_bank_account is invalid/.test(r.warnings.join(" ")), "if Stripe rejects ACH the card link is still made and the exact Stripe error is returned");
+
+  // An invoice with a readable doc.resonateai.online link returns there.
+  seedInvoice(d, "107", "sent", { token: TOK("f"), cents: 2500 });
+  d.raw.prepare("INSERT INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES ('apex/fatura-9107-abcd2345', 'apex-invoice', ?, 'c1', 'Apex', 'Fatura')").run(TOK("f"));
+  await F.apxInvEnsurePayLinks(env, invRow("107"));
+  const readableCall = st.calls.filter(c => c.path === "payment_links").pop();
+  ok(readableCall.params["after_completion[redirect][url]"] === "https://doc.test/apex/fatura-9107-abcd2345?paid=1&lang=pt", "an invoice with a readable link: Stripe returns to the readable address with paid=1");
 }
 
 // ── Phase 3: recording Stripe payments on invoices ─────────────────────────

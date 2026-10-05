@@ -39,9 +39,19 @@ var ALLOWED_ORIGINS = [
 // is locked down until withCorsOrigin() rewrites it at the fetch boundary.
 var DEFAULT_ORIGIN = "https://apex.resonateai.online";
 
+// The customer pages are also served on doc.resonateai.online (see
+// docLinkServe), so their calls arrive with that Origin. It is echoed for the
+// public document routes ONLY (PUBLIC_DOC_PATH_RE: the token in the path is
+// the credential), by exact string equality like the list above. Every other
+// route answers that origin with the locked-down default, as before.
+var DOC_PAGE_ORIGIN = "https://doc.resonateai.online";
+
 function corsOriginFor(request) {
     var origin = request && request.headers ? request.headers.get("Origin") : null;
     if (origin && ALLOWED_ORIGINS.indexOf(origin) !== -1) { return origin; }
+    if (origin === DOC_PAGE_ORIGIN) {
+        try { if (PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return origin; } } catch (e) {}
+    }
     return DEFAULT_ORIGIN;
 }
 
@@ -27102,6 +27112,10 @@ async function handlePostPublicInvoicePay(token, request, env) {
         var bizName = settings.legal_name || (client && client.name) || "";
         var label = "Invoice " + inv.number + (job && job.obra ? " - " + job.obra : "");
         var page = DEFAULT_ORIGIN + "/invoice-view?t=" + token;
+        // Asked from the readable doc.resonateai.online page: Stripe sends the
+        // customer back to that same readable address (the Worker looks it up;
+        // the page never supplies an address). Anything else: as before.
+        var backTo = await docLinkReturnAddress(env, request, "invoice", token);
         var meta = { apex_invoice_id: inv.id, apex_client_id: inv.client_id, apex_invoice_number: inv.number };
         var params = {
             mode: "payment",
@@ -27109,8 +27123,8 @@ async function handlePostPublicInvoicePay(token, request, env) {
             client_reference_id: inv.id,
             metadata: meta,
             payment_intent_data: { description: (label + (bizName ? " (" + bizName + ")" : "")).slice(0, 500), metadata: meta },
-            success_url: page + "&paid=1",
-            cancel_url: page
+            success_url: backTo ? backTo + "?paid=1" : page + "&paid=1",
+            cancel_url: backTo || page
         };
         var email = customer && customer.email ? String(customer.email).trim() : "";
         if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { params.customer_email = email; }
@@ -44414,11 +44428,31 @@ async function docLinkServe(request, env) {
     var logoExt = /png/i.test(logoType) ? "png" : (/webp/i.test(logoType) ? "webp" : (/gif/i.test(logoType) ? "gif" : "jpg"));
     var target = docLinkTarget(row.kind, row.public_token);
     var image = DOC_LINK_ORIGIN + "/" + slug + "/preview." + logoExt;
+    var tags = docLinkPreviewTags(row, slug, image, logoType);
+    var answer = { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } };
+    if (request.method === "HEAD") { return new Response(null, answer); }
+    // The real page, served on this address so the bar keeps the readable
+    // link for the whole visit. Anything wrong with it (the main site did not
+    // answer, the file is not a page that knows this address) gives null, and
+    // the answer is the forward that every link used before.
+    var page = null;
+    try { page = await docLinkPageHtml(row, slug, tags); } catch (e) { console.error("[doc-link] page: " + (e && e.message)); page = null; }
+    if (page) { return new Response(page, answer); }
     var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
         "<meta name=\"robots\" content=\"noindex, nofollow\">" +
         "<title>" + docLinkEsc(row.title) + "</title>" +
-        "<meta property=\"og:type\" content=\"website\">" +
+        tags +
+        "<meta http-equiv=\"refresh\" content=\"0;url=" + docLinkEsc(target) + "\">" +
+        "</head><body style=\"font-family:sans-serif\"><script>location.replace(" + JSON.stringify(target) + ");</script>" +
+        "<p><a href=\"" + docLinkEsc(target) + "\">Open " + docLinkEsc(row.description) + "</a></p></body></html>";
+    return new Response(html, answer);
+}
+
+// The chat preview card (WhatsApp, iMessage). ONE copy, used by the page
+// served in place and by the forward it falls back to.
+function docLinkPreviewTags(row, slug, image, logoType) {
+    return "<meta property=\"og:type\" content=\"website\">" +
         "<meta property=\"og:site_name\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:title\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:description\" content=\"" + docLinkEsc(row.description) + "\">" +
@@ -44427,12 +44461,90 @@ async function docLinkServe(request, env) {
         "<meta property=\"og:image:secure_url\" content=\"" + docLinkEsc(image) + "\">" +
         "<meta property=\"og:image:alt\" content=\"" + docLinkEsc(row.title) + "\">" +
         "<meta property=\"og:url\" content=\"" + docLinkEsc(DOC_LINK_ORIGIN + "/" + slug) + "\">" +
-        "<meta name=\"twitter:card\" content=\"summary\">" +
-        "<meta http-equiv=\"refresh\" content=\"0;url=" + docLinkEsc(target) + "\">" +
-        "</head><body style=\"font-family:sans-serif\"><script>location.replace(" + JSON.stringify(target) + ");</script>" +
-        "<p><a href=\"" + docLinkEsc(target) + "\">Open " + docLinkEsc(row.description) + "</a></p></body></html>";
-    return new Response(request.method === "HEAD" ? null : html,
-        { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+        "<meta name=\"twitter:card\" content=\"summary\">";
+}
+
+// CUSTOMER PAGES STAY ON doc.resonateai.online (Nicole, 2026-10-05).
+//
+// The page file is read from the main site on every visit (so a change to a
+// page shows here with no Worker deploy) and answered on the readable
+// address with four things added at the top of its <head>:
+//   <base href="https://apex.resonateai.online/">  styles, scripts, fonts,
+//       images and the privacy / terms links keep loading from the main site
+//   the preview tags, and the business's name as the <title>
+//   window.DOC_PAGE_LINK = { kind, token, url }: the token reaches the page
+//       without being in the address bar. The page reads it before ?t= / ?b=
+//   a click handler for "#..." links: with a <base> a bare "#totals" would
+//       leave for the main site, so those scroll inside the page instead
+// Returns null (the caller then forwards, as before) unless the file is a
+// 200 HTML page that carries DOC_LINK_PAGE_MARK, i.e. a version of the page
+// that reads window.DOC_PAGE_LINK. A page from before this change, a cached
+// old copy or an error page from the main site therefore never shows here
+// without its token.
+// The app manifest and pwa.js are taken out, and with the <base> a service
+// worker address resolves to another site, which a browser refuses: nothing
+// on this host registers one or offers to install.
+var DOC_LINK_PAGE_MARK = "DOC_PAGE_LINK";
+var DOC_LINK_PAGE_TIMEOUT_MS = 4000;
+async function docLinkPageHtml(row, slug, tags) {
+    var file = DOC_LINK_PAGES[row.kind];
+    if (!/\.html$/.test(file)) { file += ".html"; }
+    var ctl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = ctl ? setTimeout(function() { try { ctl.abort(); } catch (e) {} }, DOC_LINK_PAGE_TIMEOUT_MS) : null;
+    var src = "";
+    try {
+        var res = await fetch(DEFAULT_ORIGIN + "/" + file, ctl ? { method: "GET", signal: ctl.signal } : { method: "GET" });
+        if (!res || res.status !== 200) { return null; }
+        if (String(res.headers.get("Content-Type") || "").toLowerCase().indexOf("text/html") === -1) { return null; }
+        src = await res.text();
+    } finally {
+        if (timer) { clearTimeout(timer); }
+    }
+    if (!src || src.length > 2000000 || src.indexOf(DOC_LINK_PAGE_MARK) === -1) { return null; }
+    var head = /<head[^>]*>/i.exec(src);
+    if (!head || !/<\/html>\s*$/i.test(src)) { return null; }
+    var info = JSON.stringify({ kind: row.kind, token: String(row.public_token), url: DOC_LINK_ORIGIN + "/" + slug })
+        .replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+    var added = "<base href=\"" + DEFAULT_ORIGIN + "/\">" + tags +
+        "<script>window.DOC_PAGE_LINK=" + info + ";" +
+        "document.addEventListener(\"click\",function(ev){" +
+        "var a=ev.target&&ev.target.closest?ev.target.closest(\"a\"):null;" +
+        "var h=a?a.getAttribute(\"href\"):null;" +
+        "if(!h||h.charAt(0)!==\"#\"){return;}" +
+        "ev.preventDefault();" +
+        "var el=null;try{el=h.length>1?document.getElementById(decodeURIComponent(h.slice(1))):null;}catch(e){el=null;}" +
+        "if(el&&el.scrollIntoView){el.scrollIntoView();}else if(h===\"#\"){window.scrollTo(0,0);}" +
+        "});</script>";
+    var at = head.index + head[0].length;
+    var rest = src.slice(at)
+        .replace(/<base\b[^>]*>/gi, "")
+        .replace(/<link\b[^>]*rel=["']?manifest["']?[^>]*>/gi, "")
+        .replace(/<script\b[^>]*src=["'][^"']*pwa\.js[^"']*["'][^>]*>\s*<\/script>/gi, "")
+        .replace(/<title>[\s\S]*?<\/title>/i, function() { return "<title>" + docLinkEsc(row.title) + "</title>"; });
+    return src.slice(0, at) + added + rest;
+}
+
+// The readable address of a document, or null when it has none (or the
+// lookup fails: the caller then uses the page's own address).
+async function docLinkAddressFor(env, kind, token) {
+    try {
+        if (!kind || !token) { return null; }
+        var found = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
+        return found && found.slug ? DOC_LINK_ORIGIN + "/" + found.slug : null;
+    } catch (e) {
+        console.error("[doc-link] address: " + (e && e.message));
+        return null;
+    }
+}
+
+// Where Stripe sends a customer back to. The readable address, and only when
+// the request itself came from the page on doc.resonateai.online (its Origin,
+// by exact equality); null for every other caller, who goes back to the
+// page's own address exactly as before.
+async function docLinkReturnAddress(env, request, kind, token) {
+    var origin = request && request.headers ? request.headers.get("Origin") : null;
+    if (origin !== DOC_LINK_ORIGIN) { return null; }
+    return await docLinkAddressFor(env, kind, token);
 }
 
 // PUBLIC DOCUMENT RESPONSES ARE NEVER INDEXED AND NEVER STORED (2026-10-04).
@@ -49830,6 +49942,11 @@ async function apxInvEnsurePayLinks(env, inv) {
                 ["product_data[name]", "Fatura " + inv.number + " Apex Business & Leadership"]
             ]);
             var meta = [["apex_invoice_id", inv.id], ["apex_client_id", inv.client_id || ""], ["client_id", inv.client_id || ""], ["apex_invoice_number", inv.number || ""]];
+            // One payment link serves both addresses of the invoice, so it
+            // returns to the readable doc.resonateai.online address when the
+            // invoice has one, and to the page's own address when it has none.
+            var readable = await docLinkAddressFor(env, "apex-invoice", inv.public_token);
+            var afterPay = readable ? readable + "?paid=1&lang=pt" : DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token + "&paid=1&lang=pt";
             for (var n = 0; n < need.length; n++) {
                 var kind = need[n];
                 try {
@@ -49837,7 +49954,7 @@ async function apxInvEnsurePayLinks(env, inv) {
                         ["line_items[0][price]", price.id], ["line_items[0][quantity]", "1"],
                         ["payment_method_types[0]", kind === "ach" ? "us_bank_account" : "card"],
                         ["after_completion[type]", "redirect"],
-                        ["after_completion[redirect][url]", DEFAULT_ORIGIN + APX_INV_PAGE + "?t=" + inv.public_token + "&paid=1&lang=pt"]
+                        ["after_completion[redirect][url]", afterPay]
                     ];
                     meta.forEach(function(m) {
                         params.push(["metadata[" + m[0] + "]", m[1]]);

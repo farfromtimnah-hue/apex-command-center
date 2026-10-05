@@ -192,7 +192,12 @@
 
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
-    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token over in window.DOC_PAGE_LINK, so it is
+    // never in the address bar there. The ?t= address works as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
     // Portal preview (the builder's Preview button): the same payload through
     // the owner's session, rendered with a banner and no signing controls.
     var previewId = (window.location.search.match(/[?&]preview=([A-Za-z0-9-]+)/) || [])[1] || null;
@@ -885,6 +890,10 @@
       return fetchContract()
         .then(function(d) {
           if (d.superseded) {
+            // A newer version of this document. On the readable address it is
+            // loaded in place (the address bar stays as it is); on the old
+            // address the page moves to the new token as before.
+            if (d.current_token && docLink) { token = d.current_token; return load(); }
             if (d.current_token) { window.location.replace("contract-view?t=" + d.current_token); return; }
             if (d.preparing) { con = d.preparing; con.business = con.business || {}; applyBranding(con.business); renderPreparing(); show("doc"); return; }
             show("cardNotFound"); return;

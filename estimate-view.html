@@ -144,7 +144,12 @@
 
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
-    var token = (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
+    // On doc.resonateai.online the Worker serves this page on the readable
+    // address and hands the token over in window.DOC_PAGE_LINK, so it is
+    // never in the address bar there. The ?t= address works as before.
+    var docLink = (window.DOC_PAGE_LINK && typeof window.DOC_PAGE_LINK === "object") ? window.DOC_PAGE_LINK : null;
+    var docToken = (docLink && /^[a-f0-9]{48}$/.test(String(docLink.token || ""))) ? String(docLink.token) : null;
+    var token = docToken || (window.location.search.match(/[?&]t=([a-f0-9]{48})/) || [])[1] || null;
     function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
     function money(c) { var n = (Number(c) || 0) / 100; var neg = n < 0; n = Math.abs(n); var p = n.toFixed(2).split("."); p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ","); return (neg ? "-" : "") + "$" + p.join("."); }
     // Plain YYYY-MM-DD dates print as they are; a UTC timestamp from D1 is
@@ -577,6 +582,10 @@
         .then(function(res) { if (!res.ok) { throw new Error("nf"); } return res.json(); })
         .then(function(d) {
           if (d.superseded) {
+            // A newer version of this document. On the readable address it is
+            // loaded in place (the address bar stays as it is); on the old
+            // address the page moves to the new token as before.
+            if (d.current_token && docLink) { token = d.current_token; return load(); }
             if (d.current_token) { window.location.replace("estimate-view?t=" + d.current_token); return; }
             show("cardNotFound"); return;
           }

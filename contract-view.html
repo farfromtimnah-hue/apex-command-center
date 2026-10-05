@@ -155,6 +155,8 @@
     .noc-copy p { font-weight: 700; font-size: 13.5px; margin: 0 0 8px; }
     .docs a { display: block; min-height: 44px; line-height: 44px; font-weight: 700; color: var(--brand-accent); text-decoration: underline; }
     .disclaimer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; }
+    /* State riders: outside Florida the same disclaimer also opens the page. */
+    .disclaimer-top { font-size: 14px; color: var(--ink); margin: 0; }
     .preview-banner { background: #fff4d6; border: 1px solid #e8cf8a; color: #6b4d00; border-radius: 10px; padding: 10px 14px; font-weight: 700; text-align: center; margin-top: 14px; }
     .step { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 12px; }
     .step h3 { font-size: 15px; margin-bottom: 4px; }
@@ -177,6 +179,7 @@
 
     <div id="doc" class="hidden">
       <div class="preview-banner hidden" id="previewBanner">PREVIEW - not sent. This is exactly what the homeowner will see.</div>
+      <div class="card hidden" id="cardDisclaimerTop" role="note"><p class="disclaimer-top" id="disclaimerTop"></p></div>
       <div class="card" id="cardMeta"></div>
       <div class="card hidden" id="cardStateBanner"></div>
       <div id="sections"></div>
@@ -435,7 +438,7 @@
           h += '</div><div class="card" id="poolCard"><h2>Pool safety documents</h2><div class="clause locked">' + richHtml(s.text) + '</div>' + poolDocsHtml() + '</div><div class="card">';
           return;
         }
-        h += '<div class="clause' + (s.kind === "locked" ? " locked" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.text) + '</div>';
+        h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.text) + '</div>';
       });
       h += '</div>';
       box.innerHTML = h;
@@ -874,6 +877,12 @@
           // F6: the PREVIEW banner is for unsent drafts only; a sent or signed
           // contract previews exactly as the homeowner sees it.
           var pb = byId("previewBanner"); if (pb) { pb.classList.toggle("hidden", !isPreviewDraft()); }
+          // State riders: a contract for a job outside Florida shows its
+          // disclaimer at the top of the page as well as at the foot.
+          var dtCard = byId("cardDisclaimerTop"), dt = byId("disclaimerTop");
+          var showTop = con.status !== "void" && con.disclaimer_top === true && !!con.disclaimer_line;
+          if (dt) { dt.textContent = showTop ? con.disclaimer_line : ""; }
+          if (dtCard) { dtCard.classList.toggle("hidden", !showTop); }
           if (con.status === "void") { renderVoid(); var de0 = byId("disclaimerEnd"); if (de0) { de0.textContent = ""; } show("doc"); return; }
           renderMeta(); renderSections(); renderPay(); renderActions();
           var de = byId("disclaimerEnd"); if (de) { de.textContent = con.disclaimer_line || ""; }

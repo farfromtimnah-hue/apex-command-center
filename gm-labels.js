@@ -705,8 +705,42 @@
   function contractAreaTitle(id, title, en) { return (!en && CONTRACT_AREA_PT[id]) ? CONTRACT_AREA_PT[id] : (title || id || ""); }
   function contractOptionTitle(id, title, en) { return (!en && CONTRACT_OPTION_PT[id]) ? CONTRACT_OPTION_PT[id] : (title || id || ""); }
   function contractTradeLabel(key, label, en) { return (!en && CONTRACT_TRADE_PT[key]) ? CONTRACT_TRADE_PT[key] : (label || key || ""); }
-  function contractNoticeWhy(why, en) { return (!en && CONTRACT_NOTICE_WHY_PT[why]) ? CONTRACT_NOTICE_WHY_PT[why] : (why || ""); }
-  function contractDisclaimer(text, en) { return (!en && CONTRACT_DISCLAIMER_PT[text]) ? CONTRACT_DISCLAIMER_PT[text] : (text || ""); }
+  // State riders: a Florida block that is off because the job is in another
+  // state carries the state's name in its reason, so it is matched by pattern.
+  function contractNoticeWhy(why, en) {
+    if (!en && CONTRACT_NOTICE_WHY_PT[why]) { return CONTRACT_NOTICE_WHY_PT[why]; }
+    if (!en) {
+      var m = /^job is in (.+): Florida notice not used$/.exec(why || "");
+      if (m) { return "a obra fica em " + m[1] + ": o aviso da Fl\u00f3rida n\u00e3o \u00e9 usado"; }
+      m = /^job is in (.+): state defect process named instead$/.exec(why || "");
+      if (m) { return "a obra fica em " + m[1] + ": o contrato cita o processo de defeitos do estado"; }
+    }
+    return why || "";
+  }
+  // The disclaimer, sentence by sentence (the state sentences carry a state
+  // name; a sentence with no Portuguese version stays as sent).
+  var CONTRACT_DISCLAIMER_CUSTOM_EN = "This contract contains a custom clause that was not reviewed by an attorney.";
+  var CONTRACT_DISCLAIMER_CUSTOM_PT = "Este contrato tem uma cl\u00e1usula personalizada que n\u00e3o foi revisada por um advogado.";
+  function contractDisclaimer(text, en) {
+    var t = text || "";
+    if (en) { return t; }
+    if (CONTRACT_DISCLAIMER_PT[t]) { return CONTRACT_DISCLAIMER_PT[t]; }
+    var out = [], rest = t, m;
+    m = /^Draft rider, not reviewed by a lawyer for (.+?)\. This contract was prepared with state-specific additions that no lawyer has reviewed\. Have your attorney review it\.\s*/.exec(rest);
+    if (m) {
+      out.push("Rascunho de adendo estadual, n\u00e3o revisado por advogado para " + m[1] + ". Este contrato foi preparado com acr\u00e9scimos espec\u00edficos do estado que nenhum advogado revisou. Pe\u00e7a ao seu advogado para revisar.");
+      rest = rest.slice(m[0].length);
+    } else {
+      m = /^Reviewed by (.+) for (.+?) on (\d{2}\/\d{2}\/\d{4})\.\s*/.exec(rest);
+      if (m) { out.push("Revisado por " + m[1] + " para " + m[2] + " em " + m[3] + "."); rest = rest.slice(m[0].length); }
+    }
+    if (!out.length) { return t; }
+    m = /^State-specific rules for (.+?) could not be verified from official sources\. Confirm licensing and notices before signing\.\s*/.exec(rest);
+    if (m) { out.push("As regras espec\u00edficas de " + m[1] + " n\u00e3o puderam ser confirmadas em fontes oficiais. Confirme a licen\u00e7a e os avisos antes de assinar."); rest = rest.slice(m[0].length); }
+    if (rest === CONTRACT_DISCLAIMER_CUSTOM_EN) { out.push(CONTRACT_DISCLAIMER_CUSTOM_PT); rest = ""; }
+    if (rest) { out.push(rest); }
+    return out.join(" ");
+  }
 
   // ── Invoice / payment step names (N6) ───────────────────────────────────
   // The stored step names stay English (they print on the English customer

@@ -130,6 +130,8 @@
     .noc .copy { font-size: 8pt; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8pt; }
     .l5a { font-size: 10pt; font-weight: 700; margin: 6pt 0; white-space: pre-wrap; }
     .disclaimer { font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 6pt; margin-top: 8pt; }
+    /* State riders: outside Florida the same disclaimer also opens page 1. */
+    .disclaimer-top { font-size: 9pt; border: 1px solid var(--rule); padding: 6pt 8pt; margin: 0 0 8pt; }
     .appx-row { display: flex; gap: 12pt; break-inside: avoid; page-break-inside: avoid; margin-bottom: 10pt; }
     .appx-cell { flex: 1; min-width: 0; border: 1px solid var(--rule); border-radius: 6pt; overflow: hidden; }
     .appx-cell img { width: 100%; height: 2.4in; object-fit: cover; display: block; background: #eee; }
@@ -381,6 +383,9 @@
       else if (isPreviewDraft()) { stamp = '<span class="stamp bad">PREVIEW - NOT SENT</span>'; }
       var tile = { label: "Contract price", value: money(con.contract_amount_cents) };
       blocks.push({ html: metaBlockHtml("Owner", con.customer_name, whoLines, b, "Contract", con.display_number, rows, stamp, tile), kind: "block", keepWithNext: true });
+      // State riders: a contract for a job outside Florida prints its
+      // disclaimer on the first page as well as on the signature page.
+      if (con.disclaimer_top === true && con.disclaimer_line) { blocks.push({ html: '<div class="blk disclaimer-top">' + escHtml(con.disclaimer_line) + '</div>', kind: "block", keepWithNext: true }); }
 
       // Body sections in payload order; L1, L5-A and L5-B are pulled out and
       // placed by rule.
@@ -389,7 +394,7 @@
         if (s.kind === "locked" && s.id === "L1") { lien = s; return; }
         if (s.kind === "locked" && s.id === "L5-A") { l5a = s; return; }
         if (s.kind === "locked" && s.id === "L5-B") { return; }
-        if (s.kind === "locked") {
+        if (s.kind === "locked" || s.kind === "state_notice") {
           if (s.title) { blocks.push({ html: '<div class="blk locked-h">' + escHtml(s.title) + '</div>', kind: "block", keepWithNext: true }); }
           paras(s.text).forEach(function(p) { blocks.push(paraBlock('<div class="blk locked">', '</div>', p, paraFmt)); });
           return;

@@ -66,6 +66,36 @@
   // window exists.
   function sendWhatsApp(inv, deps) {
     if (!inv) { return; }
+    // In-page question instead of the browser's confirm box. pageDialog runs
+    // the yes-action synchronously inside the tap on "Yes", so window.open
+    // below is still inside the user gesture and the popup-blocker fix holds.
+    if (deps.confirm !== false) {
+      var who = inv.client_name || "";
+      var amount = deps.fmtCents(inv.amount_cents);
+      var en = deps.isEn();
+      var ask = en
+        ? "Send invoice " + inv.number + " (" + amount + ") to " + who + " on WhatsApp now?"
+        : "Enviar a fatura " + inv.number + " (" + amount + ") para " + who + " no WhatsApp agora?";
+      askInPage(deps, {
+        message: ask,
+        yes: en ? "Yes, send it" : "Sim, enviar",
+        keep: en ? "Do not send" : "N\u00e3o enviar"
+      }, function() { runSend(inv, deps); });
+      return;
+    }
+    runSend(inv, deps);
+  }
+
+  // Shows the question as an in-page card. The page supplies pageDialog (or
+  // deps.ask). With neither, nothing is sent: a send is never done unasked.
+  function askInPage(deps, o, onYes) {
+    var fn = deps.ask || (typeof pageDialog === "function" ? pageDialog : null);
+    if (!fn) { return false; }
+    o.onYes = onYes;
+    return fn(o);
+  }
+
+  function runSend(inv, deps) {
     var invoiceId = inv.id;
 
     // CONFIRM BEFORE SENDING (the invoice rows). Sending is irreversible from
@@ -74,18 +104,8 @@
     // previewed it because this button was the only one on the row. The
     // confirm names the client and the amount so a mis-click on the wrong row
     // is caught too. The review page passes confirm: false: there the person
-    // is looking at the invoice itself.
-    //
-    // Deliberately BEFORE window.open: confirm() is synchronous and preserves
-    // the user-gesture context, so the popup-blocker fix below still holds.
-    if (deps.confirm !== false) {
-      var who = inv.client_name || "";
-      var amount = deps.fmtCents(inv.amount_cents);
-      var ask = deps.isEn()
-        ? "Send invoice " + inv.number + " (" + amount + ") to " + who + " on WhatsApp now?"
-        : "Enviar a fatura " + inv.number + " (" + amount + ") para " + who + " no WhatsApp agora?";
-      if (!window.confirm(ask)) { return; }
-    }
+    // is looking at the invoice itself. (The question is asked in sendWhatsApp
+    // above, before this runs, as an in-page card.)
 
     var waWindow = window.open("", "_blank");
 
@@ -170,8 +190,15 @@
         " as sent? Use this when it was already sent some other way."
       : "Marcar a fatura " + num + " (" + amount + ") para " + who +
         " como enviada? Use quando ela ja foi enviada de outra forma.";
-    if (!window.confirm(ask)) { return; }
+    var en2 = deps.isEn();
+    askInPage(deps, {
+      message: ask,
+      yes: en2 ? "Yes, mark as sent" : "Sim, marcar como enviada",
+      keep: en2 ? "Do not mark" : "N\u00e3o marcar"
+    }, function() { runMarkSent(invoiceId, deps); });
+  }
 
+  function runMarkSent(invoiceId, deps) {
     deps.apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-sent", { method: "POST" })
       .then(function(r) { return r.json().catch(function() { return {}; }); })
       .then(function(d) {

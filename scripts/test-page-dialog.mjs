@@ -6,7 +6,14 @@
 import fs from "node:fs";
 import vm from "node:vm";
 
-var PAGES = ["dashboard.html", "client.html", "finance-new.html", "calendar.html"];
+var PAGES = ["dashboard.html", "client.html", "finance-new.html", "calendar.html",
+  "clients.html", "documents.html", "finance.html", "sessions.html", "settings.html",
+  "meeting-prep.html", "apex-invoice-view.html"];
+// Pages that only needed the one-line message (they had alert boxes, no questions).
+var NOTICE_PAGES = ["dashboard.html", "client.html",
+  "clients.html", "documents.html", "finance.html", "sessions.html", "settings.html",
+  "meeting-prep.html", "add-user.html", "contract-review.html", "client-analytics.html"];
+var IOS = "ios/App/App/public/";
 var failed = 0;
 function check(name, ok) {
   if (!ok) { failed++; }
@@ -43,9 +50,11 @@ function load(page) {
   doc = {
     body: body, activeElement: null,
     createElement: makeEl,
+    getElementById: function(id) { return null; },
     addEventListener: function(t, fn) { (docListeners[t] = docListeners[t] || []).push(fn); },
     removeEventListener: function(t, fn) { docListeners[t] = (docListeners[t] || []).filter(function(x) { return x !== fn; }); }
   };
+  doc.documentElement = body;
   doc.keydown = function(ev) {
     ev.preventDefault = ev.preventDefault || function() {};
     ev.stopPropagation = ev.stopPropagation || function() {};
@@ -67,7 +76,7 @@ function buttons(ctx) {
   return { ov: ov, btns: out };
 }
 
-PAGES.forEach(function(page) {
+PAGES.concat(PAGES.filter(function(p) { return fs.existsSync(IOS + p); }).map(function(p) { return IOS + p; })).forEach(function(page) {
   var ctx = load(page);
   var yesCount = 0, keepCount = 0, seen = null;
   function open(extra) {
@@ -124,6 +133,37 @@ PAGES.forEach(function(page) {
   check(page + ": note-only card has one button", u.btns.length === 1);
   fire(u.btns[0], "click");
   check(page + ": closing a note-only card sends nothing", yesCount === 2 && doc.body.children.length === 0);
+});
+
+// pageNotice: shows the same words in a pill, replaces the earlier one, goes away by itself.
+function loadNotice(page) {
+  var html = fs.readFileSync(page, "utf8");
+  var a = html.indexOf("function pageNotice");
+  if (a < 0) { throw new Error(page + ": pageNotice missing"); }
+  var b = html.indexOf("\n    }\n", a) + 7;
+  var body = makeEl("body");
+  var byId = {};
+  var timers = [];
+  doc = {
+    body: body, createElement: makeEl,
+    getElementById: function(id) { return byId[id] || null; }
+  };
+  var origAppend = body.appendChild;
+  body.appendChild = function(c) { if (c.id) { byId[c.id] = c; } return origAppend(c); };
+  var ctx = { document: doc, setTimeout: function(fn, ms) { timers.push([fn, ms]); return timers.length; }, clearTimeout: function() {} };
+  vm.createContext(ctx);
+  vm.runInContext(html.slice(a, b), ctx);
+  return { ctx: ctx, body: body, timers: timers };
+}
+NOTICE_PAGES.concat(NOTICE_PAGES.filter(function(p) { return fs.existsSync(IOS + p); }).map(function(p) { return IOS + p; })).forEach(function(page) {
+  var n = loadNotice(page);
+  vm.runInContext("pageNotice", n.ctx)("Erro: x / Error: x");
+  var el = n.body.children[0];
+  check(page + ": pageNotice shows the same words in the page", el && el.textContent === "Erro: x / Error: x" && el.style.display === "block");
+  vm.runInContext("pageNotice", n.ctx)("second");
+  check(page + ": a second notice replaces the first (one pill)", n.body.children.length === 1 && el.textContent === "second");
+  n.timers[n.timers.length - 1][0]();
+  check(page + ": the notice goes away by itself", el.style.display === "none");
 });
 
 if (failed) { console.log(failed + " FAILED"); process.exit(1); }

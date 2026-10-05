@@ -46,6 +46,16 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  // In-page message (this used to be the browser's alert box; wording is the
+  // same). The page's own pageNotice when it has one (Rafa's analytics page);
+  // otherwise the portal's gmAsk, a one-button card that stays until closed.
+  function avNotice(msg) {
+    if (typeof pageNotice === "function") { pageNotice(msg); return; }
+    if (typeof gmAsk === "function") {
+      gmAsk({ message: msg, keep: document.body.classList.contains("lang-en") ? "Close" : "Fechar" });
+    }
+  }
+
   function fmtNumAmerican(n) {
     var rounded = Math.round(n * 100) / 100;
     var neg = rounded < 0;
@@ -699,7 +709,7 @@
         .split("{label}").join(label);
       var tab = window.open("https://wa.me/?text=" + encodeURIComponent(waText), "_blank");
       if (!tab) {
-        window.alert(isEn() ? "Popup blocked — allow popups and try again." : "Popup bloqueado — permita popups e tente de novo.");
+        avNotice(isEn() ? "Popup blocked — allow popups and try again." : "Popup bloqueado — permita popups e tente de novo.");
         return;
       }
       apiFetch("/api/clients/" + clientId + "/help-request", {
@@ -713,12 +723,12 @@
         .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
         .then(function(r) {
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
-          window.alert(isEn()
+          avNotice(isEn()
             ? "Help request sent — Rafa was notified and will see your numbers."
             : "Pedido de ajuda enviado — o Rafa foi avisado e vai ver seus números.");
         })
         .catch(function(e) {
-          window.alert(isEn()
+          avNotice(isEn()
             ? "The WhatsApp message opened, but saving your numbers for Rafa failed: " + e.message
             : "O WhatsApp abriu, mas não foi possível salvar seus números para o Rafa: " + e.message);
         });

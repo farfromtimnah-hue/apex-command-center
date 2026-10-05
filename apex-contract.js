@@ -507,8 +507,19 @@
     var note = byId("apxCopyNote");
     var done = function() { if (note) { note.textContent = "Link copiado."; } markSent(id, true); };
     var l = c.share_link || c.link;
-    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(l).then(done).catch(function() { window.prompt("Copie o link:", l); done(); }); }
-    else { window.prompt("Copie o link:", l); done(); }
+    // Link shown in an in-page card (it used to be the browser's prompt box);
+    // marking it sent still happens when the card is closed, as it did then.
+    function showLink() {
+      if (!askPage({ message: "Copie o link:", keep: "Fechar", field: { value: l, readonly: true }, onKeep: done })) { done(); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(l).then(done).catch(showLink); }
+    else { showLink(); }
+  }
+
+  // In-page question/notice: the page's own pageDialog. Returns false when the
+  // page has none, so the caller can carry on without it.
+  function askPage(o) {
+    return (typeof pageDialog === "function") ? pageDialog(o) : false;
   }
 
   // Customer link control: switch the contract's public link off and on.
@@ -522,11 +533,18 @@
                   : "Desativar o link deste contrato?\n\nEnquanto estiver desativado, quem abrir o link vê que ele não é válido e não consegue ler nem assinar.\n\nO endereço antigo do contrato deixa de funcionar para sempre. Se você ativar de novo, envie o link outra vez ao cliente.")
       : (linkEn() ? "Enable this contract's link?\n\nThe contract opens again, at a new address. Send the link to the client again."
                   : "Ativar o link deste contrato?\n\nO contrato volta a abrir, em um endereço novo. Envie o link outra vez ao cliente.");
-    if (!window.confirm(msg)) { return; }
-    call(base() + "/" + id + "/" + (disable ? "disable-link" : "enable-link"), "POST", {})
-      .then(function() { return load(); })
-      .then(function() { sendRender(id); })
-      .catch(actErr);
+    var en = linkEn();
+    askPage({
+      message: msg,
+      yes: disable ? (en ? "Yes, disable the link" : "Sim, desativar o link") : (en ? "Yes, enable the link" : "Sim, ativar o link"),
+      keep: disable ? (en ? "Keep the link on" : "Manter o link ativo") : (en ? "Keep the link off" : "Manter o link desativado"),
+      onYes: function() {
+        call(base() + "/" + id + "/" + (disable ? "disable-link" : "enable-link"), "POST", {})
+          .then(function() { return load(); })
+          .then(function() { sendRender(id); })
+          .catch(actErr);
+      }
+    });
   }
 
   function voidOpen(id) {

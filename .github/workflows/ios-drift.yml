@@ -36,6 +36,12 @@ jobs:
         with:
           fetch-depth: 0   # need history to walk the pushed commits
 
+      # Rule 31: no browser pop-ups. The same script the commit hook runs
+      # (scripts/check-no-popups.sh); fails naming the file and line of any
+      # confirm(, alert( or prompt( in a root .html or .js file.
+      - name: No browser pop-ups (Rule 31)
+        run: sh scripts/check-no-popups.sh
+
       - name: Every commit must consider the iOS copy
         shell: bash
         run: |

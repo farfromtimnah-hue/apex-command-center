@@ -91,6 +91,10 @@ async function run(code, call, sc) {
     INVOICES: sc.invoices,
     MESSAGE_TEMPLATES: sc.templates === undefined ? { invoice_send: "Ola! Segue a fatura:\n{invoiceLink}\nObrigada." } : sc.templates,
     APX_SWITCHES: { client_invoice_link_enabled: sc.switchOn === true, club_pay_enabled: false, role: "alice" },
+    // The in-page question (pageDialog on the real pages): answered at once,
+    // inside the same call, the way a tap on the Yes / Keep button is. It is
+    // traced as "confirm" so the old browser box and the card compare equal.
+    pageDialog: (o) => { trace.push(["confirm", o.message]); if (sc.confirm !== false) { o.onYes(); } return true; },
     isEn: () => sc.en === true,
     toast: (msg) => { trace.push(["toast", msg]); },
     loadInvoices: () => { trace.push(["loadInvoices"]); },

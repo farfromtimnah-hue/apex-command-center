@@ -36,7 +36,8 @@
   left: 0;
   right: 0;
 }
-/* The menu is only ever fixed when open (.mm-open supplies inset: 0 below).
+/* The menu is only ever fixed when open (.mg-open / .mm-open supply inset: 0
+   below).
    Positioning it here too keeps it out of body's flex column for the same
    reason as the bar, without making a closed menu occupy the viewport. */
 #mobile-more-menu {
@@ -44,6 +45,8 @@
   position: fixed;
 }
 .mc-ico { display: none; }
+/* Settings gear nav.js adds to the staff page header: phone only. */
+.apex-nav-gear { display: none; }
 
 @keyframes apexSheetUp {
   from { transform: translateY(48px); opacity: 0.55; }
@@ -119,7 +122,136 @@
   #mobile-tab-bar .m-tab.m-tab-active { color: #C9A43A; }
   #mobile-tab-bar .m-tab.m-tab-active .m-tab-ico { color: #C9A43A; }
 
-  /* ── "Mais" full-screen menu ────────────────────────────────────────── */
+  /* ── Settings gear in the staff page header ─────────────────────────── */
+  /* Settings is not on the dock; nav.js puts this link in #appHeader. */
+  .apex-nav-gear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 50%;
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .apex-nav-gear svg { width: 18px; height: 18px; }
+  .apex-nav-gear.apex-nav-gear-active { border-color: #C9A43A; color: #C9A43A; }
+
+  /* ── Staff dock: pop-up for a group's tools ─────────────────────────── */
+  /* Same look as the client portal's #portalGroupSheet (.pg-* in
+     portal.html): sits just above the dock and is only as tall as its list.
+     Under the dock (950) so the dock stays tappable while it is open. */
+  #mobile-more-menu.mg-open {
+    display: block;
+    inset: 0;
+    z-index: 945;
+  }
+  #mobile-more-menu .mg-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(20,18,16,0.45);
+  }
+  #mobile-more-menu .mg-panel {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(58px + 10px + env(safe-area-inset-bottom));
+    max-height: calc(100% - 58px - 30px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    animation: apexMenuIn 0.18s ease;
+  }
+  #mobile-more-menu .mg-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #6b6660;
+    padding: 8px 12px 6px;
+  }
+  #mobile-more-menu .mg-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 52px;
+    padding: 12px;
+    border-radius: 10px;
+    color: #1a1a1d;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mobile-more-menu .mg-item-ico {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b6660;
+    flex-shrink: 0;
+  }
+  #mobile-more-menu .mg-item-ico svg { width: 20px; height: 20px; }
+  #mobile-more-menu .mg-item.mg-item-active { background: #1a1a1d; color: #C9A43A; }
+  #mobile-more-menu .mg-item.mg-item-active .mg-item-ico { color: #C9A43A; }
+
+  /* Dev view switcher under a group's list (developer role only; nav.js
+     only renders it for that role — these rules are inert otherwise) */
+  #mobile-more-menu .mg-switcher {
+    margin-top: 8px;
+    padding: 10px 4px 4px;
+    border-top: 1px solid #e8e2d9;
+  }
+  #mobile-more-menu .mg-switcher-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #6b6660;
+    margin-bottom: 8px;
+    padding: 0 8px;
+  }
+  #mobile-more-menu .mg-switcher-btns {
+    display: flex;
+    gap: 6px;
+  }
+  #mobile-more-menu .mg-view-btn {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 2px;
+    background: transparent;
+    border: 1px solid #e8e2d9;
+    border-radius: 12px;
+    color: #6b6660;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mobile-more-menu .mg-view-btn.mg-view-active {
+    background: rgba(201,164,58,0.14);
+    border-color: #C9A43A;
+    color: #7a5f18;
+    font-weight: 600;
+  }
+
+  /* ── "Mais" full-screen menu (client portal only) ───────────────────── */
+  /* The staff dock no longer has a "Mais". portal.html still opens this for
+     a lead's locked-preview list (populateMobileDock / portalMoreToggle), so
+     the rules it uses stay. */
   #mobile-more-menu.mm-open {
     display: flex;
     flex-direction: column;
@@ -198,55 +330,6 @@
     display: flex;
     align-items: center;
   }
-  #mobile-more-menu .mm-item.mm-item-active {
-    border-color: #C9A43A;
-    color: #C9A43A;
-  }
-
-  /* Dev view switcher inside the "Mais" menu (developer role only; nav.js
-     only renders it for that role — these rules are inert otherwise) */
-  #mobile-more-menu .mm-switcher {
-    margin-top: 22px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255,255,255,0.14);
-  }
-  #mobile-more-menu .mm-switcher-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
-    margin-bottom: 8px;
-    padding: 0 2px;
-  }
-  #mobile-more-menu .mm-switcher-btns {
-    display: flex;
-    gap: 8px;
-  }
-  #mobile-more-menu .mm-view-btn {
-    flex: 1;
-    min-height: 44px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 12px;
-    color: rgba(255,255,255,0.7);
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #mobile-more-menu .mm-view-btn.mm-view-active {
-    background: rgba(201,164,58,0.14);
-    border-color: #C9A43A;
-    color: #C9A43A;
-    font-weight: 600;
-  }
-
-  /* Lock background scroll while the menu is open (class toggle only) */
-  body.mm-menu-lock { overflow: hidden; }
-
   /* ── View-switching tab strips (.m-scroll-tabs) ─────────────────────── */
   /* True tabs never wrap to a second row: they scroll horizontally with
      snap, and JS (nav.js) toggles mst-fade-* classes so a fade hints at

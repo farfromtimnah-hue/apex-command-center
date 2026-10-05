@@ -8730,6 +8730,18 @@ function taskVoiceMatchClient(name, clients) {
     return hits.length === 1 ? hits[0] : null;
 }
 
+// Today on Apex's clock (America/New_York): the date as YYYY-MM-DD, the same
+// formula as localDateStrForTZ(), and the weekday name. The moment is passed
+// in so both come from ONE instant, and so a test can pin it: late in the
+// evening in Florida it is already tomorrow in UTC.
+function taskVoiceToday(now) {
+    var at = now || new Date();
+    return {
+        date:    new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE }).format(at),
+        weekday: new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, weekday: "long" }).format(at)
+    };
+}
+
 function taskVoicePrompt(transcript, today, weekday, clientNames) {
     return "You turn a spoken note into a to-do list. The speaker is a business consultant in " +
         "Florida listing things HE has to do. He speaks Brazilian Portuguese or English.\n\n" +
@@ -8818,7 +8830,9 @@ async function taskVoiceDumpSet(env, id, f) {
     } catch (e) { /* no table yet, or the write failed: the response still carries the transcript */ }
 }
 
-async function handlePostTasksVoice(request, env) {
+// `now` is never passed by the router, so in normal use the clock is the real
+// one. It exists so a test can fix the moment "today" is worked out from.
+async function handlePostTasksVoice(request, env, now) {
     var dumpId = null;
     var transcript = "";
     try {
@@ -8886,9 +8900,9 @@ async function handlePostTasksVoice(request, env) {
                 "AND COALESCE(archived, 0) = 0 ORDER BY name"
             ).all();
             clients = cRes.results || [];
-            var weekday = new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, weekday: "long" }).format(new Date());
+            var day = taskVoiceToday(now);
             var raw = await taskVoiceAskClaude(env, taskVoicePrompt(
-                transcript, localDateStrForTZ(), weekday, clients.map(function(c) { return c.name; })));
+                transcript, day.date, day.weekday, clients.map(function(c) { return c.name; })));
             list = taskVoiceParseTasks(raw);
             if (!list) { throw new Error("reply was not the expected JSON"); }
         } catch (e) {

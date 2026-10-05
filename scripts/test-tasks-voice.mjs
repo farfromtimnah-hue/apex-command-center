@@ -37,12 +37,16 @@ function world(migrated) {
   return d;
 }
 
+// Every dictation in this file happens at this fixed moment unless a test
+// sets another, so no check depends on the day the file is run.
+// 2026-10-07T16:00:00Z is Wednesday, October 7, 12:00 PM in America/New_York.
+const FIXED_NOW = new Date("2026-10-07T16:00:00Z");
 const TRANSCRIPT = "Preciso ligar para o contador amanha, mandar a proposta para a Gator e preparar a mensagem de domingo.";
 
 // Stand-ins. `claude` is what the fake API answers with; `calls` records what
 // was sent to each service.
 function harness(d, opts) {
-  const o = Object.assign({ role: "rafa", name: "Tester", claude: { tasks: [] }, claudeStatus: 200, asrFail: null, transcript: TRANSCRIPT }, opts || {});
+  const o = Object.assign({ role: "rafa", name: "Tester", claude: { tasks: [] }, claudeStatus: 200, asrFail: null, transcript: TRANSCRIPT, now: FIXED_NOW }, opts || {});
   const calls = { asr: [], claude: [], logs: [] };
   const env = {
     DB: d.DB, CLAUDE_API_KEY: "test-key",
@@ -59,7 +63,7 @@ function harness(d, opts) {
     crypto: globalThis.crypto, Response: globalThis.Response, Intl: globalThis.Intl,
     CLAUDE_API_URL: "https://claude.test/v1/messages",
     CLAUDE_MODEL: /\nvar CLAUDE_MODEL\s*=\s*"([^"]+)"/.exec(workerSrc)[1],
-    APEX_TIMEZONE: "America/New_York", localDateStrForTZ: () => "2026-10-04", VOICE_MAX_AUDIO_BYTES: 8 * 1024 * 1024,
+    APEX_TIMEZONE: "America/New_York", VOICE_MAX_AUDIO_BYTES: 8 * 1024 * 1024,
     fetch: async (url, init) => {
       const body = JSON.parse(init.body);
       calls.claude.push({ url, model: body.model, prompt: body.messages[0].content, key: init.headers["x-api-key"] });
@@ -70,14 +74,14 @@ function harness(d, opts) {
     console: { log: (...a) => calls.logs.push(a.join(" ")), error: (...a) => calls.logs.push(a.join(" ")), warn: (...a) => calls.logs.push(a.join(" ")) }
   });
   const F = build(
-    ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
+    ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
      "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks"],
     ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL"], stubs);
   const audioReq = (bytes, lang) => ({
     url: "https://x.test/api/tasks/voice",
     formData: async () => ({ get: (k) => (k === "audio" ? { type: "audio/webm", arrayBuffer: async () => new Uint8Array(bytes === undefined ? 2048 : bytes).buffer } : (k === "lang" ? (lang || "pt") : null)) })
   });
-  return { env, calls, F, audioReq, speak: (bytes, lang) => F.handlePostTasksVoice(audioReq(bytes, lang), env) };
+  return { env, calls, F, audioReq, speak: (bytes, lang) => F.handlePostTasksVoice(audioReq(bytes, lang), env, o.now) };
 }
 const jsonReq = (body, url) => ({ url: url || "https://x.test/", json: async () => body });
 const dumps = (d) => d.q("SELECT * FROM task_voice_dumps ORDER BY created_at, rowid");
@@ -111,7 +115,7 @@ const dumps = (d) => d.q("SELECT * FROM task_voice_dumps ORDER BY created_at, ro
   const realModel = /\nvar CLAUDE_MODEL\s*=\s*"([^"]+)"/.exec(workerSrc)[1];
   ok(h.calls.claude.length === 1 && h.calls.claude[0].model === realModel && h.calls.claude[0].url === "https://claude.test/v1/messages", "one Claude call, with the file's CLAUDE_MODEL (" + realModel + ")");
   const p = h.calls.claude[0].prompt;
-  ok(p.indexOf("Sunday, 2026-10-04") >= 0 && p.indexOf("America/New_York") >= 0, "the prompt gives today's date and weekday in America/New_York");
+  ok(p.indexOf("Today is Wednesday, 2026-10-07 (America/New_York).") >= 0, "the prompt gives the date and weekday of the fixed moment in America/New_York (Wednesday, 2026-10-07)");
   ok(p.indexOf("- GATOR OUTDOOR LIVING") >= 0 && p.indexOf("- JM Luxury Pools") >= 0, "the prompt lists the active clients");
   ok(p.indexOf("Old Company") < 0 && p.indexOf("Lead Company") < 0, "an archived client and a lead are not in the list");
   ok(p.indexOf('{"tasks":[{"description": string, "due_date": "YYYY-MM-DD" or null, "client_name": string or null}]}') >= 0, "the prompt asks for the fixed JSON shape");
@@ -119,6 +123,35 @@ const dumps = (d) => d.q("SELECT * FROM task_voice_dumps ORDER BY created_at, ro
   ok(h.calls.logs.every((l) => l.indexOf("contador") < 0), "the transcript is not written to the console");
   ok(!/openai|whisper|gpt-/i.test(workerSrc.slice(workerSrc.indexOf('// "SPEAK MY TASKS"'), workerSrc.indexOf("// Route: GET /api/settings/templates"))), "no OpenAI product is named in the new code");
 }
+
+// ── 1b. Midnight in Florida is not midnight in UTC ──────────────────────────
+// Both moments are October 5 in UTC. Only the second is October 5 in Florida.
+{
+  const todayLine = async (iso) => {
+    const h = harness(world(true), { now: new Date(iso), claude: { tasks: [] } });
+    const r = await h.speak();
+    const m = /Today is ([^.]+)\./.exec(h.calls.claude[0].prompt);
+    return { status: r.status, line: m ? m[1] : null, today: h.F.taskVoiceToday(new Date(iso)) };
+  };
+  const late = await todayLine("2026-10-05T03:30:00Z");
+  ok(late.status === 200 && late.line === "Sunday, 2026-10-04 (America/New_York)", "2026-10-05T03:30:00Z is still Sunday, 2026-10-04 (11:30 PM in Florida): " + late.line);
+  ok(late.today.date === "2026-10-04" && late.today.weekday === "Sunday", "taskVoiceToday at 03:30Z: 2026-10-04, Sunday");
+  const early = await todayLine("2026-10-05T04:30:00Z");
+  ok(early.status === 200 && early.line === "Monday, 2026-10-05 (America/New_York)", "2026-10-05T04:30:00Z is Monday, 2026-10-05 (12:30 AM in Florida): " + early.line);
+  ok(early.today.date === "2026-10-05" && early.today.weekday === "Monday", "taskVoiceToday at 04:30Z: 2026-10-05, Monday");
+  // Winter time (UTC-5): 04:30Z is still the evening before.
+  const winter = h_today("2026-12-01T04:30:00Z");
+  ok(winter.date === "2026-11-30" && winter.weekday === "Monday", "in winter time 2026-12-01T04:30:00Z is still Monday, 2026-11-30 (11:30 PM in Florida)");
+  // With no moment handed in, the real clock is used (normal use).
+  // Read the clock before and after, so this holds even across midnight.
+  const clock = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date()) + " " + new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "long" }).format(new Date());
+  const before = clock();
+  const real = harness(world(true), {}).F.taskVoiceToday();
+  const after = clock();
+  ok([before, after].indexOf(real.date + " " + real.weekday) >= 0, "with no moment handed in, today comes from the real clock");
+  ok(/return handlePostTasksVoice\(request, env\);/.test(workerSrc), "the router hands the route no moment, so normal use is the real clock");
+}
+function h_today(iso) { return harness(world(true), {}).F.taskVoiceToday(new Date(iso)); }
 
 // ── 2. Client matching: one, two, none ──────────────────────────────────────
 {

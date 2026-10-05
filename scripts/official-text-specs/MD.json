@@ -1,0 +1,71 @@
+{
+  "state": "MD",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "MD-mhic",
+      "format": "No type size is set; must be included within the contract; gives the MHIC telephone numbers 410-230-6231 and 1-888-218-5925 and website https://www.labor.maryland.gov/license/mhic/, and states that mediation, the Guaranty Fund and the right to ask for a performance bond are available",
+      "support": "Neither Bus. Reg. 8-501(c)(1)(viii) and (ix) nor COMAR 09.08.01.26 sets a type size for the MHIC notice.",
+      "summary_row": "MHIC consumer notice (mediation, Guaranty Fund, performance bond)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the regulation only lists what the notice must state (mediation, Guaranty Fund, performance bond) and the statute only requires the MHIC phone number and website"
+    },
+    {
+      "id": "MD-cancel",
+      "cite": "CL 14-302; CL 14-302.1",
+      "trigger": "Door-to-door sale of $25 or more, including a sale after the buyer's invitation, made away from the seller's place of business; for a home improvement contract the period is five business days, seven if the buyer is at least 65",
+      "format": "Statement in boldface of at least 10 points next to the buyer's signature space, plus a Notice of Cancellation form in duplicate in 10 point boldface; for a home improvement contract the form is on a separate sheet that is not part of the contract; oral notice; same language as the sales talk",
+      "support": "For a home improvement contract 14-302.1(2)(i) says it shall \"Be on a separate form that is not a part of the home improvement contract\". The separate-form rule controls for home improvement.",
+      "summary_row": "Door-to-door statement beside the signature; Notice of Cancellation form",
+      "mode": "none",
+      "hold_reason": "the block is the whole section 14-302 with its unfair-practice rules (3) to (11), and the statute does not print the statement and form with the five and seven day wording a home improvement contract needs"
+    },
+    {
+      "id": "MD-security",
+      "summary_row": "Mortgage or lien and rescission notice (10 point bold, first page, initials)",
+      "mode": "none",
+      "hold_reason": "the only block is the whole section 8-501, which holds the contract-content rules, the signature and copy rules and a solar barrier rule around the lien notice; printing it would put non-notice statute text in the contract"
+    },
+    {
+      "id": "MD-oral-ack",
+      "title": "Signed acknowledgment of the right to cancel (oral notice)",
+      "cite": "CL 14-302.1(4)",
+      "trigger": "Home improvement contract sold away from the seller's place of business; the buyer signs it and gets a copy with the contract",
+      "format": "Signed by the buyer; a copy goes to the buyer with the completed contract; includes a check box for a buyer who is at least 65",
+      "applies": { "sold_in_home": true },
+      "support": "the seller must \"Obtain the signature of the buyer on the following written acknowledgment\" and \"Furnish to the buyer a copy of the written acknowledgment of the buyer’s right to cancel with the completed receipt or copy of the home improvement contract.\"",
+      "summary_row": "HOME IMPROVEMENT override: five business days (seven if the buyer is 65 or older), separate cancellation form, signed acknowledgment of oral notice",
+      "mode": "none",
+      "hold_reason": "the block is the whole section 14-302.1 with operative rules around the acknowledgment, and the official page serves the check box before 'check if buyer is at least 65 years old' as a literal question mark"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (CL 14-302) for door-to-door sales that are not home improvement; five business days, seven if the buyer is at least 65, for a home improvement contract (CL 14-302.1); oral notice with a signed acknowledgment, two copies",
+      "support": "Three business days remains the rule only for door-to-door sales that are not home improvement contracts (for example house cleaning sold at the home)."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Home improvement contracts: five business days, or seven if the buyer is at least 65. Other door-to-door sales: three. A business day is any calendar day except Sunday or the listed holidays, so Saturday counts.",
+      "support": "Saturday counts."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "One third of the contract price at or before signing; no payment before the contract is signed (BR 8-617)",
+      "support": "A person may not receive a deposit of more than one-third of the home improvement contract price before or at the time of execution of the home improvement contract."
+    },
+    {
+      "path": "deposit_cap.fraction",
+      "new": [1, 3],
+      "support": "A person may not receive a deposit of more than one-third of the home improvement contract price before or at the time of execution of the home improvement contract."
+    }
+  ],
+  "unsure": [
+    "MD-mhic: the notice has to be inside the contract, but the state gives only a list of required content and no fixed sentence, so nothing is loaded.",
+    "MD-cancel: the 14-302 statement and form are the wording to print, but a home improvement contract needs five or seven days instead of three, which the statute does not print.",
+    "MD-oral-ack: added as a new notice because the law hands the signed acknowledgment over with the contract; held because of the damaged check box character.",
+    "MD-security: applies only when payment is secured by residential real estate, which the builder does not know, so it could only be stored, and the block is the whole section.",
+    "cancellation.business_days: left at 3 because 14-302.1's five or seven days reaches only home improvement contracts, not every covered door-to-door sale (house cleaning stays at three)."
+  ]
+}

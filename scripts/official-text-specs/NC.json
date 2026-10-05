@@ -1,0 +1,66 @@
+{
+  "state": "NC",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NC-cancel",
+      "trigger": "Off-premises sale of consumer goods or services of $25 or more, including a visit the customer invited; not a visit the customer asked for only to repair or maintain the customer's property",
+      "format": "Statement in boldface, at least 10 points, next to the customer's signature (second sentence points to the attached form); duplicate detachable NOTICE OF CANCELLATION form in boldface, at least 10 points; both in the same language as the sales talk",
+      "support": "Invited visits ARE covered.",
+      "summary_row": "Off-premises sale: contract statement, NOTICE OF CANCELLATION form, oral notice, definitions, exclusions",
+      "mode": "none",
+      "block": "G.S. 14-401.13 (off-premises sales), whole section",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole section 14-401.13; around the statement and form it holds misdemeanor penalties, refund duties, the roofing rule and definitions, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "NC-cancel-credit",
+      "cite": "G.S. 25A-40 (home-solicitation sale defined in 25A-38)",
+      "support": "Its form differs slightly from 14-401.13 (no antique sentence; caption \"Notice of Cancellation\" in lower case).",
+      "summary_row": "Home-solicitation sale (consumer CREDIT sales): definition, right, statement and form",
+      "mode": "on_file",
+      "block": "G.S. 25A-38, 25A-39, 25A-40 (credit home-solicitation sales)",
+      "block_index": 2
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Fail to inform each buyer orally, at the time he signs the contract or purchases the goods or services, of his right to cancel."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Off-premises sales of consumer goods or services of $25 or more, including visits the customer invited (except a visit the customer asked for only to repair or maintain the customer's property), on top of the federal rule",
+      "support": "an off-premises sale is one where the seller \"personally solicits the sale, including those in response to or following an invitation by the buyer\""
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day is any day except Sunday and listed holidays including Good Friday, so Saturday counts; refund within 10 business days. Residential roof work after an insurance claim denial has a five business day period with no work or payment until it ends.",
+      "support": "business day is \"Any calendar day except Sunday\" or ten listed holidays including Good Friday ((c)(6)), so Saturday counts. Refund within 10 business days."
+    },
+    {
+      "path": "cleaning.auto_renewal",
+      "new": {
+        "rule": "Any contract that automatically renews unless the consumer cancels: disclose the renewal clause clearly and conspicuously in the contract, disclose how to cancel, and for renewals over 60 days send written notice 15 to 45 days before renewal; a violation makes the clause void",
+        "cite": "G.S. 75-41",
+        "scope_and_confidence": "PRIMARY. Reaches ordinary service contracts."
+      },
+      "support": "G.S. 75-41 (automatic renewal) exists and reaches ordinary service contracts; violation makes the clause \"void and unenforceable\"."
+    },
+    {
+      "path": "cleaning.no_rule_found",
+      "new": false,
+      "support": "Cleaning auto-renewal: first pass said none found. G.S. 75-41 applies to \"any products or services to a consumer pursuant to a contract, where the contract automatically renews unless the consumer cancels\"."
+    },
+    {
+      "path": "cleaning.home_solicitation_applies_to_cleaning",
+      "new": true,
+      "support": "Consumer Goods or Services. - Goods or services purchased, leased, or rented primarily for personal, family, or household purposes"
+    }
+  ],
+  "unsure": [
+    "NC-cancel: the notice applies to any off-premises sale of $25 or more including invited visits, but the builder only knows 'sold at the customer's home'; held anyway because the block is the whole statute section.",
+    "NC-cancel-credit: stored on file only, because it applies to consumer credit sales and the builder does not know whether a sale is on credit; the block holds the 25A-40 statement and form together as one notice."
+  ]
+}

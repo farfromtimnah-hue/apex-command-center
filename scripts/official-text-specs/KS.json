@@ -1,0 +1,40 @@
+{
+  "state": "KS",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "KS-cancel",
+      "trigger": "Door-to-door sale of $25 or more, including a visit the consumer asked for, made away from the supplier's place of business; not when the consumer asked the supplier to come to repair or maintain property, unless extra goods or services are sold on the visit",
+      "support": "50-640(c)(1): \"purchase price of $25 or more ... including those in response to or following an invitation by the consumer, and the consumer's agreement or offer to purchase is made at a place other than the place of business of the supplier.\" Exclusion (E) covers a consumer who \"specifically requested the supplier to visit the consumer's home for the purpose of repairing or performing maintenance upon the consumer's real or personal property\" (Kansas adds \"real\" property), but not additional goods or services sold on the visit.",
+      "summary_row": "Door-to-door statement near signature and duplicate NOTICE OF CANCELLATION form (all capitals)",
+      "mode": "none",
+      "hold_reason": "The block is the whole text of K.S.A. 50-640, including the supplier conduct rules, the refund duties and the definitions, so printing it would put statute text that is not the notice into the customer's contract; the statement and form cannot be taken out of it as separate blocks."
+    },
+    {
+      "id": "KS-60-4706",
+      "title": "Notice to the homeowner of the contractor's right to offer to repair construction defects",
+      "cite": "K.S.A. 60-4706",
+      "trigger": "Contract for construction or remodel of a dwelling",
+      "format": "Conspicuous; may be part of the contract; substantially the statutory form",
+      "applies": { "residential": true },
+      "support": "Such notice shall be conspicuous and may be included as part of the underlying contract.",
+      "summary_row": "Notice of contractor's right to offer repair (in or with the contract, construction or remodel of a dwelling)",
+      "mode": "on_file",
+      "block": "K.S.A. 60-4706: notice of contractor's right to offer repair",
+      "block_index": 0
+    }
+  ],
+  "changes": [
+    {
+      "path": "defect_process.text",
+      "new": "K.S.A. 60-4701 to 60-4704; contract notice in 60-4706; contractor's written response within 30 days of the notice of claim",
+      "support": "Within 30 days after service of the notice of claim"
+    }
+  ],
+  "unsure": [
+    "KS-60-4706: stored on file, not printed, because the act defines 'contractor' as one 'engaged in the business of constructing dwellings' and 'dwelling' narrowly (not manufactured homes), and the state file says it is not settled whether a remodel-only trade is covered; the builder only knows residential or not.",
+    "KS-cancel: the invited-visit repair exclusion (50-640(c)(1)(E)) depends on facts the builder does not know, so the notice is held in any case.",
+    "KS: K.S.A. 60-4707 (list of subcontractors to the buyer of a new dwelling, within 30 days after the sale closes) is handed over after the sale and only for new dwellings, so no notice was added.",
+    "KS: the checklist line 'Pre-suit notice acknowledgment, K.S.A. 60-4701' describes the first-pass home-made notice that the state file says should be replaced by the statutory 60-4706 text; checklist is not in the allowed change paths."
+  ]
+}

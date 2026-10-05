@@ -1,0 +1,65 @@
+{
+  "state": "IN",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "IN-cancel",
+      "trigger": "Only a consumer transaction the consumer did not solicit, resulting from direct contact by the supplier at a place other than the supplier's permanent place of business, with a cash sales price of at least $25",
+      "support": "The trigger is in the definition, IC 24-5-10-4: \"a consumer transaction that the consumer did not solicit that results from the direct contact by a supplier at a place other than the supplier's permanent place of business.\"",
+      "summary_row": "Home solicitation sales: whole chapter (trigger, three business days, two-copy separate 10 point bold notice)",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of IC 24-5-10 (eighteen sections), and the chapter prescribes no sentence, only a form (two copies, separate document, 10 point bold) and five content items, so there is no notice wording to copy."
+    },
+    {
+      "id": "IN-cancel-10-6",
+      "title": "Statement of right to cancel and duplicate NOTICE OF CANCELLATION in every home improvement contract",
+      "cite": "IC 24-5-11-10.6",
+      "trigger": "Every home improvement contract over $150 entered into after June 30, 2017, whether or not the sale was door to door",
+      "format": "Fixed statement furnished before the contract is signed (no type size), plus a duplicate, easily detachable form captioned NOTICE OF CANCELLATION in at least 10 point boldface that names an email address",
+      "applies": { "residential": true, "over_cents": 15000 },
+      "support": "IC 24-5-11-10.6 gives EVERY home improvement contract \"entered into by a real property improvement supplier and a consumer after June 30, 2017\" its own fixed-text statement and NOTICE OF CANCELLATION, whether or not the sale was door to door.",
+      "summary_row": "Statement of right to cancel and duplicate NOTICE OF CANCELLATION in EVERY home improvement contract entered after June 30, 2017",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of IC 24-5-11-10.6, which also holds the scope, the consumer's cancellation rule, refund timing and the emergency-services rule around the statement and form, so printing it would put non-notice statute text in the contract; the statement also has an insurance-claim branch the builder does not track."
+    },
+    {
+      "id": "IN-cure",
+      "title": "Notice of the contractor's right to offer to cure construction defects",
+      "cite": "IC 32-27-3-12",
+      "trigger": "Contract for sale, construction, or substantial remodeling of a residence (remodeling counts only when its total cost exceeds 50 percent of the assessed value)",
+      "format": "Conspicuous capitals notice in substantially the statutory form; may be included in the contract; no type size stated",
+      "applies": { "residential": true },
+      "support": "The notice must be conspicuous and may be included as part of the underlying contract signed by the home owner.",
+      "summary_row": "Notice of right to offer to cure construction defects (capitals notice, may be in the contract)",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of IC 32-27-3-12, which also holds the duty subsection and a subsection saying the chapter does not bar an action if notice is not given, so printing it would put non-notice statute text in the contract; the 50 percent of assessed value test is also not something the builder knows."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (IC 24-5-11-10.6, every home improvement contract over $150 since July 1, 2017; IC 24-5-10, unsolicited home sales)",
+      "support": "Every Indiana home improvement contract over $150 since July 1, 2017 must be accompanied by the fixed statement"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Every home improvement contract over $150 entered into after June 30, 2017, whether or not door to door (IC 24-5-11-10.6); also home sales the consumer did not solicit, made away from the supplier's permanent place of business (IC 24-5-10)",
+      "support": "This is not limited to door-to-door sales."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Counted to midnight of the third business day after the later of signing by both parties or, if applicable, the date the consumer receives the insurer's final determination of coverage (IC 24-5-11-10.6); business day excludes Sunday and legal holidays, so Saturday counts.",
+      "support": "\"Business day\" (24-5-10-1) \"means a day other than Sunday or a legal holiday\", so Saturday counts."
+    },
+    {
+      "path": "defect_process.text",
+      "new": "IC 32-27-3: construction or substantial remodeling of a residence (remodeling over 50 percent of assessed value); notice of claim at least 60 days before suit, contractor's response within 21 days",
+      "support": "Notice of claim \"At least sixty (60) days before filing\"; contractor's written response \"Within twenty-one (21) days after service\""
+    }
+  ],
+  "unsure": [
+    "IN-cancel-10-6: the statement and form are required in every home improvement contract over $150, so it should print for every contract, but the whole section is the only block and holds non-notice subsections, so it is held.",
+    "IN-cure: needed only for construction or substantial remodeling (over 50 percent of assessed value), which the builder cannot tell; the file says the notice is owed upon entering the contract, so it may belong in every residential contract.",
+    "IN-cancel: chapter 10 prescribes no wording; whether the 10.6 form also satisfies chapter 10 for an unsolicited home sale is not stated in the file."
+  ]
+}

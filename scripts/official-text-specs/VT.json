@@ -1,0 +1,59 @@
+{
+  "state": "VT",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "VT-cancel",
+      "title": "State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form",
+      "cite": "9 V.S.A. 2454(b)",
+      "trigger": "Home solicitation sale of $5.00 or more, personally solicited or consummated at the consumer's residence or place of business or employment",
+      "support": "The price floor is \"$5.00 or more\" (not $25)",
+      "mode": "none",
+      "block": "1. 9 V.S.A. 2454, Purchase contracts; rescission (complete)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole of 9 V.S.A. 2454 (cancellation rules, refunds, goods return, seller duties) around the statement and the NOTICE OF CANCELLATION form; printing it would put non-notice statute text in the customer's contract.",
+      "summary_row": "Home solicitation: statement beside the signature, NOTICE OF CANCELLATION, oral notice, language rule, no pay for services"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days; home solicitation sales of $5.00 or more",
+      "support": "The price floor is \"$5.00 or more\" (not $25)"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Sales of $5.00 or more personally solicited or consummated at the consumer's residence or place of business or employment, on top of the federal rule; a contract signed at the kitchen table is covered even when the customer invited the visit",
+      "support": "A sale merely CONSUMMATED at the home counts, so a contract signed at the customer's kitchen table is covered even when the customer invited the visit."
+    },
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "SATURDAY DOES NOT COUNT in Vermont (it does under the federal rule)"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day excludes Saturday, Sunday and holidays, so the Vermont deadline can fall later than the federal one; print the later date. The three business days start only when the seller complies with the disclosure subsection",
+      "support": "The cancellation period of three business days shall begin to run from the time the seller complies with this subsection"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "(D) In addition to the written notice of cancellation the seller shall orally inform the buyer of his or her right to cancel at the time of the transaction."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "If the home solicitation sale is principally negotiated in a language other than English, then all of the disclosures required by this section shall be given in that language."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "Down payment up to half of the cost of labor, or half of the price of materials, whichever is greater; with no maximum price, as negotiated by the parties",
+      "support": "With no maximum price, \"as negotiated by the parties\"."
+    }
+  ],
+  "unsure": [
+    "VT-cancel: the statute covers sales consummated at the consumer's residence or place of business or employment, but the builder only knows 'sold at the customer's home', so a sale at a place of business is not caught by applies.",
+    "cancellation.no_work_or_payment_in_window left unchanged: the statute says the seller is entitled to no compensation for services performed before cancellation, which is not a ban on starting work."
+  ]
+}

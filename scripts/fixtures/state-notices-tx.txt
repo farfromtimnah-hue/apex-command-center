@@ -1,0 +1,14 @@
+State notices a customer would see: Texas (TX), residential job, $12,500.00, sold at the customer's home.
+Status: notice text still needs official copy
+
+== PRINTED IN THE CONTRACT (0) ==
+
+(no state notice prints for this state yet)
+
+== OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
+
+- [warn] Texas requires this notice: IMPORTANT NOTICE (homestead) (Prop. Code 41.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Contracts for improvements to an existing residence that are homestead lien contracts. Format: 10 point bold, conspicuous, anywhere in the contract (no placement rule); the notice includes the last sentence KNOW YOUR RIGHTS AND DUTIES UNDER THE LAW..
+- [warn] Texas requires this notice: Defect notice (Prop. Code 27.007). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential. Format: 10 point bold; $500 penalty for omission.
+- [warn] Texas requires this notice: Owner disclosure statement (Prop. Code 53.255). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, delivered to the owner before the residential construction contract is executed by the owner. Format: A separate statement handed over before signing; no type size stated; must read substantially similar to the statute.
+- [warn] Texas requires this notice: Subcontractor and supplier list with its 10 point bold notice, and the optional waiver (Prop. Code 53.256). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Original contractor, before construction starts, on a residential construction contract. Format: Written list with the NOTICE in at least 10 point boldface; the owner's waiver may sit in the contract in at least 10 point bold.
+- [warn] Texas requires this notice: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (B&C 601.052 to 601.054). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Door-to-door sale or a sale made away from the seller's place of business, over $25. Format: Statement in immediate proximity to the signature space, boldfaced, at least 10 points, substantially in the statutory form, plus an easily detachable duplicate NOTICE OF CANCELLATION in 10 point bold; the contract and form must be in the language of the sales presentation.

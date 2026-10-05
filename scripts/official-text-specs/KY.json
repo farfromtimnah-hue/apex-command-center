@@ -1,0 +1,49 @@
+{
+  "state": "KY",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "KY-cancel",
+      "trigger": "Seller solicits in person at the buyer's residence; sales under $25 and sales made after prior negotiations or at the seller's fixed business location are excluded",
+      "format": "Statement under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold, placement or detachable form rule",
+      "support": "Caption must be \"conspicuous\"; no point size, no bold rule, no placement rule, no detachable form.",
+      "summary_row": "BUYER'S RIGHT TO CANCEL statement",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the BUYER'S RIGHT TO CANCEL statement it holds operative rules (subsection (1) on the written agreement, subsection (3) on late cancellation) and a history line that should not print in the customer's contract"
+    },
+    {
+      "id": "KY-pool",
+      "remove": true,
+      "support": "It did not become law in the 2022 session, and KRS chapter 212's section list has no pool barrier section."
+    },
+    {
+      "id": "KY-cure",
+      "title": "Builder's right to cure construction defects notice",
+      "cite": "KRS 411.260(2)",
+      "trigger": "Contract for the construction of a residence (single-family house up to a quadraplex, or a condominium unit); the file does not say whether a remodel, pool or tile job counts",
+      "format": "Conspicuous notice in substantially the statutory capital-letter form; may be part of the contract",
+      "applies": {},
+      "support": "411.260 requires a conspicuous notice \"upon entering into a contract for the construction of a residence\" in substantially the statutory form",
+      "summary_row": "Builder notice of right to cure (NEW, missed by first pass)",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the notice wording it holds subsection (1) on who must give it and subsection (3) on the effect of not giving it, plus history lines, which should not print in the customer's contract; whether it reaches remodel, pool or tile work is also not stated"
+    }
+  ],
+  "changes": [
+    {
+      "path": "pool",
+      "new": null,
+      "support": "The matrix's Kentucky pool barrier item should be removed unless a later act is found."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Home solicitation loans secured by the buyer's principal dwelling have until midnight of the tenth business day (KRS 367.420(6)); the file does not say whether Saturday counts.",
+      "support": "the buyer shall have the right to rescind or cancel the transaction until midnight of the tenth business day following the later of the consummation of the loan transaction"
+    }
+  ],
+  "unsure": [
+    "KY-cancel: the BUYER'S RIGHT TO CANCEL statement belongs in the contract, but the file only offers it inside the whole 367.430 block, so it is held.",
+    "KY-cure: the builder's right-to-cure notice belongs in the contract for the construction of a residence, but the file does not say whether remodels, pools or tile work count, and the block is a whole section, so it is held.",
+    "cancellation.saturday_counts: the file gives no definition of business day for Kentucky, so true is left as it was."
+  ]
+}

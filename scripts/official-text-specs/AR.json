@@ -1,0 +1,34 @@
+{
+  "state": "AR",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "AR-lien",
+      "cite": "ACA 18-44-115(a)(7)",
+      "format": "Conspicuous, boldface, worded exactly as stated in all capital letters; may be incorporated into the contract or affixed to it; owner signature not required when sent by certified mail",
+      "support": "\"may be incorporated into the contract or affixed to the contract and shall be conspicuous, set out in boldface type, worded exactly as stated in all capital letters\"",
+      "summary_row": "IMPORTANT NOTICE TO OWNER, full wording with signature and certification lines",
+      "mode": "on_file",
+      "block": "1. IMPORTANT NOTICE TO OWNER (ACA 18-44-115(a)(7)), as printed by the Department of Labor and Licensing",
+      "block_index": 0
+    },
+    {
+      "id": "AR-cancel",
+      "cite": "ACA 4-89-107 and 4-89-108(c)",
+      "format": "Completed NOTICE OF CANCELLATION form in duplicate, attached to the contract or receipt and easily detachable, in 10-point bold face type; oral notice as well as written",
+      "support": "4-89-108(c): \"a completed form in duplicate, captioned “NOTICE OF CANCELLATION”, which shall be attached to the contract or receipt and easily detachable and which shall contain in 10-point bold face type",
+      "summary_row": "NOTICE OF CANCELLATION form (home solicitation)",
+      "mode": "none"
+    }
+  ],
+  "changes": [
+    { "path": "cancellation.text", "new": "Third calendar day after signing, excluding Sundays and holidays (4-89-107), oral notice, two form copies, criminal exposure", "support": "4-89-107(a): \"until midnight of the third calendar day, excluding Sundays and holidays as declared in § 1-5-101, after the day on which the buyer signs\"" },
+    { "path": "cancellation.day_count_note", "new": "The statute counts the third calendar day after signing, excluding Sundays and holidays; Saturday counts (ACA 4-89-107(a)).", "support": "The form says \"the third day, excluding Sundays and holidays\". Saturday counts." }
+  ],
+  "unsure": [
+    "AR-lien: the notice is only required for residential property of four or fewer units and not when a bond is supplied or the sale is direct; the builder knows neither, so the text is stored and not printed.",
+    "AR-lien: the stored block keeps the statute's opening and closing quotation marks, which the state file says are not part of the notice.",
+    "AR-cancel: the only copy of the form is a secondary (Justia) copy, so nothing is loaded; the state statute prescribes no statement near the signature, only the detachable form.",
+    "Whether the home solicitation law applies to recurring cleaning was not addressed by the state file, so home_solicitation_applies_to_cleaning was left as it was."
+  ]
+}

@@ -1,0 +1,12 @@
+State notices a customer would see: Massachusetts (MA), residential job, $12,500.00, sold at the customer's home.
+Status: notice text still needs official copy
+
+== PRINTED IN THE CONTRACT (0) ==
+
+(no state notice prints for this state yet)
+
+== OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
+
+- [warn] Massachusetts requires this notice: "Do not sign this contract if there are any blank spaces" line (c. 142A s. 2). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting over $1,000. Format: 10 point bold directly above the owner's signature.
+- [warn] Massachusetts requires this notice: Notices of registration, cancellation, warranties, lien or security interest, and the permit paragraph (c. 142A s. 2). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Residential contracting over $1,000. Format: A clear and conspicuous notice appearing in the contract.
+- [warn] Massachusetts requires this notice: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (c. 93 s. 48). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Door-to-door sale or a sale made away from the seller's place of business, $25 or more. Format: Statement near the signature in 10 point bold, plus a detachable duplicate NOTICE OF CANCELLATION.

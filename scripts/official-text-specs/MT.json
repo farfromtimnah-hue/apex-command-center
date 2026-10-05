@@ -1,0 +1,29 @@
+{
+  "state": "MT",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "MT-defect",
+      "summary_row": "Residential construction defect notice and repair process; written notice to home owner needed",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only says the home owner must be given written notice of the requirements of 70-19-426, 70-19-428 and 70-19-427, with no sentence, format or timing set"
+    },
+    {
+      "id": "MT-cancel",
+      "summary_row": "Notice of right to cancel (cancellation card)",
+      "mode": "none",
+      "hold_reason": "the block is the whole statute section; besides the card wording it holds operative rules (subsection (2) on late cancellation and when the three days start) and the history line, which should not print in the customer's contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "written_contract.text",
+      "new": "Only for a contract between a general contractor and an owner for the construction of a new residence (MCA 28-2-2201); no written-contract rule for remodels or service work found",
+      "support": "Montana has one, 28-2-2201, but only for \"a contract between a general contractor and an owner for the construction of a new residence\". It does not reach remodels, tile, pools, hardscape or cleaning."
+    }
+  ],
+  "unsure": [
+    "MT-cancel: the official card wording (30-14-505(1)(a) and (b)) is the right text to print, but the file only offers it inside the whole section block, so it is held rather than loaded.",
+    "MT-defect: printing a short notice of 70-19-426, 70-19-428 and 70-19-427 in the contract would meet the law, but no official wording exists to copy."
+  ]
+}

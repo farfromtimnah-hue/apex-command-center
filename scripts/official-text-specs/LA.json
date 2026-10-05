@@ -1,0 +1,36 @@
+{
+  "state": "LA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "LA-cancel",
+      "title": "CONSUMER'S RIGHT TO CANCEL statement",
+      "cite": "R.S. 9:3539(B)",
+      "trigger": "Noncredit home solicitation sale: consumer sale of $25 or more solicited in person at any place other than the seller's business establishment; a sale the consumer initiated by contacting the seller at his business establishment is outside it",
+      "format": "Under the conspicuous caption CONSUMER'S RIGHT TO CANCEL, exact wording; agreement dated the day the consumer actually signs; the FTC 16 CFR 429 form counts as compliance (9:3539(D))",
+      "support": "A \"noncredit home solicitation sale\" is a consumer sale involving a cash price of twenty-five dollars or more for goods or services or both",
+      "mode": "none",
+      "block": "R.S. 9:3539 (Form of agreement or offer; statement of consumer's right; compliance)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole of R.S. 9:3539 (seller duties, early cancellation, federal-form compliance) around the statement in subsection (B); printing it would put non-notice statute text in the customer's contract.",
+      "summary_row": "CONSUMER'S RIGHT TO CANCEL statement"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (R.S. 9:3538); seller may keep a cancellation fee of five percent of the cash price, not over the cash down payment (9:3540(C))",
+      "support": "The seller may retain as a cancellation fee five percent of the cash price but not exceeding the amount of the cash down payment."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Noncredit home solicitation sales: consumer sales of $25 or more solicited in person at any place other than the seller's business establishment, on top of the federal rule",
+      "support": "A \"noncredit home solicitation sale\" is a consumer sale involving a cash price of twenty-five dollars or more for goods or services or both"
+    }
+  ],
+  "unsure": [
+    "LA-cancel: the file says whether the 5 percent fee may be kept when the FTC form is used is not answered by the text, so the fee is stated in cancellation.text only.",
+    "LA-cancel: the builder only knows 'sold at the customer's home', not whether the sale was solicited away from a business establishment or initiated by the consumer at it.",
+    "cancellation.no_work_or_payment_in_window left unchanged: 9:3541(C) says the seller gets no compensation except the cancellation fee for services done before cancellation, which is not a ban on starting work."
+  ]
+}

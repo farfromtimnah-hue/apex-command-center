@@ -1,0 +1,67 @@
+{
+  "state": "DE",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "DE-ag-summary",
+      "cite": "6 Del. Admin. Code 106, 3.1.11",
+      "trigger": "Every home improvement contract (not new construction or a rebuild of all or substantially all of a single-family dwelling); handed over before the buyer signs, and again with a written addition to the job",
+      "support": "Fail to provide the buyer with a summary of these regulations, as prepared by the Consumer Protection Unit, as published on the Consumer Protection Unit website, prior to the buyer signing a home improvement contract",
+      "summary_row": "\"A Summary of Your Rights as a Consumer in Home Improvement Transactions\" (must be handed over before signing)",
+      "mode": "on_file",
+      "block": "2. Attorney General's Summary (the document to hand over), complete, both pages",
+      "block_index": 0
+    },
+    {
+      "id": "DE-cancel",
+      "format": "Statement near the signature in 10 point bold in an ink color different from the rest of the contract, ending with the sentence about the attached notice form, plus a detachable duplicate NOTICE OF CANCELLATION; the contract in the language of the sales talk; oral notice also required",
+      "support": "shall be printed in an ink of a conspicuous color other than that used for the rest of the contract and/or receipt",
+      "summary_row": "Door-to-door statement, Notice of Cancellation form, oral notice, definitions",
+      "mode": "none",
+      "block": "4. 6 Del. C. 4403 and 4404 (Home Solicitation Sales Act: definitions, statement, Notice of Cancellation)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole of sections 4403 and 4404, with the definitions and nine seller duties around the statement and the form, so printing it would put non-notice statute text in the contract; the statement and the form need to be cut out by hand."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "SATURDAY DOES NOT COUNT in Delaware"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Fail to inform each buyer orally, at the time the buyer signs the contract or purchases the goods or services, of the right to cancel."
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (Saturday does not count), duplicate form, $25 or more; no age 62 extension exists",
+      "support": "Age 62 five-day extension. Not in the Home Solicitation Sales Act."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Saturday, Sunday and legal holidays are not business days, so the Delaware deadline can fall later than the federal one; print the later date. No senior extension exists in chapter 44.",
+      "support": "so the Delaware deadline can fall later than the federal one; print the later date."
+    },
+    {
+      "path": "cleaning.no_rule_found",
+      "new": false,
+      "support": "Delaware HAS a statute (the first pass found none): 6 Del. C. 2731 to 2737, in force January 1, 2022."
+    },
+    {
+      "path": "cleaning.auto_renewal",
+      "new": {
+        "rule": "Disclose the renewal terms clearly at signing and notify 30 to 60 days before the cancellation deadline when a renewal of more than 1 month would keep the contract in effect over 12 months; any auto-renewing contract needs an easy cancellation mechanism, online if signed online",
+        "cite": "6 Del. C. 2731 to 2737",
+        "scope_and_confidence": "PRIMARY; month-to-month cleaning is outside 2734 but inside 2732(4); contracts over $50,000 are outside the subchapter (2736)"
+      },
+      "support": "Month-to-month cleaning is outside 2734 but inside 2732(4). Contracts over $50,000 are outside the subchapter (2736)."
+    }
+  ],
+  "unsure": [
+    "DE-ag-summary: the text is stored on file only, because the AG requires the official letterhead and layout and the stored block is a text layer of the PDF; the official PDF itself should be attached.",
+    "DE-cancel: the statute allows the federal-style notice only through Chapter 44's own form, and one notice covers both the statement and the form, so both are held together.",
+    "DE written additions: the AG FAQ says a written addition must be accompanied by a copy of the summary, which the builder cannot detect."
+  ]
+}

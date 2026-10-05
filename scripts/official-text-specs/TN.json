@@ -1,0 +1,70 @@
+{
+  "state": "TN",
+  "mirror_source": true,
+  "mirror_source_reason": "The statute text comes from a Public.Resource.Org / UniCourt mirror of the Tennessee Code Annotated (Release 76, May 2021), not from an official code site.",
+  "notices": [
+    {
+      "id": "TN-owner",
+      "summary_row": "Home improvement contract contents; NOTICE TO OWNER line",
+      "mode": "none"
+    },
+    {
+      "id": "TN-board",
+      "format": "No prescribed wording or type size; the contract needs a notice that all home improvement contractors must be licensed by the board and that inquiries go to the board's office",
+      "support": "the statute prescribes NO fixed wording. It says the contract shall \"Contain a notice that all home improvement contractors must be licensed by the board and that any inquiries about a contractor should be transmitted to the board's office;\"",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "TN-cancel",
+      "cite": "47-18-704(b)",
+      "format": "On the front side of the receipt or contract, or immediately above the buyer's signature, under the conspicuous caption, readily legible",
+      "support": "Caption \"BUYER'S RIGHT TO CANCEL\" must be \"conspicuous\" and the statement \"readily legible\", placed \"on the front side of the receipt or contract, or immediately above the buyer's signature\".",
+      "summary_row": "Home solicitation: definitions, right, BUYER'S RIGHT TO CANCEL statement, refunds, services, no waiver",
+      "mode": "none"
+    },
+    {
+      "id": "TN-lien",
+      "title": "Lien NOTICE TO OWNER before residential work",
+      "cite": "T.C.A. 66-11-203",
+      "trigger": "Contractor about to contract to improve owner-occupied residential real property (one to four units); delivered before the work or the contract",
+      "format": "Written notice in substantially the statute's form, delivered by registered mail or otherwise",
+      "applies": { "residential": true },
+      "support": "66-11-203 requires a contractor about to contract to improve residential real property to deliver a written notice to the owner \"prior to commencing the improvement ... or making of the contract\"",
+      "summary_row": "Lien NOTICE TO OWNER before residential work (NEW, missed by first pass)",
+      "mode": "none"
+    }
+  ],
+  "changes": [
+    {
+      "path": "deposit_cap.text",
+      "new": "One third of the contract price at or before signing, unless a bond is furnished or the owner agrees a payment schedule after written notice of the right to withhold final payment; no payment before the contract is signed (62-6-510(11), (12))",
+      "support": "no deposit over one third of the contract price at or before signing unless a bond is furnished"
+    },
+    {
+      "path": "deposit_cap.fraction",
+      "new": [1, 3],
+      "support": "no deposit over one third of the contract price at or before signing unless a bond is furnished"
+    },
+    {
+      "path": "deposit_cap.rule",
+      "new": "No deposit over one third of the contract price at or before signing unless a bond is furnished, or the owner, fully advised in writing of the right to withhold final payment, agrees a payment schedule (62-6-510(12))",
+      "support": "no deposit over one third of the contract price at or before signing unless a bond is furnished"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day excludes Sunday and nine listed holidays, so Saturday counts (47-18-702(1)).",
+      "support": "\"business day\" excludes Sunday and nine listed holidays, so Saturday counts (47-18-702(1))."
+    },
+    {
+      "path": "checklist.rider_items.1",
+      "new": "Board notice with phone (615) 741-8307",
+      "support": "(615) 741-8307| contractors.home-improvement@tn.gov"
+    }
+  ],
+  "unsure": [
+    "TN-lien: the notice goes to owners of owner-occupied residential property (one to four units, owner lives there); the builder only knows residential or not, so applies is residential only; the text is secondary and not loaded.",
+    "TN-board: the statute only requires a licensing and inquiries sentence with no model wording; the phone number is good practice, not a statutory element.",
+    "66-11-205 final sworn affidavit was not added as a notice because it is delivered after completion, not with the contract."
+  ]
+}

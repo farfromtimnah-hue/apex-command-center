@@ -1,0 +1,126 @@
+{
+  "state": "OR",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "OR-lien",
+      "trigger": "Residential construction or improvement contracts over $2,000, delivered on or before the contract date (within five days if the price grows past $2,000); not needed when the owner is a licensed contractor; failure bars the lien",
+      "support": "This section applies only to a residential construction or improvement contract for which the aggregate contract price exceeds $2,000.",
+      "summary_row": "Information Notice to Owner About Construction Liens (CCB form, full text)",
+      "mode": "none",
+      "block": "ORS 87.093; OAR 812-001-0200(1): Information Notice to Owner About Construction Liens (CCB form, full text)",
+      "block_index": 0,
+      "hold_reason": "The state file flags two problems: the rule copy adopts the form as revised January 1, 2010 while the agency PDF now carries a 9-16 footer (mismatch not resolved), and the copied text has words broken at line ends by the PDF (such as ex- ceeds). Attach the agency's current PDF instead."
+    },
+    {
+      "id": "OR-cancel",
+      "trigger": "Owner of an initial written residential contract may cancel until midnight at the end of the next business day, unless both parties agree work starts earlier or the contractor has substantially begun; no notice wording is prescribed and the statute does not require the contract to print the right",
+      "format": "No notice wording, form or type size is prescribed",
+      "support": "The statute prescribes no notice wording and does not itself require the contract to print the right",
+      "summary_row": "Cancellation until midnight of the next business day",
+      "mode": "none",
+      "block": "ORS 701.310: Cancellation until midnight of the next business day",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "OR-ccb",
+      "title": "Consumer Protection Notice (CCB form)",
+      "cite": "ORS 701.330(1); OAR 812-001-0200(2)",
+      "trigger": "Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into",
+      "format": "CCB form with signature lines for the contractor and the property owner; attach the agency's current copy",
+      "applies": { "over_cents": 200000, "residential": true },
+      "support": "If a contractor is required to have a written contract under ORS 701.305, the consumer notices described in OAR 812-001-0200(1), (2) and (4) shall be delivered on or before the date the contract is entered into.",
+      "summary_row": "Consumer Protection Notice (CCB form, full text)",
+      "mode": "none",
+      "block": "ORS 701.330(1); OAR 812-001-0200(2): Consumer Protection Notice (CCB form, full text)",
+      "block_index": 0,
+      "hold_reason": "The copied text has words broken at line ends by the PDF (such as Licens- ing), and the state file says to print the CCB PDF itself rather than a retyped copy."
+    },
+    {
+      "id": "OR-notice-of-procedure",
+      "title": "Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form)",
+      "cite": "ORS 701.330(2); OAR 812-001-0200(4)",
+      "trigger": "Residential contracts where a written contract is required (over $2,000), delivered on or before the date the contract is entered into",
+      "format": "CCB form with signature lines for the contractor and the homeowner",
+      "applies": { "over_cents": 200000, "residential": true },
+      "support": "If a contractor is required to have a written contract under ORS 701.305, the consumer notices described in OAR 812-001-0200(1), (2) and (4) shall be delivered on or before the date the contract is entered into.",
+      "summary_row": "Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form, full text)",
+      "mode": "print",
+      "block": "ORS 701.330(2); OAR 812-001-0200(4): Notice of Procedure Regarding Residential Construction Arbitrations and Lawsuits (CCB form, full text)",
+      "block_index": 0
+    },
+    {
+      "id": "OR-door-to-door",
+      "title": "Home solicitation statement near the signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "cite": "ORS 83.730",
+      "trigger": "Home solicitation sale: the seller personally solicits (including at the buyer's invitation) and the buyer's written agreement is made away from the seller's place of business; remodeling is covered, a new house is not",
+      "format": "Statement in immediate proximity to the buyer's signature space in at least 10-point boldface, plus a duplicate NOTICE OF BUYER'S RIGHT TO CANCEL in conspicuous type of 10-point or larger; same language as the sales presentation; oral notice also required",
+      "applies": { "sold_in_home": true },
+      "support": "Remodeling is covered;",
+      "summary_row": "Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "mode": "none",
+      "block": "ORS 83.730: Home solicitation written agreement, statement near signature and NOTICE OF BUYER'S RIGHT TO CANCEL",
+      "block_index": 0,
+      "hold_reason": "The block is the whole section 83.730, with the seller's duties, the federal-notice option and the late-cancellation rule around the statement and the notice, so printing it would put non-notice statute text in the contract; the statement and notice need to be cut out by hand."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "does not include a Saturday, Sunday or legal holiday"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "The seller must orally inform the buyer of the buyer"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Door-to-door: three business days, and Saturday, Sunday and legal holidays do not count. Initial residential contract: until midnight at the end of the next business day.",
+      "support": "does not include a Saturday, Sunday or legal holiday"
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Over $2,000; written within 5 days if job grows (701.305); must show the contractor's name, address, phone and license number, the warranty offer acknowledgment where required, an explanation of the owner's rights, the customer and job address, the work, and price and payment terms, legible and in dark ink (OAR 812-012-0110)",
+      "support": "Everything \"must be legible and in dark ink\"."
+    },
+    {
+      "path": "license.text",
+      "new": "CCB license; de minimis under $1,000 (not if advertised); the license number must be shown on written bids and building contracts",
+      "support": "All written bids, written inspection reports and building contracts subject to ORS chapter 701 shall show the contractor's license number."
+    },
+    {
+      "path": "defect_process.text",
+      "new": "701.560 to 701.605: owner sends notice by registered or certified mail; the contractor may ask to examine within 14 days and must respond within 90 days; the owner has 30 days to accept an offer",
+      "support": "not later than 90 days after the contractor, subcontractor or supplier receives a notice of defect or secondary notice"
+    },
+    {
+      "path": "cleaning.no_rule_found",
+      "new": false,
+      "support": "with no carve-out for household services"
+    },
+    {
+      "path": "cleaning.no_rule_note",
+      "new": null,
+      "support": "Fetched. ORS 646A.295 applies to any"
+    },
+    {
+      "path": "cleaning.auto_renewal",
+      "new": {
+        "rule": "Present the offer terms clearly and conspicuously next to the request for consent, get affirmative consent before charging, give a retainable acknowledgment with cancellation instructions, and offer an easy cancellation mechanism",
+        "cite": "ORS 646A.293, 646A.295",
+        "scope_and_confidence": "PRIMARY; applies to any automatic renewal or continuous service offer to a consumer in Oregon with no carve-out for household services"
+      },
+      "support": "with no carve-out for household services"
+    }
+  ],
+  "unsure": [
+    "OR-cancel: the next-business-day right has no prescribed wording and the statute does not require the contract to print it; I held it, though OAR 812-012-0110(1)(c) wants an owner's-rights explanation in the contract.",
+    "OR-ccb: I reused this notice for the Consumer Protection Notice because the first pass's OAR 812 entry is now identified as that form, and added the Notice of Procedure as its own notice.",
+    "OR-notice-of-procedure: loaded for print on every residential job over $2,000; the OAR ties delivery to contracts needing a written contract under ORS 701.305, which covers a residential structure or zero-lot-line dwelling, and the builder cannot check for the zero-lot-line case.",
+    "OR warranty offer (ORS 701.320): a written offer is required for new residential structures only, with no prescribed wording, so no notice was added.",
+    "OR day count: the next-business-day cancellation does not define business day in chapter 701, so I set saturday_counts false only on the strength of the door-to-door definition."
+  ]
+}

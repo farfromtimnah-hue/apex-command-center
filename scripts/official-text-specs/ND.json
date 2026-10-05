@@ -1,0 +1,85 @@
+{
+  "state": "ND",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "ND-cancel",
+      "title": "NOTICE TO BUYER and NOTICE OF CANCELLATION form",
+      "cite": "N.D.C.C. 51-18-04",
+      "trigger": "Personal solicitation sale: sale of consumer goods or services solicited by telephone or in person, with the agreement made away from the seller's place of business; 15 business days for buyers 65 or older",
+      "format": "Conspicuous NOTICE TO BUYER inside the agreement, substantially the statutory form; attached completed NOTICE OF CANCELLATION in duplicate; seller also tells the buyer orally",
+      "support": "a sale is covered when \"the seller or the seller's representative solicits the sale, lease, or rental, by telephone or in person, and the buyer's agreement or offer to purchase is made at a place other than the place of business of the person soliciting\"",
+      "mode": "none",
+      "block": "1. N.D.C.C. 51-18-04, Agreement requirement (both notices)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole section: besides the two notices it carries the enforceability sentence and a conditional paragraph for buyers 65 or older that the builder cannot decide, so printing it would put non-notice statute text in the customer's contract.",
+      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, complete; age 65 rule"
+    },
+    {
+      "id": "ND-completion",
+      "title": "Completion-day notice of the warranty procedure",
+      "cite": "N.D.C.C. 43-07-26",
+      "trigger": "Construction of a one-family or two-family dwelling, or an improvement over $2,000 to a dwelling; given at completion",
+      "format": "Written notice of the requirements of the section, given at the time of completion of the improvement",
+      "support": "The contractor shall provide the purchaser or owner written notice of the requirements of this section at the time of closing for the property or, in the case of an improvement, at the time of completion of the improvement.",
+      "mode": "none",
+      "block": "6. N.D.C.C. 43-07-24 and 43-07-26",
+      "block_index": 0,
+      "hold_reason": "The block holds two sections: 43-07-24 (license number on a building permit application, not contract text) as well as 43-07-26, and 43-07-26 is the whole section with operative rules; the file gives no standalone notice wording.",
+      "summary_row": "Warranty repairs notice the contractor must hand over at completion"
+    },
+    {
+      "id": "ND-not-obligated",
+      "title": "Statement that the buyer owes nothing unless the contract is signed and returned",
+      "cite": "N.D.C.C. 51-18-04.1",
+      "trigger": "Personal solicitation sale: agreement to obtain a consumer good or service from a seller solicited in person or by telephone; whether it reaches sellers who are not telepromoters is not settled by the text",
+      "format": "At least 12 point type, in the space immediately preceding the space for the consumer signature",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "In a type size in a minimum of twelve points, in a space immediately preceding the space allotted for the consumer signature",
+      "mode": "none",
+      "block": "3. N.D.C.C. 51-18-04.1, 51-18-04.2, 51-18-04.3",
+      "block_index": 0,
+      "hold_reason": "The block is three whole sections (contract contents, advance payment ban, void agreement); printing it would put non-notice statute text in the contract. The statement itself is one line in 51-18-04.1(4).",
+      "summary_row": "Extra contract contents, 12 point statement, no advance payment, void agreement"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.covered",
+      "new": "Personal solicitation sales of consumer goods or services of $25 or more, solicited by telephone or in person with the agreement made away from the seller's place of business, on top of the federal rule; a sale after prior negotiations at a business establishment is not covered",
+      "support": "The only definition carve-out is \"prior negotiations between the parties at a business establishment at a fixed location\"."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Fifteen business days for a buyer 65 or older on a product with a purchase price over $50; the statute says product, not services",
+      "support": "The statute says \"product\"; it does not say services."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "No cap; in a personal solicitation sale the seller may not take any advance payment until it has received from the consumer an original copy of a contract that complies with the chapter",
+      "support": "So: signed compliant contract first, deposit second."
+    },
+    {
+      "path": "cleaning.auto_renewal",
+      "new": {
+        "rule": "Automatic renewal for more than one month: clear and conspicuous terms before signing, a retainable acknowledgment with how to cancel, a simple cancellation procedure, affirmative consent before charging; renewal periods over six months need written notice 30 to 60 days before renewal; renewal period may not exceed twelve months; a violating clause is void",
+        "cite": "N.D.C.C. 51-37-01 to 51-37-06",
+        "scope_and_confidence": "OFFICIAL; month-to-month renewal is outside the definition"
+      },
+      "support": "North Dakota HAS a statute (the first pass found none): chapter 51-37."
+    },
+    {
+      "path": "cleaning.no_rule_found",
+      "new": false,
+      "support": "North Dakota HAS a statute (the first pass found none): chapter 51-37."
+    }
+  ],
+  "unsure": [
+    "ND-cancel: the statute covers any sale solicited by telephone or in person and agreed away from the seller's place of business, but the builder only knows 'sold at the customer's home'.",
+    "ND-cancel: the block is the whole of 51-18-04 including the conditional 65-or-older paragraph; it could be loaded if the paragraph counts as an instruction line for the notice.",
+    "ND-not-obligated: the file says it is unsettled whether 51-18-04.1 reaches sellers who are not telepromoters.",
+    "ND-completion: the notice is handed over at completion, not in the contract, and the file says printing the section's own words in the contract or the completion certificate meets it."
+  ]
+}

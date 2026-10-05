@@ -1,0 +1,43 @@
+{
+  "state": "SC",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "SC-cancel",
+      "trigger": "Home solicitation sale: a consumer credit sale (including a sale paid by credit card or by a consumer loan whose lender is subject to claims from the sale) solicited and signed at the residence; a cash or check job with no credit is outside the article and the federal rule governs it",
+      "format": "Under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold, placement or detachable form rule; the federal notice may be printed instead",
+      "support": "A cash or check job with no credit is outside the article; the federal rule governs it.",
+      "summary_row": "Right to cancel, BUYER'S RIGHT TO CANCEL statement, refund, services, FTC option",
+      "mode": "none",
+      "block": "S.C. Code 37-2-501 to 37-2-506 (home solicitation sales)",
+      "block_index": 2,
+      "hold_reason": "The block is the whole section 37-2-503, with rules about the written agreement, the copy to the buyer and late cancellation around the statement, so printing it would put non-notice statute text in the contract; the statement itself needs to be cut out by hand. Also it applies only to credit sales, which the builder cannot tell."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days; credit sales only (a credit card or lender-financed sale counts); printing the federal notice satisfies South Carolina",
+      "support": "A cash or check job with no credit is outside the article; the federal rule governs it."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Home solicitation credit sales (including sales paid by credit card or by a consumer loan with claims against the lender) solicited and signed at the residence; a cash or check job is governed by the federal rule only",
+      "support": "A cash or check job with no credit is outside the article; the federal rule governs it."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Until midnight of the third business day after the buyer signs an agreement that complies with the state article.",
+      "support": "until midnight of the third business day after the day on which the buyer signs an agreement or offer to purchase which complies with this part"
+    },
+    {
+      "path": "license.text",
+      "new": "Residential Builders Commission license (ch. 59): residential builder when the job costs more than $5,000, residential specialty contractor when more than $500; Contractor's Licensing Board (ch. 11) over $10,000; the Commission is the exclusive licensor for residential-only work",
+      "support": "The commission is the exclusive licensing and registration entity for persons who engage solely in residential building and in residential specialty contracting."
+    }
+  ],
+  "unsure": [
+    "SC-cancel: the statute allows the federal notice instead of the South Carolina statement, so the owner may prefer to print only the federal notice; and it applies only to credit sales, which the builder cannot detect.",
+    "SC arbitration notice (15-48-10): underlined capitals on the first page of the contract, but no wording is prescribed, so I did not add a notice for it."
+  ]
+}

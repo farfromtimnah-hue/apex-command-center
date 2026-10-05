@@ -1,0 +1,68 @@
+{
+  "state": "AZ",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "AZ-registrar",
+      "summary_row": "Written contract contents, over $1,000, nine items, complaint statement rule",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "AZ-cancel",
+      "title": "NOTICE OF CANCELLATION form, in duplicate",
+      "cite": "A.R.S. 44-5004(C); right to cancel 44-5002",
+      "format": "Completed form in duplicate, attached to the contract or receipt, in the language of the oral sales presentation",
+      "support": "the following completed form, in duplicate and in the language used in the oral sales presentation which, if in English, would be in the form set forth in this subsection, is attached to the contract or receipt",
+      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, same-language rule",
+      "mode": "none",
+      "hold_reason": "The form is inside the block holding the whole of 44-5004, with subsection A (same-language rule for all documents) and the NOTICE TO BUYER around it, so printing the block would put non-notice statute text in the contract."
+    },
+    {
+      "id": "AZ-notice-to-buyer",
+      "title": "NOTICE TO BUYER (five points)",
+      "cite": "A.R.S. 44-5004(B)",
+      "trigger": "Home solicitation sale: seller personally solicits without prior invitation and the buyer's agreement is made at a home other than the seller's",
+      "format": "Conspicuous, in the language of the oral sales presentation; agreement must be dated and signed by the buyer",
+      "applies": { "sold_in_home": true },
+      "support": "No agreement of the buyer in a home solicitation sale shall be effective unless it is dated, signed by the buyer and contains a conspicuous notice in the language used in the oral sales presentation",
+      "summary_row": "NOTICE TO BUYER and NOTICE OF CANCELLATION form, same-language rule",
+      "mode": "none",
+      "hold_reason": "The notice is inside the block holding the whole of 44-5004, with subsection A (same-language rule for all documents) and the cancellation form around it, so printing the block would put non-notice statute text in the contract."
+    },
+    {
+      "id": "AZ-pool-notice",
+      "title": "Pool safety notice handed to the buyer",
+      "cite": "A.R.S. 36-1681(E)",
+      "trigger": "Agreement to build a swimming pool or contained body of water",
+      "format": "A notice explaining safety education and responsibilities of pool ownership as approved by the Department of Health Services",
+      "applies": { "is_pool": true },
+      "support": "A person on entering into an agreement to build a swimming pool or contained body of water or sell, rent or lease a dwelling with a swimming pool or contained body of water shall give the buyer, lessee or renter a notice explaining safety education and responsibilities of pool ownership as approved by the department of health services.",
+      "summary_row": "Department of Health Services approved pool safety notice (the document itself)",
+      "mode": "none"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (44-5002); NOTICE TO BUYER and NOTICE OF CANCELLATION form are in 44-5004",
+      "support": "The form is not in 44-5003 at all."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "the contract, receipt and all other documents pertaining to the contract are written in the same language used in the oral sales presentation"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Sundays and nine named federal holidays are not business days; Saturday counts (44-5002(A)).",
+      "support": "Sundays and nine named federal holidays are excluded from \"business day\" but Saturday is not"
+    }
+  ],
+  "unsure": [
+    "AZ-registrar: 32-1158(A)(9) lists required content (registrar phone and website, the two-year time limit) with no sentence; the phone and website were not obtained (Registrar site returned 403).",
+    "AZ-cancel and AZ-notice-to-buyer: the home solicitation definition requires solicitation without prior invitation, which the builder cannot tell; both are held anyway because their block is a whole section.",
+    "A.R.S. 44-5005(B) statement on a note was not added: it goes on the face of a note, not in the contract, and depends on a note being taken.",
+    "A.R.S. 12-1365 new-dwelling notice was not added: it is for sales of newly constructed dwellings only, not remodel contracts."
+  ]
+}

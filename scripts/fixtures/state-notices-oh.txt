@@ -1,0 +1,11 @@
+State notices a customer would see: Ohio (OH), residential job, $12,500.00, sold at the customer's home.
+Status: notice text still needs official copy
+
+== PRINTED IN THE CONTRACT (0) ==
+
+(no state notice prints for this state yet)
+
+== OWNER CHECKLIST LINES ABOUT NOTICES (not printed in the contract) ==
+
+- [warn] Ohio requires this notice: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION form (R.C. 1345.23). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Off-premises sales. Format: Statement near the signature in 10 point bold, plus a detachable duplicate NOTICE OF CANCELLATION; oral notice; the buyer's language.
+- [warn] Ohio requires this notice: Estimate form with the customer's initials (written, oral or no estimate) (Ohio Adm. Code 109:4-3-05(A)(1)). The exact wording is not loaded yet. Get it from the official source or your attorney and attach it before the customer signs. When: Repairs or services over $25 with face to face contact, which covers jobs under $25,000 and cleaning. Format: Form given at the first face to face contact and before work starts; may be separate or part of another form; also told to the customer orally.

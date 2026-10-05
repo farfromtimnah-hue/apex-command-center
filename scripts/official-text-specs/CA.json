@@ -1,0 +1,141 @@
+{
+  "state": "CA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "CA-7159",
+      "cite": "B&P 7159, 7159.5",
+      "support": "For remodels the duty is 7159(c)(6) (no fixed words, near the signatures); 7164 is for new single-family dwellings.",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "none",
+      "hold_reason": "The only block is the complete text of B&P 7159, which holds the contract content rules, the CGL and workers' compensation choices, the lien warning, the CSLB notice and the three, five and seven-day cancel notices together with the Notice of Cancellation form; printing it would put non-notice statute text in the contract, and the individual notices cannot be taken out as separate blocks."
+    },
+    {
+      "id": "CA-cslb",
+      "support": "Home improvement and service and repair contracts print the \"Information about the Contractors State License Board (CSLB)\" notice \"in at least 12-point type\"",
+      "summary_row": "CSLB notice (12 point for home improvement and service and repair; 10 point statement for other prime contracts)",
+      "mode": "none",
+      "hold_reason": "The block is the whole of B&P 7030, which holds two different statements (the 10 point statement for other prime contracts and the 12 point notice for home improvement) plus the discipline rule; printing it would put the wrong statement and non-notice text in a home improvement contract."
+    },
+    {
+      "id": "CA-insurance",
+      "cite": "B&P 7159(c)(6), 7159(e)(1), 7159(e)(2)",
+      "support": "For remodels the duty is 7159(c)(6) (no fixed words, near the signatures); 7164 is for new single-family dwellings.",
+      "summary_row": "Home improvement contract: full required contents, headings, all mandatory notices, three/five/seven-day right to cancel and Notice of Cancellation form",
+      "mode": "none",
+      "hold_reason": "The CGL and workers' compensation notices exist only inside the complete B&P 7159 block, and each one offers several statements of which only the correct one is printed; the bond notice has no fixed wording. Printing the block would put non-notice statute text in the contract."
+    },
+    {
+      "id": "CA-7159.1",
+      "title": "WARNING TO BUYER: putting up your home as security (door-to-door home improvement contract secured by a lien on real property)",
+      "cite": "B&P 7159.1",
+      "trigger": "Door-to-door sale of home improvement goods or services in a contract that contains or is secured by a lien on real property",
+      "format": "18 point boldface, separate piece of paper, signed and dated by the buyer, same language as the contract, signed copy handed over at signing",
+      "applies": { "sold_in_home": true },
+      "support": "the contract shall be accompanied by the following notice in 18-point boldfaced type",
+      "summary_row": "Door-to-door home improvement contract secured by a lien on the home: 18 point WARNING TO BUYER",
+      "mode": "none",
+      "hold_reason": "The block is the whole of B&P 7159.1, including the exemptions and the rule that a security interest without the notice is void, so printing it would put non-notice statute text in the contract; also whether a lien secures the contract is not known to the builder."
+    },
+    {
+      "id": "CA-7191",
+      "title": "ARBITRATION OF DISPUTES title and NOTICE before the initials line",
+      "cite": "B&P 7191",
+      "trigger": "Contract for work on residential property with four or fewer units that contains an arbitration clause",
+      "format": "Clause titled ARBITRATION OF DISPUTES; 10 point roman boldface (or red 8 point boldface), capitals if typed; the NOTICE sits immediately before and after the initials line",
+      "applies": { "residential": true },
+      "support": "the provision shall be clearly titled",
+      "summary_row": "Arbitration clause title and NOTICE (residential, four or fewer units)",
+      "mode": "none",
+      "hold_reason": "The block is the whole of B&P 7191, including the enforceability rule and the board's discipline authority, so printing it would put non-notice statute text in the contract; the notice is also only needed when the contract has an arbitration clause."
+    },
+    {
+      "id": "CA-1689.7",
+      "title": "Home solicitation cancellation statement near the signature and Notice of Cancellation form (sales other than home improvement and service and repair contracts)",
+      "cite": "Civ. Code 1689.7",
+      "trigger": "Home solicitation sale of $25 or more made away from the seller's trade premises that is not a home improvement or service and repair contract (for example a recurring cleaning plan sold at the home)",
+      "format": "Statement at least 10 point boldface in immediate proximity to the buyer's signature; duplicate detachable Notice of Cancellation form, at least 10 point; same language as the sales presentation; oral notice",
+      "applies": { "sold_in_home": true },
+      "support": "shall contain in immediate proximity to the space reserved for the buyer",
+      "summary_row": "Home solicitation: statement near signature, first-page seller details, Notice of Cancellation form, oral notice",
+      "mode": "none",
+      "hold_reason": "The block is the whole of Civ. Code 1689.7, with several versions of the statement (senior, disaster, emergency response unit, home improvement) and other rules around them, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "CA-7159.10",
+      "title": "Service and repair contract notices ($750 or less)",
+      "cite": "B&P 7159.10",
+      "trigger": "Service and repair contract of $750 or less that the customer asked for, with no payment before the work is done and nothing sold beyond the problem",
+      "format": "Several notices, 10 point boldface type notice and 12 point boldface notices signed and dated by the buyer",
+      "applies": {},
+      "support": "Every service and repair contract described in subdivision (a) shall provide the following information, notices, and disclosures in the contract",
+      "summary_row": "Service and repair contract ($750 or less): contents and notices",
+      "mode": "none",
+      "hold_reason": "The block is the whole of B&P 7159.10, which mixes the definition, the contract content rules and the notices, so printing it would put non-notice statute text in the contract; whether the customer asked for the work is not known to the builder."
+    },
+    {
+      "id": "CA-115924",
+      "title": "Notice of the pool safety requirements",
+      "cite": "Health & Saf. Code 115924",
+      "trigger": "Agreement to build a swimming pool or spa, or to do permitted work on one",
+      "format": "No wording or type size prescribed",
+      "applies": { "is_pool": true },
+      "support": "shall give the consumer notice of the requirements of this article",
+      "summary_row": "Pool or spa agreement: notice of the pool safety article; two of seven safety features",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "and shall inform the buyer orally of the buyer"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Home improvement contracts, unless negotiated at the contractor's place of business; also other home solicitation sales as Civ. Code 1689.5 defines them",
+      "support": "shall be provided to the buyer unless the contract is: (i) Negotiated at the contractor’s place of business."
+    },
+    {
+      "path": "license.text",
+      "new": "CSLB license for work of $1,000 or more (B&P 7048, amended January 1, 2026); license number goes in all construction contracts (B&P 7030.5)",
+      "support": "Every person licensed pursuant to this chapter shall include his license number in: (a) all construction contracts"
+    },
+    {
+      "path": "defect_process.text",
+      "new": "SB 800 (Civ. 896, 911) reaches original construction intended to be sold as an individual dwelling unit, not a remodel, on the text; repose 10 years",
+      "support": "On the text, a remodel of an existing home is not \"original construction intended to be sold\"; no SB 800 notice is required in a remodel contract."
+    },
+    {
+      "path": "defect_process.unresolved",
+      "new": false,
+      "support": "On the text, a remodel of an existing home is not \"original construction intended to be sold\"; no SB 800 notice is required in a remodel contract."
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Clear and conspicuous renewal terms, affirmative consent, easy cancellation, reminders, notice 7 to 30 days before a fee change, consent records kept at least three years or one year after the contract ends, whichever is longer",
+      "support": "Price change notice: \"no less than 7 days and no more than 30 days before the fee change takes effect\". Consent record: \"for at least three years, or one year after the contract is terminated, whichever period is longer\"."
+    },
+    {
+      "path": "cleaning.auto_renewal.cite",
+      "new": "B&P 17601, 17602 (effective January 1, 2025; amendments apply to contracts entered into, amended or extended on or after July 1, 2025)",
+      "support": "Amended Stats. 2024 ch. 515 (AB 2863), effective January 1, 2025; amendments apply to contracts entered into, amended or extended on or after July 1, 2025"
+    },
+    {
+      "path": "cleaning.license_note",
+      "new": "Labor Code 1420 and following (janitorial registration with the DLSE; definitions amended by AB 2364, effective January 1, 2025): an employer is any person who employs at least one covered worker, and a covered worker excludes work that is predominantly final construction cleanup. OFFICIAL text (leginfo). Whether a small residential cleaning business with employees must register: UNRESOLVED.",
+      "support": "“Employer” means any person or entity that employs at least one covered worker"
+    }
+  ],
+  "unsure": [
+    "CA-1689.7: the file's example is a cleaning plan sold at the home, but the rider says home solicitation does not apply to cleaning; I left cleaning.home_solicitation_applies_to_cleaning unchanged and only added the notice as held.",
+    "CA-7159.10: only applies to small service calls the customer asked for; unclear whether the builder's contracts ever fall in it.",
+    "CA-7159.1 and CA-7191: added as held notices because the law puts them in the contract when a lien secures it or an arbitration clause is used, but the builder cannot tell either.",
+    "CA-115924: the statute says to give the consumer notice of the pool article but prescribes no wording, so it may be a handout rather than contract text.",
+    "cancellation.oral_notice: set to true from Civ. Code 1689.7(f), which has no exception for home improvement contracts, but 7159 itself does not repeat the oral duty.",
+    "defect_process.unresolved: set to false because the file settles it from the statute text, but the file calls this a reading of the text, not a legal opinion.",
+    "written_contract: 7159.5 applies to every home improvement contract with no dollar floor (state file conflict 6), so the $500 threshold is only the 7159 package threshold; left unchanged.",
+    "CA-7164 (new single-family dwelling contract) was not added because it does not cover remodels."
+  ]
+}

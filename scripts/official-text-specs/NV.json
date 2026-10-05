@@ -1,0 +1,148 @@
+{
+  "state": "NV",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "NV-fund",
+      "title": "Residential Construction Recovery Fund statement",
+      "format": "Written statement in substantially the form given, in any agreement or contract for qualified services; inside a 624.970 contract the 10 point bold rule applies",
+      "support": "\"in substantially the following form\"; must be \"in any agreement or contract for qualified services\"",
+      "summary_row": "Residential Construction Recovery Fund statement",
+      "mode": "none",
+      "block": "NRS 624.520: Residential Construction Recovery Fund statement",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole section 624.520; besides the statement it holds the fine amounts and the rule on where the Board deposits money, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "NV-owner-notice",
+      "cite": "NRS 624.970(3)(b) (AB 39)",
+      "support": "NRS 624.970, source note \"(Added to NRS by 2023, 1047)\"",
+      "summary_row": "Residential improvement contract: mandatory contents, deposit cap, initials, notice near signatures, 10 point bold (AB 39 as codified)",
+      "mode": "none",
+      "block": "NRS 624.970: Residential improvement contract: mandatory contents, deposit cap, initials, notice near signatures, 10 point bold (AB 39 as codified)",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content (the four points the owner is told), and the state file's block is the whole section 624.970."
+    },
+    {
+      "id": "NV-sub-list",
+      "format": "Provided to the owner in writing; no type size; the two informational forms are fixed text under NAC 624.693 and 624.6932 (loaded as their own notices)",
+      "support": "Both \"must be as follows\", so they are fixed text.",
+      "summary_row": "Subcontractor and supplier list, lien notice and informational forms",
+      "mode": "none",
+      "block": "NRS 624.600: Subcontractor and supplier list, lien notice and informational forms",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content (the subcontractor and supplier list and a lien notice)."
+    },
+    {
+      "id": "NV-info-liens",
+      "title": "Informational form: mechanics' and materialmen's liens",
+      "cite": "NAC 624.693; NRS 624.600(1)(c)(2)",
+      "trigger": "General building contractor contracting with the owner of a single-family residence",
+      "format": "Fixed wording (\"must be as follows\"), capitals as shown; given to the owner in writing",
+      "applies": { "residential": true },
+      "support": "Both forms are now captured from the official NAC page: NAC 624.693 (liens) and NAC 624.6932 (contractors). Both \"must be as follows\", so they are fixed text.",
+      "summary_row": "Informational form regarding mechanics' and materialmen's liens",
+      "mode": "on_file",
+      "block": "NAC 624.693: Informational form regarding mechanics' and materialmen's liens",
+      "block_index": 0
+    },
+    {
+      "id": "NV-info-contractors",
+      "title": "Informational form: contractors (Board website and telephone numbers)",
+      "cite": "NAC 624.6932; NRS 624.600(1)(c)(1)",
+      "trigger": "General building contractor contracting with the owner of a single-family residence",
+      "format": "Fixed wording (\"must be as follows\"); given to the owner in writing",
+      "applies": { "residential": true },
+      "support": "Both forms are now captured from the official NAC page: NAC 624.693 (liens) and NAC 624.6932 (contractors). Both \"must be as follows\", so they are fixed text.",
+      "summary_row": "Informational form regarding contractors (Board website and telephone numbers)",
+      "mode": "on_file",
+      "block": "NAC 624.6932: Informational form regarding contractors (Board website and telephone numbers)",
+      "block_index": 0
+    },
+    {
+      "id": "NV-cancel",
+      "title": "Door-to-door sale: cancellation statement beside the signature, duplicate NOTICE OF CANCELLATION form and oral notice",
+      "cite": "NRS 598.240 (statement), 598.250 (form), 598.280 (oral notice)",
+      "trigger": "Door-to-door sale of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not",
+      "format": "Statement in bold type next to the buyer's signature; form in duplicate, detachable, boldface; both in the language of the sales talk; buyer also told orally",
+      "applies": { "sold_in_home": true },
+      "support": "Yes, on the official text: \"whether at the specific invitation of the buyer or not\" (NRS 598.180).",
+      "summary_row": "Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
+      "mode": "none",
+      "block": "NRS 598.140 to 598.2801: Door-to-door sales: definitions, right to rescind, statement near signature, NOTICE OF CANCELLATION form, oral notice",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole range 598.140 to 598.2801 with definitions, penalties and unlawful acts around the statement and form, so it cannot be printed as one notice."
+    },
+    {
+      "id": "NV-pool-rights",
+      "title": "Pool and spa: written statement of the customer's rights",
+      "cite": "NRS 624.935(5)",
+      "trigger": "Contract for work on a residential pool or spa",
+      "format": "Written statement explaining the customer's rights under NRS 624.900 to 624.965 and other relevant statutes; no wording prescribed",
+      "applies": { "is_pool": true },
+      "support": "Requires \"a written statement explaining the rights of the customer\"; no wording prescribed.",
+      "summary_row": "Pool and spa: contractor duties and customer rights statement",
+      "mode": "none",
+      "block": "NRS 624.935: Pool and spa: contractor duties and customer rights statement",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content (a written statement explaining the customer's rights)."
+    },
+    {
+      "id": "NV-pool-notice",
+      "title": "Pool and spa: notice near the signatures (Board contact, bond right)",
+      "cite": "NRS 624.940(3)(b)",
+      "trigger": "Pool or spa contract over $1,000",
+      "format": "In close proximity to the signatures; all written information in the contract in at least 10-point bold type",
+      "applies": { "is_pool": true, "over_cents": 100000 },
+      "support": "The pool notice near the signatures has two points (Board contact, bond right), not the four in NRS 624.970.",
+      "summary_row": "Pool and spa contract: mandatory contents",
+      "mode": "none",
+      "block": "NRS 624.940: Pool and spa contract: mandatory contents",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content (two points the owner is told)."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "writing \"in the same language as that primarily used in the oral sales presentation\""
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Door-to-door sales of $25 or more made away from the seller's place of business, whether at the specific invitation of the buyer or not, on top of the federal rule",
+      "support": "Yes, on the official text: \"whether at the specific invitation of the buyer or not\" (NRS 598.180)."
+    },
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (598.230); statement beside the signature (598.240) and duplicate form (598.250); oral notice (598.280)",
+      "support": "NRS 598.250 sets out the full NOTICE OF CANCELLATION form (below). Bold type is required; no point size is given."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Sunday and ten named holidays (including Martin Luther King, Jr.'s Birthday and Nevada Day) are not business days; Saturday counts; refund within 10 business days. Do not use the small cancellation penalty in NRS 598.260; the federal rule allows none.",
+      "support": "NRS 598.150: Sunday and ten named holidays are excluded, including Martin Luther King, Jr.'s Birthday and Nevada Day. Saturday counts. Refund wording in the form is \"within 10 business days\"."
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Written contract for work on an owner-occupied single-family residence (NRS 624.970, AB 39); pool and spa contracts over $1,000 (NRS 624.940)",
+      "support": "any contract entered into between a residential contractor and the owner of a single-family residence who occupies the single-family residence for work concerning a residential improvement"
+    },
+    {
+      "path": "license.text",
+      "new": "State license. Work to repair or maintain property worth under $1,000 (labor and materials) is exempt unless it needs a building permit, is plumbing, electrical, refrigeration, heating or air-conditioning work, significantly affects health, safety and welfare, is part of a larger project of $500 or more, or is done by a licensee. Pool and spa work for a fee needs a license with no dollar floor (NRS 624.920); whether the $1,000 exemption reaches small pool repairs is not settled",
+      "support": "NRS 624.920 bars any pool or spa work for a fee without a license and has no dollar floor."
+    },
+    {
+      "path": "defect_process.text",
+      "new": "NRS 40.645 pre-suit notice by certified mail; contractor's written response within 90 days (NRS 40.6472); inspection and chance to repair (NRS 40.647); covers remodels (NRS 40.615)",
+      "support": "contractor's written response \"not later than 90 days after the contractor receives the notice\" (40.6472(1)(a))"
+    }
+  ],
+  "unsure": [
+    "NV-fund: the statement is required of a residential contractor in any agreement for qualified services; whether that means every residential contract or only owner-occupied single-family ones is not settled, and the block is held anyway.",
+    "NV-info-liens and NV-info-contractors: duty falls on a general building contractor with the owner of a single-family residence; the builder cannot tell single-family or owner-occupied, so the text is stored on file only.",
+    "NV-owner-notice, NV-pool-rights, NV-pool-notice: the statutes require a notice but prescribe no wording, so nothing is loaded.",
+    "NV-pool-notice and NV-pool-rights: added from the pool sections; unclear whether the owner wants them on the checklist for every pool contract."
+  ]
+}

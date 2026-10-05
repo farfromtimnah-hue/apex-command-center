@@ -1,0 +1,60 @@
+{
+  "state": "ME",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "ME-1487",
+      "summary_row": "Home construction contract: threshold, 14 required parts, exact warranty, dispute and change order text, one-third down payment cap",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of 10 M.R.S. 1487 (all 14 required parts, the one-third deposit cap and the amendment notes), so printing it would put non-notice statute text in the contract; the warranty, dispute and change order sentences sit inside it, and the dispute text is printed in the statute with ( ) marks while the Attorney General's model uses check boxes."
+    },
+    {
+      "id": "ME-ag",
+      "format": "The Attorney General's whole addendum attached to every contract over $3,000, kept current from the agency's file and never edited; the 1487(14) notice must be clear and conspicuous and carry the website address and telephone number",
+      "support": "Formatting rule, from the addendum itself: \"this entire statement must be an addendum to any home construction contract for more than $3,000\".",
+      "summary_row": "Attorney General \"Home Construction Contract Addendum\" (the 1487(13) addendum)",
+      "mode": "none",
+      "hold_reason": "The state file says the addendum lists contractors the State has sued, was last modified April 2026, changes, and must be re-fetched, not hard coded once, and it names real businesses and people; the 1487(14) website notice has no prescribed wording, the statute only lists required content."
+    },
+    {
+      "id": "ME-cancel",
+      "title": "State statement of the right to avoid (cash sales) and BUYER'S RIGHT TO CANCEL statement (credit sales)",
+      "cite": "32 M.R.S. 4662, 4664-A (cash sales); 9-A M.R.S. 3-503 (credit sales)",
+      "trigger": "Cash sale where the seller made direct contact without the consumer soliciting it, price $25 or more; credit sale solicited and signed at the buyer's residence",
+      "format": "Cash sales: a statement of the right to avoid and of the 4664-A limit, in the seller's own words, no form; credit sales: the statement under the conspicuous caption BUYER'S RIGHT TO CANCEL, no type size, FTC form accepted",
+      "support": "Title 32 prescribes NO notice wording, only \"a statement of the consumer's right to avoid\" and \"a statement of the limitation contained in section 4664‑A\". Title 9-A prescribes exact wording.",
+      "summary_row": "Home solicitation sale (credit sales): \"BUYER'S RIGHT TO CANCEL\" statement",
+      "mode": "none",
+      "hold_reason": "The only block for the credit statement is five whole sections of 9-A M.R.S. 3-501 to 3-505, so printing it would put non-notice statute text in the contract; Title 32 prescribes no wording; and whether a sale is credit or cash is not something the builder knows."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.covered",
+      "new": "Cash sales where the seller made the first contact, price $25 or more (32 M.R.S. 4661 to 4668); credit sales solicited and signed at the residence fall under 9-A M.R.S. 3-501 to 3-505 instead; both on top of the federal rule",
+      "support": "Cash sales: 32 M.R.S. 4661 to 4668, only where the seller made direct contact \"without the consumer soliciting the initial contact\", gross price $25 or more."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Cash sales: within 3 full business days following the day the contract was made (32 M.R.S. 4664); credit sales: until midnight of the third business day after the day the buyer signs (9-A M.R.S. 3-502). Neither defines business day. Work stops only where the seller must affix merchandise permanently to the property.",
+      "support": "Title 32 says \"within 3 full business days following the day on which the contract or sale was made\"; Title 9-A says \"until midnight of the third business day after the day on which the buyer signs\". Neither section defines \"business day\"."
+    },
+    {
+      "path": "license.text",
+      "new": "No state license for general contractors or trades such as roofing and framing; the State licenses plumbers and electricians",
+      "support": "In Maine, general contractors - and trades such as roofing and framing - are not licensed or regulated."
+    },
+    {
+      "path": "cleaning.home_solicitation_applies_to_cleaning",
+      "new": true,
+      "support": "\"Services\" count as merchandise, so a cleaning sale started by the seller's visit or call is covered."
+    }
+  ],
+  "unsure": [
+    "ME-ag: the addendum is required with every contract over $3,000 and should print, but the state file says it changes and must be re-fetched, so it is held rather than stored.",
+    "ME-ag: this one notice covers both the 1487(13) addendum and the 1487(14) website-and-phone notice; the second has no prescribed sentence, and the Attorney General's model contract section 14 links to a test host (uat) that must not be printed.",
+    "ME-1487: the warranty, dispute and change order sentences are the text the law mandates, but they only exist inside the whole-section block; the statute and the Attorney General's model differ in small ways (express warranties, a fourth check box, MUBEC).",
+    "ME-cancel: kept as one notice although cash and credit sales are governed by different statutes; the cash statute has no wording to load.",
+    "cancellation.no_work_or_payment_in_window left true: the file says work is barred only where merchandise is permanently affixed, which is a partial ban."
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "state": "CT",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "CT-cancel",
+      "cite": "C.G.S. 42-135a; 20-429(e)",
+      "trigger": "Every home improvement contract wherever it is signed, and any other sale of consumer services away from the seller's place of business",
+      "format": "Buyer statement in immediate proximity to the signature space in boldface of at least twelve points; detachable duplicate NOTICE OF CANCELLATION in twelve-point boldface, same language as the contract; the emailed-contract sentence when the contract is sent by email",
+      "applies": { "residential": true },
+      "support": "Each home improvement contract entered into shall be considered a home solicitation sale pursuant to chapter 740 and shall be subject to the requirements of said chapter regardless of the location of the transaction or of the signing of the contract.",
+      "summary_row": "Buyer statement beside signature, NOTICE OF CANCELLATION form, email sentence, seller duties",
+      "mode": "none",
+      "hold_reason": "the block is the whole of 42-135a, which also carries the seller's duties (oral notice, refund within ten business days, no assignment of notes, no waiver) around the notice wording, so printing it would put non-notice statute text in the contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days (ch. 740); Saturdays, Sundays and Connecticut legal holidays do not count; the buyer may cancel by email, fax or mail",
+      "support": "The buyer may now cancel by email or fax; the seller must print a business email address on the form."
+    },
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "Saturday no longer counts as a business day; the first pass said it does."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day excludes Saturday, Sunday and legal holidays under C.G.S. 1-4 (including Lincoln Day, February 12) since July 1, 2025 (42-134a(6)); start counting the day after the transaction.",
+      "support": "Connecticut legal holidays under 1-4 include Lincoln Day (February 12), which is not a federal holiday"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Every home improvement contract wherever signed (20-429(e)), and other sales of consumer services away from the seller's place of business, on top of the federal rule",
+      "support": "By 20-429(e) every home improvement contract is covered wherever signed"
+    },
+    {
+      "path": "cancellation.oral_notice",
+      "new": true,
+      "support": "Fail to inform each buyer, orally, at the time such buyer signs the contract or purchases the goods or services, of such buyer's right to cancel."
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Applies to any consumer agreement with an automatic renewal provision or a continuous services provision, with no minimum term: disclosures before renewal or before signing, affirmative consent before charging a card, an online or telephone way to cancel, and an annual reminder from July 1, 2026. A month to month cleaning plan that continues until cancelled is a continuous services provision.",
+      "support": "A month to month cleaning plan that continues until cancelled is a \"continuous services provision\" on the statute's wording."
+    },
+    {
+      "path": "cleaning.auto_renewal.cite",
+      "new": "C.G.S. 42-158ff",
+      "support": "Automatic renewal and continuous services (house cleaning plans) | C.G.S. 42-158ff | VERBATIM-OFFICIAL"
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "Official text (2026 Supplement, version on and after July 1, 2026); the disclosure lists were not compared word for word between the two versions; month to month plans are covered",
+      "support": "the lists (i) to (vii) were not compared word for word between the two versions"
+    }
+  ],
+  "unsure": [
+    "CT-cancel: the notice, the buyer statement and the emailed-contract sentence all sit inside the whole 42-135a section with the seller's duties, so nothing is loaded; I did not add a separate notice for the emailed-contract sentence because it goes in the email, not the contract.",
+    "CT-cancel: applies is now residential because 20-429(e) makes every home improvement contract a home solicitation sale, but the builder may also write non-home-improvement residential jobs.",
+    "CT-cancel: the file says the old ten point form and the 2017 DCP guide are outdated, so I did not use them."
+  ]
+}

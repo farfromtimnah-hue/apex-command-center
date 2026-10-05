@@ -1,0 +1,96 @@
+{
+  "state": "PA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "PA-cancel",
+      "cite": "HICPA section 7(a)(13), (b) (73 P.S. 517.7)",
+      "format": "Notice of the right of rescission inside the contract; the statute gives no fixed sentence and no type size",
+      "support": "Section 7(a)(13) requires \"a notice of the right of rescission under subsection (b)\". The statute gives no fixed sentence for it.",
+      "summary_row": "Three business day rescission on every home improvement contract",
+      "mode": "none",
+      "block": "1. HICPA section 7, home improvement contracts (the full section)",
+      "block_index": 0,
+      "hold_reason": "no prescribed wording; the statute only lists required content (a notice of the right of rescission, no fixed sentence), and the state file's block is the whole section 7."
+    },
+    {
+      "id": "PA-bureau",
+      "title": "Registration number and Bureau toll-free number 1-888-520-6680",
+      "cite": "HICPA sections 6, 7(a)(1) and 7(a)(12)",
+      "format": "Registration number as \"PA\" plus the number, clearly and conspicuously displayed; the Attorney General suggests a sentence giving the toll-free number (agency guidance, not statute)",
+      "support": "(12) Includes the toll-free telephone number under section 3(b).",
+      "summary_row": "Bureau of Consumer Protection toll-free number: 1-888-520-6680",
+      "mode": "none",
+      "block": "8. Attorney General guidance: toll-free number, suggested sentence, registration number format",
+      "block_index": 0,
+      "hold_reason": "The statute prescribes no wording; the only sentence is the Attorney General's suggestion, and the state file's block is a whole FAQ page with other questions and answers and a blank for the contractor name."
+    },
+    {
+      "id": "PA-door",
+      "title": "Sale at the customer's residence: cancellation statement beside the signature and duplicate Notice of Cancellation form",
+      "cite": "UTPCPL section 7(b)(1), (2) (73 P.S. 201-7)",
+      "trigger": "Goods or services of $25 or more sold as a result of a contact with or call on the buyer at his residence, in person or by phone",
+      "format": "Statement in bold face of at least ten points next to the buyer's signature; form in duplicate, detachable, ten-point bold face; both in the language of the sales talk and also in English; a federal-form Notice of Cancellation is deemed compliant",
+      "applies": { "sold_in_home": true },
+      "support": "The text covers a sale \"as a result of, or in connection with, a contact with or call on the buyer or resident at his residence either in person or by telephone\"",
+      "summary_row": "Door-to-door statement beside the signature",
+      "mode": "none",
+      "block": "7. UTPCPL section 7, door-to-door contracts, the statement, the Notice of Cancellation and the Emergency Work Authorization (the full section)",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole section 7 of the Unfair Trade Practices law; around the statement and form it holds refund duties, emergency rules, definitions and exceptions, so printing it would put non-notice statute text in the contract."
+    },
+    {
+      "id": "PA-emergency-form",
+      "title": "Emergency Work Authorization form",
+      "cite": "UTPCPL section 7(j.1) (73 P.S. 201-7)",
+      "trigger": "The buyer contacted the seller about a bona fide emergency at the buyer's residence and the buyer waives the cancellation right",
+      "format": "Preprinted card at least four inches by six inches, writing in at least ten-point bold face, with a written estimate",
+      "applies": { "sold_in_home": true },
+      "support": "the Emergency Work Authorization card",
+      "summary_row": "Emergency Work Authorization form",
+      "mode": "none",
+      "block": "7. UTPCPL section 7, door-to-door contracts, the statement, the Notice of Cancellation and the Emergency Work Authorization (the full section)",
+      "block_index": 0,
+      "hold_reason": "The state file's block is the whole section 7; the form is one part of it with many other operative rules, and whether the customer has an emergency is something the builder does not know."
+    }
+  ],
+  "changes": [
+    {
+      "path": "written_contract.threshold_cents",
+      "new": 50000,
+      "support": "for which the total cash price of all work agreed upon between the contractor and owner is more than $500"
+    },
+    {
+      "path": "written_contract.compare",
+      "new": "over",
+      "support": "for which the total cash price of all work agreed upon between the contractor and owner is more than $500"
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Every home improvement contract over $500 (HICPA 7(a)); it must be in writing, legible, signed by both sides, and carry the registration number",
+      "support": "for which the total cash price of all work agreed upon between the contractor and owner is more than $500"
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "One third of the price (or one third plus special order materials), only when the price is over $5,000; no statutory cap at $5,000 or under",
+      "support": "The cap does not apply to a contract of $5,000 or less."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Three business days from the date of signing (HICPA 7(b)). For sales at the customer's residence the period does not start until the buyer has been told of the right and given copies of the Notice of Cancellation (UTPCPL 7(e)).",
+      "support": "the period \"shall not begin to run until buyer has been informed of his right to cancel and has been provided with copies\""
+    },
+    {
+      "path": "cleaning.home_solicitation_applies_to_cleaning",
+      "new": true,
+      "support": "The text covers a sale \"as a result of, or in connection with, a contact with or call on the buyer or resident at his residence either in person or by telephone\""
+    }
+  ],
+  "unsure": [
+    "PA-bureau: the statute only requires the Bureau toll-free number in the contract; the one sentence is an Attorney General suggestion inside a whole FAQ block, so nothing is loaded.",
+    "PA-door: the state file shows two overlapping cancellation rules (HICPA 7(b) on every contract and UTPCPL 7 for sales at the residence); the second needs its statement and form only when sold at the customer's home.",
+    "PA-emergency-form: the form is only used when the customer calls about an emergency and waives the right; added for the checklist, unclear whether it belongs in a normal contract.",
+    "deposit_cap: the one-third cap applies only above $5,000, so the fraction field was left empty rather than apply it to every job.",
+    "cleaning.home_solicitation_applies_to_cleaning: set true because section 7 covers services sold at the residence at $25 or more; the state file does not say this about cleaning in particular."
+  ]
+}

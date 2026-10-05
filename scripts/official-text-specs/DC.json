@@ -1,0 +1,91 @@
+{
+  "state": "DC",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "DC-home-solicitation",
+      "title": "Buyers right to cancel statement (home solicitation sale)",
+      "cite": "D.C. Code 28-3811(g)",
+      "trigger": "Home solicitation sale: cash or credit sale solicited in person at or near the buyer's residence",
+      "format": "Under the conspicuous caption BUYERS RIGHT TO CANCEL; fixed wording; agreement dated the day the buyer actually signs",
+      "applies": {
+        "sold_in_home": true
+      },
+      "support": "with a prescribed statement under the caption \"BUYERS RIGHT TO CANCEL\"",
+      "mode": "none",
+      "block": "7. D.C. Code 28-3811, home solicitation sales (the full section)",
+      "block_index": 0,
+      "hold_reason": "The block is the whole statute section (cancellation, refund and goods rules around the statement); printing it would put non-notice statute text in the contract. The statement is only subsection (g)(2).",
+      "summary_row": "Home solicitation sale: \"BUYERS RIGHT TO CANCEL\" statement, three business days, emergency waiver wording"
+    },
+    {
+      "id": "DC-808-15",
+      "title": "Do-not-sign-in-blank and copy-at-signing notice",
+      "cite": "16 DCMR 808.15",
+      "trigger": "Every home improvement contract",
+      "format": "Bold type no smaller than 10 point; wording satisfactory to the Director",
+      "applies": {},
+      "support": "Each contract shall contain a notice satisfactory to the Director in bold type no smaller than ten (10) point stating in substance that the homeowner shall not sign the contract in blank and that the homeowner is entitled to a copy of the contract at the time he or she signs.",
+      "mode": "none",
+      "hold_reason": "No prescribed wording; the regulation prescribes only the substance, the wording must be satisfactory to the Director, and the block is the whole of section 808.",
+      "summary_row": "Home improvement contract rules: writing before any payment, triplicate, signatures, salesperson names and license numbers, contents, specifications, no blanks, 10 point bold notice"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "D.C. Code 28-3811: right to cancel a home solicitation sale until midnight of the third business day, with the BUYERS RIGHT TO CANCEL statement; federal 16 CFR 429 form still needed alongside for door-to-door sales",
+      "support": "The federal 16 CFR 429 form is still needed alongside it for door-to-door sales."
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Cash or consumer credit sales of goods or services solicited in person at or near the buyer's residence (D.C. Code 28-3811(a))",
+      "support": "“home solicitation sale” means a cash sale or a consumer credit sale of goods, other than farm equipment, or services in which the seller or a person acting for him engages in a personal solicitation of the sale at or near a residence of the buyer"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "\"Business day\" is not defined in the section; cancellation occurs when written notice is given to the seller, and mailed notice counts when deposited in a mail box",
+      "support": "\"Business day\" is not defined in the section."
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Written contract before any payment, signed in at least triplicate with all blanks filled in, on a form approved by the Director (16 DCMR 808, 811); contract price of $300 or more, aggregated over 12 months",
+      "support": "Contract rules are in 16 DCMR 808, not 810."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "No deposit cap in 16 DCMR 800 to 899; no payment until the contract is in writing (808.1); no advance payment unless licensed (800.1)",
+      "support": "No cap appears in any of the 17 sections."
+    },
+    {
+      "path": "license.text",
+      "new": "HIC license from DLCP for contracts of $300 or more (12 month aggregation); $25,000 bond (16 DCMR 802); authority D.C. Code 47-2883.01",
+      "support": "The correct authority is D.C. Code 47-2883.01 to 47-2883.06"
+    },
+    {
+      "path": "pool",
+      "new": "swimming pool work is home improvement work (16 DCMR 899)",
+      "support": "899.1 lists a \"swimming pool\" expressly in home improvement work"
+    },
+    {
+      "path": "cleaning.auto_renewal.rule",
+      "new": "Disclose the automatic renewal and cancellation procedure clearly and conspicuously in the contract; for initial terms of 12 months or more, notice 30 to 60 days before the cancellation deadline; a violation voids the renewal provision",
+      "support": "A recurring cleaning contract with a definite term that renews is inside it."
+    },
+    {
+      "path": "cleaning.auto_renewal.cite",
+      "new": "D.C. Code 28A-202 to 28A-204",
+      "support": "D.C. Code 28A-202, 28A-203, 28A-204"
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "OFFICIAL; the service contract exemption in 28A-204(4) points to D.C. Code 31-2351.01(10), which was not read",
+      "support": "which was not read; from its title number it is the insurance title's product service contract, but confirm before relying on that"
+    }
+  ],
+  "unsure": [
+    "DC-808-15: the notice is required but its wording is left to the Director, so no text can be loaded and a sentence the owner writes needs DLCP's approval.",
+    "DC-home-solicitation: held because the block is the whole 28-3811 section; the statement itself is in (g)(2) only.",
+    "D.C. Code 28A-203(a) automatic renewal disclosure prescribes no sentence, so no notice was added."
+  ]
+}

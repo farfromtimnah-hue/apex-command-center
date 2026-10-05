@@ -1,0 +1,63 @@
+{
+  "state": "MI",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "MI-lien",
+      "summary_row": "Residential lien: written contract and licensure statement in the contract",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content"
+    },
+    {
+      "id": "MI-cancel",
+      "cite": "MCL 445.113 (statement and notice of cancellation); 445.112 (right to cancel)",
+      "format": "Statement in immediate proximity to the buyer's signature; notice of cancellation in duplicate, attached or printed on the reverse; not less than 10-point bold and 2 points larger than the contract text",
+      "support": "Michigan does have a fixed statement and a fixed duplicate notice. The statement has three sentences, the third unique to Michigan (courier pick-up). Type rule: \"not less than 10-point bold type and shall be 2 points larger than the text of the contract\".",
+      "summary_row": "Buyer statement near signature (three sentences, incl. courier sentence) and duplicate notice of cancellation",
+      "mode": "none",
+      "hold_reason": "The block is the whole of MCL 445.113 with subsections 4 to 6 (exceptions for telephone and utility sales) around the notices, and the official PDF prints the literal characters &quot; for the notice's quotation marks."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.saturday_counts",
+      "new": false,
+      "support": "Unlike the federal rule and most states, Saturday does not count in Michigan."
+    },
+    {
+      "path": "cancellation.same_language",
+      "new": true,
+      "support": "A written agreement or offer to purchase and the notice of cancellation attached to the agreement or offer shall be written in the same language as that used in any oral presentation"
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Business day is Monday through Friday; Saturday, Sunday and ten named holidays do not count (445.111(c)).",
+      "support": "\"Business day\" (445.111(c)) \"means Monday through Friday and does not include Saturday, Sunday, or\" ten named holidays."
+    },
+    {
+      "path": "written_contract.threshold_cents",
+      "new": null,
+      "support": "I found no statute requiring a written contract at $600 with a contents list"
+    },
+    {
+      "path": "written_contract.compare",
+      "new": null,
+      "support": "I found no statute requiring a written contract at $600 with a contents list"
+    },
+    {
+      "path": "written_contract.text",
+      "new": "No statute found requiring a written contract at a set amount; a written contract is needed for a contractor to have a residential construction lien (570.1114)",
+      "support": "I found no statute requiring a written contract at $600 with a contents list"
+    },
+    {
+      "path": "license.text",
+      "new": "Residential builder or maintenance and alteration license (crafts include pools, tile, concrete, masonry); a license is needed at $600.00 and up, exempt only under $600.00 (339.2403(f))",
+      "support": "So a license is needed at $600.00 and up, not \"over $600\"."
+    }
+  ],
+  "unsure": [
+    "MI-lien: the 570.1114 statement lists required content and also names electricians, plumbers and mechanical contractors, so it is not clear a general contractor's contract needs every part; no sentence is prescribed so nothing is loaded.",
+    "MI-cancel: 445.113 applies only to a home solicitation sale of more than $25 solicited at the buyer's residence; the builder only knows 'sold at the customer's home', so the trigger is approximate.",
+    "Home Improvement Finance Act cancellation: the file says it was not located, so nothing was changed for it."
+  ]
+}

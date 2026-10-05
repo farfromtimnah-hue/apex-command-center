@@ -1,0 +1,55 @@
+{
+  "state": "AL",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "AL-insurance",
+      "trigger": "Before residential home building starts; may be a provision in the original contract or a separate addendum",
+      "format": "Insured builder: signed or initialed by the builder and the homeowner, no witness needed; uninsured builder: signed by the builder and the homeowner and attested by one witness the homeowner chooses",
+      "support": "Only if the builder does NOT have or maintain insurance must it be \"signed by the residential home builder and the homeowner, and attested by one witness selected by the homeowner.\"",
+      "summary_row": "Liability insurance disclosure (AMENDED 2026: witness only when uninsured)",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the statute only lists required content (whether the builder carries liability insurance, plus who signs)"
+    },
+    {
+      "id": "AL-cancel-credit",
+      "title": "BUYER'S RIGHT TO CANCEL (credit sales only)",
+      "cite": "Ala. Code 5-19-12",
+      "trigger": "Consumer credit sale solicited at a place other than the seller's place of business; a cash sale is outside the statute (federal rule only)",
+      "format": "Under the conspicuous caption BUYER'S RIGHT TO CANCEL; no point size, bold or placement rule; the FTC notice may be delivered instead",
+      "applies": { "sold_in_home": true, "credit_sale": true },
+      "support": "So it reaches CREDIT sales only; a cash job is under the federal rule alone.",
+      "summary_row": "Home solicitation sale: right to cancel, BUYER'S RIGHT TO CANCEL statement, FTC alternative (NEW, first pass found none)",
+      "mode": "none",
+      "hold_reason": "The only block is the whole of Ala. Code 5-19-12, which also holds the buyer and seller duties and the emergency waiver rule around the statement, so printing it would put non-notice statute text in the contract; credit versus cash sale is also not something the builder knows."
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Federal rule for cash sales; Ala. Code 5-19-12 for credit sales solicited away from the seller's place of business, until midnight of the third business day",
+      "support": "Alabama has a home solicitation statute (5-19-12), limited to credit sales"
+    },
+    {
+      "path": "cancellation.covered",
+      "new": "Consumer credit sales solicited away from the seller's place of business (Ala. Code 5-19-12); a cash sale falls under the federal rule only",
+      "support": "So it reaches CREDIT sales only; a cash job is under the federal rule alone."
+    },
+    {
+      "path": "cancellation.day_count_note",
+      "new": "Until midnight of the third business day following execution by the buyer; if the seller has not given the statement the buyer may cancel within one year after the sale. An emergency waiver must be a separate dated and signed personal statement, never a printed form.",
+      "support": "if the seller has not complied, \"the buyer may cancel the home solicitation sale within one year after the date of the sale\""
+    },
+    {
+      "path": "license.text",
+      "new": "HBLB residential home builder license when cost exceeds $10,000 (roofing over $2,500); pools over $5,000 via the General Contractors board (which board governs unresolved)",
+      "support": "Pool threshold is \"exceeding\" $5,000, not \"$5,000 or more\"."
+    }
+  ],
+  "unsure": [
+    "AL-insurance: the statute fixes who signs and what must be disclosed but no sentence, so there is nothing to load; whether to print a contractor-written clause is the owner's call.",
+    "AL-cancel-credit: added because the file shows a credit-sale statement the first pass missed; it prints only for credit sales, which the builder does not know, so even if the section were loadable it would have to be stored, not printed.",
+    "Not added: 34-14A-7(f) (contract must contain the license number) and (h) (resiliency disclosure) only list required content with no prescribed sentence; the license line already covers (f).",
+    "license.text: 34-8-7(a)(2) exempts construction or repair of any residential swimming pool from the general contractor chapter, and the file says which board governs a residential pool is not answered, so that wording was left as unresolved."
+  ]
+}

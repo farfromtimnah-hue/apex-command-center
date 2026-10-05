@@ -1,0 +1,66 @@
+{
+  "state": "VA",
+  "mirror_source": false,
+  "notices": [
+    {
+      "id": "VA-dpor",
+      "title": "DPOR Statement of Consumer Protections",
+      "cite": "18VAC50-22-260 B 9 h",
+      "format": "Handed to the consumer with the contract; the contract carries the consumer's signed acknowledgment of having been provided with and read it; the form may be reproduced but not altered",
+      "support": "A signed acknowledgment by the consumer that the consumer has been provided with and read the Department of Professional and Occupational Regulation statement of protection available to consumers through the Board for Contractors",
+      "summary_row": "DPOR Statement of Consumer Protections (the document the consumer must acknowledge)",
+      "mode": "print",
+      "block": "DPOR Statement of Consumer Protections (Board for Contractors form)",
+      "block_index": 0
+    },
+    {
+      "id": "VA-recovery",
+      "title": "Virginia Contractor Transaction Recovery Fund statement",
+      "cite": "18VAC50-22-260 B 9 k",
+      "trigger": "Residential contracting (excluding subcontractors and routine maintenance or service contracts)",
+      "format": "A statement in the contract that the Recovery Fund exists, with how to contact the board for claim information",
+      "applies": { "residential": true },
+      "support": "A statement notifying consumers of the existence of the Virginia Contractor Transaction Recovery Fund that includes information on how to contact the board for claim information.",
+      "mode": "none",
+      "hold_reason": "no prescribed wording; the regulation only requires a statement that the Recovery Fund exists with how to contact the board for claim information"
+    },
+    {
+      "id": "VA-cancel",
+      "trigger": "Seller solicits at a residence other than the seller's without prior invitation or appointment; not a sale after prior negotiations and not a cash sale under $25",
+      "format": "Bold face of at least ten points under the caption BUYER'S RIGHT TO CANCEL, on the front of the contract or immediately above the buyer's signature; the federal form is accepted if it has at least the same information",
+      "support": "Appear on the front side of the receipt or contract, or immediately above the buyer's signature, in bold face type of a minimum size of ten points under the conspicuous caption: \"BUYER'S RIGHT TO CANCEL,\"",
+      "summary_row": "Home solicitation: definitions, cancellation, BUYER'S RIGHT TO CANCEL statement and form, refunds, services",
+      "mode": "none",
+      "hold_reason": "the only block is the five whole statute sections 59.1-21.2 to 59.1-21.6; the statement and notice form sit inside section 21.4 among operative rules that should not print in the customer's contract"
+    }
+  ],
+  "changes": [
+    {
+      "path": "cancellation.text",
+      "new": "Three business days; only for a solicitation at a residence without prior invitation or appointment and not after prior negotiations; FTC form accepted",
+      "support": "solicitation \"at any residence other than that of the seller without prior invitation or appointment\", and it \"does not include ... a sale or lease made pursuant to prior negotiations between the parties\"."
+    },
+    {
+      "path": "written_contract.text",
+      "new": "Legible written contract signed by both parties before work or payment for residential contracting, excluding subcontractors and routine maintenance or service contracts; eleven minimum contents (18VAC50-22-260 B 8, 9); no dollar floor",
+      "support": "The regulation as amended effective September 1, 2025 has ELEVEN lettered items, a to k."
+    },
+    {
+      "path": "deposit_cap.text",
+      "new": "None; the Board recommends a down payment of about 10 percent (about 30 percent when custom-made items are needed)",
+      "support": "The Board for Contractors recommends that the initial downpayment be about 10% of the total cost of the contract, unless the job requires custom made items, in which case the Board recommends a downpayment of about 30% of the total contracted cost."
+    },
+    {
+      "path": "cleaning.auto_renewal.scope_and_confidence",
+      "new": "OFFICIAL; the statute text was read",
+      "support": "59.1-207.45 ff. (matrix: SECONDARY): now official, full chapter below."
+    }
+  ],
+  "unsure": [
+    "VA-dpor: the file says the form PDF is the Board's current one but did not confirm it is the form incorporated in the regulation's forms list or that no newer revision exists, so it is loaded to print but worth a check.",
+    "VA-dpor: the regulation excludes subcontractors and routine maintenance or service contracts, which the builder cannot tell apart, so the residential trigger may be broader than the rule.",
+    "VA-recovery: added because the regulation requires the statement in the contract, but no wording is prescribed, so nothing is loaded.",
+    "VA-cancel: the sale is outside the Virginia act when the buyer invited the visit or there were prior negotiations, which the builder only partly knows (sold at home), so the print trigger is approximate.",
+    "cancellation.no_work_or_payment_in_window: left false; 21.6(3) only says a seller who performs services before cancellation gets no compensation."
+  ]
+}

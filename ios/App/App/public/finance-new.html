@@ -1218,7 +1218,8 @@
        column that holds the buttons side by side. No divider between the two
        lines; the divider comes after the buttons. */
     tr.inv-facts td { border-bottom: none; padding-bottom: 4px; }
-    td.inv-actions { padding-top: 0; padding-bottom: 10px; }
+    td.inv-actions { padding-top: 0; padding-bottom: 18px; border-bottom: 1px solid #cfc6b8; }
+    tbody tr.inv-btns:last-child td.inv-actions { border-bottom: none; }
     .inv-actions-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .inv-actions-line .btn { white-space: nowrap; margin: 0; }
     .inv-actions-line .tpl-pencil { margin-left: -2px; }

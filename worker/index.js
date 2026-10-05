@@ -41253,6 +41253,53 @@ function docLinkRandom(n) {
     return out;
 }
 
+// ── Electronic signature consent evidence (2026-10-04) ───────────────────
+// E-SIGN (15 USC 7001(c)) and Florida UETA (668.50). The four customer
+// signing pages show a consent box before the sign control and always post
+// consent: true with the version of the words they showed. The signing
+// handlers already refuse a request without it (400, "Please agree to sign
+// electronically"), and that is unchanged.
+//
+// This wraps a signing route WITHOUT touching its handler: it reads the
+// document exactly as the public GET serves it, hashes that JSON, lets the
+// handler record the signature, and only when the handler answers 200 writes
+// one append-only row in gm_esign_consents. Nothing here can refuse or break
+// a signature: every step of the evidence is best effort and logged.
+var ESIGN_DOC_TABLES = { "estimate": "gm_estimates", "contract": "gm_contracts", "change_order": "gm_change_orders", "ack": "gm_job_acks" };
+
+async function esignSignWithConsent(env, request, docKind, token, getFn, signFn) {
+    var flagged = false;
+    var version = "unversioned";
+    var sha = null;
+    try {
+        var peek = await request.clone().json();
+        flagged = !!(peek && peek.consent === true);
+        if (peek && typeof peek.consent_text_version === "string" && /^[A-Za-z0-9._-]{1,32}$/.test(peek.consent_text_version)) {
+            version = peek.consent_text_version;
+        }
+    } catch (ePeek) { flagged = false; }
+    if (flagged) {
+        try {
+            var served = await getFn(token, new Request(request.url.replace(/\/(accept|sign)$/, ""), { method: "GET", headers: request.headers }), env);
+            if (served && served.status === 200) { sha = await sha256Hex(await served.text()); }
+        } catch (eGet) { console.error("[esign-consent] document read: " + (eGet && eGet.message)); }
+    }
+    var res = await signFn(token, request, env);
+    if (flagged && res && res.status === 200) {
+        try {
+            var row = await env.DB.prepare("SELECT id FROM " + ESIGN_DOC_TABLES[docKind] + " WHERE public_token = ?").bind(token).first();
+            if (row) {
+                await env.DB.prepare(
+                    "INSERT INTO gm_esign_consents (id, doc_kind, doc_id, consented_at, ip, user_agent, consent_text_version, doc_sha256) " +
+                    "VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), docKind, row.id, request.headers.get("CF-Connecting-IP") || null,
+                    String(request.headers.get("User-Agent") || "").slice(0, 400) || null, version, sha).run();
+            }
+        } catch (eIns) { console.error("[esign-consent] evidence row: " + (eIns && eIns.message)); }
+    }
+    return res;
+}
+
 // ── Customer link control (2026-10-04) ───────────────────────────────────
 // A document's public link can be switched off by the people who manage the
 // document. Disabling ROTATES the token, so a link somebody already copied
@@ -41750,7 +41797,7 @@ async function handleFetch(request, env, ctx) {
             var pubTok = pubEstMatch[1], pubAct = pubEstMatch[2] || null;
             if (!pubAct && method === "GET") { return handleGetPublicEstimate(pubTok, request, env); }
             if (pubAct === "signature-image" && method === "GET") { return handleGetPublicEstimateSignature(pubTok, request, env); }
-            if (pubAct === "accept" && method === "POST") { return handlePostPublicEstimateAccept(pubTok, request, env); }
+            if (pubAct === "accept" && method === "POST") { return esignSignWithConsent(env, request, "estimate", pubTok, handleGetPublicEstimate, handlePostPublicEstimateAccept); }
             if ((pubAct === "changes" || pubAct === "decline" || pubAct === "renew") && method === "POST") {
                 return handlePostPublicEstimateRespond(pubTok, pubAct, request, env);
             }
@@ -41895,7 +41942,7 @@ async function handleFetch(request, env, ctx) {
         var pubCon = path.match(/^\/api\/public\/contracts\/([a-f0-9]{48})(?:\/(sign|changes|decline)|\/signature-image\/(company|homeowner|lien)|\/pool-doc\/(ch515|drowning))?$/);
         if (pubCon) {
             if (!pubCon[2] && !pubCon[3] && !pubCon[4] && method === "GET") { return handleGetPublicContract(pubCon[1], request, env); }
-            if (pubCon[2] === "sign" && method === "POST") { return handlePostPublicContractSign(pubCon[1], request, env); }
+            if (pubCon[2] === "sign" && method === "POST") { return esignSignWithConsent(env, request, "contract", pubCon[1], handleGetPublicContract, handlePostPublicContractSign); }
             if ((pubCon[2] === "changes" || pubCon[2] === "decline") && method === "POST") { return handlePostPublicContractRespond(pubCon[1], pubCon[2], request, env); }
             if (pubCon[3] && method === "GET") { return handleGetPublicContractSignature(pubCon[1], pubCon[3], request, env); }
             if (pubCon[4] && method === "GET") { return handleGetPublicContractPoolDoc(pubCon[1], pubCon[4], request, env); }
@@ -41912,7 +41959,7 @@ async function handleFetch(request, env, ctx) {
         var pubCo = path.match(/^\/api\/public\/change-orders\/([a-f0-9]{48})(?:\/(sign|decline)|\/signature-image\/(company|homeowner))?$/);
         if (pubCo) {
             if (!pubCo[2] && !pubCo[3] && method === "GET") { return handleGetPublicChangeOrder(pubCo[1], request, env); }
-            if (pubCo[2] === "sign" && method === "POST") { return handlePostPublicChangeOrderSign(pubCo[1], request, env); }
+            if (pubCo[2] === "sign" && method === "POST") { return esignSignWithConsent(env, request, "change_order", pubCo[1], handleGetPublicChangeOrder, handlePostPublicChangeOrderSign); }
             if (pubCo[2] === "decline" && method === "POST") {
                 var coLimited = await publicWriteRateLimit(env, request, "codecline", pubCo[1], 30, 20);
                 if (coLimited) { return coLimited; }
@@ -41923,7 +41970,7 @@ async function handleFetch(request, env, ctx) {
         var pubAck = path.match(/^\/api\/public\/acks\/([a-f0-9]{48})(?:\/(sign|decline|signature-image)|\/(photo|punch-photo)\/([A-Za-z0-9-]+))?$/);
         if (pubAck) {
             if (!pubAck[2] && !pubAck[3] && method === "GET") { return handleGetPublicAck(pubAck[1], request, env); }
-            if (pubAck[2] === "sign" && method === "POST") { return handlePostPublicAckSign(pubAck[1], request, env); }
+            if (pubAck[2] === "sign" && method === "POST") { return esignSignWithConsent(env, request, "ack", pubAck[1], handleGetPublicAck, handlePostPublicAckSign); }
             if (pubAck[2] === "decline" && method === "POST") {
                 var ackLimited = await publicWriteRateLimit(env, request, "ackdecline", pubAck[1], 30, 20);
                 if (ackLimited) { return ackLimited; }

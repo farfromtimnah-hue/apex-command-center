@@ -603,9 +603,9 @@
         '<div id="sigTyped" style="margin-top:8px;"><p class="muted small">Your typed name above will be used as your signature.</p></div>' +
         '<div id="sigDrawn" class="hidden" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad(\'sigCanvas\')">Clear</button></div>';
       if (l5a && req("cancellation")) { h += '<div class="l5a">' + richHtml(l5a.text) + '</div>'; }
-      h += '<label class="consent"><input type="checkbox" id="consent"' + off + '><span>I agree to sign electronically and to receive this document electronically. I can download a copy at any time.</span></label>' +
+      h += esignConsentHtml(con.business, off, "btnSign") +
         '<div class="err" id="signErr"></div>' +
-        '<button type="button" class="btn" id="btnSign" onclick="sign()"' + off + '>Sign contract</button>';
+        '<button type="button" class="btn" id="btnSign" onclick="sign()" disabled>Sign contract</button>';
       if (live) {
         h += '<h2 style="margin-top:22px;">Or</h2>' +
           '<label for="changes">Request changes</label><textarea id="changes" placeholder="Tell us what you would like changed"></textarea>' +
@@ -708,6 +708,42 @@
 
     // Every refusal is said next to the button that was pressed (F26).
     function sayErr(err, text) { err.textContent = text; if (err.scrollIntoView) { err.scrollIntoView({ block: "center" }); } }
+    // Electronic signature consent (E-SIGN, 15 USC 7001(c); Florida UETA, 668.50).
+    // The box comes BEFORE the sign control, and the control stays disabled
+    // until it is ticked. The business name and contact are the ones this
+    // document already shows. CHANGE THE VERSION whenever the words change:
+    // it is stored with every signature.
+    var ESIGN_CONSENT_VERSION = "2026-10-04.1";
+    function esignConsentHtml(b, off, btnId) {
+      b = b || {};
+      var who = b.name ? String(b.name) : "the business named above";
+      var parts = [];
+      if (b.phone) { parts.push(fmtPhone(b.phone)); }
+      if (b.email) { parts.push(String(b.email)); }
+      var contact = parts.length ? parts.join(" or ") : "the business named above";
+      var text = "I agree to receive, review and sign this document and related notices electronically. " +
+        "I can view, download and print this document on this page. " +
+        "I can ask " + who + " for a paper copy at no charge by contacting them at " + contact + ", " +
+        "and I can withdraw this consent before signing by closing this page or contacting them. " +
+        "To use this page I need a current web browser and a PDF viewer. " +
+        "To change my contact details I contact " + who + ".";
+      var points = [
+        "Paper copy: you can ask " + who + " for a paper copy of this document at no charge.",
+        "Withdrawing consent: you can withdraw your consent before signing by closing this page or by contacting " + who + ". Nothing is signed until you press the sign button.",
+        "What this covers: this consent applies to this document and to notices related to it.",
+        "What you need: a current web browser and a PDF viewer, to view, download and print this document.",
+        "Your contact details: to change your phone number, email or address, contact " + who + (parts.length ? " at " + contact : "") + ".",
+        "Your copy: you can view, download and print this document on this page at any time."
+      ];
+      var lis = "";
+      for (var i = 0; i < points.length; i++) { lis += "<li>" + escHtml(points[i]) + "</li>"; }
+      return '<label class="consent"><input type="checkbox" id="consent"' + (off || "") + ' onchange="esignConsentChanged(\'' + btnId + '\')"><span>' + escHtml(text) + '</span></label>' +
+        '<details style="font-size:13px;margin-top:6px;"><summary style="cursor:pointer;">Read the electronic consent details</summary><ul style="margin:8px 0 0 18px;padding:0;">' + lis + '</ul></details>';
+    }
+    function esignConsentChanged(btnId) {
+      var c = byId("consent"); var b = byId(btnId);
+      if (b && !b.hasAttribute("data-busy")) { b.disabled = !(c && c.checked); }
+    }
     function sign() {
       var err = byId("signErr"); if (!err) { return; }
       err.textContent = "";
@@ -715,7 +751,7 @@
       var signerEl = byId("signer");
       var signer = signerEl ? signerEl.value.trim() : "";
       if (!signer) { sayErr(err, "Please type your full name."); return; }
-      var body = { signer_name: signer, signature_kind: sigKind, consent: true };
+      var body = { signer_name: signer, signature_kind: sigKind, consent: true, consent_text_version: ESIGN_CONSENT_VERSION };
       if (req("lien_signature")) {
         // F42: step 1 must have been done in the lien box itself.
         if (!lienStepDone()) {

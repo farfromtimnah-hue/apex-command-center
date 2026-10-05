@@ -9125,6 +9125,61 @@ async function handlePostTasksVoiceUndo(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/staff/click   { page, control, client_id?, preview? }
+// A quiet count of what STAFF click (alice, rafa, developer), so the layout can
+// follow what they really use. Nothing a client or seller does is recorded.
+//   - page and control: at most 80 characters of letters, digits . - _ : /
+//     only, never free text. client_id is optional, same rule.
+//   - who and role are the signed-in person's, never the role being previewed.
+//     The developer authenticates as the developer while previewing as another
+//     role, so the Worker cannot tell by itself: the page sends preview:true
+//     and ":preview" is added to the page value.
+//   - One INSERT per click, at most STAFF_CLICK_MAX_PER_DAY per person per
+//     rolling 24 hours (the daily write limit is shared by the whole business).
+//   - This route never answers an error a page could show: a missing table, a
+//     full day or a failed write all answer 200 and store nothing.
+//   - The body is never logged.
+// ---------------------------------------------------------------------------
+var STAFF_CLICK_MAX_PER_DAY = 3000;
+var STAFF_CLICK_RE = /^[A-Za-z0-9._:\/-]{1,80}$/;
+
+async function handlePostStaffClick(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+        return jsonErr("Forbidden", 403);
+    }
+    var body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    if (!body || typeof body !== "object") { return jsonErr("Invalid body", 400); }
+    var page = body.page;
+    var control = body.control;
+    var clientId = body.client_id;
+    if (typeof page !== "string" || !STAFF_CLICK_RE.test(page)) { return jsonErr("Invalid page", 400); }
+    if (typeof control !== "string" || !STAFF_CLICK_RE.test(control)) { return jsonErr("Invalid control", 400); }
+    if (clientId === undefined || clientId === null || clientId === "") {
+        clientId = null;
+    } else if (typeof clientId !== "string" || !STAFF_CLICK_RE.test(clientId)) {
+        return jsonErr("Invalid client_id", 400);
+    }
+    if (user.role === "developer" && body.preview === true) { page = page + ":preview"; }
+
+    try {
+        var who = actorName(user) || user.role;
+        var cnt = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM staff_click_log WHERE who = ? AND created_at >= datetime('now', '-1 day')"
+        ).bind(who).first();
+        if (cnt && Number(cnt.n) >= STAFF_CLICK_MAX_PER_DAY) { return jsonOk({ ok: true }); }
+        await env.DB.prepare(
+            "INSERT INTO staff_click_log (id, role, who, page, control, client_id) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), user.role, who, page, control, clientId).run();
+    } catch (e) {
+        // Table not there yet, or a failed write: a click count must never show an error.
+    }
+    return jsonOk({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/settings/templates
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
@@ -43306,6 +43361,11 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] === "voice" && segs[3] === "undo" && !segs[4] && method === "POST") {
             return handlePostTasksVoiceUndo(request, env);
+        }
+
+        // /api/staff/click  POST (quiet count of staff clicks)
+        if (segs[0] === "api" && segs[1] === "staff" && segs[2] === "click" && !segs[3] && method === "POST") {
+            return handlePostStaffClick(request, env);
         }
 
         // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)

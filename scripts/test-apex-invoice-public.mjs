@@ -49,7 +49,7 @@ const stubsFor = (st, extra) => Object.assign({}, baseStubs, {
   apxStripePost: st.apxStripePost, notifyNicoleTelegram: st.notifyNicoleTelegram, APX_STRIPE_ACH_ENABLED: false
 }, extra || {});
 const stubs = stubsFor(fakeStripe());
-const fns = ["apxInvSwitches", "apxInvNoIndex", "apxInvByToken", "apxInvEasternDate", "apxInvMoney", "apxInvPayload", "apxInvPayBlock", "handleGetPublicApexInvoice",
+const fns = ["logoVersionParam", "apxInvSwitches", "apxInvNoIndex", "apxInvByToken", "apxInvEasternDate", "apxInvMoney", "apxInvPayload", "apxInvPayBlock", "handleGetPublicApexInvoice",
   "apxPayLockTake", "apxPayLockRelease", "apxInvRetireLinks", "apxInvEnsurePayLinks", "apxInvAfterView", "apxUsd", "applyStripeChargesToApexInvoices"];
 
 {
@@ -311,6 +311,85 @@ function seedCharge(d, id, cents, extra) {
   await F.syncStripe(env);
   const row = d.q("SELECT metadata_client_id, metadata_invoice_id, metadata_club_reg_id, pm_type, amount_cents FROM stripe_charges WHERE id = 'ch_tag'")[0];
   ok(row.metadata_invoice_id === "inv-1" && row.metadata_club_reg_id === null && row.pm_type === "us_bank_account" && row.metadata_client_id === "c1" && row.amount_cents === 139700, "a charge stamped for an invoice also stores the invoice id and the payment method type");
+}
+
+// The client's logo for the second hero tile (2026-10-04): an address only
+// when a logo really exists, pointing at the login-free /logo-image route.
+{
+  const d = world(); const env = { DB: d.DB };
+  const F = build(fns, ["APX_INV_PAGE"], stubs);
+  seedInvoice(d, "301", "sent", { token: TOK("c") });
+  const pay = async () => (await F.handleGetPublicApexInvoice(TOK("c"), req({}, "https://x.test/api/public/apex-invoices/" + TOK("c") + "?render=1"), env)).data.invoice;
+  let p = await pay();
+  ok(p.client_logo_url === null && p.client_name === "ALPHA BUILDERS", "a client with no logo: client_logo_url is null and the name is there for the tile");
+  d.raw.exec("UPDATE clients SET logo_url = '   ' WHERE id = 'c1'");
+  ok((await pay()).client_logo_url === null, "a blank logo value is no logo");
+  d.raw.exec("UPDATE clients SET logo_url = 'logos/c1-1790000000.png' WHERE id = 'c1'");
+  p = await pay();
+  ok(p.client_logo_url === "https://api.test/api/clients/c1/logo-image?v=c1-1790000000", "a client with a logo: the address is that one client's /logo-image, naming the exact upload");
+  const text = JSON.stringify(p);
+  ok(text.indexOf("owner@alpha.test") < 0 && text.indexOf("8135550199") < 0 && text.indexOf("logos/") < 0, "still no email, phone or storage path in the public answer");
+  ok(/segs\[3\] === "logo-image" && method === "GET"\) \{\s*return handleGetClientLogoImage\(cid, request, env\);/.test(workerSrc) &&
+     !/authenticate\(/.test(workerSrc.slice(workerSrc.indexOf("async function handleGetClientLogoImage"), workerSrc.indexOf("// Route: PATCH /api/clients/:id"))),
+     "/logo-image answers with no login check (handleGetClientLogoImage never calls authenticate)");
+  ok(/var APX_INV_PDF_REV = "3";/.test(workerSrc), "the PDF cache revision was bumped for the new hero");
+}
+
+// The page's hero and review-mode rules, run on the page's own functions with
+// a stand-in for the few elements they touch.
+{
+  const html = readFileSync(new URL("apex-invoice-view.html", root), "utf8");
+  const cut = (name) => {
+    const start = html.indexOf("function " + name + "(");
+    let i = html.indexOf("{", start), depth = 0;
+    for (; i < html.length; i++) {
+      const ch = html[i], two = html.substr(i, 2);
+      if (two === "//") { i = html.indexOf("\n", i); continue; }
+      if (ch === '"' || ch === "'") { for (i++; html[i] !== ch; i++) { if (html[i] === "\\") { i++; } } continue; }
+      if (ch === "{") { depth++; }
+      if (ch === "}") { depth--; if (depth === 0) { return html.slice(start, i + 1); } }
+    }
+    throw new Error("cut " + name);
+  };
+  const el = () => { const c = new Set(); const e = { textContent: "", hidden: true, alt: "", onerror: null, attrs: {}, classList: { toggle: (n, on) => { if (on) { c.add(n); } else { c.delete(n); } }, contains: (n) => c.has(n) },
+    getAttribute: (k) => (k in e.attrs ? e.attrs[k] : null) }; Object.defineProperty(e, "src", { set: (v) => { e.attrs.src = v; }, get: () => e.attrs.src }); return e; };
+  const hero = (inv) => {
+    const els = { clientCol: el(), clientLogo: el(), clientLogoFallback: el(), goldBarClientName: el() };
+    const run = new Function("els", "inv", "var clientLogoFailed = null; function byId(id) { return els[id] || null; }\n" + cut("renderHero") + "\nrenderHero(); return { again: function(next) { inv = next; renderHero(); } };");
+    return Object.assign(els, run(els, inv));
+  };
+  const LOGO = "https://api.test/api/clients/c1/logo-image?v=c1-1";
+  let h = hero({ client_name: "ALPHA BUILDERS", client_logo_url: null });
+  ok(h.clientLogoFallback.textContent === "ALPHA BUILDERS" && h.clientLogoFallback.hidden === false && h.clientLogo.hidden === true && h.clientCol.hidden === false, "no logo: the client's name shows in the tile and the image is hidden");
+  ok(h.goldBarClientName.textContent === "ALPHA BUILDERS" && h.goldBarClientName.hidden === false, "no logo: the gold bar carries the client's name");
+  h = hero({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
+  ok(h.clientLogoFallback.textContent === "ALPHA BUILDERS" && h.clientLogoFallback.hidden === true && h.clientLogo.hidden === false && h.clientLogo.src === LOGO && h.clientLogo.alt === "ALPHA BUILDERS", "with a logo: the name is loaded first, then the image shows and the name hides");
+  ok(h.goldBarClientName.textContent === "ALPHA BUILDERS" && h.goldBarClientName.hidden === false, "with a logo: the gold bar still carries the client's name");
+  h.clientLogo.onerror();
+  ok(h.clientLogo.hidden === true && h.clientLogoFallback.hidden === false, "the image fails to load: the name shows in the tile");
+  h.again({ client_name: "ALPHA BUILDERS", client_logo_url: LOGO });
+  ok(h.clientLogo.hidden === true && h.clientLogoFallback.hidden === false, "a later redraw does not bring the failed image back");
+  const n22 = "A".repeat(22), n23 = "A".repeat(23);
+  ok(!hero({ client_name: n22 }).clientLogoFallback.classList.contains("is-long") && hero({ client_name: n23 }).clientLogoFallback.classList.contains("is-long"), "a name over 22 characters takes the smaller size (22 does not, 23 does)");
+  ok(hero({ client_name: "", client_logo_url: null }).clientCol.hidden === true, "no name and no logo: no empty tile");
+
+  const review = (REVIEW, inv) => new Function("REVIEW", "inv", cut("reviewOn") + "\n" + cut("reviewDraft") + "\nreturn [reviewOn(), reviewDraft()];")(REVIEW, inv);
+  const draft = { number: "INV-1", draft: true }, row = { id: "i1", number: "INV-1", status: "draft" };
+  ok(String(review({ staff: false, row: null }, draft)) === "false,false" && String(review({ staff: false, row: row }, draft)) === "false,false", "review mode is off for anyone the Worker did not confirm as staff");
+  ok(String(review({ staff: true, row: row }, draft)) === "true,true", "review mode is on for confirmed staff on a draft");
+  ok(String(review({ staff: true, row: Object.assign({}, row, { number: "INV-2" }) }, draft)) === "false,false", "an id that is a different invoice from the token's never turns review mode on");
+  ok(String(review({ staff: true, row: Object.assign({}, row, { status: "sent" }) }, { number: "INV-1", draft: false })) === "true,false", "a sent invoice in review mode: no draft controls");
+  const js = html.slice(html.indexOf("<script>"));
+  ok(/var previewWanted = !isRender && !!token && !!previewId && \/\[\?&\]preview=1\(&\|\$\)\/\.test\(qs\);/.test(js) && /if \(previewWanted\) \{ reviewStart\(/.test(js), "the sign-in check runs only with preview=1 and id= next to the token, and never in the PDF render");
+  ok(html.indexOf('id="btnReviewSend"') > html.indexOf("function renderReviewBar") && /<div class="review-bar no-print hidden" id="reviewBar"><\/div>/.test(html) && !/firebasejs[^"]*"><\/script>/.test(html) && !/<script src=/.test(html),
+    "the send controls are built only by renderReviewBar; the page as served holds an empty, hidden, never-printed bar and no script tags");
+  ok(/if \(!reviewDraft\(\)\) \{\s*bar\.innerHTML = "";/.test(js), "the bar is emptied whenever this is not staff reviewing a draft");
+  ok(/"apex-invoice-send\.js\?v=\d+"/.test(js), "the shared send code is loaded by name with a ?v= marker");
+  const pairs = [["PREVIEW, NOT SENT YET", "PR\\u00c9VIA, AINDA N\\u00c3O ENVIADA"], ["Send via WhatsApp", "Enviar pelo WhatsApp"], ["Send another way", "Enviar de outra forma"], ["Test send (does not mark as sent)", "Envio de teste (n\\u00e3o marca como enviada)"],
+    ["In WhatsApp, search for:", "No WhatsApp, procure por:"], ["Copy", "Copiar"], ["Copied.", "Copiado."]];
+  const miss = pairs.filter(p => js.indexOf('"' + p[0] + '"') < 0 || js.indexOf('"' + p[1] + '"') < 0);
+  ok(miss.length === 0, "every new label is there in English and Portuguese" + (miss.length ? ": MISSING " + JSON.stringify(miss) : ""));
+  ok(/return "APEX \+ " \+ \(inv\.client_name \|\| ""\);/.test(js), "the WhatsApp search text is APEX + the client's name");
 }
 
 // The page: strings, contract with the PDF printer, conventions.

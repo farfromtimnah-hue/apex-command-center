@@ -1,12 +1,12 @@
 (function () {
 
   // ── DEV view switcher: ONE list, used by BOTH the desktop sidebar and the
-  // mobile "Mais" menu ─────────────────────────────────────────────────────
+  // phone dock's group pop-up ───────────────────────────────────────────────
   // These were previously two hand-maintained arrays. They drifted: "Seller"
   // was added to the sidebar and never to the mobile menu, so on a phone the
   // Seller preview was unreachable in portrait and only appeared in landscape
-  // (landscape crosses mobile.css's 769px breakpoint, which swaps the "Mais"
-  // menu for the desktop sidebar). Derive both from here so it cannot recur.
+  // (landscape crosses mobile.css's 769px breakpoint, which swaps the phone
+  // dock for the desktop sidebar). Derive both from here so it cannot recur.
   //
   // Client and Seller open a picker rather than switching the nav directly —
   // Seller takes two steps, because a salesperson only means something inside
@@ -585,14 +585,29 @@
     if (overlay) { overlay.style.display = "none"; }
   };
 
-  // ── Mobile bottom tab bar + "Mais" overflow menu ─────────────────────────
+  // ── Mobile bottom dock: five spots, no "Mais" ────────────────────────────
   // The #mobile-tab-bar and #mobile-more-menu containers are STATIC HTML in
   // every page (never created here); this code only fills them in. All of
   // their positioning and visibility lives in mobile.css behind a max-width
   // media query.
+  //
+  // The dock used to be a row of tabs plus a "Mais" button that opened a
+  // second, full-screen list. People opened "Mais" looking for something that
+  // was already a tab on the dock. Now every staff role gets five spots and
+  // nothing else: Home, Clients, Agenda, one direct link, Business. A spot is
+  // either a direct link or a group; tapping a group pops a small menu just
+  // above the dock (same look as the client portal's #portalGroupSheet, built
+  // here because portal.html keeps its own dock code). The menu's order is
+  // fixed and a group never navigates on its own. Settings is not on the
+  // dock: it sits behind a gear in the page header (placeSettingsGear).
+  // #mobile-more-menu is reused as the pop-up's container.
 
   function mobileTabDef(key, href, icon, labelPt, labelEn) {
     return { key: key, href: href, icon: icon, labelPt: labelPt, labelEn: labelEn };
+  }
+
+  function mobileGroupDef(key, icon, labelPt, labelEn, items) {
+    return { key: key, group: true, icon: icon, labelPt: labelPt, labelEn: labelEn, items: items };
   }
 
   var MTAB_INICIO     = mobileTabDef("dashboard", "dashboard.html", "home",         "In&iacute;cio",                "Home");
@@ -606,101 +621,199 @@
   var MTAB_CONFIG     = mobileTabDef("settings",  "settings.html",  "settings",     "Configura&ccedil;&otilde;es",  "Settings");
   var MTAB_ADDUSER    = mobileTabDef("adduser",   "add-user.html",  "user-plus",    "Adicionar Usu&aacute;rio",     "Add User");
   var MTAB_CLIENTANALYTICS = mobileTabDef("clientanalytics", "client-analytics.html", "target", "An&aacute;lise de Clientes", "Client Analytics");
+  // Same label and icon as the desktop side menu's CONTRACT_REVIEW_ITEM.
+  var MTAB_CONTRATO   = mobileTabDef("contractreview", "contract-review.html", "file", "Revis&atilde;o do contrato", "Contract review");
 
-  function getMobileNavConfig(navRole) {
+  // opts.contractReview: whether this person gets the contract review tool.
+  // initNav() passes the same answer it uses for the desktop side menu, so the
+  // phone never offers a page the desktop does not.
+  function getMobileNavConfig(navRole, opts) {
+    var clients = [MTAB_CLIENTES, MTAB_CLIENTANALYTICS];
+    if (opts && opts.contractReview) { clients.push(MTAB_CONTRATO); }
+    if (navRole === "developer") { clients.push(MTAB_ADDUSER); }
+
+    var agenda, fifth, business;
     if (navRole === "rafa") {
-      return {
-        tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_VENDAS, MTAB_TAREFAS],
-        more: [MTAB_CLIENTANALYTICS, MTAB_FINANCENOVO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG]
-      };
+      agenda   = [MTAB_SESSOES, MTAB_CALENDARIO];
+      fifth    = MTAB_TAREFAS;
+      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS];
+    } else {
+      // alice (default) and developer
+      agenda   = [MTAB_CALENDARIO, MTAB_SESSOES, MTAB_TAREFAS];
+      fifth    = MTAB_FINANCENOVO;
+      business = [MTAB_VENDAS, MTAB_DOCUMENTOS];
     }
-    if (navRole === "developer") {
-      return {
-        tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES],
-        more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_FINANCENOVO, MTAB_CALENDARIO, MTAB_DOCUMENTOS, MTAB_CONFIG, MTAB_ADDUSER]
-      };
-    }
-    // alice (default)
+
     return {
-      tabs: [MTAB_INICIO, MTAB_CLIENTES, MTAB_SESSOES, MTAB_FINANCENOVO, MTAB_CALENDARIO],
-      more: [MTAB_CLIENTANALYTICS, MTAB_VENDAS, MTAB_TAREFAS, MTAB_DOCUMENTOS, MTAB_CONFIG]
+      spots: [
+        MTAB_INICIO,
+        mobileGroupDef("clients",  "users",     "Clientes",       "Clients",  clients),
+        mobileGroupDef("agenda",   "calendar",  "Agenda",         "Agenda",   agenda),
+        fifth,
+        mobileGroupDef("business", "briefcase", "Neg&oacute;cio", "Business", business)
+      ],
+      gear: MTAB_CONFIG
     };
   }
+  // For scripts/test-staff-dock.mjs.
+  window.apexStaffDockConfig = getMobileNavConfig;
 
   function buildMobileLabelSpan(item) {
     return '<span class="show-pt">' + item.labelPt + '</span>' +
            '<span class="show-en">' + item.labelEn + '</span>';
   }
 
-  function populateMobileNav(navRole) {
+  // The spots on the dock right now, kept for apexDockGroupToggle().
+  var mobileDockSpots = [];
+  var mobileDockWired = false;
+
+  function mobileGroupHasPage(group, page) {
+    for (var i = 0; i < group.items.length; i++) {
+      if (group.items[i].href === page) { return true; }
+    }
+    return false;
+  }
+
+  function populateMobileNav(navRole, contractReview) {
     var bar  = document.getElementById("mobile-tab-bar");
     var menu = document.getElementById("mobile-more-menu");
     if (!bar || !menu) { return; }
 
-    var cfg = getMobileNavConfig(navRole);
+    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview });
     var activePage = getActivePage();
-    var moreIsActive = false;
     var i;
 
-    for (i = 0; i < cfg.more.length; i++) {
-      if (cfg.more[i].href === activePage) { moreIsActive = true; }
-    }
+    mobileDockSpots = cfg.spots;
 
     var barHtml = "";
-    for (i = 0; i < cfg.tabs.length; i++) {
-      var t = cfg.tabs[i];
-      var activeCls = (activePage === t.href) ? " m-tab-active" : "";
-      barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '">';
+    for (i = 0; i < cfg.spots.length; i++) {
+      var t = cfg.spots[i];
+      if (t.group) {
+        var groupCls = mobileGroupHasPage(t, activePage) ? " m-tab-active" : "";
+        barHtml += '<button type="button" class="m-tab' + groupCls + '" data-dock-group="' + t.key + '"' +
+          ' aria-haspopup="menu" aria-expanded="false" onclick="apexDockGroupToggle(\'' + t.key + '\')">';
+      } else {
+        var activeCls = (activePage === t.href) ? " m-tab-active" : "";
+        barHtml += '<a class="m-tab' + activeCls + '" href="' + t.href + '">';
+      }
       barHtml += '<span class="m-tab-ico">' + navSvg(t.icon) + '</span>';
       barHtml += '<span class="m-tab-label">' + buildMobileLabelSpan(t) + '</span>';
-      barHtml += '</a>';
+      barHtml += t.group ? '</button>' : '</a>';
     }
-    barHtml += '<button type="button" class="m-tab' + (moreIsActive ? " m-tab-active" : "") + '" id="mTabMais" onclick="apexMoreToggle()">';
-    barHtml += '<span class="m-tab-ico">' + navSvg("more") + '</span>';
-    barHtml += '<span class="m-tab-label"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
-    barHtml += '</button>';
     bar.innerHTML = barHtml;
 
-    var menuHtml = '<div class="mm-head">';
-    menuHtml += '<span class="mm-title"><span class="show-pt">Mais</span><span class="show-en">More</span></span>';
-    menuHtml += '<button type="button" class="mm-close" onclick="apexMoreToggle()" aria-label="Fechar">&times;</button>';
-    menuHtml += '</div>';
-    menuHtml += '<nav class="mm-list">';
-    for (i = 0; i < cfg.more.length; i++) {
-      var m = cfg.more[i];
-      var itemActive = (activePage === m.href) ? " mm-item-active" : "";
-      menuHtml += '<a class="mm-item' + itemActive + '" href="' + m.href + '">';
-      menuHtml += '<span class="mm-item-ico">' + navSvg(m.icon) + '</span>';
-      menuHtml += buildMobileLabelSpan(m);
-      menuHtml += '<span class="mm-item-chevron">' + navSvg("chevron-right") + '</span>';
-      menuHtml += '</a>';
+    // The pop-up's shell. apexDockGroupToggle() fills the panel per group.
+    menu.classList.remove("mg-open");
+    menu.removeAttribute("data-group");
+    menu.innerHTML = '<div class="mg-backdrop" onclick="apexDockGroupClose()"></div>' +
+                     '<div class="mg-panel" role="menu"></div>';
+
+    if (!mobileDockWired) {
+      mobileDockWired = true;
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" || ev.key === "Esc") { window.apexDockGroupClose(); }
+      });
     }
-    menuHtml += '</nav>';
+
+    placeSettingsGear(cfg.gear, activePage);
+  }
+
+  // ── Settings gear in the page header (phone only; mobile.css shows it) ───
+  // Every staff page carries its own copy of the #appHeader markup, so the
+  // gear is added here, once, into that existing element. Never appended to
+  // <body>: a runtime-appended nav element broke the mobile nav before.
+  function placeSettingsGear(def, activePage) {
+    var header = document.getElementById("appHeader");
+    if (!header) { return; }
+    var host = header.querySelector(".header-right") || header;
+    var gear = document.getElementById("apexNavGear");
+    if (!gear) {
+      gear = document.createElement("a");
+      gear.id = "apexNavGear";
+      gear.href = def.href;
+      gear.setAttribute("aria-label", "Configurações / Settings");
+      gear.innerHTML = navSvg(def.icon);
+      var before = host.querySelector(".lang-btn");
+      if (before && before.parentNode === host) { host.insertBefore(gear, before); }
+      else { host.appendChild(gear); }
+    }
+    gear.className = "apex-nav-gear" + (activePage === def.href ? " apex-nav-gear-active" : "");
+  }
+
+  function setDockExpanded(key) {
+    var bar = document.getElementById("mobile-tab-bar");
+    if (!bar) { return; }
+    var btns = bar.querySelectorAll("[data-dock-group]");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-expanded", btns[i].getAttribute("data-dock-group") === key ? "true" : "false");
+    }
+  }
+
+  // ── Public: close the group pop-up ───────────────────────────────────────
+  window.apexDockGroupClose = function () {
+    var menu = document.getElementById("mobile-more-menu");
+    if (!menu) { return; }
+    menu.classList.remove("mg-open");
+    menu.removeAttribute("data-group");
+    setDockExpanded("");
+  };
+
+  // ── Public: dock tap on a group ──────────────────────────────────────────
+  // Always shows the group's menu, in its fixed order; tapping the open group
+  // again closes it. One menu at a time: there is a single panel.
+  window.apexDockGroupToggle = function (key) {
+    var menu = document.getElementById("mobile-more-menu");
+    if (!menu) { return; }
+    var panel = menu.querySelector(".mg-panel");
+    if (!panel) { return; }
+    if (menu.classList.contains("mg-open") && menu.getAttribute("data-group") === key) {
+      window.apexDockGroupClose();
+      return;
+    }
+    var group = null;
+    var i;
+    for (i = 0; i < mobileDockSpots.length; i++) {
+      if (mobileDockSpots[i].group && mobileDockSpots[i].key === key) { group = mobileDockSpots[i]; }
+    }
+    if (!group) { return; }
+
+    var activePage = getActivePage();
+    var html = '<div class="mg-title">' + buildMobileLabelSpan(group) + '</div>';
+    for (i = 0; i < group.items.length; i++) {
+      var m = group.items[i];
+      var here = (activePage === m.href);
+      html += '<a class="mg-item' + (here ? " mg-item-active" : "") + '" role="menuitem" href="' + m.href + '"' +
+        (here ? ' aria-current="page"' : '') + '>';
+      html += '<span class="mg-item-ico">' + navSvg(m.icon) + '</span>';
+      html += '<span class="mg-item-label">' + buildMobileLabelSpan(m) + '</span>';
+      html += '</a>';
+    }
 
     // Dev view switcher (developer role only) — the SAME DEV_VIEWS list and
     // the same apexNavSetView calls as the desktop sidebar switcher, derived
-    // rather than duplicated (see DEV_VIEWS). Checks the
-    // REAL role, not navRole: a developer previewing Alice/Rafa still needs
+    // rather than duplicated (see DEV_VIEWS). It lived in the "Mais" menu;
+    // with that gone it sits under every group's list. Checks the REAL role,
+    // not the previewed one: a developer previewing Alice/Rafa still needs
     // the switcher visible to get back to the Dev view.
     var realRole = sessionStorage.getItem("apex_role") || "alice";
     if (realRole === "developer") {
-      var mmDevView = sessionStorage.getItem("apex_dev_view") || "dev";
-      var mmButtons = DEV_VIEWS.map(function (dv) {
-        return { id: "mmBtn" + dv.label, v: dv.v, label: dv.label };
-      });
-      menuHtml += '<div class="mm-switcher">';
-      menuHtml += '<div class="mm-switcher-label">DEV</div>';
-      menuHtml += '<div class="mm-switcher-btns">';
-      for (var k = 0; k < mmButtons.length; k++) {
-        var mb = mmButtons[k];
-        var mac = (mmDevView === mb.v) ? " mm-view-active" : "";
-        menuHtml += '<button type="button" id="' + mb.id + '" class="mm-view-btn' + mac + '" onclick="apexNavSetView(\'' + mb.v + '\')">' + mb.label + '</button>';
+      var devView = sessionStorage.getItem("apex_dev_view") || "dev";
+      html += '<div class="mg-switcher">';
+      html += '<div class="mg-switcher-label">DEV</div>';
+      html += '<div class="mg-switcher-btns">';
+      for (i = 0; i < DEV_VIEWS.length; i++) {
+        var dv = DEV_VIEWS[i];
+        html += '<button type="button" class="mg-view-btn' + (devView === dv.v ? " mg-view-active" : "") + '"' +
+          ' onclick="apexDockGroupClose();apexNavSetView(\'' + dv.v + '\')">' + dv.label + '</button>';
       }
-      menuHtml += '</div></div>';
+      html += '</div></div>';
     }
 
-    menu.innerHTML = menuHtml;
-  }
+    panel.innerHTML = html;
+    menu.setAttribute("data-group", key);
+    menu.classList.add("mg-open");
+    setDockExpanded(key);
+  };
 
   // ── Scrollable view-switch tab strips (.m-scroll-tabs) ──────────────────
   // mobile.css makes these one-row horizontal scrollers at 768px and below;
@@ -742,19 +855,6 @@
     }
   }
   window.apexSetupTabStrips = setupTabStrips;
-
-  // ── Public: toggle the full-screen "Mais" menu ───────────────────────────
-  window.apexMoreToggle = function () {
-    var menu = document.getElementById("mobile-more-menu");
-    if (!menu) { return; }
-    if (menu.classList.contains("mm-open")) {
-      menu.classList.remove("mm-open");
-      document.body.classList.remove("mm-menu-lock");
-    } else {
-      menu.classList.add("mm-open");
-      document.body.classList.add("mm-menu-lock");
-    }
-  };
 
   // ── Public: init ─────────────────────────────────────────────────────────
   // Called by each page after auth + role are confirmed.
@@ -813,7 +913,10 @@
 
     refreshToggleIcon();
 
-    populateMobileNav(navRole);
+    // Same gate as the two side-menu pushes above.
+    var showContractReview = (navRole === "developer") ||
+      (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1");
+    populateMobileNav(navRole, showContractReview);
 
     setupTabStrips();
   };

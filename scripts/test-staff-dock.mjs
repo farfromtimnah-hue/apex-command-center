@@ -74,7 +74,13 @@ globalThis.document = {
   addEventListener: (type, fn) => { if (type === "keydown") { keyHandlers.push(fn); } }
 };
 globalThis.window = globalThis;
-globalThis.location = { get pathname() { return "/" + page; } };
+globalThis.location = { get pathname() { return "/" + page; }, href: "" };
+const store = {};
+let storeBroken = false;
+globalThis.localStorage = {
+  getItem: k => { if (storeBroken) { throw new Error("no storage"); } return k in store ? store[k] : null; },
+  setItem: (k, v) => { if (storeBroken) { throw new Error("no storage"); } store[k] = String(v); }
+};
 freshPage("dashboard.html");
 (0, eval)(src);
 
@@ -204,6 +210,46 @@ window.apexDockGroupToggle("business");
 eq((els.panel.innerHTML.match(/apexNavSetView\('[a-z]+'\)/g) || []),
    ["apexNavSetView('alice')", "apexNavSetView('rafa')", "apexNavSetView('dev')", "apexNavSetView('client')", "apexNavSetView('seller')"],
    "a developer keeps the DEV switcher on the phone, even while previewing rafa");
+
+// ---- the tool used last, same rule as the client portal ----
+// The portal: a group with several tools always pops its menu; a group opens
+// on its own only when it has one tool or the pop-up cannot be shown, and then
+// it lands on the tool used last (first tool if none).
+for (const k of Object.keys(store)) { delete store[k]; }
+const visit = (role, file, view) => { signIn(role, view, true); freshPage(file); window.initNav(); };
+const tapWithoutPopup = group => {
+  els["mobile-more-menu"].querySelector = () => null;
+  location.href = "";
+  window.apexDockGroupToggle(group);
+  return location.href;
+};
+visit("rafa", "dashboard.html");
+eq(store, {}, "a page outside every group remembers nothing");
+eq(tapWithoutPopup("business"), "sales.html", "a group opens its first tool the first time");
+visit("rafa", "finance-new.html");
+eq(store, { apex_staff_nav_last_rafa_business: "financenew" }, "opening a tool remembers it for its group, per role");
+visit("rafa", "dashboard.html");
+location.href = "";
+window.apexDockGroupToggle("business");
+ok(menu !== els["mobile-more-menu"] && els["mobile-more-menu"].classList.contains("mg-open") && location.href === "",
+   "with a tool remembered, tapping the group still pops the menu and does not navigate (as the portal does)");
+eq((els.panel.innerHTML.match(/href="[^"]+"/g) || []), ['href="sales.html"', 'href="finance-new.html"', 'href="documents.html"'],
+   "…and the menu order does not move");
+eq(tapWithoutPopup("business"), "finance-new.html", "…and the tool used last is where the group lands when it opens on its own");
+eq(tapWithoutPopup("agenda"), "sessions.html", "one group's memory does not touch another group");
+visit("alice", "tasks.html");
+eq(store, { apex_staff_nav_last_rafa_business: "financenew", apex_staff_nav_last_alice_agenda: "tasks" }, "each role keeps its own memory");
+visit("alice", "finance-new.html");
+eq(Object.keys(store).length, 2, "a direct spot (alice's Financial) is not a group and remembers nothing");
+visit("developer", "calendar.html", "rafa");
+eq(store.apex_staff_nav_last_rafa_agenda, "calendar", "a developer previewing rafa writes to rafa's memory, not the developer's");
+store.apex_staff_nav_last_alice_agenda = "financenew";
+visit("alice", "dashboard.html");
+eq(tapWithoutPopup("agenda"), "calendar.html", "a remembered tool that is not in the group falls back to the first tool");
+storeBroken = true;
+visit("rafa", "finance-new.html");
+eq(tapWithoutPopup("business"), "sales.html", "storage unavailable: nothing breaks, the group opens its first tool");
+storeBroken = false;
 
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ STAFF DOCK CONSISTENT");
 process.exit(fail ? 1 : 0);

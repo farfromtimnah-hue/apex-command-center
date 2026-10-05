@@ -603,8 +603,13 @@
   // either a direct link or a group; tapping a group pops a small menu just
   // above the dock (same look as the client portal's #portalGroupSheet, built
   // here because portal.html keeps its own dock code). The menu's order is
-  // fixed and a group never navigates on its own. Settings is not on the
-  // dock: it sits behind a gear in the page header (placeSettingsGear).
+  // fixed. Settings is not on the dock: it sits behind a gear in the page
+  // header (placeSettingsGear).
+  //
+  // A group behaves exactly like a client portal group (portalDockTap): with
+  // two or more tools it pops its menu; left with one tool it opens that tool;
+  // and each group remembers the tool used last in it, which is where the
+  // group lands whenever it has to open without a menu.
   // #mobile-more-menu is reused as the pop-up's container.
 
   function mobileTabDef(key, href, icon, labelPt, labelEn) {
@@ -670,6 +675,7 @@
 
   // The spots on the dock right now, kept for apexDockGroupToggle().
   var mobileDockSpots = [];
+  var mobileDockRole = "alice";
   var mobileDockWired = false;
 
   function mobileGroupHasPage(group, page) {
@@ -677,6 +683,30 @@
       if (group.items[i].href === page) { return true; }
     }
     return false;
+  }
+
+  // A group opens the tool used last in it. Kept per role and per browser; a
+  // convenience, so a storage failure just means the first tool. Same rule as
+  // portalGroupLanding / portalRememberTab in portal.html.
+  function mobileGroupLanding(group) {
+    var last = null;
+    try { last = localStorage.getItem("apex_staff_nav_last_" + mobileDockRole + "_" + group.key); } catch (e) { last = null; }
+    for (var i = 0; i < group.items.length; i++) {
+      if (group.items[i].key === last) { return group.items[i]; }
+    }
+    return group.items[0];
+  }
+
+  function mobileRememberPage(page) {
+    for (var i = 0; i < mobileDockSpots.length; i++) {
+      var g = mobileDockSpots[i];
+      if (!g.group || g.items.length < 2) { continue; }
+      for (var j = 0; j < g.items.length; j++) {
+        if (g.items[j].href === page) {
+          try { localStorage.setItem("apex_staff_nav_last_" + mobileDockRole + "_" + g.key, g.items[j].key); } catch (e) {}
+        }
+      }
+    }
   }
 
   function populateMobileNav(navRole, contractReview) {
@@ -689,6 +719,8 @@
     var i;
 
     mobileDockSpots = cfg.spots;
+    mobileDockRole = navRole;
+    mobileRememberPage(activePage);
 
     var barHtml = "";
     for (i = 0; i < cfg.spots.length; i++) {
@@ -764,23 +796,30 @@
   };
 
   // ── Public: dock tap on a group ──────────────────────────────────────────
-  // Always shows the group's menu, in its fixed order; tapping the open group
-  // again closes it. One menu at a time: there is a single panel.
+  // Same steps as portalDockTap in portal.html. A group with several tools
+  // pops up its list, in its fixed order; tapping the open group again closes
+  // it. A group left with one tool just opens it. If the pop-up cannot be
+  // shown, the group opens the tool used last. One menu at a time: there is a
+  // single panel.
   window.apexDockGroupToggle = function (key) {
-    var menu = document.getElementById("mobile-more-menu");
-    if (!menu) { return; }
-    var panel = menu.querySelector(".mg-panel");
-    if (!panel) { return; }
-    if (menu.classList.contains("mg-open") && menu.getAttribute("data-group") === key) {
-      window.apexDockGroupClose();
-      return;
-    }
     var group = null;
     var i;
     for (i = 0; i < mobileDockSpots.length; i++) {
       if (mobileDockSpots[i].group && mobileDockSpots[i].key === key) { group = mobileDockSpots[i]; }
     }
-    if (!group) { return; }
+    if (!group || !group.items.length) { return; }
+    if (group.items.length < 2) {
+      window.apexDockGroupClose();
+      window.location.href = mobileGroupLanding(group).href;
+      return;
+    }
+    var menu = document.getElementById("mobile-more-menu");
+    var panel = menu ? menu.querySelector(".mg-panel") : null;
+    if (!menu || !panel) { window.location.href = mobileGroupLanding(group).href; return; }
+    if (menu.classList.contains("mg-open") && menu.getAttribute("data-group") === key) {
+      window.apexDockGroupClose();
+      return;
+    }
 
     var activePage = getActivePage();
     var html = '<div class="mg-title">' + buildMobileLabelSpan(group) + '</div>';

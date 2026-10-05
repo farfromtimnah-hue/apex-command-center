@@ -6,7 +6,7 @@ import { makeDb, build, baseStubs, req, workerSrc } from "./fixtures/d1-shim.mjs
 
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail++; };
-const FNS = ["gmEstNewToken", "gmDateAddDays", "gmEstLinkDead", "linkControlTokenDead", "linkControlApply", "handlePostGmDocLinkControl", "handlePostApexDocLinkControl", "apxInvByToken", "apxByToken", "gmEstByToken", "dAckByToken"];
+const FNS = ["gmEstNewToken", "gmDateAddDays", "gmEstLinkDead", "linkControlTokenDead", "linkControlApply", "docLinkTarget", "handlePostGmDocLinkControl", "handlePostApexDocLinkControl", "apxInvByToken", "apxByToken", "gmEstByToken", "dAckByToken"];
 const VARS = ["LINK_CONTROL", "EST_LINK_EXPIRY_DAYS", "DOC_LINK_PAGES"];
 let TODAY = "2026-10-04";
 let user = { role: "developer" };

@@ -41119,7 +41119,7 @@ async function handleGetGmBookingSettings(id, request, env) {
             settings: s,
             presets: { cleaning: bkPresetItems("cleaning"), general: bkPresetItems("general") },
             event_types: config.event_types,
-            link: s.public_slug ? DEFAULT_ORIGIN + "/book.html?b=" + s.public_slug : null
+            link: s.public_slug ? await docPrettyLink(env, "booking-site", s.public_slug, id, "book", "") : null
         };
         return jsonOk(out);
     } catch (e) {
@@ -41172,7 +41172,7 @@ async function handlePutGmBookingSettings(id, request, env) {
         ).bind(next.enabled, next.work_days, next.day_start, next.day_end, next.duration_min, next.min_notice_hours,
             next.daily_cap, next.window_days, next.event_type, qjson, actorName(user), id).run();
         var saved = bkNormSettings(await bkSettingsRow(env, id));
-        return jsonOk({ saved: true, settings: saved, link: saved.public_slug ? DEFAULT_ORIGIN + "/book.html?b=" + saved.public_slug : null });
+        return jsonOk({ saved: true, settings: saved, link: saved.public_slug ? await docPrettyLink(env, "booking-site", saved.public_slug, id, "book", "") : null });
     } catch (e) {
         return jsonErr("Error saving booking settings: " + e.message, 500);
     }
@@ -41188,7 +41188,13 @@ async function bkPortalLead(env, user, clientId, leadId) {
     return { lead: lead };
 }
 
-function bkRequestView(req, lead, settings) {
+// The readable doc.resonateai.online link for a booking request; the old
+// book.html address when it cannot be made (docPrettyLink never throws).
+async function bkRequestLink(env, req, lead) {
+    return await docPrettyLink(env, "booking", req.token, req.client_id, "visit", (lead && lead.cliente) || "");
+}
+
+async function bkRequestView(env, req, lead, settings) {
     if (!req) { return null; }
     return {
         id: req.id, status: req.status, kind: req.kind,
@@ -41197,7 +41203,7 @@ function bkRequestView(req, lead, settings) {
         booked_at: req.booked_at || null, cancelled_at: req.cancelled_at || null,
         answers: bkAnswersView(bkParseAnswers(req.answers_json), settings),
         customer_updates: bkCustomerUpdates(req, lead),
-        url: DEFAULT_ORIGIN + "/book.html?t=" + req.token
+        url: await bkRequestLink(env, req, lead)
     };
 }
 
@@ -41213,7 +41219,7 @@ async function handleGetGmLeadBooking(id, leadId, request, env) {
         var s = bkNormSettings(await bkSettingsRow(env, id));
         var client = await bkClientInfo(env, id);
         var req = await env.DB.prepare("SELECT * FROM gm_booking_requests WHERE client_id = ? AND lead_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").bind(id, leadId).first();
-        return jsonOk({ enabled: s.enabled, language: client.language, request: bkRequestView(req, g.lead, s) });
+        return jsonOk({ enabled: s.enabled, language: client.language, request: await bkRequestView(env, req, g.lead, s) });
     } catch (e) {
         return jsonErr("Error loading booking: " + e.message, 500);
     }
@@ -41242,7 +41248,7 @@ async function handlePostGmLeadBookingLink(id, leadId, request, env) {
         }
         var client = await bkClientInfo(env, id);
         return jsonOk({
-            request: bkRequestView(req, g.lead, s), url: DEFAULT_ORIGIN + "/book.html?t=" + req.token, language: client.language,
+            request: await bkRequestView(env, req, g.lead, s), url: await bkRequestLink(env, req, g.lead), language: client.language,
             lead: { cliente: g.lead.cliente, telefone: g.lead.telefone || null }
         });
     } catch (e) {
@@ -44114,8 +44120,14 @@ function docPdfAfterFinal(request, env, kind, token) {
 // real page with the real token. The random tail keeps each link unguessable.
 // Any failure falls back to the long token link, so sending never breaks.
 var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
-var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html" };
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html", booking: "book.html", "booking-site": "book.html" };
 var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document" };
+
+// Where a link forwards to. A business's general booking link carries its
+// public slug as ?b=; every other kind carries its token as ?t=.
+function docLinkTarget(kind, token) {
+    return DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + (kind === "booking-site" ? "?b=" : "?t=") + token;
+}
 
 function docLinkSlugPart(v, max) {
     var t = String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
@@ -44272,7 +44284,7 @@ async function linkControlApply(env, kind, docId, scopeClientId, action) {
     var now = await withScope(env.DB.prepare("SELECT * FROM " + def.table + " WHERE id = ?" + scopeSql), [docId]).first();
     token = now[def.col];
     var pretty = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
-    var direct = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + "?t=" + token;
+    var direct = docLinkTarget(kind, token);
     return {
         ok: true,
         kind: kind,
@@ -44319,7 +44331,7 @@ async function handlePostApexDocLinkControl(kind, docId, scopeClientId, action, 
 }
 
 async function docPrettyLink(env, kind, token, clientId, docNumber, customerName) {
-    var fallback = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + "?t=" + token;
+    var fallback = docLinkTarget(kind, token);
     if (!token || !clientId || !DOC_LINK_PAGES[kind]) { return fallback; }
     try {
         var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = ? AND public_token = ?").bind(kind, token).first();
@@ -44332,6 +44344,9 @@ async function docPrettyLink(env, kind, token, clientId, docNumber, customerName
         var tail = [docLinkSlugPart(docNumber, 20), docLinkSlugPart(customerName, 30)].filter(Boolean).join("-");
         var title = bizName || "Your document";
         var desc = (DOC_LINK_LABELS[kind] || "Document") + (docNumber ? " " + docNumber : "") + (customerName ? " for " + customerName : "");
+        // Booking links read "Book a visit" / "Book a visit for <customer>"; the
+        // docNumber slot only supplies the "visit" / "book" word in the address.
+        if (kind === "booking" || kind === "booking-site") { desc = "Book a visit" + (customerName ? " for " + customerName : ""); }
         for (var attempt = 0; attempt < 3; attempt++) {
             var slug = head + "/" + (tail ? tail + "-" : "") + docLinkRandom(8);
             var ins = await env.DB.prepare(
@@ -44397,7 +44412,7 @@ async function docLinkServe(request, env) {
     }
     if (logoRes && logoRes.body && typeof logoRes.body.cancel === "function") { try { logoRes.body.cancel(); } catch (e) {} }
     var logoExt = /png/i.test(logoType) ? "png" : (/webp/i.test(logoType) ? "webp" : (/gif/i.test(logoType) ? "gif" : "jpg"));
-    var target = DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[row.kind] + "?t=" + row.public_token;
+    var target = docLinkTarget(row.kind, row.public_token);
     var image = DOC_LINK_ORIGIN + "/" + slug + "/preview." + logoExt;
     var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" +
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +

@@ -1214,6 +1214,10 @@
     .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
     .table-wrap { overflow-x: auto; }
+    /* The invoice actions cell lets its buttons wrap onto more lines instead
+       of running past the edge (.num alone forces one line). */
+    td.inv-actions { white-space: normal; }
+    td.inv-actions .btn { margin: 2px 0 2px 4px; }
 
     .pill {
       display: inline-block;
@@ -3412,6 +3416,51 @@
           <span class="show-pt">Fechar</span>
           <span class="show-en">Close</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ VOID INVOICE (mistake or canceled) ═══════════════════
+       Keep invoice, the dark backdrop and Escape all close it and change
+       nothing. The confirm button stays off until a reason is picked. -->
+  <div id="voidOverlay" class="overlay" hidden onclick="if (event.target === this) { closeVoidDialog(); }">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:480px">
+      <div class="modal-title">
+        <span class="show-pt">Anular fatura</span>
+        <span class="show-en">Void invoice</span>
+      </div>
+      <div class="modal-sub" id="voidWho" style="margin-bottom:8px;font-weight:600;color:inherit;"></div>
+      <div class="modal-sub">
+        <span class="show-pt">Ela deixa de contar como valor a receber e sai das listas de rascunho e a receber.</span>
+        <span class="show-en">It stops counting as money owed and leaves the Draft and Unpaid lists.</span>
+      </div>
+      <div class="modal-sub" style="margin-bottom:6px;font-weight:600;color:inherit;">
+        <span class="show-pt">Por qu&ecirc;?</span>
+        <span class="show-en">Why?</span>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:10px;font-size:14px;cursor:pointer;">
+        <input type="radio" name="voidKind" value="mistake" onchange="voidPickKind('mistake')" style="margin-top:3px;">
+        <span>
+          <strong><span class="show-pt">Erro ou duplicada</span><span class="show-en">Mistake or duplicate</span></strong><br>
+          <span class="tag-meta"><span class="show-pt">A fatura nunca deveria ter existido.</span><span class="show-en">The invoice should never have existed.</span></span>
+        </span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:9px;margin-bottom:12px;font-size:14px;cursor:pointer;">
+        <input type="radio" name="voidKind" value="canceled" onchange="voidPickKind('canceled')" style="margin-top:3px;">
+        <span>
+          <strong><span class="show-pt">Fatura cancelada</span><span class="show-en">Canceled invoice</span></strong><br>
+          <span class="tag-meta"><span class="show-pt">A fatura era real, e a cobran&ccedil;a foi cancelada.</span><span class="show-en">The invoice was real, and the charge was called off.</span></span>
+        </span>
+      </label>
+      <input type="text" id="voidNote" maxlength="200" data-ph-pt="Observa&ccedil;&atilde;o (opcional)" data-ph-en="Note (optional)" placeholder="Note (optional)"
+             style="width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:inherit;">
+      <div id="voidWarn" hidden style="margin-top:12px;padding:10px 12px;border-radius:8px;background:#fdf4e3;color:#6b5320;font-size:13px;line-height:1.5;white-space:pre-wrap;"></div>
+      <div class="modal-actions">
+        <button class="btn" id="voidKeepBtn" onclick="closeVoidDialog()">
+          <span class="show-pt">Manter fatura</span>
+          <span class="show-en">Keep invoice</span>
+        </button>
+        <button class="btn btn-gold" id="voidConfirmBtn" onclick="confirmVoid()" disabled></button>
       </div>
     </div>
   </div>
@@ -9174,8 +9223,10 @@
             '<button class="btn btn-sm" onclick="viewInvoice(\'' + inv.id + '\')">' +
               '<span class="show-pt">Ver</span><span class="show-en">View</span></button> ';
         }
-        // The client's public page (no login). Never on a voided invoice.
-        if (apxCanCopyClientLink() && inv.status !== "void" && inv.status !== "voided_mistake") {
+        // The client's public page (no login). Never on a voided invoice, and
+        // never on a draft: a draft reaches a client only through "Review and
+        // send".
+        if (apxCanCopyClientLink() && inv.status !== "draft" && inv.status !== "void" && inv.status !== "voided_mistake") {
           actions +=
             '<button class="btn btn-sm" onclick="copyClientInvoiceLink(\'' + inv.id + '\')">' +
               '<span class="show-pt">Copiar link do cliente</span><span class="show-en">Copy client link</span></button> ';
@@ -9255,7 +9306,7 @@
           "<td>" + fmtDate(inv.due_at) + "</td>" +
           '<td><span class="pill"><span class="show-pt">' + esc(statusLabel(inv, false)) + '</span><span class="show-en">' + esc(statusLabel(inv, true)) + '</span></span>' + claimTag + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
-          '<td class="num">' + actions + "</td>" +
+          '<td class="num inv-actions">' + actions + "</td>" +
         "</tr>";
       }).join("");
       wireInvoiceTemplateEditing();
@@ -9354,50 +9405,103 @@
       window.ApexInvoiceSend.markSentOnly(invoiceId, inv, apxSendDeps());
     }
 
-    // Voiding is one click and it silently withdraws any matched payment.
-    // The worker refuses with 409 when a confirmed payment exists; this shows
-    // that refusal as a real question naming the amount, and only then retries
-    // with force. The check lives in the DATA, so it cannot be clicked past by
-    // accident -- see the worker comment on mark-mistake for the Gator case
-    // that cost three weeks of a $1,500 deposit looking unpaid.
-    function markMistake(invoiceId, force) {
-      // EVERY void asks first. Nicole, 2026-08-26: "even if it's not matched
-      // there should be a warning. Voiding an invoice shouldn't be silent.
-      // It's a big deal." Naming the client and the amount is what makes the
-      // question answerable -- a bare "are you sure?" trains people to click
-      // yes. The PAID case is a second, louder stop enforced by the worker.
-      if (force !== true) {
-        var inv = null;
-        for (var i = 0; i < (INVOICES || []).length; i++) {
-          if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; break; }
-        }
-        var who = inv ? (inv.client_name || "") : "";
-        var howMuch = inv ? fmtCents(inv.amount_cents) : "";
-        var num = inv ? (inv.number || "") : "";
-        var ask = isEn()
-          ? "Void " + num + " for " + who + " (" + howMuch + ")?\n\n" +
-            "It stops counting as money owed and disappears from the invoice list.\n" +
-            "Use this only for a duplicate or an invoice created by mistake."
-          : "Anular " + num + " de " + who + " (" + howMuch + ")?\n\n" +
-            "Ela deixa de contar como valor a receber e some da lista de faturas.\n" +
-            "Use so para fatura duplicada ou criada por engano.";
-        if (!window.confirm(ask)) { return; }
+    // "Mark as mistake" opens the void dialog (markup: #voidOverlay). Nothing
+    // is sent until the confirm button is pressed with a reason chosen.
+    var VOID_STATE = { invoiceId: null, kind: "", force: false, busy: false };
+    function voidPaintConfirm() {
+      var b = document.getElementById("voidConfirmBtn");
+      if (!b) { return; }
+      var k = VOID_STATE.kind;
+      b.disabled = !k || VOID_STATE.busy;
+      if (VOID_STATE.force) {
+        b.innerHTML = '<span class="show-pt">Anular mesmo assim</span><span class="show-en">Void anyway</span>';
+      } else if (k === "mistake") {
+        b.innerHTML = '<span class="show-pt">Anular como erro</span><span class="show-en">Void as mistake</span>';
+      } else if (k === "canceled") {
+        b.innerHTML = '<span class="show-pt">Anular como cancelada</span><span class="show-en">Void as canceled</span>';
+      } else {
+        b.innerHTML = '<span class="show-pt">Anular fatura</span><span class="show-en">Void invoice</span>';
       }
+    }
+    function voidPickKind(kind) {
+      VOID_STATE.kind = kind;
+      voidPaintConfirm();
+    }
+    function closeVoidDialog() {
+      var ov = document.getElementById("voidOverlay");
+      if (ov) { ov.hidden = true; }
+      VOID_STATE = { invoiceId: null, kind: "", force: false, busy: false };
+    }
+    document.addEventListener("keydown", function(e) {
+      if (e.key !== "Escape") { return; }
+      var ov = document.getElementById("voidOverlay");
+      if (ov && !ov.hidden) { closeVoidDialog(); }
+    });
+    function markMistake(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < (INVOICES || []).length; i++) {
+        if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; break; }
+      }
+      VOID_STATE = { invoiceId: invoiceId, kind: "", force: false, busy: false };
+      var who = document.getElementById("voidWho");
+      if (who) {
+        who.textContent = inv
+          ? ((inv.number || "") + " \u00b7 " + (inv.client_name || "") + " \u00b7 " + fmtCents(inv.amount_cents))
+          : "";
+      }
+      var radios = document.getElementsByName("voidKind");
+      for (var r = 0; r < radios.length; r++) { radios[r].checked = false; }
+      var note = document.getElementById("voidNote");
+      if (note) { note.value = ""; }
+      var warn = document.getElementById("voidWarn");
+      if (warn) { warn.hidden = true; warn.textContent = ""; }
+      voidPaintConfirm();
+      var ov = document.getElementById("voidOverlay");
+      if (ov) { ov.hidden = false; }
+    }
+
+    // Voiding silently withdraws any matched payment. The worker refuses with
+    // 409 when a confirmed payment exists; the dialog then shows the worker's
+    // message and asks again, and only a SECOND click sends force:true. The
+    // check lives in the DATA -- see the worker comment on mark-mistake for the
+    // Gator case that cost three weeks of a $1,500 deposit looking unpaid.
+    function confirmVoid() {
+      if (!VOID_STATE.invoiceId || !VOID_STATE.kind || VOID_STATE.busy) { return; }
+      var invoiceId = VOID_STATE.invoiceId;
+      var kind = VOID_STATE.kind;
+      var noteEl = document.getElementById("voidNote");
+      var note = noteEl ? noteEl.value.replace(/^\s+|\s+$/g, "") : "";
+      VOID_STATE.busy = true;
+      voidPaintConfirm();
       apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-mistake", {
         method: "POST",
-        body: { reason: "marcado como erro na tela de faturas", force: force === true }
+        body: { kind: kind, reason: note, force: VOID_STATE.force === true }
       })
         .then(function(res) { return res.json().then(function(d) { return { s: res.status, d: d }; }); })
         .then(function(r) {
           if (r.s === 409 && r.d && r.d.error) {
-            if (window.confirm(r.d.error)) { markMistake(invoiceId, true); }
+            VOID_STATE.busy = false;
+            VOID_STATE.force = true;
+            var warn = document.getElementById("voidWarn");
+            if (warn) { warn.textContent = r.d.error; warn.hidden = false; }
+            voidPaintConfirm();
             return;
           }
-          if (r.d && r.d.error) { toast(r.d.error, null, null, 15000); return; }
-          toast(isEn() ? "Marked as a mistake." : "Marcada como erro.");
+          if (r.d && r.d.error) {
+            VOID_STATE.busy = false;
+            voidPaintConfirm();
+            toast(r.d.error, null, null, 15000);
+            return;
+          }
+          closeVoidDialog();
+          toast(kind === "canceled"
+            ? (isEn() ? "Voided as canceled." : "Anulada como cancelada.")
+            : (isEn() ? "Marked as a mistake." : "Marcada como erro."));
           loadInvoices();
         })
         .catch(function(e) {
+          VOID_STATE.busy = false;
+          voidPaintConfirm();
           toast((e && e.message) ? String(e.message) : t("Erro", "Error"), null, null, 15000);
         });
     }

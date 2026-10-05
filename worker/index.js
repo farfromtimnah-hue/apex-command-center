@@ -41313,6 +41313,109 @@ function fmtCentsPt(cents) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/finance-new/overdue-drafts/notify -- developer or alice.
+// One push to the finance admin about past-due invoices still in draft. Sent
+// only when someone calls it; nothing on the cron or a timer calls this.
+// ---------------------------------------------------------------------------
+
+// Cents -> "$4,198.50" (US format; fmtCentsPt prints the Portuguese format).
+function fmtCentsUs(cents) {
+    var v = (cents || 0) / 100;
+    return "$" + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// "2026-09-22" -> "09/22/2026".
+function fmtDateUs(d) {
+    var s = String(d || "").slice(0, 10);
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    return m ? m[2] + "/" + m[3] + "/" + m[1] : s;
+}
+
+// Pure: rows [{number, client_name, amount_cents, due_at}] -> {title, body}.
+function overdueDraftsMessage(rows) {
+    rows = rows || [];
+    if (rows.length === 1) {
+        var one = rows[0];
+        return {
+            title: "Fatura vencida ainda em rascunho",
+            body: (one.client_name || "Cliente") +
+                  " · " + fmtCentsUs(one.amount_cents) +
+                  " · " + one.number +
+                  " · venceu em " + fmtDateUs(one.due_at)
+        };
+    }
+    var total = 0;
+    var oldest = "";
+    for (var i = 0; i < rows.length; i++) {
+        total += rows[i].amount_cents || 0;
+        var d = String(rows[i].due_at || "").slice(0, 10);
+        if (d && (!oldest || d < oldest)) { oldest = d; }
+    }
+    return {
+        title: rows.length + " faturas vencidas ainda em rascunho",
+        body: "Total " + fmtCentsUs(total) + ". A mais antiga venceu em " +
+              fmtDateUs(oldest) + ". Toque para revisar e enviar."
+    };
+}
+
+async function handlePostFinanceNewOverdueDraftsNotify(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var reqBody = await request.json().catch(function() { return {}; });
+        var dryRun = !!(reqBody && reqBody.dry_run === true);
+
+        var today = localDateStrForTZ();
+        var res = await env.DB.prepare(
+            "SELECT i.number, c.name AS client_name, i.amount_cents, i.due_at " +
+            "FROM invoices i LEFT JOIN clients c ON c.id = i.client_id " +
+            "WHERE i.status = 'draft' AND i.due_at IS NOT NULL " +
+            "AND substr(i.due_at,1,10) < ? AND i.client_id != 'test-client-temp-001' " +
+            "ORDER BY i.due_at ASC"
+        ).bind(today).all();
+        var invoices = (res.results || []).map(function(r) {
+            return { number: r.number, client_name: r.client_name, amount_cents: r.amount_cents, due_at: r.due_at };
+        });
+
+        var totalCents = 0;
+        for (var i = 0; i < invoices.length; i++) { totalCents += invoices[i].amount_cents || 0; }
+
+        var admins = await env.DB.prepare("SELECT email FROM users WHERE role = 'alice'").all();
+        var emails = (admins.results || []).map(function(r) { return r.email; });
+
+        var msg = overdueDraftsMessage(invoices);
+        if (!invoices.length) {
+            msg = { title: "", body: "Nenhuma fatura vencida em rascunho." };
+        }
+
+        var push = null;
+        if (!dryRun && invoices.length && emails.length) {
+            push = await pushToUsers(env, emails, {
+                title: msg.title,
+                body: msg.body,
+                url: "/finance-new.html?highlight=invoice",
+                tag: "apex-overdue-drafts"
+            });
+        }
+
+        return jsonOk({
+            count: invoices.length,
+            total_cents: totalCents,
+            invoices: invoices,
+            title: msg.title,
+            body: msg.body,
+            recipients: emails,
+            dry_run: dryRun,
+            push: push
+        });
+    } catch (e) {
+        return jsonErr("Error sending overdue drafts push: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/finance-new/recurrences  — admin only.
 // Route: POST /api/finance-new/recurrences — admin only.
 // ---------------------------------------------------------------------------
@@ -43512,6 +43615,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/matches/auto-preview" && method === "GET") { return handleGetFinanceNewAutoPreview(request, env); }
         if (path === "/api/finance-new/matches/auto-applied" && method === "GET") { return handleGetFinanceNewAutoApplied(request, env); }
         if (path === "/api/finance-new/settings/auto-apply" && (method === "GET" || method === "PATCH")) { return handleAutoApplySetting(request, env); }
+        if (path === "/api/finance-new/overdue-drafts/notify" && method === "POST") { return handlePostFinanceNewOverdueDraftsNotify(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "GET")  { return handleGetFinanceNewRecurrences(request, env); }
         if (path === "/api/finance-new/recurrences"       && method === "POST") { return handlePostFinanceNewRecurrence(request, env); }
         if (path === "/api/finance-new/vendors"           && method === "GET")  { return handleGetFinanceNewVendors(request, env); }

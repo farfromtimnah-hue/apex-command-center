@@ -1,6 +1,7 @@
-// The staff client page: five groups, one section on screen, a short hero,
-// tasks grouped by session. Reads client.html (and its iOS copy) as text, and
-// runs the page's own group and task functions against a tiny stand-in page.
+// The staff client page: five groups, one group on screen with all of its
+// sections, a menu that jumps to a section, a short hero, tasks grouped by
+// session. Reads client.html (and its iOS copy) as text, and runs the page's
+// own group and task functions against a tiny stand-in page.
 // No network, no browser, writes nothing.
 //
 //   node scripts/test-client-page-groups.mjs
@@ -34,38 +35,83 @@ function slice(src, from, to) {
   return src.slice(a, b);
 }
 
-// A stand-in page: just enough of document for the group code to run.
+// A stand-in element: just enough of a DOM node for the group code to move
+// cards around.
+function makeEl(id) {
+  const cls = new Set();
+  const attrs = {};
+  const el = {
+    id: id || "", hidden: false, parentNode: null, children: [], className: "", style: {}, scrolls: [],
+    classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) },
+    setAttribute(k, v) { attrs[k] = String(v); }, getAttribute(k) { return k in attrs ? attrs[k] : null; },
+    querySelector: () => null,
+    removeChild(c) { const i = el.children.indexOf(c); if (i !== -1) { el.children.splice(i, 1); c.parentNode = null; } return c; },
+    appendChild(c) { if (c.parentNode) { c.parentNode.removeChild(c); } el.children.push(c); c.parentNode = el; return c; },
+    insertBefore(c, ref) {
+      if (c.parentNode) { c.parentNode.removeChild(c); }
+      const i = ref ? el.children.indexOf(ref) : -1;
+      if (i === -1) { el.children.push(c); } else { el.children.splice(i, 0, c); }
+      c.parentNode = el; return c;
+    },
+    scrollIntoView(o) { el.scrolls.push(o); },
+    getBoundingClientRect() { return { bottom: 0, left: 0 }; }
+  };
+  let html = "";
+  Object.defineProperty(el, "innerHTML", { get: () => html, set: (v) => { html = v; if (v === "") { el.children.slice().forEach((c) => el.removeChild(c)); } } });
+  Object.defineProperty(el, "firstChild", { get: () => el.children[0] || null });
+  Object.defineProperty(el, "nextSibling", { get: () => { const sib = el.parentNode ? el.parentNode.children : []; return sib[sib.indexOf(el) + 1] || null; } });
+  return el;
+}
+
+// A stand-in page: the section cards in the page's own two columns, the
+// group bar, the menu and the stage the group on screen is laid out in.
 function makePage(src, opts) {
-  const ids = [...src.matchAll(/id="(sec-[A-Za-z]+)"([^>]*)>/g)];
   const els = {};
-  ids.forEach((m) => {
-    const cls = new Set();
-    els[m[1]] = {
-      id: m[1], hidden: /\shidden\b/.test(m[2]), parentNode: null,
-      classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) },
-      querySelector: () => null
-    };
+  const list = els.sectionsList = makeEl("sectionsList");
+  const side = makeEl("colSide");
+  const endOfList = src.indexOf("<!-- /sectionsList -->");
+  [...src.matchAll(/id="(sec-[A-Za-z]+)"([^>]*)>/g)].forEach((m) => {
+    const card = els[m[1]] = makeEl(m[1]);
+    card.hidden = /\shidden\b/.test(m[2]);
+    (m.index < endOfList ? list : side).appendChild(card);
   });
-  const plain = (id) => ({ id, hidden: true, innerHTML: "", style: {}, classList: { add() {}, remove() {}, contains() { return false; } }, setAttribute(k, v) { this["_" + k] = v; }, getAttribute(k) { return this["_" + k]; } });
-  els.cgBar = plain("cgBar"); els.cgSheet = plain("cgSheet"); els.cgPanel = plain("cgPanel");
+  ["cgBar", "cgSheet", "cgPanel", "cgStage"].forEach((id) => { els[id] = makeEl(id); });
+  els.cgBar.hidden = true; els.cgSheet.hidden = true;
+  if (opts.prepStrip) { els.prepReturn = makeEl("prepReturn"); els.prepReturn.offsetHeight = opts.prepStrip; }
   const store = Object.assign({}, opts.session || {});
   const calls = [];
-  const win = { addEventListener() {}, innerWidth: 1200, innerHeight: 800, matchMedia: () => ({ matches: !!opts.phone }) };
+  const timers = [];
+  const heard = {};
+  const win = { addEventListener(type, fn) { (heard[type] = heard[type] || []).push(fn); }, innerWidth: 1200, innerHeight: 800, matchMedia: () => ({ matches: !!opts.phone }) };
   if (opts.track === "ok")    { win.apexTrack = (control, clientId) => { calls.push([control, clientId]); }; }
   if (opts.track === "throw") { win.apexTrack = () => { throw new Error("counter is down"); }; }
   const ctx = {
     window: win, CLIENT_ID: "client-1", DEEP_SECTION: null, encodeURIComponent,
+    setTimeout: (fn) => { timers.push(fn); },
     sessionStorage: { getItem: (k) => (k in store ? store[k] : null) },
     document: {
       body: {}, addEventListener() {},
+      createElement: () => makeEl(""),
       getElementById: (id) => els[id] || null,
       querySelector: () => ({ classList: { add() {} } })
     }
   };
   vm.createContext(ctx);
   vm.runInContext(slice(src, "    var CG_GROUPS = [", "    // ── Digital Presence"), ctx);
-  const onScreen = () => Object.keys(els).filter((k) => k.indexOf("sec-") === 0 && !els[k].classList.contains("cg-off") && !els[k].hidden).map((k) => k.slice(4));
-  return { ctx, els, calls, onScreen, run: (code) => vm.runInContext(code, ctx) };
+  const cards = () => Object.keys(els).filter((k) => k.indexOf("sec-") === 0);
+  const showing = (el) => !el.classList.contains("cg-off") && !el.hidden;
+  const name = (el) => el.id.slice(4);
+  // The stage, row by row: a name for a full-width section, [left, right] for a row of two columns.
+  const layout = () => els.cgStage.children.map((c) => (c.className === "cg-row-two" ? c.children.map((col) => col.children.filter(showing).map(name)) : name(c)));
+  // The sections on screen, in reading order: down the stage, left column first.
+  const onScreen = () => layout().flat(2);
+  const inStage = (el) => { for (let n = el.parentNode; n; n = n.parentNode) { if (n === els.cgStage) { return true; } } return false; };
+  // A card that shows without being part of the group on screen.
+  const strays = () => cards().filter((k) => showing(els[k]) && !inStage(els[k]));
+  const home = () => [list.children.filter((c) => c.id).map((c) => c.id), side.children.filter((c) => c.id).map((c) => c.id)];
+  const fire = (type) => (heard[type] || []).forEach((fn) => fn({}));
+  const runTimers = () => { timers.splice(0).forEach((fn) => fn()); };
+  return { ctx, els, calls, onScreen, layout, strays, home, fire, runTimers, run: (code) => vm.runInContext(code, ctx) };
 }
 
 function checkCopy(label, path) {
@@ -89,55 +135,122 @@ function checkCopy(label, path) {
   ok(groups.every((g) => g.pt && g.en && g.shortPt && g.shortEn && g.icon), label + ": every group has an icon, a Portuguese and an English name, and a short name for the phone");
   ok(/client-analytics\.html\?client=' \+\s*encodeURIComponent\(CLIENT_ID/.test(src), label + ": the Client Analytics link opens client-analytics.html for this client");
 
+  // ── The rename ───────────────────────────────────────────────────────────
+  const biz = groups.filter((x) => x.key === "business")[0];
+  ok(biz.en === "Client tools" && biz.pt === "Ferramentas do cliente" && biz.shortEn === "Tools" && biz.shortPt === "Ferram.", label + ": the gm group is Client tools / Ferramentas do cliente (Tools / Ferram. on a phone), still filed as business");
+  ok(!/Their business|Neg(ó|\\u00f3)cio do cliente/.test(src), label + ": the old name Their business / Negócio do cliente is nowhere on the page");
+
   // ── Order of the group buttons, by role ──────────────────────────────────
   const orderFor = (session) => Array.from(makePage(src, { session }).run("cgGroupOrder()"));
-  ok(same(orderFor({ apex_role: "rafa" }), ORDER_RAFA), label + ": rafa sees Overview, Apex work, Results, Their business, Money");
-  ok(same(orderFor({ apex_role: "alice" }), ORDER_OTHER), label + ": alice sees Overview, Money, Apex work, Results, Their business");
+  ok(same(orderFor({ apex_role: "rafa" }), ORDER_RAFA), label + ": rafa sees Overview, Apex work, Results, Client tools, Money");
+  ok(same(orderFor({ apex_role: "alice" }), ORDER_OTHER), label + ": alice sees Overview, Money, Apex work, Results, Client tools");
   ok(same(orderFor({ apex_role: "developer" }), ORDER_OTHER), label + ": developer sees the same order as alice");
   ok(same(orderFor({ apex_role: "developer", apex_dev_view: "rafa" }), ORDER_RAFA), label + ": developer previewing rafa sees rafa's order");
   ok(same(orderFor({ apex_role: "developer", apex_dev_view: "alice" }), ORDER_OTHER), label + ": developer previewing alice sees alice's order");
   ok(same(orderFor({ apex_role: "rafa", apex_dev_view: "alice" }), ORDER_RAFA), label + ": the role switcher's value is ignored for anyone but the developer");
 
-  // ── One section on screen: an ordinary client ────────────────────────────
+  // ── A group shows all its sections: an ordinary client ───────────────────
+  const homeBefore = page.home();
   page.run("cgInit()");
-  ok(same(page.onScreen(), ["overview"]), label + ": the page opens on the overview card alone");
-  ok(page.els.cgBar.hidden === false && count(page.els.cgBar.innerHTML, "cg-tab-long") === 5, label + ": five group buttons are drawn");
-  ok(/class="cg-tab active" onclick="cgGroupTap\('overview'/.test(page.els.cgBar.innerHTML), label + ": the group of the section on screen is the active one");
   const menu = (p, key) => Array.from(p.run("cgGroupSections(cgGroupByKey('" + key + "'))"));
-  ok(same(menu(page, "overview"), WANT.overview.slice(1)), label + ": a client's Overview menu has no Lead Pipeline");
-  ok(same(menu(page, "money"), ["invoices", "payment", "vendors"]), label + ": cards the page keeps hidden (APEX Contract, Contract status) are not in the Money menu");
+  ok(same(page.onScreen(), ["overview", "contacts", "notes", "portalAccess", "sellerLogins"]) && page.strays().length === 0, label + ": the page opens on Overview: overview, contacts, notes, Client Portal and Salesperson Logins together, nothing else (" + page.onScreen().join(", ") + ")");
+  ok(same(page.layout(), [[["overview", "contacts", "notes"], ["portalAccess", "sellerLogins"]]]), label + ": Overview is two columns, read down the left one first");
+  ok(page.els.cgBar.hidden === false && count(page.els.cgBar.innerHTML, "cg-tab-long") === 5, label + ": five group buttons are drawn");
+  ok(/class="cg-tab active" onclick="cgGroupTap\('overview'/.test(page.els.cgBar.innerHTML) && count(page.els.cgBar.innerHTML, "cg-tab active") === 1, label + ": the group on screen is the one active button");
+  ok(same(menu(page, "overview"), WANT.overview.slice(1)), label + ": a client's Overview has no Lead Pipeline");
+  let allGroups = true;
+  ORDER_RAFA.forEach((k) => {
+    page.run("cgShowGroup('" + k + "', true)");
+    if (!same(page.onScreen(), menu(page, k)) || page.strays().length || !menu(page, k).length) { allGroups = false; }
+  });
+  ok(allGroups, label + ": each group shows every one of its visible sections, in the group's order, and no section of another group");
+  page.run("cgShowGroup('apexwork', true)");
+  ok(same(page.onScreen(), WANT.apexwork) && same(page.layout(), [[WANT.apexwork.slice(0, 3), WANT.apexwork.slice(3)]]), label + ": Apex work shows its six sections, three down each column");
+  page.run("cgShowGroup('results', true)");
+  ok(same(page.layout(), [[["growth", "weeklySummary"], ["dp"]]]), label + ": Results (three sections) is two columns");
+  page.run("cgShowGroup('business', true)");
+  ok(same(page.layout(), WANT.business), label + ": the five gm sections each span the full width, in order");
+  page.run("cgShowGroup('money', true)");
+  ok(same(page.onScreen(), ["invoices", "payment", "vendors"]), label + ": cards the page keeps hidden (APEX Contract, Contract status) are not on screen or in the Money menu");
+  page.els["sec-vendors"].hidden = true;
+  page.run("cgApply()");
+  ok(same(page.layout(), ["invoices", "payment"]), label + ": a group with fewer than three sections on screen stays one column");
+  page.els["sec-vendors"].hidden = false;
   page.els["sec-apexContract"].hidden = false;
   page.els["sec-contractStatus"].hidden = false;
-  ok(same(menu(page, "money"), WANT.money), label + ": once shown, APEX Contract and Contract status are in the Money menu, in order");
-  let allOne = true;
-  onPage.filter((n) => n !== "leadPipeline").forEach((n) => {
-    page.run("cgShow('" + n + "', true)");
-    if (!same(page.onScreen(), [n])) { allOne = false; }
-  });
-  ok(allOne, label + ": choosing any section leaves that one section on screen and nothing else");
-  const before = page.run("cgCurrent");
-  ok(page.run("cgShow('nope', true)") === false && page.run("cgCurrent") === before, label + ": a name that is not a section changes nothing");
+  page.run("cgApply()");
+  ok(same(page.onScreen(), WANT.money) && same(menu(page, "money"), WANT.money) && page.strays().length === 0, label + ": once shown, APEX Contract and Contract status join Money on screen and in its menu, in order");
+  const rowBefore = page.els.cgStage.children[0];
+  page.run("cgApply(); cgApply();");
+  ok(page.els.cgStage.children[0] === rowBefore && page.els.cgStage.children.length === 1, label + ": drawing the same group again moves nothing");
+  ok(page.run("cgShow('nope', true)") === false && page.run("cgShowGroup('nope', true)") === false && page.run("cgGroup") === "money", label + ": a name that is not a section or a group changes nothing");
   page.run("cgShow('gmpricing', false)");
-  ok(/class="cg-tab active" onclick="cgGroupTap\('business'/.test(page.els.cgBar.innerHTML), label + ": showing Pricing makes Their business the active group");
-  page.run("cgGroupTap('business', { getBoundingClientRect: function() { return { bottom: 100, left: 1150 }; } })");
-  ok(/class="cg-item active" role="menuitem" onclick="cgSheetGo\('gmpricing'\)"/.test(page.els.cgPanel.innerHTML) && count(page.els.cgPanel.innerHTML, "cg-item active") === 1, label + ": the section on screen is the one highlighted in its group's menu");
-  ok(page.els.cgSheet.hidden === false && page.els.cgPanel.style.left === "930px", label + ": a desktop drop-down near the right edge is pulled back inside the window");
-  page.run("cgGroupTap('results', null)");
-  ok(count(page.els.cgPanel.innerHTML, 'id="btnClientAnalytics"') === 1 && count(page.els.cgPanel.innerHTML, "cgSheetGo(") === 3, label + ": the Results menu lists its three sections and the Client Analytics link");
+  ok(/class="cg-tab active" onclick="cgGroupTap\('business'/.test(page.els.cgBar.innerHTML) && same(page.onScreen(), WANT.business), label + ": asking for Pricing opens Client tools, all five sections");
+
+  // ── Printing ─────────────────────────────────────────────────────────────
+  page.els["sec-apexContract"].hidden = true;
+  page.els["sec-contractStatus"].hidden = true;
+  page.fire("beforeprint");
+  ok(same(page.home(), homeBefore) && page.els.cgStage.children.length === 0, label + ": before printing every card is back in the page's own two columns, in its usual place");
+  page.fire("afterprint");
+  ok(same(page.onScreen(), WANT.business) && page.strays().length === 0, label + ": after printing the group is on screen again");
+  ok(/@media screen \{\s*\.content-card\.cg-off \{ display: none !important; \}/.test(src), label + ": sections are hidden on screen only, so a printed page still shows every section");
+
+  // ── A group button: the group and its menu in one tap ────────────────────
+  const tap = makePage(src, { session: { apex_role: "alice" }, track: "ok" });
+  tap.run("cgInit()");
+  tap.run("cgGroupTap('business', { getBoundingClientRect: function() { return { bottom: 100, left: 1150 }; } })");
+  ok(tap.run("cgGroup") === "business" && same(tap.onScreen(), WANT.business) && tap.els.cgSheet.hidden === false && tap.els.cgSheet.getAttribute("data-group") === "business", label + ": one tap on a group button puts the group on screen and opens its menu");
+  ok(tap.els.cgBar.scrolls.length === 1 && tap.els.cgBar.scrolls[0].block === "start", label + ": opening a group scrolls to the top of the group");
+  ok(tap.els.cgPanel.style.left === "930px" && tap.els.cgPanel.style.top === "106px", label + ": a desktop drop-down near the right edge is pulled back inside the window");
+  ok(count(tap.els.cgPanel.innerHTML, "cgSheetGo(") === 5 && count(tap.els.cgPanel.innerHTML, "cg-item active") === 0 && WANT.business.every((n) => tap.els.cgPanel.innerHTML.indexOf("cgSheetGo('" + n + "')") !== -1), label + ": the menu lists the group's five sections, none marked as the only one showing");
+  tap.fire("scroll");
+  ok(tap.els.cgSheet.hidden === false, label + ": the page settling right after a group opens does not close its menu");
+  tap.run("cgGroupTap('business', null)");
+  ok(tap.els.cgSheet.hidden === true && tap.run("cgGroup") === "business" && same(tap.onScreen(), WANT.business), label + ": tapping the active group's button again closes the menu and leaves the group");
+  tap.run("cgGroupTap('business', null)");
+  ok(tap.els.cgSheet.hidden === false && tap.els.cgBar.scrolls.length === 1, label + ": and once more opens it again, without scrolling");
+  tap.run("cgSheetOpenedAt = 0");
+  tap.els.cgSheet.classList.add("cg-dropdown");
+  tap.fire("scroll");
+  ok(tap.els.cgSheet.hidden === true, label + ": scrolling the page later closes a drop-down");
+  tap.run("cgGroupTap('results', null)");
+  ok(count(tap.els.cgPanel.innerHTML, 'id="btnClientAnalytics"') === 1 && count(tap.els.cgPanel.innerHTML, "cgSheetGo(") === 3, label + ": the Results menu lists its three sections and the Client Analytics link");
+
+  // ── A menu item jumps to its section ─────────────────────────────────────
+  const dp = tap.els["sec-dp"];
+  tap.run("cgSheetGo('dp')");
+  ok(tap.els.cgSheet.hidden === true && same(tap.onScreen(), WANT.results), label + ": choosing a section closes the menu and leaves the whole group on screen");
+  ok(dp.scrolls.length === 1 && dp.scrolls[0].block === "start" && dp.style.scrollMarginTop === "12px", label + ": the chosen section is scrolled to the top of the screen, its header showing");
+  ok(dp.style.backgroundColor === "var(--gold-dim)", label + ": the chosen section flashes");
+  tap.runTimers();
+  ok(dp.style.backgroundColor === "", label + ": and the flash clears");
+  ok(tap.els["sec-growth"].scrolls.length === 0, label + ": no other section is scrolled to");
+  tap.run("cgSheetGo('payment')");
+  ok(tap.run("cgGroup") === "money" && tap.els["sec-payment"].scrolls.length === 1, label + ": a section of another group opens that group and jumps to it");
+  const strip = makePage(src, { session: { apex_role: "rafa" }, prepStrip: 44 });
+  strip.run("cgInit(); cgSheetGo('notes');");
+  ok(strip.els["sec-notes"].style.scrollMarginTop === "56px", label + ": with the back-to-meeting-prep strip stuck to the top, the section lands below it");
+  ok(/function scrollToSection\(elId\) \{[\s\S]{0,400}cgShowForElement\(el\);\s*cgScrollFlash\(el\);/.test(src) && count(src, "function cgScrollFlash(") === 1, label + ": ?section= uses the same scroll and flash as the menu");
 
   // ── A lead ───────────────────────────────────────────────────────────────
+  const LEAD = ["leadPipeline", "apexContract", "overview", "contacts", "notes", "portalAccess", "sellerLogins"];
   const lead = makePage(src, { session: { apex_role: "rafa" } });
   lead.run("cgInit()");
   lead.els["sec-leadPipeline"].hidden = false;
   lead.els["sec-apexContract"].hidden = false;
-  ok(same(menu(lead, "overview"), WANT.overview), label + ": a lead's Overview menu starts with the Lead Pipeline, then the plain overview");
-  ok(menu(lead, "money").indexOf("apexContract") === -1, label + ": a lead's APEX Contract is not in the Money menu");
-  lead.run("cgShow('leadPipeline', false)");
-  ok(same(lead.onScreen().sort(), ["apexContract", "leadPipeline"]), label + ": a lead's first screen is the Lead Pipeline and the APEX Contract together");
-  lead.run("cgShow('overview', true)");
-  ok(same(lead.onScreen(), ["overview"]), label + ": every other screen of a lead is one card");
+  lead.run("cgInit()");
+  ok(lead.run("cgGroup") === "overview" && same(lead.onScreen(), LEAD) && lead.strays().length === 0, label + ": a lead's Overview is Lead Pipeline, APEX Contract, then overview, contacts, notes, Client Portal, Salesperson Logins (" + lead.onScreen().join(", ") + ")");
+  ok(same(lead.layout(), ["leadPipeline", [LEAD.slice(1, 4), LEAD.slice(4)]]), label + ": the Lead Pipeline spans the full width; the rest is two columns");
+  ok(same(menu(lead, "overview"), LEAD), label + ": a lead's Overview menu lists the same seven, in that order");
+  lead.run("cgGroupTap('overview', null)");
+  ok(count(lead.els.cgPanel.innerHTML, "cgSheetGo('leadPipeline')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo('apexContract')") === 1 && count(lead.els.cgPanel.innerHTML, "cgSheetGo(") === 7, label + ": Lead Pipeline and APEX Contract are two separate menu items");
+  ok(menu(lead, "money").indexOf("apexContract") === -1 && same(menu(lead, "money"), ["invoices", "payment", "vendors"]), label + ": a lead's APEX Contract is not in Money");
+  lead.run("cgShowGroup('money', true)");
+  ok(lead.onScreen().indexOf("apexContract") === -1 && lead.strays().length === 0, label + ": nor on the Money screen");
   lead.run("cgShow('apexContract', false)");
-  ok(lead.run("cgCurrent") === "leadPipeline" && lead.run("cgGroupOfSection('apexContract').key") === "overview", label + ": ?section=apexContract on a lead lands on the Lead Pipeline screen, in Overview");
+  ok(lead.run("cgGroup") === "overview" && lead.run("cgGroupOfSection('apexContract').key") === "overview", label + ": ?section=apexContract on a lead opens Overview");
+  ok(!/cgShow\("leadPipeline"/.test(src) && !/cgCurrent|cgOnScreen|cgNormalize/.test(src), label + ": a lead's page opens on Overview like everyone's (no jump to a Lead Pipeline screen)");
 
   // ── Phone ────────────────────────────────────────────────────────────────
   const phone = makePage(src, { session: { apex_role: "alice" }, phone: true });
@@ -145,16 +258,19 @@ function checkCopy(label, path) {
   phone.run("cgGroupTap('money', { getBoundingClientRect: function() { return { bottom: 300, left: 5 }; } })");
   ok(phone.els.cgSheet.hidden === false && !phone.els.cgPanel.style.top, label + ": on a phone the menu is the pop-up above the dock, not pinned under the button");
   ok(/\.cg-panel \{[^}]*bottom: calc\(58px \+ 10px \+ env\(safe-area-inset-bottom\)\)/.test(src) && /\.cg-panel \{[^}]*left: 10px; right: 10px;/.test(src), label + ": the phone pop-up sits above the 58px dock and inside both screen edges");
+  ok(/\.cg-row-two \{ display: flex; gap: 24px; align-items: flex-start; \}/.test(src) && /@media \(max-width: 1099px\) \{[^}]*\.cg-row-two \{ flex-direction: column;/.test(src), label + ": two columns only on a wide screen; below 1100px the right column goes under the left");
+  ok(count(src, 'id="cgStage"') === 1 && src.indexOf('id="cgStage"') < src.indexOf('<div class="two-col-layout">') && src.indexOf('id="cgStage"') > src.indexOf('id="cgBar"'), label + ": the stage sits once, between the group buttons and the page's own columns");
 
   // ── Click counter ────────────────────────────────────────────────────────
   const t = makePage(src, { session: { apex_role: "alice" }, track: "ok" });
   t.run("cgInit(); cgGroupTap('apexwork', null); cgSheetGo('clientTasks');");
   ok(same(t.calls, [["client:group:apexwork", "client-1"], ["client:section:clientTasks", "client-1"]]), label + ": opening a group and choosing a section are counted, with the client's id");
+  ok(same(tap.calls.map((c) => c[0]), ["client:group:business", "client:group:business", "client:group:results", "client:section:dp", "client:section:payment"]), label + ": Client tools is still counted as client:group:business; closing a menu is not counted");
   const none = makePage(src, { session: { apex_role: "alice" } });
   none.run("cgInit(); cgGroupTap('apexwork', null); cgSheetGo('clientTasks');");
   const boom = makePage(src, { session: { apex_role: "alice" }, track: "throw" });
   boom.run("cgInit(); cgGroupTap('apexwork', null); cgSheetGo('clientTasks');");
-  ok(same(none.onScreen(), ["clientTasks"]) && same(boom.onScreen(), ["clientTasks"]) && same(t.onScreen(), ["clientTasks"]), label + ": with the counter missing or failing the page does exactly the same");
+  ok(same(none.onScreen(), WANT.apexwork) && same(boom.onScreen(), WANT.apexwork) && same(t.onScreen(), WANT.apexwork) && boom.els["sec-clientTasks"].scrolls.length === 1 && none.els["sec-clientTasks"].scrolls.length === 1, label + ": with the counter missing or failing the page does exactly the same");
   ok(MOVED.every((id) => src.indexOf('"' + id + '"', src.indexOf("var CG_TRACKED_BUTTONS")) !== -1) && src.indexOf('cgTrack("client:btn:meetingprep")') !== -1, label + ": every moved button and Meeting prep are on the counted list");
   ok(count(src, "apexTrack(") === 1 && /typeof window\.apexTrack === "function"/.test(src), label + ": apexTrack is called in one place, only if it exists");
 
@@ -176,9 +292,8 @@ function checkCopy(label, path) {
   ok(src.indexOf("apex_section_order") === -1 && src.indexOf("sectionOrderKey") === -1, label + ": the saved section order is no longer read (and nothing deletes it)");
 
   // ── Deep links ───────────────────────────────────────────────────────────
-  ok(/function scrollToSection\(elId\) \{[\s\S]{0,400}cgShowForElement\(el\);/.test(src), label + ": ?section= and ?day= put the section on screen before scrolling to it");
+  ok(/function scrollToSection\(elId\) \{[\s\S]{0,400}cgShowForElement\(el\);/.test(src), label + ": ?section= and ?day= put the section's group on screen before scrolling to it");
   ok(/\(DEEP_MODAL === "login" \|\| DEEP_MODAL === "fieldconfig"\) && !DEEP_SECTION\) \{\s*cgShow\("portalAccess", false\);/.test(src), label + ": ?modal=login and ?modal=fieldconfig open over the Client Portal card");
-  ok(/@media screen \{\s*\.content-card\.cg-off \{ display: none !important; \}/.test(src), label + ": sections are hidden on screen only, so a printed page is unchanged");
 
   // ── Tasks grouped by session ─────────────────────────────────────────────
   const tctx = { sessions: [{ id: "s-page", date: "2026-08-03" }] };

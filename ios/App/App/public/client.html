@@ -316,21 +316,6 @@
       font-size: 13px;
     }
 
-    /* Meeting Prep links. Position is decided by role in setupPage. */
-    .prep-links-card {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-      background: var(--card, #fff); border: 1px solid var(--border, #e8e2d9);
-      border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
-    }
-    .prep-link {
-      display: inline-flex; align-items: center;
-      border: 1px solid #C9A43A; color: #C9A43A; background: transparent;
-      border-radius: 6px; padding: 6px 14px;
-      font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: background 0.15s, color 0.15s;
-    }
-    .prep-link:hover { background: #C9A43A; color: #fff; }
-
     .role-badge {
       background: var(--gold-dim);
       border: 1px solid rgba(201,164,58,0.4);
@@ -559,6 +544,10 @@
       white-space: nowrap;
     }
     .btn-add:hover { border-color: var(--gold); color: var(--gold); }
+    /* A link drawn as a section-header button (View client portal). The
+       hidden attribute must still win, so no inline display on those. */
+    a.btn-add { display: inline-block; text-decoration: none; }
+    a.btn-add[hidden] { display: none; }
 
     .pull-status {
       font-size: 12px;
@@ -1428,47 +1417,71 @@
     .card-body-collapsible { transition: none; }
     .card-body-collapsible[hidden] { display: none !important; }
 
-    /* ─── Edit Sections / drag reorder ──────────────────────────────────── */
-    .btn-edit-sections {
-      background: rgba(26,22,18,0.45);
-      -webkit-backdrop-filter: blur(10px);
-      backdrop-filter: blur(10px);
-      color: rgba(255,255,255,0.75);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 7px;
-      padding: 6px 14px;
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
+    /* ─── Five groups, one section on screen ─────────────────────────────── */
+    /* Same design as the client portal's group strip and its drop-down
+       (portal.html .portal-group-tab / #portalGroupSheet): no second row of
+       pills, no full-screen menu. */
+    .cg-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cg-bar[hidden] { display: none; }
+    .cg-tab {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: transparent; border: 1px solid var(--border); border-radius: 20px;
+      padding: 9px 18px; min-height: 42px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; color: var(--muted);
+      cursor: pointer; white-space: nowrap;
     }
-    .btn-edit-sections:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
-
-    .edit-sections-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 12px;
+    .cg-tab svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .cg-tab.active { background: var(--header); color: var(--gold); border-color: var(--header); }
+    .cg-tab-short { display: none; }
+    @media (max-width: 768px) {
+      /* Phone: all five in one row, icon above a short label, like dock tabs. */
+      .cg-bar { flex-wrap: nowrap; gap: 4px; }
+      .cg-tab {
+        flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 3px;
+        padding: 8px 2px 6px; min-height: 54px; border-radius: 12px;
+        font-size: 10px;
+      }
+      .cg-tab svg { width: 22px; height: 22px; }
+      .cg-tab-long { display: none; }
+      .cg-tab-short {
+        display: block; max-width: 100%; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; line-height: 1.1;
+      }
     }
-
-    .drag-handle {
-      display: none;
-      color: var(--muted);
-      font-size: 16px;
-      cursor: grab;
-      padding: 0 6px 0 0;
-      user-select: none;
-      flex-shrink: 0;
-      line-height: 1;
+    /* A group's menu. Phone: a small pop-up just above the dock, only as tall
+       as its list, under the dock (950) so the dock stays tappable. Desktop
+       (.cg-dropdown): a drop-down pinned under the group's button. */
+    .cg-sheet { position: fixed; inset: 0; z-index: 945; }
+    .cg-sheet[hidden] { display: none; }
+    .cg-backdrop { position: absolute; inset: 0; background: rgba(20,18,16,0.45); }
+    .cg-panel {
+      position: absolute; left: 10px; right: 10px;
+      bottom: calc(58px + 10px + env(safe-area-inset-bottom));
+      max-height: calc(100vh - 58px - 40px - env(safe-area-inset-bottom)); overflow-y: auto;
+      background: #fff; border-radius: 16px; padding: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
     }
-
-    body.is-edit-sections .drag-handle { display: block; }
-    body.is-edit-sections .collapse-btn { display: none; }
-    body.is-edit-sections .content-card-header { cursor: grab; }
-    body.is-edit-sections .card-body-collapsible { display: none !important; }
-
-    .section-drag-over { outline: 2px dashed var(--gold); outline-offset: 2px; border-radius: var(--radius); }
+    .cg-sheet.cg-dropdown { z-index: 960; }
+    .cg-sheet.cg-dropdown .cg-backdrop { background: transparent; }
+    .cg-sheet.cg-dropdown .cg-panel { bottom: auto; right: auto; width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 1px solid var(--border); }
+    .cg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
+    .cg-item {
+      display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;
+      background: none; border: 0; border-radius: 10px; padding: 12px; min-height: 48px;
+      font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left; text-decoration: none;
+    }
+    .cg-item:hover { background: var(--gold-dim); }
+    .cg-item.active { background: var(--header); color: var(--gold); }
+    /* One section on screen. Screen only: a printed page keeps every section,
+       as it always has. .cg-off never touches the hidden attribute, which
+       stays each section's own "not for this client / this role" rule. */
+    @media screen {
+      .content-card.cg-off { display: none !important; }
+      .two-col-layout.cg-one { display: block; }
+      .two-col-layout.cg-one .col-side > .info-card { display: none; }
+    }
+    @media print { .cg-bar, .cg-sheet { display: none !important; } }
 
     #sectionsList { display: flex; flex-direction: column; gap: 24px; }
 
@@ -1678,6 +1691,22 @@
     .task-meta { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
     .task-due { font-size: 11px; color: var(--muted); }
     .task-due.is-overdue { color: #b44040; font-weight: 600; }
+
+    /* Tasks grouped under the session they came from. The header opens and
+       closes its group; a group with nothing left open goes quiet. */
+    .tsg { border-bottom: 1px solid var(--border); }
+    .tsg:last-child { border-bottom: none; }
+    .tsg-head {
+      display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+      background: none; border: 0; padding: 12px 20px; min-height: 44px;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; color: var(--text);
+      cursor: pointer; text-align: left;
+    }
+    .tsg-chev { width: 12px; font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    .tsg-count { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .tsg.is-all-done .tsg-head { color: var(--muted); font-weight: 600; }
+    .tsg-body { border-top: 1px solid var(--border); }
+    .tsg-body[hidden] { display: none; }
 
     .tasks-empty {
       padding: 24px 20px;
@@ -1942,12 +1971,6 @@
               <img id="headerLogoImg" src="" alt="" style="display:none;">
             </div>
             <input type="file" id="logoFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" onchange="handleLogoFileSelected(this)">
-            <button id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;background:rgba(26,22,18,0.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.85);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;transition:border-color 0.12s,color 0.12s;">
-              <span id="btnHeroLogoLabel">
-                <span class="show-pt">Adicionar Logo</span>
-                <span class="show-en">Add Logo</span>
-              </span>
-            </button>
             <div class="pull-status" id="logoStatus" style="color:rgba(255,255,255,0.7);font-size:11px;min-height:0;"></div>
           </div>
           <div class="profile-header-meta">
@@ -1964,56 +1987,24 @@
             </div>
           </div>
           <div class="profile-header-actions">
-            <button class="btn-action" onclick="openNewSessionModal()">
-              <span class="show-pt">Nova Sess&#227;o</span>
-              <span class="show-en">New Session</span>
-            </button>
-            <button class="btn-action" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;color:#000;">
-              <span class="show-pt">Agendar Sess&#227;o</span>
-              <span class="show-en">Schedule Session</span>
-            </button>
-            <button class="btn-action" id="btnAttachResource" onclick="openAttachResourceModal()">
-              <span class="show-pt">Anexar Recurso</span>
-              <span class="show-en">Attach Resource</span>
-            </button>
-            <!-- Straight into THIS client's analytics, pre-selected. The
-                 meeting case: Rafa is on the profile and clicks over to the
-                 numbers the client is looking at. Admin-only page. -->
-            <a class="btn-action" id="btnClientAnalytics" href="#"
+            <!-- The one hero action, for every staff role and for clients and
+                 leads alike. No ?type=: the prep page asks which meeting this
+                 is first. href is set by setupPrepLink(). -->
+            <a class="btn-action" id="btnMeetingPrep" href="#"
                style="text-decoration:none;display:inline-flex;align-items:center;">
-              <span class="show-pt">Ver An&#225;lise</span>
-              <span class="show-en">View Analytics</span>
+              <span class="show-pt">Prepara&ccedil;&atilde;o da reuni&atilde;o</span>
+              <span class="show-en">Meeting prep</span>
             </a>
-            <!-- THIS client's portal exactly as they see it, read-only. The
-                 meeting case: Rafa opens the client's own view without asking
-                 them to share a screen. New tab so the profile stays put.
-                 Read-only is enforced Worker-side, not by hiding controls. -->
-            <a class="btn-action" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
-               style="text-decoration:none;display:inline-flex;align-items:center;">
-              <span class="show-pt">Ver portal do cliente</span>
-              <span class="show-en">View client portal</span>
-            </a>
-            <button class="btn-secondary" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
-              <span class="show-pt">Gerar PDF</span>
-              <span class="show-en">Generate PDF</span>
-            </button>
           </div>
-        </div>
-        <!-- Edit Sections bar — inside hero, left-aligned below the glass tile -->
-        <div class="edit-sections-bar">
-          <button class="btn-edit-sections" id="btnEditSections" onclick="enterEditSectionsMode()">
-            <span class="show-pt">&#9776; Editar Secoes</span>
-            <span class="show-en">&#9776; Edit Sections</span>
-          </button>
-          <button class="btn-edit-sections" id="btnDoneSections" onclick="exitEditSectionsMode()" style="display:none;border-color:rgba(201,164,58,0.7);color:#e8c96a;">
-            <span class="show-pt">Concluido</span>
-            <span class="show-en">Done</span>
-          </button>
         </div>
       </div>
     </div>
 
     <div class="below-hero-section">
+
+    <!-- The five groups. Filled by cgRenderBar(): the order depends on the
+         signed-in role. A group opens a menu of its sections (#cgSheet). -->
+    <nav class="cg-bar" id="cgBar" hidden></nav>
 
     <!-- Leads reported in the daily log that never reached the pipeline.
          Hidden entirely when there is no gap: an always-present card reading
@@ -2032,12 +2023,19 @@
         <!-- Overview card -->
         <div class="content-card" id="sec-overview" data-section-id="overview">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Visao Geral</span>
               <span class="show-en">Overview</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-add" id="btnHeroLogo" onclick="document.getElementById('logoFileInput').click()" style="display:none;">
+                <span id="btnHeroLogoLabel">
+                  <span class="show-pt">Adicionar Logo</span>
+                  <span class="show-en">Add Logo</span>
+                </span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('overview')" id="collapseOverview" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
           </div>
           <div class="card-body-collapsible" id="overviewBody">
             <div class="overview-grid" id="overviewGrid">
@@ -2046,21 +2044,28 @@
           </div>
         </div>
 
-        <!-- Meeting Prep links. Two mount points exist; setupPage fills exactly
-             one, by role. Rafa runs the meetings, so his sits at the top where
-             it cannot be missed; Alice schedules but does not run them, so hers
-             sits lower down. -->
-        <div id="prepLinksTop" hidden></div>
-
         <!-- Sessions section -->
         <div class="content-card" id="sec-sessions" data-section-id="sessions">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Sessoes</span>
               <span class="show-en">Sessions</span>
             </h2>
-            <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+              <button class="btn-add" id="btnNewSession" onclick="openNewSessionModal()">
+                <span class="show-pt">Nova Sess&#227;o</span>
+                <span class="show-en">New Session</span>
+              </button>
+              <button class="btn-add" id="btnScheduleSession" onclick="openScheduleSessionModal()" style="background:#C9A84C;border-color:#C9A84C;color:#000;">
+                <span class="show-pt">Agendar Sess&#227;o</span>
+                <span class="show-en">Schedule Session</span>
+              </button>
+              <button class="btn-add" id="btnHeaderPdf" hidden onclick="handleHeaderPdf()">
+                <span class="show-pt">Gerar PDF</span>
+                <span class="show-en">Generate PDF</span>
+              </button>
+              <button class="collapse-btn" onclick="toggleSection('sessions')" id="collapseSessions" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
+            </div>
           </div>
           <div class="card-body-collapsible" id="sessionsBody">
             <div id="sessionsSection">
@@ -2069,12 +2074,9 @@
           </div>
         </div>
 
-        <div id="prepLinksLower" hidden></div>
-
         <!-- Digital Presence section -->
         <div class="content-card" id="sec-dp" data-section-id="dp">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Presenca Digital</span>
               <span class="show-en">Digital Presence</span>
@@ -2096,7 +2098,6 @@
         <!-- Client Tasks section -->
         <div class="content-card" id="sec-clientTasks" data-section-id="clientTasks">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Cliente</span>
               <span class="show-en">Client Tasks</span>
@@ -2127,7 +2128,6 @@
         <!-- Consultant Tasks section -->
         <div class="content-card" id="sec-consultantTasks" data-section-id="consultantTasks">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Tarefas do Consultor</span>
               <span class="show-en">Consultant Tasks</span>
@@ -2158,7 +2158,6 @@
         <!-- Contacts section (moved from right column — reorderable) -->
         <div class="content-card" id="sec-contacts" data-section-id="contacts">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contatos</span>
               <span class="show-en">Contacts</span>
@@ -2320,7 +2319,6 @@
         <!-- Notes section -->
         <div class="content-card" id="sec-notes" data-section-id="notes">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Notas</span>
               <span class="show-en">Notes</span>
@@ -2342,13 +2340,12 @@
         <!-- Resources (Resource Hub) — permanent sent-history record -->
         <div class="content-card" id="sec-resources" data-section-id="resources">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Recursos</span>
               <span class="show-en">Resources</span>
             </h2>
             <div style="display:flex;gap:8px;align-items:center;">
-              <button class="btn-add" onclick="openAttachResourceModal()">
+              <button class="btn-add" id="btnAttachResource" onclick="openAttachResourceModal()">
                 + <span class="show-pt">Anexar Recurso</span><span class="show-en">Attach Resource</span>
               </button>
               <button class="collapse-btn" onclick="toggleSection('resources')" id="collapseResources" data-title-attr-pt="Recolher" data-title-attr-en="Collapse" title="Recolher">&#9660;</button>
@@ -2364,7 +2361,6 @@
         <!-- Growth tracking (Sales Dashboard) — monthly growth % entries -->
         <div class="content-card" id="sec-growth" data-section-id="growth">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Crescimento</span>
               <span class="show-en">Growth</span>
@@ -2388,7 +2384,6 @@
              endpoints instead of the read-only previewAs preview. -->
         <div class="content-card" id="sec-gmcrm" data-section-id="gmcrm">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Pipeline</span>
               <span class="show-en">Pipeline</span>
@@ -2406,7 +2401,6 @@
 
         <div class="content-card" id="sec-gmjobs" data-section-id="gmjobs">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Projetos</span>
               <span class="show-en">Projects</span>
@@ -2424,7 +2418,6 @@
 
         <div class="content-card" id="sec-gmfinance" data-section-id="gmfinance">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Financeiro</span>
               <span class="show-en">Finance</span>
@@ -2442,7 +2435,6 @@
 
         <div class="content-card" id="sec-gmpricing" data-section-id="gmpricing">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Pre&ccedil;os</span>
               <span class="show-en">Pricing</span>
@@ -2464,7 +2456,6 @@
              portal's Estimates tab; here an admin edits it for any client. -->
         <div class="content-card" id="sec-gmestimates" data-section-id="gmestimates">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Estimates</span>
               <span class="show-en">Estimates</span>
@@ -2485,7 +2476,6 @@
              For a lead it is pinned right under the Lead Pipeline card. -->
         <div class="content-card" id="sec-apexContract" data-section-id="apexContract" hidden>
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Contrato APEX</span>
               <span class="show-en">APEX Contract</span>
@@ -2499,7 +2489,6 @@
 
         <div class="content-card" id="sec-payment" data-section-id="payment">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Metodo de Pagamento</span>
               <span class="show-en">Payment Method</span>
@@ -2564,7 +2553,6 @@
              /api/clients/:id/vendor-terms routes. -->
         <div class="content-card" id="sec-vendors" data-section-id="vendors">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Fornecedores</span>
               <span class="show-en">Vendors</span>
@@ -2586,7 +2574,6 @@
         <!-- Documents section (reorderable) -->
         <div class="content-card" id="sec-docs" data-section-id="docs">
           <div class="content-card-header">
-            <span class="drag-handle" data-title-attr-pt="Arrastar" data-title-attr-en="Drag" title="Arrastar">&#9783;</span>
             <h2 class="content-card-title">
               <span class="show-pt">Documentos</span>
               <span class="show-en">Documents</span>
@@ -2665,6 +2652,15 @@
               <span class="show-pt">Portal do Cliente</span>
               <span class="show-en">Client Portal</span>
             </h2>
+            <!-- THIS client's portal exactly as they see it, read-only. The
+                 meeting case: Rafa opens the client's own view without asking
+                 them to share a screen. New tab so the profile stays put.
+                 Read-only is enforced Worker-side, not by hiding controls. -->
+            <a class="btn-add" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
+               style="text-decoration:none;">
+              <span class="show-pt">Ver portal do cliente</span>
+              <span class="show-en">View client portal</span>
+            </a>
           </div>
           <div id="portalAccessBody" style="padding:16px 20px;">
             <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
@@ -3813,7 +3809,7 @@
     // here mid-meeting, and "scroll down and find the digital presence card"
     // is not something he can do while a client is talking.
     //   ?day=YYYY-MM-DD  open that day's entry under the week card
-    //   ?section=<id>    scroll that content-card into view and flash it
+    //   ?section=<id>    put that content-card on screen and flash it
     var DEEP_DAY     = new URLSearchParams(window.location.search).get("day");
     var DEEP_SECTION = new URLSearchParams(window.location.search).get("section");
 
@@ -3823,6 +3819,9 @@
     function scrollToSection(elId) {
       var el = document.getElementById(elId);
       if (!el) { return; }
+      // One section is on screen at a time: bring this element's section up
+      // first, or there is nothing to scroll to.
+      cgShowForElement(el);
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.style.transition = "background-color 0.4s";
       el.style.backgroundColor = "var(--gold-dim)";
@@ -3839,6 +3838,12 @@
       // lead was created mid-booking. It reuses createClientLogin, the ONE
       // implementation of a one-time password that can never be shown again --
       // a second one would be a second chance to get it wrong.
+      // Both dialogs belong to the Client Portal card (login + field config),
+      // so that is the section left on screen behind them. ?section= wins
+      // when a link carries both.
+      if ((DEEP_MODAL === "login" || DEEP_MODAL === "fieldconfig") && !DEEP_SECTION) {
+        cgShow("portalAccess", false);
+      }
       if (DEEP_MODAL === "login") {
         if (typeof createClientLogin === "function") { createClientLogin(); }
         return;
@@ -3851,11 +3856,21 @@
     // ?section= runs after the page has painted its cards. Only ids that are
     // really on the page resolve; anything else quietly does nothing rather
     // than scrolling to the top.
-    function applyDeepSection() {
+    function applyDeepSection(tries) {
       if (!DEEP_SECTION) { return; }
       var id = "sec-" + DEEP_SECTION.replace(/[^a-zA-Z0-9_-]/g, "");
       var el = document.getElementById(id);
       if (!el) { return; }
+      // A card the page has not decided to show yet (APEX Contract and
+      // Contract status appear after their own load) is tried again for a few
+      // seconds; one that stays hidden is hidden for a reason and is left.
+      if (el.hidden) {
+        var n = (typeof tries === "number") ? tries : 0;
+        if (n < 8) { setTimeout(function() { applyDeepSection(n + 1); }, 500); }
+        return;
+      }
+      // He already chose a section himself while this was waiting.
+      if (cgUserPicked) { return; }
       scrollToSection(id);
     }
     var clientData  = null;
@@ -4053,39 +4068,23 @@
       populateHeaderUser(email, displayName, avatarUrl);
       document.getElementById("headerRole").textContent = role;
 
+      // Before the page is shown: only the first section is on screen.
+      cgInit();
+
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
 
       window.initNav && window.initNav();
-      renderPrepLinks(role);
+      setupPrepLink();
       loadClientPage();
     }
 
-    // Fill exactly ONE of the two mount points, by role. Rafa runs the X-Ray
-    // results meetings, so his link goes at the top of the page; Alice
-    // schedules them but does not run them, so hers goes lower down.
-    function renderPrepLinks(role) {
-      if (!CLIENT_ID) { return; }
-      var mount = null;
-      if (role === "rafa") {
-        mount = document.getElementById("prepLinksTop");
-      } else if (role === "alice") {
-        mount = document.getElementById("prepLinksLower");
-      } else {
-        mount = document.getElementById("prepLinksLower");
-      }
-      if (!mount) { return; }
-
-      // No ?type=: the prep page asks which meeting this is first. The
-      // example now lives on that picker, next to the type it illustrates.
-      var h = '<div class="prep-links-card">';
-      h += '<a class="prep-link" href="meeting-prep.html?client=' +
-           encodeURIComponent(CLIENT_ID) + '">' +
-           '<span class="show-pt">Preparacao da reuniao</span>' +
-           '<span class="show-en">Meeting prep</span></a>';
-      h += '</div>';
-      mount.innerHTML = h;
-      mount.hidden = false;
+    // The hero's one button. Same destination the old link card had. No
+    // ?type=: the prep page asks which meeting this is first.
+    function setupPrepLink() {
+      var link = document.getElementById("btnMeetingPrep");
+      if (!link || !CLIENT_ID) { return; }
+      link.href = "meeting-prep.html?client=" + encodeURIComponent(CLIENT_ID);
     }
 
     function init() {
@@ -4102,6 +4101,9 @@
         fetchAndApplyRole().then(function(data) {
           if (!cachedRole) {
             setupPage(data.role);
+          } else {
+            // The cached role drew the group buttons; the fresh one orders them.
+            cgRenderBar();
           }
         }).catch(function() {
           if (!cachedRole) {
@@ -4120,7 +4122,6 @@
     // ── Load page data (parallel) ──────────────────────────────────────────
 
     function loadClientPage() {
-      initSectionOrder();
       loadMessageTemplates();
       wireCredentialTemplateEditing();
       loadClient();
@@ -5689,10 +5690,19 @@
         return;
       }
       card.hidden = false;
-      // initSectionOrder() already ran (before this async load resolved) while
-      // the card was still hidden, so pin it to the top now that it is shown.
+      // Pinned to the top of the list: for a lead the pipeline is the point
+      // of the page, and the APEX Contract card is placed right under it.
       var list = document.getElementById("sectionsList");
       if (list) { list.insertBefore(card, list.firstChild); }
+      // A lead opens on the pipeline (with the APEX Contract card under it)
+      // instead of the plain overview, unless he was sent somewhere specific
+      // or has already chosen a section.
+      if (cgCurrent === "apexContract" ||
+          (!cgUserPicked && !DEEP_SECTION && !DEEP_MODAL && cgCurrent === "overview")) {
+        cgShow("leadPipeline", false);
+      } else {
+        cgApply();
+      }
 
       leadStageCurrent = client.lead_stage && LEAD_STAGES.indexOf(client.lead_stage) >= 0
         ? client.lead_stage : "Lead";
@@ -6564,12 +6574,6 @@
     function renderClientHeader(client) {
       document.getElementById("clientName").textContent = client.name || "—";
       document.title = "Apex — " + (client.name || t("Cliente", "Client"));
-
-      // Deep link into this client's analytics with them pre-selected.
-      var caBtn = document.getElementById("btnClientAnalytics");
-      if (caBtn) {
-        caBtn.href = "client-analytics.html?client=" + encodeURIComponent(CLIENT_ID || "");
-      }
 
       // Read-only preview of this client's own portal. Admin roles only; the
       // Worker rejects previewAs from anyone else, so this is convenience, not
@@ -9913,7 +9917,6 @@
     }
 
     function toggleSection(sectionKey) {
-      if (document.body.classList.contains("is-edit-sections")) { return; }
       for (var i = 0; i < COLLAPSE_SECTIONS.length; i++) {
         if (COLLAPSE_SECTIONS[i].key === sectionKey) {
           var s = COLLAPSE_SECTIONS[i];
@@ -9927,186 +9930,296 @@
       }
     }
 
-    // ── Edit Sections (drag reorder) ───────────────────────────────────────
-
-    var DEFAULT_SECTION_ORDER = [
-      "overview", "sessions", "dp", "clientTasks", "consultantTasks",
-      "contacts", "notes", "resources", "growth",
-      "gmcrm", "gmjobs", "gmfinance", "gmpricing", "gmestimates",
-      "apexContract", "payment", "vendors", "docs"
+    // ── Five groups, one section on screen ─────────────────────────────────
+    // The page used to be 25 cards on one long scroll. Now each card belongs
+    // to one of five groups and only one card is on screen. Same design as
+    // the client portal (PORTAL_GROUPS / portalDockTap / #portalGroupSheet).
+    //
+    // "sections" are the short names: the card's id is "sec-" + name, which
+    // is also what ?section= takes. The order here is the order in the menu.
+    // A card the page hides for its own reason (the hidden attribute: Lead
+    // Pipeline for a non-lead, APEX Contract and Contract status by role) is
+    // left out of its menu; a group with nothing to list is left out too.
+    var CG_GROUPS = [
+      { key: "overview", icon: "view",
+        pt: "Vis\u00e3o geral", en: "Overview", shortPt: "Geral", shortEn: "Overview",
+        sections: ["leadPipeline", "overview", "contacts", "notes", "portalAccess", "sellerLogins"] },
+      { key: "apexwork", icon: "peak",
+        pt: "Trabalho Apex", en: "Apex work", shortPt: "Apex", shortEn: "Apex",
+        sections: ["sessions", "clientTasks", "consultantTasks", "assessments", "resources", "docs"] },
+      { key: "results", icon: "trend",
+        pt: "Resultados", en: "Results", shortPt: "Resultados", shortEn: "Results",
+        sections: ["growth", "weeklySummary", "dp"], analyticsLink: true },
+      { key: "business", icon: "store",
+        pt: "Neg\u00f3cio do cliente", en: "Their business", shortPt: "Neg\u00f3cio", shortEn: "Business",
+        sections: ["gmcrm", "gmestimates", "gmjobs", "gmpricing", "gmfinance"] },
+      { key: "money", icon: "finance",
+        pt: "Financeiro", en: "Money", shortPt: "Financeiro", shortEn: "Money",
+        sections: ["apexContract", "contractStatus", "invoices", "payment", "vendors"] }
     ];
+    // Rafa works the client; Alice (and the developer) work the money.
+    var CG_ORDER_RAFA  = ["overview", "apexwork", "results", "business", "money"];
+    var CG_ORDER_OTHER = ["overview", "money", "apexwork", "results", "business"];
 
-    var dragSrcEl = null;
+    var cgCurrent    = "overview";   // short name of the section on screen
+    var cgUserPicked = false;        // he chose a section himself
 
-    function sectionOrderKey() {
-      return "apex_section_order_" + (CLIENT_ID || "");
+    // The developer's role switcher counts as the role being previewed.
+    function cgRole() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      if (role === "developer") {
+        var view = sessionStorage.getItem("apex_dev_view") || "dev";
+        if (view === "rafa" || view === "alice") { return view; }
+      }
+      return role;
     }
 
-    function loadSectionOrder() {
-      var order;
-      var stored = localStorage.getItem(sectionOrderKey());
-      if (!stored) {
-        order = DEFAULT_SECTION_ORDER.slice();
-      } else {
-        try {
-          var arr = JSON.parse(stored);
-          order = (Array.isArray(arr) && arr.length > 0) ? arr : DEFAULT_SECTION_ORDER.slice();
-        } catch(e) { order = DEFAULT_SECTION_ORDER.slice(); }
+    function cgGroupOrder() {
+      return cgRole() === "rafa" ? CG_ORDER_RAFA : CG_ORDER_OTHER;
+    }
+
+    function cgGroupByKey(key) {
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        if (CG_GROUPS[i].key === key) { return CG_GROUPS[i]; }
       }
-      // Any section in the DOM but missing from the order (added after the
-      // user saved a custom order, or missing from the default) is appended
-      // so a new section can never be silently pinned out of order.
-      var list = document.getElementById("sectionsList");
-      if (list) {
-        var cards = list.querySelectorAll("[data-section-id]");
-        for (var i = 0; i < cards.length; i++) {
-          var id = cards[i].getAttribute("data-section-id");
-          if (order.indexOf(id) === -1) { order.push(id); }
+      return null;
+    }
+
+    function cgCard(name) {
+      return document.getElementById("sec-" + name);
+    }
+
+    // The Lead Pipeline card is shown for a lead and for nobody else.
+    function cgIsLead() {
+      var card = cgCard("leadPipeline");
+      return !!(card && !card.hidden);
+    }
+
+    // For a lead the APEX Contract card sits under the Lead Pipeline card and
+    // the two are ONE screen (the Overview group's first). It is the only
+    // screen with two cards.
+    function cgLeadHasContract() {
+      var card = cgCard("apexContract");
+      return cgIsLead() && !!(card && !card.hidden);
+    }
+
+    function cgNormalize(name) {
+      if (name === "apexContract" && cgIsLead()) { return "leadPipeline"; }
+      return name;
+    }
+
+    function cgGroupOfSection(name) {
+      if (name === "apexContract" && cgIsLead()) { return cgGroupByKey("overview"); }
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        if (CG_GROUPS[i].sections.indexOf(name) !== -1) { return CG_GROUPS[i]; }
+      }
+      return null;
+    }
+
+    // What a group's menu lists right now.
+    function cgGroupSections(g) {
+      var out = [];
+      var lead = cgIsLead();
+      for (var i = 0; i < g.sections.length; i++) {
+        var name = g.sections[i];
+        var card = cgCard(name);
+        if (!card || card.hidden) { continue; }
+        // A lead's APEX Contract is on the Lead Pipeline screen, in Overview.
+        if (lead && name === "apexContract") { continue; }
+        out.push(name);
+      }
+      return out;
+    }
+
+    function cgOnScreen(name) {
+      if (name === cgCurrent) { return true; }
+      return cgCurrent === "leadPipeline" && name === "apexContract";
+    }
+
+    function cgLabelHtml(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    // A section's menu label is its own card title, read off the card, so the
+    // two can never say different things.
+    function cgSectionTitle(name, lang) {
+      var card = cgCard(name);
+      var title = card ? card.querySelector(".content-card-title") : null;
+      var span = title ? title.querySelector(".show-" + lang) : null;
+      return span ? span.innerHTML : name;
+    }
+
+    function cgSectionLabelHtml(name) {
+      var pt = cgSectionTitle(name, "pt");
+      var en = cgSectionTitle(name, "en");
+      if (name === "leadPipeline" && cgLeadHasContract()) {
+        pt += " e " + cgSectionTitle("apexContract", "pt");
+        en += " and " + cgSectionTitle("apexContract", "en");
+      }
+      return cgLabelHtml(pt, en);
+    }
+
+    // Show one section and hide the rest. Returns false when the name is not
+    // a section of this page.
+    function cgShow(name, picked) {
+      name = cgNormalize(name);
+      if (!cgCard(name) || !cgGroupOfSection(name)) { return false; }
+      cgCurrent = name;
+      if (picked) { cgUserPicked = true; }
+      cgApply();
+      return true;
+    }
+
+    // The section an element lives in, put on screen (deep links, ?day=, and
+    // gm.js asking for "its tab").
+    function cgShowForElement(el) {
+      var node = el;
+      while (node && node !== document.body) {
+        if (node.id && node.id.indexOf("sec-") === 0) {
+          var name = node.id.slice(4);
+          if (cgGroupOfSection(name)) {
+            if (!cgOnScreen(name)) { cgShow(name, false); }
+            return;
+          }
+        }
+        node = node.parentNode;
+      }
+    }
+
+    function cgApply() {
+      var layout = document.querySelector(".two-col-layout");
+      if (layout) { layout.classList.add("cg-one"); }
+      for (var i = 0; i < CG_GROUPS.length; i++) {
+        for (var j = 0; j < CG_GROUPS[i].sections.length; j++) {
+          var name = CG_GROUPS[i].sections[j];
+          var card = cgCard(name);
+          if (!card) { continue; }
+          if (cgOnScreen(name)) { card.classList.remove("cg-off"); }
+          else { card.classList.add("cg-off"); }
         }
       }
-      return order;
+      cgRenderBar();
     }
 
-    function applySectionOrder(order) {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
+    function cgInit() {
+      // A failure here must leave the old long page, never a blank one.
+      try { cgApply(); } catch (e) {}
+    }
+
+    function cgRenderBar() {
+      var bar = document.getElementById("cgBar");
+      if (!bar) { return; }
+      var order = cgGroupOrder();
+      var cur = cgGroupOfSection(cgCurrent);
+      var html = "";
       for (var i = 0; i < order.length; i++) {
-        var el = document.getElementById("sec-" + order[i]);
-        if (el) { list.appendChild(el); }
+        var g = cgGroupByKey(order[i]);
+        if (!g) { continue; }
+        if (!cgGroupSections(g).length && !g.analyticsLink) { continue; }
+        html += '<button type="button" class="cg-tab' + (cur && cur.key === g.key ? " active" : "") +
+          '" onclick="cgGroupTap(\'' + g.key + '\', this)">' +
+          (window.apexNavSvg ? window.apexNavSvg(g.icon) : "") +
+          '<span class="cg-tab-long">' + cgLabelHtml(g.pt, g.en) + '</span>' +
+          '<span class="cg-tab-short">' + cgLabelHtml(g.shortPt, g.shortEn) + '</span>' +
+          '</button>';
       }
-      // The Lead Pipeline card carries no data-section-id (it is not
-      // reorderable and only exists for leads), so the loop above would leave
-      // it wherever the re-append happened to strand it. Pin it to the top
-      // explicitly: for a lead, the pipeline is the point of the page.
-      var lead = document.getElementById("sec-leadPipeline");
-      if (lead && !lead.hidden) { list.insertBefore(lead, list.firstChild); }
+      bar.innerHTML = html;
+      bar.hidden = false;
     }
 
-    function initSectionOrder() {
-      var order = loadSectionOrder();
-      applySectionOrder(order);
+    function cgIsPhone() {
+      return !!(window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
     }
 
-    function enterEditSectionsMode() {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
-
-      document.body.classList.add("is-edit-sections");
-
-      var btnEdit = document.getElementById("btnEditSections");
-      var btnDone = document.getElementById("btnDoneSections");
-      if (btnEdit) { btnEdit.style.display = "none"; }
-      if (btnDone) { btnDone.style.display = ""; }
-
-      var cards = list.querySelectorAll("[data-section-id]");
-      for (var i = 0; i < cards.length; i++) {
-        enableDrag(cards[i]);
+    // A group button. Opens the group's menu: a drop-down under the button on
+    // a desktop, the small pop-up above the dock on a phone. Tapping the same
+    // group again closes it.
+    function cgGroupTap(key, anchor) {
+      var g = cgGroupByKey(key);
+      var sheet = document.getElementById("cgSheet");
+      var panel = document.getElementById("cgPanel");
+      if (!g || !sheet || !panel) { return; }
+      if (!sheet.hidden && sheet.getAttribute("data-group") === key) { cgSheetClose(); return; }
+      cgTrack("client:group:" + key);
+      var names = cgGroupSections(g);
+      var html = '<div class="cg-title">' + cgLabelHtml(g.pt, g.en) + '</div>';
+      for (var i = 0; i < names.length; i++) {
+        html += '<button type="button" class="cg-item' + (names[i] === cgCurrent ? " active" : "") +
+          '" role="menuitem" onclick="cgSheetGo(\'' + names[i] + '\')"><span>' +
+          cgSectionLabelHtml(names[i]) + '</span></button>';
       }
-    }
-
-    function exitEditSectionsMode() {
-      var list = document.getElementById("sectionsList");
-      if (!list) { return; }
-
-      document.body.classList.remove("is-edit-sections");
-
-      var btnEdit = document.getElementById("btnEditSections");
-      var btnDone = document.getElementById("btnDoneSections");
-      if (btnEdit) { btnEdit.style.display = ""; }
-      if (btnDone) { btnDone.style.display = "none"; }
-
-      var cards = list.querySelectorAll("[data-section-id]");
-      for (var i = 0; i < cards.length; i++) {
-        disableDrag(cards[i]);
-        cards[i].classList.remove("section-drag-over");
+      // Not a section: this client's analytics live on their own page.
+      if (g.analyticsLink) {
+        // Straight into THIS client's analytics, pre-selected (it was the
+        // hero's View Analytics button).
+        html += '<a class="cg-item" role="menuitem" id="btnClientAnalytics" href="client-analytics.html?client=' +
+          encodeURIComponent(CLIENT_ID || "") + '" onclick="cgSheetClose()"><span>' +
+          cgLabelHtml("An\u00e1lise do cliente", "Client Analytics") + '</span></a>';
       }
-
-      var order = [];
-      var ordered = list.querySelectorAll("[data-section-id]");
-      for (var j = 0; j < ordered.length; j++) {
-        order.push(ordered[j].getAttribute("data-section-id"));
-      }
-      localStorage.setItem(sectionOrderKey(), JSON.stringify(order));
-
-      initCollapseStates();
-    }
-
-    function enableDrag(el) {
-      el.setAttribute("draggable", "true");
-      el.ondragstart  = function(e) { handleDragStart(e, el); };
-      el.ondragover   = function(e) { handleDragOver(e, el); };
-      el.ondragleave  = function(e) { handleDragLeave(e, el); };
-      el.ondrop       = function(e) { handleDrop(e, el); };
-      el.ondragend    = function(e) { handleDragEnd(e, el); };
-    }
-
-    function disableDrag(el) {
-      el.setAttribute("draggable", "false");
-      el.ondragstart  = null;
-      el.ondragover   = null;
-      el.ondragleave  = null;
-      el.ondrop       = null;
-      el.ondragend    = null;
-    }
-
-    function handleDragStart(e, el) {
-      dragSrcEl = el;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", el.getAttribute("data-section-id"));
-      el.style.opacity = "0.45";
-    }
-
-    function handleDragOver(e, el) {
-      if (e.preventDefault) { e.preventDefault(); }
-      if (el === dragSrcEl) { return; }
-      e.dataTransfer.dropEffect = "move";
-      el.classList.add("section-drag-over");
-      return false;
-    }
-
-    function handleDragLeave(e, el) {
-      el.classList.remove("section-drag-over");
-    }
-
-    function handleDrop(e, el) {
-      if (e.stopPropagation) { e.stopPropagation(); }
-      if (!dragSrcEl || dragSrcEl === el) { return false; }
-
-      el.classList.remove("section-drag-over");
-
-      var list = document.getElementById("sectionsList");
-      if (!list) { return false; }
-
-      var children = list.children;
-      var srcIdx = -1;
-      var tgtIdx = -1;
-      for (var i = 0; i < children.length; i++) {
-        if (children[i] === dragSrcEl) { srcIdx = i; }
-        if (children[i] === el)        { tgtIdx = i; }
-      }
-
-      if (srcIdx === -1 || tgtIdx === -1) { return false; }
-
-      if (srcIdx < tgtIdx) {
-        list.insertBefore(dragSrcEl, el.nextSibling);
+      panel.innerHTML = html;
+      sheet.setAttribute("data-group", key);
+      var dropdown = !!anchor && !cgIsPhone();
+      if (dropdown) {
+        sheet.classList.add("cg-dropdown");
+        var r = anchor.getBoundingClientRect();
+        var top = Math.round(r.bottom + 6);
+        // Never past the right edge of the window (the panel is 260px wide).
+        var left = Math.min(Math.round(r.left), window.innerWidth - 260 - 10);
+        if (left < 10) { left = 10; }
+        panel.style.top = top + "px";
+        panel.style.left = left + "px";
+        panel.style.maxHeight = Math.max(160, window.innerHeight - top - 10) + "px";
       } else {
-        list.insertBefore(dragSrcEl, el);
+        sheet.classList.remove("cg-dropdown");
+        panel.style.top = ""; panel.style.left = ""; panel.style.maxHeight = "";
       }
-
-      return false;
+      sheet.hidden = false;
     }
 
-    function handleDragEnd(e, el) {
-      el.style.opacity = "";
-      var list = document.getElementById("sectionsList");
-      if (list) {
-        var cards = list.querySelectorAll("[data-section-id]");
-        for (var i = 0; i < cards.length; i++) {
-          cards[i].classList.remove("section-drag-over");
-        }
-      }
-      dragSrcEl = null;
+    // A drop-down pinned under its button would float away on scroll.
+    window.addEventListener("scroll", function(e) {
+      var sheet = document.getElementById("cgSheet");
+      // Scrolling a long menu itself is not the page moving.
+      if (e && e.target && e.target.id === "cgPanel") { return; }
+      if (sheet && !sheet.hidden && sheet.classList.contains("cg-dropdown")) { cgSheetClose(); }
+    }, true);
+
+    function cgSheetClose() {
+      var sheet = document.getElementById("cgSheet");
+      if (sheet) { sheet.hidden = true; }
     }
+
+    function cgSheetGo(name) {
+      cgSheetClose();
+      cgTrack("client:section:" + name);
+      cgShow(name, true);
+    }
+
+    // Staff click counter (nav.js, window.apexTrack). Optional: with the
+    // function missing, or throwing, the page behaves exactly the same.
+    function cgTrack(control) {
+      try {
+        if (typeof window.apexTrack === "function") { window.apexTrack(control, CLIENT_ID); }
+      } catch (e) {}
+    }
+
+    // The buttons that left the hero, counted where they now live. One
+    // listener on the document, so no button's own handler is touched (and
+    // the Results menu's link, which is drawn on demand, is covered too).
+    var CG_TRACKED_BUTTONS = ["btnNewSession", "btnScheduleSession", "btnHeaderPdf",
+      "btnAttachResource", "btnClientAnalytics", "btnViewPortal", "btnHeroLogo"];
+    document.addEventListener("click", function(e) {
+      var node = e.target;
+      while (node && node !== document) {
+        if (node.id === "btnMeetingPrep") { cgTrack("client:btn:meetingprep"); return; }
+        if (node.id && CG_TRACKED_BUTTONS.indexOf(node.id) !== -1) { cgTrack("client:btn:" + node.id); return; }
+        node = node.parentNode;
+      }
+    }, true);
+
+    // nav.js calls this when the developer switches the previewed role; the
+    // group buttons follow it.
+    window.setView = function() { cgRenderBar(); };
 
     // ── Digital Presence ───────────────────────────────────────────────────
 
@@ -10710,6 +10823,15 @@
 
     var tasksCache = { client: [], consultant: [] };
 
+    // Group key -> open or closed, once he has opened or closed it himself, so
+    // adding a task does not snap every group back to its default.
+    var taskGroupOpen = { client: {}, consultant: {} };
+
+    var TASK_MONTHS_PT = ["janeiro", "fevereiro", "mar\u00e7o", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    var TASK_MONTHS_EN = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+
     function loadTasks(type) {
       apiFetch("/api/clients/" + CLIENT_ID + "/tasks?type=" + type)
         .then(function(res) { return res.json(); })
@@ -10722,6 +10844,105 @@
           document.getElementById(sectionId).innerHTML =
             '<div style="padding:20px;color:#b44040;font-size:13px;">Erro ao carregar tarefas.</div>';
         });
+    }
+
+    // The session a task came from: { id, date: "YYYY-MM-DD" }, or null when it
+    // has none or the session cannot be found (both go in "Other"). The task
+    // route sends session_id and session_date with each task; the sessions
+    // this page already loaded are the fallback for the date.
+    function taskSessionInfo(task) {
+      var sid = task.session_id || null;
+      var date = task.session_date || null;
+      if (!sid) { return null; }
+      if (!date) {
+        for (var i = 0; i < sessions.length; i++) {
+          if (sessions[i].id === sid) { date = sessions[i].date; }
+        }
+      }
+      date = String(date || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { return null; }
+      return { id: sid, date: date };
+    }
+
+    // "5 de outubro de 2026" / "October 5, 2026".
+    function taskSessionDateHtml(ymd) {
+      var y = parseInt(ymd.slice(0, 4), 10);
+      var m = parseInt(ymd.slice(5, 7), 10);
+      var d = parseInt(ymd.slice(8, 10), 10);
+      return '<span class="show-pt">' + d + " de " + (TASK_MONTHS_PT[m - 1] || "") + " de " + y + '</span>' +
+             '<span class="show-en">' + (TASK_MONTHS_EN[m - 1] || "") + " " + d + ", " + y + '</span>';
+    }
+
+    // "Other" first (when it has tasks), then one group per session, newest
+    // session first. Inside a group the tasks keep the order they came in.
+    function buildTaskGroups(tasks) {
+      var other = { key: "other", date: null, tasks: [] };
+      var byId = {};
+      var list = [];
+      for (var i = 0; i < tasks.length; i++) {
+        var info = taskSessionInfo(tasks[i]);
+        if (!info) { other.tasks.push(tasks[i]); continue; }
+        if (!byId[info.id]) {
+          byId[info.id] = { key: info.id, date: info.date, tasks: [] };
+          list.push(byId[info.id]);
+        }
+        byId[info.id].tasks.push(tasks[i]);
+      }
+      list.sort(function(a, b) {
+        if (a.date !== b.date) { return a.date < b.date ? 1 : -1; }
+        return a.key < b.key ? 1 : (a.key > b.key ? -1 : 0);
+      });
+      return (other.tasks.length ? [other] : []).concat(list);
+    }
+
+    function taskGroupOpenCount(group) {
+      var n = 0;
+      for (var i = 0; i < group.tasks.length; i++) {
+        if (group.tasks[i].status !== "done") { n++; }
+      }
+      return n;
+    }
+
+    // One task row, exactly as it has always been drawn. onChange runs after
+    // its checkbox changes (and again if the save fails and it reverts).
+    function buildTaskRow(task, type, onChange) {
+      var row = document.createElement("div");
+      row.className = "task-row" + (task.status === "done" ? " is-done" : "");
+      row.setAttribute("data-task-id", task.id);
+
+      var checkEl = document.createElement("div");
+      checkEl.className = "task-check" + (task.status === "done" ? " is-done" : "");
+      checkEl.onclick = function() { toggleTaskStatus(task, type, checkEl, row, descEl, onChange); };
+
+      var bodyEl = document.createElement("div");
+      bodyEl.className = "task-body";
+
+      var descEl = document.createElement("div");
+      descEl.className = "task-desc";
+      descEl.textContent = task.description;
+
+      var metaEl = document.createElement("div");
+      metaEl.className = "task-meta";
+
+      if (task.due_date) {
+        var dueEl = document.createElement("span");
+        dueEl.className = "task-due";
+        // due_date is a local calendar date, so "is it overdue?" must
+        // compare against a local one — a UTC today marks tasks due today
+        // as overdue all evening.
+        var today = localDateStr();
+        if (task.due_date < today && task.status !== "done") {
+          dueEl.classList.add("is-overdue");
+        }
+        dueEl.textContent = formatDate(task.due_date);
+        metaEl.appendChild(dueEl);
+      }
+
+      bodyEl.appendChild(descEl);
+      bodyEl.appendChild(metaEl);
+      row.appendChild(checkEl);
+      row.appendChild(bodyEl);
+      return row;
     }
 
     function renderTasksSection(type, tasks) {
@@ -10739,56 +10960,95 @@
       }
 
       container.innerHTML = "";
-      for (var i = 0; i < tasks.length; i++) {
-        (function(task) {
-          var row = document.createElement("div");
-          row.className = "task-row" + (task.status === "done" ? " is-done" : "");
-          row.setAttribute("data-task-id", task.id);
-
-          var checkEl = document.createElement("div");
-          checkEl.className = "task-check" + (task.status === "done" ? " is-done" : "");
-          checkEl.onclick = function() { toggleTaskStatus(task, type, checkEl, row, descEl); };
-
-          var bodyEl = document.createElement("div");
-          bodyEl.className = "task-body";
-
-          var descEl = document.createElement("div");
-          descEl.className = "task-desc";
-          descEl.textContent = task.description;
-
-          var metaEl = document.createElement("div");
-          metaEl.className = "task-meta";
-
-          if (task.due_date) {
-            var dueEl = document.createElement("span");
-            dueEl.className = "task-due";
-            // due_date is a local calendar date, so "is it overdue?" must
-            // compare against a local one — a UTC today marks tasks due today
-            // as overdue all evening.
-            var today = localDateStr();
-            if (task.due_date < today && task.status !== "done") {
-              dueEl.classList.add("is-overdue");
-            }
-            dueEl.textContent = formatDate(task.due_date);
-            metaEl.appendChild(dueEl);
-          }
-
-          bodyEl.appendChild(descEl);
-          bodyEl.appendChild(metaEl);
-          row.appendChild(checkEl);
-          row.appendChild(bodyEl);
-          container.appendChild(row);
-        })(tasks[i]);
+      var groups = buildTaskGroups(tasks);
+      var newestSeen = false;
+      for (var gi = 0; gi < groups.length; gi++) {
+        // Every group starts closed except the most recent session; "Other"
+        // starts open only while it has something left to do.
+        var startOpen;
+        if (groups[gi].key === "other") {
+          startOpen = taskGroupOpenCount(groups[gi]) > 0;
+        } else {
+          startOpen = !newestSeen;
+          newestSeen = true;
+        }
+        container.appendChild(buildTaskGroup(type, groups[gi], startOpen));
       }
     }
 
-    function toggleTaskStatus(task, type, checkEl, rowEl, descEl) {
+    function buildTaskGroup(type, group, startOpen) {
+      var remembered = taskGroupOpen[type][group.key];
+      var open = (typeof remembered === "boolean") ? remembered : startOpen;
+
+      var wrap = document.createElement("div");
+      wrap.className = "tsg";
+
+      var head = document.createElement("button");
+      head.type = "button";
+      head.className = "tsg-head";
+
+      var chev = document.createElement("span");
+      chev.className = "tsg-chev";
+
+      var title = document.createElement("span");
+      title.className = "tsg-title";
+      title.innerHTML = group.key === "other"
+        ? '<span class="show-pt">Outras</span><span class="show-en">Other</span>'
+        : taskSessionDateHtml(group.date);
+
+      var count = document.createElement("span");
+      count.className = "tsg-count";
+
+      var body = document.createElement("div");
+      body.className = "tsg-body";
+
+      function setOpen(v) {
+        body.hidden = !v;
+        chev.textContent = v ? "\u25BC" : "\u25B6";
+        head.setAttribute("aria-expanded", v ? "true" : "false");
+      }
+
+      // The open-task count, and the quiet "all done" look when it reaches 0.
+      function refresh() {
+        var n = taskGroupOpenCount(group);
+        if (n === 0) {
+          count.innerHTML = '<span class="show-pt">Tudo feito</span><span class="show-en">All done</span>';
+          wrap.classList.add("is-all-done");
+        } else {
+          count.innerHTML = '<span class="show-pt">' + n + (n === 1 ? " aberta" : " abertas") + '</span>' +
+                            '<span class="show-en">' + n + " open" + '</span>';
+          wrap.classList.remove("is-all-done");
+        }
+      }
+
+      head.onclick = function() {
+        open = !open;
+        taskGroupOpen[type][group.key] = open;
+        setOpen(open);
+      };
+
+      for (var i = 0; i < group.tasks.length; i++) {
+        body.appendChild(buildTaskRow(group.tasks[i], type, refresh));
+      }
+
+      head.appendChild(chev);
+      head.appendChild(title);
+      head.appendChild(count);
+      wrap.appendChild(head);
+      wrap.appendChild(body);
+      setOpen(open);
+      refresh();
+      return wrap;
+    }
+
+    function toggleTaskStatus(task, type, checkEl, rowEl, descEl, onChange) {
       var newStatus = task.status === "done" ? "pending" : "done";
       task.status = newStatus;
 
       var isDone = newStatus === "done";
       rowEl.classList.toggle("is-done",  isDone);
       checkEl.classList.toggle("is-done", isDone);
+      if (typeof onChange === "function") { onChange(); }
 
       apiFetch("/api/tasks/" + task.id, {
         method: "PATCH",
@@ -10798,6 +11058,7 @@
         task.status = isDone ? "pending" : "done";
         rowEl.classList.toggle("is-done",  !isDone);
         checkEl.classList.toggle("is-done", !isDone);
+        if (typeof onChange === "function") { onChange(); }
       });
     }
 
@@ -11342,6 +11603,11 @@
        must exist in the markup from page load. nav.js only fills them in;
        mobile.css alone controls their visibility and positioning. -->
   <div id="mobile-tab-bar"></div>
+  <!-- A group's sections (five groups). Filled by cgGroupTap(). -->
+  <div class="cg-sheet" id="cgSheet" hidden>
+    <div class="cg-backdrop" onclick="cgSheetClose()"></div>
+    <div class="cg-panel" id="cgPanel" role="menu"></div>
+  </div>
   <div id="mobile-more-menu"></div>
 </body>
 </html>

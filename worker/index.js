@@ -4757,6 +4757,9 @@ async function handlePatchDigitalPresence(id, request, env) {
 // ---------------------------------------------------------------------------
 // Route: GET /api/clients/:id/tasks
 // Returns tasks for this client, optionally filtered by ?type=client|consultant
+// Each task carries session_id and session_date (the date of the session it
+// came from; both null for a task with no session), so the client page can
+// group tasks by session. LEFT JOIN: a task with no session is still returned.
 // ---------------------------------------------------------------------------
 
 async function handleGetClientTasks(id, request, env) {
@@ -4770,13 +4773,17 @@ async function handleGetClientTasks(id, request, env) {
         var stmt;
         if (typeFilter) {
             stmt = env.DB.prepare(
-                "SELECT id, client_id, type, description, due_date, status, created_at " +
-                "FROM tasks WHERE client_id = ? AND type = ? ORDER BY due_date ASC, created_at ASC"
+                "SELECT t.id, t.client_id, t.type, t.description, t.due_date, t.status, t.created_at, " +
+                "t.source, t.session_id, s.date as session_date " +
+                "FROM tasks t LEFT JOIN sessions s ON t.session_id = s.id " +
+                "WHERE t.client_id = ? AND t.type = ? ORDER BY t.due_date ASC, t.created_at ASC"
             ).bind(id, typeFilter);
         } else {
             stmt = env.DB.prepare(
-                "SELECT id, client_id, type, description, due_date, status, created_at " +
-                "FROM tasks WHERE client_id = ? ORDER BY type ASC, due_date ASC, created_at ASC"
+                "SELECT t.id, t.client_id, t.type, t.description, t.due_date, t.status, t.created_at, " +
+                "t.source, t.session_id, s.date as session_date " +
+                "FROM tasks t LEFT JOIN sessions s ON t.session_id = s.id " +
+                "WHERE t.client_id = ? ORDER BY t.type ASC, t.due_date ASC, t.created_at ASC"
             ).bind(id);
         }
 

@@ -184,11 +184,24 @@ for (const [name, raw] of [["switch OFF", { }], ["switch ON", { switchOn: true, 
   const oneClick = await run(NEW, deps + "window.ApexInvoiceSend.sendWhatsApp(INVOICES[0], D);", sc);
   ok(JSON.stringify(real.filter(t => t[0] !== "confirm")) === JSON.stringify(oneClick) && !oneClick.some(t => t[0] === "confirm"),
     "review page send (" + name + "): the same steps as the Finance row, minus the question");
-  const test = await run(NEW, deps + "window.ApexInvoiceSend.testSend(INVOICES[0], D);", sc);
-  ok(messageOf(test) !== null && messageOf(test) === messageOf(real) && JSON.stringify(test.filter(t => t[0] === "navigate")) === JSON.stringify(real.filter(t => t[0] === "navigate")),
-    "test send (" + name + "): opens WhatsApp at the same address with the same message");
-  ok(!test.some(t => t[0] === "apiFetch" && /mark-sent/.test(t[1])) && !test.some(t => t[0] === "loadInvoices" || t[0] === "confirm" || t[0] === "toast"),
-    "test send (" + name + "): never asks to mark the invoice sent");
+  const iMark = oneClick.findIndex(t => t[0] === "apiFetch" && /\/mark-sent$/.test(t[1])), iNav = oneClick.findIndex(t => t[0] === "navigate");
+  ok(iMark >= 0 && iNav > iMark, "review page send (" + name + "): the invoice is asked to be marked sent before WhatsApp is given the message");
+}
+// The test send is gone: nothing in the shared file, on the review page or on
+// the Finance page can open WhatsApp with the message and record nothing.
+{
+  const sendSrc = readFileSync(new URL("apex-invoice-send.js", root), "utf8");
+  const viewSrc = readFileSync(new URL("apex-invoice-view.html", root), "utf8");
+  const finSrc = readFileSync(new URL("finance-new.html", root), "utf8");
+  const t = await run(NEW, "out([typeof window.ApexInvoiceSend.testSend, Object.keys(window.ApexInvoiceSend).sort().join(',')]);", fill({}));
+  const got = (t.find(x => x[0] === "result") || [])[1] || [];
+  ok(got[0] === "undefined" && got[1] === "FALLBACK_TEMPLATE,buildMessage,clientLinkForSend,markSentOnly,sendWhatsApp,staffLink,templateFor,waUrlFor",
+    "the shared file has no testSend; it offers the real send, mark sent, and their helpers only");
+  ok(!/testSend|test send|envio de teste/i.test(sendSrc) && !/testSend|reviewTest|btnReviewTest|Test send|Envio de teste/i.test(viewSrc) && !/testSend/.test(finSrc),
+    "no test-send function, control or label is left in the shared file, the review page or the Finance page");
+  const code = sendSrc.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  ok((code.match(/window\.open\(/g) || []).length === 2 && code.indexOf("window.open(") > code.indexOf("function sendWhatsApp(") && code.lastIndexOf("window.open(") < code.indexOf("function markSentOnly("),
+    "the only code that opens a window is inside sendWhatsApp, the send that marks the invoice sent");
 }
 {
   const sc = fill({ markSent: "reject" });

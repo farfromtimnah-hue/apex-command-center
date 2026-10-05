@@ -438,10 +438,16 @@ function seedCharge(d, id, cents, extra) {
     "the send controls are built only by renderReviewBar; the page as served holds an empty, hidden, never-printed bar and no script tags");
   ok(/if \(!reviewDraft\(\)\) \{\s*bar\.innerHTML = "";/.test(js), "the bar is emptied whenever this is not staff reviewing a draft");
   ok(/"apex-invoice-send\.js\?v=\d+"/.test(js), "the shared send code is loaded by name with a ?v= marker");
-  const pairs = [["PREVIEW, NOT SENT YET", "PR\\u00c9VIA, AINDA N\\u00c3O ENVIADA"], ["Send via WhatsApp", "Enviar pelo WhatsApp"], ["Send another way", "Enviar de outra forma"], ["Test send (does not mark as sent)", "Envio de teste (n\\u00e3o marca como enviada)"],
+  const pairs = [["PREVIEW, NOT SENT YET", "PR\\u00c9VIA, AINDA N\\u00c3O ENVIADA"], ["Send via WhatsApp", "Enviar pelo WhatsApp"], ["Send another way", "Enviar de outra forma"],
     ["In WhatsApp, search for:", "No WhatsApp, procure por:"], ["Copy", "Copiar"], ["Copied.", "Copiado."]];
   const miss = pairs.filter(p => js.indexOf('"' + p[0] + '"') < 0 || js.indexOf('"' + p[1] + '"') < 0);
   ok(miss.length === 0, "every new label is there in English and Portuguese" + (miss.length ? ": MISSING " + JSON.stringify(miss) : ""));
+  const barSrc = cut("renderReviewBar");
+  ok(!/reviewTest|btnReviewTest|testSend|Test send|Envio de teste/i.test(html), "the test send is gone from the page: no control, no label in either language, no click handler");
+  ok(JSON.stringify(barSrc.match(/id="[A-Za-z]+"/g)) === JSON.stringify(['id="btnReviewSend"', 'id="reviewFindText"', 'id="btnReviewCopy"', 'id="btnReviewOther"', 'id="reviewMsg"']) && JSON.stringify(barSrc.match(/onclick="[A-Za-z]+\(\)"/g)) === JSON.stringify(['onclick="reviewSend()"', 'onclick="reviewCopy()"', 'onclick="reviewSendOther()"']),
+    "the review bar holds the send button, the search line with Copy, and Send another way, and nothing else");
+  ok(/window\.ApexInvoiceSend\.sendWhatsApp\(REVIEW\.row, reviewDeps\(\)\);/.test(cut("reviewSend")) && /window\.ApexInvoiceSend\.markSentOnly\(REVIEW\.row\.id, REVIEW\.row, reviewDeps\(\)\);/.test(cut("reviewSendOther")) && !/ApexInvoiceSend|window\.open|wa\.me/.test(cut("reviewCopy")) && (js.match(/window\.ApexInvoiceSend\.[A-Za-z]+/g) || []).sort().join() === "window.ApexInvoiceSend.markSentOnly,window.ApexInvoiceSend.sendWhatsApp" && !/wa\.me|whatsapp:\/\//.test(js),
+    "the page reaches WhatsApp only through the shared send that marks the invoice sent; Copy copies the search text and Send another way only marks sent");
   ok(/return "APEX \+ " \+ \(inv\.client_name \|\| ""\);/.test(js), "the WhatsApp search text is APEX + the client's name");
 }
 

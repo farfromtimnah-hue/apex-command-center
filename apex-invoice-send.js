@@ -185,22 +185,6 @@
       });
   }
 
-  // A test send: WhatsApp opens with the message a real send would carry, and
-  // NOTHING is recorded. mark-sent is never called. The link is chosen the
-  // same way: the staff link with the switch OFF, the client's link with it
-  // ON (asking for that link does not change the invoice's status).
-  function testSend(inv, deps) {
-    if (!inv) { return; }
-    var waWindow = window.open("", "_blank");
-    var tpl = templateFor(deps);
-    var waUrl = waUrlFor(inv, buildMessage(tpl, staffLink(inv)));
-    clientLinkForSend(inv.id, deps).then(function(clientLink) {
-      if (clientLink) { waUrl = waUrlFor(inv, buildMessage(tpl, clientLink)); }
-      if (waWindow) { waWindow.location.href = waUrl; }
-      else { window.open(waUrl, "_blank"); }
-    });
-  }
-
   var api = {
     FALLBACK_TEMPLATE: FALLBACK_TEMPLATE,
     staffLink: staffLink,
@@ -209,8 +193,7 @@
     waUrlFor: waUrlFor,
     clientLinkForSend: clientLinkForSend,
     sendWhatsApp: sendWhatsApp,
-    markSentOnly: markSentOnly,
-    testSend: testSend
+    markSentOnly: markSentOnly
   };
   root.ApexInvoiceSend = api;
   if (typeof module !== "undefined" && module.exports) { module.exports = api; }

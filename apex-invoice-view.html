@@ -181,7 +181,7 @@
     // Finance page lists it (id, number, client WhatsApp). templates and
     // switchOn: what the send needs, loaded before any click.
     var REVIEW = { staff: false, row: null, templates: null, switchOn: false };
-    var SEND_JS = "apex-invoice-send.js?v=1791167111";
+    var SEND_JS = "apex-invoice-send.js?v=1791168483";
     var FIREBASE_JS = ["https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"];
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
@@ -215,7 +215,7 @@
         previewBanner: "PR\u00c9VIA, AINDA N\u00c3O ENVIADA", reviewBar: "Revisar e enviar",
         reviewSend: "Enviar pelo WhatsApp", reviewFind: "No WhatsApp, procure por:", reviewCopy: "Copiar", reviewCopied: "Copiado.",
         reviewCopyFail: "N\u00e3o foi poss\u00edvel copiar. Selecione o texto e copie.",
-        reviewOther: "Enviar de outra forma", reviewTest: "Envio de teste (n\u00e3o marca como enviada)",
+        reviewOther: "Enviar de outra forma",
         reviewMarkFail: "O WhatsApp abriu, mas n\u00e3o foi poss\u00edvel marcar a fatura como enviada: {err}. Use \"Enviar de outra forma\".",
         other: "EN"
       },
@@ -239,7 +239,7 @@
         previewBanner: "PREVIEW, NOT SENT YET", reviewBar: "Review and send",
         reviewSend: "Send via WhatsApp", reviewFind: "In WhatsApp, search for:", reviewCopy: "Copy", reviewCopied: "Copied.",
         reviewCopyFail: "Could not copy. Select the text and copy it.",
-        reviewOther: "Send another way", reviewTest: "Test send (does not mark as sent)",
+        reviewOther: "Send another way",
         reviewMarkFail: "WhatsApp opened, but the invoice could not be marked as sent: {err}. Use \"Send another way\".",
         other: "PT"
       }
@@ -690,11 +690,6 @@
       if (!reviewDraft()) { return; }
       window.ApexInvoiceSend.markSentOnly(REVIEW.row.id, REVIEW.row, reviewDeps());
     }
-    // Opens WhatsApp with the same message. Records nothing.
-    function reviewTest() {
-      if (!reviewDraft()) { return; }
-      window.ApexInvoiceSend.testSend(REVIEW.row, reviewDeps());
-    }
     function reviewCopy() {
       copyText(reviewSearchText(), function(ok) { reviewSay(ok ? T("reviewCopied") : T("reviewCopyFail")); });
     }
@@ -726,8 +721,7 @@
         '<button type="button" class="btn gold" id="btnReviewSend" onclick="reviewSend()">' + escHtml(T("reviewSend")) + '</button>' +
         '<div class="review-find"><span>' + escHtml(T("reviewFind")) + '</span><strong id="reviewFindText">' + escHtml(reviewSearchText()) + '</strong>' +
         '<button type="button" class="linkbtn" id="btnReviewCopy" onclick="reviewCopy()">' + escHtml(T("reviewCopy")) + '</button></div>' +
-        '<div class="review-links"><button type="button" class="linkbtn" id="btnReviewOther" onclick="reviewSendOther()">' + escHtml(T("reviewOther")) + '</button>' +
-        '<button type="button" class="linkbtn" id="btnReviewTest" onclick="reviewTest()">' + escHtml(T("reviewTest")) + '</button></div>' +
+        '<div class="review-links"><button type="button" class="linkbtn" id="btnReviewOther" onclick="reviewSendOther()">' + escHtml(T("reviewOther")) + '</button></div>' +
         '<div class="copy-msg" id="reviewMsg" role="status" aria-live="polite"></div></div>';
       reviewSay(keep);
       reviewBusy(busy);

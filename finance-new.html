@@ -9278,10 +9278,11 @@
       wireInvoiceTemplateEditing();
     }
 
-    // Pencil + right-click on every WhatsApp invoice button, across both
-    // render paths (the main list and the compact table). Selector-based
-    // rather than hooked into each renderer, so a third list added later is
-    // covered by calling this once more. attach() is idempotent.
+    // Pencil + right-click on every WhatsApp invoice button or Review and send
+    // button on drafts, across both render paths (the main list and the ready-
+    // to-send card). Selector-based rather than hooked into each renderer, so
+    // a third list added later is covered by calling this once more. attach()
+    // is idempotent.
     //
     // onSaved refreshes MESSAGE_TEMPLATES rather than reloading -- the cache
     // exists so window.open() can run synchronously (see the popup-blocker
@@ -9289,7 +9290,7 @@
     // the new text immediately.
     function wireInvoiceTemplateEditing() {
       if (!window.TemplateEdit) { return; }
-      var btns = document.querySelectorAll('[onclick^="sendInvoiceWhatsApp("]');
+      var btns = document.querySelectorAll('[onclick^="sendInvoiceWhatsApp("], [onclick^="reviewAndSendInvoice("]');
       for (var i = 0; i < btns.length; i++) {
         window.TemplateEdit.attach({
           button: btns[i],

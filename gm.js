@@ -3772,6 +3772,31 @@ function gmDeleteLeadDo() {
   var lead = gmDetailLead;
   gmApi("leads/" + lead.id, { method: "DELETE" })
     .then(function() { gmSheetClose(); gmLoadCrmSilent(); })
+    .catch(function(e) {
+      console.error(e);
+      if (e && e.data && e.data.code === "lead_has_project") { gmLeadHasProjectCard(e.data.job_id); return; }
+      gmToast(e.message);
+    });
+}
+// The worker refused: a lead with a project is never deleted. Say why, and
+// offer the way to the project.
+function gmLeadHasProjectCard(jobId) {
+  gmAsk({
+    message: gmT("Este lead tem um projeto, por isso não pode ser excluído. Exclua o projeto primeiro se ele foi criado por engano.",
+                 "This lead has a project, so it cannot be deleted. Delete the project first if it was created by mistake."),
+    yes: gmT("Abrir o projeto", "Open the project"), keep: gmT("Manter o lead", "Keep the lead"),
+    onYes: function() { gmOpenJobById(jobId); }
+  });
+}
+// The lead sheet has no project link, so go to Projects and open that sheet.
+function gmOpenJobById(jobId) {
+  gmSheetClose();
+  gmApi("jobs")
+    .then(function(d) {
+      gmJobsData = d;
+      switchTab("gmjobs");
+      gmContractGuardSend(jobId);
+    })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 

@@ -14248,6 +14248,9 @@ function clientRequestAllowed(path, method, clientId) {
                 // Card payments: the owner's own Stripe connection status
                 // (owner only; the seller list never names it).
                 if (gmRest === "stripe/status") { return true; }
+                // Job 38: the owner's Facebook Page connection (owner only: the
+                // handler refuses a seller and the seller list never names it).
+                if (gmRest === "meta/status") { return true; }
                 // Hero follow-up (B3): the client's private hero collections
                 // (empty for every client not on a collection's list).
                 if (gmRest === "hero-gallery-private") { return true; }
@@ -14309,6 +14312,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "pdf-link") { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
+                // Job 38: connect, choose Pages, disconnect Facebook (owner only).
+                if (gmRest === "meta/connect" || gmRest === "meta/pages" || gmRest === "meta/disconnect") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 // G5e: a hand-made project becomes a lead (owner only; never
                 // on the seller list, the handler refuses sellers too).
@@ -31601,6 +31606,808 @@ async function handlePutGmCustomClauseReview(id, ccid, request, env) {
     }
 }
 
+// ── Facebook and Instagram lead ads (job 38) ─────────────────────────────
+// A business connects its Facebook Page in the portal (Estimates > Settings,
+// owner only) and every lead from its lead ads lands in its pipeline by
+// itself: Meta calls the webhook, the Worker reads the lead with the Page's
+// token and creates it the way a public booking does.
+//
+// EVERY Meta address, version and parameter list is in META below, and only
+// there. Nothing here was run against Meta: correct META after a live test.
+//
+// Tokens (the business token and each Page token) are stored sealed with
+// tokenSeal and are never returned to the browser and never logged.
+//
+// The tables arrive in migrations/meta_lead_ads.sql. This Worker is safe to
+// deploy before OR after it: with no tables the portal reads "not available
+// yet" and the webhook answers 503, so Meta sends the lead again later.
+var META = {
+    graph_version: "v25.0",
+    dialog_origin: "https://www.facebook.com",
+    graph_origin: "https://graph.facebook.com",
+    // This Worker's own public address (WORKER_URL in portal.html). Not
+    // doc.resonateai.online: that host serves only the readable document links.
+    worker_origin: "https://apex-api.farfromtimnah.workers.dev",
+    callback_path: "/api/meta/callback",
+    webhook_path: "/api/meta/webhook",
+    deletion_path: "/api/meta/data-deletion",
+    deletion_status_path: "/api/meta/deletion-status/",
+    // Meta's Login for Business page shows the code exchange without
+    // redirect_uri, the general manual flow requires it. true = send it.
+    send_redirect_uri_on_exchange: true,
+    me_user_fields: "id",
+    me_business_fields: "client_business_id",
+    pages_fields: "id,name,access_token,tasks",
+    subscribed_fields: "leadgen",
+    lead_fields: "id,created_time,field_data,ad_id,ad_name,adset_name,campaign_id,campaign_name,form_id,platform,is_organic",
+    state_minutes: 15,
+    raw_keep_days: 90,
+    // How many events of one webhook call are read right away. The rest stay
+    // stored and are picked up by the 4-hour job.
+    inline_events: 25,
+    // Where the browser lands after the sign-in: the owner's settings screen.
+    portal_return: DEFAULT_ORIGIN + "/portal.html?tab=gmestimates"
+};
+var META_LEAD_ORIGEM = "Tr\u00e1fego pago";
+var META_ACTOR = "Facebook lead ad";
+var META_NA_PT = "Ainda n\u00e3o dispon\u00edvel.";
+var META_NA_EN = "Not available yet.";
+// Meta error codes that mean "try again later", not "sign in again".
+var META_TRANSIENT_CODES = [1, 2, 4, 17, 32, 341, 613];
+
+// The four Worker settings, trimmed. ready is false when any is missing, or
+// when there is no key to seal the tokens with.
+function metaSettings(env) {
+    var e = env || {};
+    var out = {
+        app_id: String(e.META_APP_ID || "").trim(),
+        app_secret: String(e.META_APP_SECRET || "").trim(),
+        config_id: String(e.META_LOGIN_CONFIG_ID || "").trim(),
+        verify_token: String(e.META_WEBHOOK_VERIFY_TOKEN || "").trim()
+    };
+    out.ready = !!(out.app_id && out.app_secret && out.config_id && out.verify_token && String(e.TOKEN_ENC_KEY || "").trim());
+    return out;
+}
+
+// False until migrations/meta_lead_ads.sql has run.
+async function metaTablesReady(env) {
+    try {
+        await env.DB.prepare("SELECT client_id FROM gm_meta_connections LIMIT 1").first();
+        await env.DB.prepare("SELECT meta_leadgen_id FROM gm_leads LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function metaNotAvailable() {
+    return jsonErr2(META_NA_PT, META_NA_EN, 503, { available: false });
+}
+
+function metaPlain(text, status) {
+    return new Response(text, { status: status || 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+// The owner (never a salesperson) connects, checks or disconnects Facebook.
+function metaOwnerGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    if (sessionSellerName(user)) { return jsonErr2("S\u00f3 o dono da empresa pode conectar o Facebook.", "Only the business owner can connect Facebook.", 403); }
+    return null;
+}
+
+function metaHex(bytes) {
+    var out = "";
+    for (var i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).padStart(2, "0"); }
+    return out;
+}
+
+// HMAC-SHA256 of the bytes with the secret as the key.
+async function metaHmac(secret, bytes) {
+    var key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return new Uint8Array(await crypto.subtle.sign("HMAC", key, bytes));
+}
+
+// Compares two strings without stopping at the first difference.
+function metaSafeEqual(a, b) {
+    var x = String(a === null || a === undefined ? "" : a);
+    var y = String(b === null || b === undefined ? "" : b);
+    var diff = x.length ^ y.length;
+    var n = Math.max(x.length, y.length);
+    for (var i = 0; i < n; i++) { diff |= (x.charCodeAt(i) || 0) ^ (y.charCodeAt(i) || 0); }
+    return diff === 0;
+}
+
+function metaB64urlToBytes(s) {
+    var t = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (t.length % 4) { t += "="; }
+    return b64ToBytes(t);
+}
+
+// A message that is safe to store or log: no token, no secret, no code.
+function metaScrub(text, secrets) {
+    var t = String(text === null || text === undefined ? "" : text);
+    (secrets || []).forEach(function(s) {
+        if (s && String(s).length >= 6) { t = t.split(String(s)).join("[hidden]"); }
+    });
+    t = t.replace(/(access_token|client_secret|code)=[^&\s"']+/g, "$1=[hidden]");
+    return t.slice(0, 500);
+}
+
+// One call to Meta. GET and DELETE carry the parameters in the address, POST
+// in the body. Throws an Error whose message is already scrubbed; metaCode
+// and metaStatus say what Meta answered (metaStatus 0 = Meta was not reached).
+async function metaFetch(method, url, params, secrets) {
+    var qs = [];
+    Object.keys(params || {}).forEach(function(k) { qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(String(params[k]))); });
+    var init = { method: method };
+    if (method === "POST") {
+        init.headers = { "Content-Type": "application/x-www-form-urlencoded" };
+        init.body = qs.join("&");
+    } else if (qs.length) {
+        url += (url.indexOf("?") === -1 ? "?" : "&") + qs.join("&");
+    }
+    var res = null;
+    var data = null;
+    try {
+        res = await fetch(url, init);
+    } catch (e) {
+        var down = new Error("Meta could not be reached");
+        down.metaStatus = 0;
+        throw down;
+    }
+    try { data = await res.json(); } catch (e2) { data = null; }
+    if (!res.ok || (data && data.error)) {
+        var er = (data && data.error) || {};
+        var err = new Error(metaScrub(er.message || ("Meta answered HTTP " + res.status), secrets));
+        err.metaStatus = res.status;
+        err.metaCode = er.code === undefined ? null : er.code;
+        throw err;
+    }
+    return data || {};
+}
+
+function metaGraph(method, path, params, secrets) {
+    return metaFetch(method, META.graph_origin + "/" + META.graph_version + path, params, secrets);
+}
+
+// true = worth trying again by itself; false = the owner has to sign in again.
+function metaErrTransient(e) {
+    if (!e || e.metaStatus === undefined) { return true; }
+    if (e.metaStatus === 0 || e.metaStatus >= 500) { return true; }
+    return META_TRANSIENT_CODES.indexOf(Number(e.metaCode)) !== -1;
+}
+
+function metaRedirectUri() { return META.worker_origin + META.callback_path; }
+
+function metaDialogUrl(cfg, state) {
+    return META.dialog_origin + "/" + META.graph_version + "/dialog/oauth" +
+        "?client_id=" + encodeURIComponent(cfg.app_id) +
+        "&redirect_uri=" + encodeURIComponent(metaRedirectUri()) +
+        "&config_id=" + encodeURIComponent(cfg.config_id) +
+        "&response_type=code&override_default_response_type=true" +
+        "&state=" + encodeURIComponent(state);
+}
+
+// Back to the owner's settings screen. The address carries one plain word and
+// nothing else: never the code, never a token.
+function metaBack(result) {
+    return new Response(null, { status: 302, headers: {
+        "Location": META.portal_return + "&meta=" + encodeURIComponent(result),
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer"
+    } });
+}
+
+// Marks the state used and returns its row, or null when it is unknown,
+// already used or older than 15 minutes. One statement decides, so two
+// requests carrying the same state cannot both win.
+async function metaStateUse(env, state) {
+    if (!/^[a-f0-9]{48}$/.test(String(state || ""))) { return null; }
+    var upd = await env.DB.prepare(
+        "UPDATE gm_meta_oauth_states SET used_at = datetime('now') WHERE state = ? AND used_at IS NULL AND expires_at > datetime('now')"
+    ).bind(state).run();
+    if (!upd.meta || upd.meta.changes !== 1) { return null; }
+    return env.DB.prepare("SELECT client_id, login_key, actor_name FROM gm_meta_oauth_states WHERE state = ?").bind(state).first();
+}
+
+// What the card shows. Never a token, and never Meta's own error text.
+async function metaStatusPayload(env, clientId) {
+    var cfg = metaSettings(env);
+    if (!cfg.ready || !(await metaTablesReady(env))) { return { available: false, connected: false, pages: [] }; }
+    var conn = await env.DB.prepare("SELECT connected_by, connected_at, needs_reconnect FROM gm_meta_connections WHERE client_id = ?").bind(clientId).first();
+    if (!conn) { return { available: true, connected: false, pages: [] }; }
+    var rows = (await env.DB.prepare(
+        "SELECT page_id, page_name, subscribed, last_error, last_lead_at FROM gm_meta_pages WHERE client_id = ? ORDER BY page_name COLLATE NOCASE, page_id"
+    ).bind(clientId).all()).results || [];
+    var last = null;
+    var on = 0;
+    var pages = rows.map(function(r) {
+        if (r.subscribed) { on++; }
+        if (r.last_lead_at && (!last || r.last_lead_at > last)) { last = r.last_lead_at; }
+        return { page_id: String(r.page_id), name: r.page_name || String(r.page_id), subscribed: !!r.subscribed, problem: !!r.last_error, last_lead_at: r.last_lead_at || null };
+    });
+    return {
+        available: true, connected: true, needs_reconnect: !!conn.needs_reconnect,
+        connected_at: conn.connected_at || null, connected_by: conn.connected_by || null,
+        pages: pages, subscribed_count: on, last_lead_at: last
+    };
+}
+
+// Turns one stored Page's lead events on or off at Meta and records the
+// result. Returns true when the Page ended in the state that was asked for.
+async function metaSubscribePage(env, clientId, pageId, on) {
+    var page = await env.DB.prepare("SELECT * FROM gm_meta_pages WHERE client_id = ? AND page_id = ?").bind(clientId, pageId).first();
+    if (!page) { return false; }
+    var token = "";
+    try { token = await tokenOpen(env, page.token_sealed); } catch (e0) { token = ""; }
+    if (on) {
+        try {
+            if (!token) { throw new Error("The stored Page token could not be opened"); }
+            await metaGraph("POST", "/" + encodeURIComponent(pageId) + "/subscribed_apps", { subscribed_fields: META.subscribed_fields, access_token: token }, [token]);
+            await env.DB.prepare("UPDATE gm_meta_pages SET subscribed = 1, last_error = NULL, updated_at = datetime('now') WHERE id = ?").bind(page.id).run();
+            return true;
+        } catch (e) {
+            await env.DB.prepare("UPDATE gm_meta_pages SET subscribed = 0, last_error = ?, updated_at = datetime('now') WHERE id = ?")
+                .bind(metaScrub(e && e.message, [token]) || "subscribe failed", page.id).run();
+            return false;
+        }
+    }
+    // Off. The subscription at Meta belongs to the app and the Page, not to
+    // one business: it stays when another business still uses this Page.
+    var other = await env.DB.prepare("SELECT id FROM gm_meta_pages WHERE page_id = ? AND client_id <> ? AND subscribed = 1 LIMIT 1").bind(pageId, clientId).first();
+    if (!other && token && page.subscribed) {
+        try {
+            await metaGraph("DELETE", "/" + encodeURIComponent(pageId) + "/subscribed_apps", { access_token: token }, [token]);
+        } catch (e2) {
+            console.error("meta unsubscribe failed: " + metaScrub(e2 && e2.message, [token]));
+        }
+    }
+    await env.DB.prepare("UPDATE gm_meta_pages SET subscribed = 0, last_error = NULL, updated_at = datetime('now') WHERE id = ?").bind(page.id).run();
+    return true;
+}
+
+// Unsubscribes every Page and deletes the stored tokens. The leads already
+// received and the event log stay.
+async function metaRemoveConnection(env, clientId) {
+    var rows = (await env.DB.prepare("SELECT page_id FROM gm_meta_pages WHERE client_id = ?").bind(clientId).all()).results || [];
+    for (var i = 0; i < rows.length; i++) {
+        try { await metaSubscribePage(env, clientId, String(rows[i].page_id), false); }
+        catch (e) { console.error("meta disconnect page failed: " + metaScrub(e && e.message)); }
+    }
+    await env.DB.batch([
+        env.DB.prepare("DELETE FROM gm_meta_pages WHERE client_id = ?").bind(clientId),
+        env.DB.prepare("DELETE FROM gm_meta_connections WHERE client_id = ?").bind(clientId)
+    ]);
+}
+
+// Every Page the sign-in granted: [{ id, name, access_token }].
+async function metaGrantedPages(token, secrets) {
+    var out = [];
+    var seen = {};
+    var data = await metaGraph("GET", "/me/accounts", { fields: META.pages_fields, limit: 100, access_token: token }, secrets);
+    for (var n = 0; n < 10; n++) {
+        ((data && data.data) || []).forEach(function(p) {
+            var pid = p && p.id !== undefined && p.id !== null ? String(p.id) : "";
+            if (!/^\d{1,40}$/.test(pid) || seen[pid]) { return; }
+            seen[pid] = true;
+            if (p.access_token) { secrets.push(String(p.access_token)); }
+            // No Page token in the answer: the business token is tried instead.
+            out.push({ id: pid, name: gmStr(p.name, 200) || pid, access_token: String(p.access_token || token) });
+        });
+        var next = data && data.paging && data.paging.next;
+        if (!next || String(next).indexOf(META.graph_origin + "/") !== 0) { break; }
+        data = await metaFetch("GET", String(next), null, secrets);
+    }
+    return out;
+}
+
+// GET /api/clients/:id/gm/meta/status   (owner only)
+async function handleGetGmMetaStatus(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = metaOwnerGuard(user, id);
+        if (block) { return block; }
+        return jsonOk(await metaStatusPayload(env, id));
+    } catch (e) {
+        return jsonErr("Error reading the Facebook connection: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// POST /api/clients/:id/gm/meta/connect   (owner only)
+// Answers { url }: Meta's sign-in address, carrying a fresh single-use state.
+async function handlePostGmMetaConnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = metaOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = metaSettings(env);
+        if (!cfg.ready || !(await metaTablesReady(env))) { return metaNotAvailable(); }
+        var state = gmEstNewToken();
+        await env.DB.prepare(
+            "INSERT INTO gm_meta_oauth_states (state, client_id, login_key, actor_name, expires_at) VALUES (?, ?, ?, ?, datetime('now', ?))"
+        ).bind(state, id, String(user.username || user.email || "") || null, actorName(user), "+" + META.state_minutes + " minutes").run();
+        return jsonOk({ url: metaDialogUrl(cfg, state) });
+    } catch (e) {
+        return jsonErr("Error starting the Facebook sign-in: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// POST /api/clients/:id/gm/meta/pages   { page_ids: [...] }   (owner only)
+// Each ticked Page is subscribed, each unticked one is unsubscribed.
+async function handlePostGmMetaPages(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = metaOwnerGuard(user, id);
+        if (block) { return block; }
+        var cfg = metaSettings(env);
+        if (!cfg.ready || !(await metaTablesReady(env))) { return metaNotAvailable(); }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var ticked = {};
+        (Array.isArray(body.page_ids) ? body.page_ids : []).forEach(function(p) { ticked[String(p)] = true; });
+        var conn = await env.DB.prepare("SELECT client_id FROM gm_meta_connections WHERE client_id = ?").bind(id).first();
+        if (!conn) { return jsonErr2("O Facebook n\u00e3o est\u00e1 conectado.", "Facebook is not connected.", 409); }
+        var rows = (await env.DB.prepare("SELECT page_id, subscribed FROM gm_meta_pages WHERE client_id = ?").bind(id).all()).results || [];
+        for (var i = 0; i < rows.length; i++) {
+            var pid = String(rows[i].page_id);
+            if (ticked[pid]) { await metaSubscribePage(env, id, pid, true); }
+            else if (rows[i].subscribed) { await metaSubscribePage(env, id, pid, false); }
+        }
+        await metaAfter(request, metaRetryStored(env, id));
+        return jsonOk(await metaStatusPayload(env, id));
+    } catch (e) {
+        return jsonErr("Error saving the Pages: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// POST /api/clients/:id/gm/meta/disconnect   (owner only)
+async function handlePostGmMetaDisconnect(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var block = metaOwnerGuard(user, id);
+        if (block) { return block; }
+        if (!(await metaTablesReady(env))) { return metaNotAvailable(); }
+        await metaRemoveConnection(env, id);
+        return jsonOk(await metaStatusPayload(env, id));
+    } catch (e) {
+        return jsonErr("Error disconnecting Facebook: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// Work that may finish after the answer has gone out. With no request context
+// (a test) it is simply awaited.
+async function metaAfter(request, work) {
+    var safe = Promise.resolve(work).catch(function(e) { console.error("meta background work failed: " + metaScrub(e && e.message)); });
+    var ctx = request ? REQUEST_CTX.get(request) : null;
+    if (ctx && ctx.waitUntil) { ctx.waitUntil(safe); return; }
+    await safe;
+}
+
+// GET /api/meta/callback?code=...&state=...   (public: the state is the lock)
+// Meta sends the browser here after the sign-in. Everything is read from Meta
+// BEFORE anything is written, so a failure leaves the business as it was.
+async function handleGetMetaCallback(request, env) {
+    var cfg = metaSettings(env);
+    var secrets = [cfg.app_secret];
+    try {
+        var url = new URL(request.url);
+        var code = String(url.searchParams.get("code") || "");
+        if (code) { secrets.push(code); }
+        if (!cfg.ready || !(await metaTablesReady(env))) { return metaBack("failed"); }
+        var st = await metaStateUse(env, String(url.searchParams.get("state") || ""));
+        if (!st || !code || url.searchParams.get("error")) { return metaBack("failed"); }
+        var clientId = st.client_id;
+
+        var ex = { client_id: cfg.app_id, client_secret: cfg.app_secret, code: code };
+        if (META.send_redirect_uri_on_exchange) { ex.redirect_uri = metaRedirectUri(); }
+        var tok = await metaGraph("GET", "/oauth/access_token", ex, secrets);
+        var token = String((tok && tok.access_token) || "");
+        if (!token) { throw new Error("Meta returned no access token"); }
+        secrets.push(token);
+
+        // Who signed in and for which business. Neither is needed to receive
+        // leads, so a refusal on one of them does not stop the connection.
+        var metaUserId = null;
+        var metaBusinessId = null;
+        try { var meU = await metaGraph("GET", "/me", { fields: META.me_user_fields, access_token: token }, secrets); if (meU && meU.id) { metaUserId = String(meU.id); } }
+        catch (eU) { console.error("meta /me id failed: " + metaScrub(eU && eU.message, secrets)); }
+        try { var meB = await metaGraph("GET", "/me", { fields: META.me_business_fields, access_token: token }, secrets); if (meB && meB.client_business_id) { metaBusinessId = String(meB.client_business_id); } }
+        catch (eB) { console.error("meta /me business failed: " + metaScrub(eB && eB.message, secrets)); }
+
+        var granted = await metaGrantedPages(token, secrets);
+        if (!granted.length) { return metaBack("nopages"); }
+
+        var sealed = await tokenSeal(env, token);
+        for (var s = 0; s < granted.length; s++) { granted[s].sealed = await tokenSeal(env, granted[s].access_token); }
+
+        var before = {};
+        ((await env.DB.prepare("SELECT page_id, subscribed FROM gm_meta_pages WHERE client_id = ?").bind(clientId).all()).results || [])
+            .forEach(function(r) { before[String(r.page_id)] = r.subscribed ? 1 : 0; });
+        var stmts = [env.DB.prepare(
+            "INSERT INTO gm_meta_connections (client_id, token_sealed, meta_business_id, meta_user_id, connected_by, connected_login, connected_at, needs_reconnect, reconnect_pushed_at, last_error, updated_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 0, NULL, NULL, datetime('now')) " +
+            "ON CONFLICT (client_id) DO UPDATE SET token_sealed = excluded.token_sealed, meta_business_id = excluded.meta_business_id, meta_user_id = excluded.meta_user_id, " +
+            "connected_by = excluded.connected_by, connected_login = excluded.connected_login, connected_at = excluded.connected_at, needs_reconnect = 0, reconnect_pushed_at = NULL, last_error = NULL, updated_at = excluded.updated_at"
+        ).bind(clientId, sealed, metaBusinessId, metaUserId, st.actor_name || null, st.login_key || null)];
+        var keep = {};
+        granted.forEach(function(g) {
+            keep[g.id] = true;
+            stmts.push(env.DB.prepare(
+                "INSERT INTO gm_meta_pages (id, client_id, page_id, page_name, token_sealed) VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT (client_id, page_id) DO UPDATE SET page_name = excluded.page_name, token_sealed = excluded.token_sealed, updated_at = datetime('now')"
+            ).bind(crypto.randomUUID(), clientId, g.id, g.name, g.sealed));
+        });
+        // A Page that is no longer granted has no usable token: its row goes.
+        Object.keys(before).forEach(function(pid) {
+            if (!keep[pid]) { stmts.push(env.DB.prepare("DELETE FROM gm_meta_pages WHERE client_id = ? AND page_id = ?").bind(clientId, pid)); }
+        });
+        await env.DB.batch(stmts);
+
+        // One Page: subscribed at once. Several: the ones that were on before
+        // are turned on again with the new token; the rest wait for the owner.
+        var anyOn = false;
+        for (var g2 = 0; g2 < granted.length; g2++) {
+            if (granted.length === 1 || before[granted[g2].id] === 1) {
+                if (await metaSubscribePage(env, clientId, granted[g2].id, true)) { anyOn = true; }
+            }
+        }
+        if (anyOn) { await metaAfter(request, metaRetryStored(env, clientId)); }
+        return metaBack(anyOn ? "connected" : "pages");
+    } catch (e) {
+        console.error("meta callback failed: " + metaScrub(e && e.message, secrets));
+        return metaBack("failed");
+    }
+}
+
+// GET /api/meta/webhook   (public) Meta's one-time check of the address.
+async function handleGetMetaWebhook(request, env) {
+    var mine = String((env && env.META_WEBHOOK_VERIFY_TOKEN) || "").trim();
+    if (!mine) { return metaPlain(META_NA_EN, 503); }
+    var q = new URL(request.url).searchParams;
+    if (q.get("hub.mode") === "subscribe" && metaSafeEqual(q.get("hub.verify_token") || "", mine)) {
+        return metaPlain(String(q.get("hub.challenge") || ""), 200);
+    }
+    return metaPlain("Forbidden", 403);
+}
+
+// Every leadgen change in a webhook body, ids as strings.
+function metaLeadgenChanges(body) {
+    var out = [];
+    if (!body || body.object !== "page" || !Array.isArray(body.entry)) { return out; }
+    body.entry.forEach(function(en) {
+        ((en && en.changes) || []).forEach(function(ch) {
+            if (!ch || ch.field !== "leadgen" || !ch.value) { return; }
+            var v = ch.value;
+            var lid = v.leadgen_id === undefined || v.leadgen_id === null ? "" : String(v.leadgen_id);
+            if (!/^\d{1,40}$/.test(lid)) { return; }
+            var pageId = v.page_id !== undefined && v.page_id !== null ? String(v.page_id) : (en.id !== undefined && en.id !== null ? String(en.id) : "");
+            out.push({
+                leadgen_id: lid,
+                page_id: pageId || null,
+                form_id: v.form_id === undefined || v.form_id === null ? null : String(v.form_id),
+                ad_id: v.ad_id === undefined || v.ad_id === null ? null : String(v.ad_id),
+                created_time: v.created_time === undefined || v.created_time === null ? null : String(v.created_time),
+                raw: JSON.stringify({ entry_id: en.id === undefined ? null : String(en.id), time: en.time === undefined ? null : en.time, change: ch })
+            });
+        });
+    });
+    return out;
+}
+
+// One row per leadgen_id. A second copy of the same event only counts up.
+async function metaStoreEvents(env, changes) {
+    for (var i = 0; i < changes.length; i += 40) {
+        await env.DB.batch(changes.slice(i, i + 40).map(function(c) {
+            return env.DB.prepare(
+                "INSERT INTO gm_meta_events (id, leadgen_id, page_id, form_id, ad_id, raw_event, event_created_time) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (leadgen_id) DO UPDATE SET duplicates = duplicates + 1"
+            ).bind(crypto.randomUUID(), c.leadgen_id, c.page_id, c.form_id, c.ad_id, c.raw, c.created_time);
+        }));
+    }
+}
+
+// POST /api/meta/webhook   (public: the signature is the lock)
+// The events are stored first, so a lead is never lost; the answer is 200 as
+// soon as they are stored, and the leads are read after it.
+async function handlePostMetaWebhook(request, env) {
+    var secret = String((env && env.META_APP_SECRET) || "").trim();
+    if (!secret) { return metaPlain(META_NA_EN, 503); }
+    var raw = new Uint8Array(await request.arrayBuffer());
+    var header = String(request.headers.get("X-Hub-Signature-256") || "").trim();
+    var expect = "sha256=" + metaHex(await metaHmac(secret, raw));
+    if (!header || !metaSafeEqual(header, expect)) { return metaPlain("Bad signature", 401); }
+    var body = null;
+    try {
+        // An id too long for a JavaScript number is quoted before parsing, so
+        // it is never rounded.
+        body = JSON.parse(new TextDecoder().decode(raw).replace(/([:\[,]\s*)(\d{15,})(?=\s*[,}\]])/g, "$1\"$2\""));
+    } catch (e) {
+        return metaPlain("Bad request", 400);
+    }
+    var changes = metaLeadgenChanges(body);
+    if (!changes.length) { return metaPlain("EVENT_RECEIVED", 200); }
+    try {
+        await metaStoreEvents(env, changes);
+    } catch (e2) {
+        // Not stored (for example the tables are not there yet): Meta is asked
+        // to send it again.
+        console.error("meta webhook could not store the events: " + metaScrub(e2 && e2.message));
+        return metaPlain("Try again later", 503);
+    }
+    var ids = [];
+    changes.forEach(function(c) { if (ids.indexOf(c.leadgen_id) === -1) { ids.push(c.leadgen_id); } });
+    await metaAfter(request, metaProcessMany(env, ids.slice(0, META.inline_events)));
+    return metaPlain("EVENT_RECEIVED", 200);
+}
+
+async function metaProcessMany(env, leadgenIds) {
+    for (var i = 0; i < leadgenIds.length; i++) {
+        try { await metaProcessEvent(env, leadgenIds[i]); }
+        catch (e) { console.error("meta event failed: " + metaScrub(e && e.message)); }
+    }
+}
+
+// Stored events that could not be read, tried again for this business's Pages.
+async function metaRetryStored(env, clientId) {
+    var rows = (await env.DB.prepare(
+        "SELECT leadgen_id FROM gm_meta_events WHERE status IN ('failed', 'needs_reconnect') " +
+        "AND page_id IN (SELECT page_id FROM gm_meta_pages WHERE client_id = ? AND subscribed = 1) ORDER BY received_at LIMIT 50"
+    ).bind(clientId).all()).results || [];
+    await metaProcessMany(env, rows.map(function(r) { return String(r.leadgen_id); }));
+}
+
+// "(407) 555-0142" for a US number; anything else is kept as it was sent.
+function metaFmtPhone(raw) {
+    var s = String(raw === null || raw === undefined ? "" : raw).trim();
+    if (!s) { return null; }
+    var d = s.replace(/\D/g, "");
+    if (d.length === 11 && d.charAt(0) === "1") { d = d.slice(1); }
+    if (d.length === 10) { return "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6); }
+    return s.slice(0, 60);
+}
+
+// Meta's created_time ("2026-10-05T18:14:00+0000") as the lead's own local
+// stamp in Eastern, plus the month number. Now, when Meta sent none.
+function metaNyStamp(created) {
+    var d = created ? new Date(String(created).replace(/([+-]\d\d)(\d\d)$/, "$1:$2")) : new Date();
+    if (isNaN(d.getTime())) { d = new Date(); }
+    var parts = {};
+    new Intl.DateTimeFormat("en-CA", {
+        timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false
+    }).formatToParts(d).forEach(function(p) { parts[p.type] = p.value; });
+    if (parts.hour === "24") { parts.hour = "00"; }
+    return { stamp: parts.year + "-" + parts.month + "-" + parts.day + "T" + parts.hour + ":" + parts.minute, month: Number(parts.month) };
+}
+
+// Meta's lead answer as the fields of a lead. Name, phone, email, street and
+// city go to the lead's own columns; every other answer is kept as it came.
+function metaLeadFields(lead) {
+    var known = {};
+    var answers = [];
+    var own = ["full_name", "first_name", "last_name", "phone_number", "phone", "email", "street_address", "city"];
+    ((lead && lead.field_data) || []).forEach(function(f) {
+        if (!f || f.name === undefined || f.name === null) { return; }
+        var name = String(f.name).trim();
+        var vals = (Array.isArray(f.values) ? f.values : []).map(function(v) { return String(v === null || v === undefined ? "" : v).trim(); })
+            .filter(function(v) { return !!v; });
+        if (!name || !vals.length) { return; }
+        var key = name.toLowerCase();
+        if (own.indexOf(key) !== -1 && known[key] === undefined) { known[key] = vals[0]; return; }
+        answers.push({ q: name.slice(0, 300), a: vals.join(", ").slice(0, 2000) });
+    });
+    var full = known.full_name || ((known.first_name || "") + " " + (known.last_name || "")).trim();
+    var phone = metaFmtPhone(known.phone_number || known.phone || "");
+    var email = gmStr(known.email, 200);
+    var platform = String((lead && lead.platform) || "").trim().toLowerCase();
+    return {
+        // A form with no name question: the lead is listed under its email or
+        // phone, so the row is never blank.
+        cliente: gmStr(full, 200) || email || phone || "Facebook lead",
+        telefone: phone,
+        email: email,
+        address: gmStr(known.street_address, 200),
+        city: gmStr(known.city, 100),
+        answers: answers.slice(0, 60),
+        platform: platform === "fb" || platform === "ig" ? platform : null,
+        campaign_name: gmStr(lead && lead.campaign_name, 300),
+        ad_name: gmStr(lead && lead.ad_name, 300),
+        form_id: lead && lead.form_id !== undefined && lead.form_id !== null ? String(lead.form_id).slice(0, 60) : null,
+        created_time: (lead && lead.created_time) || null
+    };
+}
+
+// Meta refused the token: the card asks for a reconnect and the owner gets
+// ONE push about it, however many leads are waiting.
+async function metaFlagReconnect(env, clientId, message) {
+    await env.DB.prepare("UPDATE gm_meta_connections SET needs_reconnect = 1, last_error = ?, updated_at = datetime('now') WHERE client_id = ?").bind(message || null, clientId).run();
+    var first = await env.DB.prepare("UPDATE gm_meta_connections SET reconnect_pushed_at = datetime('now') WHERE client_id = ? AND reconnect_pushed_at IS NULL").bind(clientId).run();
+    if (!first.meta || first.meta.changes !== 1) { return; }
+    try {
+        var client = await env.DB.prepare("SELECT language FROM clients WHERE id = ?").bind(clientId).first();
+        var pt = !client || client.language !== "en";
+        var targets = await gmClientPushTargets(env, clientId, { owner: true });
+        if (!targets.length) { return; }
+        await pushToUsers(env, targets, {
+            title: pt ? "O Facebook precisa ser reconectado" : "Facebook needs to be reconnected",
+            body: pt ? "Abra os Ajustes e reconecte para continuar recebendo os seus leads." : "Open Settings and reconnect to keep receiving your leads.",
+            url: "/portal.html?tab=gmestimates&meta=reconnect",
+            tag: "meta-reconnect-" + clientId
+        });
+    } catch (e) { console.error("meta reconnect push failed", e && e.message); }
+}
+
+// One stored event: find the business by its Page, read the lead, create it.
+// The first UPDATE is the claim, so two copies of the same event arriving
+// together cannot both create a lead.
+async function metaProcessEvent(env, leadgenId) {
+    var claim = await env.DB.prepare(
+        "UPDATE gm_meta_events SET status = 'processing', attempts = attempts + 1, claimed_at = datetime('now') WHERE leadgen_id = ? " +
+        "AND (status IN ('received', 'failed', 'needs_reconnect', 'unmatched') OR (status = 'processing' AND claimed_at < datetime('now', '-15 minutes')))"
+    ).bind(leadgenId).run();
+    if (!claim.meta || claim.meta.changes !== 1) { return; }
+    var ev = await env.DB.prepare("SELECT * FROM gm_meta_events WHERE leadgen_id = ?").bind(leadgenId).first();
+    var token = "";
+    try {
+        var page = ev.page_id ? await env.DB.prepare(
+            "SELECT * FROM gm_meta_pages WHERE page_id = ? AND subscribed = 1 ORDER BY updated_at DESC LIMIT 1"
+        ).bind(String(ev.page_id)).first() : null;
+        if (!page) {
+            await env.DB.prepare("UPDATE gm_meta_events SET status = 'unmatched', error = NULL, processed_at = datetime('now') WHERE leadgen_id = ?").bind(leadgenId).run();
+            return;
+        }
+        var clientId = page.client_id;
+        var lead = null;
+        try {
+            token = await tokenOpen(env, page.token_sealed);
+            lead = await metaGraph("GET", "/" + encodeURIComponent(leadgenId), { fields: META.lead_fields, access_token: token }, [token]);
+        } catch (eRead) {
+            var again = metaErrTransient(eRead);
+            var msg = metaScrub(eRead && eRead.message, [token]) || "The lead could not be read";
+            await env.DB.prepare("UPDATE gm_meta_events SET status = ?, error = ?, client_id = ?, processed_at = datetime('now') WHERE leadgen_id = ?")
+                .bind(again ? "failed" : "needs_reconnect", msg, clientId, leadgenId).run();
+            if (!again) { await metaFlagReconnect(env, clientId, msg); }
+            return;
+        }
+        var rawLead = JSON.stringify(lead);
+        // A lead this event already created (the claim was lost half way).
+        var made = await env.DB.prepare("SELECT id FROM gm_leads WHERE client_id = ? AND meta_leadgen_id = ?").bind(clientId, leadgenId).first();
+        var leadId = made ? made.id : null;
+        var f = metaLeadFields(lead);
+        if (!leadId) {
+            var config = await gmGetConfig(env, clientId);
+            var when = metaNyStamp(f.created_time);
+            var mesLead = GM_MONTH_NAMES_PT[when.month - 1];
+            if (!config || !config.cycle_months || config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+            leadId = await gmInsertLead(env, clientId, {
+                cliente: f.cliente, telefone: f.telefone, email: f.email, address: f.address, city: f.city,
+                origem: META_LEAD_ORIGEM, estagio: "novo_lead", data_lead: when.stamp, mes_lead: mesLead
+            }, META_ACTOR);
+            await env.DB.prepare(
+                "UPDATE gm_leads SET meta_leadgen_id = ?, meta_platform = ?, meta_campaign_name = ?, meta_ad_name = ?, meta_form_id = ?, meta_answers_json = ? WHERE id = ? AND client_id = ?"
+            ).bind(leadgenId, f.platform, f.campaign_name, f.ad_name, f.form_id || ev.form_id || null, f.answers.length ? JSON.stringify(f.answers) : null, leadId, clientId).run();
+        }
+        await env.DB.batch([
+            env.DB.prepare("UPDATE gm_meta_events SET status = 'created', error = NULL, client_id = ?, lead_id = ?, raw_lead = ?, processed_at = datetime('now') WHERE leadgen_id = ?").bind(clientId, leadId, rawLead, leadgenId),
+            env.DB.prepare("UPDATE gm_meta_pages SET last_lead_at = datetime('now') WHERE id = ?").bind(page.id)
+        ]);
+        if (made) { return; }
+        try {
+            var client = await env.DB.prepare("SELECT language FROM clients WHERE id = ?").bind(clientId).first();
+            var pt = !client || client.language !== "en";
+            var targets = await gmClientPushTargets(env, clientId, { owner: true, seller_name: null });
+            if (targets.length) {
+                await pushToUsers(env, targets, {
+                    title: (pt ? "Novo lead do Facebook: " : "New Facebook lead: ") + f.cliente,
+                    body: f.telefone || f.email || "",
+                    url: "/portal.html?tab=gmcrm&lead=" + encodeURIComponent(leadId),
+                    tag: "meta-lead-" + leadId
+                });
+            }
+        } catch (ePush) { console.error("meta lead push failed", ePush && ePush.message); }
+    } catch (e) {
+        // Anything unexpected: the event stays stored and is tried again.
+        await env.DB.prepare("UPDATE gm_meta_events SET status = 'failed', error = ?, processed_at = datetime('now') WHERE leadgen_id = ?")
+            .bind(metaScrub(e && e.message, [token]) || "error", leadgenId).run();
+    }
+}
+
+// The 4-hour job: events that are still waiting are tried again, raw copies
+// older than 90 days are cleared, and old sign-in states are removed.
+async function metaCron(env) {
+    try {
+        if (!(await metaTablesReady(env))) { return; }
+        var rows = (await env.DB.prepare(
+            "SELECT leadgen_id FROM gm_meta_events WHERE (status = 'received' AND received_at < datetime('now', '-5 minutes')) " +
+            "OR (status = 'failed' AND attempts < 8) OR (status = 'processing' AND claimed_at < datetime('now', '-15 minutes')) ORDER BY received_at LIMIT 40"
+        ).all()).results || [];
+        await metaProcessMany(env, rows.map(function(r) { return String(r.leadgen_id); }));
+        await env.DB.prepare(
+            "UPDATE gm_meta_events SET raw_event = NULL, raw_lead = NULL WHERE received_at < datetime('now', ?) AND (raw_event IS NOT NULL OR raw_lead IS NOT NULL)"
+        ).bind("-" + META.raw_keep_days + " days").run();
+        await env.DB.prepare("DELETE FROM gm_meta_oauth_states WHERE created_at < datetime('now', '-1 day')").run();
+    } catch (e) {
+        console.error("meta cron failed: " + metaScrub(e && e.message));
+    }
+}
+
+// Meta's signed_request: base64url(signature) + "." + base64url(JSON), signed
+// with HMAC-SHA256 of the second part under the App Secret. Returns the JSON,
+// or null when it does not verify.
+async function metaParseSignedRequest(secret, signed) {
+    var parts = String(signed || "").split(".");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) { return null; }
+    try {
+        var given = metaHex(metaB64urlToBytes(parts[0]));
+        var expect = metaHex(await metaHmac(secret, new TextEncoder().encode(parts[1])));
+        if (!metaSafeEqual(given, expect)) { return null; }
+        var payload = JSON.parse(new TextDecoder().decode(metaB64urlToBytes(parts[1])));
+        if (payload && payload.algorithm && String(payload.algorithm).toUpperCase() !== "HMAC-SHA256") { return null; }
+        return payload || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// POST /api/meta/data-deletion   (public: the signature is the lock)
+// Meta's required "data deletion request" address. Removes every connection
+// made by that Meta user and answers with a status page and a code.
+async function handlePostMetaDataDeletion(request, env) {
+    var secret = String((env && env.META_APP_SECRET) || "").trim();
+    if (!secret) { return metaNotAvailable(); }
+    try {
+        var text = await request.text();
+        var signed = "";
+        if (text.trim().charAt(0) === "{") {
+            try { signed = String(JSON.parse(text).signed_request || ""); } catch (e0) { signed = ""; }
+        } else {
+            signed = String(new URLSearchParams(text).get("signed_request") || "");
+        }
+        var payload = await metaParseSignedRequest(secret, signed);
+        if (!payload || payload.user_id === undefined || payload.user_id === null || payload.user_id === "") {
+            return jsonErr("Invalid signed_request", 400);
+        }
+        if (!(await metaTablesReady(env))) { return metaNotAvailable(); }
+        var rows = (await env.DB.prepare("SELECT client_id FROM gm_meta_connections WHERE meta_user_id = ?").bind(String(payload.user_id)).all()).results || [];
+        for (var i = 0; i < rows.length; i++) { await metaRemoveConnection(env, rows[i].client_id); }
+        var code = gmEstNewToken().slice(0, 32);
+        await env.DB.prepare("INSERT INTO gm_meta_deletions (code, connections_removed) VALUES (?, ?)").bind(code, rows.length).run();
+        return jsonOk({ url: META.worker_origin + META.deletion_status_path + code, confirmation_code: code });
+    } catch (e) {
+        return jsonErr("Error handling the deletion request: " + metaScrub(e && e.message), 500);
+    }
+}
+
+// A stored UTC stamp as MM/DD/YYYY on the Eastern clock.
+function metaFmtDateEastern(stamp) {
+    var s = String(stamp || "").replace(" ", "T").split(".")[0];
+    if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+    var d = new Date(s);
+    if (isNaN(d.getTime())) { return ""; }
+    var p = {};
+    new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(d).forEach(function(x) { p[x.type] = x.value; });
+    return p.month + "/" + p.day + "/" + p.year;
+}
+
+// GET /api/meta/deletion-status/:code   (public) the small status page.
+async function handleGetMetaDeletionStatus(code, request, env) {
+    var row = null;
+    try { row = await env.DB.prepare("SELECT created_at FROM gm_meta_deletions WHERE code = ?").bind(code).first(); }
+    catch (e) { row = null; }
+    var day = row ? metaFmtDateEastern(row.created_at) : "";
+    var en = day ? "Your Facebook connection data was deleted on " + day + "." : "No deletion request was found for this code.";
+    var pt = day ? "Os dados da sua conex&atilde;o com o Facebook foram apagados em " + day + "." : "Nenhum pedido de exclus&atilde;o foi encontrado para este c&oacute;digo.";
+    var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+        "<meta name=\"robots\" content=\"noindex\"><title>Facebook connection data</title>" +
+        "<style>body{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Arial,sans-serif;background:#f5f5f4;color:#1c1917;margin:0;padding:32px 16px;}" +
+        "main{max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:28px 24px;box-shadow:0 1px 3px rgba(0,0,0,.08);}" +
+        "h1{font-size:18px;margin:0 0 16px;}p{font-size:16px;line-height:1.5;margin:0 0 12px;}.code{font-size:13px;color:#57534e;word-break:break-all;}</style></head>" +
+        "<body><main><h1>Apex Lead Sync</h1><p>" + en + "</p><p lang=\"pt\">" + pt + "</p>" +
+        (day ? "<p class=\"code\">Confirmation code: " + code + "</p>" : "") + "</main></body></html>";
+    return new Response(html, { status: day ? 200 : 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+}
+
 // ── Who gets a push inside a client's business ─────────────────────────
 // Google-linked accounts push under their e-mail (users.client_id); a
 // username/password login pushes under "login:<username>" once its device
@@ -46143,6 +46950,9 @@ export default {
         ctx.waitUntil(syncStripe(env).catch(function(e) {
             return notifyNicoleTelegram(env, "Stripe sync failed: " + e.message).catch(function() {});
         }));
+        // Job 38: Facebook leads still waiting are tried again; raw copies
+        // older than 90 days are cleared. Independent, and never throws.
+        ctx.waitUntil(metaCron(env));
     }
 };
 
@@ -46229,6 +47039,18 @@ async function handleFetch(request, env, ctx) {
         if (path.indexOf("/api/public/apex-invoices/") === 0 || path.indexOf("/api/public/pdf/apex-invoice/") === 0) {
             return apxInvNoIndex(jsonErr("Not found", 404));
         }
+
+        // PUBLIC Facebook lead ads (job 38). No login on any of these: the
+        // webhook and the deletion request are locked by Meta's signature, the
+        // sign-in return by its single-use state, the status page by its code.
+        if (path === META.webhook_path && method === "GET") { return handleGetMetaWebhook(request, env); }
+        if (path === META.webhook_path && method === "POST") { return handlePostMetaWebhook(request, env); }
+        if (path === META.callback_path && method === "GET") { return handleGetMetaCallback(request, env); }
+        if (path === META.deletion_path && method === "POST") { return handlePostMetaDataDeletion(request, env); }
+        if (path.indexOf(META.deletion_status_path) === 0 && method === "GET" && /^[a-f0-9]{32}$/.test(path.slice(META.deletion_status_path.length))) {
+            return handleGetMetaDeletionStatus(path.slice(META.deletion_status_path.length), request, env);
+        }
+        if (path.indexOf("/api/meta/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC online booking page of a client business (book.html). The 48-hex
         // token of a lead link, or the business's slug, is the only credential.
@@ -46977,6 +47799,13 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "connect" && method === "POST") { return handlePostGmStripeConnect(cid, request, env); }
                     if (segs[5] === "reaccept" && method === "POST") { return handlePostGmStripeReaccept(cid, request, env); }
                     if (segs[5] === "disconnect" && method === "POST") { return handlePostGmStripeDisconnect(cid, request, env); }
+                }
+                // Job 38: the business's Facebook Page connection (owner only).
+                if (segs.length === 6 && gmCol === "meta") {
+                    if (segs[5] === "status" && method === "GET") { return handleGetGmMetaStatus(cid, request, env); }
+                    if (segs[5] === "connect" && method === "POST") { return handlePostGmMetaConnect(cid, request, env); }
+                    if (segs[5] === "pages" && method === "POST") { return handlePostGmMetaPages(cid, request, env); }
+                    if (segs[5] === "disconnect" && method === "POST") { return handlePostGmMetaDisconnect(cid, request, env); }
                 }
                 // Estimates & invoices build: the business's document settings.
                 if (segs.length === 5 && gmCol === "doc-settings") {

@@ -14265,6 +14265,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(gmRest)) { return true; }
                 if (/^change-orders\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(gmRest)) { return true; }
+                // Job 37: the review request for a project (link, message, last press).
+                if (/^jobs\/[A-Za-z0-9-]+\/review-request$/.test(gmRest)) { return true; }
                 // Hero follow-up F1: the project's value history (owner only;
                 // never on the seller list, the handler refuses sellers too).
                 if (/^(jobs|leads)\/[A-Za-z0-9-]+\/value-history$/.test(gmRest)) { return true; }
@@ -14313,6 +14315,8 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^jobs\/[A-Za-z0-9-]+\/make-lead$/.test(gmRest)) { return true; }
                 // Part I: send a contact card; a salesperson photo upload.
                 if (/^leads\/[A-Za-z0-9-]+\/contact-card$/.test(gmRest)) { return true; }
+                // Job 37: record one press of the review request send sheet.
+                if (/^jobs\/[A-Za-z0-9-]+\/review-request$/.test(gmRest)) { return true; }
                 // Online booking: send a lead the booking link, mark it sent.
                 if (/^leads\/[A-Za-z0-9-]+\/booking-(link|sent)$/.test(gmRest)) { return true; }
                 if (/^seller-profiles\/[^\/]+\/photo$/.test(gmRest)) { return true; }
@@ -14485,6 +14489,9 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/contracts\/[A-Za-z0-9-]+(\/preview)?$/.test(rest)) { return true; }
         if (/^gm\/change-orders\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(contract-status|accepted-estimates)$/.test(rest)) { return true; }
+        // Job 37: the review request on a project they may open (the handler
+        // re-checks the project's lead with gmInvSellerGuardJob).
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/review-request$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|punch)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/condition-photos\/[A-Za-z0-9-]+\/file$/.test(rest)) { return true; }
         if (/^gm\/acks\/[A-Za-z0-9-]+$/.test(rest)) { return true; }
@@ -14556,6 +14563,9 @@ function sellerRequestAllowed(path, method, clientId) {
         // Part I: a seller sends a contact card for a lead they may see (the
         // handler's lead guard), and uploads their OWN photo (handler checks).
         if (/^gm\/leads\/[A-Za-z0-9-]+\/contact-card$/.test(rest)) { return true; }
+        // Job 37: record a review request press on a project they may open
+        // (same handler guard). The link itself stays owner-only to SAVE.
+        if (/^gm\/jobs\/[A-Za-z0-9-]+\/review-request$/.test(rest)) { return true; }
         // Online booking: send the link for a lead they can already see
         // (bkPortalLead re-checks in the handler). Settings stay owner-only.
         if (/^gm\/leads\/[A-Za-z0-9-]+\/booking-(link|sent)$/.test(rest)) { return true; }
@@ -20207,6 +20217,174 @@ async function handlePostGmLeadContactCard(id, leadId, request, env) {
     }
 }
 
+// ── Ask for a Google review (job 37) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// The owner saves the business's Google review link once (document settings,
+// column gm_doc_settings.google_review_link). From a project, the owner or the
+// project's salesperson opens a send sheet with the message; every press of
+// WhatsApp / text / copy is one row in gm_send_log. Nobody can know whether
+// the customer wrote the review, so only the press is recorded.
+//
+// The column and the table arrive in migrations/google_review_link.sql. Every
+// read here is defensive, so this Worker is safe to deploy before OR after
+// that migration: with no column there is simply no link yet.
+var GM_REVIEW_LINK_HOSTS = ["google.com", "g.page", "goo.gl"];
+var GM_REVIEW_LINK_BAD_PT = "Esse n\u00e3o parece um link de avalia\u00e7\u00e3o do Google. Cole o link que come\u00e7a com https:// e vem do Google (por exemplo https://g.page/r/.../review).";
+var GM_REVIEW_LINK_BAD_EN = "That does not look like a Google review link. Paste the link that starts with https:// and comes from Google (for example https://g.page/r/.../review).";
+var GM_SEND_CHANNELS = ["whatsapp", "sms", "copy"];
+
+// Empty clears it ({ value: null }). Otherwise only an https address whose
+// host is google.com, g.page or goo.gl, or a subdomain of one of them.
+// Returns { value } or { error: true }.
+function gmReviewLinkParse(v) {
+    if (v === null || v === undefined) { return { value: null }; }
+    if (typeof v !== "string") { return { error: true }; }
+    var s = v.trim();
+    if (!s) { return { value: null }; }
+    if (s.length > 500 || /[\s<>"'`\\]/.test(s) || !/^https:\/\//i.test(s)) { return { error: true }; }
+    var u = null;
+    try { u = new URL(s); } catch (e) { return { error: true }; }
+    if (u.protocol !== "https:" || u.username || u.password || u.port) { return { error: true }; }
+    var host = String(u.hostname || "").toLowerCase();
+    var ok = false;
+    GM_REVIEW_LINK_HOSTS.forEach(function(h) {
+        if (host === h || host.slice(-(h.length + 1)) === "." + h) { ok = true; }
+    });
+    if (!ok) { return { error: true }; }
+    return { value: u.href };
+}
+
+// The message the customer reads. Neutral on purpose: it asks for their
+// experience and never for a good review (Google forbids asking only happy
+// customers). No first name: the name and its comma are dropped.
+function gmReviewMessage(lang, firstName, businessName, link) {
+    var first = String(firstName || "").trim();
+    var biz = String(businessName || "").trim();
+    if (lang === "pt") {
+        return "Ol\u00e1" + (first ? " " + first : "") + ", obrigado por escolher a " + biz +
+            ". Voc\u00ea pode contar como foi a sua experi\u00eancia em uma avalia\u00e7\u00e3o no Google? Leva cerca de um minuto: " + link;
+    }
+    return "Hi" + (first ? " " + first : "") + ", thank you for choosing " + biz +
+        ". Would you share your experience in a Google review? It takes about a minute: " + link;
+}
+
+// Does gm_doc_settings have the column yet? False until the migration runs.
+async function gmReviewLinkColumnReady(env) {
+    try {
+        await env.DB.prepare("SELECT google_review_link FROM gm_doc_settings LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// The saved link, or null. A missing column, or a stored value that no longer
+// passes the rule, both read as "no link".
+async function gmReviewLinkRead(env, clientId) {
+    try {
+        var row = await env.DB.prepare("SELECT google_review_link FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+        var parsed = gmReviewLinkParse(row ? row.google_review_link : null);
+        return parsed.error ? null : parsed.value;
+    } catch (e) {
+        return null;
+    }
+}
+
+// The most recent press on this project, or null (also null when the table is
+// not there yet). requested_by passes through jsonOk's actor filter, so a
+// developer's name never reaches a screen.
+async function gmReviewLast(env, clientId, jobId) {
+    try {
+        var row = await env.DB.prepare(
+            "SELECT created_at, actor_name, channel FROM gm_send_log WHERE client_id = ? AND kind = 'review_request' AND project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
+        ).bind(clientId, jobId).first();
+        if (!row) { return null; }
+        return { requested_at: row.created_at, requested_by: row.actor_name || null, channel: row.channel || null };
+    } catch (e) {
+        return null;
+    }
+}
+
+// The project, once the caller is known to be allowed to open it: it belongs
+// to this business, and a salesperson is on its lead. Returns { job } or
+// { block: Response }.
+async function gmReviewJobFor(env, user, clientId, jobId) {
+    if (!user) { return { block: jsonErr("Unauthorized", 401) }; }
+    if (!requireClientAccess(user, clientId)) { return { block: jsonErr("Forbidden", 403) }; }
+    var job = await gmOwnedRow(env, "gm_jobs", jobId, clientId);
+    if (!job) { return { block: jsonErr("Project not found", 404) }; }
+    var guard = await gmInvSellerGuardJob(env, user, clientId, jobId);
+    if (guard) { return { block: guard }; }
+    return { job: job };
+}
+
+// What the send sheet needs. The customer and the phone come from the
+// project's lead, the same place the contact card takes them from.
+async function gmReviewPayload(env, clientId, job) {
+    var link = await gmReviewLinkRead(env, clientId);
+    var last = await gmReviewLast(env, clientId, job.id);
+    if (!link) { return { has_link: false, link: null, message: null, phone: null, last: last }; }
+    var lead = job.lead_id ? await gmOwnedRow(env, "gm_leads", job.lead_id, clientId) : null;
+    var client = await env.DB.prepare("SELECT name, language FROM clients WHERE id = ?").bind(clientId).first();
+    var doc = await gmDocSettingsRow(env, clientId);
+    var company = doc.legal_name || (client && client.name) || "";
+    // The customer reads it: the client's customer language, English unless
+    // explicitly 'pt' (the contact card's rule).
+    var lang = client && client.language === "pt" ? "pt" : "en";
+    return {
+        has_link: true,
+        link: link,
+        language: lang,
+        message: gmReviewMessage(lang, gmFirstName(lead && lead.cliente), company, link),
+        phone: (lead && lead.telefone) || null,
+        last: last
+    };
+}
+
+// GET /api/clients/:id/gm/jobs/:jobId/review-request   (owner, or the
+// project's salesperson). The link, the message and the last press.
+async function handleGetGmJobReviewRequest(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var found = await gmReviewJobFor(env, user, id, jobId);
+        if (found.block) { return found.block; }
+        return jsonOk(await gmReviewPayload(env, id, found.job));
+    } catch (e) {
+        return jsonErr("Error preparing the review request: " + e.message, 500);
+    }
+}
+
+// POST /api/clients/:id/gm/jobs/:jobId/review-request   { channel }
+// One press of WhatsApp / text / copy. A failed write is reported as
+// logged:false and never as an error: the send has already happened.
+async function handlePostGmJobReviewRequest(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var found = await gmReviewJobFor(env, user, id, jobId);
+        if (found.block) { return found.block; }
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+        var channel = String((body && body.channel) || "");
+        if (GM_SEND_CHANNELS.indexOf(channel) === -1) { return jsonErr("Invalid channel", 400); }
+        var out = await gmReviewPayload(env, id, found.job);
+        // No link, nothing was sent: nothing is recorded.
+        if (!out.has_link) { out.logged = false; return jsonOk(out); }
+        var logged = false;
+        try {
+            await env.DB.prepare(
+                "INSERT INTO gm_send_log (id, client_id, kind, project_id, lead_id, channel, actor_user_id, actor_name) VALUES (?, ?, 'review_request', ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), id, found.job.id, found.job.lead_id || null, channel, user.username || user.email || null, actorName(user)).run();
+            logged = true;
+        } catch (e3) {
+            console.error("review request log failed: " + (e3 && e3.message));
+        }
+        out.logged = logged;
+        if (logged) { out.last = await gmReviewLast(env, id, found.job.id); }
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error recording the review request: " + e.message, 500);
+    }
+}
+
 async function gmPartnerByCardToken(env, token) {
     if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
     return env.DB.prepare(
@@ -23999,6 +24177,9 @@ async function handleGetGmDocSettings(id, request, env) {
             brand_primary: gmDocHexColor(client && client.referral_bg_color),
             brand_accent:  gmDocHexColor(client && client.referral_text_color)
         };
+        // Job 37: owner-only, so it is added here and not in gmDocSettingsRow
+        // (which the public document routes and the seller slice also read).
+        settings.google_review_link = await gmReviewLinkRead(env, id);
         settings.has_logo = !!(client && client.logo_url);
         settings.has_hero = !!settings.hero_r2_key;
         // What the customer documents show right now (gallery pick or upload).
@@ -24019,7 +24200,8 @@ var GM_DOC_SETTINGS_FIELDS = [
     "legal_name", "address", "phone", "email", "license_numbers", "min_margin_pct",
     "estimate_valid_days", "default_terms_days", "payment_methods_json",
     "late_fee_annual_pct", "late_fee_grace_days", "schedule_presets_json",
-    "estimate_message", "invoice_message", "receipt_message", "contract_message"
+    "estimate_message", "invoice_message", "receipt_message", "contract_message",
+    "google_review_link"
 ];
 
 async function handlePutGmDocSettings(id, request, env) {
@@ -24099,6 +24281,21 @@ async function handlePutGmDocSettings(id, request, env) {
         ["estimate_message", "invoice_message", "receipt_message", "contract_message"].forEach(function(k) {
             if (has(k)) { f[k] = body[k] === null ? null : gmStr(body[k], 1000); }
         });
+        // Job 37: the Google review link. Refused here whatever the page did;
+        // nothing at all is saved when it is refused. Until the migration has
+        // added the column, a real link cannot be stored: say so plainly
+        // instead of failing the whole save with a database error.
+        if (has("google_review_link")) {
+            var rl = gmReviewLinkParse(body.google_review_link);
+            if (rl.error) { return jsonErr2(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN, 400); }
+            var rlBefore = cur.google_review_link === undefined || cur.google_review_link === null ? null : String(cur.google_review_link);
+            if (rl.value !== rlBefore) {
+                if (!(await gmReviewLinkColumnReady(env))) {
+                    return jsonErr2("O link de avalia\u00e7\u00e3o do Google ainda n\u00e3o pode ser salvo. Nada foi salvo. Tente de novo mais tarde.", "The Google review link cannot be saved yet. Nothing was saved. Try again later.", 503);
+                }
+                f.google_review_link = rl.value;
+            }
+        }
 
         // Setup is complete only once at least one license number is on file:
         // Florida §489.119 requires it on every bid and contract, so a document
@@ -24175,6 +24372,7 @@ async function handlePutGmDocSettings(id, request, env) {
             }));
         }
         var settings = await gmDocSettingsRow(env, id);
+        settings.google_review_link = await gmReviewLinkRead(env, id);
         return jsonOk({ saved: true, changed: changes.length, setup_completed: completing, settings: settings });
     } catch (e) {
         return jsonErr("Error saving document settings: " + e.message, 500);
@@ -46839,6 +47037,9 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 7 && gmCol === "jobs" && segs[6] === "make-lead" && method === "POST") { return handlePostGmJobMakeLead(cid, segs[5], request, env); }
                 // Part I: contact card + salesperson profiles.
                 if (segs.length === 7 && gmCol === "leads" && segs[6] === "contact-card" && method === "POST") { return handlePostGmLeadContactCard(cid, segs[5], request, env); }
+                // Job 37: ask for a Google review from the project.
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "review-request" && method === "GET") { return handleGetGmJobReviewRequest(cid, segs[5], request, env); }
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "review-request" && method === "POST") { return handlePostGmJobReviewRequest(cid, segs[5], request, env); }
                 if (segs.length === 5 && gmCol === "seller-profiles" && method === "GET") { return handleGetGmSellerProfiles(cid, request, env); }
                 if (segs.length === 6 && gmCol === "seller-profiles" && method === "PUT") { return handlePutGmSellerProfile(cid, decodeURIComponent(segs[5]), request, env); }
                 if (segs.length === 7 && gmCol === "seller-profiles" && segs[6] === "photo") {

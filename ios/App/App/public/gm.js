@@ -833,6 +833,223 @@ function gmCardSendRender() {
   body.appendChild(extra);
 }
 
+// ── Ask for a Google review (job 37) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// The owner saves the business's Google review link once (Estimates >
+// Settings). On a project, one tap opens a send sheet (WhatsApp, text
+// message, copy) with the message ready. Every press is recorded by the
+// Worker; the project shows the most recent one. Nobody can know whether the
+// customer wrote the review, so there is no "reviewed" state anywhere.
+var GM_REVIEW_LINK_HOSTS = ["google.com", "g.page", "goo.gl"];
+var GM_REVIEW_LINK_BAD_PT = "Esse n\u00e3o parece um link de avalia\u00e7\u00e3o do Google. Cole o link que come\u00e7a com https:// e vem do Google (por exemplo https://g.page/r/.../review).";
+var GM_REVIEW_LINK_BAD_EN = "That does not look like a Google review link. Paste the link that starts with https:// and comes from Google (for example https://g.page/r/.../review).";
+var GM_REVIEW_HELP_URL = "https://support.google.com/business/answer/3474122";
+
+// Same rule as the Worker's gmReviewLinkParse (which is the one that counts):
+// empty is allowed; otherwise https and a Google host.
+function gmReviewLinkOk(v) {
+  var s = String(v === null || v === undefined ? "" : v).trim();
+  if (!s) { return true; }
+  if (s.length > 500 || /[\s<>"'`\\]/.test(s) || !/^https:\/\//i.test(s)) { return false; }
+  var u = null;
+  try { u = new URL(s); } catch (e) { return false; }
+  if (u.protocol !== "https:" || u.username || u.password || u.port) { return false; }
+  var host = String(u.hostname || "").toLowerCase();
+  var ok = false;
+  GM_REVIEW_LINK_HOSTS.forEach(function(h) {
+    if (host === h || host.slice(-(h.length + 1)) === "." + h) { ok = true; }
+  });
+  return ok;
+}
+
+// The field in the owner's document settings (Business section). A
+// salesperson never reaches that screen (gmEstimatesSections).
+function gmReviewSettingsFieldHtml(d) {
+  return gmDocField("gmDocReviewLink", "Link de avalia\u00e7\u00e3o do Google", "Google review link",
+      gmDocTextInput("gmDocReviewLink", "google_review_link", d.google_review_link, 'inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://g.page/r/.../review"')) +
+    '<p class="gm-warn" id="gmDocReviewLinkErr" style="margin:4px 0 0;"' + (gmReviewLinkOk(d.google_review_link) ? ' hidden' : '') + '>' + escHtml(gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN)) + '</p>' +
+    '<p class="muted" style="margin:4px 0 2px;">' + escHtml(gmT("No seu Perfil da Empresa no Google, escolha Pedir avalia\u00e7\u00f5es, copie o link e cole aqui. O cliente que tocar nele vai direto para o formul\u00e1rio de avalia\u00e7\u00e3o.",
+        "In your Google Business Profile, choose Ask for reviews, copy the link and paste it here. Customers who tap it go straight to your review form.")) + '</p>' +
+    '<p style="margin:0 0 8px;"><a href="' + GM_REVIEW_HELP_URL + '" target="_blank" rel="noopener">' + escHtml(gmT("Como encontrar", "How to find it")) + '</a></p>';
+}
+
+var gmReviewData = {};         // job id -> last GET/POST gm/jobs/:id/review-request payload
+var gmReviewSend = null;       // { jobId, d } while the send sheet is open
+var gmReviewBusy = false;
+var gmReviewFocusField = false;   // Settings is opening to show the field
+
+function gmReviewBtnLabel() { return escHtml(gmT("Pedir avalia\u00e7\u00e3o no Google", "Ask for a Google review")); }
+function gmReviewTitle() { return gmT("Pedir avalia\u00e7\u00e3o no Google", "Ask for a Google review"); }
+
+// "Review requested 10/05/2026 by Maria". The date is MM/DD/YYYY in both
+// languages, on the same clock as every other stamp on the project
+// (formatDateUTC). No name when the Worker withholds it.
+function gmReviewLineHtml(jobId) {
+  var d = gmReviewData[jobId];
+  var last = d && d.last;
+  if (!last || !last.requested_at) { return ""; }
+  return escHtml(gmT("Avalia\u00e7\u00e3o pedida em ", "Review requested ") + formatDateUTC(last.requested_at) +
+    (last.requested_by ? gmT(" por ", " by ") + last.requested_by : ""));
+}
+function gmReviewLineDraw(jobId) {
+  var el = document.getElementById("gmReviewLine");
+  if (el && gmSheetKind === "job" && gmSheetRow && gmSheetRow.id === jobId) { el.innerHTML = gmReviewLineHtml(jobId); }
+}
+function gmReviewLoad(jobId) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/review-request")
+    .then(function(d) { gmReviewData[jobId] = d; gmReviewLineDraw(jobId); })
+    .catch(function(e) { console.error("review request load: " + e.message); });
+}
+
+function gmReviewBtnBusy(on) {
+  gmReviewBusy = on;
+  var btn = document.getElementById("gmReviewBtn");
+  if (btn) { btn.disabled = on; btn.innerHTML = on ? escHtml(gmT("Carregando\u2026", "Loading\u2026")) : gmReviewBtnLabel(); }
+}
+
+// The tap. The project sheet stays where it is until there is something to
+// show, and every outcome shows something: the send sheet, the "no link"
+// card, or the error with a way to try again.
+function gmReviewOpen(jobId) {
+  if (gmReviewBusy) { return; }
+  gmReviewBtnBusy(true);
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/review-request")
+    .then(function(d) {
+      gmReviewBtnBusy(false);
+      gmReviewData[jobId] = d;
+      gmReviewLineDraw(jobId);
+      gmReviewShow(jobId, d);
+    })
+    .catch(function(e) {
+      gmReviewBtnBusy(false);
+      console.error("review request: " + e.message);
+      // What was loaded when the project opened still sends.
+      var had = gmReviewData[jobId];
+      if (had && had.has_link && had.message) { gmReviewShow(jobId, had); return; }
+      gmAsk({
+        message: gmT("N\u00e3o foi poss\u00edvel preparar o pedido de avalia\u00e7\u00e3o.", "Could not prepare the review request.") + "\n\n" + e.message,
+        yes: gmT("Tentar de novo", "Try again"), keep: gmT("Fechar", "Close"),
+        onYes: function() { gmReviewOpen(jobId); }
+      });
+    });
+}
+
+function gmReviewShow(jobId, d) {
+  if (!d || !d.has_link || !d.message) {
+    // No link saved: nothing is sent and nothing is recorded.
+    if (gmIsSeller()) {
+      gmAsk({ message: gmT("O dono ainda n\u00e3o adicionou o link de avalia\u00e7\u00e3o do Google.", "The owner has not added the Google review link yet."), keep: "OK" });
+    } else {
+      gmAsk({
+        message: gmT("Adicione primeiro o seu link de avalia\u00e7\u00e3o do Google", "Add your Google review link first"),
+        yes: gmT("Abrir configura\u00e7\u00f5es", "Open settings"), keep: gmT("Agora n\u00e3o", "Not now"),
+        onYes: gmReviewOpenSettings
+      });
+    }
+    return;
+  }
+  gmReviewSend = { jobId: jobId, d: d };
+  try {
+    gmReviewSheetRender();
+    if (!document.getElementById("gmReviewCopyBtn")) { throw new Error("send sheet did not open"); }
+  } catch (e) {
+    console.error("review send sheet: " + (e && e.message));
+    gmReviewFallback();
+  }
+}
+
+// Owner only: Estimates > Settings, scrolled to the field.
+function gmReviewOpenSettings() {
+  gmSheetClose();
+  gmEstimatesSection = "settings";
+  gmReviewFocusField = true;
+  if (typeof switchTab === "function") { switchTab("gmestimates"); } else { gmLoadEstimates(); }
+}
+function gmReviewFocusSettingsField() {
+  if (!gmReviewFocusField || gmEstimatesSection !== "settings") { return; }
+  var el = document.getElementById("gmDocReviewLink");
+  if (!el) { return; }
+  gmReviewFocusField = false;
+  try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+  try { el.focus(); } catch (e3) {}
+}
+
+// The send sheet: the twin of gmDocSendSheetRender, plus Copy. The phone is
+// the customer's phone on the project's lead (the contact card's rule).
+function gmReviewSheetRender() {
+  var s = gmReviewSend; if (!s) { return; }
+  var row = null;
+  ((gmJobsData && gmJobsData.jobs) || []).forEach(function(j) { if (j.id === s.jobId) { row = j; } });
+  var lead = row && row.lead_id ? gmLeadById(row.lead_id) : null;
+  var phone = s.d.phone || (lead && lead.telefone) || "";
+  var text = s.d.message;
+  var digits = gmWaDigits(phone);
+  var body = '<div class="gm-sheet-section">' +
+    '<div class="gm-contact-row">' +
+      '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmReviewPress(\'sms\')">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
+      '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmReviewPress(\'whatsapp\')">' + gmIcon("wa") + 'WhatsApp</a>' +
+    '</div>' +
+    (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
+    '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + '</div>' +
+    '<p class="gm-derived-note" id="gmReviewPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
+    '<button type="button" class="gm-btn-secondary" id="gmReviewCopyBtn" onclick="gmReviewCopy()">' + escHtml(gmT("Copiar mensagem", "Copy message")) + '</button>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmReviewBack()">' + gmT("Voltar", "Back") + '</button></div>';
+  gmSheetOpen(escHtml(gmReviewTitle()), body);
+}
+
+// Back to the project the sheet was opened from.
+function gmReviewBack() {
+  var s = gmReviewSend;
+  var list = (gmJobsData && gmJobsData.jobs) || [];
+  for (var i = 0; s && i < list.length; i++) { if (list[i].id === s.jobId) { gmOpenJob(i); return; } }
+  gmSheetClose();
+}
+
+// One press of WhatsApp / text / copy. Never awaited and never in the way of
+// the send: the link or the copy has already gone ahead when this answers,
+// and a failed write only leaves the "Review requested" line as it was.
+function gmReviewPress(channel) {
+  var s = gmReviewSend; if (!s) { return; }
+  var jobId = s.jobId;
+  try {
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/review-request", { method: "POST", body: { channel: channel } })
+      .then(function(d) {
+        if (d && d.last) {
+          if (!gmReviewData[jobId]) { gmReviewData[jobId] = d; } else { gmReviewData[jobId].last = d.last; }
+          gmReviewLineDraw(jobId);
+        }
+      })
+      .catch(function(e) { console.error("review request log: " + e.message); });
+  } catch (e) { console.error("review request log: " + (e && e.message)); }
+}
+
+function gmReviewCopy() {
+  var s = gmReviewSend; if (!s) { return; }
+  var text = s.d.message;
+  gmReviewPress("copy");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      gmToast(gmT("Mensagem copiada", "Message copied"));
+    }).catch(function() { gmReviewCopyCard(text); });
+  } else {
+    gmReviewCopyCard(text);
+  }
+}
+// Clipboard unavailable: the message in a selected, read-only field to copy by hand.
+function gmReviewCopyCard(text) {
+  gmAsk({ message: gmT("Copie a mensagem:", "Copy the message:"), input: { value: text, multiline: true, readonly: true }, keep: gmT("Fechar", "Close") });
+}
+// The send sheet could not open: the message (with the link in it) is shown
+// in a card with a Copy button, so the tap never ends in nothing.
+function gmReviewFallback() {
+  var s = gmReviewSend; if (!s) { return; }
+  gmAsk({
+    message: gmReviewTitle() + "\n\n" + s.d.link,
+    input: { value: s.d.message, multiline: true, readonly: true },
+    yes: gmT("Copiar mensagem", "Copy message"), keep: gmT("Fechar", "Close"),
+    onYes: function() { gmReviewCopy(); }
+  });
+}
+
 // I2: a salesperson photo is resized in the page (square, 512px JPEG) before
 // it is uploaded, so the card and the referral page load fast.
 function gmResizeToJpeg(file, size) {
@@ -3976,7 +4193,7 @@ function gmOpenJob(idx) {
   gmRenderSimpleSheet("job");
   // A brand-new project has no id yet, so it has nothing to attach photos or
   // notes to. A seller has no route to either, so neither is fetched.
-  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); gmDLoadJobTools(gmSheetRow.id); }
+  if (gmSheetRow && gmSheetRow.id) { gmLoadJobInvoices(gmSheetRow.id); gmLoadJobContracts(gmSheetRow.id); gmLoadJobChangeOrders(gmSheetRow.id); gmDLoadJobTools(gmSheetRow.id); gmReviewLoad(gmSheetRow.id); }
   if (gmSheetRow && gmSheetRow.id && !gmIsSeller()) {
     gmLoadValueHistory("jobs", gmSheetRow.id, "gmJobValueHistory");
     gmLoadJobPhotos(gmSheetRow.id);
@@ -7321,6 +7538,12 @@ function gmJobSheetBody(row, spec) {
     body += '<button type="button" class="gm-btn-secondary" style="width:100%;margin:6px 0 10px;" onclick="gmCardSendOpen(\'' + escHtml(row.lead_id) + '\')">' + gmT("Enviar cartão de contato", "Send contact card") + '</button>';
     if (pl) { body += gmLeadReferralHtml(pl); }
   }
+  // Job 37: ask the customer for a Google review. On every saved project;
+  // the line under it shows the most recent press.
+  if (row && row.id) {
+    body += '<button type="button" class="gm-btn-secondary" id="gmReviewBtn" style="width:100%;margin:6px 0 4px;" onclick="gmReviewOpen(\'' + escHtml(row.id) + '\')">' + gmReviewBtnLabel() + '</button>' +
+      '<p class="gm-derived-note" id="gmReviewLine" style="margin:0 0 10px;">' + gmReviewLineHtml(row.id) + '</p>';
+  }
   // G6b: the job name, apart from the customer's name.
   // G5e: a project made by hand becomes a lead in one step.
   if (row && row.id) {
@@ -9014,6 +9237,7 @@ function gmRenderEstimatesTab() {
     html += gmEstimatesListHtml();
   }
   body.innerHTML = html;
+  gmReviewFocusSettingsField();
 }
 
 // ── Settings form ─────────────────────────────────────────────────────────
@@ -9031,6 +9255,7 @@ function gmDocDraftFromSettings() {
     address:    st.address || pre.address || "",
     phone:      st.phone || pre.phone || "",
     email:      st.email || pre.email || "",
+    google_review_link: st.google_review_link || "",
     licenses:   (st.license_numbers && st.license_numbers.length) ? st.license_numbers.slice() : [""],
     min_margin_pct: (st.min_margin_pct === null || st.min_margin_pct === undefined) ? "" : String(st.min_margin_pct),
     estimate_valid_days: String(st.estimate_valid_days === undefined ? 30 : st.estimate_valid_days),
@@ -9119,6 +9344,7 @@ function gmDocSettingsFormHtml() {
     '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
     '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
+    gmReviewSettingsFieldHtml(d) +
     '</div>';
 
   // ── Payment methods ──
@@ -9506,6 +9732,15 @@ function gmDocSettingsSave() {
     gmDocShowMsg(false, gmT("As cores precisam ter 6 dígitos hex, ex.: #1F2A44.", "Colors must be a 6-digit hex value, e.g. #1F2A44."));
     return;
   }
+  // Job 37: a review link that is not a Google https address is refused here
+  // and again by the Worker; nothing is saved.
+  var reviewErr = document.getElementById("gmDocReviewLinkErr");
+  if (!gmReviewLinkOk(d.google_review_link)) {
+    if (reviewErr) { reviewErr.hidden = false; }
+    gmDocShowMsg(false, gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN));
+    return;
+  }
+  if (reviewErr) { reviewErr.hidden = true; }
   for (var i = 0; i < d.presets.length; i++) {
     if (!String(d.presets[i].name || "").trim()) {
       gmDocShowMsg(false, gmT("Todo modelo de parcelamento precisa de um nome.", "Every schedule preset needs a name."));
@@ -9529,6 +9764,7 @@ function gmDocSettingsSave() {
     address: d.address.trim() || null,
     phone: d.phone.trim() || null,
     email: d.email.trim() || null,
+    google_review_link: String(d.google_review_link || "").trim() || null,
     license_numbers: licenses,
     estimate_valid_days: Number(d.estimate_valid_days) || 30,
     default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode),
@@ -9903,6 +10139,7 @@ var GM_DOC_HISTORY_LABELS = {
   payment_methods_json: ["Formas de pagamento", "Payment methods"], late_fee_annual_pct: ["Juros por atraso (% ao ano)", "Late payment interest (% per year)"],
   late_fee_grace_days: ["Carência (dias)", "Grace period (days)"], schedule_presets_json: ["Modelos de parcelamento", "Schedule presets"],
   estimate_message: ["Mensagem do orçamento", "Estimate message"], invoice_message: ["Mensagem da fatura", "Invoice message"], receipt_message: ["Mensagem do recibo", "Receipt message"], contract_message: ["Mensagem do contrato", "Contract message"],
+  google_review_link: ["Link de avalia\u00e7\u00e3o do Google", "Google review link"],
   hero_r2_key: ["Imagem de capa", "Cover image"], logo: ["Logo", "Logo"],
   hero_gallery_key: ["Imagem de capa da galeria", "Gallery cover image"], hero_framing: ["Enquadramento da imagem de capa", "Cover image framing"]
 };

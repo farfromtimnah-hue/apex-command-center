@@ -34521,28 +34521,54 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
             await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'job_removed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(actorName(user), id, rowId).run();
         }
         if (table === "gm_leads") {
-            await env.DB.prepare(
-                "UPDATE gm_base_ouro SET reactivated_lead_id = NULL WHERE reactivated_lead_id = ?"
-            ).bind(rowId).run();
-            // Written BEFORE the row goes, and it deliberately OUTLIVES the
-            // lead: gm_lead_events has no FK and no cascade, so the record of
-            // a deletion survives the thing it describes. Cascading would
-            // erase the history at the exact moment the most important event
-            // happens, leaving "who deleted the $145,000 lead?" unanswerable.
+            // A lead that has a project is never deleted: gm_jobs.lead_id has
+            // no cascade, and the owner must remove the project on purpose.
+            // Checked BEFORE anything is written, so a refusal leaves no trace.
+            var jobRows = await env.DB.prepare(
+                "SELECT id FROM gm_jobs WHERE lead_id = ? AND client_id = ? ORDER BY created_at, id"
+            ).bind(rowId, id).all();
+            var jobList = (jobRows && jobRows.results) || [];
+            if (jobList.length > 0) {
+                return jsonErr2(
+                    "Este lead tem um projeto, por isso n\u00e3o pode ser exclu\u00eddo. Exclua o projeto primeiro se ele foi criado por engano.",
+                    "This lead has a project, so it cannot be deleted. Delete the project first if it was created by mistake.",
+                    400,
+                    { code: "lead_has_project", job_id: jobList[0].id, job_count: jobList.length });
+            }
+            // One all-or-nothing batch: release the base-ouro back-link and the
+            // calendar entries (they stay on the calendar, just no longer tied
+            // to a lead), write the history line, delete the lead. If the
+            // delete fails, none of the rest happened either.
             //
-            // The lead's NAME goes in new_value because once the row is gone
-            // an id resolves to nothing, and an orphaned id is not an audit
-            // record.
-            await gmLogLeadEvents(env, id, rowId, actorName(user), [
-                { action: "deleted", field: "cliente",
-                  old_value: existing.estagio, new_value: existing.cliente }
+            // The history line deliberately OUTLIVES the lead: gm_lead_events
+            // has no FK and no cascade, so the record of a deletion survives
+            // the thing it describes. Cascading would erase the history at the
+            // exact moment the most important event happens, leaving "who
+            // deleted the $145,000 lead?" unanswerable. The lead's NAME goes in
+            // new_value because once the row is gone an id resolves to nothing.
+            await env.DB.batch([
+                env.DB.prepare("UPDATE gm_base_ouro SET reactivated_lead_id = NULL WHERE reactivated_lead_id = ?").bind(rowId),
+                env.DB.prepare("UPDATE gm_events SET lead_id = NULL WHERE lead_id = ?").bind(rowId),
+                env.DB.prepare(
+                    "INSERT INTO gm_lead_events (id, lead_id, client_id, action, field, old_value, new_value, actor, reason) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), rowId, id, "deleted", "cliente",
+                    existing.estagio === undefined || existing.estagio === null ? null : String(existing.estagio),
+                    existing.cliente === undefined || existing.cliente === null ? null : String(existing.cliente),
+                    actorName(user) || null, null),
+                env.DB.prepare("DELETE FROM gm_leads WHERE id = ? AND client_id = ?").bind(rowId, id)
             ]);
+            return jsonOk({ deleted: true });
         }
         await env.DB.prepare("DELETE FROM " + table + " WHERE id = ? AND client_id = ?")
             .bind(rowId, id).run();
         return jsonOk({ deleted: true });
     } catch (e) {
-        return jsonErr("Error deleting: " + e.message, 500);
+        // The technical text stays in the log and in `detail`, which the page
+        // never shows; the owner gets a plain sentence in both languages.
+        console.error("gm delete failed: " + (e && e.message));
+        return jsonErr2("N\u00e3o foi poss\u00edvel excluir. Nada foi alterado.", "Could not delete. Nothing was changed.", 500,
+            { detail: String((e && e.message) || e) });
     }
 }
 

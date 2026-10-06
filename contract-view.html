@@ -150,6 +150,15 @@
        (bold; 14px is 10.5 point, 16px is 12 point). */
     .clause.sys-em p { font-weight: 700; font-size: 14px; }
     .clause.sys-em12 p { font-size: 16px; }
+    /* RES-36: the type a statute states (18 point, capitals, larger than the
+       rest), a notice set apart on the face of the contract, a separate page. */
+    .clause.sys-em18 p { font-size: 24px; line-height: 1.3; }
+    .clause.sys-larger p { font-size: 17px; }
+    .clause.sys-caps p { text-transform: uppercase; }
+    .clause.state-face { border: 2px solid #111; padding: 10px; margin-bottom: 12px; }
+    .state-page .lien-sign, .clause .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; font-weight: 400; text-transform: none; }
+    .sp-row { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .sp-doc { padding: 8px 0; }
     /* L1: 12pt+ bold capitals, its own card, its own signature (statute format). */
     .lien-card p { font-size: 16px; font-weight: 800; text-transform: uppercase; line-height: 1.45; }
     .lien-card .lien-sign { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
@@ -333,6 +342,18 @@
       if (k === "owner_initials_arbitration" || k === "owner_initials_jury") { return con.homeowner_initials ? '<span class="tok-typed">' + escHtml(con.homeowner_initials) + '</span>' : tokLine(false); }
       if (k === "contractor_initials_arbitration" || k === "contractor_initials_jury") { return cs ? '<span class="tok-typed">' + escHtml(initialsOf(cs.signer_name)) + '</span>' : tokLine(false); }
       if (k === "owner_marketing_consent_checkbox") { return con.marketing_consent ? "[X]" : "[ ]"; }
+      // State parts (RES-36): the signature, date and initials of the part being drawn.
+      if (k === "state_part_signature" || k === "state_part_date") {
+        var spRec = curPart ? spDone("sign", curPart.id) : null;
+        if (k === "state_part_date") { return spRec ? escHtml(fmtDate(spRec.signed_at)) : tokLine(false); }
+        return spRec ? '<span class="tok-typed">' + escHtml(spRec.signer_name || "") + '</span>' : tokLine(true);
+      }
+      if (k === "state_part_company_signature") { return tokSig(cs ? { kind: cs.kind, image_url: cs.image_url } : null, cs ? cs.signer_name : ""); }
+      if (k === "state_part_company_date") { return cs ? escHtml(fmtDate(cs.signed_at)) : tokLine(false); }
+      if (k === "state_part_initials") {
+        var spIni = curPart ? (spDone("choose", curPart.id) || spDone("initials", curPart.id)) : null;
+        return spIni ? '<span class="tok-typed">' + escHtml(spIni.initials || "") + '</span>' : tokLine(false);
+      }
       // Cleaning service agreement: the signature line inside the continuing-services notice.
       if (k === "customer_signature") { return tokSig(hs || null, ownerName); }
       if (k === "customer_signature_date") { return hs ? escHtml(fmtDate(hs.signed_at)) : tokLine(false); }
@@ -402,6 +423,204 @@
     function bizName() { return (con.business && con.business.name) || "The company"; }
     function sectionById(id) { var out = null; (con.sections || []).forEach(function(s) { if (s.id === id) { out = s; } }); return out; }
 
+    // ── State parts (RES-36) ─────────────────────────────────────────────
+    // A state can ask for more than the words of a notice: a set place, a
+    // type size, a separate page the customer signs and dates, initials
+    // beside a provision, an agency document read before signing, the list
+    // of subcontractors and suppliers. con.state_parts says what this
+    // contract asks for and what was already done. Everything is signed in
+    // this same visit, under the same electronic consent as the contract.
+    var spTyped = {};    // part id -> the name typed and confirmed on that part
+    var spAcked = {};    // document slot -> true once the customer confirmed receipt
+    var curPart = null;  // the part whose text is being rendered (for its tokens)
+    function sp() { return (con && con.state_parts) || null; }
+    function spKey(id) { return String(id).replace(/[^A-Za-z0-9]/g, "_"); }
+    function spDone(kind, id) { var s = sp(); var d = s && s.done && s.done[kind]; return d && d[id] ? d[id] : null; }
+    function spAsks(kind, id) {
+      var s = sp(); var r = s && s.requires;
+      if (!r) { return false; }
+      if (kind === "choose") { return (r.choose || []).some(function(c) { return c.id === id; }); }
+      return (r[kind] || []).indexOf(id) !== -1;
+    }
+    function spDocAck(slot) { var out = null; ((sp() && sp().docs) || []).forEach(function(d) { if (d.slot === slot) { out = d.acknowledged || null; } }); return out; }
+    // What is still open on this contract: [{ kind, id }].
+    function spPending() {
+      var s = sp(); var out = [];
+      if (!s || !s.requires) { return out; }
+      (s.requires.sign || []).forEach(function(id) { if (!spDone("sign", id)) { out.push({ kind: "sign", id: id }); } });
+      (s.requires.initials || []).forEach(function(id) { if (!spDone("initials", id)) { out.push({ kind: "initials", id: id }); } });
+      (s.requires.choose || []).forEach(function(c) { if (!spDone("choose", c.id)) { out.push({ kind: "choose", id: c.id }); } });
+      (s.requires.ack || []).forEach(function(slot) { if (!spDocAck(slot)) { out.push({ kind: "ack", id: slot }); } });
+      return out;
+    }
+    // The parts are answered on the customer's own link: while the contract
+    // waits for its signature, and afterwards for a part that was left out.
+    function spLive() { return !previewId && !!con && (canRespond() || (con.status === "completed" && spPending().length > 0)); }
+    function spEmClass(s) {
+      var em = s.system === true && s.emphasis ? s.emphasis : null;
+      if (!em) { return ""; }
+      return " sys-em" + (em.min_pt >= 18 ? " sys-em18" : (em.min_pt >= 12 ? " sys-em12" : "")) + (em.caps ? " sys-caps" : "") + (em.larger ? " sys-larger" : "");
+    }
+    // The part's own words, with its tokens (signature, date, initials) drawn in.
+    function spTextHtml(s) {
+      var text = flowText(s.text);
+      var ch = s.choose ? spDone("choose", s.id) : null;
+      if (ch && s.choose[ch.index]) { text = text.split(s.choose[ch.index]).join(s.choose[ch.index].replace(/^_+/, "{state_part_initials}")); }
+      curPart = s;
+      var h = (s.date_above ? '<p class="small"><strong>Date of transaction: ' + escHtml(con.transaction_date ? fmtDate(con.transaction_date) : "the date you sign") + '</strong></p>' : "") + richHtml(text);
+      curPart = null;
+      return h;
+    }
+    function spSignedLine(rec, what) { return '<div class="lien-sign"><span class="lien-done">' + what + ': ' + escHtml(rec.signer_name || rec.initials || "") + '</span><div class="small muted">' + escHtml(fmtDateTime(rec.signed_at)) + '</div></div>'; }
+    // The boxes under a part: its own signature, initials, or a choice.
+    // passive: the same part is drawn a second time on the page (beside the
+    // signature and in the document body); only one copy carries the boxes.
+    function spControlsHtml(s, passive) {
+      var k = spKey(s.id), h = "", live = spLive() && !passive, nm = (con.homeowner_signature && con.homeowner_signature.signer_name) || con.customer_name || "";
+      if (s.sign) {
+        var sg = spDone("sign", s.id);
+        if (sg) { h += spSignedLine(sg, "Signed"); }
+        else if (!live || !spAsks("sign", s.id)) { h += '<div class="lien-sign small muted">Signature and date: collected when the customer signs.</div>'; }
+        else {
+          h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><h3 style="font-size:15px;">Sign this ' + (s.kind === "state_page" ? "page" : "notice") + '</h3><p class="small muted">It is signed and dated separately from the contract.</p>' +
+            '<div id="spForm_' + k + '"><label for="spName_' + k + '">Your full name</label><input type="text" id="spName_' + k + '" autocomplete="name" value="' + escHtml(nm) + '">' +
+            '<button type="button" class="btn" style="min-height:44px;" onclick="spSign(\'' + escHtml(s.id) + '\')">Sign this ' + (s.kind === "state_page" ? "page" : "notice") + '</button></div>' +
+            '<div id="spSigned_' + k + '" class="hidden" style="margin-top:8px;"><span class="lien-done">Signed: <span id="spSignedName_' + k + '"></span></span> <button type="button" class="btn secondary" style="min-height:44px;width:auto;padding:0 16px;margin-left:8px;" onclick="spUndo(\'' + escHtml(s.id) + '\')">Change</button></div>' +
+            '<div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+        }
+      }
+      if (s.initials) {
+        var ini = spDone("initials", s.id);
+        if (ini) { h += spSignedLine(ini, "Initialed"); }
+        else if (!live || !spAsks("initials", s.id)) { h += '<div class="lien-sign small muted">Initials: collected when the customer signs.</div>'; }
+        else { h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><label for="spIni_' + k + '">Your initials beside this provision</label><input type="text" id="spIni_' + k + '" maxlength="6" autocomplete="off" style="max-width:140px;"><div class="err" role="alert" id="spErr_' + k + '"></div></div>'; }
+      }
+      if (s.choose) {
+        var ch = spDone("choose", s.id);
+        if (ch) { h += spSignedLine(ch, "Initialed"); }
+        else if (!live || !spAsks("choose", s.id)) { h += '<div class="lien-sign small muted">Choice and initials: collected when the customer signs.</div>'; }
+        else {
+          h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><p class="small"><strong>Pick one and type your initials.</strong></p>' +
+            s.choose.map(function(o, i) { return '<label class="consent"><input type="radio" name="spCh_' + k + '" value="' + i + '"><span>' + escHtml(String(o).replace(/^_+\s*/, "")) + '</span></label>'; }).join("") +
+            '<label for="spIni_' + k + '">Your initials</label><input type="text" id="spIni_' + k + '" maxlength="6" autocomplete="off" style="max-width:140px;"><div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+        }
+      }
+      return h;
+    }
+    // A separate page: its own card, titled as the law titles it.
+    function spPageHtml(s) {
+      return '<div class="card state-page' + spEmClass(s) + '" id="spCard_' + spKey(s.id) + '"><h2>' + escHtml(s.title || "") + '</h2><div class="clause locked' + spEmClass(s) + '">' + spTextHtml(s) + '</div>' +
+        (s.copies > 1 ? '<p class="small muted">Two copies of this form are in your PDF copy of this contract. Keep both; use one if you decide to cancel.</p>' : "") + spControlsHtml(s) + '</div>';
+    }
+    function spNoticeHtml(s, passive) {
+      return '<div class="clause locked' + spEmClass(s) + (s.place === "face" || s.place === "first_page" ? " state-face" : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + spTextHtml(s) + spControlsHtml(s, passive) + '</div>';
+    }
+    function spSign(id) {
+      var k = spKey(id), inp = byId("spName_" + k), err = byId("spErr_" + k);
+      var v = inp ? inp.value.trim() : "";
+      if (!v) { if (err) { err.textContent = "Please type your full name to sign here."; } return; }
+      if (err) { err.textContent = ""; }
+      spTyped[id] = v;
+      var nm = byId("spSignedName_" + k); if (nm) { nm.textContent = v; }
+      var fm = byId("spForm_" + k), sd = byId("spSigned_" + k);
+      if (fm) { fm.classList.add("hidden"); }
+      if (sd) { sd.classList.remove("hidden"); }
+    }
+    function spUndo(id) {
+      var k = spKey(id);
+      delete spTyped[id];
+      var fm = byId("spForm_" + k), sd = byId("spSigned_" + k);
+      if (fm) { fm.classList.remove("hidden"); }
+      if (sd) { sd.classList.add("hidden"); }
+    }
+    function spAck(slot) {
+      spAcked[slot] = true;
+      var k = spKey(slot), b = byId("spAckBtn_" + k), d = byId("spAckDone_" + k), err = byId("spErr_" + k);
+      if (b) { b.classList.add("hidden"); }
+      if (d) { d.classList.remove("hidden"); }
+      if (err) { err.textContent = ""; }
+    }
+    // The agency documents given with the contract: opened from here, before
+    // the signature. One that needs a signed acknowledgment asks for it here.
+    function spDocsHtml() {
+      var docs = (sp() && sp().docs) || [];
+      if (!docs.length) { return ""; }
+      var live = spLive();
+      return '<div class="card state-doc" id="spDocsCard"><h2>Official documents given with this contract</h2><p class="small muted">Please open and read ' + (docs.length === 1 ? "this document" : "each document") + ' before you sign. ' + (docs.length === 1 ? "It is" : "They are") + ' the agency\'s own copy, unaltered.</p>' +
+        docs.map(function(d) {
+          var k = spKey(d.slot), h = '<div class="sp-doc"><div class="docs"><a href="' + escHtml(d.url) + '" target="_blank" rel="noopener">' + escHtml(d.title || "Document") + (d.version ? ' (' + escHtml(d.version) + ')' : "") + '</a></div>' + (d.cite ? '<div class="small muted">' + escHtml(d.cite) + '</div>' : "");
+          if (d.ack) {
+            if (d.acknowledged) { h += spSignedLine(d.acknowledged, "Received and read"); }
+            else if (live) {
+              h += '<div class="lien-sign sp-step" id="spStep_' + k + '"><button type="button" class="btn secondary" style="min-height:44px;" id="spAckBtn_' + k + '" onclick="spAck(\'' + escHtml(d.slot) + '\')">I received and read this document</button>' +
+                '<span class="lien-done hidden" id="spAckDone_' + k + '">Confirmed. It is recorded with your signature.</span><div class="err" role="alert" id="spErr_' + k + '"></div></div>';
+            } else { h += '<div class="lien-sign small muted">Acknowledgment: collected when the customer signs.</div>'; }
+          }
+          return h + '</div>';
+        }).join("") + '</div>';
+    }
+    // The subcontractors and suppliers of this job, as the project records them now.
+    function spListHtml() {
+      var l = sp() && sp().list;
+      if (!l || !l.rows || !l.rows.length) { return ""; }
+      var em = l.notice && l.notice.emphasis ? " sys-em" : "";
+      return '<div class="card" id="spListCard"><h2>Subcontractors and suppliers</h2><p class="small muted">The people and companies working on or supplying this job. This list follows the project: when it changes, this page shows the change.</p>' +
+        '<div class="sp-list">' + l.rows.map(function(r) {
+          return '<div class="sp-row"><strong>' + escHtml(r.name) + '</strong> <span class="small muted">' + (r.kind === "supplier" ? "Supplier" : "Subcontractor") + (r.trade ? " - " + escHtml(r.trade) : "") + '</span><br>' +
+            (r.address ? escHtml(r.address) : '<span class="muted">Address not on file yet</span>') + '<br>' + (r.phone ? escHtml(fmtPhone(r.phone)) : '<span class="muted">Telephone not on file yet</span>') + (r.license ? '<br><span class="small muted">License ' + escHtml(r.license) + '</span>' : "") + '</div>';
+        }).join("") + '</div>' + (l.notice ? '<div class="clause locked' + em + '" style="margin-top:10px;">' + richHtml(flowText(l.notice.text)) + '</div>' : "") + '</div>';
+    }
+    // What the signature sends for the state parts, or false (with the
+    // message shown at the part itself) when one is still open.
+    function spCollect(err) {
+      var out = { sign: {}, initials: {}, choose: {}, ack: {} }, any = false, bad = null;
+      function miss(key, msg) { if (bad) { return; } bad = key; var e = byId("spErr_" + key); if (e) { e.textContent = msg; } var st = byId("spStep_" + key); if (st && st.scrollIntoView) { st.scrollIntoView({ block: "center" }); } if (err) { err.textContent = msg; } }
+      spPending().forEach(function(p) {
+        var k = spKey(p.id);
+        if (p.kind === "sign") {
+          if (!spTyped[p.id]) { miss(k, "Please sign the separate notice above: it has its own signature."); return; }
+          out.sign[p.id] = spTyped[p.id]; any = true;
+        } else if (p.kind === "initials") {
+          var i1 = byId("spIni_" + k), v1 = i1 ? i1.value.trim() : "";
+          if (!v1) { miss(k, "Please type your initials beside the provision above."); return; }
+          out.initials[p.id] = v1; any = true;
+        } else if (p.kind === "choose") {
+          var picked = document.querySelector('input[name="spCh_' + k + '"]:checked'), i2 = byId("spIni_" + k), v2 = i2 ? i2.value.trim() : "";
+          if (!picked || !v2) { miss(k, "Please pick one choice above and type your initials."); return; }
+          out.choose[p.id] = { index: Number(picked.value), initials: v2 }; any = true;
+        } else if (p.kind === "ack") {
+          if (!spAcked[p.id]) { miss(k, "Please open the official document above and confirm you received it."); return; }
+          out.ack[p.id] = true; any = true;
+        }
+      });
+      if (bad) { return false; }
+      return any ? out : null;
+    }
+    // After the contract is signed: a part the first visit left out is
+    // finished here. It never holds the signed contract up.
+    function spLateHtml() {
+      if (previewId || !con || con.status !== "completed" || !spPending().length) { return ""; }
+      // One consent box at a time: the second owner's signature comes first.
+      if (con.second_signer && !con.second_signer.signed) { return ""; }
+      return '<div class="step" id="spLateStep"><h3>One more step</h3><p class="small">A notice above still needs your signature or initials. Complete it above, then press the button.</p>' +
+        esignConsentHtml(con.business, "", "btnSpLate") + '<div class="err" role="alert" id="spLateErr"></div>' +
+        '<button type="button" class="btn" id="btnSpLate" onclick="spLate()" disabled>Finish signing</button></div>';
+    }
+    function spLate() {
+      var err = byId("spLateErr"); if (!err) { return; }
+      err.textContent = "";
+      var parts = spCollect(err);
+      if (parts === false) { return; }
+      if (!parts) { return; }
+      var consent = byId("consent");
+      if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
+      var btn = byId("btnSpLate"); if (btn) { btn.disabled = true; }
+      fetch(WORKER_URL + "/api/public/contracts/" + token + "/state-parts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consent: true, consent_text_version: ESIGN_CONSENT_VERSION, state_parts: parts }) })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) { if (!r.ok) { throw new Error(r.data.error || "Could not sign"); } spTyped = {}; spAcked = {}; return load(); })
+        .catch(function(e) { if (btn) { btn.disabled = false; } sayErr(err, e.message); console.error(e); });
+    }
+
     function renderMeta() {
       var b = con.business;
       var whoLines = [];
@@ -446,8 +665,9 @@
     // signature (bold; the renewal panel in a box; the contract date above
     // the continuing-services notice).
     function besideSections() { return (con.sections || []).filter(function(s) { return s.beside_signature === true && s.id !== "L5-A"; }); }
-    function besideHtml() {
+    function besideHtml(passive) {
       return besideSections().map(function(s) {
+        if (s.system === true && s.line) { return spNoticeHtml(s, passive); }
         var f = s.format || {};
         var dateLine = s.date_above ? '<p class="small"><strong>Date: ' + escHtml(fmtDate(con.transaction_date || con.contract_date)) + '</strong></p>' : "";
         return dateLine + '<div class="clause locked" style="font-weight:700;font-size:' + (f.min_pt >= 12 ? "16px" : "14px") + ';' + (f.box ? "border:2px solid #111;padding:10px;" : "") + '">' + richHtml(s.text) + '</div>';
@@ -474,11 +694,16 @@
           h += '</div><div class="card state-doc"><h2>' + escHtml(s.title || "") + '</h2><p class="small muted">This document is given to you with this contract' + (s.cite ? ' (' + escHtml(s.cite) + ')' : "") + '. Please read it before you sign.</p><div class="clause">' + richHtml(flowText(s.text)) + '</div></div><div class="card">';
           return;
         }
+        // RES-36: a separate page is its own card; a part placed or styled
+        // by rule, or one with its own signature or initials, draws itself.
+        if (s.kind === "state_page") { h += '</div>' + spPageHtml(s) + '<div class="card">'; return; }
+        if (s.system === true && s.line) { h += spNoticeHtml(s); return; }
         var em = s.system === true && s.emphasis ? s.emphasis : null;
         h += '<div class="clause' + (s.kind === "locked" || s.kind === "state_notice" ? " locked" : "") + (em ? " sys-em" + (em.min_pt >= 12 ? " sys-em12" : "") : "") + '">' + (s.title ? '<div class="clause-title">' + escHtml(s.title) + '</div>' : "") + richHtml(s.system === true ? flowText(s.text) : s.text) + '</div>';
       });
       h += '</div>';
-      if (besideSections().length) { h += '<div class="card" id="besideCard">' + besideHtml() + '</div>'; }
+      if (besideSections().length) { h += '<div class="card" id="besideCard">' + besideHtml(canRespond()) + '</div>'; }
+      h += spDocsHtml() + spListHtml();
       box.innerHTML = h;
       setupCanvas("lienCanvas", "lien");
     }
@@ -589,7 +814,7 @@
       if (con.status === "homeowner_signed" || con.status === "completed") {
         banner.innerHTML = signedHtml();
         banner.classList.remove("hidden");
-        card.innerHTML = secondSignHtml() + '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml();
+        card.innerHTML = secondSignHtml() + spLateHtml() + '<p class="muted">You can download a copy of this signed contract at any time.</p>' + cancellationCopiesHtml();
         return;
       }
       if (isPreviewDraft()) {
@@ -821,6 +1046,11 @@
         body.initials = v;
       }
       if (req("marketing_checkbox")) { var mk = byId("marketing"); body.marketing_consent = !!(mk && mk.checked); }
+      // RES-36: the separate pages, initials and acknowledgments a state
+      // asks for are signed in this same visit and sent with the signature.
+      var stateParts = spCollect(err);
+      if (stateParts === false) { return; }
+      if (stateParts) { body.state_parts = stateParts; }
       var consent = byId("consent");
       if (!consent || !consent.checked) { sayErr(err, "Please agree to sign electronically."); return; }
       if (sigKind === "drawn") {

@@ -30,6 +30,20 @@ export function allLines(code) {
   // every one-question fact left unanswered (the safe side: they print).
   job.sys_lines = {};
   F.contractStatePrintPlan(st, job, F.contractStateFacts({}, null)).forEach(function (p) { job.sys_lines[p.line] = p.mode; job.sys_lines["notice:" + p.notice.id] = p.mode; });
+  // RES-36: the lines the builder finishes (placement, type, signed page,
+  // initials, blanks, list, message, agency document), on the job where the
+  // system has what it needs: every question answered Yes, the business facts
+  // answered, the blanks' values on file, the project's records complete.
+  // An agency document counts as loaded only when its file ships with the
+  // site (state-docs/); a slot that waits for Apex staff counts as not loaded.
+  const yes = {};
+  Object.keys(sorting.facts).forEach(function (k) { if (sorting.facts[k].en) { yes[k] = "yes"; } });
+  const facts = F.contractStateFacts({ state_facts: yes }, { deposit: true, progress: true, arbitration: true, arb_or_jury: true });
+  const values = { business_legal_name: "Sunrise Pools LLC", business_address: "100 Bay St, Tampa, FL 33602", business_phone: "(813) 555-0100", business_email: "office@sunrise.test", property_address: "12 Main St, Riverview",
+    company_signer_name: "Pat Owner", biz_cgl_insurer: "Acme Mutual", biz_cgl_phone: "(800) 555-1212", biz_cgl_policy: "GL-1" };
+  Object.keys(sorting.ask || {}).forEach(function (k) { values["sv_" + k] = "on file"; });
+  job.finish = F.contractStateFinishPlan(st, job, facts, { values: values, biz: { cgl: "yes", wc: "yes" }, slots: F.contractStateSlots(null),
+    parties: { subs: [{ name: "Gulf Plumbing", address: "9 Pipe Rd", phone: "5125550101" }], suppliers: [] } });
   const lines = F.contractStateChecklist(st, job);
   const seen = {};
   lines.forEach(function (l) { seen[l.key] = true; });
@@ -66,7 +80,16 @@ Object.keys(sorting.generic).forEach(function (k) {
 let total = { A: 0, H: 0, B: 0, flags: 0, general: 0, does: 0, sees: 0, person: 0 };
 let body = "";
 // For the summary file.
-const sum = [], needText = [], needMore = [], shared = {}, sharedOrder = [];
+const sum = [], needText = [], needMore = [], needFile = [], outside = [], shared = {}, sharedOrder = [];
+// After the third research pass: why each notice still has no printable wording.
+const held = { lawyer: [], current: [], review: [], missing: [], none: [] };
+// Does a person line carry a direct link to the official page or document?
+const linkCount = { own_yes: 0, own_no: 0 };
+function linkMark(a, isNotice) {
+  if (a.links && a.links.length) { linkCount.own_yes++; return "\n[link] " + a.links.map(function (k) { return k.en + " -> " + k.url; }).join(" ; ") + (a.link_note_en ? " Note on the line: " + a.link_note_en : ""); }
+  linkCount.own_no++;
+  return "\n[no link] " + (isNotice ? "The research recorded no web address for this notice." : "The research gives this rule by name or law number only, with no web address.");
+}
 riders.states.forEach(function (s) {
   const code = s.code;
   if (code === "FL") {
@@ -101,17 +124,33 @@ riders.states.forEach(function (s) {
       st3[kind].push(kind === "person" ? fillRow(e.en, l, r.st.name) + " (" + ref + ")" : a.en);
       // A person-only line from a rule every state shares is written once in
       // the summary; a line this state has of its own is written under the state.
-      if (kind === "person" && ownRows[l.key]) { st3.own.push(fillRow(e.en, l, r.st.name) + " (" + ref + ")"); }
+      if (kind === "person" && ownRows[l.key]) { st3.own.push(fillRow(e.en, l, r.st.name) + " (" + ref + ")" + linkMark(a, /^notice:/.test(l.key))); }
       else if (kind === "person") {
         const gk = fillRow(e.en, Object.assign({}, l, { vars: {} }), "{state}") + (/^cleaning_/.test(l.key) ? " [cleaning agreements only]" : "");
         if (!shared[gk]) { shared[gk] = 0; sharedOrder.push(gk); }
         shared[gk]++;
       }
       const nid = /^notice:/.test(l.key) ? l.key.slice(7) : null, n = nid ? noticeById[nid] : null;
-      if (kind === "person" && n && !n.text && !n.text_on_file) {
+      if (kind === "person" && e.outside) {
+        outside.push(r.st.name + ": " + fillRow(e.en, l, r.st.name) + ". Why: " + e.outside);
+      } else if (kind === "person" && l.plan && l.plan.state === "no_slot") {
+        needFile.push(r.st.name + ": " + fillRow(e.en, l, r.st.name) + ". The agency's file: " + (l.plan.slot ? l.plan.slot.slot : "") + ".");
+      } else if (kind === "person" && e.held && held[e.held.cat]) {
+        held[e.held.cat].push(r.st.name + ": " + (n ? n.title + " (" + n.cite + ")" : fillRow(e.en, l, r.st.name)) + ". Why: " + e.held.why);
+      } else if (kind === "person" && n && !n.text && !n.text_on_file) {
         needText.push(r.st.name + ": " + n.title + " (" + n.cite + "). " + (n.hold_reason ? "Why: " + short(n.hold_reason, 150) : "Why: no official copy obtained (" + (n.source_status || "NOT OBTAINED") + ")") + ".");
       } else if (kind === "person" && (n && n.text_on_file || e.needs)) {
         needMore.push(r.st.name + ": " + fillRow(e.en, l, r.st.name) + ". Why: " + short(e.needs || "the law says where or how it must be given: " + n.format, 230) + ".");
+      }
+      // RES-36: the piece of this line no system can do is its own hand-tick line.
+      const also = actionByKey[l.key + "#also"];
+      if (also) {
+        row += "  ACTION      " + also.en + " (" + ref + ")\n              Portuguese (draft): " + also.pt + "\n              Who does it: " + WHO.person + "\n";
+        row += wrap("Why a person: " + e.also.why, "              ") + "\n              [line: " + l.key + "#also]\n";
+        total.person++; total.A++;
+        st3.person.push(also.en + " (" + ref + ")"); st3.own.push(also.en + " (" + ref + ")" + linkMark(also, /^notice:/.test(l.key)));
+        if (e.also.needs_text) { held.missing.push(r.st.name + ": " + also.en + ". Why: " + e.also.why); }
+        else { outside.push(r.st.name + ": " + also.en + ". Why: " + e.also.why); }
       }
     } else {
       row += wrap((e && e.why ? e.why : "No row was written for this line, so it is treated as background.") + " [" + l.key + (/^cleaning_/.test(l.key) ? ", cleaning agreements only" : "") + "]", "              ").replace(/^ {14}/, "  " + (NAMES[cls] + "          ").slice(0, 12)) + "\n";
@@ -186,7 +225,11 @@ let summary = [
   "",
   "Three kinds of line:",
   "  SYSTEM DOES IT     Apex prints the notice in the contract (copied from the official wording on",
-  "                     file, never retyped) or gives the document to the customer with the contract.",
+  "                     file, never retyped), in the place and the type the law states, with its",
+  "                     blanks filled; collects a separate signature or initials inside the",
+  "                     customer's own signing visit; builds the subcontractor and supplier list;",
+  "                     puts a required sentence beside the message; or gives the document to the",
+  "                     customer with the contract.",
   "  SYSTEM CAN SEE IT  a person does it inside Apex (a signature, the photo acknowledgment) and",
   "                     Apex ticks the line when it happens.",
   "  PERSON ONLY        nothing in Apex can do or see it. The person ticks it by hand.",
@@ -195,6 +238,12 @@ let summary = [
   "number on file, the customer married, the sale made in English). A real contract shows fewer.",
   "Lines that depend on one fact (homestead, married, credit, age, subcontractors) ask one Yes / No /",
   "Not sure question; a No takes the line off the card.",
+  "A line that states a fact or asks the customer for a signature is done by the system only after a",
+  "Yes; the counts assume those Yes answers, the insurance questions answered in the contract",
+  "settings, and the project's subcontractors and suppliers on file with address and telephone.",
+  "An agency document (a pamphlet or form that must be handed over unaltered) counts as the system's",
+  "only when the agency's own PDF ships with the site; the others show under PERSON until Apex staff",
+  "load the file.",
   "",
   "All states together: " + total.does + " system does it, " + total.sees + " system can see it, " + total.person + " person only.",
   "",
@@ -208,23 +257,45 @@ let summary = [
 ]).concat(sharedOrder.map(function (k) { return wrap("- " + k + "  [" + shared[k] + "]", "").replace(/\n/g, "\n  "); })).concat([
   "",
   "",
+  "None of these shared lines carries a link: the research gives each rule by name only (a license",
+  "class, a pool rule, a renewal rule), with no official page for it. The card says so by showing none.",
+  "",
+  "",
   "PERSON-ONLY LINES EACH STATE HAS OF ITS OWN",
   "-------------------------------------------",
+  "Under each line: [link] what the contractor opens in one tap, right on the line, and its address; or",
+  "[no link] and why. A link opens in a new tab (in the iOS app, in the phone's browser); nothing is",
+  "recorded for opening it.",
+  "@@LINKCOUNT@@",
   ""
 ]).join("\n");
 sum.forEach(function (x) {
   if (!x.own.length) { return; }
   summary += x.name + " (" + x.code + ")\n";
-  x.own.forEach(function (t) { summary += wrap("- " + t, "  ").replace(/\n  /g, "\n    ") + "\n"; });
+  x.own.forEach(function (t) { t.split("\n").forEach(function (part, i) { summary += wrap((i ? "" : "- ") + part, i ? "      " : "  ").replace(/\n  (?! )/g, "\n    ") + "\n"; }); });
   summary += "\n";
 });
+summary = summary.replace("@@LINKCOUNT@@", "Of these lines, " + linkCount.own_yes + " carry a direct link and " + linkCount.own_no + " do not.");
 summary += "States with no person-only line of their own: " + (sum.filter(function (x) { return !x.own.length; }).map(function (x) { return x.code; }).join(", ") || "none") + ".\n\n";
-summary += "\nNEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT (" + needText.length + ")\n" + "-----------------------------------------------------\n" +
-  "The state requires a notice, but no official word-for-word copy is on file, so nothing prints and\nthe line stays with a person. Get the official wording and the system can print it.\n\n" +
-  needText.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") + "\n\n" +
+function bullets(list) { return list.length ? list.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") : "None."; }
+const needAll = needText.length + held.none.length + held.missing.length + held.current.length + held.review.length;
+summary += "\nNEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT (" + needAll + ")\n" + "-----------------------------------------------------\n" +
+  "The state requires a notice, but there is no official word-for-word copy the system may print, so\nnothing prints and the line stays with a person. Sorted by what is missing, after the third research\npass (10/05/2026). Each item says why it is still here.\n\n" +
+  "No official copy was obtained (" + held.missing.length + "):\n" + bullets(held.missing) + "\n\n" +
+  "Needs a current official copy (" + held.current.length + "): the copy on record is the text as first enacted and was not\nchecked for later amendments.\n" + bullets(held.current) + "\n\n" +
+  "The official copy needs review before it may print (" + held.review.length + "):\n" + bullets(held.review) + "\n\n" +
+  "The law prescribes no wording, or none that fits (" + (held.none.length + needText.length) + "): the state lists what the notice must say and\ngives no sentence to copy. A lawyer would have to write or approve the wording.\n" + bullets(held.none.concat(needText)) + "\n\n" +
+  "\nNEEDS A LAWYER'S ANSWER (" + held.lawyer.length + ")\n" + "-----------------------------\n" +
+  "Official wording or the agency's document exists, but using it raises a question only a lawyer can\nsettle. Nothing prints and nothing is attached until then; the line stays with a person.\n\n" + bullets(held.lawyer) + "\n\n" +
   "\nWORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET (" + needMore.length + ")\n" + "---------------------------------------------------------------\n" +
-  "Left to a person for the reason given (a separate signed page, initials, a set place on the page,\na blank to fill, a list Apex has no records for).\n\n" +
-  needMore.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") + "\n";
+  "Left to a person for the reason given.\n\n" +
+  (needMore.length ? needMore.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") : "None.") + "\n\n" +
+  "\nWAITING FOR THE AGENCY'S OWN DOCUMENT (" + needFile.length + ")\n" + "--------------------------------------------\n" +
+  "The system hands the agency's own file to the customer before they sign, records the delivery and\ncollects the signed acknowledgment where the law asks for one. Six agency PDFs ship with the site\n(Delaware, Oregon x2, Rhode Island, Virginia, Washington) and are the system's lines now. The files\nbelow are not loaded; until Apex staff load one, its line stays with the contractor (who is not\nshown this note).\n\n" +
+  needFile.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") + "\n\n" +
+  "\nSTAYS WITH A PERSON FOR GOOD: OUTSIDE APEX (" + outside.length + ")\n" + "-------------------------------------------------\n" +
+  "No system could do these: they happen on a document Apex does not make, on a state's own website,\nor before a notary.\n\n" +
+  outside.map(function (t) { return wrap("- " + t, "").replace(/\n/g, "\n  "); }).join("\n") + "\n";
 export const summaryText = summary;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -402,6 +402,9 @@
                 <input type="text" id="crDrownVer" placeholder="Vers&atilde;o / version">
                 <input type="file" id="crDrownFile" accept="application/pdf" style="margin-top:6px;">
                 <div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadDoc('drowning')"><span class="show-pt">Enviar PDF</span><span class="show-en">Upload PDF</span></button><span id="crDocMsg_drowning" class="cr-saved"></span></div>
+                <!-- RES-36: the agency documents a state wants handed over unaltered with the contract -->
+                <div style="margin-top:16px;"><label><span class="show-pt">Documentos oficiais dos estados (entregues com o contrato, sem altera&ccedil;&atilde;o)</span><span class="show-en">State agency documents (handed over with the contract, unaltered)</span></label></div>
+                <div id="crStateDocs"></div>
               </div>
             </div>
           </div>
@@ -809,6 +812,52 @@
         .then(function() { if (msg) { msg.textContent = t("Enviado.", "Uploaded."); } return crLoad(); })
         .catch(function(e) { if (msg) { msg.className = "cr-err"; msg.textContent = e.message; } console.error(e); });
     }
+    // RES-36: one slot per agency document. The file is the agency's own PDF,
+    // uploaded as published. Until a slot is loaded its line stays with the
+    // contractor and Apex staff see "Waiting: official document not loaded".
+    var crStateSlots = [];
+    function crLoadStateDocs() {
+      var box = document.getElementById("crStateDocs");
+      if (!box) { return Promise.resolve(); }
+      return apiFetch("/api/contracts/state-docs").then(function(d) { crStateSlots = d.slots || []; crRenderStateDocs(); })
+        .catch(function(e) { box.innerHTML = '<span class="cr-err">' + escHtml(e.message) + '</span>'; console.error(e); });
+    }
+    function crRenderStateDocs() {
+      var box = document.getElementById("crStateDocs");
+      if (!box) { return; }
+      box.innerHTML = crStateSlots.map(function(sl, i) {
+        return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #ddd;"><div><strong>' + escHtml(sl.state_name) + '</strong>: ' + escHtml(sl.title) + (sl.cite ? ' (' + escHtml(sl.cite) + ')' : "") + '</div>' +
+          '<div class="cr-meta">' + (sl.loaded ? '<a href="#" onclick="crOpenStateDoc(' + i + '); return false;">' + escHtml(sl.version || "PDF") + '</a>' : '<span class="cr-err">' + t("Aguardando: documento oficial n\u00e3o carregado", "Waiting: official document not loaded") + '</span>') +
+          (sl.shipped ? ' &middot; ' + t("arquivo oficial inclu\u00eddo no site", "official file shipped with the site") : "") +
+          (sl.ack ? ' &middot; ' + t("o cliente assina o recibo", "the customer signs an acknowledgment") : "") + '</div>' +
+          '<input type="text" id="crStateVer_' + i + '" placeholder="' + t("Vers\u00e3o (ex.: data da publica\u00e7\u00e3o)", "Version (e.g. publication date)") + '">' +
+          '<input type="file" id="crStateFile_' + i + '" accept="application/pdf" style="margin-top:6px;">' +
+          '<div class="cr-actions"><button type="button" class="cr-btn" onclick="crUploadStateDoc(' + i + ')">' + t("Enviar PDF", "Upload PDF") + '</button><span id="crStateMsg_' + i + '" class="cr-saved"></span></div></div>';
+      }).join("");
+    }
+    function crUploadStateDoc(i) {
+      var sl = crStateSlots[i], file = document.getElementById("crStateFile_" + i), ver = document.getElementById("crStateVer_" + i), msg = document.getElementById("crStateMsg_" + i);
+      if (!sl) { return; }
+      if (!file || !file.files || !file.files[0]) { if (msg) { msg.className = "cr-err"; msg.textContent = t("Escolha o PDF.", "Pick the PDF."); } return; }
+      var fd = new FormData();
+      fd.append("file", file.files[0]);
+      fd.append("version", ver ? ver.value.trim() : "");
+      if (msg) { msg.className = "cr-saved"; msg.textContent = t("Enviando...", "Uploading..."); }
+      apiFetch("/api/contracts/state-docs/" + encodeURIComponent(sl.slot), { method: "POST", body: fd })
+        .then(function() { return crLoadStateDocs(); })
+        .catch(function(e) { if (msg) { msg.className = "cr-err"; msg.textContent = e.message; } console.error(e); });
+    }
+    function crOpenStateDoc(i) {
+      var sl = crStateSlots[i];
+      if (!sl) { return; }
+      // A file that ships with the site opens from the site itself.
+      if (sl.url) { window.open(sl.url, "_blank"); return; }
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/contracts/state-docs/" + encodeURIComponent(sl.slot), { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.blob(); })
+        .then(function(b) { var u = URL.createObjectURL(b); window.open(u, "_blank"); })
+        .catch(function(e) { pageNotice("Erro: " + e.message); });
+    }
     function crOpenDoc(kind) {
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/contracts/admin-docs/" + kind, { headers: { "Authorization": "Bearer " + token } });
@@ -868,7 +917,7 @@
           crLib = d;
           crLib.reviews = crLib.reviews || {};
           if (crPrint) { crRenderDoc(); return; }
-          crRenderAdmin(); crRenderBanner(); crRenderList();
+          crRenderAdmin(); crRenderBanner(); crRenderList(); crLoadStateDocs();
         })
         .catch(function(e) {
           var box = document.getElementById("crList");

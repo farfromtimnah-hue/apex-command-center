@@ -5025,8 +5025,8 @@
     "MO": {
       "name": "Missouri",
       "strictness": 2,
-      "status": "notice text still needs official copy",
-      "status_reason": "1 of 4 notices still have no official wording loaded (1 held for a problem named in the state file).",
+      "status": "draft rider ready",
+      "status_reason": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it.",
       "license": {
         "state_level": false,
         "label": "local or trade license number, if your city or county requires one",
@@ -5092,9 +5092,21 @@
           "text_status": "VERBATIM-OFFICIAL",
           "text": null,
           "source_status": "VERBATIM-OFFICIAL",
-          "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=407.710",
-          "source_date": "Effective - 28 Aug 1973",
-          "hold_reason": "the 407.710(2) statement is not cleanly delimited: only the heading \"NOTICE OF CANCELLATION\" is in quotation marks, the Revisor extraction inserts a stray \"; and\" and instruction lines (\"Date of transaction must be filled in at time of sale by seller\") between the heading and the paragraph, and subsection (2) offers the federal form instead; also credit sales only, which the builder cannot tell"
+          "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=407.710&bid=23142",
+          "source_date": "Effective 28 Aug 1973 per page (L. 1973 H.B. 61 & 367 sec. 3)",
+          "source_pass": "pass3",
+          "range": {
+            "block": "MO-1 (RSMo 407.710): Notice of cancellation statement",
+            "block_index": 1,
+            "start": "If this agreement was solicited at your residence",
+            "end": "The notice must be mailed to: (______)",
+            "quote_note": "None inside the cut. The official page lays the notice out in a table: the caption \"NOTICE OF CANCELLATION\" (in the statute's quotation marks), the date line, the instruction lines and a stray \"; and\" come before the paragraph and are not in the cut; the instruction \"Name and mailing address of seller must be filled in at time of sale.\" follows the blank and is not in the cut.",
+            "blanks": [
+              "(______) after 'The notice must be mailed to:' (name and mailing address of seller)"
+            ],
+            "boundary_unsure": "The cut is the one paragraph the buyer reads. The caption and the date of the transaction are not in it: the builder prints the caption as the heading and the date above it. Stored, not printed by the loader: credit sales only, which the builder asks about."
+          },
+          "text_on_file": "If this agreement was solicited at your residence and you do not want the goods or services, you may cancel, without further obligation, this agreement by mailing a notice to the seller at the address as shown below, within 3 business days following the above date.  You shall return the goods to seller in substantially the same condition as when you obtained them.  Seller will then cancel all contracts and negotiable instruments executed by you and return any property given by you to seller within 10 days from date of transaction.  If seller does not pick up the purchased goods within 20 days from date of your cancellation, you may retain or dispose of the goods without any further obligation.  The notice must be mailed to: (______)"
         },
         {
           "id": "MO-consent",
@@ -7425,7 +7437,7 @@
       "name": "Rhode Island",
       "strictness": 3,
       "status": "notice text still needs official copy",
-      "status_reason": "3 of 6 notices still have no official wording loaded (2 held for a problem named in the state file).",
+      "status_reason": "2 of 6 notices still have no official wording loaded (1 held for a problem named in the state file).",
       "license": {
         "state_level": true,
         "label": "Registration",
@@ -7530,10 +7542,22 @@
           },
           "source_status": "VERBATIM-OFFICIAL",
           "source_url": "https://webserver.rilegislature.gov/Statutes/TITLE6/6-28/6-28-4.htm",
-          "source_date": "History ends P.L. 2014, ch. 528",
+          "source_date": "History: P.L. 1995, ch. 52; P.L. 2014, ch. 528; Last-Modified 2025-11-06",
           "text_status": "VERBATIM-OFFICIAL",
           "text": null,
-          "hold_reason": "The notice is printed as '. . . (date of transaction) “You may cancel this transaction ... ”': the date line sits outside the opening quotation mark and the sentence says 'from the above date'. Cutting inside the quotes leaves the notice without its date line; cutting from the date line would print an unbalanced quotation mark. Held rather than print a notice that points to a date line it does not have."
+          "source_pass": "pass3",
+          "range": {
+            "block": "RI-1 (R.I. Gen. Laws 6-28-4): Door-to-door \"Notice to buyer\" and Notice of Cancellation",
+            "block_index": 2,
+            "start": "You may cancel this transaction, without any penalty",
+            "end": "(insert name and address of the seller).",
+            "quote_note": "Cut sits inside the statute's own quotation marks (curly marks excluded); the caption 'Notice of Cancellation' is not in the cut.",
+            "blanks": [
+              "(insert name and address of the seller)"
+            ],
+            "boundary_unsure": "The statute prints '. . . (date of transaction)' before the opening quotation mark; that line is not in the cut. The builder prints the transaction date above the notice and the caption as its heading, the same way as the 5-65-27 notice (RI-62)."
+          },
+          "text_on_file": "You may cancel this transaction, without any penalty or obligation, within three (3) business days from the above date. If you cancel, your cancellation notice must state that you do not wish to be bound by the agreement and mailed by registered or certified mail not later than midnight three (3) days following the buyer’s signing the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. All cancellations must be mailed to:\n(insert name and address of the seller)."
         },
         {
           "id": "RI-62",
@@ -9044,8 +9068,8 @@
     "WI": {
       "name": "Wisconsin",
       "strictness": 4,
-      "status": "notice text still needs official copy",
-      "status_reason": "1 of 10 notices still have no official wording loaded.",
+      "status": "draft rider ready",
+      "status_reason": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it.",
       "license": {
         "state_level": true,
         "label": "Dwelling Contractor Certificate",
@@ -9147,16 +9171,20 @@
         },
         {
           "id": "WI-brochure",
-          "title": "Right to Cure brochure (DSPS form SBD-10845) handed over with the defect notice",
+          "title": "Wisconsin \"Right to Cure Law\" brochure (Department of Safety and Professional Services)",
           "cite": "895.07(13); 101.148(2)(a)",
           "trigger": "Contract to construct or remodel a dwelling; delivered with the Notice Concerning Construction Defects",
-          "format": "Hand over the state's own PDF, not retyped text; the only copy is a City of Verona copy, revision R08/14, and the current revision is unconfirmed",
-          "applies": {},
-          "source_status": "VERBATIM-SECONDARY",
-          "source_url": "http://www.veronawi.gov/DocumentCenter/View/95/Right-to-Cure-Brochure-PDF",
-          "source_date": "form revision 08/14",
-          "text_status": "VERBATIM-SECONDARY",
-          "text": null
+          "format": "A copy of the brochure delivered with the Notice Concerning Construction Defects, before the contract; the brochure is published as a web page",
+          "applies": {
+            "residential": true
+          },
+          "source_status": "VERBATIM-OFFICIAL",
+          "source_url": "https://dsps.wi.gov/a-z-programs-list/udc/references/right-to-cure-law/",
+          "source_date": "No date on page; sitemap lastmod 2026-09-24",
+          "text_status": "VERBATIM-OFFICIAL",
+          "text": null,
+          "source_pass": "pass3",
+          "text_on_file": "Wisconsin “Right to Cure Law”\nThe “Right to Cure Law” provides the steps and timetables to be followed in resolving any claims of dwelling construction defects by consumers against contractors or suppliers. Claims must be pursued through the “Right to Cure Law” process before arbitration or before legal action.\nThe 2005 Wisconsin Act 201, the “Right to Cure Law,” says that consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure describing requirements for making any future claims of construction defects.\nPeople who feel they have a claim concerning defective workmanship or materials need to provide written notice to contractors or suppliers before any legal action may be filed. The contractors and suppliers have the opportunity and the responsibility to respond to claims.\nConstruction defects can involve workmanship, materials, or code requirements in new construction or remodeling, but not maintenance or repairs. Claims may be made by owners, tenants, or property associations.\nThis document highlights some of the provisions of the “Right to Cure Law”, and is not a complete description of the law, and is not a substitute for legal representation.\nNotice Concerning Construction\nDefects Wisconsin law contains important requirements you must follow before you may file a lawsuit for defective construction against the contractor who constructed your dwelling or completed your remodeling project or against a window or door supplier or manufacturer. Section 895.07 (2) and (3) of the Wisconsin statutes requires you to deliver to the contractor a written notice of any construction conditions you allege are defective before you file your lawsuit, and you must provide your contractor or window or door supplier the opportunity to make an offer to repair or remedy the alleged construction defects. You are not obligated to accept any offer made by the contractor or window or door supplier. All parties are bound by applicable warranty provisions.\nChronology of the step-by-step claim and response interaction between consumers and contractors/suppliers\nStep One: Notice of Claim\nAt least 90 working days before commencing an action against a contractor or window or door supplier or manufacturer, a claimant must deliver a written notice of the alleged defect to the contractor.\nStep Two: Contractor’s Response\nThe contractor will have 15 working days (or 25 working days if it involves a defect involving a window or door supplier) to provide the claimant with a written: (1) offer to repair or remedy the defect; (2) offer to settle the claim with a monetary payment; (3) offer of a combination of (1) and (2); (4) statement that the contractor rejects the claim and the reasons for rejecting the claim; or (5) proposal to inspect the alleged defect or perform any necessary testing.\nStep Three: Claimant’s Response\nIf the contractor rejects the claim, the claimant may proceed to commence an action against the contractor. The claimant must serve written notice on the contractor within 15 working days if he or she either accepts any offer or rejects an offer. Note that if the claimant has a claim against a window or door supplier or manufacturer, the claimant should contact the supplier to ensure that the supplier received a notice of the claim from the contractor.\nStep Four: Contractor’s Supplemental Response\nIf the claimant rejects the offer, the contractor has five working days to provide a written supplemental offer or a notice that no additional offer will be made.\nStep Five: Claimant’s Response\nIf the contractor has provided the claimant written notice that no additional offer will be made, the claimant may commence a lawsuit or other action against the contractor. If the claimant has received a supplemental offer from the contractor, the claimant must respond within 15 working days.\nMore Highlights\nClaimants may accept settlement offers, accept them in part, or reject offers, doing so via detailed written notice.\nThe law does not apply where there is no contract to construct, as in the case of purchasing an existing home.\nContractors and suppliers have the right to inspect and, as appropriate, test alleged defects.\nAccess must be provided in a timely fashion for inspections, tests, and repairs.\nAdditional claims made or discovered after an original claim, are treated as separate in terms of time and process.\nThere is a different timetable and process for the claims and responses if a contractor seeks contribution from a supplier.\nFailure by the claimant, contractor, or supplier to follow the “Right to Cure Law” can result in delay or dismissal of legal or arbitration actions.\nThe Department Safety and Professional Services does not investigate, arbitrate, or judge consumer-contractor/supplier disputes. Those disputes are solved through the “Right to Cure Law” process, by the state’s court system, and, for alterations and additions, the Home Improvement Practices Code, ATCP 110, of the state Department of Agriculture, Trade, and Consumer Protection.\nThe Department Safety and Professional Services does not discriminate on the basis of sex, race, religion, age, national origin, ancestry, creed, pregnancy, marital or parental status, sexual orientation, or physical, mental, emotional or learning disability. Reasonable accommodation, including the provision of informational material in an alternative format, will be provided for qualified individuals with disabilities upon request."
         },
         {
           "id": "WI-cancel",

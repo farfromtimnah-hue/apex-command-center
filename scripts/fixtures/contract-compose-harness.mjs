@@ -81,6 +81,10 @@ export async function buildComposer(src, opts) {
     }];
     const admin = Object.assign({ recovery_fund_contact_block: "Recovery Fund contact block (test value)", ch515_doc_r2_key: "k1", drowning_pub_r2_key: "k2", ch515_doc_version: "2026", drowning_pub_version: "2026" }, fx.admin || {});
     const out = { job: job, lead: lead, estimates: estimates, doc: doc, settings: settings, client: { name: "Sunrise Pools", owners: "Pat Owner" }, admin: admin, lib: lib };
+    // State finish fixtures only (RES-36): the project's subcontractors and
+    // suppliers, and the agency documents Apex staff loaded.
+    if (fx.parties !== undefined) { out.job_parties = fx.parties; out.job_sub_count = (fx.parties.subs || []).length; }
+    if (fx.slots !== undefined) { out.state_slots = fx.slots; }
     // Cleaning fixtures only: the booked online-booking answers of the lead.
     if (fx.booking !== undefined) { out.booking = fx.booking; }
     return out;

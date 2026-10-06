@@ -1,5 +1,5 @@
 {
- "version": 2,
+ "version": 3,
  "source": "Sorted by reading data/contract-state-riders-v1.json. Edit scripts/make-state-checklist-data.mjs, not this file.",
  "note": "c: A = action (a line on the Before you send card), H = handled by the builder, B = background. A line with no entry is background. An action line with sys is done or seen by the system (sys_kinds says which); without sys it is ticked by a person. fact = the one-question fact the line depends on. No lawyer has reviewed this sorting.",
  "sys_kinds": {
@@ -12,7 +12,11 @@
   "signed": "sees",
   "sent": "sees",
   "license": "sees",
-  "deposit": "sees"
+  "deposit": "sees",
+  "parts": "does",
+  "list": "does",
+  "email": "does",
+  "official": "does"
  },
  "facts": {
   "homestead": {
@@ -60,11 +64,143 @@
    "en": "Is payment secured by the customer's home (a lien or mortgage)?",
    "pt": "O pagamento é garantido pela casa do cliente (gravame ou hipoteca)?"
   },
+  "new_home": {
+   "en": "Is this the sale or construction of a newly built home?",
+   "pt": "É a venda ou a construção de uma casa nova?"
+  },
+  "disaster": {
+   "en": "Is this a repair of damage from a disaster with a declared state of emergency?",
+   "pt": "É um reparo de dano causado por desastre com estado de emergência declarado?"
+  },
+  "small_repair": {
+   "en": "Is this a service and repair job of $750.00 or less that the customer called you about?",
+   "pt": "É um serviço de reparo de até $750.00 que o cliente pediu?"
+  },
+  "installments": {
+   "en": "Will the customer pay in more than four installments, or with a service charge?",
+   "pt": "O cliente vai pagar em mais de quatro parcelas, ou com taxa de serviço?"
+  },
+  "roof_insurance": {
+   "en": "Is this roofing work paid by an insurance claim?",
+   "pt": "É um serviço de telhado pago por seguro?"
+  },
+  "lien_consent": {
+   "en": "Do you want your subcontractors and suppliers to keep lien rights on this job?",
+   "pt": "Você quer que seus subempreiteiros e fornecedores mantenham o direito de gravame neste serviço?"
+  },
+  "waterproof": {
+   "en": "Is this basement waterproofing sold with no guarantee?",
+   "pt": "É impermeabilização de porão vendida sem garantia?"
+  },
+  "deposit": {
+   "known": "Read from this contract's payment schedule."
+  },
+  "progress": {
+   "known": "Read from this contract's payment schedule."
+  },
   "arbitration": {
    "known": "Read from the dispute clause chosen in this contract."
   },
   "arb_or_jury": {
    "known": "Read from the dispute clause chosen in this contract."
+  }
+ },
+ "biz_facts": {
+  "cgl": {
+   "key": "ins_cgl",
+   "en": "Does your business carry commercial general liability insurance?",
+   "pt": "A sua empresa tem seguro de responsabilidade civil geral (CGL)?",
+   "options": [
+    {
+     "v": "yes",
+     "en": "Yes",
+     "pt": "Sim"
+    },
+    {
+     "v": "no",
+     "en": "No",
+     "pt": "Não"
+    },
+    {
+     "v": "self",
+     "en": "Self-insured",
+     "pt": "Autossegurada"
+    },
+    {
+     "v": "llc",
+     "en": "LLC with liability insurance or other security required by law",
+     "pt": "LLC com seguro ou outra garantia exigida por lei"
+    }
+   ],
+   "extra": [
+    {
+     "key": "ins_cgl_insurer",
+     "en": "Insurance company (name)",
+     "pt": "Seguradora (nome)",
+     "when": [
+      "yes",
+      "llc"
+     ]
+    },
+    {
+     "key": "ins_cgl_phone",
+     "en": "Insurance company's phone",
+     "pt": "Telefone da seguradora",
+     "when": [
+      "yes",
+      "llc"
+     ]
+    },
+    {
+     "key": "ins_cgl_policy",
+     "en": "Policy number",
+     "pt": "Número da apólice",
+     "when": [
+      "yes"
+     ]
+    }
+   ]
+  },
+  "wc": {
+   "key": "ins_wc",
+   "en": "Does your business carry workers' compensation insurance?",
+   "pt": "A sua empresa tem seguro de acidentes de trabalho (workers' compensation)?",
+   "options": [
+    {
+     "v": "yes",
+     "en": "Yes, for all employees",
+     "pt": "Sim, para todos os funcionários"
+    },
+    {
+     "v": "no",
+     "en": "No",
+     "pt": "Não"
+    },
+    {
+     "v": "no_employees",
+     "en": "No employees",
+     "pt": "Sem funcionários"
+    }
+   ],
+   "extra": []
+  }
+ },
+ "ask": {
+  "service_charge_pct": {
+   "en": "Service charge rate, percent per year (for example 12)",
+   "pt": "Taxa de serviço, por cento ao ano (por exemplo 12)"
+  },
+  "legal_description": {
+   "en": "Legal description of the property (from the deed or the county record)",
+   "pt": "Descrição legal do imóvel (da escritura ou do registro do condado)"
+  },
+  "property_description": {
+   "en": "Short description of the property",
+   "pt": "Descrição curta do imóvel"
+  },
+  "work_description": {
+   "en": "Materials provided or work performed",
+   "pt": "Materiais fornecidos ou serviço feito"
   }
  },
  "ref_fallback": {
@@ -302,7 +438,22 @@
      "en": "For a home build or a large remodel, attach the page \"Notice of Potential Claims Must Be Provided within One Year\" and get it signed",
      "pt": "Para construção ou reforma grande de casa, anexe a página \"Notice of Potential Claims Must Be Provided within One Year\" e pegue a assinatura",
      "fact": "big_build",
-     "needs": "A separate page that the buyer must sign. The builder has no separate signed page for a state notice yet."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "AK-defect-notice",
+       "as": "page",
+       "heading": "Notice of Potential Claims Must Be Provided within One Year",
+       "style": {
+        "bold": true,
+        "caps": true
+       },
+       "sign": true
+      }
+     ],
+     "sys_en": "\"Notice of Potential Claims Must Be Provided within One Year\" page, signed by the customer",
+     "sys_pt": "Página \"Notice of Potential Claims Must Be Provided within One Year\", assinada pelo cliente"
     },
     "item:1": {
      "c": "H",
@@ -330,7 +481,22 @@
     "notice:AZ-pool-notice": {
      "c": "A",
      "en": "Hand the customer the state pool safety notice",
-     "pt": "Entregue ao cliente o aviso estadual de segurança de piscina"
+     "pt": "Entregue ao cliente o aviso estadual de segurança de piscina",
+     "held": {
+      "cat": "lawyer",
+      "why": "The Department of Health Services notice is on file, but the notice itself says reproducing it for a commercial purpose is governed by A.R.S. 39-121.03. Apex does not print or attach it until a lawyer says a contractor's software may."
+     },
+     "links": [
+      {
+       "url": "https://www.azdhs.gov/documents/preparedness/epidemiology-disease-control/environmental-health/residential-pool-safety-notice.pdf",
+       "en": "Open Arizona's pool safety notice (Department of Health Services, PDF)",
+       "pt": "Abrir o aviso de segurança de piscina do Arizona (Department of Health Services, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "Open it, print it and hand it to the customer. Apex does not print or attach this notice.",
+      "pt": "Abra, imprima e entregue ao cliente. A Apex não imprime nem anexa este aviso."
+     }
     },
     "notice:AZ-note-statement": {
      "c": "A",
@@ -338,13 +504,28 @@
      "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
      "flag": "Applies only when a note is taken.",
      "fact": "note",
-     "needs": "The statement goes on the face of the note, which is not a document the builder makes."
+     "outside": "The statement goes on the promissory note. Apex does not make promissory notes, so only a person can put it there."
     },
     "notice:AZ-new-dwelling": {
      "c": "A",
      "en": "If you are selling a newly built home, add the Registrar complaint provision and get the buyer's initials",
      "pt": "Se estiver vendendo uma casa recém-construída, inclua a cláusula de reclamação do Registrar e pegue as iniciais do comprador",
-     "flag": "Applies only to the sale of a new home."
+     "flag": "Applies only to the sale of a new home.",
+     "sys": "parts",
+     "fact": "new_home",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "AZ-new-dwelling",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "initials": true
+      }
+     ],
+     "sys_en": "Registrar complaint provision printed in the contract (10 point bold), with the buyer's initials",
+     "sys_pt": "Cláusula de reclamação do Registrar impressa no contrato (negrito, corpo 10), com as iniciais do comprador"
     },
     "notice:AZ-prelim-20day": {
      "c": "B",
@@ -375,12 +556,60 @@
     "notice:AR-lien": {
      "c": "A",
      "en": "Attach the IMPORTANT NOTICE TO OWNER (lien notice) and get the owner's signature before work starts",
-     "pt": "Anexe o IMPORTANT NOTICE TO OWNER (aviso de gravame) e pegue a assinatura do proprietário antes de começar o serviço"
+     "pt": "Anexe o IMPORTANT NOTICE TO OWNER (aviso de gravame) e pegue a assinatura do proprietário antes de começar o serviço",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "AR-lien",
+       "as": "page",
+       "style": {
+        "bold": true,
+        "caps": true
+       },
+       "sign": true,
+       "company_sign": true,
+       "fill": [
+        [
+         "SIGNED:______________________________",
+         "SIGNED: {state_part_signature}"
+        ],
+        [
+         "ADDRESS OF PROPERTY: _______________",
+         "ADDRESS OF PROPERTY: {property_address}"
+        ],
+        [
+         "DATE:_____________",
+         "DATE: {state_part_date}"
+        ],
+        [
+         "__________________\nCONTRACTOR",
+         "{state_part_company_signature}\nCONTRACTOR"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "IMPORTANT NOTICE TO OWNER (lien notice) signed by the owner",
+     "sys_pt": "IMPORTANT NOTICE TO OWNER (aviso de gravame) assinado pelo proprietário"
     },
     "notice:AR-cancel": {
      "c": "A",
      "en": "Attach the state cancellation statement and two copies of the NOTICE OF CANCELLATION form",
-     "pt": "Anexe a declaração de cancelamento do estado e duas vias do formulário NOTICE OF CANCELLATION"
+     "pt": "Anexe a declaração de cancelamento do estado e duas vias do formulário NOTICE OF CANCELLATION",
+     "links": [
+      {
+       "url": "https://portal.arkansas.gov/service/arkansas-code-search-laws-and-statutes/",
+       "en": "Open Arkansas's official code search",
+       "pt": "Abrir a busca oficial do código do Arkansas"
+      }
+     ],
+     "link_note": {
+      "en": "Look up sections 4-89-107 and 4-89-108 there (the official code opens through LexisNexis).",
+      "pt": "Procure as seções 4-89-107 e 4-89-108 lá (o código oficial abre pela LexisNexis)."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of the NOTICE OF CANCELLATION form was obtained (4-89-107, 4-89-108); the only copy is a secondary (Justia) one."
+     }
     },
     "item:1": {
      "c": "B",
@@ -421,15 +650,44 @@
      "pt": "Se o contrato for garantido por gravame sobre a casa, entregue o WARNING TO BUYER em página separada e assinada",
      "flag": "Applies only when the home secures the contract.",
      "fact": "secured",
-     "needs": "18 point type on a separate page that the buyer signs and dates. The builder has no separate signed page for a state notice yet."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "CA-7159.1",
+       "as": "page",
+       "style": {
+        "bold": true,
+        "min_pt": 18
+       },
+       "sign": true
+      }
+     ],
+     "sys_en": "WARNING TO BUYER on its own page (18 point bold), signed and dated by the buyer",
+     "sys_pt": "WARNING TO BUYER em página própria (negrito, corpo 18), assinado e datado pelo comprador"
     },
     "notice:CA-7191": {
      "c": "A",
      "en": "If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and add the NOTICE by the initials line",
      "pt": "Se o contrato tiver cláusula de arbitragem, use o título ARBITRATION OF DISPUTES e inclua o NOTICE junto à linha de iniciais",
-     "flag": "Applies only with an arbitration clause.",
+     "flag": "The statute puts the NOTICE right before the initials line and the WE HAVE READ sentence right after it. The copy on file holds both in one block, so both print together with the initials after them. A lawyer should confirm.",
      "fact": "arbitration",
-     "needs": "The notice must sit right by the initials line of the arbitration clause, which the builder does not lay out."
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "CA-7191",
+       "place": "after:C14",
+       "heading": "ARBITRATION OF DISPUTES",
+       "style": {
+        "bold": true,
+        "min_pt": 10,
+        "caps": true
+       },
+       "initials": true
+      }
+     ],
+     "sys_en": "ARBITRATION OF DISPUTES notice printed after the arbitration clause, with the buyer's initials",
+     "sys_pt": "Aviso ARBITRATION OF DISPUTES impresso depois da cláusula de arbitragem, com as iniciais do comprador"
     },
     "notice:CA-1689.7": {
      "c": "B",
@@ -443,7 +701,37 @@
      "c": "A",
      "en": "For a service and repair job of $750 or less, use the service and repair notices instead",
      "pt": "Para um serviço de reparo de até $750.00, use os avisos de service and repair",
-     "flag": "Applies only to a small service and repair job the customer asked for."
+     "flag": "Applies only to a small service and repair job the customer asked for.",
+     "sys": "parts",
+     "fact": "small_repair",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "CA-7159.10",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       },
+       "sign": true
+      },
+      {
+       "n": "CA-7159.10-copy",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       }
+      },
+      {
+       "n": "CA-7159.10-cancel",
+       "place": "above_signature",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       }
+      }
+     ],
+     "sys_en": "Service and repair notices printed in the contract (12 point bold), signed and dated by the buyer",
+     "sys_pt": "Avisos de service and repair impressos no contrato (negrito, corpo 12), assinados e datados pelo comprador"
     },
     "notice:CA-7159.10-copy": {
      "c": "B",
@@ -461,24 +749,142 @@
     "notice:CA-downpayment": {
      "c": "A",
      "en": "If you charge a down payment, add the down payment statement under the heading \"Downpayment\"",
-     "pt": "Se cobrar sinal, inclua a declaração de sinal sob o título \"Downpayment\""
+     "pt": "Se cobrar sinal, inclua a declaração de sinal sob o título \"Downpayment\"",
+     "sys": "parts",
+     "fact": "deposit",
+     "parts": [
+      {
+       "n": "CA-downpayment",
+       "place": "after:C04",
+       "heading": "Downpayment",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       }
+      }
+     ],
+     "sys_en": "Down payment statement printed under the heading \"Downpayment\" (12 point bold)",
+     "sys_pt": "Declaração de sinal impressa sob o título \"Downpayment\" (negrito, corpo 12)"
     },
     "notice:CA-progress-payments": {
      "c": "A",
      "en": "If there are progress payments, add the progress payment statement",
-     "pt": "Se houver pagamentos por etapa, inclua a declaração de pagamentos por etapa"
+     "pt": "Se houver pagamentos por etapa, inclua a declaração de pagamentos por etapa",
+     "sys": "parts",
+     "fact": "progress",
+     "parts": [
+      {
+       "n": "CA-progress-payments",
+       "place": "after:C04",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       }
+      }
+     ],
+     "sys_en": "Progress payment statement printed with the payment schedule (12 point bold)",
+     "sys_pt": "Declaração de pagamentos por etapa impressa junto à tabela de pagamentos (negrito, corpo 12)"
     },
     "notice:CA-subs-disclaimer": {
      "c": "A",
      "en": "If you will use a subcontractor, add the subcontractor statement to the contract and to each change order",
      "pt": "Se for usar subempreiteiro, inclua a declaração de subempreiteiro no contrato e em cada aditivo",
      "fact": "subs",
-     "needs": "The statute wants a Yes/No box in the contract and the same words on every change order. Not built."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "CA-subs-disclaimer"
+      }
+     ],
+     "co_parts": [
+      "CA-subs-disclaimer"
+     ],
+     "sys_en": "Subcontractor statement printed in the contract and on each change order",
+     "sys_pt": "Declaração de subempreiteiro impressa no contrato e em cada aditivo"
     },
     "notice:CA-cgl-none": {
      "c": "A",
      "en": "Add the liability insurance (CGL) statement that is true for your business",
-     "pt": "Inclua a declaração de seguro de responsabilidade (CGL) que vale para a sua empresa"
+     "pt": "Inclua a declaração de seguro de responsabilidade (CGL) que vale para a sua empresa",
+     "sys": "parts",
+     "biz_key": "cgl",
+     "parts": [
+      {
+       "n": "CA-cgl-none",
+       "biz": [
+        "cgl",
+        "no"
+       ],
+       "heading": "Commercial General Liability Insurance (CGL)",
+       "fill": [
+        [
+         "(The name on the license or ‛This contractor’)",
+         "{business_legal_name}"
+        ]
+       ]
+      },
+      {
+       "n": "CA-cgl-insured",
+       "biz": [
+        "cgl",
+        "yes"
+       ],
+       "heading": "Commercial General Liability Insurance (CGL)",
+       "fill": [
+        [
+         "(The name on the license or ‛This contractor’)",
+         "{business_legal_name}"
+        ],
+        [
+         "(the insurance company)",
+         "{biz_cgl_insurer}"
+        ],
+        [
+         "__________",
+         "{biz_cgl_phone}"
+        ]
+       ]
+      },
+      {
+       "n": "CA-cgl-self",
+       "biz": [
+        "cgl",
+        "self"
+       ],
+       "heading": "Commercial General Liability Insurance (CGL)",
+       "fill": [
+        [
+         "(The name on the license or ‛This contractor’)",
+         "{business_legal_name}"
+        ]
+       ]
+      },
+      {
+       "n": "CA-cgl-llc",
+       "biz": [
+        "cgl",
+        "llc"
+       ],
+       "heading": "Commercial General Liability Insurance (CGL)",
+       "fill": [
+        [
+         "(The name on the license or ‘This contractor’)",
+         "{business_legal_name}"
+        ],
+        [
+         "(the insurance company or trust company or bank)",
+         "{biz_cgl_insurer}"
+        ],
+        [
+         "____",
+         "{biz_cgl_phone}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Liability insurance (CGL) statement that is true for your business, printed under its heading",
+     "sys_pt": "Declaração de seguro de responsabilidade (CGL) que vale para a sua empresa, impressa sob o título"
     },
     "notice:CA-cgl-insured": {
      "c": "B",
@@ -495,7 +901,42 @@
     "notice:CA-wc-exempt": {
      "c": "A",
      "en": "Add the workers' compensation statement that is true for your business",
-     "pt": "Inclua a declaração de workers' compensation que vale para a sua empresa"
+     "pt": "Inclua a declaração de workers' compensation que vale para a sua empresa",
+     "sys": "parts",
+     "biz_key": "wc",
+     "parts": [
+      {
+       "n": "CA-wc-exempt",
+       "biz": [
+        "wc",
+        "no_employees"
+       ],
+       "heading": "Workers’ Compensation Insurance",
+       "fill": [
+        [
+         "(The name on the license or ‛This contractor’)",
+         "{business_legal_name}"
+        ]
+       ]
+      },
+      {
+       "n": "CA-wc-carries",
+       "biz": [
+        "wc",
+        "yes"
+       ],
+       "heading": "Workers’ Compensation Insurance",
+       "fill": [
+        [
+         "(The name on the license or ‛This contractor’)",
+         "{business_legal_name}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Workers' compensation statement that is true for your business, printed under its heading",
+     "sys_pt": "Declaração de workers' compensation que vale para a sua empresa, impressa sob o título",
+     "flag": "The statute gives a statement for a business with no employees and for one that carries the insurance. A business with employees and no insurance has no statement to print; the line then stays with a person."
     },
     "notice:CA-wc-carries": {
      "c": "B",
@@ -505,7 +946,50 @@
      "c": "A",
      "en": "For disaster repair after a declared emergency, use the Seven-Day Right to Cancel notice and form",
      "pt": "Para reparo de desastre após emergência declarada, use o aviso e o formulário Seven-Day Right to Cancel",
-     "flag": "Applies only to disaster repair."
+     "flag": "Applies only to disaster repair.",
+     "sys": "parts",
+     "fact": "disaster",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "CA-7day-notice",
+       "place": "above_signature",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       },
+       "sign": true
+      },
+      {
+       "n": "CA-7day-form",
+       "as": "page",
+       "copies": 2,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "/enter date of transaction/",
+         "{transaction_date}"
+        ],
+        [
+         "to ,",
+         "to {business_legal_name},"
+        ],
+        [
+         "at\n\n/address",
+         "at {business_address}\n\n/address"
+        ],
+        [
+         "not later than midnight of .",
+         "not later than midnight of {state_deadline_7}."
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Seven-Day Right to Cancel notice by the signature (12 point bold) and its form in two copies",
+     "sys_pt": "Aviso Seven-Day Right to Cancel junto à assinatura (negrito, corpo 12) e o formulário em duas vias"
     },
     "notice:CA-7day-form": {
      "c": "B",
@@ -515,7 +999,18 @@
      "c": "A",
      "en": "For a new single-family home, add the Mechanics Lien Warning for new homes",
      "pt": "Para casa unifamiliar nova, inclua o Mechanics Lien Warning de casas novas",
-     "flag": "Applies only to building a new home."
+     "flag": "Applies only to building a new home.",
+     "sys": "parts",
+     "fact": "new_home",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "CA-7164-lien",
+       "heading": "Mechanics Lien Warning"
+      }
+     ],
+     "sys_en": "Mechanics Lien Warning for new homes printed under its heading",
+     "sys_pt": "Mechanics Lien Warning de casas novas impresso sob o título"
     },
     "pool": {
      "c": "A",
@@ -578,7 +1073,17 @@
      "c": "A",
      "en": "If you send the contract by email, add the required sentence beside the message",
      "pt": "Se enviar o contrato por e-mail, inclua a frase exigida junto à mensagem",
-     "flag": "The app sends a link to the contract. Nobody has checked whether that message needs this sentence."
+     "flag": "The app builds the message and the person sends it (text, WhatsApp or email). The sentence is added to every such message. Its type size inside another app cannot be set from here.",
+     "sys": "email",
+     "when_cancel": true,
+     "parts": [
+      {
+       "n": "CT-email-sentence",
+       "as": "message"
+      }
+     ],
+     "sys_en": "Required sentence placed beside the message that sends the contract",
+     "sys_pt": "Frase exigida colocada junto à mensagem que envia o contrato"
     },
     "notice:CT-note-statement": {
      "c": "A",
@@ -586,7 +1091,7 @@
      "pt": "Se o cliente assinar uma nota promissória, coloque a declaração exigida na frente da nota",
      "flag": "Applies only when a note is taken.",
      "fact": "note",
-     "needs": "The statement goes on the face of the note, which is not a document the builder makes."
+     "outside": "The statement goes on the promissory note. Apex does not make promissory notes, so only a person can put it there."
     },
     "item:1": {
      "c": "A",
@@ -615,7 +1120,16 @@
     "notice:DE-ag-summary": {
      "c": "A",
      "en": "Attach the Attorney General's \"Summary of Your Rights\" and hand it over before the customer signs",
-     "pt": "Anexe o \"Summary of Your Rights\" do Attorney General e entregue antes de o cliente assinar"
+     "pt": "Anexe o \"Summary of Your Rights\" do Attorney General e entregue antes de o cliente assinar",
+     "sys": "official",
+     "official": {
+      "slot": "DE-ag-summary",
+      "file": "state-docs/de-home-improvement-summary.pdf",
+      "version": "Revised 10/31/2023",
+      "sha256": "27769521e1638d43965b5bc963e5b6157465ef59fcf8772c0f5272714905e697"
+     },
+     "sys_en": "Attorney General's \"Summary of Your Rights\" given to the customer before they sign",
+     "sys_pt": "\"Summary of Your Rights\" do Attorney General entregue ao cliente antes de ele assinar"
     },
     "item:1": {
      "c": "B",
@@ -682,13 +1196,39 @@
     "notice:GA-8-2-41": {
      "c": "A",
      "en": "Add the notice of the contractor's right to resolve construction defects",
-     "pt": "Inclua o aviso do direito do empreiteiro de resolver defeitos de construção"
+     "pt": "Inclua o aviso do direito do empreiteiro de resolver defeitos de construção",
+     "links": [
+      {
+       "url": "https://www.legis.ga.gov/api/legislation/document/20052006/64748",
+       "en": "Open Georgia's notice as passed in 2006 (O.C.G.A. 8-2-41, PDF)",
+       "pt": "Abrir o aviso da Geórgia como aprovado em 2006 (O.C.G.A. 8-2-41, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "This is the text as first enacted; check that it was not amended since.",
+      "pt": "Este é o texto como foi aprovado; confira se não mudou depois."
+     },
+     "held": {
+      "cat": "current",
+      "why": "The official copy is the 2006 enactment (SB 573), not checked for later amendments, and its PDF text needs review."
+     }
     },
     "notice:GA-43-41-7": {
      "c": "A",
      "en": "For a single-family home job over $2,500, offer a written warranty and attach it before signing",
      "pt": "Para serviço em casa unifamiliar acima de $2,500.00, ofereça garantia por escrito e anexe antes da assinatura",
-     "flag": "The rule is about building a single-family home; the research does not say whether a remodel counts."
+     "flag": "The rule is about building a single-family home; the research does not say whether a remodel counts.",
+     "links": [
+      {
+       "url": "https://rules.sos.ga.gov/gac/553-7",
+       "en": "Open Georgia's written warranty rule (553-7-.01)",
+       "pt": "Abrir a regra de garantia por escrito da Geórgia (553-7-.01)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "No wording is prescribed: the rule (553-7-.01) requires the contractor's own written warranty to be offered and attached."
+     }
     },
     "notice:GA-553-7-01": {
      "c": "B",
@@ -765,14 +1305,36 @@
     "notice:ID-disclosure": {
      "c": "A",
      "en": "Give the homeowner disclosure statement and get a signed acknowledgment",
-     "pt": "Entregue a declaração ao proprietário e pegue o recibo assinado"
+     "pt": "Entregue a declaração ao proprietário e pegue o recibo assinado",
+     "links": [
+      {
+       "url": "https://legislature.idaho.gov/statutesrules/idstat/title45/t45ch5/sect45-525/",
+       "en": "Open Idaho Code 45-525 (what the disclosure must say)",
+       "pt": "Abrir o Idaho Code 45-525 (o que a declaração precisa dizer)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "Idaho Code 45-525 lists what the disclosure must say and prescribes no wording."
+     }
     },
     "notice:ID-cancel-credit": {
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "links": [
+      {
+       "url": "https://legislature.idaho.gov/wp-content/uploads/statutesrules/idstat/Title28/T28CH43.pdf",
+       "en": "Open Idaho's cancellation statement (Title 28 chapter 43, PDF; see 28-43-403)",
+       "pt": "Abrir a declaração de cancelamento de Idaho (Title 28 chapter 43, PDF; veja 28-43-403)"
+      }
+     ],
+     "held": {
+      "cat": "review",
+      "why": "The complete official copy is a PDF whose words are broken at line ends; it may not be printed until someone reviews it against the official page."
+     }
     },
     "item:1": {
      "c": "H",
@@ -784,7 +1346,9 @@
      "pt": "Entregue a lista de subempreiteiros e fornecedores antes do pagamento final",
      "ref": "45-525",
      "fact": "subs",
-     "needs": "Apex has no supplier records and no address or telephone for a subcontractor, so the system cannot build the list yet (it needs a database change)."
+     "sys": "list",
+     "sys_en": "List of subcontractors and suppliers given to the owner with the contract",
+     "sys_pt": "Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato"
     },
     "item:3": {
      "c": "B",
@@ -816,17 +1380,61 @@
     "notice:IL-pamphlet": {
      "c": "A",
      "en": "Hand the customer the \"Home Repair: Know Your Consumer Rights\" pamphlet",
-     "pt": "Entregue ao cliente o folheto \"Home Repair: Know Your Consumer Rights\""
+     "pt": "Entregue ao cliente o folheto \"Home Repair: Know Your Consumer Rights\"",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IL-pamphlet",
+       "as": "page",
+       "style": {
+        "min_pt": 12
+       }
+      }
+     ],
+     "sys_en": "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer as a separate document (12 point), before they sign",
+     "sys_pt": "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente como documento separado (corpo 12), antes de ele assinar",
+     "flag": "The pamphlet's wording is fixed by 815 ILCS 513/20(c) and is printed from the statute. The Attorney General's one-page leaflet is a different document and is not used."
     },
     "notice:IL-ack-form": {
      "c": "A",
      "en": "Get the Consumer Rights Acknowledgment Form signed by you and the customer",
-     "pt": "Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente"
+     "pt": "Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IL-ack-form",
+       "as": "page",
+       "heading": "Consumer Rights Acknowledgment Form",
+       "sign": true,
+       "company_sign": true,
+       "copies": 2
+      }
+     ],
+     "sys_en": "Consumer Rights Acknowledgment Form signed by the customer and the company, in two copies",
+     "sys_pt": "Consumer Rights Acknowledgment Form assinado pelo cliente e pela empresa, em duas vias"
     },
     "notice:IL-lien": {
      "c": "A",
      "en": "Give the owner the lien notice and a sworn statement before the first payment",
-     "pt": "Entregue ao proprietário o aviso de gravame e a declaração juramentada antes do primeiro pagamento"
+     "pt": "Entregue ao proprietário o aviso de gravame e a declaração juramentada antes do primeiro pagamento",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IL-lien",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      }
+     ],
+     "sys_en": "Lien notice printed in the contract (10 point bold)",
+     "sys_pt": "Aviso de gravame impresso no contrato (negrito, corpo 10)",
+     "also": {
+      "en": "Give the owner your sworn statement of everyone furnishing labor or materials before the first payment",
+      "pt": "Entregue ao proprietário a sua declaração juramentada de todos que fornecem mão de obra ou materiais antes do primeiro pagamento",
+      "why": "A sworn statement is sworn by a person before a notary."
+     },
+     "flag": "The notice is for an owner-occupied single-family home. The system prints it on every residential job (the safe side)."
     },
     "notice:IL-arbitration-margin": {
      "c": "A",
@@ -841,7 +1449,38 @@
      "pt": "Se o seguro pagar o serviço, inclua a declaração e o formulário de cancelamento de seguro",
      "flag": "Applies only to a job paid from an insurance claim.",
      "fact": "insurance_paid",
-     "needs": "A statement plus a duplicate cancellation form with blanks to fill. Not built."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "IL-insurance-cancel",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      },
+      {
+       "n": "IL-insurance-cancel-form",
+       "as": "page",
+       "copies": 2,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "(name of contractor)",
+         "{business_legal_name}"
+        ],
+        [
+         "(address of contractor's place of business)",
+         "{business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Insurance cancellation statement printed in the contract and its form in two copies",
+     "sys_pt": "Declaração de cancelamento de seguro impressa no contrato e o formulário em duas vias"
     },
     "notice:IL-insurance-cancel-form": {
      "c": "B",
@@ -870,12 +1509,64 @@
      "c": "A",
      "en": "If you approached the customer without being asked, attach the state cancellation notice in two copies",
      "pt": "Se você procurou o cliente sem ser chamado, anexe o aviso de cancelamento do estado em duas vias",
-     "flag": "Applies only to a sale the customer did not ask for."
+     "flag": "Applies only to a sale the customer did not ask for.",
+     "links": [
+      {
+       "url": "https://iga.in.gov/ic/2026/Title_24.pdf",
+       "en": "Open Indiana Code Title 24 (PDF; see IC 24-5-10-9)",
+       "pt": "Abrir o Indiana Code Title 24 (PDF; veja IC 24-5-10-9)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "IC 24-5-10-9 lists what the notice must contain and prescribes no sentence."
+     }
     },
     "notice:IN-cancel-10-6": {
      "c": "A",
      "en": "Give the customer the statement of the right to cancel before they sign, with the NOTICE OF CANCELLATION form in two copies",
-     "pt": "Entregue ao cliente a declaração do direito de cancelar antes de ele assinar, com o formulário NOTICE OF CANCELLATION em duas vias"
+     "pt": "Entregue ao cliente a declaração do direito de cancelar antes de ele assinar, com o formulário NOTICE OF CANCELLATION em duas vias",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IN-cancel-10-6",
+       "fill": [
+        [
+         "\\(name\\s+of\\s+real\\s+property\\s+improvement\\s+supplier\\)",
+         "{business_legal_name}",
+         "re"
+        ]
+       ]
+      },
+      {
+       "n": "IN-cancel-10-6-form",
+       "as": "page",
+       "copies": 2,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "\\(name\\s+of\\s+real\\s+property\\s+improvement\\s+supplier\\)",
+         "{business_legal_name}",
+         "re"
+        ],
+        [
+         "\\(address\\s+of\\s+real\\s+property\\s+improvement\\s+supplier's\\s+place\\s+of\\s+business\\)",
+         "{business_address}",
+         "re"
+        ],
+        [
+         "\\(electronic\\s+mail\\s+address\\s+described\\s+in\\s+section\\s+10\\(a\\)\\(2\\)\\(A\\)\\s+or\\s+10\\(a\\)\\(2\\)\\(B\\)\\(iii\\)\\s+of\\s+this\\s+chapter\\)",
+         "{business_email}",
+         "re"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Statement of the right to cancel printed in the contract and the NOTICE OF CANCELLATION form in two copies",
+     "sys_pt": "Declaração do direito de cancelar impressa no contrato e o formulário NOTICE OF CANCELLATION em duas vias"
     },
     "notice:IN-cancel-10-6-form": {
      "c": "B",
@@ -925,9 +1616,25 @@
      "c": "A",
      "en": "If you use a subcontractor, add the mechanics lien owner notice and post the job on the state registry within 10 days",
      "pt": "Se usar subempreiteiro, inclua o aviso de gravame ao proprietário e registre o serviço no cadastro do estado em até 10 dias",
-     "flag": "Applies only when a subcontractor is used.",
+     "flag": "The copy on file ends with one sentence that is an instruction (it carries the registry address and number the notice must show). It prints as it is on file. A lawyer should confirm.",
      "fact": "subs",
-     "needs": "The copy on file carries one sentence that is an instruction, not part of the notice, and the job must also be posted on the state registry, which only a person can do."
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IA-lien",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      }
+     ],
+     "sys_en": "Mechanics lien owner notice printed in the contract (10 point bold)",
+     "sys_pt": "Aviso de gravame ao proprietário impresso no contrato (negrito, corpo 10)",
+     "also": {
+      "en": "Post the job on the state's mechanics lien registry within 10 days",
+      "pt": "Registre o serviço no cadastro de gravames do estado em até 10 dias",
+      "why": "The registry is the state's own website; only a person with the contractor's account can post there."
+     }
     },
     "item:1": {
      "c": "B",
@@ -1054,7 +1761,21 @@
     "notice:ME-ag": {
      "c": "A",
      "en": "Attach the Attorney General's consumer information addendum",
-     "pt": "Anexe o adendo de informações ao consumidor do Attorney General"
+     "pt": "Anexe o adendo de informações ao consumidor do Attorney General",
+     "sys": "official",
+     "official": {
+      "slot": "ME-ag"
+     },
+     "sys_en": "Attorney General's consumer information addendum given to the customer with the contract",
+     "sys_pt": "Adendo de informações ao consumidor do Attorney General entregue ao cliente junto com o contrato",
+     "flag": "The addendum changes (it lists contractors the State has sued). Apex staff must load the current copy each time the Attorney General updates it.",
+     "links": [
+      {
+       "url": "https://www.maine.gov/ag/sites/maine.gov.ag/files/documents/Home%20Construction%20Contracts%20Addendum.docx",
+       "en": "Open the Attorney General's addendum (Word file)",
+       "pt": "Abrir o adendo do Attorney General (arquivo Word)"
+      }
+     ]
     },
     "notice:ME-cancel": {
      "c": "H",
@@ -1105,7 +1826,22 @@
     "notice:MD-cancel": {
      "c": "A",
      "en": "Attach the state cancellation statement, and the Notice of Cancellation form on a separate sheet",
-     "pt": "Anexe a declaração de cancelamento do estado e o formulário Notice of Cancellation em folha separada"
+     "pt": "Anexe a declaração de cancelamento do estado e o formulário Notice of Cancellation em folha separada",
+     "links": [
+      {
+       "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302",
+       "en": "Open Maryland's cancellation statement and form (Commercial Law 14-302)",
+       "pt": "Abrir a declaração e o formulário de cancelamento de Maryland (Commercial Law 14-302)"
+      }
+     ],
+     "link_note": {
+      "en": "The form there says three business days; a home improvement contract must say five (seven at 65 or older).",
+      "pt": "O formulário lá diz três dias úteis; um contrato de reforma precisa dizer cinco (sete a partir dos 65 anos)."
+     },
+     "held": {
+      "cat": "none",
+      "why": "The official statement and form (CL 14-302) say three business days; a home improvement contract must allow five (seven at 65 or older) and nothing official prints that wording."
+     }
     },
     "notice:MD-security": {
      "c": "A",
@@ -1113,12 +1849,37 @@
      "pt": "Se o pagamento for garantido pela casa, inclua o aviso de garantia e rescisão na primeira página e pegue as iniciais",
      "flag": "Applies only when the home secures payment.",
      "fact": "secured",
-     "needs": "Must be on the first page with the owner's initials beside it. The builder does not place a state notice on page one or collect initials for it."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "MD-security",
+       "place": "first_page",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "initials": true
+      }
+     ],
+     "sys_en": "Security and rescission notice on the first page (10 point bold), with the owner's initials",
+     "sys_pt": "Aviso de garantia e rescisão na primeira página (negrito, corpo 10), com as iniciais do proprietário"
     },
     "notice:MD-oral-ack": {
      "c": "A",
      "en": "Get the customer's signature confirming you told them about the right to cancel",
-     "pt": "Pegue a assinatura do cliente confirmando que você avisou sobre o direito de cancelar"
+     "pt": "Pegue a assinatura do cliente confirmando que você avisou sobre o direito de cancelar",
+     "links": [
+      {
+       "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302.1",
+       "en": "Open Maryland's acknowledgment wording (Commercial Law 14-302.1)",
+       "pt": "Abrir o texto do recibo de Maryland (Commercial Law 14-302.1)"
+      }
+     ],
+     "held": {
+      "cat": "review",
+      "why": "The official page serves the acknowledgment's check box as a question mark; it may not be printed until someone reviews it against the statute."
+     }
     },
     "item:1": {
      "c": "A",
@@ -1234,8 +1995,39 @@
      "en": "For roofing paid by insurance, give the 72 hour cancellation statement and form before signing",
      "pt": "Para telhado pago por seguro, entregue a declaração e o formulário de cancelamento de 72 horas antes da assinatura",
      "flag": "Applies only to roofing paid from an insurance claim.",
-     "fact": "insurance_paid",
-     "needs": "A statement plus a cancellation form, given before the contract. Not built."
+     "fact": "roof_insurance",
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "MN-roofing-cancel",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      },
+      {
+       "n": "MN-roofing-cancel-form",
+       "as": "page",
+       "copies": 2,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "(name of contractor)",
+         "{business_legal_name}"
+        ],
+        [
+         "(address of contractor's place of business)",
+         "{business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "72 hour cancellation statement printed in the contract and its form in two copies",
+     "sys_pt": "Declaração de cancelamento de 72 horas impressa no contrato e o formulário em duas vias"
     },
     "notice:MN-roofing-cancel-form": {
      "c": "B",
@@ -1261,7 +2053,36 @@
     "notice:MS-insurance": {
      "c": "A",
      "en": "Add the liability insurance disclosure just above the customer's signature",
-     "pt": "Inclua a declaração de seguro de responsabilidade logo acima da assinatura do cliente"
+     "pt": "Inclua a declaração de seguro de responsabilidade logo acima da assinatura do cliente",
+     "sys": "parts",
+     "biz_key": "cgl",
+     "parts": [
+      {
+       "n": "MS-insurance",
+       "biz": [
+        "cgl",
+        "yes"
+       ],
+       "place": "above_signature",
+       "style": {
+        "bold": true,
+        "larger": true
+       },
+       "fill": [
+        [
+         "The name of the insurer is __________________",
+         "The name of the insurer is {biz_cgl_insurer}"
+        ],
+        [
+         "the policy number is _________________",
+         "the policy number is {biz_cgl_policy}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Liability insurance disclosure printed just above the customer's signature (bold, larger type)",
+     "sys_pt": "Declaração de seguro de responsabilidade impressa logo acima da assinatura do cliente (negrito, letra maior)",
+     "flag": "The Board's wording exists only for a contractor who DOES carry general liability insurance. For any other answer there is nothing official to print and the line stays with a person."
     },
     "notice:MS-cancel-credit": {
      "c": "H",
@@ -1288,13 +2109,49 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "flag": "The Revisor's page lays the notice out in a table; only the paragraph the buyer reads is cut, the caption is printed as its heading and the date above it. Compare with the rendered page; a lawyer should confirm.",
+     "fact": "credit",
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "MO-cancel-credit",
+       "heading": "NOTICE OF CANCELLATION",
+       "date_above": true,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "(______)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "NOTICE OF CANCELLATION statement printed in the contract (10 point bold), with the transaction date and your name and address filled in",
+     "sys_pt": "Declaração NOTICE OF CANCELLATION impressa no contrato (negrito, corpo 10), com a data da transação e o seu nome e endereço preenchidos"
     },
     "notice:MO-consent": {
      "c": "A",
      "en": "If you want your subcontractors and suppliers to keep lien rights, get the CONSENT OF OWNER signed",
-     "pt": "Se quiser que subempreiteiros e fornecedores mantenham o direito de gravame, pegue o CONSENT OF OWNER assinado pelo proprietário"
+     "pt": "Se quiser que subempreiteiros e fornecedores mantenham o direito de gravame, pegue o CONSENT OF OWNER assinado pelo proprietário",
+     "sys": "parts",
+     "fact": "lien_consent",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "MO-consent",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "sign": true
+      }
+     ],
+     "sys_en": "CONSENT OF OWNER printed in the contract (10 point bold) and signed by the owner on its own",
+     "sys_pt": "CONSENT OF OWNER impresso no contrato (negrito, corpo 10) e assinado à parte pelo proprietário"
     },
     "notice:MO-cure": {
      "c": "A",
@@ -1377,7 +2234,10 @@
      "en": "Give the owner the list of subcontractors and suppliers in writing",
      "pt": "Entregue ao proprietário, por escrito, a lista de subempreiteiros e fornecedores",
      "fact": "subs",
-     "needs": "Apex has no supplier records and no address or telephone for a subcontractor, so the system cannot build the list yet (it needs a database change)."
+     "sys": "list",
+     "sys_en": "List of subcontractors and suppliers given to the owner with the contract",
+     "sys_pt": "Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato",
+     "flag": "NRS 624.600 also asks for a lien notice and prescribes no wording for it. The two state information forms (liens and contractors) already go to the owner with the contract."
     },
     "notice:NV-info-liens": {
      "c": "A",
@@ -1453,12 +2313,42 @@
     "notice:NJ-division": {
      "c": "A",
      "en": "Add the Division of Consumer Affairs statement with its toll-free number (capitals, 10 point bold)",
-     "pt": "Inclua a declaração da Division of Consumer Affairs com o telefone gratuito (maiúsculas, negrito, corpo 10)"
+     "pt": "Inclua a declaração da Division of Consumer Affairs com o telefone gratuito (maiúsculas, negrito, corpo 10)",
+     "links": [
+      {
+       "url": "https://www.njconsumeraffairs.gov/regulations/Chapter-45A-Administrative-Rules-of-the-Division-of-Consumer-Affairs.pdf",
+       "en": "Open New Jersey's rule with the statement (N.J.A.C. 13:45A-17.11, PDF)",
+       "pt": "Abrir a regra de New Jersey com a declaração (N.J.A.C. 13:45A-17.11, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "The rule prints the number 1-888-656-6225. The Attorney General's pages give 800-242-5846; which one is current is not settled.",
+      "pt": "A regra imprime o número 1-888-656-6225. As páginas do Attorney General dão 800-242-5846; não está decidido qual vale hoje."
+     },
+     "held": {
+      "cat": "lawyer",
+      "why": "New Jersey is held: the rule prints 1-888-656-6225 and the Attorney General's pages give 800-242-5846. Which number is current is not settled."
+     }
     },
     "notice:NJ-cancel": {
      "c": "A",
      "en": "Add the three day cancellation notice with your name, address and phone",
-     "pt": "Inclua o aviso de cancelamento de três dias com o seu nome, endereço e telefone"
+     "pt": "Inclua o aviso de cancelamento de três dias com o seu nome, endereço e telefone",
+     "links": [
+      {
+       "url": "https://pub.njleg.state.nj.us/Bills/2004/PL04/16_.HTM",
+       "en": "Open New Jersey's cancellation notice as passed in 2004 (N.J.S.A. 56:8-151)",
+       "pt": "Abrir o aviso de cancelamento de New Jersey como aprovado em 2004 (N.J.S.A. 56:8-151)"
+      }
+     ],
+     "link_note": {
+      "en": "This is the text as first enacted; check that it was not amended since.",
+      "pt": "Este é o texto como foi aprovado; confira se não mudou depois."
+     },
+     "held": {
+      "cat": "current",
+      "why": "New Jersey is held: the official copy is the 2004 enactment, not checked for later amendments."
+     }
     },
     "item:1": {
      "c": "B",
@@ -1490,7 +2380,27 @@
     "notice:NM-default": {
      "c": "A",
      "en": "Give the state's residential default disclosure form before work, signing or payment, and get it signed",
-     "pt": "Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura"
+     "pt": "Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura",
+     "held": {
+      "cat": "missing",
+      "why": "The statute (60-13-19(C)) gives the substance only; the disclosure must be on a form approved by the Construction Industries Division, and the third pass did not find that form."
+     },
+     "links": [
+      {
+       "url": "https://www.rld.nm.gov/construction-industries/investigation-and-enforcement/",
+       "en": "Open the Construction Industries Division page",
+       "pt": "Abrir a página da Construction Industries Division"
+      },
+      {
+       "url": "https://www.rld.nm.gov/wp-content/uploads/2021/07/Article-13-CILA-7.1.21.pdf",
+       "en": "Open the law that requires the form (NMSA 60-13-19, PDF)",
+       "pt": "Abrir a lei que exige o formulário (NMSA 60-13-19, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "The state does not publish this form online. Ask the Construction Industries Division.",
+      "pt": "O estado não publica este formulário na internet. Peça à Construction Industries Division."
+     }
     },
     "item:1": {
      "c": "B",
@@ -1561,7 +2471,48 @@
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "NC-cancel-credit",
+       "place": "above_signature",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      },
+      {
+       "n": "NC-cancel-credit-form",
+       "as": "page",
+       "copies": 2,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         " (enter date of transaction)",
+         " {transaction_date}"
+        ],
+        [
+         "send a telegram to _________________",
+         "send a telegram to {business_legal_name}"
+        ],
+        [
+         "at______________________________,",
+         "at {business_address},"
+        ],
+        [
+         "not later than midnight of __________________",
+         "not later than midnight of {cancellation_deadline_date}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Credit-sale cancellation statement by the signature and the Notice of Cancellation form in two copies",
+     "sys_pt": "Declaração de cancelamento de venda a crédito junto à assinatura e o formulário Notice of Cancellation em duas vias"
     },
     "notice:NC-cancel-credit-form": {
      "c": "B",
@@ -1626,7 +2577,21 @@
     "notice:OH-estimate-form": {
      "c": "A",
      "en": "Give the customer the estimate form at the first meeting and get their initials",
-     "pt": "Entregue ao cliente o formulário de estimativa no primeiro encontro e pegue as iniciais"
+     "pt": "Entregue ao cliente o formulário de estimativa no primeiro encontro e pegue as iniciais",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "OH-estimate-form",
+       "choose": [
+        "_____ written estimate",
+        "_____ oral estimate",
+        "_____ no estimate"
+       ]
+      }
+     ],
+     "sys_en": "Estimate form printed in the contract, with the customer's initials on their choice",
+     "sys_pt": "Formulário de estimativa impresso no contrato, com as iniciais do cliente na opção escolhida",
+     "flag": "The rule wants the form at the first face to face contact and also said out loud. The system gives it with the contract; saying it out loud stays with the person."
     },
     "item:1": {
      "c": "B",
@@ -1654,7 +2619,18 @@
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "links": [
+      {
+       "url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os14A.pdf",
+       "en": "Open Oklahoma's cancellation statement (Title 14A, PDF; see section 2-503)",
+       "pt": "Abrir a declaração de cancelamento de Oklahoma (Title 14A, PDF; veja a seção 2-503)"
+      }
+     ],
+     "held": {
+      "cat": "lawyer",
+      "why": "The official wording (14A O.S. 2-503) is on record, but it lets the seller keep up to five percent of the down payment, which conflicts with the federal full-refund notice printed in the same contract."
+     }
     },
     "item:1": {
      "c": "H",
@@ -1676,7 +2652,16 @@
     "notice:OR-lien": {
      "c": "A",
      "en": "Give the owner the CCB \"Information Notice to Owner About Construction Lien Rights\" on or before the contract date",
-     "pt": "Entregue ao proprietário o \"Information Notice to Owner About Construction Lien Rights\" do CCB até a data do contrato"
+     "pt": "Entregue ao proprietário o \"Information Notice to Owner About Construction Lien Rights\" do CCB até a data do contrato",
+     "sys": "official",
+     "official": {
+      "slot": "OR-lien",
+      "file": "state-docs/or-information-notice-liens.pdf",
+      "version": "CCB form adopted 9-16",
+      "sha256": "111d94e5cea6575169bb140c84af2f111fae2094e772d6cce0c6d0ab6778f938"
+     },
+     "sys_en": "CCB \"Information Notice to Owner About Construction Lien Rights\" given to the owner with the contract",
+     "sys_pt": "\"Information Notice to Owner About Construction Lien Rights\" do CCB entregue ao proprietário junto com o contrato"
     },
     "notice:OR-cancel": {
      "c": "B",
@@ -1685,7 +2670,17 @@
     "notice:OR-ccb": {
      "c": "A",
      "en": "Give the owner the CCB Consumer Protection Notice and get it signed",
-     "pt": "Entregue ao proprietário o Consumer Protection Notice do CCB e pegue a assinatura"
+     "pt": "Entregue ao proprietário o Consumer Protection Notice do CCB e pegue a assinatura",
+     "sys": "official",
+     "official": {
+      "slot": "OR-ccb",
+      "ack": true,
+      "file": "state-docs/or-consumer-protection-notice.pdf",
+      "version": "CCB form CPN 4-26-2011",
+      "sha256": "a89916480fb4a6408f1c9b93552b2694910a5e81f343ce65d08bc36274d159e3"
+     },
+     "sys_en": "CCB Consumer Protection Notice given to the owner, with their signed acknowledgment",
+     "sys_pt": "Consumer Protection Notice do CCB entregue ao proprietário, com o recibo assinado"
     },
     "item:1": {
      "c": "B",
@@ -1750,7 +2745,28 @@
     "notice:RI-cancel-form": {
      "c": "A",
      "en": "Attach the Notice of Cancellation, with a second copy for the customer",
-     "pt": "Anexe o Notice of Cancellation, com uma segunda via para o cliente"
+     "pt": "Anexe o Notice of Cancellation, com uma segunda via para o cliente",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "RI-cancel-form",
+       "as": "page",
+       "copies": 2,
+       "heading": "Notice of Cancellation",
+       "date_above": true,
+       "style": {
+        "bold": true
+       },
+       "fill": [
+        [
+         "(insert name and address of the seller)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Notice of Cancellation in two copies, with the transaction date and your name and address filled in",
+     "sys_pt": "Notice of Cancellation em duas vias, com a data da transação e o seu nome e endereço preenchidos"
     },
     "notice:RI-62": {
      "c": "A",
@@ -1758,12 +2774,54 @@
      "pt": "Se o cliente tiver 62 anos ou mais, entregue o aviso separado para compradores com 62 anos ou mais",
      "flag": "The builder does not know the customer's age.",
      "fact": "age62",
-     "needs": "A separate cancellation notice with a blank to fill. Not built."
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "RI-62",
+       "as": "page",
+       "heading": "Notice of Cancellation",
+       "date_above": true,
+       "style": {
+        "bold": true
+       },
+       "fill": [
+        [
+         "(insert name and address of the seller)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Separate Notice of Cancellation for buyers age 62 or older, with your name and address filled in",
+     "sys_pt": "Notice of Cancellation separado para compradores com 62 anos ou mais, com o seu nome e endereço preenchidos"
     },
     "notice:RI-board": {
      "c": "A",
      "en": "Attach the Board's consumer disclosures and the Summary of Registration Law",
-     "pt": "Anexe as informações ao consumidor do Board e o Summary of Registration Law"
+     "pt": "Anexe as informações ao consumidor do Board e o Summary of Registration Law",
+     "sys": "official",
+     "official": {
+      "slot": "RI-board",
+      "file": "state-docs/ri-what-homeowners-should-know.pdf",
+      "version": "Approved by the Board March 8, 2023",
+      "sha256": "2982c903684c48817e32a85cbfd309f480e2ab1d62a463fdd8884c1420271066"
+     },
+     "sys_en": "Board's summary \"What Homeowners Should Know\" given to the customer with the contract",
+     "sys_pt": "Resumo do Board \"What Homeowners Should Know\" entregue ao cliente junto com o contrato",
+     "also": {
+      "en": "Add the Board's consumer disclosures to the contract",
+      "pt": "Inclua no contrato as informações ao consumidor exigidas pelo Board",
+      "needs_text": true,
+      "why": "5-65-3(o) points to disclosures set by the Board's regulations; the third pass read the Board's rules and found no such wording."
+     },
+     "also_links": [
+      {
+       "url": "https://webserver.rilegislature.gov/Statutes/TITLE5/5-65/5-65-3.htm",
+       "en": "Open R.I. Gen. Laws 5-65-3 (what the contract must include)",
+       "pt": "Abrir R.I. Gen. Laws 5-65-3 (o que o contrato precisa ter)"
+      }
+     ]
     },
     "item:1": {
      "c": "H",
@@ -1827,7 +2885,22 @@
     "notice:TN-owner": {
      "c": "A",
      "en": "Add the NOTICE TO OWNER line directly above the owner's signature",
-     "pt": "Inclua a linha NOTICE TO OWNER logo acima da assinatura do proprietário"
+     "pt": "Inclua a linha NOTICE TO OWNER logo acima da assinatura do proprietário",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 62-6-508 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 62-6-508 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 62-6-508 was obtained; the only copy is a secondary mirror."
+     }
     },
     "notice:TN-board": {
      "c": "A",
@@ -1837,12 +2910,42 @@
     "notice:TN-cancel": {
      "c": "A",
      "en": "Add the BUYER'S RIGHT TO CANCEL statement on the front or just above the customer's signature",
-     "pt": "Inclua a declaração BUYER'S RIGHT TO CANCEL na frente ou logo acima da assinatura do cliente"
+     "pt": "Inclua a declaração BUYER'S RIGHT TO CANCEL na frente ou logo acima da assinatura do cliente",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 47-18-704 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 47-18-704 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 47-18-704 was obtained; the only copy is a secondary mirror."
+     }
     },
     "notice:TN-lien": {
      "c": "A",
      "en": "Give the owner the lien NOTICE TO OWNER before the work or the contract",
-     "pt": "Entregue ao proprietário o NOTICE TO OWNER de gravame antes do serviço ou do contrato"
+     "pt": "Entregue ao proprietário o NOTICE TO OWNER de gravame antes do serviço ou do contrato",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 66-11-203 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 66-11-203 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 66-11-203 was obtained; the only copy is a secondary mirror."
+     }
     },
     "item:1": {
      "c": "B",
@@ -1915,7 +3018,19 @@
      "pt": "Entregue ao proprietário a lista de subempreiteiros e fornecedores antes de começar o serviço",
      "ref": "Tex. Prop. Code 53.256",
      "fact": "subs",
-     "needs": "The list needs each subcontractor's and supplier's name, address and telephone number. Apex keeps a subcontractor's name, trade and license only, and has no supplier records, so the system cannot build the list yet (it needs a database change)."
+     "sys": "list",
+     "parts": [
+      {
+       "n": "TX-sublist",
+       "as": "list_notice",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       }
+      }
+     ],
+     "sys_en": "List of subcontractors and suppliers given to the owner with the contract",
+     "sys_pt": "Lista de subempreiteiros e fornecedores entregue ao proprietário junto com o contrato"
     },
     "notice:TX-sublist-waiver": {
      "c": "B",
@@ -1941,7 +3056,27 @@
     "notice:UT-cancel": {
      "c": "A",
      "en": "Put the cancellation statement on the first page in dark bold 12 point type",
-     "pt": "Coloque a declaração de cancelamento na primeira página, em negrito escuro, corpo 12"
+     "pt": "Coloque a declaração de cancelamento na primeira página, em negrito escuro, corpo 12",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "UT-cancel",
+       "place": "first_page",
+       "style": {
+        "bold": true,
+        "min_pt": 12
+       },
+       "fill": [
+        [
+         " (or time period reflecting the supplier's cancellation policy but not less than three business days)",
+         ""
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Cancellation statement on the first page (dark bold, 12 point)",
+     "sys_pt": "Declaração de cancelamento na primeira página (negrito escuro, corpo 12)",
+     "flag": "The words in parentheses in the statute are an instruction to the seller (it may give a longer period), not words to print. The system leaves them out and keeps the three business days."
     },
     "notice:UT-auto-renew": {
      "c": "A",
@@ -2016,7 +3151,17 @@
     "notice:VA-dpor": {
      "c": "A",
      "en": "Give the customer the DPOR Statement of Consumer Protections and get a signed acknowledgment",
-     "pt": "Entregue ao cliente o DPOR Statement of Consumer Protections e pegue o recibo assinado"
+     "pt": "Entregue ao cliente o DPOR Statement of Consumer Protections e pegue o recibo assinado",
+     "sys": "official",
+     "official": {
+      "slot": "VA-dpor",
+      "ack": true,
+      "file": "state-docs/va-statement-of-consumer-protections.pdf",
+      "version": "Revised 4/29/2025 (effective 07/01/2025)",
+      "sha256": "243937bc89a3a03c18d68e36c83d146338a0689b0e1401e0817e65798e58fbc4"
+     },
+     "sys_en": "DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment",
+     "sys_pt": "DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado"
     },
     "notice:VA-recovery": {
      "c": "A",
@@ -2047,7 +3192,31 @@
      "c": "A",
      "en": "If the customer pays in more than four installments or with a service charge, add the NOTICE TO BUYER above their signature",
      "pt": "Se o cliente pagar em mais de quatro parcelas ou com taxa de serviço, inclua o NOTICE TO BUYER acima da assinatura",
-     "flag": "Applies only to an installment sale."
+     "flag": "Applies only to an installment sale.",
+     "sys": "parts",
+     "fact": "installments",
+     "only_yes": true,
+     "ask": [
+      "service_charge_pct"
+     ],
+     "parts": [
+      {
+       "n": "WA-cancel",
+       "place": "above_signature",
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         ". . . .% (must be filled in)",
+         "{sv_service_charge_pct}%"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "NOTICE TO BUYER printed directly above the buyer's signature (10 point bold)",
+     "sys_pt": "NOTICE TO BUYER impresso logo acima da assinatura do comprador (negrito, corpo 10)"
     },
     "notice:WA-defect": {
      "c": "A",
@@ -2065,13 +3234,41 @@
     "notice:WA-lien-info": {
      "c": "A",
      "en": "Hand over L&I's construction lien information with the Notice to Customer",
-     "pt": "Entregue as informações de gravame do L&I junto com o Notice to Customer"
+     "pt": "Entregue as informações de gravame do L&I junto com o Notice to Customer",
+     "held": {
+      "cat": "missing",
+      "why": "RCW 60.04.255 wants L&I's own master document handed over; the third pass did not find it on L&I's site."
+     },
+     "links": [
+      {
+       "url": "https://app.leg.wa.gov/RCW/default.aspx?cite=60.04.250",
+       "en": "Open RCW 60.04.250 (what the lien information must be)",
+       "pt": "Abrir RCW 60.04.250 (o que a informação de gravame precisa ser)"
+      }
+     ],
+     "link_note": {
+      "en": "The research did not find this document on the Department of Labor and Industries' site. Ask the Department of Labor and Industries for it.",
+      "pt": "A pesquisa não achou este documento no site do Department of Labor and Industries. Peça ao Department of Labor and Industries."
+     }
     },
     "item:1": {
      "c": "A",
      "en": "Keep the signed Notice to Customer for three years",
      "pt": "Guarde o Notice to Customer assinado por três anos",
-     "ref": "RCW 18.27.114"
+     "ref": "RCW 18.27.114",
+     "sys": "official",
+     "official": {
+      "slot": "WA-customer-form",
+      "ack": true,
+      "title": "L&I Contractor Registration Disclosure Statement, Notice to Customers (F625-030-000)",
+      "cite": "RCW 18.27.114",
+      "file": "state-docs/wa-notice-to-customer-f625-030-000.pdf",
+      "version": "F625-030-000, 12-2015",
+      "sha256": "70dc3e0ac9fe5ed53c748d61b62ef592e930f3ae1864faef281e2d60fdf6e37c"
+     },
+     "sys_en": "L&I's own Notice to Customers form given to the customer, with their signed acknowledgment kept on the contract",
+     "sys_pt": "Formulário Notice to Customers do L&I entregue ao cliente, com o recibo assinado guardado no contrato",
+     "flag": "L&I's form is handed over unaltered, so its blanks (registration number, bond amount) are not filled in on the form itself; the contract's own Notice to Customer and license line carry the registration. The signed acknowledgment is kept with the contract for as long as the contract is kept; a lawyer should confirm that this meets the three-year rule."
     },
     "item:2": {
      "c": "H",
@@ -2096,7 +3293,27 @@
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "WV-cancel",
+       "place": "above_signature",
+       "heading": "BUYER'S RIGHT TO CANCEL",
+       "style": {
+        "bold": true
+       },
+       "fill": [
+        [
+         "(Name and mailing address of seller)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "BUYER'S RIGHT TO CANCEL statement printed by the signature, with your name and address filled in",
+     "sys_pt": "Declaração BUYER'S RIGHT TO CANCEL impressa junto à assinatura, com o seu nome e endereço preenchidos"
     },
     "notice:WV-cancel-caption": {
      "c": "B",
@@ -2125,7 +3342,18 @@
     "notice:WI-lien-waiver": {
      "c": "A",
      "en": "Give the Notice of Consumer's Right to Receive Lien Waivers as a separate page before signing, and keep proof",
-     "pt": "Entregue o Notice of Consumer's Right to Receive Lien Waivers em página separada antes da assinatura e guarde a prova"
+     "pt": "Entregue o Notice of Consumer's Right to Receive Lien Waivers em página separada antes da assinatura e guarde a prova",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "WI-lien-waiver",
+       "as": "page",
+       "bare": true,
+       "sign": true
+      }
+     ],
+     "sys_en": "Notice of Consumer's Right to Receive Lien Waivers on its own page, with proof the customer received it",
+     "sys_pt": "Notice of Consumer's Right to Receive Lien Waivers em página própria, com prova de que o cliente recebeu"
     },
     "notice:WI-lien": {
      "c": "A",
@@ -2143,7 +3371,23 @@
     "notice:WI-defect": {
      "c": "A",
      "en": "For building or remodeling a home, give the construction defect notice with the state brochure before signing",
-     "pt": "Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura"
+     "pt": "Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "WI-defect",
+       "style": {
+        "bold": true
+       }
+      },
+      {
+       "n": "WI-brochure",
+       "as": "page"
+      }
+     ],
+     "sys_en": "Construction defect notice printed in the contract and the state's Right to Cure brochure given with it as its own page",
+     "sys_pt": "Aviso de defeitos de construção impresso no contrato e o folheto Right to Cure do estado entregue junto, em página própria",
+     "flag": "The notice is for building or remodeling a home (not repair or maintenance only). The system prints it on every residential job (the safe side)."
     },
     "notice:WI-brochure": {
      "c": "B",
@@ -2159,13 +3403,27 @@
      "pt": "Se o cliente assinar uma nota promissória, coloque a legenda exigida na nota",
      "flag": "Applies only when a note is taken.",
      "fact": "note",
-     "needs": "The legend goes on the note, which is not a document the builder makes."
+     "outside": "The statement goes on the promissory note. Apex does not make promissory notes, so only a person can put it there."
     },
     "notice:WI-waterproof-noguarantee": {
      "c": "A",
      "en": "For basement waterproofing with no guarantee, add the no-guarantee statement on the face of the contract",
      "pt": "Para impermeabilização de porão sem garantia, inclua a declaração de sem garantia na frente do contrato",
-     "flag": "Applies only to basement waterproofing."
+     "flag": "Applies only to basement waterproofing.",
+     "sys": "parts",
+     "fact": "waterproof",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "WI-waterproof-noguarantee",
+       "place": "face",
+       "style": {
+        "bold": true
+       }
+      }
+     ],
+     "sys_en": "No-guarantee statement on the face of the contract, apart from the other provisions (bold)",
+     "sys_pt": "Declaração de sem garantia na frente do contrato, separada das outras cláusulas (negrito)"
     },
     "notice:WI-waterproof-dampness": {
      "c": "B",
@@ -2191,7 +3449,62 @@
     "notice:WY-lien": {
      "c": "A",
      "en": "Send the owner the NOTICE TO OWNER with a lien waiver form before you take any payment, including the deposit",
-     "pt": "Envie ao proprietário o NOTICE TO OWNER com um formulário de lien waiver antes de receber qualquer pagamento, inclusive o sinal"
+     "pt": "Envie ao proprietário o NOTICE TO OWNER com um formulário de lien waiver antes de receber qualquer pagamento, inclusive o sinal",
+     "sys": "parts",
+     "ask": [
+      "work_description",
+      "property_description",
+      "legal_description"
+     ],
+     "parts": [
+      {
+       "n": "WY-lien",
+       "as": "page",
+       "company_sign": true,
+       "fill": [
+        [
+         "(and contact person:\\n)_+\\n_+\\n_+",
+         "$1{business_legal_name}\n{business_address}\n{business_phone}, {company_signer_name}",
+         "re"
+        ],
+        [
+         "(MATERIALS PROVIDED OR WORK PERFORMED:\\n)_+\\n_+\\n_+",
+         "$1{sv_work_description}",
+         "re"
+        ],
+        [
+         "(PROPERTY DESCRIPTION:\\n)_+\\n_+\\n_+",
+         "$1{sv_property_description}",
+         "re"
+        ],
+        [
+         "(ADDRESS:\\n)_+\\n_+\\n_+",
+         "$1{property_address}",
+         "re"
+        ],
+        [
+         "(LEGAL DESCRIPTION:\\n)_+\\n_+\\n_+",
+         "$1{sv_legal_description}",
+         "re"
+        ],
+        [
+         "SIGNED: ________________",
+         "SIGNED: {state_part_company_signature}"
+        ],
+        [
+         "DATE: __________________",
+         "DATE: {state_part_company_date}"
+        ]
+       ]
+      },
+      {
+       "n": "WY-lien-waiver",
+       "as": "page"
+      }
+     ],
+     "sys_en": "NOTICE TO OWNER, filled in and signed by the company, given to the owner with the lien waiver form",
+     "sys_pt": "NOTICE TO OWNER, preenchido e assinado pela empresa, entregue ao proprietário com o formulário de lien waiver",
+     "flag": "The owner gets the notice with the contract, so before any payment made after the contract is sent. A payment taken before the contract is sent is outside what the system sees."
     },
     "notice:WY-lien-waiver": {
      "c": "B",

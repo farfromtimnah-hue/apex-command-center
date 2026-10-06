@@ -383,6 +383,8 @@
       var d = Number(con.schedule_days) || 0;
       h += '<p style="margin-top:8pt;"><strong>Effect on the schedule:</strong> ' + (d === 0 ? "no change to the schedule." : (Math.abs(d) + " working day" + (Math.abs(d) === 1 ? "" : "s") + (d > 0 ? " added to" : " removed from") + " the schedule.")) + '</p>';
       h += '<p><strong>Payment schedule:</strong> ' + (con.payment_change === "new_step" ? "A new invoice step is added for this amount." : "The remaining unpaid invoices are adjusted by this amount.") + (con.payment_note ? " " + stripTokens(escHtml(con.payment_note)) : "") + '</p>';
+      // RES-36: a statement the job's state wants on every change order (official wording).
+      (con.state_statements || []).forEach(function(st) { h += '<p>' + escHtml(st.text) + '</p>'; });
       h += '<p>Everything in the Contract not changed by this Change Order stays the same.</p></div>';
       blocks.push({ html: h, kind: "block" });
 

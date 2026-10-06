@@ -4706,10 +4706,31 @@ function gmConSettingsHtml() {
   h += '<label class="gm-field-label" for="gmConBizState">' + gmT("Estado de registro da empresa", "State your business is registered in") + '</label>' +
     '<select id="gmConBizState" class="gm-input" onchange="gmConDraft.values.business_state = this.value">' +
     (S.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (x.code === bizState ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>';
+  h += gmConBizFactsHtml(d, S);
   vals.forEach(function(v) { h += '<label class="gm-field-label" for="gmConVal_' + v[0] + '">' + gmT(v[1], v[2]) + '</label><input type="text" id="gmConVal_' + v[0] + '" class="gm-input" value="' + escHtml(d.values[v[0]] || "") + '" oninput="gmConDraft.values[\'' + v[0] + '\'] = this.value">'; });
   h += '</div>';
   if (d.trades.indexOf("cleaning") !== -1) { h += gmConCleaningSettingsHtml(d); }
   h += '<p class="gm-warn" id="gmConMsg" hidden></p><button type="button" class="gm-btn-primary" id="gmConSaveBtn" onclick="gmConSettingsSave()">' + gmT("Salvar contrato", "Save contract settings") + '</button></div>';
+  return h;
+}
+// The business facts some states' statements must be true about (insurance,
+// workers' compensation). Asked once here, never per contract; the statement
+// that is true for the business then prints by itself. S.state_biz comes from
+// the Worker (the questions, their answers, and the details an answer needs).
+function gmConBizFactsHtml(d, S) {
+  var defs = (S && S.state_biz) || {}, h = "";
+  Object.keys(defs).forEach(function(k) {
+    var q = defs[k], cur = d.values[q.key] || "";
+    h += '<label class="gm-field-label" for="gmConBiz_' + escHtml(k) + '">' + escHtml(isEn() ? q.en : q.pt) + '</label>' +
+      '<select id="gmConBiz_' + escHtml(k) + '" class="gm-input" onchange="gmConDraft.values[\'' + escHtml(q.key) + '\'] = this.value; gmRenderEstimatesTab();">' +
+      '<option value="">' + gmT("\u2014 escolher \u2014", "\u2014 choose \u2014") + '</option>' +
+      (q.options || []).map(function(o) { return '<option value="' + escHtml(o.v) + '"' + (o.v === cur ? " selected" : "") + '>' + escHtml(isEn() ? o.en : o.pt) + '</option>'; }).join("") + '</select>';
+    (q.extra || []).forEach(function(x) {
+      if ((x.when || []).indexOf(cur) === -1) { return; }
+      h += '<label class="gm-field-label" for="gmConVal_' + escHtml(x.key) + '">' + escHtml(isEn() ? x.en : x.pt) + '</label><input type="text" id="gmConVal_' + escHtml(x.key) + '" class="gm-input" value="' + escHtml(d.values[x.key] || "") + '" oninput="gmConDraft.values[\'' + escHtml(x.key) + '\'] = this.value">';
+    });
+  });
+  if (h) { h += '<p class="muted" style="font-size:13px;margin-top:-4px;">' + gmT("Alguns estados exigem uma declara\u00e7\u00e3o sobre o seguro da empresa. O contrato imprime a que vale para voc\u00ea.", "Some states require a statement about your business's insurance. The contract prints the one that is true for you.") + '</p>'; }
   return h;
 }
 // G3b: authorized signers are picked from the salesperson list (linked by
@@ -4869,7 +4890,7 @@ function gmConCleaningQuestionsHtml(c, ro) {
     q += gmSheetRowHtml("tag", gmT("Modelo", "Template"), escHtml(gmConTemplateLabel(tpl)));
     q += gmSheetRowHtml("tag", Q.consumer, yn(consumer));
     q += gmSheetRowHtml("tag", Q.sold, yn(f.sold_in_home !== false));
-    if (outFl) { q += gmConStateFactsHtml(c, true); }
+    if (outFl) { q += gmConStateFactsHtml(c, true) + gmConStateValuesHtml(c, true); }
     q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
     if (f.oral_notice && f.oral_notice.at) { q += gmSheetRowHtml("check", gmT("Aviso em voz alta confirmado", "Oral notice confirmed"), escHtml(f.oral_notice.by || ""), null, null, escHtml(formatDateTimeUTC(f.oral_notice.at))); }
     q += gmSheetRowHtml("clock", gmT("Proposta v\u00e1lida at\u00e9", "Offer valid until"), c.offer_expiry_date ? escHtml(formatDate(c.offer_expiry_date)) : "");
@@ -4881,7 +4902,7 @@ function gmConCleaningQuestionsHtml(c, ro) {
     '<p class="muted" style="margin:-4px 0 10px;font-size:13px;">' + gmT("Trocar o modelo troca as cl\u00e1usulas oferecidas. Depois que a empresa assina, n\u00e3o muda mais.", "Changing the template changes the clauses offered. Once the company signs, it cannot change.") + '</p>';
   q += gmConYesNoHtml(Q.consumer, "consumer", consumer);
   q += gmConYesNoHtml(Q.sold, "sold_in_home", f.sold_in_home !== false);
-  if (outFl) { q += gmConStateFactsHtml(c, false); }
+  if (outFl) { q += gmConStateFactsHtml(c, false) + gmConStateValuesHtml(c, false); }
   if (tpl === "T2") { q += gmConYesNoHtml(Q.further, "further_visits", f.further_visits === true ? true : false); }
   if (sel.CL09 === "CL09-B") { q += gmConYesNoHtml(Q.term12, "term_12_plus", f.term_12_plus === true ? true : false); }
   q += gmConYesNoHtml(Q.post, "post_construction", f.post_construction === true ? true : false);
@@ -5327,7 +5348,7 @@ function gmRenderContractSheet() {
     q += gmSheetRowHtml("tag", gmT("Vendido durante uma visita à casa do cliente?", "Sold during a visit to the customer's home?"), f.sold_in_home !== false ? gmT("Sim", "Yes") : gmT("Não", "No"));
     q += gmSheetRowHtml("tag", gmT("Estado onde o servi\u00e7o ser\u00e1 feito", "State where the work is done"), escHtml(c.job_state_name || ""));
     q += gmSheetRowHtml("tag", gmT("Tipo do imóvel", "Property type"), escHtml(propLabel));
-    if (outFl) { q += gmConStateFactsHtml(c, true); }
+    if (outFl) { q += gmConStateFactsHtml(c, true) + gmConStateValuesHtml(c, true); }
     if (c.builds_pools) {
       q += gmSheetRowHtml("tag", gmT("Obra de piscina", "Pool job"), f.is_pool ? gmT("Sim", "Yes") : gmT("Não", "No"));
       if (f.is_pool && !outFl) { q += gmSheetRowHtml("tag", gmT("Recurso de segurança da piscina", "Pool safety feature"), escHtml(f.pool_safety_feature || "")); }
@@ -5337,7 +5358,7 @@ function gmRenderContractSheet() {
     q += '<div class="gm-chip-set"><span class="gm-field-label" style="flex-basis:100%;">' + gmT("Vendido durante uma visita à casa do cliente?", "Was this sold during a visit to the customer's home?") + '</span>' +
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home !== false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', true)">' + gmT("Sim", "Yes") + '</button>' +
       '<button type="button" class="gm-choice-chip' + (f.sold_in_home === false ? " gm-chip-sel" : "") + '" onclick="gmConSetFlag(\'sold_in_home\', false)">' + gmT("Não", "No") + '</button></div>';
-    if (outFl) { q += gmConStateFactsHtml(c, false); }
+    if (outFl) { q += gmConStateFactsHtml(c, false) + gmConStateValuesHtml(c, false); }
   }
   if (c.rules && c.rules.L5 && c.rules.L5.on) {
     var canRule = c.cancellation_rule || { business_days: 3, saturday_counts: true };
@@ -5530,6 +5551,18 @@ function gmConStateFactsHtml(c, ro) {
   }).join("");
 }
 function gmConSetFact(k, v) { var facts = {}; facts[k] = v; gmConSave({ flags: { state_facts: facts } }); }
+// The few values a state form needs that Apex does not keep (c.state_card.values):
+// asked here once per contract; the system then fills the blank by itself.
+function gmConStateValuesHtml(c, ro) {
+  var vals = (c.state_card && c.state_card.values) || [];
+  return vals.map(function(q) {
+    var label = escHtml(isEn() ? q.en : q.pt);
+    if (ro) { return gmSheetRowHtml("tag", label, escHtml(q.value || ""), null, null, q.value ? "" : gmT("Sem resposta", "Not answered")); }
+    return '<label class="gm-field-label" for="gmConSv_' + escHtml(q.key) + '">' + label + '</label>' +
+      '<input type="text" id="gmConSv_' + escHtml(q.key) + '" class="gm-input" value="' + escHtml(q.value || "") + '" onchange="gmConSetStateValue(\'' + escHtml(q.key) + '\', this.value)">';
+  }).join("");
+}
+function gmConSetStateValue(k, v) { var vals = {}; vals[k] = String(v || "").trim(); gmConSave({ flags: { state_values: vals } }); }
 // The "Before you send" card. c.state_card (from the Worker) holds the lines
 // the person must act on, each with its law reference, the full text behind
 // it, and who ticked it and when; everything else the research says sits in
@@ -5565,6 +5598,13 @@ function gmConStateCardHtml(c) {
           (a.sys.done ? '<span class="gm-pill gm-green">\u2713 ' + gmT("Feito pelo sistema", "Done by the system") + '</span>' + (a.sys.who_en ? ' <strong>' + escHtml(isEn() ? a.sys.who_en : (a.sys.who_pt || a.sys.who_en)) + '</strong>' : (a.sys.at ? " " + escHtml(formatDateTimeUTC(a.sys.at)) : "")) + '<br>' : "") +
           escHtml(isEn() ? a.sys.en : a.sys.pt) + '</div>' :
         (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "");
+      // The official page or document behind the line, right on the line and
+      // named for what it opens (a.links, from the Worker). One tap; nothing
+      // is recorded for it.
+      under += gmConStateLinksHtml(a);
+      // Apex staff only (the Worker leaves it out for everyone else): the
+      // agency's own document for this line has not been loaded yet.
+      if (a.staff_en) { under += '<div class="gm-warn" style="font-size:12px;margin-top:2px;">' + escHtml(isEn() ? a.staff_en : (a.staff_pt || a.staff_en)) + (a.staff_slot ? " (" + escHtml(a.staff_slot) + ")" : "") + '</div>'; }
       h += '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border);">' + box +
         '<div style="flex:1 1 auto;min-width:0;"><label for="' + boxId + '">' + escHtml(isEn() ? a.en : a.pt) + '</label> ' +
         '<a href="#" role="button" aria-expanded="false" aria-controls="' + ctxId + '" onclick="return gmConStateCtx(this, \'' + ctxId + '\')">(' + escHtml(ref) + ')</a>' +
@@ -5582,6 +5622,21 @@ function gmConStateCardHtml(c) {
       '<p class="gm-derived-note">' + gmT("Os dados legais (cita\u00e7\u00f5es e n\u00fameros) v\u00eam da pesquisa e ficam em ingl\u00eas. Nenhum advogado revisou.", "The legal facts (cites and numbers) come from the research on file. No lawyer has reviewed them.") + '</p></details>';
   }
   return h + '</div>';
+}
+function gmConStateLinksHtml(a) {
+  var h = "";
+  (a.links || []).forEach(function(k) {
+    if (!/^https:\/\//.test(String(k.url || ""))) { return; }
+    h += '<div style="font-size:14px;margin-top:4px;"><a href="' + escHtml(k.url) + '" target="_blank" rel="noopener" onclick="return gmConOpenStateLink(this.href)">' + escHtml(isEn() ? k.en : (k.pt || k.en)) + '</a></div>';
+  });
+  if (a.link_note_en) { h += '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml(isEn() ? a.link_note_en : (a.link_note_pt || a.link_note_en)) + '</div>'; }
+  return h;
+}
+// In the browser the link opens in a new tab by itself; inside the iOS app it
+// opens in the system browser. Nothing is saved or logged.
+function gmConOpenStateLink(url) {
+  if (typeof gmInApp === "function" && gmInApp() && typeof apexOpenExternal === "function") { apexOpenExternal(url); return false; }
+  return true;
 }
 // Tick or untick line i of the card: saved at once with who and when.
 function gmConStateCheck(i, on) {
@@ -5866,6 +5921,7 @@ function gmDLoadJobTools(jobId) {
   if (!gmIsSeller()) {
     gmApi("jobs/" + encodeURIComponent(jobId) + "/lienors").then(function(d) { gmDTools[jobId].lienors = d; gmDRenderLienors(jobId); }).catch(function(e) { gmDTools[jobId].lienors = { error: e.message }; gmDRenderLienors(jobId); console.error(e); });
     gmApi("subcontractors").then(function(d) { gmDSubs = d; gmDRenderJobSubs(jobId); }).catch(function(e) { console.error(e); });
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/suppliers").then(function(d) { gmDTools[jobId].suppliers = d; gmDRenderJobSubs(jobId); }).catch(function(e) { gmDTools[jobId].suppliers = { suppliers: [], ready: false }; console.error(e); });
   }
 }
 function gmDAckPill(a) {
@@ -6200,7 +6256,65 @@ function gmDRenderJobSubs(jobId) {
     inner += gmSheetRowHtml("user", escHtml(s.name), (s.warnings && s.warnings.length ? '<span class="gm-pill gm-red">! ' + s.warnings.length + '</span>' : '<span class="gm-pill gm-green">✓</span>'), "gmDSubOpen(" + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml(gmDSubMsgs(s.warning_codes).join("; ")));
   });
   box.innerHTML = gmSheetSection(gmT("Subempreiteiros", "Subcontractors"), inner) +
-    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSubAssign(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Adicionar subempreiteiro ao projeto", "Add a subcontractor to this project") + '</button></div>';
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSubAssign(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ')">' + gmT("Adicionar subempreiteiro ao projeto", "Add a subcontractor to this project") + '</button></div>' +
+    gmDSuppliersHtml(jobId);
+}
+// The project's suppliers (name, address, telephone, what they supply). Some
+// states ask for a list of subcontractors and suppliers; the contract builds
+// it from these records and the customer's link follows them.
+function gmDSuppliersHtml(jobId) {
+  var d = gmDTools[jobId] && gmDTools[jobId].suppliers;
+  if (!d || d.ready === false) { return ""; }
+  var rows = d.suppliers || [], jid = JSON.stringify(jobId).replace(/"/g, "&quot;"), inner = "";
+  if (!rows.length) { inner = '<p class="muted" style="padding:10px 12px;">' + gmT("Nenhum fornecedor neste projeto.", "No supplier on this project.") + '</p>'; }
+  rows.forEach(function(s) {
+    var gaps = [];
+    if (!s.address) { gaps.push(gmT("falta o endere\u00e7o", "address missing")); }
+    if (!s.phone) { gaps.push(gmT("falta o telefone", "telephone missing")); }
+    inner += gmSheetRowHtml("user", escHtml(s.name), gaps.length ? '<span class="gm-pill gm-gold">! ' + gaps.length + '</span>' : '<span class="gm-pill gm-green">\u2713</span>', "gmDSupplierOpen(" + jid + "," + JSON.stringify(s.id).replace(/"/g, "&quot;") + ")", null, escHtml([s.supplies || "", gaps.join("; ")].filter(Boolean).join(" \u00b7 ")));
+  });
+  return gmSheetSection(gmT("Fornecedores", "Suppliers"), inner) +
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSupplierNew(' + jid + ')">' + gmT("Adicionar fornecedor ao projeto", "Add a supplier to this project") + '</button></div>';
+}
+function gmDSuppliersReload(jobId) {
+  return gmApi("jobs/" + encodeURIComponent(jobId) + "/suppliers").then(function(d) { gmDTools[jobId] = gmDTools[jobId] || {}; gmDTools[jobId].suppliers = d; gmDRenderJobSubs(jobId); return d; });
+}
+function gmDSupplierNew(jobId) {
+  gmOpenFieldEditor(gmT("Nome do fornecedor", "Supplier name"), "text", "", null, function(name) {
+    if (!String(name || "").trim()) { return; }
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/suppliers", { method: "POST", body: { name: name } }).then(function() { return gmDSuppliersReload(jobId); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  });
+}
+var GM_DSUPPLIER_FIELD_LABELS = { name: ["Nome", "Name"], supplies: ["O que fornece", "What they supply"], address: ["Endere\u00e7o", "Address"], phone: ["Telefone", "Telephone"] };
+function gmDSupplierOpen(jobId, sid) {
+  var d = gmDTools[jobId] && gmDTools[jobId].suppliers;
+  var s = ((d && d.suppliers) || []).filter(function(x) { return x.id === sid; })[0];
+  if (!s) { return; }
+  var jid = JSON.stringify(jobId).replace(/"/g, "&quot;"), q = JSON.stringify(sid).replace(/"/g, "&quot;");
+  function row(field, value) { return gmSheetRowHtml("edit", gmT(GM_DSUPPLIER_FIELD_LABELS[field][0], GM_DSUPPLIER_FIELD_LABELS[field][1]), value ? escHtml(value) : '<span class="muted">' + gmT("\u2014 toque para preencher", "\u2014 tap to fill") + '</span>', "gmDSupplierEdit(" + jid + "," + q + ",'" + field + "')"); }
+  var body = gmSheetSection(gmT("Dados", "Details"), row("name", s.name) + row("supplies", s.supplies) + row("address", s.address) + row("phone", s.phone ? gmFmtPhone(s.phone) : "")) +
+    '<div class="gm-est-actions"><button type="button" class="gm-btn-secondary" onclick="gmDSupplierRemove(' + jid + ',' + q + ')">' + gmT("Tirar deste projeto", "Remove from this project") + '</button></div>';
+  gmSheetOpen(escHtml(s.name), body);
+}
+function gmDSupplierEdit(jobId, sid, field) {
+  var d = gmDTools[jobId] && gmDTools[jobId].suppliers;
+  var s = ((d && d.suppliers) || []).filter(function(x) { return x.id === sid; })[0] || {};
+  gmOpenFieldEditor(gmT(GM_DSUPPLIER_FIELD_LABELS[field][0], GM_DSUPPLIER_FIELD_LABELS[field][1]), "text", s[field] || "", null, function(v) {
+    var body = { id: sid }; body[field] = v;
+    gmApi("jobs/" + encodeURIComponent(jobId) + "/suppliers", { method: "POST", body: body }).then(function() { return gmDSuppliersReload(jobId); }).then(function() { gmDSupplierOpen(jobId, sid); }).catch(function(e) { gmToast(e.message); console.error(e); });
+  }, null, function() { gmDSupplierOpen(jobId, sid); });
+}
+// An in-page question (never a browser pop-up), with buttons that say what they do.
+function gmDSupplierRemove(jobId, sid) {
+  var d = gmDTools[jobId] && gmDTools[jobId].suppliers;
+  var s = ((d && d.suppliers) || []).filter(function(x) { return x.id === sid; })[0] || {};
+  gmAsk({
+    message: gmT("Tirar " + (s.name || "") + " deste projeto?\n\nEle sai da lista de subempreiteiros e fornecedores que o cliente v\u00ea.", "Remove " + (s.name || "") + " from this project?\n\nIt leaves the list of subcontractors and suppliers the customer sees."),
+    yes: gmT("Sim, tirar do projeto", "Yes, remove from the project"), keep: gmT("Manter no projeto", "Keep on the project"),
+    onYes: function() {
+      gmApi("jobs/" + encodeURIComponent(jobId) + "/suppliers", { method: "POST", body: { remove_id: sid } }).then(function() { return gmDSuppliersReload(jobId); }).then(function() { gmSheetClose(); }).catch(function(e) { gmToast(e.message); console.error(e); });
+    }
+  });
 }
 function gmDSubAssign(jobId) {
   var subs = (gmDSubs && gmDSubs.subcontractors) || [];
@@ -6232,6 +6346,8 @@ function gmDSubOpen(sid) {
     row(gmT("Nome", "Name"), s.name, "gmDSubEdit('" + sid + "','name','text')") +
     row(gmT("Ofício", "Trade"), s.trade, "gmDSubEdit('" + sid + "','trade','text')") +
     row(gmT("Número da licença", "License number"), s.license_number, "gmDSubEdit('" + sid + "','license_number','text')") +
+    row(gmT("Endere\u00e7o", "Address"), s.address, "gmDSubEdit('" + sid + "','address','text')") +
+    row(gmT("Telefone", "Telephone"), s.phone ? gmFmtPhone(s.phone) : "", "gmDSubEdit('" + sid + "','phone','text')") +
     row(gmT("Seguro (COI) vence em", "Insurance certificate (COI) expires"), s.coi_expires ? formatDate(s.coi_expires) : "", "gmDSubEdit('" + sid + "','coi_expires','date')") +
     row(gmT("Workers' comp", "Workers' comp"), s.wc_kind === "exemption" ? gmT("Isenção", "Exemption") : (s.wc_kind === "policy" ? gmT("Apólice", "Policy") : ""), "gmDSubEdit('" + sid + "','wc_kind','select')") +
     row(gmT("Workers' comp vence em", "Workers' comp expires"), s.wc_expires ? formatDate(s.wc_expires) : "", "gmDSubEdit('" + sid + "','wc_expires','date')")) +
@@ -6247,7 +6363,8 @@ function gmDSubOpen(sid) {
 }
 // F34: the editor is titled with the same label as the list, never the column name.
 var GM_DSUB_FIELD_LABELS = { name: ["Nome", "Name"], trade: ["Ofício", "Trade"], license_number: ["Número da licença", "License number"], coi_expires: ["Seguro (COI) vence em", "Insurance certificate (COI) expires"],
-  wc_kind: ["Workers' comp", "Workers' comp"], wc_expires: ["Workers' comp vence em", "Workers' comp expires"], notes: ["Observações", "Notes"] };
+  wc_kind: ["Workers' comp", "Workers' comp"], wc_expires: ["Workers' comp vence em", "Workers' comp expires"], notes: ["Observa\u00e7\u00f5es", "Notes"],
+  address: ["Endere\u00e7o", "Address"], phone: ["Telefone", "Telephone"] };
 function gmDSubEdit(sid, field, type) {
   var s = (gmDSubs && gmDSubs.subcontractors || []).filter(function(x) { return x.id === sid; })[0] || {};
   var wcLabels = [gmT("Apólice", "Policy"), gmT("Isenção", "Exemption")];

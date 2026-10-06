@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 import { fnSrc, varSrc } from "./fixtures/d1-shim.mjs";
-import { parseStateFile, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
+import { parseNoticeFile, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
 import { summaryText, reviewText } from "./make-state-checklist-review.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -75,7 +75,8 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
     "Texas: the count includes the system's lines (2 of " + fresh.card.total + " done on a new contract, before any hand tick)");
 
   const sys = { c: SIGNED, ack: { signed_at: "2026-10-04 15:00:00", photos: 6 }, copy_sent_at: "2026-10-05 21:00:00", frozen: { "TX-homestead": true, "TX-defect": true, "TX-disclosure": true } };
-  const done = await run("TX", { married: "no", sale_english: "yes" }, null, sys);
+  // RES-36: the list of subcontractors and suppliers is now the system's line; here the project's records are complete.
+  const done = await run("TX", { married: "no", sale_english: "yes" }, { parties: { subs: [{ name: "Gulf Plumbing", trade: "Plumbing", license_number: "M-1", address: "9 Pipe Rd, Austin, TX 78701", phone: "5125550101" }], suppliers: [] } }, sys);
   const d2 = line(done.card, "notice:TX-disclosure"), p2 = line(done.card, "fixed:1"), c2 = line(done.card, "fixed:2"), h2 = line(done.card, "notice:TX-homestead"), lg = line(done.card, "cancellation_language");
   ok(d2.sys.done && d2.sys.at === "2026-10-05 19:30:00" && d2.sys.en === "Given to the customer with the contract, sent 10/05/2026 3:30 PM ET. The customer opened it 10/05/2026 3:45 PM ET.",
     "Texas: once sent, the disclosure line reads \"Given to the customer with the contract, sent 10/05/2026 3:30 PM ET ...\" (month first, 12-hour, Eastern)");
@@ -168,13 +169,13 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   const nv = await run("NV", {}), nvSent = await run("NV", {}, null, { c: { status: "sent", company_signed_at: "2026-10-05 19:00:00", sent_at: "2026-10-05 19:30:00" }, frozen: { "NV-info-liens": true, "NV-info-contractors": true } });
   ok(sec(nv.r, "NV-info-liens").kind === "state_document" && sec(nv.r, "NV-info-contractors").kind === "state_document" && sec(nv.r, "NV-info-liens").text === noticeOf("NV-info-liens").text_on_file && sec(nv.r, "NV-info-contractors").text === noticeOf("NV-info-contractors").text_on_file,
     "Nevada: the two state information forms ride with the contract as documents, word for word");
-  ok(line(nv.card, "notice:NV-info-liens").kind === "does" && line(nv.card, "notice:NV-info-liens").sys.done === false && line(nvSent.card, "notice:NV-info-liens").sys.done === true && nv.card.actions.filter(function (a) { return /NV-info/.test(a.key); }).length === 1 && line(nv.card, "notice:NV-sub-list").kind === "person",
-    "Nevada: one line covers both forms (waiting until the contract is sent, then done); the subcontractor list stays with a person");
+  ok(line(nv.card, "notice:NV-info-liens").kind === "does" && line(nv.card, "notice:NV-info-liens").sys.done === false && line(nvSent.card, "notice:NV-info-liens").sys.done === true && nv.card.actions.filter(function (a) { return /NV-info/.test(a.key); }).length === 1 && line(nv.card, "notice:NV-sub-list").kind === "does" && line(nv.card, "notice:NV-sub-list").sys.done === false && /^Waiting: add this job's subcontractors and suppliers to the project/.test(line(nv.card, "notice:NV-sub-list").sys.en),
+    "Nevada: one line covers both forms (waiting until the contract is sent, then done); the subcontractor list is the system's line and waits for the project's records (RES-36)");
   // Virginia: the system sees both signatures.
   const va = await run("VA", {}), vaSigned = await run("VA", {}, null, { c: SIGNED });
   ok(line(va.card, "written_contract").kind === "sees" && /^Waiting: the company and the customer have not both signed yet\.$/.test(line(va.card, "written_contract").sys.en) && line(vaSigned.card, "written_contract").sys.en === "Company signed 10/05/2026 3:00 PM ET; customer signed 10/05/2026 4:12 PM ET." && line(vaSigned.card, "written_contract").sys.at === "2026-10-05 20:12:00",
     "Virginia: \"signed by both sides\" waits, then reads \"Company signed 10/05/2026 3:00 PM ET; customer signed 10/05/2026 4:12 PM ET.\"");
-  ok(line(va.card, "notice:VA-dpor").kind === "person" && !sec(va.r, "VA-dpor"), "Virginia: the DPOR statement needs a signed acknowledgment, so it stays with a person and does not print");
+  ok(line(va.card, "notice:VA-dpor").kind === "does" && line(va.card, "notice:VA-dpor").sys.done === false && !sec(va.r, "VA-dpor"), "Virginia: the DPOR statement is not printed as text; since RES-36 the system hands over DPOR's own PDF and collects the signed acknowledgment");
   // New York: the system sees the company signature and the send.
   const ny = await run("NY", {}), nySent = await run("NY", {}, null, { c: { status: "sent", company_signed_at: "2026-10-05 19:00:00", sent_at: "2026-10-05 19:30:00" } });
   ok(line(ny.card, "written_contract").kind === "sees" && line(ny.card, "written_contract").sys.done === false && line(nySent.card, "written_contract").sys.done === true && /^Signed by the company 10\/05\/2026 3:00 PM ET and sent to the customer 10\/05\/2026 3:30 PM ET\.$/.test(line(nySent.card, "written_contract").sys.en),
@@ -205,13 +206,14 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   const parsed = {};
   for (const code of NON_FL) {
     const r = await h.compose(stateFx(code, {}, { settings: { builds_pools: true }, flags: { job_state: code, is_pool: true, state_facts: {} } }));
-    r.comp.sections.filter(function (s) { return s.system === true; }).forEach(function (s) {
+    // RES-36 parts (s.line: placed, signed, initialed, blank-filled) are checked in scripts/test-state-finish.mjs.
+    r.comp.sections.filter(function (s) { return s.system === true && !s.line; }).forEach(function (s) {
       planned++;
       const n = noticeOf(s.id);
       if (s.text !== n.text_on_file || !n.text_on_file || n.text) { bad.push(s.id); }
       if (n.source_status !== "VERBATIM-OFFICIAL" || n.hold_reason || (n.range && n.range.blanks.length) || !/^https:\/\//.test(n.source_url || "")) { notOfficial.push(s.id); }
       if (haveInput) {
-        parsed[code] = parsed[code] || parseStateFile(code);
+        parsed[code] = parsed[code] || parseNoticeFile(code, n);
         fileChecked++;
         let fromFile = null;
         if (n.range) {
@@ -280,7 +282,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   const hsrc = fnSrc("handlePostPublicContractSecondSign", workerSrc);
   ok(/body\.consent !== true/.test(hsrc) && /contractSecondSignerWanted\(contractStateCode\(c\.flags && c\.flags\.job_state\), c\.flags\)/.test(hsrc) && /c\.status !== "completed" \|\| !c\.homeowner_signed_at/.test(hsrc) && /CONTRACT_SECOND_SIGNER_SQL/.test(hsrc) && /"second_signer_signed"/.test(hsrc) && !/UPDATE gm_contracts SET status/.test(hsrc),
     "the customer's link takes the second signature only with consent, only when asked for, only after the first, and never changes the contract's status");
-  ok(/\(sign\|second-sign\|changes\|decline\)/.test(workerSrc) && /pubCon\[2\] === "second-sign" && method === "POST"\) \{ return handlePostPublicContractSecondSign\(/.test(workerSrc), "the route exists on the customer's own link");
+  ok(/\(sign\|second-sign\|state-parts\|changes\|decline\)/.test(workerSrc) && /pubCon\[2\] === "second-sign" && method === "POST"\) \{ return handlePostPublicContractSecondSign\(/.test(workerSrc), "the route exists on the customer's own link");
   const pub = fnSrc("contractPublicPayload", workerSrc);
   ok(/second_signer: contractSecondSignerWanted\(comp\.state\.code, c\.flags\) \? \{ signed: /.test(pub) && !/second_signer[^\n]*\bip\b/.test(pub), "the customer's page is told a second signature is asked for (and never the signer's IP)");
   ok(/second_signer: undefined/.test(fnSrc("handlePostGmContractRevise", workerSrc)), "a revision starts without the earlier second signature");
@@ -330,7 +332,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   const got = await F.contractStateSysLoad(env, { id: "con-1", client_id: "client-1", job_id: "job-1", snapshot_r2_key: "snap", company_signed_at: "2026-10-05 19:00:00", company_signature_voided_at: null });
   ok(got.ack && got.ack.photos === 2 && got.ack.signed_at === "2026-10-04 15:00:00" && got.copy_sent_at === "2026-10-05 21:00:00" && JSON.stringify(got.frozen) === JSON.stringify({ "TX-defect": true }),
     "the builder reads the signed photo acknowledgment, the \"signed copy sent\" event and which system notices are inside the text the company signed");
-  ok(calls.length === 2 && calls.every(function (q) { return /^SELECT /.test(q); }) && calls.some(function (q) { return /kind = 'before_photos' AND status = 'signed'/.test(q); }) && calls.some(function (q) { return /action IN \('company_signed','sent','signed_copy_sent'\) ORDER BY created_at$/.test(q); }), "it only reads (two SELECTs): a signed before-work acknowledgment and the contract's own sign / send / signed-copy events");
+  ok(calls.length === 2 && calls.every(function (q) { return /^SELECT /.test(q); }) && calls.some(function (q) { return /kind = 'before_photos' AND status = 'signed'/.test(q); }) && calls.some(function (q) { return /action IN \('company_signed','sent','signed_copy_sent','state_delivered'\) ORDER BY created_at$/.test(q); }), "it only reads (two SELECTs): a signed before-work acknowledgment and the contract's own sign / send / signed-copy / delivered events");
   ok(got.ack.signer_name === "Daniel Whitfield" && got.ack.created_by === "Carlos" && JSON.stringify(got.who.sent) === JSON.stringify({ id: "maria.s", name: "Maria", role: "seller", at: "2026-10-05 19:30:00" }) && got.who.company.id === "pat" && got.who.company.role === "client" && got.who.copy.name === "Maria",
     "it reads WHO: the acknowledgment's signer and who sent the photos, who signed for the company, the LAST person who sent the contract, who sent the signed copy (login, name at the time, role, time)");
   const empty = await F.contractStateSysLoad({ DB: { prepare: function () { throw new Error("down"); } }, ASSETS: { get: async function () { return null; } } }, { id: "c", client_id: "x", job_id: "j" });
@@ -349,7 +351,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
       gmSheetRowHtml: function (icon, label, value, a, b, sub) { return "<row>" + label + "|" + value + "|" + (sub || "") + "</row>"; },
       escHtml: function (x) { return String(x === null || x === undefined ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); } };
   }
-  function draw(name, en, args) { const s = stubs(en), names = Object.keys(s); return new Function(...names, cut(gm, name) + "\nreturn " + name + ";")(...names.map(function (k) { return s[k]; })).apply(null, args); }
+  function draw(name, en, args) { const s = stubs(en), names = Object.keys(s); return new Function(...names, cut(gm, name) + "\n" + (name === "gmConStateCardHtml" ? cut(gm, "gmConStateLinksHtml") + "\n" : "") + "return " + name + ";")(...names.map(function (k) { return s[k]; })).apply(null, args); }
   const sys = { c: Object.assign({}, SIGNED, { sent_by: "Maria" }), ack: { signed_at: "2026-10-04 15:00:00", photos: 6 }, copy_sent_at: null, frozen: { "TX-homestead": true, "TX-defect": true, "TX-disclosure": true } };
   const t = await run("TX", { married: "yes" }, null, sys);
   const payload = { status: "completed", job_state_name: "Texas", state_checklist: t.r.comp.checklist, state_card: t.card };
@@ -375,7 +377,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   ok(!/<button/.test(known) && /\|Yes\|The project already records this\.<\/row>/.test(known), "a fact the project already records is shown, not asked");
   ok(draw("gmConStateFactsHtml", true, [{ state_card: null }, false]) === "" && draw("gmConStateFactsHtml", true, [{}, false]) === "", "no card (Florida): no question is drawn");
   const sheet = cut(gm, "gmRenderContractSheet"), clean = cut(gm, "gmConCleaningQuestionsHtml");
-  ok((sheet.match(/if \(outFl\) \{ q \+= gmConStateFactsHtml\(c, (true|false)\); \}/g) || []).length === 2 && (clean.match(/if \(outFl\) \{ q \+= gmConStateFactsHtml\(c, (true|false)\); \}/g) || []).length === 2, "the questions sit in \"This contract\", for a job outside Florida only, on construction and cleaning contracts");
+  ok((sheet.match(/if \(outFl\) \{ q \+= gmConStateFactsHtml\(c, (true|false)\) \+ gmConStateValuesHtml\(c, (true|false)\); \}/g) || []).length === 2 && (clean.match(/if \(outFl\) \{ q \+= gmConStateFactsHtml\(c, (true|false)\) \+ gmConStateValuesHtml\(c, (true|false)\); \}/g) || []).length === 2, "the questions sit in \"This contract\", for a job outside Florida only, on construction and cleaning contracts");
   ok(/gmConSave\(\{ flags: \{ state_facts: facts \} \}\)/.test(cut(gm, "gmConSetFact")), "an answer is saved at once, on the contract");
   const newCode = cut(gm, "gmConStateFactsHtml") + cut(gm, "gmConSetFact") + cut(gm, "gmConStateCardHtml") + cut(gm, "gmConStateCheck");
   ok(!/\b(confirm|alert|prompt)\s*\(/.test(newCode) && !/\b(const|let)\s/.test(newCode) && !/=>/.test(newCode) && !/[^\x00-\x7F]/.test(cut(gm, "gmConStateFactsHtml") + cut(gm, "gmConSetFact")), "no browser pop-up, no const / let / arrow function, plain ASCII in the new strings");
@@ -535,8 +537,10 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
 // ── 12. The review and summary files match the data ───────────────────────
 {
   ok(readFileSync(new URL("scripts/fixtures/state-checklist-summary.txt", root), "utf8") === summaryText && readFileSync(new URL("scripts/fixtures/state-checklist-review.txt", root), "utf8") === reviewText, "state-checklist-summary.txt and state-checklist-review.txt match the data (regenerate them after a change)");
-  ok(/STATE {20}DOES {2}SEES {2}PERSON/.test(summaryText) && /\nTexas \(TX\) +5 +2 +7\n/.test(summaryText) && /NEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT \(\d+\)/.test(summaryText) && /WORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET \(\d+\)/.test(summaryText) && (summaryText.match(/\n[A-Z][A-Za-z .]+ \([A-Z]{2}\) +\d+ +\d+ +\d+/g) || []).length === 50,
-    "the summary has the three counts for each of the 50 states and DC, the person-only lines, and the two \"what the system still needs\" lists");
+  ok(/STATE {20}DOES {2}SEES {2}PERSON/.test(summaryText) && /\nTexas \(TX\) +6 +2 +6\n/.test(summaryText) && /NEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT \(\d+\)/.test(summaryText) && /WORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET \(\d+\)/.test(summaryText) && (summaryText.match(/\n[A-Z][A-Za-z .]+ \([A-Z]{2}\) +\d+ +\d+ +\d+/g) || []).length === 50,
+    "the summary has the three counts for each of the 50 states and DC, the person-only lines, and the two \"what the system still needs\" lists (Texas 6 / 2 / 6 since RES-36: the list is the system's)");
+  ok(/WORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET \(0\)/.test(summaryText) && /WAITING FOR THE AGENCY'S OWN DOCUMENT \(\d+\)/.test(summaryText) && /STAYS WITH A PERSON FOR GOOD: OUTSIDE APEX \(\d+\)/.test(summaryText),
+    "RES-36: no line is left half done; the summary lists the lines waiting for an agency's file and the lines outside Apex");
   ok(/Who does it: THE SYSTEM DOES IT\. On the card it reads: Homestead IMPORTANT NOTICE printed in the contract/.test(reviewText) && /Who does it: PERSON ONLY\n/.test(reviewText) && /Who does it: THE SYSTEM CAN SEE IT/.test(reviewText), "the review file says who does each action line");
 }
 

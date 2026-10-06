@@ -58,11 +58,18 @@
         "sold_in_home": true
       },
       "support": "Appear in the agreement under the conspicuous caption: “Notice of Cancellation”",
-      "summary_row": "\"Notice to buyer\" (10 point bold above signature) and \"Notice of Cancellation\"",
-      "mode": "none",
-      "block": "4. R.I. Gen. Laws 6-28-4 (entire section: Notice to buyer and Notice of Cancellation)",
-      "block_index": 0,
-      "hold_reason": "The notice is printed as '. . . (date of transaction) “You may cancel this transaction ... ”': the date line sits outside the opening quotation mark and the sentence says 'from the above date'. Cutting inside the quotes leaves the notice without its date line; cutting from the date line would print an unbalanced quotation mark. Held rather than print a notice that points to a date line it does not have."
+      "summary_row": "Door-to-door \"Notice to buyer\" and Notice of Cancellation",
+      "mode": "on_file",
+      "block": "RI-1 (R.I. Gen. Laws 6-28-4): Door-to-door \"Notice to buyer\" and Notice of Cancellation",
+      "block_index": 2,
+      "source": "pass3",
+      "start": "You may cancel this transaction, without any penalty",
+      "end": "(insert name and address of the seller).",
+      "quote_note": "Cut sits inside the statute's own quotation marks (curly marks excluded); the caption 'Notice of Cancellation' is not in the cut.",
+      "blanks": [
+        "(insert name and address of the seller)"
+      ],
+      "boundary_unsure": "The statute prints '. . . (date of transaction)' before the opening quotation mark; that line is not in the cut. The builder prints the transaction date above the notice and the caption as its heading, the same way as the 5-65-27 notice (RI-62)."
     },
     {
       "id": "RI-62",

@@ -6,7 +6,11 @@ No lawyer has reviewed this. The long version is state-checklist-review.txt.
 
 Three kinds of line:
   SYSTEM DOES IT     Apex prints the notice in the contract (copied from the official wording on
-                     file, never retyped) or gives the document to the customer with the contract.
+                     file, never retyped), in the place and the type the law states, with its
+                     blanks filled; collects a separate signature or initials inside the
+                     customer's own signing visit; builds the subcontractor and supplier list;
+                     puts a required sentence beside the message; or gives the document to the
+                     customer with the contract.
   SYSTEM CAN SEE IT  a person does it inside Apex (a signature, the photo acknowledgment) and
                      Apex ticks the line when it happens.
   PERSON ONLY        nothing in Apex can do or see it. The person ticks it by hand.
@@ -15,60 +19,66 @@ The counts are the most lines a state can show (a pool job sold at the customer'
 number on file, the customer married, the sale made in English). A real contract shows fewer.
 Lines that depend on one fact (homestead, married, credit, age, subcontractors) ask one Yes / No /
 Not sure question; a No takes the line off the card.
+A line that states a fact or asks the customer for a signature is done by the system only after a
+Yes; the counts assume those Yes answers, the insurance questions answered in the contract
+settings, and the project's subcontractors and suppliers on file with address and telephone.
+An agency document (a pamphlet or form that must be handed over unaltered) counts as the system's
+only when the agency's own PDF ships with the site; the others show under PERSON until Apex staff
+load the file.
 
-All states together: 84 system does it, 99 system can see it, 401 person only.
+All states together: 129 system does it, 99 system can see it, 359 person only.
 
 STATE                    DOES  SEES  PERSON
 Alabama (AL)                1     2       6
-Alaska (AK)                 1     2       6
-Arizona (AZ)                2     2      11
-Arkansas (AR)               1     2       9
-California (CA)             2     3      19
+Alaska (AK)                 2     2       5
+Arizona (AZ)                3     2      10
+Arkansas (AR)               2     2       8
+California (CA)            12     3       9
 Colorado (CO)               1     1       5
-Connecticut (CT)            2     2       9
-Delaware (DE)               2     2       8
+Connecticut (CT)            3     2       8
+Delaware (DE)               3     2       7
 District of Columbia (DC)   1     2       8
 Georgia (GA)                1     2       9
 Hawaii (HI)                 2     3       9
-Idaho (ID)                  2     2       9
-Illinois (IL)               2     2      12
-Indiana (IN)                2     2       8
-Iowa (IA)                   2     2       7
+Idaho (ID)                  3     2       8
+Illinois (IL)               6     2       9
+Indiana (IN)                3     2       7
+Iowa (IA)                   3     2       7
 Kansas (KS)                 3     1       6
 Kentucky (KY)               2     1       6
 Louisiana (LA)              1     3       7
 Maine (ME)                  1     2       9
-Maryland (MD)               2     3      11
+Maryland (MD)               3     3      10
 Massachusetts (MA)          2     2      10
 Michigan (MI)               2     2       6
-Minnesota (MN)              2     2       8
-Mississippi (MS)            1     2       6
-Missouri (MO)               2     1       7
+Minnesota (MN)              3     2       7
+Mississippi (MS)            2     2       5
+Missouri (MO)               4     1       5
 Montana (MT)                1     2       6
 Nebraska (NE)               2     2       6
-Nevada (NV)                 3     3      11
+Nevada (NV)                 4     3      10
 New Hampshire (NH)          1     1       5
 New Jersey (NJ)             1     2       9
 New Mexico (NM)             2     2       7
 New York (NY)               1     2       9
-North Carolina (NC)         2     2       7
+North Carolina (NC)         3     2       6
 North Dakota (ND)           1     2      10
-Ohio (OH)                   2     2       8
+Ohio (OH)                   3     2       7
 Oklahoma (OK)               1     1       5
-Oregon (OR)                 2     2       8
+Oregon (OR)                 4     2       6
 Pennsylvania (PA)           2     2       8
-Rhode Island (RI)           1     2       8
+Rhode Island (RI)           4     2       6
 South Carolina (SC)         1     2       6
 South Dakota (SD)           1     1       6
 Tennessee (TN)              1     3       9
-Texas (TX)                  5     2       7
-Utah (UT)                   1     2       7
+Texas (TX)                  6     2       6
+Utah (UT)                   2     2       6
 Vermont (VT)                2     2       9
-Virginia (VA)               1     3       7
-Washington (WA)             2     2       8
-West Virginia (WV)          1     2       7
-Wisconsin (WI)              3     2       9
-Wyoming (WY)                2     1       8
+Virginia (VA)               2     3       6
+Washington (WA)             4     2       6
+West Virginia (WV)          2     2       6
+Wisconsin (WI)              6     2       6
+Wyoming (WY)                3     1       7
 Florida (FL)             baseline: no card, nothing changed
 
 
@@ -89,334 +99,452 @@ PERSON-ONLY LINES THAT COME FROM A RULE MANY STATES SHARE (written once; the num
 - Wait until the cancellation period ends before you start work or take payment [4]
 
 
+None of these shared lines carries a link: the research gives each rule by name only (a license
+class, a pool rule, a renewal rule), with no official page for it. The card says so by showing none.
+
+
 PERSON-ONLY LINES EACH STATE HAS OF ITS OWN
 -------------------------------------------
+Under each line: [link] what the contractor opens in one tap, right on the line, and its address; or
+[no link] and why. A link opens in a new tab (in the iOS app, in the phone's browser); nothing is
+recorded for opening it.
+Of these lines, 54 carry a direct link and 39 do not.
 Alabama (AL)
   - Give the customer the written liability insurance disclosure and get it signed before work
     starts (34-14A-19)
-
-Alaska (AK)
-  - For a home build or a large remodel, attach the page "Notice of Potential Claims Must Be
-    Provided within One Year" and get it signed (AS 09.45.893)
+      [link] Open the official text: 34-14A-19 ->
+      https://alison.legislature.state.al.us/code-of-alabama?section=34-14A-19
 
 Arizona (AZ)
   - Attach the Registrar of Contractors complaint statement (10 point bold, with phone and
     website) (A.R.S. 32-1158(A)(9))
+      [link] Open the official text: A.R.S. 32-1158(A)(9) -> https://www.azleg.gov/ars/32/01158.htm
   - Hand the customer the state pool safety notice (A.R.S. 36-1681(E))
+      [link] Open Arizona's pool safety notice (Department of Health Services, PDF) ->
+      https://www.azdhs.gov/documents/preparedness/epidemiology-disease-control/environmental-health/residential-pool-safety-notice.pdf
+      Note on the line: Open it, print it and hand it to the customer. Apex does not print or attach
+      this notice.
   - If the customer signs a promissory note, put the required statement on the face of the note
     (A.R.S. 44-5005(B))
-  - If you are selling a newly built home, add the Registrar complaint provision and get the
-    buyer's initials (A.R.S. 12-1365(A))
+      [link] Open the official text: A.R.S. 44-5005(B) -> https://www.azleg.gov/ars/44/05005.htm
   - Check that the contract has every item this state requires (A.R.S. 32-1158)
+      [link] Open the official text: A.R.S. 32-1158 -> https://www.azleg.gov/ars/32/01158.htm
   - Give a receipt for any cash and a copy of every signed document (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Arkansas (AR)
-  - Attach the IMPORTANT NOTICE TO OWNER (lien notice) and get the owner's signature before work
-    starts (ACA 18-44-115(a)(7))
   - Attach the state cancellation statement and two copies of the NOTICE OF CANCELLATION form (ACA
     4-89-107 and 4-89-108(c))
+      [link] Open Arkansas's official code search ->
+      https://portal.arkansas.gov/service/arkansas-code-search-laws-and-statutes/ Note on the line:
+      Look up sections 4-89-107 and 4-89-108 there (the official code opens through LexisNexis).
   - Put up a sign with your license number at the job site (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 California (CA)
   - If the customer is a senior citizen, allow five business days to cancel, not three (B&P 7159)
-  - If the contract is secured by a lien on the home, give the WARNING TO BUYER on a separate
-    signed page (B&P 7159.1)
-  - If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and add the NOTICE
-    by the initials line (B&P 7191)
-  - For a service and repair job of $750 or less, use the service and repair notices instead (B&P
-    7159.10(e)(2))
+      [link] Open the official text: B&P 7159 ->
+      https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7159.
   - Give the customer the notice of the pool safety requirements (Health & Saf. Code 115924)
-  - If you charge a down payment, add the down payment statement under the heading "Downpayment"
-    (B&P 7159(d)(8)(C))
-  - If there are progress payments, add the progress payment statement (B&P 7159(d)(9)(C))
-  - If you will use a subcontractor, add the subcontractor statement to the contract and to each
-    change order (B&P 7159(c)(7)(B))
-  - Add the liability insurance (CGL) statement that is true for your business (B&P 7159(e)(1))
-  - Add the workers' compensation statement that is true for your business (B&P 7159(e)(2))
-  - For disaster repair after a declared emergency, use the Seven-Day Right to Cancel notice and
-    form (B&P 7159(e)(7))
-  - For a new single-family home, add the Mechanics Lien Warning for new homes (B&P 7164(b)(4))
+      [link] Open the official text: Health & Saf. Code 115924 ->
+      https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=HSC&sectionNum=115924.
   - Make sure the pool will have two of the seven required safety features (Health & Saf. Code
     115922)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that the contract has every item this state requires (B&P 7159, 7159.5)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that no payment is due before the work it pays for is done (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Connecticut (CT)
-  - If you send the contract by email, add the required sentence beside the message (C.G.S.
-    42-135a(10))
   - If the customer signs a promissory note, put the required statement on the face of the note
     (C.G.S. 42-136(b))
+      [link] Open the official text: C.G.S. 42-136(b) ->
+      https://www.cga.ct.gov/current/pub/chap_740.htm
   - Check that the contract has every item this state requires (C.G.S. 20-429)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Delaware (DE)
-  - Attach the Attorney General's "Summary of Your Rights" and hand it over before the customer
-    signs (6 Del. Admin. Code 106, 3.1.11)
   - Check the contract has a completion date, and get initials on any warranty disclaimer (6 Del.
     Admin. Code 106)
+      [link] Open the official text: 6 Del. Admin. Code 106 ->
+      https://attorneygeneral.delaware.gov/wp-content/uploads/sites/50/2023/11/Home-Improvement-Regs-Summary.pdf
 
 District of Columbia (DC)
   - Sign the contract in three copies with every blank filled in before you take any payment (16
     DCMR 808)
+      [link] Open the official text: 16 DCMR 808 ->
+      https://dcregs.dc.gov/Common/DCMR/RuleList.aspx?DownloadFile=60C1545F-0000-C785-80B9-AEAA0527A502
   - Add the notice about not signing in blank and getting a copy (10 point bold) (16 DCMR 808.15)
+      [link] Open the official text: 16 DCMR 808.15 ->
+      https://dcregs.dc.gov/Common/DCMR/RuleList.aspx?DownloadFile=60C1545F-0000-C785-80B9-AEAA0527A502
   - Put on the contract the name and license number of each salesperson who took part (16 DCMR
     808.4, 808.9)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Before you use this contract in D.C., have your attorney confirm it (16 DCMR 811)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Georgia (GA)
   - Add the notice of the contractor's right to resolve construction defects (O.C.G.A. 8-2-41)
+      [link] Open Georgia's notice as passed in 2006 (O.C.G.A. 8-2-41, PDF) ->
+      https://www.legis.ga.gov/api/legislation/document/20052006/64748 Note on the line: This is the
+      text as first enacted; check that it was not amended since.
   - For a single-family home job over $2,500, offer a written warranty and attach it before
     signing (O.C.G.A. 43-41-7)
+      [link] Open Georgia's written warranty rule (553-7-.01) -> https://rules.sos.ga.gov/gac/553-7
   - If you work under the repair exemption without a license, tell the owner in writing that you
     are not licensed (Ga. Comp. R. & Regs. 553-8-.01)
+      [link] Open the official text: Ga. Comp. R. & Regs. 553-8-.01 ->
+      https://rules.sos.ga.gov/gac/553-8
   - Check whether a notice of commencement must be filed for this job (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Hawaii (HI)
   - Explain lien rights and the bonding option to the customer out loud, and add the written
     provision (HRS 444-25.5)
+      [link] Open the official text: HRS 444-25.5 ->
+      https://data.capitol.hawaii.gov/hrscurrent/Vol10_Ch0436-0474/HRS0444/HRS_0444-0025_0005.htm
   - Add the risk of loss statement in capital letters next to the owner's signature line (HAR
     16-77-80(a)(6))
+      [link] Open the official text: HAR 16-77-80(a)(6) ->
+      https://cca.hawaii.gov/wp-content/uploads/2026/02/har_77-c2.pdf
   - List the percent of the work you will subcontract, with each subcontractor's name and license
     number (HAR 16-77-80)
+      [link] Open the official text: HAR 16-77-80 ->
+      https://cca.hawaii.gov/wp-content/uploads/2026/02/har_77-c2.pdf
 
 Idaho (ID)
   - Give the homeowner disclosure statement and get a signed acknowledgment (45-525)
+      [link] Open Idaho Code 45-525 (what the disclosure must say) ->
+      https://legislature.idaho.gov/statutesrules/idstat/title45/t45ch5/sect45-525/
   - If the customer pays on credit, attach the state's credit-sale cancellation notice before they
     sign (28-43-403)
-  - Give the list of subcontractors and suppliers before the final payment (45-525)
+      [link] Open Idaho's cancellation statement (Title 28 chapter 43, PDF; see 28-43-403) ->
+      https://legislature.idaho.gov/wp-content/uploads/statutesrules/idstat/Title28/T28CH43.pdf
 
 Illinois (IL)
   - If the customer is 65 or older and you came uninvited, allow 15 business days to cancel (815
     ILCS 513/22)
-  - Hand the customer the "Home Repair: Know Your Consumer Rights" pamphlet (815 ILCS 513)
-  - Get the Consumer Rights Acknowledgment Form signed by you and the customer (815 ILCS
-    513/20(a))
-  - Give the owner the lien notice and a sworn statement before the first payment (770 ILCS
-    60/5(b))
+      [no link] The research gives this rule by name or law number only, with no web address.
+  - Give the owner your sworn statement of everyone furnishing labor or materials before the first
+    payment (770 ILCS 60/5(b))
+      [link] Open the official text: 770 ILCS 60/5(b) ->
+      https://www.ilga.gov/Documents/legislation/ilcs/documents/077000600K5.htm
   - If the contract has an arbitration or jury waiver clause, have the customer sign and write
     "accept" or "reject" beside it (815 ILCS 513/15.1)
-  - If insurance money pays for the job, add the insurance cancellation statement and form (815
-    ILCS 513/18(f) and (g))
+      [link] Open the official text: 815 ILCS 513/15.1 ->
+      https://www.ilga.gov/Documents/legislation/ilcs/documents/081505130K15.1.htm
   - Check that you carry the insurance this state requires for home repair (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Indiana (IN)
   - If you approached the customer without being asked, attach the state cancellation notice in
     two copies (IC 24-5-10)
-  - Give the customer the statement of the right to cancel before they sign, with the NOTICE OF
-    CANCELLATION form in two copies (IC 24-5-11-10.6)
+      [link] Open Indiana Code Title 24 (PDF; see IC 24-5-10-9) ->
+      https://iga.in.gov/ic/2026/Title_24.pdf
   - Check that the contract has every item this state requires (IC 24-5-11-10)
+      [link] Open the official text: IC 24-5-11-10 -> https://iga.in.gov/ic/2026/Title_24.pdf
 
 Iowa (IA)
-  - If you use a subcontractor, add the mechanics lien owner notice and post the job on the state
-    registry within 10 days (Iowa Code 572.13)
+  - Post the job on the state's mechanics lien registry within 10 days (Iowa Code 572.13)
+      [link] Open the official text: Iowa Code 572.13 ->
+      https://sos.iowa.gov/businesses/mechanics-liens ;
+      https://www.legis.iowa.gov/docs/iac/chapter/721.45.pdf
 
 Louisiana (LA)
   - Attach your insurance certificates to the contract (R.S. 37:2159)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check whether a notice of contract and a bond must be filed for this job (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Maine (ME)
   - Do not attach materials to the home until the cancellation period ends (32 M.R.S. 4661 to
     4668)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Attach the Attorney General's consumer information addendum (10 M.R.S. 1487)
+      [link] Open the Attorney General's addendum (Word file) ->
+      https://www.maine.gov/ag/sites/maine.gov.ag/files/documents/Home%20Construction%20Contracts%20Addendum.docx
   - Check that the contract has every item this state requires (10 M.R.S. 1487)
+      [link] Open the official text: 10 M.R.S. 1487 ->
+      https://legislature.maine.gov/statutes/10/title10sec1487.html
   - Have the customer pick one of the three dispute options printed in the contract (10 M.R.S.
     1487(8))
+      [link] Open the official text: 10 M.R.S. 1487(8) ->
+      https://legislature.maine.gov/statutes/10/title10sec1487.html
 
 Maryland (MD)
   - If the customer is 65 or older, allow seven business days to cancel (CL 14-302.1)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Add the MHIC notice (mediation, Guaranty Fund, bond right) to the contract (BR
     8-501(c)(1)(viii); COMAR 09.08.01.26)
+      [link] Open the official text: BR 8-501(c)(1)(viii); COMAR 09.08.01.26 ->
+      https://regs.maryland.gov/us/md/exec/comar/09.08.01.26
   - Attach the state cancellation statement, and the Notice of Cancellation form on a separate
     sheet (CL 14-302; CL 14-302.1)
-  - If payment is secured by the home, add the security and rescission notice on the first page
-    and get initials (BR 8-501(c)(2) and (3))
+      [link] Open Maryland's cancellation statement and form (Commercial Law 14-302) ->
+      https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302 Note on the
+      line: The form there says three business days; a home improvement contract must say five (seven
+      at 65 or older).
   - Get the customer's signature confirming you told them about the right to cancel (CL
     14-302.1(4))
+      [link] Open Maryland's acknowledgment wording (Commercial Law 14-302.1) ->
+      https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302.1
   - Check that the contract has every item this state requires (BR 8-501)
+      [link] Open the official text: BR 8-501 ->
+      https://regs.maryland.gov/us/md/exec/comar/09.08.01.26
 
 Massachusetts (MA)
   - Check that the deposit is not more than one third of the price (or the cost of special-order
     materials, if that is more) (c. 142A s. 2)
+      [link] Open the official text: c. 142A s. 2 ->
+      https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXX/Chapter142A/Section2
   - Add the notices of registration, cancellation, warranties and lien, and the permit paragraph
     (c. 142A s. 2)
+      [link] Open the official text: c. 142A s. 2 ->
+      https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXX/Chapter142A/Section2
   - Check that the contract has every item this state requires (c. 142A s. 2)
+      [link] Open the official text: c. 142A s. 2 ->
+      https://malegislature.gov/Laws/GeneralLaws/PartI/TitleXX/Chapter142A/Section2
   - Check whether a notice of contract must be filed for this job (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Michigan (MI)
   - Add the Construction Lien Act statement about your license to the contract (570.1114)
+      [link] Open the official text: 570.1114 ->
+      https://www.legislature.mi.gov/documents/mcl/pdf/mcl-570-1114.pdf
 
 Minnesota (MN)
   - Give the customer the written performance guidelines before they sign (326B.809)
-  - For roofing paid by insurance, give the 72 hour cancellation statement and form before signing
-    (Minn. Stat. 326B.811 subd. 2(a)(1))
-
-Mississippi (MS)
-  - Add the liability insurance disclosure just above the customer's signature (73-59-11)
-
-Missouri (MO)
-  - If the customer pays on credit, attach the state's credit-sale cancellation notice before they
-    sign (407.710)
-  - If you want your subcontractors and suppliers to keep lien rights, get the CONSENT OF OWNER
-    signed (RSMo 429.013(2))
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Montana (MT)
   - Give the homeowner written notice of the construction defect process (MCA 70-19-427(8))
+      [link] Open the official text: MCA 70-19-427(8) ->
+      https://mca.legmt.gov/bills/mca/title_0700/chapter_0190/part_0040/section_0270/0700-0190-0040-0270.html
 
 Nebraska (NE)
   - Say your own name and the business name at the start of the sales visit (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Nevada (NV)
   - Add the four-point owner notice near the signatures and get the owner's initials (NRS
     624.970(3)(b) (AB 39))
-  - Give the owner the list of subcontractors and suppliers in writing (NRS 624.600)
+      [link] Open the official text: NRS 624.970(3)(b) (AB 39) ->
+      https://www.leg.state.nv.us/nrs/nrs-624.html
   - Give the customer a written statement of their pool and spa rights (NRS 624.935(5))
+      [link] Open the official text: NRS 624.935(5) -> https://www.leg.state.nv.us/nrs/nrs-624.html
   - Add the pool and spa notice near the signatures (NRS 624.940(3)(b))
+      [link] Open the official text: NRS 624.940(3)(b) -> https://www.leg.state.nv.us/nrs/nrs-624.html
   - Check that the contract has every item this state requires (NRS 624.970)
+      [link] Open the official text: NRS 624.970 -> https://www.leg.state.nv.us/nrs/nrs-624.html
   - Check that no payment is due before the work it pays for is done (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 New Jersey (NJ)
   - Add the Division of Consumer Affairs statement with its toll-free number (capitals, 10 point
     bold) (N.J.A.C. 13:45A-17.11)
+      [link] Open New Jersey's rule with the statement (N.J.A.C. 13:45A-17.11, PDF) ->
+      https://www.njconsumeraffairs.gov/regulations/Chapter-45A-Administrative-Rules-of-the-Division-of-Consumer-Affairs.pdf
+      Note on the line: The rule prints the number 1-888-656-6225. The Attorney General's pages give
+      800-242-5846; which one is current is not settled.
   - Add the three day cancellation notice with your name, address and phone (N.J.S.A. 56:8-151)
+      [link] Open New Jersey's cancellation notice as passed in 2004 (N.J.S.A. 56:8-151) ->
+      https://pub.njleg.state.nj.us/Bills/2004/PL04/16_.HTM Note on the line: This is the text as
+      first enacted; check that it was not amended since.
   - Check that the contract has every item this state requires (13:45A-16.2)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Give the customer a copy of your liability insurance certificate (13:45A-17.12)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 New Mexico (NM)
   - Give the state's residential default disclosure form before work, signing or payment, and get
     it signed (60-13-19)
+      [link] Open the Construction Industries Division page ->
+      https://www.rld.nm.gov/construction-industries/investigation-and-enforcement/ ; Open the law
+      that requires the form (NMSA 60-13-19, PDF) ->
+      https://www.rld.nm.gov/wp-content/uploads/2021/07/Article-13-CILA-7.1.21.pdf Note on the line:
+      The state does not publish this form online. Ask the Construction Industries Division.
 
 New York (NY)
   - Put any payment you receive before the job is finished in an escrow account, or post a bond
     (Lien Law 71-a(4))
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that the contract states the three business day right to cancel (GBL 771(1)(h))
+      [no link] The research recorded no web address for this notice.
   - Add your insurance policy information, with the insurer's phone and address (GBL 771(1)(i))
+      [no link] The research recorded no web address for this notice.
   - Check that the contract has every item this state requires (GBL 771(1))
-
-North Carolina (NC)
-  - If the customer pays on credit, attach the state's credit-sale cancellation notice before they
-    sign (G.S. 25A-40(a) (home-solicitation sale defined in 25A-38))
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 North Dakota (ND)
   - If the customer is 65 or older, check whether the 15 business day period applies (N.D.C.C.
     51-18-04)
+      [link] Open the official text: N.D.C.C. 51-18-04 -> https://ndlegis.gov/cencode/t51c18.pdf
   - Do not take any advance payment until you have the customer's signed contract (N.D.C.C. ch.
     51-18)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - When the job is finished, give the customer the written notice of the warranty procedure
     (N.D.C.C. 43-07-26)
+      [no link] The research recorded no web address for this notice.
   - Check that the contract has a start date and a completion date (details)
-
-Ohio (OH)
-  - Give the customer the estimate form at the first meeting and get their initials (Ohio Adm.
-    Code 109:4-3-05(A)(1))
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Oklahoma (OK)
   - If the customer pays on credit, attach the state's credit-sale cancellation notice before they
     sign (14A 2-503)
-
-Oregon (OR)
-  - Give the owner the CCB "Information Notice to Owner About Construction Lien Rights" on or
-    before the contract date (ORS 87.093)
-  - Give the owner the CCB Consumer Protection Notice and get it signed (ORS 701.330(1); OAR
-    812-001-0200(2))
+      [link] Open Oklahoma's cancellation statement (Title 14A, PDF; see section 2-503) ->
+      https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os14A.pdf
 
 Pennsylvania (PA)
   - If the price is over $5,000, check that the deposit is not more than one third (plus
     special-order materials) (HICPA)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that the contract states the three business day right to cancel (HICPA section 7(a)(13),
     (b) (73 P.S. 517.7))
+      [no link] The research recorded no web address for this notice.
   - Check that the contract has every item this state requires (HICPA section 7)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Rhode Island (RI)
-  - Attach the Notice of Cancellation, with a second copy for the customer (6-28-4(c))
-  - If the customer is 62 or older, give the separate notice for buyers age 62 or older (5-65-27)
-  - Attach the Board's consumer disclosures and the Summary of Registration Law (5-65)
+  - Add the Board's consumer disclosures to the contract (5-65)
+      [link] Open R.I. Gen. Laws 5-65-3 (what the contract must include) ->
+      https://webserver.rilegislature.gov/Statutes/TITLE5/5-65/5-65-3.htm
 
 South Carolina (SC)
   - If the contract has an arbitration clause, put the arbitration notice on the first page in
     underlined capital letters (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Tennessee (TN)
   - Add the NOTICE TO OWNER line directly above the owner's signature (62-6-508)
+      [link] Open the Tennessee General Assembly site -> https://www.capitol.tn.gov/ Note on the line:
+      Tennessee publishes its code only through LexisNexis public access, which this link cannot open
+      directly. Look up T.C.A. 62-6-508 there.
   - Add the notice that home improvement contractors must be licensed by the board, with the
     board's phone (62-6-508(a)(6))
+      [no link] The research recorded no web address for this notice.
   - Add the BUYER'S RIGHT TO CANCEL statement on the front or just above the customer's signature
     (47-18-704(b))
+      [link] Open the Tennessee General Assembly site -> https://www.capitol.tn.gov/ Note on the line:
+      Tennessee publishes its code only through LexisNexis public access, which this link cannot open
+      directly. Look up T.C.A. 47-18-704 there.
   - Give the owner the lien NOTICE TO OWNER before the work or the contract (T.C.A. 66-11-203)
-
-Texas (TX)
-  - Give the owner the list of subcontractors and suppliers before work starts (Tex. Prop. Code
-    53.256)
+      [link] Open the Tennessee General Assembly site -> https://www.capitol.tn.gov/ Note on the line:
+      Tennessee publishes its code only through LexisNexis public access, which this link cannot open
+      directly. Look up T.C.A. 66-11-203 there.
 
 Utah (UT)
-  - Put the cancellation statement on the first page in dark bold 12 point type (Utah Code
-    13-11-4(2)(m), (3))
   - If this is a service contract that renews for more than 12 months, put the renewal notice on
     the first page (Utah Code 15-10-201(2)(a))
+      [link] Open the official text: Utah Code 15-10-201(2)(a) ->
+      https://le.utah.gov/xcode/Title15/Chapter10/C15-10-S201_2014051320140513.html (and S102, S202
+      pages)
 
 Vermont (VT)
   - If the job is over $10,000, get the contract signed before you take a deposit (26 V.S.A. 5509)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that the down payment is not more than half the labor or half the materials, whichever
     is more (26 V.S.A. 5509)
+      [no link] The research gives this rule by name or law number only, with no web address.
   - Check that the contract has every item this state requires (26 V.S.A. 5509)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Virginia (VA)
-  - Give the customer the DPOR Statement of Consumer Protections and get a signed acknowledgment
-    (18VAC50-22-260 B 9 h)
   - Add a statement that the Contractor Transaction Recovery Fund exists and how to contact the
     board (18VAC50-22-260 B 9 k)
+      [no link] The research recorded no web address for this notice.
   - Check that the contract has every item this state requires (18VAC50-22-260 B 9)
+      [link] Open the official text: 18VAC50-22-260 B 9 ->
+      https://ris.dls.virginia.gov/uploads/18VAC50/forms/Contractor%20Statement%20of%20Consumer%20Protections-20250609100802.pdf
 
 Washington (WA)
-  - If the customer pays in more than four installments or with a service charge, add the NOTICE
-    TO BUYER above their signature (RCW 63.14.154; RCW 63.14.040(2)(e))
   - Hand over L&I's construction lien information with the Notice to Customer (RCW 60.04.255(2))
-  - Keep the signed Notice to Customer for three years (RCW 18.27.114)
+      [link] Open RCW 60.04.250 (what the lien information must be) ->
+      https://app.leg.wa.gov/RCW/default.aspx?cite=60.04.250 Note on the line: The research did not
+      find this document on the Department of Labor and Industries' site. Ask the Department of Labor
+      and Industries for it.
 
 West Virginia (WV)
-  - If the customer pays on credit, attach the state's credit-sale cancellation notice before they
-    sign (46A-2-132; 46A-2-133 (statement); 46A-1-102(22) (definition))
   - Check that the contract has every item this state requires (142 CSR 5)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
 Wisconsin (WI)
-  - Give the Notice of Consumer's Right to Receive Lien Waivers as a separate page before signing,
-    and keep proof (ATCP 110.025)
-  - For building or remodeling a home, give the construction defect notice with the state brochure
-    before signing (101.148; 895.07(13))
   - If the customer signs a promissory note, put the required legend on the note (ATCP 110.06(3))
-  - For basement waterproofing with no guarantee, add the no-guarantee statement on the face of
-    the contract (ATCP 110.09(3)(j))
+      [link] Open the official text: ATCP 110.06(3) ->
+      https://docs.legis.wisconsin.gov/document/administrativecode/ATCP%20110.05 (one page per
+      section, same pattern)
 
 Wyoming (WY)
-  - Send the owner the NOTICE TO OWNER with a lien waiver form before you take any payment,
-    including the deposit (W.S. 29-10-101(a); 29-2-112)
   - For exterior storm repair, check the storm repair proposal and notice rules (details)
+      [no link] The research gives this rule by name or law number only, with no web address.
 
-States with no person-only line of their own: CO, KS, KY, NH, SD.
+States with no person-only line of their own: AK, CO, KS, KY, MS, MO, NH, NC, OH, OR, SD, TX.
 
 
-NEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT (46)
+NEEDS OFFICIAL TEXT BEFORE THE SYSTEM CAN DO IT (37)
 -----------------------------------------------------
-The state requires a notice, but no official word-for-word copy is on file, so nothing prints and
-the line stays with a person. Get the official wording and the system can print it.
+The state requires a notice, but there is no official word-for-word copy the system may print, so
+nothing prints and the line stays with a person. Sorted by what is missing, after the third research
+pass (10/05/2026). Each item says why it is still here.
 
+No official copy was obtained (7):
+- Arkansas: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION
+  form (ACA 4-89-107 and 4-89-108(c)). Why: No official copy of the NOTICE OF CANCELLATION form
+  was obtained (4-89-107, 4-89-108); the only copy is a secondary (Justia) one.
+- New Mexico: Residential default disclosure (CID-approved form) (60-13-19). Why: The statute
+  (60-13-19(C)) gives the substance only; the disclosure must be on a form approved by the
+  Construction Industries Division, and the third pass did not find that form.
+- Rhode Island: Add the Board's consumer disclosures to the contract. Why: 5-65-3(o) points to
+  disclosures set by the Board's regulations; the third pass read the Board's rules and found no
+  such wording.
+- Tennessee: "NOTICE TO OWNER" do-not-sign-if-blank line (62-6-508). Why: No official copy of
+  T.C.A. 62-6-508 was obtained; the only copy is a secondary mirror.
+- Tennessee: BUYER'S RIGHT TO CANCEL (47-18-704(b)). Why: No official copy of T.C.A. 47-18-704
+  was obtained; the only copy is a secondary mirror.
+- Tennessee: Lien NOTICE TO OWNER before residential work (T.C.A. 66-11-203). Why: No official
+  copy of T.C.A. 66-11-203 was obtained; the only copy is a secondary mirror.
+- Washington: L&I construction lien information handed over with the Notice to Customer (RCW
+  60.04.255(2)). Why: RCW 60.04.255 wants L&I's own master document handed over; the third pass
+  did not find it on L&I's site.
+
+Needs a current official copy (2): the copy on record is the text as first enacted and was not
+checked for later amendments.
+- Georgia: Notice of the contractor's right to resolve construction defects (before a lawsuit)
+  (O.C.G.A. 8-2-41). Why: The official copy is the 2006 enactment (SB 573), not checked for later
+  amendments, and its PDF text needs review.
+- New Jersey: Three day cancellation statement (N.J.S.A. 56:8-151). Why: New Jersey is held: the
+  official copy is the 2004 enactment, not checked for later amendments.
+
+The official copy needs review before it may print (2):
+- Idaho: BUYER'S RIGHT TO CANCEL (credit sales only) (28-43-403). Why: The complete official
+  copy is a PDF whose words are broken at line ends; it may not be printed until someone reviews
+  it against the official page.
+- Maryland: Signed acknowledgment of the right to cancel (oral notice) (CL 14-302.1(4)). Why:
+  The official page serves the acknowledgment's check box as a question mark; it may not be
+  printed until someone reviews it against the statute.
+
+The law prescribes no wording, or none that fits (26): the state lists what the notice must say and
+gives no sentence to copy. A lawyer would have to write or approve the wording.
+- Georgia: Written warranty must be offered on single-family residence contracts over $2,500
+  (O.C.G.A. 43-41-7). Why: No wording is prescribed: the rule (553-7-.01) requires the
+  contractor's own written warranty to be offered and attached.
+- Idaho: Homeowner disclosure statement (four rights) with signed acknowledgment (45-525). Why:
+  Idaho Code 45-525 lists what the disclosure must say and prescribes no wording.
+- Indiana: Home solicitation cancellation notice (IC 24-5-10). Why: IC 24-5-10-9 lists what the
+  notice must contain and prescribes no sentence.
+- Maryland: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION
+  form (CL 14-302; CL 14-302.1). Why: The official statement and form (CL 14-302) say three
+  business days; a home improvement contract must allow five (seven at 65 or older) and nothing
+  official prints that wording.
 - Alabama: Liability insurance disclosure (34-14A-19). Why: no prescribed wording; the statute
   only lists required content (whether the builder carries liability insurance, plus who signs).
 - Arizona: Registrar complaint statement (A.R.S. 32-1158(A)(9)). Why: no prescribed wording; the
   statute only lists required content.
-- Arizona: Pool safety notice handed to the buyer (A.R.S. 36-1681(E)). Why: the Department of
-  Health Services approved pool safety notice itself was not obtained; the statute states a duty
-  only.
-- Arkansas: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION
-  form (ACA 4-89-107 and 4-89-108(c)). Why: the only copy of the NOTICE OF CANCELLATION form is a
-  secondary (Justia) copy; the loader accepts official sources only.
 - California: Notice of the pool safety requirements (Health & Saf. Code 115924). Why: no
   prescribed wording; the statute only lists required content.
 - District of Columbia: Do-not-sign-in-blank and copy-at-signing notice (16 DCMR 808.15). Why:
   No prescribed wording; the regulation prescribes only the substance, the wording must be
   satisfactory to the Director, and the block is the whole ....
-- Georgia: Notice of the contractor's right to resolve construction defects (before a lawsuit)
-  (O.C.G.A. 8-2-41). Why: no official copy obtained (VERBATIM-SECONDARY).
-- Georgia: Written warranty must be offered on single-family residence contracts over $2,500
-  (O.C.G.A. 43-41-7). Why: no official copy obtained (VERBATIM-SECONDARY).
 - Georgia: Repair exemption: written disclosure that the contractor is not licensed (Ga. Comp.
   R. & Regs. 553-8-.01). Why: No prescribed wording; the rule only requires a written disclosure,
   and the block is a whole rule with other operative conditions (no delegation, ....
@@ -426,61 +554,29 @@ the line stays with a person. Get the official wording and the system can print 
 - Hawaii: Risk of loss statement (HAR 16-77-80(a)(6)). Why: no prescribed wording; the rule only
   requires a clear statement of the risk of loss of payments made to a sales representative, in
   capitals ....
-- Idaho: Homeowner disclosure statement (four rights) with signed acknowledgment (45-525). Why:
-  The state file's block is the whole statute section; besides the four disclosure items it holds
-  the subcontractor list rule, penalty, definitions ....
-- Idaho: BUYER'S RIGHT TO CANCEL (credit sales only) (28-43-403). Why: The state file's block is
-  five whole statute sections (28-43-401 to 405) with operative rules around the notice, and the
-  official page for the ....
 - Illinois: Arbitration clause and jury-waiver clause: consumer signs and writes "accept" or
   "reject" in the margin (815 ILCS 513/15.1). Why: no prescribed wording; the statute only lists
   required content.
-- Indiana: Home solicitation cancellation notice (IC 24-5-10). Why: The only block is the whole
-  of IC 24-5-10 (eighteen sections), and the chapter prescribes no sentence, only a form (two
-  copies, separate ....
-- Maine: Attorney General consumer information addendum and conspicuous notice with the AG
-  website and phone (10 M.R.S. 1487). Why: The state file says the addendum lists contractors the
-  State has sued, was last modified April 2026, changes, and must be re-fetched, not hard ....
 - Maryland: MHIC notice (mediation, Guaranty Fund, bond right) (BR 8-501(c)(1)(viii); COMAR
   09.08.01.26). Why: no prescribed wording; the regulation only lists what the notice must state
   (mediation, Guaranty Fund, performance bond) and the statute only ....
-- Maryland: State cancellation statement near the signature and duplicate NOTICE OF CANCELLATION
-  form (CL 14-302; CL 14-302.1). Why: The 14-302 statement and form are worded with THREE business
-  days, but a home improvement contract must allow five business days (seven if the ....
-- Maryland: Signed acknowledgment of the right to cancel (oral notice) (CL 14-302.1(4)). Why:
-  the block is the whole section 14-302.1 with operative rules around the acknowledgment, and the
-  official page serves the check box before 'check ....
 - Massachusetts: Notices of registration, cancellation, warranties, lien or security interest,
   and the permit paragraph (c. 142A s. 2). Why: no prescribed wording; the statute only lists
   required content.
 - Michigan: Construction Lien Act licensure statement (570.1114). Why: no prescribed wording;
   the statute only lists required content.
-- Missouri: BUYER'S RIGHT TO CANCEL (credit sales only) (407.710). Why: the 407.710(2) statement
-  is not cleanly delimited: only the heading "NOTICE OF CANCELLATION" is in quotation marks, the
-  Revisor extraction ....
 - Montana: Homeowner notice of the 70-19-426 to 428 process (MCA 70-19-427(8)). Why: no
   prescribed wording; the statute only says the home owner must be given written notice of the
   requirements of 70-19-426, 70-19-428 and ....
 - Nevada: Four-point owner notice (NRS 624.970(3)(b) (AB 39)). Why: no prescribed wording; the
   statute only lists required content (the four points the owner is told), and the state file's
   block is the whole ....
-- Nevada: Subcontractor and supplier list and lien notice (NRS 624.600). Why: no prescribed
-  wording; the statute only lists required content (the subcontractor and supplier list and a lien
-  notice)..
 - Nevada: Pool and spa: written statement of the customer's rights (NRS 624.935(5)). Why: no
   prescribed wording; the statute only lists required content (a written statement explaining the
   customer's rights)..
 - Nevada: Pool and spa: notice near the signatures (Board contact, bond right) (NRS
   624.940(3)(b)). Why: no prescribed wording; the statute only lists required content (two points
   the owner is told)..
-- New Jersey: Division of Consumer Affairs statement with 1-888-656-6225 (N.J.A.C.
-  13:45A-17.11). Why: New Jersey is held: the state file finds two official sources disagree on
-  the Division phone number (regulation 1-888-656-6225, Division ....
-- New Jersey: Three day cancellation statement (N.J.S.A. 56:8-151). Why: New Jersey is held: the
-  statute copy is an unofficial courtesy copy revised 2/21/13 that could not be checked against
-  the Legislature, the ....
-- New Mexico: Residential default disclosure (CID-approved form) (60-13-19). Why: no official
-  copy obtained (NOT OBTAINED).
 - New York: Three business day cancellation statement (GBL 771(1)(h)). Why: no prescribed
   wording; the statute only lists required content.
 - New York: Insurance policy disclosure (GBL 771(1)(i)). Why: no prescribed wording; the statute
@@ -488,173 +584,69 @@ the line stays with a person. Get the official wording and the system can print 
 - North Dakota: Completion-day notice of the warranty procedure (N.D.C.C. 43-07-26). Why:
   43-07-26 prescribes no wording: the contractor 'shall provide the purchaser or owner written
   notice of the requirements of this section' at ....
-- Oklahoma: BUYER'S RIGHT TO CANCEL (credit sales only) (14A 2-503). Why: The state file says
-  this statement's 5 percent retention conflicts with the federal full-refund rule and leaves it
-  to a lawyer; held rather than ....
-- Oregon: Information Notice to Owner About Construction Lien Rights (CCB form) (ORS 87.093).
-  Why: The state file flags two problems: the rule copy adopts the form as revised January 1, 2010
-  while the agency PDF now carries a 9-16 footer ....
-- Oregon: Consumer Protection Notice (CCB form) (ORS 701.330(1); OAR 812-001-0200(2)). Why: The
-  copied text has words broken at line ends by the PDF (such as Licens- ing), and the state file
-  says to print the CCB PDF itself rather than a ....
 - Pennsylvania: Three business day rescission notice (HICPA section 7(a)(13), (b) (73 P.S.
   517.7)). Why: no prescribed wording; the statute only lists required content (a notice of the
   right of rescission, no fixed sentence), and the state file's ....
-- Rhode Island: Notice of Cancellation (door-to-door sale) (6-28-4(c)). Why: The notice is
-  printed as '. . . (date of transaction) “You may cancel this transaction ... ”': the date line
-  sits outside the opening quotation ....
-- Rhode Island: Board consumer disclosures, insurance statement and Summary of Registration Law
-  (5-65). Why: no official copy obtained (NOT OBTAINED).
-- Tennessee: "NOTICE TO OWNER" do-not-sign-if-blank line (62-6-508). Why: Source is a secondary
-  mirror (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts
-  VERBATIM-OFFICIAL or ....
 - Tennessee: Board notice with phone (62-6-508(a)(6)). Why: no prescribed wording; the statute
   only lists required content.
-- Tennessee: BUYER'S RIGHT TO CANCEL (47-18-704(b)). Why: Source is a secondary mirror
-  (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts VERBATIM-OFFICIAL or
-  ....
-- Tennessee: Lien NOTICE TO OWNER before residential work (T.C.A. 66-11-203). Why: Source is a
-  secondary mirror (VERBATIM-SECONDARY, TCA Release 76 of 2021), and the loader only accepts
-  VERBATIM-OFFICIAL or ....
 - Utah: Automatic renewal notice on the first page of the service contract (Utah Code
   15-10-201(2)(a)). Why: no prescribed wording; the statute only requires a written notice of the
   automatic renewal provision on the first page, and the block holds ....
 - Virginia: Virginia Contractor Transaction Recovery Fund statement (18VAC50-22-260 B 9 k). Why:
   no prescribed wording; the regulation only requires a statement that the Recovery Fund exists
   with how to contact the board for claim information.
-- Washington: L&I construction lien information handed over with the Notice to Customer (RCW
-  60.04.255(2)). Why: the statute only requires handing over L&I's own master lien information;
-  that pamphlet is not statute text and was not obtained.
 
 
-WORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET (41)
+NEEDS A LAWYER'S ANSWER (3)
+-----------------------------
+Official wording or the agency's document exists, but using it raises a question only a lawyer can
+settle. Nothing prints and nothing is attached until then; the line stays with a person.
+
+- Arizona: Pool safety notice handed to the buyer (A.R.S. 36-1681(E)). Why: The Department of
+  Health Services notice is on file, but the notice itself says reproducing it for a commercial
+  purpose is governed by A.R.S. 39-121.03. Apex does not print or attach it until a lawyer says a
+  contractor's software may.
+- New Jersey: Division of Consumer Affairs statement with 1-888-656-6225 (N.J.A.C.
+  13:45A-17.11). Why: New Jersey is held: the rule prints 1-888-656-6225 and the Attorney
+  General's pages give 800-242-5846. Which number is current is not settled.
+- Oklahoma: BUYER'S RIGHT TO CANCEL (credit sales only) (14A 2-503). Why: The official wording
+  (14A O.S. 2-503) is on record, but it lets the seller keep up to five percent of the down
+  payment, which conflicts with the federal full-refund notice printed in the same contract.
+
+
+WORDING IS ON FILE, BUT THE SYSTEM CANNOT DO THE REST YET (0)
 ---------------------------------------------------------------
-Left to a person for the reason given (a separate signed page, initials, a set place on the page,
-a blank to fill, a list Apex has no records for).
+Left to a person for the reason given.
 
-- Alaska: For a home build or a large remodel, attach the page "Notice of Potential Claims Must
-  Be Provided within One Year" and get it signed. Why: A separate page that the buyer must sign.
-  The builder has no separate signed page for a state notice yet..
+None.
+
+
+WAITING FOR THE AGENCY'S OWN DOCUMENT (1)
+--------------------------------------------
+The system hands the agency's own file to the customer before they sign, records the delivery and
+collects the signed acknowledgment where the law asks for one. Six agency PDFs ship with the site
+(Delaware, Oregon x2, Rhode Island, Virginia, Washington) and are the system's lines now. The files
+below are not loaded; until Apex staff load one, its line stays with the contractor (who is not
+shown this note).
+
+- Maine: Attach the Attorney General's consumer information addendum. The agency's file: ME-ag.
+
+
+STAYS WITH A PERSON FOR GOOD: OUTSIDE APEX (5)
+-------------------------------------------------
+No system could do these: they happen on a document Apex does not make, on a state's own website,
+or before a notary.
+
 - Arizona: If the customer signs a promissory note, put the required statement on the face of
-  the note. Why: The statement goes on the face of the note, which is not a document the builder
-  makes..
-- Arizona: If you are selling a newly built home, add the Registrar complaint provision and get
-  the buyer's initials. Why: the law says where or how it must be given: Prominently displayed, at
-  least ten point bold type; buyer initials the provision.
-- Arkansas: Attach the IMPORTANT NOTICE TO OWNER (lien notice) and get the owner's signature
-  before work starts. Why: the law says where or how it must be given: Conspicuous, boldface,
-  worded exactly as stated in all capital letters; may be incorporated into the contract or
-  affixed to it; owner signature not required when sent by certified mail.
-- California: If the contract is secured by a lien on the home, give the WARNING TO BUYER on a
-  separate signed page. Why: 18 point type on a separate page that the buyer signs and dates. The
-  builder has no separate signed page for a state notice yet..
-- California: If the contract has an arbitration clause, title it ARBITRATION OF DISPUTES and
-  add the NOTICE by the initials line. Why: The notice must sit right by the initials line of the
-  arbitration clause, which the builder does not lay out..
-- California: For a service and repair job of $750 or less, use the service and repair notices
-  instead. Why: the law says where or how it must be given: At least 12-point boldface type,
-  signed and dated by the buyer.
-- California: If you charge a down payment, add the down payment statement under the heading
-  "Downpayment". Why: the law says where or how it must be given: At least 12-point boldface type,
-  in the downpayment details under the heading 'Downpayment'.
-- California: If there are progress payments, add the progress payment statement. Why: the law
-  says where or how it must be given: At least 12-point boldface type, in the section reserved for
-  the progress payments.
-- California: If you will use a subcontractor, add the subcontractor statement to the contract
-  and to each change order. Why: The statute wants a Yes/No box in the contract and the same words
-  on every change order. Not built..
-- California: Add the liability insurance (CGL) statement that is true for your business. Why:
-  the law says where or how it must be given: Under the heading 'Commercial General Liability
-  Insurance (CGL)' (a separate quotation in the statute, not part of the cut).
-- California: Add the workers' compensation statement that is true for your business. Why: the
-  law says where or how it must be given: Under the heading 'Workers’ Compensation Insurance' (a
-  separate quotation in the statute, not part of the cut).
-- California: For disaster repair after a declared emergency, use the Seven-Day Right to Cancel
-  notice and form. Why: the law says where or how it must be given: At least 12-point boldface
-  type, in immediate proximity to a space reserved for the owner's signature, signed and dated by
-  the owner, same language as the oral sales presentation; ....
-- California: For a new single-family home, add the Mechanics Lien Warning for new homes. Why:
-  the law says where or how it must be given: Statement with the heading 'Mechanics Lien Warning'.
-- Connecticut: If you send the contract by email, add the required sentence beside the message.
-  Why: the law says where or how it must be given: Immediately adjacent to the body of the
-  message, in at least twelve-point type or the size of the body of the message if larger.
+  the note. Why: The statement goes on the promissory note. Apex does not make promissory notes,
+  so only a person can put it there.
 - Connecticut: If the customer signs a promissory note, put the required statement on the face
-  of the note. Why: The statement goes on the face of the note, which is not a document the
-  builder makes..
-- Delaware: Attach the Attorney General's "Summary of Your Rights" and hand it over before the
-  customer signs. Why: the law says where or how it must be given: Department of Justice format;
-  the official publication must be attached from the agency's current copy.
-- Idaho: Give the list of subcontractors and suppliers before the final payment. Why: Apex has
-  no supplier records and no address or telephone for a subcontractor, so the system cannot build
-  the list yet (it needs a database change)..
-- Illinois: Hand the customer the "Home Repair: Know Your Consumer Rights" pamphlet. Why: the
-  law says where or how it must be given: 12 point; the official pamphlet must be attached from
-  the agency's current copy.
-- Illinois: Get the Consumer Rights Acknowledgment Form signed by you and the customer. Why: the
-  law says where or how it must be given: Separate acknowledgment form entitled Consumer Rights
-  Acknowledgment Form, in duplicate, incorporated into the pamphlet; original kept by the
-  contractor, duplicate kept in the ....
-- Illinois: Give the owner the lien notice and a sworn statement before the first payment. Why:
-  the law says where or how it must be given: 10 point bold.
-- Illinois: If insurance money pays for the job, add the insurance cancellation statement and
-  form. Why: A statement plus a duplicate cancellation form with blanks to fill. Not built..
-- Indiana: Give the customer the statement of the right to cancel before they sign, with the
-  NOTICE OF CANCELLATION form in two copies. Why: the law says where or how it must be given:
-  Fixed statement furnished before the contract is signed (no type size).
-- Iowa: If you use a subcontractor, add the mechanics lien owner notice and post the job on the
-  state registry within 10 days. Why: The copy on file carries one sentence that is an
-  instruction, not part of the notice, and the job must also be posted on the state registry,
-  which only a person can do..
-- Maryland: If payment is secured by the home, add the security and rescission notice on the
-  first page and get initials. Why: Must be on the first page with the owner's initials beside it.
-  The builder does not place a state notice on page one or collect initials for it..
-- Minnesota: For roofing paid by insurance, give the 72 hour cancellation statement and form
-  before signing. Why: A statement plus a cancellation form, given before the contract. Not
-  built..
-- Mississippi: Add the liability insurance disclosure just above the customer's signature. Why:
-  the law says where or how it must be given: Placed on the contracting document immediately
-  before the space for the purchaser's signature, in bold and conspicuous type larger than the
-  rest of the contract.
-- Missouri: If you want your subcontractors and suppliers to keep lien rights, get the CONSENT
-  OF OWNER signed. Why: the law says where or how it must be given: Ten point bold type, signed
-  separately from the 429.012 notice.
-- North Carolina: If the customer pays on credit, attach the state's credit-sale cancellation
-  notice before they sign. Why: the law says where or how it must be given: Mailing text.
-- Ohio: Give the customer the estimate form at the first meeting and get their initials. Why:
-  the law says where or how it must be given: Form given at the first face to face contact and
-  before work starts; may be separate or part of another form; also told to the customer orally.
-- Rhode Island: If the customer is 62 or older, give the separate notice for buyers age 62 or
-  older. Why: A separate cancellation notice with a blank to fill. Not built..
-- Texas: Give the owner the list of subcontractors and suppliers before work starts. Why: The
-  list needs each subcontractor's and supplier's name, address and telephone number. Apex keeps a
-  subcontractor's name, trade and license only, and has no supplier records, so the system cannot
-  build the list yet (it needs ....
-- Utah: Put the cancellation statement on the first page in dark bold 12 point type. Why: the
-  law says where or how it must be given: Conspicuous statement in dark bold, at least 12-point
-  type, on the first page of the purchase documentation; no separate state form.
-- Virginia: Give the customer the DPOR Statement of Consumer Protections and get a signed
-  acknowledgment. Why: the law says where or how it must be given: Handed to the consumer with the
-  contract; the contract carries the consumer's signed acknowledgment of having been provided with
-  and read it; the form may be reproduced but not altered.
-- Washington: If the customer pays in more than four installments or with a service charge, add
-  the NOTICE TO BUYER above their signature. Why: the law says where or how it must be given: Item
-  (e) of the NOTICE TO BUYER, in ten point boldface type or larger directly above the buyer's
-  signature space; cancel by certified mail, return receipt requested, posted by ....
-- West Virginia: If the customer pays on credit, attach the state's credit-sale cancellation
-  notice before they sign. Why: the law says where or how it must be given: Mailing counts.
-- Wisconsin: Give the Notice of Consumer's Right to Receive Lien Waivers as a separate page
-  before signing, and keep proof. Why: the law says where or how it must be given: In writing, the
-  verbatim statement only, as a separate document, in a clear and conspicuous font, in a format
-  the buyer can retain.
-- Wisconsin: For building or remodeling a home, give the construction defect notice with the
-  state brochure before signing. Why: the law says where or how it must be given: Notice worded
-  substantially as given, conspicuous and in writing, may be included within the contract;
-  delivered together with a copy of the DSPS brochure.
+  of the note. Why: The statement goes on the promissory note. Apex does not make promissory
+  notes, so only a person can put it there.
+- Illinois: Give the owner your sworn statement of everyone furnishing labor or materials before
+  the first payment. Why: A sworn statement is sworn by a person before a notary.
+- Iowa: Post the job on the state's mechanics lien registry within 10 days. Why: The registry is
+  the state's own website; only a person with the contractor's account can post there.
 - Wisconsin: If the customer signs a promissory note, put the required legend on the note. Why:
-  The legend goes on the note, which is not a document the builder makes..
-- Wisconsin: For basement waterproofing with no guarantee, add the no-guarantee statement on the
-  face of the contract. Why: the law says where or how it must be given: On the face of the
-  contract, separate from other provisions, in bold face type.
-- Wyoming: Send the owner the NOTICE TO OWNER with a lien waiver form before you take any
-  payment, including the deposit. Why: the law says where or how it must be given: Substantially
-  the statutory form; no type size; the notice says a lien waiver form is attached.
+  The statement goes on the promissory note. Apex does not make promissory notes, so only a person
+  can put it there.

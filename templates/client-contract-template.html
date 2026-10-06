@@ -436,6 +436,7 @@
     // A part printed inside the contract: its heading, its words, its record.
     function spPushBody(blocks, s) {
       if (s.title) { blocks.push({ html: '<div class="blk ' + (s.heading ? "state-h" : "locked-h") + '">' + escHtml(s.title) + '</div>', kind: "block", keepWithNext: true }); }
+      if (s.date_above) { blocks.push({ html: '<div class="blk"><p style="font-size:10pt;font-weight:700;margin:0 0 3pt;">Date of transaction: ' + escHtml(con.transaction_date ? fmtDate(con.transaction_date) : "the date the " + partyWord().toLowerCase() + " signs") + '</p></div>', kind: "block", keepWithNext: true }); }
       var open = '<div class="blk locked' + spEm(s) + (s.place === "face" || s.place === "first_page" ? " state-face" : "") + '">';
       paras(spText(s)).forEach(function(p) { blocks.push(paraBlock(open, '</div>', p, spFmt(s))); });
       var rec = spRecordHtml(s);

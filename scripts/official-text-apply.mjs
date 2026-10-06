@@ -6,7 +6,7 @@
 //   node scripts/official-text-apply.mjs --apply        write the data file and the change log
 // Spec shape: see scripts/official-text-specs/README.md
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { parseStateFile, baseStatus, norm, cutRange } from "./official-text-lib.mjs";
+import { parseStateFile, baseStatus, norm, cutRange, PASS3_DIR } from "./official-text-lib.mjs";
 
 var root = new URL("../", import.meta.url);
 var DATA = new URL("data/contract-state-riders-v1.json", root);
@@ -21,7 +21,19 @@ function getPath(o, p) { var parts = p.split("."); for (var i = 0; i < parts.len
 function setPath(o, p, v) { var parts = p.split("."); for (var i = 0; i < parts.length - 1; i++) { if (o[parts[i]] === null || o[parts[i]] === undefined || typeof o[parts[i]] !== "object") { o[parts[i]] = {}; } o = o[parts[i]]; } o[parts[parts.length - 1]] = v; }
 
 export function processState(code, rider, spec, errors, log) {
-  var f = parseStateFile(code), flat = norm(f.raw);
+  var fMain = parseStateFile(code), f = fMain, flat = norm(f.raw);
+  // Third pass: a notice with "source": "pass3" is read from pass3/<ST>.md
+  // instead (rows, blocks and support quotes). Only a row whose status is
+  // exactly VERBATIM-OFFICIAL may be loaded from it: "...-PDF-NEEDS-REVIEW",
+  // "NO-PRESCRIBED-WORDING" and "NOT-OBTAINED" never are.
+  var f3 = null;
+  function useSource(sn) {
+    if (sn.source === "pass3") {
+      if (!f3) { f3 = parseStateFile(code, PASS3_DIR); f3.blocks.forEach(function (b) { if (!b.closed) { err("pass3: unclosed fence under " + b.heading); } }); }
+      f = f3;
+    } else { f = fMain; }
+    flat = norm(f.raw);
+  }
   function err(m) { errors.push(code + ": " + m); }
   function supportOk(s, what) {
     if (!s || typeof s !== "string") { err(what + ": support quote missing"); return false; }
@@ -48,6 +60,7 @@ export function processState(code, rider, spec, errors, log) {
     if (!id) { err("notice without id"); return; }
     if (handled[id]) { err("notice listed twice: " + id); return; }
     handled[id] = true;
+    useSource(sn);
     if (sn.remove) {
       if (!old) { err("remove of unknown notice " + id); return; }
       if (supportOk(sn.support, "remove " + id)) { log.push({ state: code, field: "notices." + id, old: old.title + " (" + old.cite + ")", new: "(removed)", support: sn.support }); }
@@ -71,8 +84,10 @@ export function processState(code, rider, spec, errors, log) {
     }
     var st = row ? baseStatus(row.status) : "NOT OBTAINED";
     if (row && !st) { err(id + ": unreadable status " + row.status); }
+    if (sn.source === "pass3" && row && String(row.status).trim() !== "VERBATIM-OFFICIAL") { err(id + ": pass3 row is not exactly VERBATIM-OFFICIAL (" + row.status + "); it may not be loaded"); st = "NOT OBTAINED"; }
     n.source_status = st; n.source_url = row ? row.url : null; n.source_date = row ? row.date : null; n.text_status = st;
     delete n.hold_reason; delete n.text_on_file; delete n.range; n.text = null;
+    if (sn.source === "pass3") { n.source_pass = "pass3"; } else { delete n.source_pass; }
     var mode = sn.mode || "none";
     if (mode === "print" || mode === "on_file") {
       var cond = st === "VERBATIM-OFFICIAL" || st === "VERBATIM-NEAR-OFFICIAL";

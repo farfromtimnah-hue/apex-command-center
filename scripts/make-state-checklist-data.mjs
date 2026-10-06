@@ -29,8 +29,9 @@
 //                    RES-36 (see FINISH below): parts, only_yes, biz_key, ask, also,
 //                    official = how the system finishes a line whose wording is on file.
 import { writeFileSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
-function A(en, pt, o) { o = o || {}; var x = { c: "A", en: en, pt: pt }; ["ref", "ref_pt", "ref_from", "flag", "unless", "sys", "sys_en", "sys_pt", "fact", "style", "docs", "needs", "outside"].forEach(function (k) { if (o[k]) { x[k] = o[k]; } }); return x; }
+function A(en, pt, o) { o = o || {}; var x = { c: "A", en: en, pt: pt }; ["ref", "ref_pt", "ref_from", "flag", "unless", "sys", "sys_en", "sys_pt", "fact", "style", "docs", "needs", "outside", "held"].forEach(function (k) { if (o[k]) { x[k] = o[k]; } }); return x; }
 function H(why, flag) { var x = { c: "H", why: why }; if (flag) { x.flag = flag; } return x; }
 function B(why, flag) { var x = { c: "B", why: why }; if (flag) { x.flag = flag; } return x; }
 
@@ -533,6 +534,15 @@ S.WY = { cancel_ref: "W.S. 40-14-253", lines: {
 //   when_cancel   the line exists only when the contract carries a Notice of
 //                 Cancellation (sold at the customer's home).
 //   outside       why the line stays with a person for good (outside Apex).
+//   official.file the agency's own PDF shipped with the site (state-docs/),
+//                 copied unaltered from the third research pass; sha256 is
+//                 its fingerprint. A slot without a file waits for Apex staff.
+//   held          { cat, why }: why a notice still has no wording the system
+//                 may print, after the third research pass. cat: "lawyer"
+//                 (needs a lawyer's answer), "current" (needs a current
+//                 official copy), "review" (the official copy needs review),
+//                 "missing" (no official copy was obtained), "none" (the law
+//                 prescribes no wording).
 var RIDERS = JSON.parse(readFileSync(new URL("../data/contract-state-riders-v1.json", import.meta.url), "utf8"));
 function notice(id) {
   var n = ((RIDERS.riders[id.slice(0, 2)] || {}).notices || []).filter(function (x) { return x.id === id; })[0];
@@ -573,7 +583,7 @@ var FIN = {
   AK: { "notice:AK-defect-notice": { sys: "parts", only_yes: true, parts: [{ n: "AK-defect-notice", as: "page", heading: heading("AK-defect-notice", "title", /^(.+?) \(/), style: { bold: true, caps: true }, sign: true }],
     sys_en: "\"Notice of Potential Claims Must Be Provided within One Year\" page, signed by the customer", sys_pt: "Página \"Notice of Potential Claims Must Be Provided within One Year\", assinada pelo cliente" } },
   AZ: { "notice:AZ-note-statement": { outside: OUT_NOTE },
-    "notice:AZ-pool-notice": { sys: "official", official: { slot: "AZ-pool-notice" }, sys_en: "State pool safety notice given to the customer with the contract", sys_pt: "Aviso estadual de seguran\u00e7a de piscina entregue ao cliente junto com o contrato" },
+    "notice:AZ-pool-notice": { held: { cat: "lawyer", why: "The Department of Health Services notice is on file, but the notice itself says reproducing it for a commercial purpose is governed by A.R.S. 39-121.03. Apex does not print or attach it until a lawyer says a contractor's software may." } },
     "notice:AZ-new-dwelling": { sys: "parts", fact: "new_home", only_yes: true, parts: [{ n: "AZ-new-dwelling", style: BOLD10, initials: true }],
       sys_en: "Registrar complaint provision printed in the contract (10 point bold), with the buyer's initials", sys_pt: "Cláusula de reclamação do Registrar impressa no contrato (negrito, corpo 10), com as iniciais do comprador" } },
   AR: { "notice:AR-lien": { sys: "parts", parts: [{ n: "AR-lien", as: "page", style: { bold: true, caps: true }, sign: true, company_sign: true,
@@ -613,11 +623,12 @@ var FIN = {
   CT: { "notice:CT-note-statement": { outside: OUT_NOTE },
     "notice:CT-email-sentence": { sys: "email", when_cancel: true, parts: [{ n: "CT-email-sentence", as: "message" }], sys_en: "Required sentence placed beside the message that sends the contract", sys_pt: "Frase exigida colocada junto à mensagem que envia o contrato",
       flag: "The app builds the message and the person sends it (text, WhatsApp or email). The sentence is added to every such message. Its type size inside another app cannot be set from here." } },
-  DE: { "notice:DE-ag-summary": { sys: "official", official: { slot: "DE-ag-summary" }, sys_en: "Attorney General's \"Summary of Your Rights\" given to the customer before they sign", sys_pt: "\"Summary of Your Rights\" do Attorney General entregue ao cliente antes de ele assinar" } },
+  DE: { "notice:DE-ag-summary": { sys: "official", official: { slot: "DE-ag-summary", file: "state-docs/de-home-improvement-summary.pdf", version: "Revised 10/31/2023", sha256: "27769521e1638d43965b5bc963e5b6157465ef59fcf8772c0f5272714905e697" }, sys_en: "Attorney General's \"Summary of Your Rights\" given to the customer before they sign", sys_pt: "\"Summary of Your Rights\" do Attorney General entregue ao cliente antes de ele assinar" } },
   ID: { "item:2": { sys: "list", sys_en: LIST_EN, sys_pt: LIST_PT } },
   IL: {
-    "notice:IL-pamphlet": { sys: "official", official: { slot: "IL-pamphlet" }, sys_en: "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer before they sign", sys_pt: "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente antes de ele assinar" },
-    "notice:IL-ack-form": { sys: "parts", needs_slot: "IL-pamphlet", parts: [{ n: "IL-ack-form", as: "page", heading: heading("IL-ack-form", "format", /entitled ([A-Za-z ]+),/), sign: true, company_sign: true, copies: 2 }],
+    "notice:IL-pamphlet": { sys: "parts", parts: [{ n: "IL-pamphlet", as: "page", style: { min_pt: 12 } }], sys_en: "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer as a separate document (12 point), before they sign", sys_pt: "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente como documento separado (corpo 12), antes de ele assinar",
+      flag: "The pamphlet's wording is fixed by 815 ILCS 513/20(c) and is printed from the statute. The Attorney General's one-page leaflet is a different document and is not used." },
+    "notice:IL-ack-form": { sys: "parts", parts: [{ n: "IL-ack-form", as: "page", heading: heading("IL-ack-form", "format", /entitled ([A-Za-z ]+),/), sign: true, company_sign: true, copies: 2 }],
       sys_en: "Consumer Rights Acknowledgment Form signed by the customer and the company, in two copies", sys_pt: "Consumer Rights Acknowledgment Form assinado pelo cliente e pela empresa, em duas vias" },
     "notice:IL-lien": { sys: "parts", parts: [{ n: "IL-lien", style: BOLD10 }], sys_en: "Lien notice printed in the contract (10 point bold)", sys_pt: "Aviso de gravame impresso no contrato (negrito, corpo 10)",
       also: { en: "Give the owner your sworn statement of everyone furnishing labor or materials before the first payment", pt: "Entregue ao proprietário a sua declaração juramentada de todos que fornecem mão de obra ou materiais antes do primeiro pagamento", why: "A sworn statement is sworn by a person before a notary." },
@@ -636,16 +647,19 @@ var FIN = {
     sys_en: "Security and rescission notice on the first page (10 point bold), with the owner's initials", sys_pt: "Aviso de garantia e rescisão na primeira página (negrito, corpo 10), com as iniciais do proprietário" } },
   ME: { "notice:ME-ag": { sys: "official", official: { slot: "ME-ag" }, sys_en: "Attorney General's consumer information addendum given to the customer with the contract", sys_pt: "Adendo de informa\u00e7\u00f5es ao consumidor do Attorney General entregue ao cliente junto com o contrato",
     flag: "The addendum changes (it lists contractors the State has sued). Apex staff must load the current copy each time the Attorney General updates it." } },
-  NM: { "notice:NM-default": { sys: "official", official: { slot: "NM-default", ack: true }, sys_en: "State residential default disclosure form given to the customer, with their signed acknowledgment", sys_pt: "Formul\u00e1rio estadual de residential default disclosure entregue ao cliente, com o recibo assinado" } },
-  OR: { "notice:OR-lien": { sys: "official", official: { slot: "OR-lien" }, sys_en: "CCB \"Information Notice to Owner About Construction Lien Rights\" given to the owner with the contract", sys_pt: "\"Information Notice to Owner About Construction Lien Rights\" do CCB entregue ao propriet\u00e1rio junto com o contrato" },
-    "notice:OR-ccb": { sys: "official", official: { slot: "OR-ccb", ack: true }, sys_en: "CCB Consumer Protection Notice given to the owner, with their signed acknowledgment", sys_pt: "Consumer Protection Notice do CCB entregue ao propriet\u00e1rio, com o recibo assinado" } },
+  NM: { "notice:NM-default": { held: { cat: "missing", why: "The statute (60-13-19(C)) gives the substance only; the disclosure must be on a form approved by the Construction Industries Division, and the third pass did not find that form." } } },
+  OR: { "notice:OR-lien": { sys: "official", official: { slot: "OR-lien", file: "state-docs/or-information-notice-liens.pdf", version: "CCB form adopted 9-16", sha256: "111d94e5cea6575169bb140c84af2f111fae2094e772d6cce0c6d0ab6778f938" }, sys_en: "CCB \"Information Notice to Owner About Construction Lien Rights\" given to the owner with the contract", sys_pt: "\"Information Notice to Owner About Construction Lien Rights\" do CCB entregue ao propriet\u00e1rio junto com o contrato" },
+    "notice:OR-ccb": { sys: "official", official: { slot: "OR-ccb", ack: true, file: "state-docs/or-consumer-protection-notice.pdf", version: "CCB form CPN 4-26-2011", sha256: "a89916480fb4a6408f1c9b93552b2694910a5e81f343ce65d08bc36274d159e3" }, sys_en: "CCB Consumer Protection Notice given to the owner, with their signed acknowledgment", sys_pt: "Consumer Protection Notice do CCB entregue ao propriet\u00e1rio, com o recibo assinado" } },
   MN: { "notice:MN-roofing-cancel": { sys: "parts", fact: "roof_insurance", only_yes: true, parts: [{ n: "MN-roofing-cancel", style: BOLD10 }, cancelForm("MN-roofing-cancel-form", NAME_ADDR)],
     sys_en: "72 hour cancellation statement printed in the contract and its form in two copies", sys_pt: "Declaração de cancelamento de 72 horas impressa no contrato e o formulário em duas vias" } },
   MS: { "notice:MS-insurance": { sys: "parts", biz_key: "cgl", parts: [{ n: "MS-insurance", biz: ["cgl", "yes"], place: "above_signature", style: { bold: true, larger: true },
       fill: [["The name of the insurer is __________________", "The name of the insurer is {biz_cgl_insurer}"], ["the policy number is _________________", "the policy number is {biz_cgl_policy}"]] }],
     sys_en: "Liability insurance disclosure printed just above the customer's signature (bold, larger type)", sys_pt: "Declaração de seguro de responsabilidade impressa logo acima da assinatura do cliente (negrito, letra maior)",
     flag: "The Board's wording exists only for a contractor who DOES carry general liability insurance. For any other answer there is nothing official to print and the line stays with a person." } },
-  MO: { "notice:MO-consent": { sys: "parts", fact: "lien_consent", only_yes: true, parts: [{ n: "MO-consent", style: BOLD10, sign: true }],
+  MO: { "notice:MO-cancel-credit": { sys: "parts", only_yes: true, parts: [{ n: "MO-cancel-credit", heading: heading("MO-cancel-credit", "format", /headed ([A-Z ]+) in/), date_above: true, style: BOLD10, fill: [["(______)", SELLER + ", " + SELLER_ADDR]] }],
+      sys_en: "NOTICE OF CANCELLATION statement printed in the contract (10 point bold), with the transaction date and your name and address filled in", sys_pt: "Declara\u00e7\u00e3o NOTICE OF CANCELLATION impressa no contrato (negrito, corpo 10), com a data da transa\u00e7\u00e3o e o seu nome e endere\u00e7o preenchidos",
+      flag: "The Revisor's page lays the notice out in a table; only the paragraph the buyer reads is cut, the caption is printed as its heading and the date above it. Compare with the rendered page; a lawyer should confirm." },
+    "notice:MO-consent": { sys: "parts", fact: "lien_consent", only_yes: true, parts: [{ n: "MO-consent", style: BOLD10, sign: true }],
     sys_en: "CONSENT OF OWNER printed in the contract (10 point bold) and signed by the owner on its own", sys_pt: "CONSENT OF OWNER impresso no contrato (negrito, corpo 10) e assinado à parte pelo proprietário" } },
   NV: { "notice:NV-sub-list": { sys: "list", sys_en: LIST_EN, sys_pt: LIST_PT, flag: "NRS 624.600 also asks for a lien notice and prescribes no wording for it. The two state information forms (liens and contractors) already go to the owner with the contract." } },
   NC: { "notice:NC-cancel-credit": { sys: "parts", only_yes: true, parts: [{ n: "NC-cancel-credit", place: "above_signature", style: BOLD10 },
@@ -654,7 +668,12 @@ var FIN = {
   OH: { "notice:OH-estimate-form": { sys: "parts", parts: [{ n: "OH-estimate-form", choose: ["_____ written estimate", "_____ oral estimate", "_____ no estimate"] }],
     sys_en: "Estimate form printed in the contract, with the customer's initials on their choice", sys_pt: "Formulário de estimativa impresso no contrato, com as iniciais do cliente na opção escolhida",
     flag: "The rule wants the form at the first face to face contact and also said out loud. The system gives it with the contract; saying it out loud stays with the person." } },
-  RI: { "notice:RI-board": { sys: "official", official: { slot: "RI-board" }, sys_en: "Board's consumer disclosures and Summary of Registration Law given to the customer with the contract", sys_pt: "Informa\u00e7\u00f5es ao consumidor do Board e Summary of Registration Law entregues ao cliente junto com o contrato" },
+  RI: { "notice:RI-board": { sys: "official", official: { slot: "RI-board", file: "state-docs/ri-what-homeowners-should-know.pdf", version: "Approved by the Board March 8, 2023", sha256: "2982c903684c48817e32a85cbfd309f480e2ab1d62a463fdd8884c1420271066" },
+      sys_en: "Board's summary \"What Homeowners Should Know\" given to the customer with the contract", sys_pt: "Resumo do Board \"What Homeowners Should Know\" entregue ao cliente junto com o contrato",
+      also: { en: "Add the Board's consumer disclosures to the contract", pt: "Inclua no contrato as informa\u00e7\u00f5es ao consumidor exigidas pelo Board", needs_text: true, why: "5-65-3(o) points to disclosures set by the Board's regulations; the third pass read the Board's rules and found no such wording." } },
+    "notice:RI-cancel-form": { sys: "parts", parts: [{ n: "RI-cancel-form", as: "page", copies: 2, heading: heading("RI-cancel-form", "format", /caption '([^']+)'/), date_above: true, style: BOLD,
+        fill: [["(insert name and address of the seller)", SELLER + ", " + SELLER_ADDR]] }],
+      sys_en: "Notice of Cancellation in two copies, with the transaction date and your name and address filled in", sys_pt: "Notice of Cancellation em duas vias, com a data da transa\u00e7\u00e3o e o seu nome e endere\u00e7o preenchidos" },
     "notice:RI-62": { sys: "parts", only_yes: true, parts: [{ n: "RI-62", as: "page", heading: heading("RI-62", "quote_note", /caption '([^']+)'/), date_above: true, style: BOLD,
       fill: [["(insert name and address of the seller)", SELLER + ", " + SELLER_ADDR]] }],
     sys_en: "Separate Notice of Cancellation for buyers age 62 or older, with your name and address filled in", sys_pt: "Notice of Cancellation separado para compradores com 62 anos ou mais, com o seu nome e endereço preenchidos" } },
@@ -662,8 +681,11 @@ var FIN = {
   UT: { "notice:UT-cancel": { sys: "parts", parts: [{ n: "UT-cancel", place: "first_page", style: B12, fill: [[" (or time period reflecting the supplier's cancellation policy but not less than three business days)", ""]] }],
     sys_en: "Cancellation statement on the first page (dark bold, 12 point)", sys_pt: "Declaração de cancelamento na primeira página (negrito escuro, corpo 12)",
     flag: "The words in parentheses in the statute are an instruction to the seller (it may give a longer period), not words to print. The system leaves them out and keeps the three business days." } },
-  VA: { "notice:VA-dpor": { sys: "official", official: { slot: "VA-dpor", ack: true }, sys_en: "DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment", sys_pt: "DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado" } },
-  WA: { "notice:WA-lien-info": { sys: "official", official: { slot: "WA-lien-info" }, sys_en: "L&I's construction lien information given to the customer with the contract", sys_pt: "Informa\u00e7\u00f5es de gravame do L&I entregues ao cliente junto com o contrato" },
+  VA: { "notice:VA-dpor": { sys: "official", official: { slot: "VA-dpor", ack: true, file: "state-docs/va-statement-of-consumer-protections.pdf", version: "Revised 4/29/2025 (effective 07/01/2025)", sha256: "243937bc89a3a03c18d68e36c83d146338a0689b0e1401e0817e65798e58fbc4" }, sys_en: "DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment", sys_pt: "DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado" } },
+  WA: { "notice:WA-lien-info": { held: { cat: "missing", why: "RCW 60.04.255 wants L&I's own master document handed over; the third pass did not find it on L&I's site." } },
+    "item:1": { sys: "official", official: { slot: "WA-customer-form", ack: true, title: "L&I Contractor Registration Disclosure Statement, Notice to Customers (F625-030-000)", cite: "RCW 18.27.114", file: "state-docs/wa-notice-to-customer-f625-030-000.pdf", version: "F625-030-000, 12-2015", sha256: "70dc3e0ac9fe5ed53c748d61b62ef592e930f3ae1864faef281e2d60fdf6e37c" },
+      sys_en: "L&I's own Notice to Customers form given to the customer, with their signed acknowledgment kept on the contract", sys_pt: "Formul\u00e1rio Notice to Customers do L&I entregue ao cliente, com o recibo assinado guardado no contrato",
+      flag: "L&I's form is handed over unaltered, so its blanks (registration number, bond amount) are not filled in on the form itself; the contract's own Notice to Customer and license line carry the registration. The signed acknowledgment is kept with the contract for as long as the contract is kept; a lawyer should confirm that this meets the three-year rule." },
     "notice:WA-cancel": { sys: "parts", fact: "installments", only_yes: true, ask: ["service_charge_pct"], parts: [{ n: "WA-cancel", place: "above_signature", style: BOLD10, fill: [[". . . .% (must be filled in)", "{sv_service_charge_pct}%"]] }],
     sys_en: "NOTICE TO BUYER printed directly above the buyer's signature (10 point bold)", sys_pt: "NOTICE TO BUYER impresso logo acima da assinatura do comprador (negrito, corpo 10)" } },
   WV: { "notice:WV-cancel": { sys: "parts", only_yes: true, parts: [{ n: "WV-cancel", place: "above_signature", heading: heading("WV-cancel-caption", "text", /^([\s\S]+)$/), style: BOLD, fill: [["(Name and mailing address of seller)", SELLER + ", " + SELLER_ADDR]] }],
@@ -671,8 +693,8 @@ var FIN = {
   WI: {
     "notice:WI-lien-waiver": { sys: "parts", parts: [{ n: "WI-lien-waiver", as: "page", bare: true, sign: true }],
       sys_en: "Notice of Consumer's Right to Receive Lien Waivers on its own page, with proof the customer received it", sys_pt: "Notice of Consumer's Right to Receive Lien Waivers em página própria, com prova de que o cliente recebeu" },
-    "notice:WI-defect": { sys: "official", official: { slot: "WI-brochure" }, parts: [{ n: "WI-defect", style: BOLD }],
-      sys_en: "Construction defect notice printed in the contract and the state brochure given with it", sys_pt: "Aviso de defeitos de construção impresso no contrato e o folheto do estado entregue junto",
+    "notice:WI-defect": { sys: "parts", parts: [{ n: "WI-defect", style: BOLD }, { n: "WI-brochure", as: "page" }],
+      sys_en: "Construction defect notice printed in the contract and the state's Right to Cure brochure given with it as its own page", sys_pt: "Aviso de defeitos de constru\u00e7\u00e3o impresso no contrato e o folheto Right to Cure do estado entregue junto, em p\u00e1gina pr\u00f3pria",
       flag: "The notice is for building or remodeling a home (not repair or maintenance only). The system prints it on every residential job (the safe side)." },
     "notice:WI-note-legend": { outside: OUT_NOTE },
     "notice:WI-waterproof-noguarantee": { sys: "parts", fact: "waterproof", only_yes: true, parts: [{ n: "WI-waterproof-noguarantee", place: "face", style: BOLD }],
@@ -689,6 +711,68 @@ var FIN = {
     sys_en: "NOTICE TO OWNER, filled in and signed by the company, given to the owner with the lien waiver form", sys_pt: "NOTICE TO OWNER, preenchido e assinado pela empresa, entregue ao proprietário com o formulário de lien waiver",
     flag: "The owner gets the notice with the contract, so before any payment made after the contract is sent. A payment taken before the contract is sent is outside what the system sees." } }
 };
+// Why a notice still has no wording the system may print, after the third
+// research pass (INDEX.md there). Merged like FIN.
+var HELD = {
+  AR: { "notice:AR-cancel": { cat: "missing", why: "No official copy of the NOTICE OF CANCELLATION form was obtained (4-89-107, 4-89-108); the only copy is a secondary (Justia) one." } },
+  GA: { "notice:GA-8-2-41": { cat: "current", why: "The official copy is the 2006 enactment (SB 573), not checked for later amendments, and its PDF text needs review." },
+    "notice:GA-43-41-7": { cat: "none", why: "No wording is prescribed: the rule (553-7-.01) requires the contractor's own written warranty to be offered and attached." } },
+  ID: { "notice:ID-disclosure": { cat: "none", why: "Idaho Code 45-525 lists what the disclosure must say and prescribes no wording." },
+    "notice:ID-cancel-credit": { cat: "review", why: "The complete official copy is a PDF whose words are broken at line ends; it may not be printed until someone reviews it against the official page." } },
+  IN: { "notice:IN-cancel": { cat: "none", why: "IC 24-5-10-9 lists what the notice must contain and prescribes no sentence." } },
+  MD: { "notice:MD-cancel": { cat: "none", why: "The official statement and form (CL 14-302) say three business days; a home improvement contract must allow five (seven at 65 or older) and nothing official prints that wording." },
+    "notice:MD-oral-ack": { cat: "review", why: "The official page serves the acknowledgment's check box as a question mark; it may not be printed until someone reviews it against the statute." } },
+  NJ: { "notice:NJ-division": { cat: "lawyer", why: "New Jersey is held: the rule prints 1-888-656-6225 and the Attorney General's pages give 800-242-5846. Which number is current is not settled." },
+    "notice:NJ-cancel": { cat: "current", why: "New Jersey is held: the official copy is the 2004 enactment, not checked for later amendments." } },
+  OK: { "notice:OK-cancel-credit": { cat: "lawyer", why: "The official wording (14A O.S. 2-503) is on record, but it lets the seller keep up to five percent of the down payment, which conflicts with the federal full-refund notice printed in the same contract." } },
+  TN: { "notice:TN-owner": { cat: "missing", why: "No official copy of T.C.A. 62-6-508 was obtained; the only copy is a secondary mirror." },
+    "notice:TN-cancel": { cat: "missing", why: "No official copy of T.C.A. 47-18-704 was obtained; the only copy is a secondary mirror." },
+    "notice:TN-lien": { cat: "missing", why: "No official copy of T.C.A. 66-11-203 was obtained; the only copy is a secondary mirror." } }
+};
+// The official page or document behind a line that stays with a person, so
+// the contractor opens it in one tap and never has to search (Nicole,
+// 10/05/2026). Every address is copied from the third research pass
+// (pass3/<ST>.md, INDEX.md); none was typed from memory. A line with no entry
+// here falls back to its notice's own official address in the rider data.
+//   links: [{ url, en, pt }]   en / pt say WHAT it opens.
+//   link_note: { en, pt }      plain words when the state publishes nothing
+//                              online, or what to look for on the page.
+function L(url, en, pt) { return { url: url, en: en, pt: pt }; }
+var TN_NOTE = function (cite) { return { en: "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up " + cite + " there.", pt: "O Tennessee publica o c\u00f3digo s\u00f3 pelo acesso p\u00fablico da LexisNexis, que este link n\u00e3o abre direto. Procure " + cite + " l\u00e1." }; };
+var TN_LINK = L("https://www.capitol.tn.gov/", "Open the Tennessee General Assembly site", "Abrir o site da Assembleia Geral do Tennessee");
+var LINKS = {
+  AZ: { "notice:AZ-pool-notice": { links: [L("https://www.azdhs.gov/documents/preparedness/epidemiology-disease-control/environmental-health/residential-pool-safety-notice.pdf", "Open Arizona's pool safety notice (Department of Health Services, PDF)", "Abrir o aviso de seguran\u00e7a de piscina do Arizona (Department of Health Services, PDF)")],
+    link_note: { en: "Open it, print it and hand it to the customer. Apex does not print or attach this notice.", pt: "Abra, imprima e entregue ao cliente. A Apex n\u00e3o imprime nem anexa este aviso." } } },
+  AR: { "notice:AR-cancel": { links: [L("https://portal.arkansas.gov/service/arkansas-code-search-laws-and-statutes/", "Open Arkansas's official code search", "Abrir a busca oficial do c\u00f3digo do Arkansas")],
+    link_note: { en: "Look up sections 4-89-107 and 4-89-108 there (the official code opens through LexisNexis).", pt: "Procure as se\u00e7\u00f5es 4-89-107 e 4-89-108 l\u00e1 (o c\u00f3digo oficial abre pela LexisNexis)." } } },
+  GA: { "notice:GA-8-2-41": { links: [L("https://www.legis.ga.gov/api/legislation/document/20052006/64748", "Open Georgia's notice as passed in 2006 (O.C.G.A. 8-2-41, PDF)", "Abrir o aviso da Ge\u00f3rgia como aprovado em 2006 (O.C.G.A. 8-2-41, PDF)")],
+      link_note: { en: "This is the text as first enacted; check that it was not amended since.", pt: "Este \u00e9 o texto como foi aprovado; confira se n\u00e3o mudou depois." } },
+    "notice:GA-43-41-7": { links: [L("https://rules.sos.ga.gov/gac/553-7", "Open Georgia's written warranty rule (553-7-.01)", "Abrir a regra de garantia por escrito da Ge\u00f3rgia (553-7-.01)")] } },
+  ID: { "notice:ID-disclosure": { links: [L("https://legislature.idaho.gov/statutesrules/idstat/title45/t45ch5/sect45-525/", "Open Idaho Code 45-525 (what the disclosure must say)", "Abrir o Idaho Code 45-525 (o que a declara\u00e7\u00e3o precisa dizer)")] },
+    "notice:ID-cancel-credit": { links: [L("https://legislature.idaho.gov/wp-content/uploads/statutesrules/idstat/Title28/T28CH43.pdf", "Open Idaho's cancellation statement (Title 28 chapter 43, PDF; see 28-43-403)", "Abrir a declara\u00e7\u00e3o de cancelamento de Idaho (Title 28 chapter 43, PDF; veja 28-43-403)")] } },
+  IN: { "notice:IN-cancel": { links: [L("https://iga.in.gov/ic/2026/Title_24.pdf", "Open Indiana Code Title 24 (PDF; see IC 24-5-10-9)", "Abrir o Indiana Code Title 24 (PDF; veja IC 24-5-10-9)")] } },
+  MD: { "notice:MD-cancel": { links: [L("https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302", "Open Maryland's cancellation statement and form (Commercial Law 14-302)", "Abrir a declara\u00e7\u00e3o e o formul\u00e1rio de cancelamento de Maryland (Commercial Law 14-302)")],
+      link_note: { en: "The form there says three business days; a home improvement contract must say five (seven at 65 or older).", pt: "O formul\u00e1rio l\u00e1 diz tr\u00eas dias \u00fateis; um contrato de reforma precisa dizer cinco (sete a partir dos 65 anos)." } },
+    "notice:MD-oral-ack": { links: [L("https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302.1", "Open Maryland's acknowledgment wording (Commercial Law 14-302.1)", "Abrir o texto do recibo de Maryland (Commercial Law 14-302.1)")] } },
+  ME: { "notice:ME-ag": { links: [L("https://www.maine.gov/ag/sites/maine.gov.ag/files/documents/Home%20Construction%20Contracts%20Addendum.docx", "Open the Attorney General's addendum (Word file)", "Abrir o adendo do Attorney General (arquivo Word)")] } },
+  NJ: { "notice:NJ-division": { links: [L("https://www.njconsumeraffairs.gov/regulations/Chapter-45A-Administrative-Rules-of-the-Division-of-Consumer-Affairs.pdf", "Open New Jersey's rule with the statement (N.J.A.C. 13:45A-17.11, PDF)", "Abrir a regra de New Jersey com a declara\u00e7\u00e3o (N.J.A.C. 13:45A-17.11, PDF)")],
+      link_note: { en: "The rule prints the number 1-888-656-6225. The Attorney General's pages give 800-242-5846; which one is current is not settled.", pt: "A regra imprime o n\u00famero 1-888-656-6225. As p\u00e1ginas do Attorney General d\u00e3o 800-242-5846; n\u00e3o est\u00e1 decidido qual vale hoje." } },
+    "notice:NJ-cancel": { links: [L("https://pub.njleg.state.nj.us/Bills/2004/PL04/16_.HTM", "Open New Jersey's cancellation notice as passed in 2004 (N.J.S.A. 56:8-151)", "Abrir o aviso de cancelamento de New Jersey como aprovado em 2004 (N.J.S.A. 56:8-151)")],
+      link_note: { en: "This is the text as first enacted; check that it was not amended since.", pt: "Este \u00e9 o texto como foi aprovado; confira se n\u00e3o mudou depois." } } },
+  NM: { "notice:NM-default": { links: [L("https://www.rld.nm.gov/construction-industries/investigation-and-enforcement/", "Open the Construction Industries Division page", "Abrir a p\u00e1gina da Construction Industries Division"), L("https://www.rld.nm.gov/wp-content/uploads/2021/07/Article-13-CILA-7.1.21.pdf", "Open the law that requires the form (NMSA 60-13-19, PDF)", "Abrir a lei que exige o formul\u00e1rio (NMSA 60-13-19, PDF)")],
+    link_note: { en: "The state does not publish this form online. Ask the Construction Industries Division.", pt: "O estado n\u00e3o publica este formul\u00e1rio na internet. Pe\u00e7a \u00e0 Construction Industries Division." } } },
+  OK: { "notice:OK-cancel-credit": { links: [L("https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os14A.pdf", "Open Oklahoma's cancellation statement (Title 14A, PDF; see section 2-503)", "Abrir a declara\u00e7\u00e3o de cancelamento de Oklahoma (Title 14A, PDF; veja a se\u00e7\u00e3o 2-503)")] } },
+  RI: { "notice:RI-board": { also_links: [L("https://webserver.rilegislature.gov/Statutes/TITLE5/5-65/5-65-3.htm", "Open R.I. Gen. Laws 5-65-3 (what the contract must include)", "Abrir R.I. Gen. Laws 5-65-3 (o que o contrato precisa ter)")] } },
+  TN: { "notice:TN-owner": { links: [TN_LINK], link_note: TN_NOTE("T.C.A. 62-6-508") }, "notice:TN-cancel": { links: [TN_LINK], link_note: TN_NOTE("T.C.A. 47-18-704") }, "notice:TN-lien": { links: [TN_LINK], link_note: TN_NOTE("T.C.A. 66-11-203") } },
+  WA: { "notice:WA-lien-info": { links: [L("https://app.leg.wa.gov/RCW/default.aspx?cite=60.04.250", "Open RCW 60.04.250 (what the lien information must be)", "Abrir RCW 60.04.250 (o que a informa\u00e7\u00e3o de gravame precisa ser)")],
+    link_note: { en: "The research did not find this document on the Department of Labor and Industries' site. Ask the Department of Labor and Industries for it.", pt: "A pesquisa n\u00e3o achou este documento no site do Department of Labor and Industries. Pe\u00e7a ao Department of Labor and Industries." } } }
+};
+Object.keys(LINKS).forEach(function (code) { FIN[code] = FIN[code] || {}; Object.keys(LINKS[code]).forEach(function (key) {
+  var add = LINKS[code][key];
+  (add.links || []).concat(add.also_links || []).forEach(function (k) { if (!/^https:\/\//.test(k.url) || !k.en || !k.pt) { throw new Error("LINKS: bad link on " + code + " " + key); } });
+  FIN[code][key] = Object.assign(FIN[code][key] || {}, add);
+}); });
+Object.keys(HELD).forEach(function (code) { FIN[code] = FIN[code] || {}; Object.keys(HELD[code]).forEach(function (key) { FIN[code][key] = Object.assign(FIN[code][key] || {}, { held: HELD[code][key] }); }); });
 Object.keys(FIN).forEach(function (code) {
   Object.keys(FIN[code]).forEach(function (key) {
     var row = S[code].lines[key], add = FIN[code][key];
@@ -705,6 +789,11 @@ Object.keys(FIN).forEach(function (code) {
       });
       (p.choose || []).forEach(function (c) { if (text.indexOf(c) === -1) { throw new Error("FIN: choice not found in " + p.n + ": " + c); } });
     });
+    // An agency file shipped with the site must be there, byte for byte.
+    if (row.official && row.official.file) {
+      var bytes = readFileSync(new URL("../" + row.official.file, import.meta.url));
+      if (createHash("sha256").update(bytes).digest("hex") !== row.official.sha256) { throw new Error("FIN: " + row.official.file + " is not the file that was fingerprinted"); }
+    }
   });
 });
 

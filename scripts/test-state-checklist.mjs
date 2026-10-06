@@ -186,7 +186,7 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
     const stubs = { gmT: function (pt, e) { return en ? e : pt; }, isEn: function () { return en; }, formatDateTimeUTC: formatDateTimeUTC,
       escHtml: function (x) { return String(x === null || x === undefined ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); } };
     const names = Object.keys(stubs);
-    return new Function(...names, cut(gm, "gmConStateCardHtml") + "\nreturn gmConStateCardHtml;")(...names.map(function (k) { return stubs[k]; }))(c);
+    return new Function(...names, cut(gm, "gmConStateCardHtml") + "\n" + cut(gm, "gmConStateLinksHtml") + "\nreturn gmConStateCardHtml;")(...names.map(function (k) { return stubs[k]; }))(c);
   }
   const r = await h.compose(stateFx("residential-in-home-deposit", "TX"));
   const payload = function (flags, status) { return { status: status || "draft", job_state_name: "Texas", state_checklist: r.comp.checklist, state_card: F.contractStateActionCard(r.comp.state, r.comp.checklist, flags) }; };

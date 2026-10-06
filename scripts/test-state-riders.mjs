@@ -5,7 +5,7 @@
 //   node scripts/test-state-riders.mjs
 import { readFileSync } from "node:fs";
 import { writeFileSync } from "node:fs";
-import { parseStateFile, baseStatus, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
+import { parseStateFile, parseNoticeFile, baseStatus, inputExists, pass3Exists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -76,16 +76,18 @@ for (const name of Object.keys(FLORIDA_FIXTURES)) {
       if (n.text !== null && n.text_on_file) { badSource.push(n.id + " has both text and text_on_file"); }
       if (!("source_status" in n) || !("source_url" in n) || !("source_date" in n)) { badSource.push(n.id + " lacks source fields"); }
       if (n.text !== null && n.hold_reason) { badSource.push(n.id + " prints while on hold"); }
-      if (!skipped) {
-        parsed[c] = parsed[c] || parseStateFile(c);
+      // A notice loaded from the third research pass is checked against that pass's file.
+      if (!skipped && (n.source_pass !== "pass3" || pass3Exists(c))) {
+        const pc = c + (n.source_pass || "");
+        parsed[pc] = parsed[pc] || parseNoticeFile(c, n);
         [n.text, n.text_on_file].forEach(function (t) {
           if (!t) { return; }
           if (n.range) {
-            const blk = parsed[c].blocks.filter(function (b) { return b.heading === n.range.block && b.index === n.range.block_index; })[0];
+            const blk = parsed[pc].blocks.filter(function (b) { return b.heading === n.range.block && b.index === n.range.block_index; })[0];
             const cut = blk ? cutRange(blk.text, n.range) : { error: "block not found" };
             if (cut.error || cut.text !== t || blk.text.indexOf(t) === -1 || !Array.isArray(n.range.blanks) || !n.range.quote_note) { notExact.push(n.id + " (range)"); }
             else { ranged++; }
-          } else if (!parsed[c].blocks.some(function (b) { return b.text === t; })) { notExact.push(n.id); }
+          } else if (!parsed[pc].blocks.some(function (b) { return b.text === t; })) { notExact.push(n.id); }
         });
       }
     });
@@ -391,7 +393,7 @@ function sec(comp, id) { return comp.sections.filter(function (s) { return s.id 
       gmConCustomHtml: function () { return ""; }, gmSheetOpen: function (t, b) { out = b; }, document: { getElementById: function () { return null; } }, gmDocMsgAttach: function () {}, window: { GmLabels: GmLabels }, GmLabels: GmLabels, gmCOWizardOpen: function () {}
     };
     const names = Object.keys(stubs);
-    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\n" + cut(src, "gmConStateValuesHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
+    const fn = new Function(...names, cut(src, "gmRenderContractSheet") + "\n" + cut(src, "gmConStateCardHtml") + "\n" + cut(src, "gmConStateLinksHtml") + "\n" + cut(src, "gmConStateFactsHtml") + "\n" + cut(src, "gmConStateValuesHtml") + "\nreturn function(c) { gmConDetail = c; gmRenderContractSheet(); };")(...names.map(function (k) { return stubs[k]; }));
     return function (c) { out = null; fn(clone(c)); return out; };
   }
   async function detail(fxIn, status) {

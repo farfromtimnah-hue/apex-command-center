@@ -51,14 +51,19 @@
     },
     {
       "id": "WI-brochure",
-      "title": "Right to Cure brochure (DSPS form SBD-10845) handed over with the defect notice",
+      "title": "Wisconsin \"Right to Cure Law\" brochure (Department of Safety and Professional Services)",
       "cite": "895.07(13); 101.148(2)(a)",
       "trigger": "Contract to construct or remodel a dwelling; delivered with the Notice Concerning Construction Defects",
-      "format": "Hand over the state's own PDF, not retyped text; the only copy is a City of Verona copy, revision R08/14, and the current revision is unconfirmed",
-      "applies": {},
-      "support": "Someone should get the current PDF from DSPS directly before the product ships it.",
-      "summary_row": "Right-to-cure brochure that must be handed over with it",
-      "mode": "none"
+      "format": "A copy of the brochure delivered with the Notice Concerning Construction Defects, before the contract; the brochure is published as a web page",
+      "applies": {
+        "residential": true
+      },
+      "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure",
+      "summary_row": "DSPS Right to Cure brochure (with the Notice Concerning Construction Defects)",
+      "mode": "on_file",
+      "source": "pass3",
+      "block": "WI-1 (Wis. Stat. 101.148(2)(a); 895.07): DSPS Right to Cure brochure (with the Notice Concerning Construction Defects)",
+      "block_index": 0
     },
     {
       "id": "WI-cancel",

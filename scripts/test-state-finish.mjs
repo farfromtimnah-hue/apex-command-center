@@ -11,10 +11,12 @@
 //   10 sentence beside the message                11 agency document slot
 // and: the wording is the official text byte for byte, Florida is unchanged,
 // nothing stops a send or a signature, every system tick names who and when.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 import { fnSrc } from "./fixtures/d1-shim.mjs";
-import { parseStateFile, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
+import { parseNoticeFile, inputExists, pass3Exists, INPUT_DIR, PASS3_DIR, cutRange } from "./official-text-lib.mjs";
 
 const root = new URL("../", import.meta.url);
 const workerSrc = readFileSync(new URL("worker/index.js", root), "utf8");
@@ -232,10 +234,11 @@ const BIZ_YES = { values: { ins_cgl: "yes", ins_cgl_insurer: "Acme Mutual", ins_
         }
         if (n.source_status !== "VERBATIM-OFFICIAL" || n.hold_reason) { bad.push(p.n + " (not official)"); }
         if (!/^https:\/\//.test(n.source_url || "")) { noUrl.push(p.n); }
-        if (haveInput && n.range) {
-          parsed[code] = parsed[code] || parseStateFile(code);
+        if (haveInput && n.range && (n.source_pass !== "pass3" || pass3Exists(code))) {
+          const pk = code + (n.source_pass || "");
+          parsed[pk] = parsed[pk] || parseNoticeFile(code, n);
           fileChecked++;
-          const blk = parsed[code].blocks.filter(function (b) { return b.heading === n.range.block && b.index === n.range.block_index; })[0];
+          const blk = parsed[pk].blocks.filter(function (b) { return b.heading === n.range.block && b.index === n.range.block_index; })[0];
           const c = blk ? cutRange(blk.text, n.range) : { error: "block not found" };
           if (c.error || c.text !== src) { fileBad.push(p.n); }
         }
@@ -388,41 +391,143 @@ const BIZ_YES = { values: { ins_cgl: "yes", ins_cgl_insurer: "Acme Mutual", ins_
 
 // ── 11. An agency document delivered with the contract ────────────────────
 {
-  const slots = F.contractStateSlotList().map(function (s) { return s.slot; }).sort();
-  ok(["DE-ag-summary", "IL-pamphlet", "VA-dpor", "WI-brochure", "OR-lien", "OR-ccb", "WA-lien-info"].every(function (s) { return slots.indexOf(s) !== -1; }), "a slot exists for Delaware, Illinois, Virginia, Wisconsin, Oregon and Washington (and for every other line that hands over an agency's own file): " + slots.join(", "));
-  const de = await run("DE", {}), l0 = line(de.card, "notice:DE-ag-summary");
-  ok(l0.kind === "person" && !l0.sys && l0.staff_en === "Waiting: official document not loaded" && l0.staff_pt === "Aguardando: documento oficial não carregado" && l0.staff_slot === "DE-ag-summary" && F.contractStatePublicParts({ flags: {} }, de.comp, "x") === null,
-    "file not loaded: the line stays a person line, nothing is shown to the customer, and the card carries \"Waiting: official document not loaded\"");
-  const stripped = F.contractStateCardFor(clone(de.card), false), kept = F.contractStateCardFor(clone(de.card), true);
-  ok(!line(stripped, "notice:DE-ag-summary").staff_en && !/official document not loaded/.test(JSON.stringify(stripped)) && line(kept, "notice:DE-ag-summary").staff_en && /contractStateCardFor\(contractStateActionCard\(.*\), !!\(user && \(isAdminRole\(user\) \|\| contractIsReviewer\(user\)\)\)\)/.test(fnSrc("contractInternalOut", workerSrc)),
+  const list = F.contractStateSlotList(), slots = list.map(function (s) { return s.slot; }).sort();
+  const shipped = list.filter(function (s) { return s.file; }).map(function (s) { return s.slot; }).sort();
+  ok(JSON.stringify(shipped) === JSON.stringify(["DE-ag-summary", "OR-ccb", "OR-lien", "RI-board", "VA-dpor", "WA-customer-form"]) && slots.indexOf("ME-ag") !== -1 && slots.indexOf("AZ-pool-notice") === -1,
+    "six agency PDFs ship with the site (Delaware, Oregon x2, Rhode Island, Virginia, Washington); Maine's slot waits for staff; Arizona's pool notice has no slot at all: " + slots.join(", "));
+  // each shipped file is the agency's own, byte for byte
+  let fileBad = [], rawChecked = 0;
+  const rawNames = { "DE-ag-summary": "DE_summary.pdf", "OR-lien": "OR_lien.pdf", "OR-ccb": "OR_cpn.pdf", "RI-board": "RI_homeowners.pdf", "VA-dpor": "VA_soc.pdf", "WA-customer-form": "WA_f625.pdf" };
+  Object.keys(sorting.states).forEach(function (code) { Object.keys(sorting.states[code].lines).forEach(function (k) {
+    const o = sorting.states[code].lines[k].official;
+    if (!o || !o.file) { return; }
+    const bytes = readFileSync(new URL(o.file, root));
+    if (!/^state-docs\/[a-z0-9-]+\.pdf$/.test(o.file) || bytes.slice(0, 5).toString() !== "%PDF-" || createHash("sha256").update(bytes).digest("hex") !== o.sha256 || !o.version) { fileBad.push(o.slot); }
+    const raw = join(PASS3_DIR, "raw", rawNames[o.slot] || "missing");
+    if (existsSync(raw)) { rawChecked++; if (!readFileSync(raw).equals(bytes)) { fileBad.push(o.slot + " (differs from raw/)"); } }
+  }); });
+  ok(fileBad.length === 0, "each shipped file is a PDF whose fingerprint matches the data file" + (rawChecked ? ", and is byte-identical to the file in the research pass's raw/ folder (" + rawChecked + " compared)" : "") + (fileBad.length ? " (" + fileBad.join(", ") + ")" : ""));
+  if (!rawChecked) { console.log("NOTICE  " + PASS3_DIR + "/raw not found: the comparison of the shipped PDFs with the downloaded originals is skipped"); }
+  // a slot with no file: Maine
+  const me = await run("ME", {}), l0 = line(me.card, "notice:ME-ag");
+  ok(l0.kind === "person" && !l0.sys && l0.staff_en === "Waiting: official document not loaded" && l0.staff_pt === "Aguardando: documento oficial não carregado" && l0.staff_slot === "ME-ag" && F.contractStatePublicParts({ flags: {} }, me.comp, "x") === null,
+    "file not loaded (Maine): the line stays a person line, nothing is shown to the customer, and the card carries \"Waiting: official document not loaded\"");
+  const stripped = F.contractStateCardFor(clone(me.card), false), kept = F.contractStateCardFor(clone(me.card), true);
+  ok(!line(stripped, "notice:ME-ag").staff_en && !/official document not loaded/.test(JSON.stringify(stripped)) && line(kept, "notice:ME-ag").staff_en && /contractStateCardFor\(contractStateActionCard\(.*\), !!\(user && \(isAdminRole\(user\) \|\| contractIsReviewer\(user\)\)\)\)/.test(fnSrc("contractInternalOut", workerSrc)),
     "that note reaches Apex staff only: the contractor's own card does not carry it");
-  const loaded = { slots: { "DE-ag-summary": { key: "contracts/admin/statedoc-deagsummary-1.pdf", version: "Revised 10/31/2023" } } };
-  const de2 = await run("DE", {}, loaded), pub = F.contractStatePublicParts({ flags: {} }, de2.comp, "https://x/api/public/contracts/tok");
-  ok(line(de2.card, "notice:DE-ag-summary").kind === "does" && /^The system will do this when you send the contract: the agency's own document is shown to the customer before they sign\.$/.test(line(de2.card, "notice:DE-ag-summary").sys.en) && pub.docs.length === 1 && pub.docs[0].url === "https://x/api/public/contracts/tok/state-doc/DE-ag-summary" && pub.docs[0].version === "Revised 10/31/2023" && pub.docs[0].ack === false,
-    "file loaded: the line is the system's, and the customer's page gets a link to the agency's own file with its version");
-  const sentNoRec = F.contractStateActionCard(de2.comp.state, de2.comp.checklist, de2.r.c.flags, { c: SENT, frozen: frozenOf(de2), who: WHO });
-  const sentRec = F.contractStateActionCard(de2.comp.state, de2.comp.checklist, de2.r.c.flags, { c: SENT, frozen: frozenOf(de2), who: WHO, delivery: { message_note_at: null, slots: { "DE-ag-summary": "2026-10-05 19:30:00" }, by: WHO.sent } });
+  // a shipped file: Delaware
+  const de = await run("DE", {}), pub = F.contractStatePublicParts({ flags: {} }, de.comp, "https://x/api/public/contracts/tok");
+  ok(line(de.card, "notice:DE-ag-summary").kind === "does" && /^The system will do this when you send the contract: the agency's own document is shown to the customer before they sign\.$/.test(line(de.card, "notice:DE-ag-summary").sys.en) && pub.docs.length === 1 && pub.docs[0].url === "https://apex.resonateai.online/state-docs/de-home-improvement-summary.pdf" && pub.docs[0].version === "Revised 10/31/2023" && pub.docs[0].ack === false && !sec(de, "DE-ag-summary"),
+    "Delaware: the Attorney General's summary is the system's line; the customer's page links the agency's own PDF with its version, and its text is not retyped into the contract");
+  const up = await run("DE", {}, { slots: { "DE-ag-summary": { key: "contracts/admin/statedoc-deagsummary-1.pdf", version: "Revised 01/01/2027" } } }), pubUp = F.contractStatePublicParts({ flags: {} }, up.comp, "https://x/api/public/contracts/tok");
+  ok(pubUp.docs[0].url === "https://x/api/public/contracts/tok/state-doc/DE-ag-summary" && pubUp.docs[0].version === "Revised 01/01/2027" && /if \(sl && !sl\.key && sl\.file\) \{ return Response\.redirect\(CONTRACT_STATE_DOC_ORIGIN/.test(fnSrc("contractStateDocResponse", workerSrc)),
+    "a newer copy uploaded by Apex staff replaces the shipped one (served from storage, never overwritten)");
+  const sentNoRec = F.contractStateActionCard(de.comp.state, de.comp.checklist, de.r.c.flags, { c: SENT, frozen: frozenOf(de), who: WHO });
+  const sentRec = F.contractStateActionCard(de.comp.state, de.comp.checklist, de.r.c.flags, { c: SENT, frozen: frozenOf(de), who: WHO, delivery: { message_note_at: null, slots: { "DE-ag-summary": "2026-10-05 19:30:00" }, by: WHO.sent } });
   ok(line(sentNoRec, "notice:DE-ag-summary").sys.done === false && /loaded after this contract was sent/.test(line(sentNoRec, "notice:DE-ag-summary").sys.en) && line(sentRec, "notice:DE-ag-summary").sys.done === true && line(sentRec, "notice:DE-ag-summary").sys.who_en === "Sent by Maria, 10/05/2026 3:30 PM ET" && /\(Revised 10\/31\/2023\) was given to the customer with the contract, sent 10\/05\/2026 3:30 PM ET\./.test(line(sentRec, "notice:DE-ag-summary").sys.en),
-    "delivery is recorded at Send (which files were loaded at that moment); the line ticks from that record and names who sent it and when");
-  // signed acknowledgment (Virginia)
-  const va = await run("VA", {}, { slots: { "VA-dpor": { key: "contracts/admin/statedoc-vadpor-1.pdf", version: "Revised 4/29/2025" } } });
+    "delivery is recorded at Send (which files went out at that moment); the line ticks from that record and names who sent it and when");
+  // signed acknowledgment: Virginia, Oregon, Washington
+  const va = await run("VA", {}), or = await run("OR", {}), wa = await run("WA", {});
   const recVa = F.contractStateDoneApply({}, va.req, { ack: { "VA-dpor": true } }, "Jordan Rivers", "2026-10-05 20:12:00", "ip", "ua");
   const dlv = { message_note_at: null, slots: { "VA-dpor": "2026-10-05 19:30:00" }, by: WHO.sent };
   const vaWait = F.contractStateActionCard(va.comp.state, va.comp.checklist, va.r.c.flags, { c: SENT, frozen: frozenOf(va), who: WHO, delivery: dlv }), vaDone = F.contractStateActionCard(va.comp.state, va.comp.checklist, Object.assign({}, va.r.c.flags, { state_done: recVa }), { c: SIGNED, frozen: frozenOf(va), who: WHO, delivery: dlv });
   ok(JSON.stringify(va.req.ack) === JSON.stringify(["VA-dpor"]) && recVa.ack["VA-dpor"].name === "Jordan Rivers" && recVa.evidence[0].consent === true && /asks for the signed acknowledgment in the same visit/.test(line(vaWait, "notice:VA-dpor").sys.en) && line(vaDone, "notice:VA-dpor").sys.done === true && line(vaDone, "notice:VA-dpor").sys.who_en === "Acknowledged by Jordan Rivers, 10/05/2026 4:12 PM ET",
-    "Virginia: the signed acknowledgment is collected in the same visit, with the same evidence, and ticks the line with who and when");
-  // Wisconsin: the notice prints even while the brochure is missing
+    "Virginia: DPOR's own statement is handed over unaltered; the signed acknowledgment is collected in the same visit, with the same evidence, and ticks the line with who and when");
+  const orDocs = F.contractStatePublicParts({ flags: {} }, or.comp, "t").docs, waDocs = F.contractStatePublicParts({ flags: {} }, wa.comp, "t").docs;
+  ok(JSON.stringify(orDocs.map(function (d) { return [d.slot, d.ack]; })) === JSON.stringify([["OR-lien", false], ["OR-ccb", true]]) && orDocs.every(function (d) { return /^https:\/\/apex\.resonateai\.online\/state-docs\/or-/.test(d.url); }) && !sec(or, "OR-lien") && !sec(or, "OR-ccb") && line(or.card, "notice:OR-ccb").kind === "does" && line(or.card, "notice:OR-lien").kind === "does",
+    "Oregon: the two CCB notices are delivered as the CCB's own PDFs (the consumer notice with a signed acknowledgment); their extracted text, with its broken words, is never printed");
+  ok(waDocs.length === 1 && waDocs[0].slot === "WA-customer-form" && waDocs[0].ack === true && /F625-030-000/.test(waDocs[0].title) && line(wa.card, "item:1").kind === "does" && line(wa.card, "notice:WA-lien-info").kind === "person" && !line(wa.card, "notice:WA-lien-info").staff_en && noticeOf("WA-customer").text.length === 1839,
+    "Washington: L&I's own Notice to Customers form is delivered unaltered with a signed acknowledgment; the lien master document was not obtained and stays with a person; the notice the contract already printed is untouched");
+  const ri = await run("RI", {}), riAlso = line(ri.card, "notice:RI-board#also");
+  ok(line(ri.card, "notice:RI-board").kind === "does" && riAlso && riAlso.kind === "person" && riAlso.en === "Add the Board's consumer disclosures to the contract" && F.contractStatePublicParts({ flags: {} }, ri.comp, "t").docs[0].slot === "RI-board",
+    "Rhode Island: the Board's summary \"What Homeowners Should Know\" is delivered; the Board's consumer disclosures (no wording found) stay their own person line");
+  // Arizona: not attached, not printed
+  const az = await run("AZ", {}, { settings: { builds_pools: true }, flags: { is_pool: true } });
+  ok(line(az.card, "notice:AZ-pool-notice").kind === "person" && !line(az.card, "notice:AZ-pool-notice").staff_en && !sec(az, "AZ-pool-notice") && F.contractStatePublicParts({ flags: {} }, az.comp, "t") === null && sorting.states.AZ.lines["notice:AZ-pool-notice"].held.cat === "lawyer" && !existsSync(new URL("state-docs/az-pool-safety-notice.pdf", root)) && readdirSync(new URL("state-docs/", root)).every(function (f) { return !/^az/i.test(f); }),
+    "Arizona: the pool safety notice is neither printed nor attached (commercial reproduction question); the line stays with a person and is listed under \"needs a lawyer's answer\"");
+  // Wisconsin: the brochure is the state's own page text, printed as its own page
   const wi = await run("WI", {});
-  ok(sec(wi, "WI-defect") && sec(wi, "WI-defect").text === noticeOf("WI-defect").text_on_file && line(wi.card, "notice:WI-defect").kind === "person" && line(wi.card, "notice:WI-defect").staff_slot === "WI-brochure", "Wisconsin: the construction defect notice prints now; the line stays with a person until the state brochure is loaded");
-  // Illinois: the acknowledgment form waits for the pamphlet
-  const il0 = await run("IL", {}), il1 = await run("IL", {}, { slots: { "IL-pamphlet": { key: "contracts/admin/statedoc-ilpamphlet-1.pdf", version: "2026" } } });
-  ok(!sec(il0, "IL-ack-form") && line(il0.card, "notice:IL-ack-form").kind === "person" && sec(il1, "IL-ack-form").kind === "state_page" && sec(il1, "IL-ack-form").title === "Consumer Rights Acknowledgment Form" && sec(il1, "IL-ack-form").copies === 2 && sec(il1, "IL-ack-form").company_sign === true && il1.req.sign.indexOf("IL-ack-form") !== -1,
-    "Illinois: the customer is never asked to sign \"I have received the pamphlet\" before the pamphlet is loaded; with it, the acknowledgment form is a signed page in two copies, signed by the company too");
+  ok(sec(wi, "WI-defect") && sec(wi, "WI-defect").text === noticeOf("WI-defect").text_on_file && sec(wi, "WI-brochure").kind === "state_page" && sec(wi, "WI-brochure").text === noticeOf("WI-brochure").text_on_file && noticeOf("WI-brochure").source_status === "VERBATIM-OFFICIAL" && noticeOf("WI-brochure").source_pass === "pass3" && line(wi.card, "notice:WI-defect").kind === "does" && line(wi.card, "notice:WI-defect").sys.done === true,
+    "Wisconsin: the construction defect notice prints in the contract and the state's Right to Cure brochure (now official, from the third pass) is given with it as its own page");
+  // Illinois: the statutory pamphlet, then the acknowledgment form
+  const il = await run("IL", {}), small = await run("IL", {}, { amount_cents: 80000, schedule: [{ label: "On completion", pct: 100 }] });
+  ok(sec(il, "IL-pamphlet").kind === "state_page" && sec(il, "IL-pamphlet").text === noticeOf("IL-pamphlet").text_on_file && sec(il, "IL-pamphlet").emphasis.min_pt === 12 && /^HOME REPAIR: KNOW YOUR CONSUMER RIGHTS\n/.test(sec(il, "IL-pamphlet").text) && !F.contractStateSlotList().some(function (s) { return s.slot === "IL-pamphlet"; }),
+    "Illinois: the pamphlet is the wording fixed by 815 ILCS 513/20(c), printed as a separate 12 point document; the Attorney General's one-page leaflet is not used");
+  ok(sec(il, "IL-ack-form").kind === "state_page" && sec(il, "IL-ack-form").title === "Consumer Rights Acknowledgment Form" && sec(il, "IL-ack-form").copies === 2 && sec(il, "IL-ack-form").company_sign === true && il.req.sign.indexOf("IL-ack-form") !== -1 && idx(il, "IL-pamphlet") < idx(il, "IL-ack-form") && sec(small, "IL-pamphlet") && !sec(small, "IL-ack-form"),
+    "Illinois: over $1,000.00 the acknowledgment form follows the pamphlet as a signed page in two copies, signed by the company too; at $800.00 the pamphlet goes alone");
   ok(/if \(!contractIsReviewer\(user\)\) \{ return jsonErr\("Forbidden", 403\); \}/.test(fnSrc("handlePostContractStateDoc", workerSrc)) && /file\.type !== "application\/pdf"/.test(fnSrc("handlePostContractStateDoc", workerSrc)) && /Never overwritten/.test(fnSrc("handlePostContractStateDoc", workerSrc)) &&
-    /crUploadStateDoc/.test(review) && /Waiting: official document not loaded/.test(review) && /Aguardando: documento oficial n\\u00e3o carregado/.test(review) && /pubCon\[5\] && method === "GET"\) \{ return handleGetPublicContractStateDoc\(/.test(workerSrc),
-    "Apex staff load the agency's PDF (as published, never overwritten) on the review page; the customer's own link serves it unaltered");
+    /crUploadStateDoc/.test(review) && /Waiting: official document not loaded/.test(review) && /Aguardando: documento oficial n\\u00e3o carregado/.test(review) && /official file shipped with the site/.test(review) && /pubCon\[5\] && method === "GET"\) \{ return handleGetPublicContractStateDoc\(/.test(workerSrc),
+    "Apex staff see every slot on the review page (shipped or waiting) and can load a newer PDF; the customer's own link serves it unaltered");
   ok(/Official documents given with this contract/.test(cut(view, "spDocsHtml")) && /I received and read this document/.test(cut(view, "spDocsHtml")) && /Please open the official document above and confirm you received it\./.test(cut(view, "spCollect")) && /Official document given with this contract before signing: /.test(tpl),
     "customer page: the document is opened and (where required) acknowledged before signing; the PDF records it on the signature page");
+}
+
+// ── 11b. The third research pass: what loads and what stays held ──────────
+{
+  const apply = readFileSync(new URL("scripts/official-text-apply.mjs", root), "utf8");
+  ok(/sn\.source === "pass3" && row && String\(row\.status\)\.trim\(\) !== "VERBATIM-OFFICIAL"/.test(apply) && /may not be loaded/.test(apply), "the loader takes wording from the third pass only from a row whose status is exactly VERBATIM-OFFICIAL (never \"...-PDF-NEEDS-REVIEW\", \"NO-PRESCRIBED-WORDING\" or \"NOT-OBTAINED\")");
+  const fromPass3 = [];
+  NON_FL.forEach(function (c) { riders.riders[c].notices.forEach(function (n) { if (n.source_pass === "pass3") { fromPass3.push(n.id); } }); });
+  ok(JSON.stringify(fromPass3.sort()) === JSON.stringify(["MO-cancel-credit", "RI-cancel-form", "WI-brochure"]) && fromPass3.every(function (id) { const n = noticeOf(id); return n.source_status === "VERBATIM-OFFICIAL" && !n.hold_reason && n.text_on_file && /^https:\/\//.test(n.source_url); }),
+    "three notices now carry wording from the third pass: Missouri's credit-sale statement, Rhode Island's Notice of Cancellation, Wisconsin's brochure");
+  const mo = await run("MO", { credit: "yes" }), moNo = await run("MO", {}), m = sec(mo, "MO-cancel-credit");
+  ok(m && m.title === "NOTICE OF CANCELLATION" && m.heading === true && m.date_above === true && JSON.stringify(m.emphasis) === JSON.stringify({ bold: true, min_pt: 10 }) && /^If this agreement was solicited at your residence/.test(m.text) && /The notice must be mailed to: Sunrise Pools LLC, 100 Bay St, Tampa, FL 33602$/.test(m.text) && !/; and|must be filled in/.test(m.text) && !sec(moNo, "MO-cancel-credit") && line(moNo.card, "notice:MO-cancel-credit").kind === "person",
+    "Missouri, credit sale Yes: the statement prints under its caption in 10 point bold, the transaction date above it and the seller's name and address in the blank; the page's stray \"; and\" and its instruction lines are not printed; without a Yes it stays with a person");
+  const ri = await run("RI", {}), r = sec(ri, "RI-cancel-form");
+  ok(r.kind === "state_page" && r.title === "Notice of Cancellation" && r.date_above === true && r.copies === 2 && /^You may cancel this transaction, without any penalty or obligation, within three \(3\) business days from the above date\./.test(r.text) && /All cancellations must be mailed to:\nSunrise Pools LLC, 100 Bay St, Tampa, FL 33602\.$/.test(r.text) && line(ri.card, "notice:RI-cancel-form").kind === "does",
+    "Rhode Island: the Notice of Cancellation is a page in two copies under its caption, with the transaction date above it and the seller's name and address filled in");
+  ok(/if \(s\.date_above\) \{ blocks\.push/.test(cut(tpl, "spPushBody")) && /s\.date_above \? '<p class="small"><strong>Date of transaction: '/.test(cut(view, "spTextHtml")), "customer page and PDF print the transaction date above a notice that refers to \"the above date\"");
+  // held: nothing prints
+  let printed = [];
+  for (const [code, facts, ids] of [["NJ", {}, ["NJ-division", "NJ-cancel"]], ["GA", {}, ["GA-8-2-41", "GA-43-41-7"]], ["OK", { credit: "yes" }, ["OK-cancel-credit"]], ["ID", { credit: "yes" }, ["ID-cancel-credit", "ID-disclosure"]], ["MD", {}, ["MD-cancel", "MD-oral-ack"]], ["IN", {}, ["IN-cancel"]], ["AR", {}, ["AR-cancel"]], ["TN", {}, ["TN-owner", "TN-cancel", "TN-lien"]], ["NM", {}, ["NM-default"]]]) {
+    const x = await run(code, facts);
+    ids.forEach(function (id) { const l = line(x.card, "notice:" + id); if (sec(x, id) || !l || l.kind !== "person" || noticeOf(id).text || noticeOf(id).text_on_file || !sorting.states[code].lines["notice:" + id].held) { printed.push(id); } });
+  }
+  ok(printed.length === 0, "held after the third pass, nothing printed and each still a person line with its reason: New Jersey (both), Georgia (both), Oklahoma, Idaho (both), Maryland (both), Indiana, Arkansas, Tennessee (three), New Mexico" + (printed.length ? " (" + printed.join(", ") + ")" : ""));
+  const cats = {};
+  Object.keys(sorting.states).forEach(function (c) { Object.keys(sorting.states[c].lines).forEach(function (k) { const hd = sorting.states[c].lines[k].held; if (hd) { (cats[hd.cat] = cats[hd.cat] || []).push(k.slice(7)); } }); });
+  const summary = readFileSync(new URL("scripts/fixtures/state-checklist-summary.txt", root), "utf8");
+  ok(JSON.stringify(cats.lawyer.sort()) === JSON.stringify(["AZ-pool-notice", "NJ-division", "OK-cancel-credit"]) && JSON.stringify(cats.current.sort()) === JSON.stringify(["GA-8-2-41", "NJ-cancel"]) && /NEEDS A LAWYER'S ANSWER \(3\)/.test(summary) && /Needs a current official copy \(2\)/.test(summary) && /No official copy was obtained \(7\)/.test(summary) && /A\.R\.S\. 39-121\.03/.test(summary) && /800-242-5846/.test(summary),
+    "the summary lists Arizona's pool notice, New Jersey's phone number and Oklahoma's statement under \"needs a lawyer's answer\", and Georgia 8-2-41 and New Jersey 56:8-151 under \"needs a current official copy\"");
+}
+
+// ── 11c. The official link, right on the line ────────────────────────────
+{
+  const p3 = function (code) { return pass3Exists(code) ? readFileSync(join(PASS3_DIR, code + ".md"), "utf8") : null; };
+  const az = await run("AZ", {}, { settings: { builds_pools: true }, flags: { is_pool: true } }), pool = line(az.card, "notice:AZ-pool-notice");
+  ok(pool.kind === "person" && pool.links.length === 1 && pool.links[0].en === "Open Arizona's pool safety notice (Department of Health Services, PDF)" && pool.links[0].pt !== pool.links[0].en && /^https:\/\/www\.azdhs\.gov\/.*residential-pool-safety-notice\.pdf$/.test(pool.links[0].url) && /Apex does not print or attach this notice\.$/.test(pool.link_note_en) && !sec(az, "AZ-pool-notice") && F.contractStatePublicParts({ flags: {} }, az.comp, "t") === null,
+    "Arizona: the pool safety notice is still not printed or attached, and its line carries one link, named for what it opens, to the Department of Health Services' own PDF");
+  const nj = await run("NJ", {}), njd = line(nj.card, "notice:NJ-division");
+  ok(/N\.J\.A\.C\. 13:45A-17\.11, PDF/.test(njd.links[0].en) && /njconsumeraffairs\.gov\/regulations\/Chapter-45A/.test(njd.links[0].url) && /^The rule prints the number 1-888-656-6225\. The Attorney General's pages give 800-242-5846/.test(njd.link_note_en) && /1-888-656-6225/.test(njd.link_note_pt) && line(nj.card, "notice:NJ-cancel").links.length === 1,
+    "New Jersey: the line links the rule PDF and says which number the rule prints (and that the other number exists)");
+  const ga = await run("GA", {}), ar = await run("AR", {}), tn = await run("TN", {}), nm = await run("NM", {}), wa = await run("WA", {}), id = await run("ID", { credit: "yes" }), ind = await run("IN", {});
+  ok(/legis\.ga\.gov/.test(line(ga.card, "notice:GA-8-2-41").links[0].url) && /portal\.arkansas\.gov/.test(line(ar.card, "notice:AR-cancel").links[0].url) && /4-89-107 and 4-89-108/.test(line(ar.card, "notice:AR-cancel").link_note_en) && ["notice:TN-owner", "notice:TN-cancel", "notice:TN-lien"].every(function (k) { return line(tn.card, k).links.length === 1 && /LexisNexis/.test(line(tn.card, k).link_note_en); }) &&
+    /legislature\.idaho\.gov/.test(line(id.card, "notice:ID-disclosure").links[0].url) && /iga\.in\.gov/.test(line(ind.card, "notice:IN-cancel").links[0].url),
+    "Georgia 8-2-41, Arkansas and Tennessee (the state's own entry page, with what to look up), and the no-prescribed-wording items (Idaho, Indiana) each carry their link");
+  const nmL = line(nm.card, "notice:NM-default"), waL = line(wa.card, "notice:WA-lien-info");
+  ok(nmL.link_note_en === "The state does not publish this form online. Ask the Construction Industries Division." && nmL.link_note_pt && nmL.links[0].en === "Open the Construction Industries Division page" && /Ask the Department of Labor and Industries/.test(waL.link_note_en) && waL.links.length === 1,
+    "where the state publishes nothing online (New Mexico's form, Washington's lien document) the line says so in plain words and links the agency's page or the law");
+  // every address in the table was copied from the research files
+  let typed = [], total = 0;
+  Object.keys(sorting.states).forEach(function (code) { Object.keys(sorting.states[code].lines).forEach(function (k) { const e = sorting.states[code].lines[k];
+    (e.links || []).concat(e.also_links || []).forEach(function (lk) { total++; const src = p3(code); if (!lk.en || !lk.pt || lk.en === lk.pt || !/^https:\/\//.test(lk.url) || /source$/i.test(lk.en) || (src !== null && src.indexOf(lk.url) === -1)) { typed.push(code + " " + k); } });
+    if (e.link_note && (!e.link_note.en || !e.link_note.pt)) { typed.push(code + " " + k + " note"); } }); });
+  ok(total >= 20 && typed.length === 0, total + " links are named in the data file, each labelled in both languages by what it opens (never a bare \"source\"), and each address is found, character for character, in that state's third-pass research file" + (typed.length ? " (" + typed.join(", ") + ")" : ""));
+  // fallbacks: the notice's own address; the same law section; the shipped file
+  const al = await run("AL", {}), azc = line(az.card, "item:1"), or = await run("OR", {});
+  ok(line(al.card, "notice:AL-insurance").links[0].en === "Open the official text: 34-14A-19" && /^https:\/\//.test(line(al.card, "notice:AL-insurance").links[0].url) && azc.kind === "person" && azc.links[0].url === noticeOf("AZ-registrar").source_url && azc.links[0].en === "Open the official text: A.R.S. 32-1158" &&
+    line(or.card, "notice:OR-ccb").links[0].url === "https://apex.resonateai.online/state-docs/or-consumer-protection-notice.pdf" && /^Open the official document: /.test(line(or.card, "notice:OR-ccb").links[0].en),
+    "a line with no entry of its own links its notice's official address, or the official page of the law section it names; an Oregon or Washington line links the agency PDF itself (so a person can still hand it over if the system could not)");
+  let badLinks = [], withLink = 0, personLines = 0;
+  for (const code of NON_FL) { const x = await run(code, {}); x.card.actions.forEach(function (a) { if (!Array.isArray(a.links)) { badLinks.push(code + " " + a.key); return; } if (a.kind === "person") { personLines++; if (a.links.length) { withLink++; } } a.links.forEach(function (lk) { if (!/^https:\/\//.test(lk.url) || !lk.en || !lk.pt) { badLinks.push(code + " " + a.key); } }); }); }
+  ok(badLinks.length === 0 && withLink > 0, "all 50 states and DC: every line carries its list of links (possibly empty), every link is https and labelled in both languages (" + withLink + " of " + personLines + " person lines on a plain residential job have one)" + (badLinks.length ? " (" + badLinks.slice(0, 6).join(", ") + ")" : ""));
+  const html = cut(gm, "gmConStateLinksHtml"), open = cut(gm, "gmConOpenStateLink");
+  ok(/target="_blank" rel="noopener" onclick="return gmConOpenStateLink\(this\.href\)"/.test(html) && /under \+= gmConStateLinksHtml\(a\);/.test(cut(gm, "gmConStateCardHtml")) && /if \(typeof gmInApp === "function" && gmInApp\(\) && typeof apexOpenExternal === "function"\) \{ apexOpenExternal\(url\); return false; \}\s+return true;/.test(open) &&
+    !/gmApi|fetch\(|gmLog|gmConSave/.test(html + open) && cut(gm, "gmConStateLinksHtml") === cut(ios, "gmConStateLinksHtml") && cut(gm, "gmConOpenStateLink") === cut(ios, "gmConOpenStateLink") && !/[^\x00-\x7F]/.test(html + open) && !/\b(const|let)\s|=>/.test(html + open),
+    "builder card: the link sits on the line itself, opens in a new tab, opens in the system browser inside the iOS app, and a tap records nothing (same code in gm.js and its iOS copy)");
+  const summary = readFileSync(new URL("scripts/fixtures/state-checklist-summary.txt", root), "utf8");
+  ok(/Of these lines, \d+ carry a direct link and \d+ do not\./.test(summary) && /\[link\] Open Arizona's pool safety notice/.test(summary) && /\[no link\] The research gives this rule by name or law number only, with no web address\./.test(summary) && /None of these shared lines carries a link/.test(summary),
+    "the summary shows, under every person line, the link it carries or why it has none");
 }
 
 // ── 12. Florida is unchanged ──────────────────────────────────────────────

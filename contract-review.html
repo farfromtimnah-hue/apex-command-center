@@ -828,6 +828,7 @@
       box.innerHTML = crStateSlots.map(function(sl, i) {
         return '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #ddd;"><div><strong>' + escHtml(sl.state_name) + '</strong>: ' + escHtml(sl.title) + (sl.cite ? ' (' + escHtml(sl.cite) + ')' : "") + '</div>' +
           '<div class="cr-meta">' + (sl.loaded ? '<a href="#" onclick="crOpenStateDoc(' + i + '); return false;">' + escHtml(sl.version || "PDF") + '</a>' : '<span class="cr-err">' + t("Aguardando: documento oficial n\u00e3o carregado", "Waiting: official document not loaded") + '</span>') +
+          (sl.shipped ? ' &middot; ' + t("arquivo oficial inclu\u00eddo no site", "official file shipped with the site") : "") +
           (sl.ack ? ' &middot; ' + t("o cliente assina o recibo", "the customer signs an acknowledgment") : "") + '</div>' +
           '<input type="text" id="crStateVer_' + i + '" placeholder="' + t("Vers\u00e3o (ex.: data da publica\u00e7\u00e3o)", "Version (e.g. publication date)") + '">' +
           '<input type="file" id="crStateFile_' + i + '" accept="application/pdf" style="margin-top:6px;">' +
@@ -849,6 +850,8 @@
     function crOpenStateDoc(i) {
       var sl = crStateSlots[i];
       if (!sl) { return; }
+      // A file that ships with the site opens from the site itself.
+      if (sl.url) { window.open(sl.url, "_blank"); return; }
       getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/contracts/state-docs/" + encodeURIComponent(sl.slot), { headers: { "Authorization": "Bearer " + token } });
       }).then(function(r) { if (!r.ok) { throw new Error("HTTP " + r.status); } return r.blob(); })

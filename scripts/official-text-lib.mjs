@@ -8,9 +8,15 @@ import { join } from "node:path";
 export const INPUT_DIR = join(homedir(), "rez-work", "inputs", "state-riders", "official-text");
 export function inputExists() { return existsSync(INPUT_DIR); }
 export function statePath(code) { return join(INPUT_DIR, code + ".md"); }
+// The third research pass (RES-36): same format, its own folder. A notice
+// loaded from it carries source_pass "pass3" in the data file.
+export const PASS3_DIR = join(homedir(), "rez-work", "inputs", "state-riders", "pass3");
+export function pass3Exists(code) { return existsSync(join(PASS3_DIR, (code || "INDEX") + ".md")); }
+// The file a notice's wording was cut from.
+export function parseNoticeFile(code, n) { return parseStateFile(code, n && n.source_pass === "pass3" ? PASS3_DIR : null); }
 
-export function parseStateFile(code) {
-  var raw = readFileSync(statePath(code), "utf8");
+export function parseStateFile(code, dir) {
+  var raw = readFileSync(dir ? join(dir, code + ".md") : statePath(code), "utf8");
   var lines = raw.split("\n");
   var rows = [], blocks = [], section = "", heading = null, i = 0;
   while (i < lines.length) {

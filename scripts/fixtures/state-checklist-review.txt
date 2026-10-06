@@ -45,10 +45,10 @@ General notes (a doubt about a rule every state shares):
   9. A statutory form prints its own blanks (a date line, a signature line) exactly as the law
      prints them; those are filled by hand.
 
-Totals over all states: 586 ACTION, 357 HANDLED, 404 BACKGROUND.
-Of the ACTION lines: 118 the system does, 99 the system can see, 369 person only.
+Totals over all states: 587 ACTION, 357 HANDLED, 404 BACKGROUND.
+Of the ACTION lines: 129 the system does, 99 the system can see, 359 person only.
 The short version is in scripts/fixtures/state-checklist-summary.txt.
-Marked UNSURE: 93 lines with a doubt of their own, plus 294 that point to a general note.
+Marked UNSURE: 95 lines with a doubt of their own, plus 294 that point to a general note.
 
 To change a sorting or a sentence: edit scripts/make-state-checklist-data.mjs, then run the three
 commands at the top of that file.
@@ -340,8 +340,9 @@ On the card: 15 action lines at most. Under "More about Arizona": 14 lines.
   ACTION      Hand the customer the state pool safety notice (A.R.S. 36-1681(E))
               Portuguese (draft): Entregue ao cliente o aviso estadual de segurança de piscina
               Who does it: PERSON ONLY
-              Old card text: Arizona requires this: Pool safety notice handed to the buyer (A.R.S.
-              36-1681(E)). The official wording is on file. When: Agreement to build a swimming pool or
+              Old card text: Arizona requires this notice: Pool safety notice handed to the buyer (A.R.S.
+              36-1681(E)). The exact wording is not loaded yet. Get it from the official source or your
+              attorney and attach it before the customer signs. When: Agreement to build a swimming pool or
               contained body of water. Format: A notice explaining safety education and responsibilities of
               pool ownership as approved by the Department of Health Services.
               [line: notice:AZ-pool-notice]
@@ -1259,7 +1260,7 @@ On the card: 12 action lines at most. Under "More about Delaware": 14 lines.
 
   ACTION      Attach the Attorney General's "Summary of Your Rights" and hand it over before the customer signs (6 Del. Admin. Code 106, 3.1.11)
               Portuguese (draft): Anexe o "Summary of Your Rights" do Attorney General e entregue antes de o cliente assinar
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Attorney General's "Summary of Your Rights" given to the customer before they sign / "Summary of Your Rights" do Attorney General entregue ao cliente antes de ele assinar
               Old card text: Delaware requires this: Attorney General "Summary of Your Rights as a Consumer in
               Home Improvement Transactions" (attach) (6 Del. Admin. Code 106, 3.1.11). The official wording
               is on file. When: Every home improvement contract (not new construction or a rebuild of all or
@@ -2032,17 +2033,19 @@ On the card: 16 action lines at most. Under "More about Illinois": 16 lines.
 
   ACTION      Hand the customer the "Home Repair: Know Your Consumer Rights" pamphlet (815 ILCS 513)
               Portuguese (draft): Entregue ao cliente o folheto "Home Repair: Know Your Consumer Rights"
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: "Home Repair: Know Your Consumer Rights" pamphlet given to the customer as a separate document (12 point), before they sign / Folheto "Home Repair: Know Your Consumer Rights" entregue ao cliente como documento separado (corpo 12), antes de ele assinar
               Old card text: Illinois requires this: "Home Repair: Know Your Consumer Rights" pamphlet and
               signed Consumer Rights Acknowledgment Form (815 ILCS 513). The official wording is on file.
               When: Every home repair contract: the pamphlet is handed over; the signed Consumer Rights
               Acknowledgment Form is added when the contract is over $1,000. Format: 12 point; the official
               pamphlet must be attached from the agency's current copy.
+              UNSURE: The pamphlet's wording is fixed by 815 ILCS 513/20(c) and is printed from the statute.
+              The Attorney General's one-page leaflet is a different document and is not used.
               [line: notice:IL-pamphlet]
 
   ACTION      Get the Consumer Rights Acknowledgment Form signed by you and the customer (815 ILCS 513/20(a))
               Portuguese (draft): Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Consumer Rights Acknowledgment Form signed by the customer and the company, in two copies / Consumer Rights Acknowledgment Form assinado pelo cliente e pela empresa, em duas vias
               Old card text: Illinois requires this: Consumer Rights Acknowledgment Form sentence (815 ILCS
               513/20(a)). The official wording is on file. When: Contract over $1,000: the consumer signs and
               dates an acknowledgment of receipt of the pamphlet; the contractor or representative also signs
@@ -3802,7 +3805,7 @@ On the card: 9 action lines at most. Under "More about Mississippi": 14 lines.
               Old card text: Home-solicitation cancellation: the research did not find that Mississippi's rule
               reaches cleaning services. That is not proof that it does not.
 
-################ Missouri (MO) - research status: notice text still needs official copy
+################ Missouri (MO) - research status: draft rider ready
 On the card: 10 action lines at most. Under "More about Missouri": 16 lines.
 
   ACTION      Check whether the city or county requires a local license for this job (details)
@@ -3815,15 +3818,17 @@ On the card: 10 action lines at most. Under "More about Missouri": 16 lines.
 
   ACTION      If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign (407.710)
               Portuguese (draft): Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: NOTICE OF CANCELLATION statement printed in the contract (10 point bold), with the transaction date and your name and address filled in / Declaração NOTICE OF CANCELLATION impressa no contrato (negrito, corpo 10), com a data da transação e o seu nome e endereço preenchidos
               Asked first: "Is the customer paying on credit (in installments or with a finance charge)?" No
               takes this line off the card. Yes, Not sure or no answer keeps it.
-              Old card text: Missouri requires this notice: BUYER'S RIGHT TO CANCEL (credit sales only)
-              (407.710). The exact wording is not loaded yet. Get it from the official source or your attorney
-              and attach it before the customer signs. When: Consumer credit sale solicited and signed at the
+              Old card text: Missouri requires this: BUYER'S RIGHT TO CANCEL (credit sales only) (407.710).
+              The official wording is on file. When: Consumer credit sale solicited and signed at the
               residence; a cash sale is outside the statute (federal rule only). Format: One statement headed
-              NOTICE OF CANCELLATION in 10-point boldface with ...
-              UNSURE: Applies only to a sale on credit. The builder asks whether the customer pays on credit.
+              NOTICE OF CANCELLATION in 10-point boldface with the date of the transaction and the seller's
+              name and mailing address; no duplicate tear-off form.
+              UNSURE: The Revisor's page lays the notice out in a table; only the paragraph the buyer reads is
+              cut, the caption is printed as its heading and the date above it. Compare with the rendered
+              page; a lawyer should confirm.
               [line: notice:MO-cancel-credit]
 
   ACTION      If you want your subcontractors and suppliers to keep lien rights, get the CONSENT OF OWNER signed (RSMo 429.013(2))
@@ -3942,8 +3947,8 @@ On the card: 10 action lines at most. Under "More about Missouri": 16 lines.
               [item:3]
               Old card text: From the research for Missouri: Plain disclosure of material facts (MPA).
   BACKGROUND  How far the research for this state got. [status]
-              Old card text: Research status for Missouri: notice text still needs official copy (1 of 4
-              notices still have no official wording loaded (1 held for a problem named in the state ...
+              Old card text: Research status for Missouri: draft rider ready (Every notice carries wording
+              copied from the state's own sources; no lawyer has reviewed it.). No lawyer has reviewed it.
   BACKGROUND  Whether the state's door-to-door rule reaches cleaning. [cleaning_home_solicitation, cleaning
               agreements only]
               Old card text: Home-solicitation cancellation: the research did not find that Missouri's rule
@@ -4683,9 +4688,10 @@ On the card: 11 action lines at most. Under "More about New Mexico": 15 lines.
   ACTION      Give the state's residential default disclosure form before work, signing or payment, and get it signed (60-13-19)
               Portuguese (draft): Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura
               Who does it: PERSON ONLY
-              Old card text: New Mexico requires this: Residential default disclosure (CID-approved form)
-              (60-13-19). The official wording is on file. When: Before work, signature or payment. Format:
-              CID-approved form, signed; attach the agency's current copy.
+              Old card text: New Mexico requires this notice: Residential default disclosure (CID-approved
+              form) (60-13-19). The exact wording is not loaded yet. Get it from the official source or your
+              attorney and attach it before the customer signs. When: Before work, signature or payment.
+              Format: CID-approved form, signed; attach the agency's current copy.
               [line: notice:NM-default]
 
   ACTION      Check the pool safety rules in New Mexico for this job (details)
@@ -5536,7 +5542,7 @@ On the card: 12 action lines at most. Under "More about Oregon": 17 lines.
 
   ACTION      Give the owner the CCB "Information Notice to Owner About Construction Lien Rights" on or before the contract date (ORS 87.093)
               Portuguese (draft): Entregue ao proprietário o "Information Notice to Owner About Construction Lien Rights" do CCB até a data do contrato
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: CCB "Information Notice to Owner About Construction Lien Rights" given to the owner with the contract / "Information Notice to Owner About Construction Lien Rights" do CCB entregue ao proprietário junto com o contrato
               Old card text: Oregon requires this: Information Notice to Owner About Construction Lien Rights
               (CCB form) (ORS 87.093). The official wording is on file. When: Residential construction or
               improvement contracts over $2,000, delivered on or before the contract date (within five days if
@@ -5546,7 +5552,7 @@ On the card: 12 action lines at most. Under "More about Oregon": 17 lines.
 
   ACTION      Give the owner the CCB Consumer Protection Notice and get it signed (ORS 701.330(1); OAR 812-001-0200(2))
               Portuguese (draft): Entregue ao proprietário o Consumer Protection Notice do CCB e pegue a assinatura
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: CCB Consumer Protection Notice given to the owner, with their signed acknowledgment / Consumer Protection Notice do CCB entregue ao proprietário, com o recibo assinado
               Old card text: Oregon requires this: Consumer Protection Notice (CCB form) (ORS 701.330(1); OAR
               812-001-0200(2)). The official wording is on file. When: Residential contracts where a written
               contract is required (over $2,000), delivered on or before the date the contract is entered
@@ -5834,12 +5840,11 @@ On the card: 11 action lines at most. Under "More about Rhode Island": 17 lines.
 
   ACTION      Attach the Notice of Cancellation, with a second copy for the customer (6-28-4(c))
               Portuguese (draft): Anexe o Notice of Cancellation, com uma segunda via para o cliente
-              Who does it: PERSON ONLY
-              Old card text: Rhode Island requires this notice: Notice of Cancellation (door-to-door sale)
-              (6-28-4(c)). The exact wording is not loaded yet. Get it from the official source or your
-              attorney and attach it before the customer signs. When: Door-to-door sale: personal
-              solicitation, including a visit the buyer invited; $25 or more. Format: Appears in the agreement
-              under the conspicuous caption 'Notice of Cancellation'; duplicate ...
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Notice of Cancellation in two copies, with the transaction date and your name and address filled in / Notice of Cancellation em duas vias, com a data da transação e o seu nome e endereço preenchidos
+              Old card text: Rhode Island requires this: Notice of Cancellation (door-to-door sale)
+              (6-28-4(c)). The official wording is on file. When: Door-to-door sale: personal solicitation,
+              including a visit the buyer invited; $25 or more. Format: Appears in the agreement under the
+              conspicuous caption 'Notice of Cancellation'; duplicate copy for the buyer.
               [line: notice:RI-cancel-form]
 
   ACTION      If the customer is 62 or older, give the separate notice for buyers age 62 or older (5-65-27)
@@ -5857,7 +5862,13 @@ On the card: 11 action lines at most. Under "More about Rhode Island": 17 lines.
 
   ACTION      Attach the Board's consumer disclosures and the Summary of Registration Law (5-65)
               Portuguese (draft): Anexe as informações ao consumidor do Board e o Summary of Registration Law
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Board's summary "What Homeowners Should Know" given to the customer with the contract / Resumo do Board "What Homeowners Should Know" entregue ao cliente junto com o contrato
+  ACTION      Add the Board's consumer disclosures to the contract (5-65)
+              Portuguese (draft): Inclua no contrato as informações ao consumidor exigidas pelo Board
               Who does it: PERSON ONLY
+              Why a person: 5-65-3(o) points to disclosures set by the Board's regulations; the third pass
+              read the Board's rules and found no such wording.
+              [line: notice:RI-board#also]
               Old card text: Rhode Island requires this: Board consumer disclosures, insurance statement and
               Summary of Registration Law (5-65). The official wording is on file. When: Contracts over
               $1,000; Summary of Registration Law at the start. Format: Attach the agency's current copy.
@@ -5957,8 +5968,8 @@ On the card: 11 action lines at most. Under "More about Rhode Island": 17 lines.
               Old card text: From the research for Rhode Island: 6-28-4 buyer notice (10 point bold) and
               Notice of Cancellation; 62+ notice (5-65-27).
   BACKGROUND  How far the research for this state got. [status]
-              Old card text: Research status for Rhode Island: notice text still needs official copy (3 of 6
-              notices still have no official wording loaded (2 held for a problem named in the ...
+              Old card text: Research status for Rhode Island: notice text still needs official copy (2 of 6
+              notices still have no official wording loaded (1 held for a problem named in the ...
   BACKGROUND  Whether the state's door-to-door rule reaches cleaning. [cleaning_home_solicitation, cleaning
               agreements only]
               Old card text: Home-solicitation cancellation: the research says Rhode Island's rule reaches
@@ -6849,7 +6860,7 @@ On the card: 11 action lines at most. Under "More about Virginia": 13 lines.
 
   ACTION      Give the customer the DPOR Statement of Consumer Protections and get a signed acknowledgment (18VAC50-22-260 B 9 h)
               Portuguese (draft): Entregue ao cliente o DPOR Statement of Consumer Protections e pegue o recibo assinado
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment / DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado
               Old card text: Virginia requires this: DPOR Statement of Consumer Protections (18VAC50-22-260 B
               9 h). The official wording is on file. When: Residential. Format: Handed to the consumer with
               the contract; the contract carries the consumer's signed acknowledgment of having been provided
@@ -7002,11 +7013,11 @@ On the card: 12 action lines at most. Under "More about Washington": 15 lines.
   ACTION      Hand over L&I's construction lien information with the Notice to Customer (RCW 60.04.255(2))
               Portuguese (draft): Entregue as informações de gravame do L&I junto com o Notice to Customer
               Who does it: PERSON ONLY
-              Old card text: Washington requires this: L&I construction lien information handed over with the
-              Notice to Customer (RCW 60.04.255(2)). The official wording is on file. When: Every customer who
-              must receive the Notice to Customer (residential work of $1,000 or more). Format: A copy of
-              L&I's master informational material on construction liens, handed over with the Notice to
-              Customer.
+              Old card text: Washington requires this notice: L&I construction lien information handed over
+              with the Notice to Customer (RCW 60.04.255(2)). The exact wording is not loaded yet. Get it from
+              the official source or your attorney and attach it before the customer signs. When: Every
+              customer who must receive the Notice to Customer (residential work of $1,000 or more). Format: A
+              copy of L&I's master informational material on ...
               [line: notice:WA-lien-info]
 
   ACTION      Check the pool safety rules in Washington for this job (details)
@@ -7019,10 +7030,14 @@ On the card: 12 action lines at most. Under "More about Washington": 15 lines.
 
   ACTION      Keep the signed Notice to Customer for three years (RCW 18.27.114)
               Portuguese (draft): Guarde o Notice to Customer assinado por três anos
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: L&I's own Notice to Customers form given to the customer, with their signed acknowledgment kept on the contract / Formulário Notice to Customers do L&I entregue ao cliente, com o recibo assinado guardado no contrato
               Old card text: From the research for Washington: 18.27.114 Notice to Customer, substantially in
               the statutory form in 12 point and bold, given before starting work, with a customer signature
               line; contractor keeps the signed copy three years.
+              UNSURE: L&I's form is handed over unaltered, so its blanks (registration number, bond amount)
+              are not filled in on the form itself; the contract's own Notice to Customer and license line
+              carry the registration. The signed acknowledgment is kept with the contract for as long as the
+              contract is kept; a lawyer should confirm that this meets the three-year rule.
               [line: item:1]
 
   ACTION      Take dated photos before work starts and get the condition acknowledgment signed (good practice)
@@ -7236,7 +7251,7 @@ On the card: 10 action lines at most. Under "More about West Virginia": 12 lines
               Old card text: Home-solicitation cancellation: the research did not find that West Virginia's
               rule reaches cleaning services. That is not proof that it does not.
 
-################ Wisconsin (WI) - research status: notice text still needs official copy
+################ Wisconsin (WI) - research status: draft rider ready
 On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
 
   ACTION      Make sure your license or registration covers this job in Wisconsin (details)
@@ -7287,7 +7302,7 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
 
   ACTION      For building or remodeling a home, give the construction defect notice with the state brochure before signing (101.148; 895.07(13))
               Portuguese (draft): Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura
-              Who does it: PERSON ONLY
+              Who does it: THE SYSTEM DOES IT. On the card it reads: Construction defect notice printed in the contract and the state's Right to Cure brochure given with it as its own page / Aviso de defeitos de construção impresso no contrato e o folheto Right to Cure do estado entregue junto, em página própria
               Old card text: Wisconsin requires this: Defect notice and brochure (101.148; 895.07(13)). The
               official wording is on file. When: Contract to construct or remodel a dwelling (pools,
               hardscape, porches, garages and basements are in; repair or maintenance only jobs are out);
@@ -7397,8 +7412,8 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
               compares your first payment with it. [deposit]
               Old card text: Deposit cap: None; prepayments only for the project; no early final payment.
   BACKGROUND  Says the same thing as another line on this list. [notice:WI-brochure]
-              Old card text: Wisconsin requires this notice: Right to Cure brochure (DSPS form SBD-10845)
-              handed over with the defect notice (895.07(13); 101.148(2)(a)). The exact wording is not ...
+              Old card text: Wisconsin requires this notice: Wisconsin "Right to Cure Law" brochure
+              (Department of Safety and Professional Services) (895.07(13); 101.148(2)(a)). The exact ...
   BACKGROUND  Sent by someone else, not by you. A subcontractor or supplier serves it.
               [notice:WI-lien-claimant]
               Old card text: Wisconsin requires this notice: Lien notice a non-prime claimant serves on the
@@ -7420,8 +7435,8 @@ On the card: 14 action lines at most. Under "More about Wisconsin": 18 lines.
               Old card text: From the research for Wisconsin: 101.148 defect notice with the DSPS brochure;
               423.203 CUSTOMER'S RIGHT TO CANCEL notice in 2 copies, 12 point bold, also in the ...
   BACKGROUND  How far the research for this state got. [status]
-              Old card text: Research status for Wisconsin: notice text still needs official copy (1 of 10
-              notices still have no official wording loaded.). No lawyer has reviewed it.
+              Old card text: Research status for Wisconsin: draft rider ready (Every notice carries wording
+              copied from the state's own sources; no lawyer has reviewed it.). No lawyer has ...
   BACKGROUND  Whether the state's door-to-door rule reaches cleaning. [cleaning_home_solicitation, cleaning
               agreements only]
               Old card text: Home-solicitation cancellation: the research says Wisconsin's rule reaches

@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { buildComposer, FLORIDA_FIXTURES, goldenView, GOLDEN_DIR } from "./fixtures/contract-compose-harness.mjs";
 import { fnSrc, varSrc } from "./fixtures/d1-shim.mjs";
-import { parseStateFile, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
+import { parseNoticeFile, inputExists, INPUT_DIR, cutRange } from "./official-text-lib.mjs";
 import { summaryText, reviewText } from "./make-state-checklist-review.mjs";
 
 const root = new URL("../", import.meta.url);
@@ -175,7 +175,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
   const va = await run("VA", {}), vaSigned = await run("VA", {}, null, { c: SIGNED });
   ok(line(va.card, "written_contract").kind === "sees" && /^Waiting: the company and the customer have not both signed yet\.$/.test(line(va.card, "written_contract").sys.en) && line(vaSigned.card, "written_contract").sys.en === "Company signed 10/05/2026 3:00 PM ET; customer signed 10/05/2026 4:12 PM ET." && line(vaSigned.card, "written_contract").sys.at === "2026-10-05 20:12:00",
     "Virginia: \"signed by both sides\" waits, then reads \"Company signed 10/05/2026 3:00 PM ET; customer signed 10/05/2026 4:12 PM ET.\"");
-  ok(line(va.card, "notice:VA-dpor").kind === "person" && !sec(va.r, "VA-dpor"), "Virginia: the DPOR statement needs a signed acknowledgment, so it stays with a person and does not print");
+  ok(line(va.card, "notice:VA-dpor").kind === "does" && line(va.card, "notice:VA-dpor").sys.done === false && !sec(va.r, "VA-dpor"), "Virginia: the DPOR statement is not printed as text; since RES-36 the system hands over DPOR's own PDF and collects the signed acknowledgment");
   // New York: the system sees the company signature and the send.
   const ny = await run("NY", {}), nySent = await run("NY", {}, null, { c: { status: "sent", company_signed_at: "2026-10-05 19:00:00", sent_at: "2026-10-05 19:30:00" } });
   ok(line(ny.card, "written_contract").kind === "sees" && line(ny.card, "written_contract").sys.done === false && line(nySent.card, "written_contract").sys.done === true && /^Signed by the company 10\/05\/2026 3:00 PM ET and sent to the customer 10\/05\/2026 3:30 PM ET\.$/.test(line(nySent.card, "written_contract").sys.en),
@@ -213,7 +213,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
       if (s.text !== n.text_on_file || !n.text_on_file || n.text) { bad.push(s.id); }
       if (n.source_status !== "VERBATIM-OFFICIAL" || n.hold_reason || (n.range && n.range.blanks.length) || !/^https:\/\//.test(n.source_url || "")) { notOfficial.push(s.id); }
       if (haveInput) {
-        parsed[code] = parsed[code] || parseStateFile(code);
+        parsed[code] = parsed[code] || parseNoticeFile(code, n);
         fileChecked++;
         let fromFile = null;
         if (n.range) {
@@ -351,7 +351,7 @@ const SIGNED = { status: "completed", company_signed_at: "2026-10-05 19:00:00", 
       gmSheetRowHtml: function (icon, label, value, a, b, sub) { return "<row>" + label + "|" + value + "|" + (sub || "") + "</row>"; },
       escHtml: function (x) { return String(x === null || x === undefined ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); } };
   }
-  function draw(name, en, args) { const s = stubs(en), names = Object.keys(s); return new Function(...names, cut(gm, name) + "\nreturn " + name + ";")(...names.map(function (k) { return s[k]; })).apply(null, args); }
+  function draw(name, en, args) { const s = stubs(en), names = Object.keys(s); return new Function(...names, cut(gm, name) + "\n" + (name === "gmConStateCardHtml" ? cut(gm, "gmConStateLinksHtml") + "\n" : "") + "return " + name + ";")(...names.map(function (k) { return s[k]; })).apply(null, args); }
   const sys = { c: Object.assign({}, SIGNED, { sent_by: "Maria" }), ack: { signed_at: "2026-10-04 15:00:00", photos: 6 }, copy_sent_at: null, frozen: { "TX-homestead": true, "TX-defect": true, "TX-disclosure": true } };
   const t = await run("TX", { married: "yes" }, null, sys);
   const payload = { status: "completed", job_state_name: "Texas", state_checklist: t.r.comp.checklist, state_card: t.card };

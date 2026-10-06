@@ -18,10 +18,19 @@
     {
       "id": "MO-cancel-credit",
       "format": "One statement headed NOTICE OF CANCELLATION in 10-point boldface with the date of the transaction and the seller's name and mailing address; no duplicate tear-off form",
-      "support": "407.710 is one statement headed \"NOTICE OF CANCELLATION\", with a line for the date and for the seller's name and mailing address; there is no duplicate tear-off form in the Missouri statute.",
-      "summary_row": "NOTICE OF CANCELLATION statement",
-      "mode": "none",
-      "hold_reason": "the 407.710(2) statement is not cleanly delimited: only the heading \"NOTICE OF CANCELLATION\" is in quotation marks, the Revisor extraction inserts a stray \"; and\" and instruction lines (\"Date of transaction must be filled in at time of sale by seller\") between the heading and the paragraph, and subsection (2) offers the federal form instead; also credit sales only, which the builder cannot tell"
+      "support": "Statement in 10-point boldface in a signed written agreement; date of transaction filled in at time of sale by the seller.",
+      "summary_row": "Notice of cancellation statement",
+      "mode": "on_file",
+      "source": "pass3",
+      "block": "MO-1 (RSMo 407.710): Notice of cancellation statement",
+      "block_index": 1,
+      "start": "If this agreement was solicited at your residence",
+      "end": "The notice must be mailed to: (______)",
+      "quote_note": "None inside the cut. The official page lays the notice out in a table: the caption \"NOTICE OF CANCELLATION\" (in the statute's quotation marks), the date line, the instruction lines and a stray \"; and\" come before the paragraph and are not in the cut; the instruction \"Name and mailing address of seller must be filled in at time of sale.\" follows the blank and is not in the cut.",
+      "blanks": [
+        "(______) after 'The notice must be mailed to:' (name and mailing address of seller)"
+      ],
+      "boundary_unsure": "The cut is the one paragraph the buyer reads. The caption and the date of the transaction are not in it: the builder prints the caption as the heading and the date above it. Stored, not printed by the loader: credit sales only, which the builder asks about."
     },
     {
       "id": "MO-consent",
@@ -78,9 +87,9 @@
   ],
   "unsure": [
     "MO-lien: the NOTICE TO OWNER is now cut out of the 429.012 block and printed in every contract; the new-residence title-insurance exemption in 429.012(4) cannot be decided by the builder.",
-    "MO-cancel-credit: held; the 407.710(2) statement is not cleanly delimited (stray '; and' and instruction lines) and applies only to credit sales, so it must never be printed as it stands.",
     "MO-consent: cut out and stored on file only; the statute makes it a contractor's choice, not a duty, so it is not printed.",
     "MO-cure: cut out and stored on file only; it applies only to new construction or a remodel costing over half the assessed value, which the builder cannot tell.",
-    "cancellation.no_work_or_payment_in_window: left false because the file says only that the seller gets no pay for services done before cancellation, not that work is barred."
+    "cancellation.no_work_or_payment_in_window: left false because the file says only that the seller gets no pay for services done before cancellation, not that work is barred.",
+    "MO-cancel-credit: loaded from the third pass (Revisor page). The page is a table whose cell order leaves a stray '; and' between the caption and the paragraph; only the paragraph is cut. Compare against the rendered page before relying on it."
   ]
 }

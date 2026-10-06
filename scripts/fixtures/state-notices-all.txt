@@ -1,4 +1,4 @@
-Total notices that print: 139 (12 of them printed or handed over by the system itself, RES-35; 45 more placed, filled or signed by the system, RES-36)
+Total notices that print: 143 (12 of them printed or handed over by the system itself, RES-35; 49 more placed, filled or signed by the system, RES-36)
 Every state notice that prints in a contract (read this file to see every word a customer could see).
 Florida is the baseline and is not listed. Blanks are printed exactly as the statute prints them.
 A part marked PLACED BY THE SYSTEM (RES-36) has its blanks filled by the builder; here a filled blank shows as [BUSINESS NAME] and the like.
@@ -764,6 +764,52 @@ YOU MAY CANCEL THIS TRANSACTION, WITHOUT ANY PENALTY OR OBLIGATION, WITHIN 3 BUS
 ...................
 (Buyer's signature)
 
+--- "Home Repair: Know Your Consumer Rights" pamphlet and signed Consumer Rights Acknowledgment Form (815 ILCS 513) --- PLACED BY THE SYSTEM (RES-36)
+State: Illinois
+Where: on its own page
+Type: {"min_pt":12}
+Format rule: 12 point; the official pamphlet must be attached from the agency's current copy
+
+HOME REPAIR: KNOW YOUR CONSUMER RIGHTS
+As you plan for your home repair/improvement project, it is important to ask the right questions in order to protect your investment. The tips in this fact sheet should allow you to protect yourself and minimize the possibility that a misunderstanding may occur.
+AVOIDING HOME REPAIR FRAUD
+Please use extreme caution when confronted with the following warning signs of a potential scam:
+    (1) Door-to-door salespersons with no local connections who offer to do home repair work for substantially less than the market price.
+    (2) Solicitations for repair work from a company that lists only a telephone number or a post-office box number to contact, particularly if it is an out-of-state company.
+    (3) Contractors who fail to provide customers references when requested.
+    (4) Persons offering to inspect your home for free. Do not admit anyone into your home unless he or she can present authentic identification establishing his or her business status. When in doubt, do not hesitate to call the worker's employer to verify his or her identity.
+    (5) Contractors demanding cash payment for a job or who ask you to make a check payable to a person other than the owner or company name.
+    (6) Offers from a contractor to drive you to the bank to withdraw funds to pay for the work.
+CONTRACTS
+(1) Get all estimates in writing.
+    (2) Do not be induced into signing a contract by high-pressure sales tactics.
+    (3) Never sign a contract with blank spaces or one you do not fully understand. If you are taking out a loan to finance the work, do not sign the contract before your lender approves the loan.
+    (4) Remember, you have 3 business days (or as provided in Section 22 if you are age 65 or older) from the time you sign your contract to cancel any contract if the sale is made at your home. The contractor cannot deprive you of this right by initiating work, selling your contract to a lender, or any other tactic.
+    (5) If the contractor does business under a name other than the contractor's real name, the business must either be incorporated or registered under the Assumed Business Name Act. Check with the Secretary of State to see if the business is incorporated or with the county clerk to see if the business has registered under the Assumed Business Name Act.
+    (6) Homeowners should check with local and county units of government to determine if permits or inspections are required.
+    (7) Determine whether the contractor will guarantee his or her work and products.
+    (8) Determine whether the contractor has the proper insurance.
+    (9) Do not sign a certificate of completion or make final payment until the work is done to your satisfaction.
+    (10) Before you pay your contractor, understand that the Mechanics Lien Act requires that you shall request and the contractor shall give you a signed and notarized written statement (known as a "Sworn Statement") that lists all the persons or companies your contractor hired to work on your home, their addresses along with the amounts about to be paid, and the total amount owed after the payment to those persons or companies.
+    Suppliers and subcontractors have a right to file a lien against your home if they do not get paid for their labor or materials. To protect yourself against liens, you should demand that your contractor provide you with a Sworn Statement before you pay the contractor. You should also obtain lien waivers from all contractors and subcontractors if appropriate. You should consult with an attorney to learn more about your rights and obligations under the Mechanics Lien Act.
+    Disclaimer: The contents of this paragraph are required to be placed in the pamphlet for consumer guidance and information only. The contents of this paragraph are not substantive enforceable provisions of the Home Repair and Remodeling Act and are not intended to affect the substantive law of the Mechanics Lien Act.
+BASIC TERMS TO BE INCLUDED IN A CONTRACT
+(1) Contractor's full name, address, and telephone number. Illinois law requires that persons selling home repair and improvement services provide their customers with notice of any change to their business name or address that comes about prior to the agreed dates for beginning or completing the work.
+    (2) A description of the work to be performed.
+    (3) Starting and estimated completion dates.
+    (4) Total cost of work to be performed.
+    (5) Schedule and method of payment, including down payment, subsequent payments, and final payment.
+    (6) A provision stating the grounds for termination of the contract by either party. However, the homeowner must pay the contractor for work completed. If the contractor fails to commence or complete work within the contracted time period, the homeowner may cancel and may be entitled to a refund of any down payment or other payments made towards the work, upon written demand by certified mail.
+    (7) A provision stating the grounds for termination of the contract if you are notified by your insurer that all or any part of the claim or contract is not a covered loss under the insurance policy, you may cancel the contract by mailing or delivering written notice to (name of contractor) at (address of contractor's place of business) at any time prior to the earlier of midnight on the fifth business day after you have received such notice from your insurer or the thirtieth business day after receipt of a properly executed proof of loss by the insurer from the insured. If you cancel, any payments made by you under the contract will be returned to you within 10 business days following receipt by the contractor of your cancellation notice. If, however, the contractor has provided any goods or services related to a catastrophe, acknowledged and agreed to by the insured homeowner in writing to be necessary to prevent damage to the premises, the contractor is entitled to the reasonable value of such goods and services.
+    Homeowners should obtain a copy of the signed contract and keep it in a safe place for reference as needed.
+    To file a complaint against a roofing contractor, contact the Illinois Department of Financial and Professional Regulation at 312-814-6910 or file a complaint directly on its website.
+IF YOU THINK YOU HAVE BEEN DEFRAUDED OR YOU HAVE QUESTIONS
+If you think you have been defrauded by a contractor or have any questions, please bring it to the attention of your State's Attorney or the Illinois Attorney General's Office.
+Attorney General Toll-Free Numbers
+Carbondale (800) 243-0607
+Springfield (800) 243-0618
+Chicago (800) 386-5438
+
 --- Owner lien notice and sworn statement (770 ILCS 60/5(b)) --- PLACED BY THE SYSTEM (RES-36)
 State: Illinois
 Where: in the contract
@@ -1300,7 +1346,7 @@ Format rule: Placed on the contracting document immediately before the space for
 
 Mississippi law requires that I inform you that I DO carry general liability insurance insuring my work under this contract. The name of the insurer is [INSURER], and the policy number is [POLICY NUMBER]. By your signature below, you signify your understanding and acknowledgement of this fact.
 
-################ Missouri (MO) - status: notice text still needs official copy - prints: 1 of 4 notices
+################ Missouri (MO) - status: draft rider ready - prints: 1 of 4 notices
 
 --- NOTICE TO OWNER (429.012) ---
 State: Missouri
@@ -1323,6 +1369,15 @@ Source: VERBATIM-OFFICIAL https://revisor.mo.gov/main/OneSection.aspx?section=43
 Blanks to fill: none
 TEXT:
 SECTIONS 436.350 TO 436.365 OF MISSOURI REVISED STATUTES PROVIDE YOU WITH CERTAIN RIGHTS IF YOU HAVE A DISPUTE WITH A CONTRACTOR REGARDING CONSTRUCTION DEFECTS. EXCEPT FOR CLAIMS FILED IN SMALL CLAIMS COURT, IF YOU HAVE A DISPUTE WITH A CONTRACTOR, YOU MUST DELIVER TO THE CONTRACTOR A WRITTEN CLAIM OF ANY CONSTRUCTION CONDITIONS YOU ALLEGE ARE DEFECTIVE AND PROVIDE YOUR CONTRACTOR THE OPPORTUNITY TO MAKE AN OFFER TO REPAIR OR PAY FOR THE DEFECTS. YOU ARE NOT OBLIGATED TO ACCEPT ANY OFFER MADE BY THE CONTRACTOR. READ THIS NOTICE CAREFULLY. THERE ARE STRICT DEADLINES AND PROCEDURES UNDER SECTIONS 436.350 TO 436.365 WHICH MUST BE OBEYED IN ORDER TO PRESERVE YOUR ABILITY TO FILE A LAWSUIT. OTHER THAN REPAIRS TO WORK DONE BY THE CONTRACTOR THAT ARE NECESSARY TO PROTECT THE LIFE, HEALTH, OR SAFETY OF PERSONS LIVING IN A RESIDENCE, OR TO AVOID ADDITIONAL SIGNIFICANT AND MATERIAL DAMAGE TO THE RESIDENCE PURSUANT TO SUBSECTION 10 OF SECTION 436.356, YOU MAY NOT INCLUDE IN CLAIMS AGAINST YOUR CONTRACTOR THE COSTS OF OTHER REPAIRS YOU PERFORM BEFORE YOU ARE ENTITLED TO FILE A LAWSUIT UNDER SECTIONS 436.350 TO 436.365.
+
+--- NOTICE OF CANCELLATION (407.710) --- PLACED BY THE SYSTEM (RES-36)
+State: Missouri
+Where: under the heading "NOTICE OF CANCELLATION"
+Type: {"bold":true,"min_pt":10}
+Only when: "Is the customer paying on credit (in installments or with a finance charge)?" Yes
+Format rule: One statement headed NOTICE OF CANCELLATION in 10-point boldface with the date of the transaction and the seller's name and mailing address; no duplicate tear-off form
+
+If this agreement was solicited at your residence and you do not want the goods or services, you may cancel, without further obligation, this agreement by mailing a notice to the seller at the address as shown below, within 3 business days following the above date.  You shall return the goods to seller in substantially the same condition as when you obtained them.  Seller will then cancel all contracts and negotiable instruments executed by you and return any property given by you to seller within 10 days from date of transaction.  If seller does not pick up the purchased goods within 20 days from date of your cancellation, you may retain or dispose of the goods without any further obligation.  The notice must be mailed to: [BUSINESS NAME], [BUSINESS ADDRESS]
 
 --- CONSENT OF OWNER (lets subcontractors and suppliers file mechanic's liens) (RSMo 429.013(2)) --- PLACED BY THE SYSTEM (RES-36)
 State: Missouri
@@ -1975,6 +2030,16 @@ Blanks to fill: none
 TEXT:
 Notice to buyer: (1) Do not sign this agreement if any of the spaces intended for the agreed terms to the extent of then available information are left blank. (2) You are entitled to a copy of this agreement at the time you sign it. (3) You may at any time pay off the full, unpaid balance due under this agreement and in so doing you may be entitled to receive a partial rebate of the finance and insurance charges. (4) The seller has no right to unlawfully enter your premises or commit any breach of the peace to repossess goods purchased under this agreement. (5) You may cancel this agreement if it has not been signed at the main office or a branch office of the seller, provided you notify the seller at his or her main office or branch office shown in the agreement by registered or certified mail, that shall be posted not later than midnight of the third calendar day after the day on which the buyer signs the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. See the attached notice of cancellation form for an explanation of buyer’s rights.
 
+--- Notice of Cancellation (6-28-4(c)) --- PLACED BY THE SYSTEM (RES-36)
+State: Rhode Island
+Where: on its own page
+Type: {"bold":true}
+Also: 2 copies in the PDF
+Format rule: Appears in the agreement under the conspicuous caption 'Notice of Cancellation'; duplicate copy for the buyer
+
+You may cancel this transaction, without any penalty or obligation, within three (3) business days from the above date. If you cancel, your cancellation notice must state that you do not wish to be bound by the agreement and mailed by registered or certified mail not later than midnight three (3) days following the buyer’s signing the agreement, excluding Sunday and any holiday on which regular mail deliveries are not made. All cancellations must be mailed to:
+[BUSINESS NAME], [BUSINESS ADDRESS].
+
 --- Notice of Cancellation (5-65-27) --- PLACED BY THE SYSTEM (RES-36)
 State: Rhode Island
 Where: on its own page
@@ -2317,7 +2382,7 @@ Format rule: Mailing counts
 
 If this agreement was solicited at a place other than the seller's business establishment at a fixed location and you decide you do not want these goods or services, you may cancel this agreement by mailing a notice to the seller. The notice must say that you do not want the goods or services and must be mailed before midnight of the third business day after you sign this agreement. The notice must be mailed to: [BUSINESS NAME], [BUSINESS ADDRESS].
 
-################ Wisconsin (WI) - status: notice text still needs official copy - prints: 2 of 10 notices
+################ Wisconsin (WI) - status: draft rider ready - prints: 2 of 10 notices
 
 --- CUSTOMER'S RIGHT TO CANCEL (423.203; 423.202) ---
 State: Wisconsin
@@ -2369,6 +2434,42 @@ Format rule: Notice worded substantially as given, conspicuous and in writing, m
 
 NOTICE CONCERNING CONSTRUCTION DEFECTS
 Wisconsin law contains important requirements you must follow before you may file a lawsuit for defective construction against the contractor who constructed your dwelling or completed your remodeling project or against a window or door supplier or manufacturer. Section 895.07 (2) and (3) of the Wisconsin statutes requires you to deliver to the contractor a written notice of any construction conditions you allege are defective before you file your lawsuit, and you must provide your contractor or window or door supplier the opportunity to make an offer to repair or remedy the alleged construction defects. You are not obligated to accept any offer made by the contractor or window or door supplier. All parties are bound by applicable warranty provisions.
+
+--- Wisconsin "Right to Cure Law" brochure (Department of Safety and Professional Services) (895.07(13); 101.148(2)(a)) --- PLACED BY THE SYSTEM (RES-36)
+State: Wisconsin
+Where: on its own page
+Type: as the rest of the contract
+Format rule: A copy of the brochure delivered with the Notice Concerning Construction Defects, before the contract; the brochure is published as a web page
+
+Wisconsin “Right to Cure Law”
+The “Right to Cure Law” provides the steps and timetables to be followed in resolving any claims of dwelling construction defects by consumers against contractors or suppliers. Claims must be pursued through the “Right to Cure Law” process before arbitration or before legal action.
+The 2005 Wisconsin Act 201, the “Right to Cure Law,” says that consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure describing requirements for making any future claims of construction defects.
+People who feel they have a claim concerning defective workmanship or materials need to provide written notice to contractors or suppliers before any legal action may be filed. The contractors and suppliers have the opportunity and the responsibility to respond to claims.
+Construction defects can involve workmanship, materials, or code requirements in new construction or remodeling, but not maintenance or repairs. Claims may be made by owners, tenants, or property associations.
+This document highlights some of the provisions of the “Right to Cure Law”, and is not a complete description of the law, and is not a substitute for legal representation.
+Notice Concerning Construction
+Defects Wisconsin law contains important requirements you must follow before you may file a lawsuit for defective construction against the contractor who constructed your dwelling or completed your remodeling project or against a window or door supplier or manufacturer. Section 895.07 (2) and (3) of the Wisconsin statutes requires you to deliver to the contractor a written notice of any construction conditions you allege are defective before you file your lawsuit, and you must provide your contractor or window or door supplier the opportunity to make an offer to repair or remedy the alleged construction defects. You are not obligated to accept any offer made by the contractor or window or door supplier. All parties are bound by applicable warranty provisions.
+Chronology of the step-by-step claim and response interaction between consumers and contractors/suppliers
+Step One: Notice of Claim
+At least 90 working days before commencing an action against a contractor or window or door supplier or manufacturer, a claimant must deliver a written notice of the alleged defect to the contractor.
+Step Two: Contractor’s Response
+The contractor will have 15 working days (or 25 working days if it involves a defect involving a window or door supplier) to provide the claimant with a written: (1) offer to repair or remedy the defect; (2) offer to settle the claim with a monetary payment; (3) offer of a combination of (1) and (2); (4) statement that the contractor rejects the claim and the reasons for rejecting the claim; or (5) proposal to inspect the alleged defect or perform any necessary testing.
+Step Three: Claimant’s Response
+If the contractor rejects the claim, the claimant may proceed to commence an action against the contractor. The claimant must serve written notice on the contractor within 15 working days if he or she either accepts any offer or rejects an offer. Note that if the claimant has a claim against a window or door supplier or manufacturer, the claimant should contact the supplier to ensure that the supplier received a notice of the claim from the contractor.
+Step Four: Contractor’s Supplemental Response
+If the claimant rejects the offer, the contractor has five working days to provide a written supplemental offer or a notice that no additional offer will be made.
+Step Five: Claimant’s Response
+If the contractor has provided the claimant written notice that no additional offer will be made, the claimant may commence a lawsuit or other action against the contractor. If the claimant has received a supplemental offer from the contractor, the claimant must respond within 15 working days.
+More Highlights
+Claimants may accept settlement offers, accept them in part, or reject offers, doing so via detailed written notice.
+The law does not apply where there is no contract to construct, as in the case of purchasing an existing home.
+Contractors and suppliers have the right to inspect and, as appropriate, test alleged defects.
+Access must be provided in a timely fashion for inspections, tests, and repairs.
+Additional claims made or discovered after an original claim, are treated as separate in terms of time and process.
+There is a different timetable and process for the claims and responses if a contractor seeks contribution from a supplier.
+Failure by the claimant, contractor, or supplier to follow the “Right to Cure Law” can result in delay or dismissal of legal or arbitration actions.
+The Department Safety and Professional Services does not investigate, arbitrate, or judge consumer-contractor/supplier disputes. Those disputes are solved through the “Right to Cure Law” process, by the state’s court system, and, for alterations and additions, the Home Improvement Practices Code, ATCP 110, of the state Department of Agriculture, Trade, and Consumer Protection.
+The Department Safety and Professional Services does not discriminate on the basis of sex, race, religion, age, national origin, ancestry, creed, pregnancy, marital or parental status, sexual orientation, or physical, mental, emotional or learning disability. Reasonable accommodation, including the provision of informational material in an alternative format, will be provided for qualified individuals with disabilities upon request.
 
 --- Basement waterproofing: no-guarantee disclaimer (ATCP 110.09(3)(j)) --- PLACED BY THE SYSTEM (RES-36)
 State: Wisconsin

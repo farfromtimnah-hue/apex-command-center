@@ -5409,7 +5409,14 @@
   "field": "notices.MO-cancel-credit.format",
   "old": "Mailing text",
   "new": "One statement headed NOTICE OF CANCELLATION in 10-point boldface with the date of the transaction and the seller's name and mailing address; no duplicate tear-off form",
-  "support": "407.710 is one statement headed \"NOTICE OF CANCELLATION\", with a line for the date and for the seller's name and mailing address; there is no duplicate tear-off form in the Missouri statute."
+  "support": "Statement in 10-point boldface in a signed written agreement; date of transaction filled in at time of sale by the seller."
+ },
+ {
+  "state": "MO",
+  "field": "notices.MO-cancel-credit.text_on_file",
+  "old": null,
+  "new": "(copied from \"MO-1 (RSMo 407.710): Notice of cancellation statement\", block 1, 742 characters, cut by start/end markers)",
+  "support": "Notice of cancellation statement | VERBATIM-OFFICIAL | https://revisor.mo.gov/main/OneSection.aspx?section=407.710&bid=23142"
  },
  {
   "state": "MO",
@@ -5517,14 +5524,14 @@
   "state": "MO",
   "field": "status",
   "old": "needs primary source before use",
-  "new": "notice text still needs official copy",
-  "support": "1 of 4 notices still have no official wording loaded (1 held for a problem named in the state file)."
+  "new": "draft rider ready",
+  "support": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it."
  },
  {
   "state": "MO",
   "field": "status_reason",
   "old": "licensing, pools, many items not researched; 2026 session unchecked",
-  "new": "1 of 4 notices still have no official wording loaded (1 held for a problem named in the state file).",
+  "new": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it.",
   "support": "computed from the notices above"
  },
  {
@@ -7955,6 +7962,13 @@
  },
  {
   "state": "RI",
+  "field": "notices.RI-cancel-form.text_on_file",
+  "old": null,
+  "new": "(copied from \"RI-1 (R.I. Gen. Laws 6-28-4): Door-to-door \"Notice to buyer\" and Notice of Cancellation\", block 2, 505 characters, cut by start/end markers)",
+  "support": "Door-to-door \"Notice to buyer\" and Notice of Cancellation | VERBATIM-OFFICIAL | https://webserver.rilegislature.gov/Statutes/TITLE6/6-28/6-28-4.htm"
+ },
+ {
+  "state": "RI",
   "field": "notices.RI-62.trigger",
   "old": "Age 62 or older, in-home contractor solicitation",
   "new": "In-home solicitation of an elderly person for contractor work at the consumer's primary residence, including telephonic or online, except transactions the consumer initiated",
@@ -7978,7 +7992,7 @@
   "state": "RI",
   "field": "status_reason",
   "old": "mechanic's lien notice and Board disclosures not obtained; education hours 5 versus 2.5 UNRESOLVED",
-  "new": "3 of 6 notices still have no official wording loaded (2 held for a problem named in the state file).",
+  "new": "2 of 6 notices still have no official wording loaded (1 held for a problem named in the state file).",
   "support": "computed from the notices above"
  },
  {
@@ -9404,43 +9418,52 @@
   "state": "WI",
   "field": "notices.WI-brochure.title",
   "old": null,
-  "new": "Right to Cure brochure (DSPS form SBD-10845) handed over with the defect notice",
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "new": "Wisconsin \"Right to Cure Law\" brochure (Department of Safety and Professional Services)",
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
  },
  {
   "state": "WI",
   "field": "notices.WI-brochure.cite",
   "old": null,
   "new": "895.07(13); 101.148(2)(a)",
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
  },
  {
   "state": "WI",
   "field": "notices.WI-brochure.trigger",
   "old": null,
   "new": "Contract to construct or remodel a dwelling; delivered with the Notice Concerning Construction Defects",
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
  },
  {
   "state": "WI",
   "field": "notices.WI-brochure.format",
   "old": null,
-  "new": "Hand over the state's own PDF, not retyped text; the only copy is a City of Verona copy, revision R08/14, and the current revision is unconfirmed",
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "new": "A copy of the brochure delivered with the Notice Concerning Construction Defects, before the contract; the brochure is published as a web page",
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
  },
  {
   "state": "WI",
   "field": "notices.WI-brochure.applies",
   "old": null,
-  "new": {},
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "new": {
+   "residential": true
+  },
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
  },
  {
   "state": "WI",
   "field": "notices.WI-brochure",
   "old": null,
-  "new": "(added) Right to Cure brochure (DSPS form SBD-10845) handed over with the defect notice (895.07(13); 101.148(2)(a))",
-  "support": "Someone should get the current PDF from DSPS directly before the product ships it."
+  "new": "(added) Wisconsin \"Right to Cure Law\" brochure (Department of Safety and Professional Services) (895.07(13); 101.148(2)(a))",
+  "support": "consumers at the time of contracting for construction or remodeling work for dwellings must be provided with this brochure"
+ },
+ {
+  "state": "WI",
+  "field": "notices.WI-brochure.text_on_file",
+  "old": null,
+  "new": "(copied from \"WI-1 (Wis. Stat. 101.148(2)(a); 895.07): DSPS Right to Cure brochure (with the Notice Concerning Construction Defects)\", block 0, 5521 characters, whole block)",
+  "support": "DSPS Right to Cure brochure (with the Notice Concerning Construction Defects) | VERBATIM-OFFICIAL | https://dsps.wi.gov/a-z-programs-list/udc/references/right-to-cure-law/"
  },
  {
   "state": "WI",
@@ -9719,9 +9742,16 @@
  },
  {
   "state": "WI",
+  "field": "status",
+  "old": "notice text still needs official copy",
+  "new": "draft rider ready",
+  "support": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it."
+ },
+ {
+  "state": "WI",
   "field": "status_reason",
   "old": "101.148 notice and brochure; repose 7 versus 10 years unresolved",
-  "new": "1 of 10 notices still have no official wording loaded.",
+  "new": "Every notice carries wording copied from the state's own sources; no lawyer has reviewed it.",
   "support": "computed from the notices above"
  },
  {

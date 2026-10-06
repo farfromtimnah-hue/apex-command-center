@@ -5598,6 +5598,10 @@ function gmConStateCardHtml(c) {
           (a.sys.done ? '<span class="gm-pill gm-green">\u2713 ' + gmT("Feito pelo sistema", "Done by the system") + '</span>' + (a.sys.who_en ? ' <strong>' + escHtml(isEn() ? a.sys.who_en : (a.sys.who_pt || a.sys.who_en)) + '</strong>' : (a.sys.at ? " " + escHtml(formatDateTimeUTC(a.sys.at)) : "")) + '<br>' : "") +
           escHtml(isEn() ? a.sys.en : a.sys.pt) + '</div>' :
         (a.done ? '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml((a.done.by ? a.done.by + ", " : "") + formatDateTimeUTC(a.done.at)) + '</div>' : "");
+      // The official page or document behind the line, right on the line and
+      // named for what it opens (a.links, from the Worker). One tap; nothing
+      // is recorded for it.
+      under += gmConStateLinksHtml(a);
       // Apex staff only (the Worker leaves it out for everyone else): the
       // agency's own document for this line has not been loaded yet.
       if (a.staff_en) { under += '<div class="gm-warn" style="font-size:12px;margin-top:2px;">' + escHtml(isEn() ? a.staff_en : (a.staff_pt || a.staff_en)) + (a.staff_slot ? " (" + escHtml(a.staff_slot) + ")" : "") + '</div>'; }
@@ -5618,6 +5622,21 @@ function gmConStateCardHtml(c) {
       '<p class="gm-derived-note">' + gmT("Os dados legais (cita\u00e7\u00f5es e n\u00fameros) v\u00eam da pesquisa e ficam em ingl\u00eas. Nenhum advogado revisou.", "The legal facts (cites and numbers) come from the research on file. No lawyer has reviewed them.") + '</p></details>';
   }
   return h + '</div>';
+}
+function gmConStateLinksHtml(a) {
+  var h = "";
+  (a.links || []).forEach(function(k) {
+    if (!/^https:\/\//.test(String(k.url || ""))) { return; }
+    h += '<div style="font-size:14px;margin-top:4px;"><a href="' + escHtml(k.url) + '" target="_blank" rel="noopener" onclick="return gmConOpenStateLink(this.href)">' + escHtml(isEn() ? k.en : (k.pt || k.en)) + '</a></div>';
+  });
+  if (a.link_note_en) { h += '<div class="muted" style="font-size:12px;margin-top:2px;">' + escHtml(isEn() ? a.link_note_en : (a.link_note_pt || a.link_note_en)) + '</div>'; }
+  return h;
+}
+// In the browser the link opens in a new tab by itself; inside the iOS app it
+// opens in the system browser. Nothing is saved or logged.
+function gmConOpenStateLink(url) {
+  if (typeof gmInApp === "function" && gmInApp() && typeof apexOpenExternal === "function") { apexOpenExternal(url); return false; }
+  return true;
 }
 // Tick or untick line i of the card: saved at once with who and when.
 function gmConStateCheck(i, on) {

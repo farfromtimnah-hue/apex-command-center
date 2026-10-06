@@ -482,12 +482,21 @@
      "c": "A",
      "en": "Hand the customer the state pool safety notice",
      "pt": "Entregue ao cliente o aviso estadual de segurança de piscina",
-     "sys": "official",
-     "official": {
-      "slot": "AZ-pool-notice"
+     "held": {
+      "cat": "lawyer",
+      "why": "The Department of Health Services notice is on file, but the notice itself says reproducing it for a commercial purpose is governed by A.R.S. 39-121.03. Apex does not print or attach it until a lawyer says a contractor's software may."
      },
-     "sys_en": "State pool safety notice given to the customer with the contract",
-     "sys_pt": "Aviso estadual de segurança de piscina entregue ao cliente junto com o contrato"
+     "links": [
+      {
+       "url": "https://www.azdhs.gov/documents/preparedness/epidemiology-disease-control/environmental-health/residential-pool-safety-notice.pdf",
+       "en": "Open Arizona's pool safety notice (Department of Health Services, PDF)",
+       "pt": "Abrir o aviso de segurança de piscina do Arizona (Department of Health Services, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "Open it, print it and hand it to the customer. Apex does not print or attach this notice.",
+      "pt": "Abra, imprima e entregue ao cliente. A Apex não imprime nem anexa este aviso."
+     }
     },
     "notice:AZ-note-statement": {
      "c": "A",
@@ -585,7 +594,22 @@
     "notice:AR-cancel": {
      "c": "A",
      "en": "Attach the state cancellation statement and two copies of the NOTICE OF CANCELLATION form",
-     "pt": "Anexe a declaração de cancelamento do estado e duas vias do formulário NOTICE OF CANCELLATION"
+     "pt": "Anexe a declaração de cancelamento do estado e duas vias do formulário NOTICE OF CANCELLATION",
+     "links": [
+      {
+       "url": "https://portal.arkansas.gov/service/arkansas-code-search-laws-and-statutes/",
+       "en": "Open Arkansas's official code search",
+       "pt": "Abrir a busca oficial do código do Arkansas"
+      }
+     ],
+     "link_note": {
+      "en": "Look up sections 4-89-107 and 4-89-108 there (the official code opens through LexisNexis).",
+      "pt": "Procure as seções 4-89-107 e 4-89-108 lá (o código oficial abre pela LexisNexis)."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of the NOTICE OF CANCELLATION form was obtained (4-89-107, 4-89-108); the only copy is a secondary (Justia) one."
+     }
     },
     "item:1": {
      "c": "B",
@@ -1099,7 +1123,10 @@
      "pt": "Anexe o \"Summary of Your Rights\" do Attorney General e entregue antes de o cliente assinar",
      "sys": "official",
      "official": {
-      "slot": "DE-ag-summary"
+      "slot": "DE-ag-summary",
+      "file": "state-docs/de-home-improvement-summary.pdf",
+      "version": "Revised 10/31/2023",
+      "sha256": "27769521e1638d43965b5bc963e5b6157465ef59fcf8772c0f5272714905e697"
      },
      "sys_en": "Attorney General's \"Summary of Your Rights\" given to the customer before they sign",
      "sys_pt": "\"Summary of Your Rights\" do Attorney General entregue ao cliente antes de ele assinar"
@@ -1169,13 +1196,39 @@
     "notice:GA-8-2-41": {
      "c": "A",
      "en": "Add the notice of the contractor's right to resolve construction defects",
-     "pt": "Inclua o aviso do direito do empreiteiro de resolver defeitos de construção"
+     "pt": "Inclua o aviso do direito do empreiteiro de resolver defeitos de construção",
+     "links": [
+      {
+       "url": "https://www.legis.ga.gov/api/legislation/document/20052006/64748",
+       "en": "Open Georgia's notice as passed in 2006 (O.C.G.A. 8-2-41, PDF)",
+       "pt": "Abrir o aviso da Geórgia como aprovado em 2006 (O.C.G.A. 8-2-41, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "This is the text as first enacted; check that it was not amended since.",
+      "pt": "Este é o texto como foi aprovado; confira se não mudou depois."
+     },
+     "held": {
+      "cat": "current",
+      "why": "The official copy is the 2006 enactment (SB 573), not checked for later amendments, and its PDF text needs review."
+     }
     },
     "notice:GA-43-41-7": {
      "c": "A",
      "en": "For a single-family home job over $2,500, offer a written warranty and attach it before signing",
      "pt": "Para serviço em casa unifamiliar acima de $2,500.00, ofereça garantia por escrito e anexe antes da assinatura",
-     "flag": "The rule is about building a single-family home; the research does not say whether a remodel counts."
+     "flag": "The rule is about building a single-family home; the research does not say whether a remodel counts.",
+     "links": [
+      {
+       "url": "https://rules.sos.ga.gov/gac/553-7",
+       "en": "Open Georgia's written warranty rule (553-7-.01)",
+       "pt": "Abrir a regra de garantia por escrito da Geórgia (553-7-.01)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "No wording is prescribed: the rule (553-7-.01) requires the contractor's own written warranty to be offered and attached."
+     }
     },
     "notice:GA-553-7-01": {
      "c": "B",
@@ -1252,14 +1305,36 @@
     "notice:ID-disclosure": {
      "c": "A",
      "en": "Give the homeowner disclosure statement and get a signed acknowledgment",
-     "pt": "Entregue a declaração ao proprietário e pegue o recibo assinado"
+     "pt": "Entregue a declaração ao proprietário e pegue o recibo assinado",
+     "links": [
+      {
+       "url": "https://legislature.idaho.gov/statutesrules/idstat/title45/t45ch5/sect45-525/",
+       "en": "Open Idaho Code 45-525 (what the disclosure must say)",
+       "pt": "Abrir o Idaho Code 45-525 (o que a declaração precisa dizer)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "Idaho Code 45-525 lists what the disclosure must say and prescribes no wording."
+     }
     },
     "notice:ID-cancel-credit": {
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "links": [
+      {
+       "url": "https://legislature.idaho.gov/wp-content/uploads/statutesrules/idstat/Title28/T28CH43.pdf",
+       "en": "Open Idaho's cancellation statement (Title 28 chapter 43, PDF; see 28-43-403)",
+       "pt": "Abrir a declaração de cancelamento de Idaho (Title 28 chapter 43, PDF; veja 28-43-403)"
+      }
+     ],
+     "held": {
+      "cat": "review",
+      "why": "The complete official copy is a PDF whose words are broken at line ends; it may not be printed until someone reviews it against the official page."
+     }
     },
     "item:1": {
      "c": "H",
@@ -1306,19 +1381,25 @@
      "c": "A",
      "en": "Hand the customer the \"Home Repair: Know Your Consumer Rights\" pamphlet",
      "pt": "Entregue ao cliente o folheto \"Home Repair: Know Your Consumer Rights\"",
-     "sys": "official",
-     "official": {
-      "slot": "IL-pamphlet"
-     },
-     "sys_en": "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer before they sign",
-     "sys_pt": "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente antes de ele assinar"
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "IL-pamphlet",
+       "as": "page",
+       "style": {
+        "min_pt": 12
+       }
+      }
+     ],
+     "sys_en": "\"Home Repair: Know Your Consumer Rights\" pamphlet given to the customer as a separate document (12 point), before they sign",
+     "sys_pt": "Folheto \"Home Repair: Know Your Consumer Rights\" entregue ao cliente como documento separado (corpo 12), antes de ele assinar",
+     "flag": "The pamphlet's wording is fixed by 815 ILCS 513/20(c) and is printed from the statute. The Attorney General's one-page leaflet is a different document and is not used."
     },
     "notice:IL-ack-form": {
      "c": "A",
      "en": "Get the Consumer Rights Acknowledgment Form signed by you and the customer",
      "pt": "Pegue o Consumer Rights Acknowledgment Form assinado por você e pelo cliente",
      "sys": "parts",
-     "needs_slot": "IL-pamphlet",
      "parts": [
       {
        "n": "IL-ack-form",
@@ -1428,7 +1509,18 @@
      "c": "A",
      "en": "If you approached the customer without being asked, attach the state cancellation notice in two copies",
      "pt": "Se você procurou o cliente sem ser chamado, anexe o aviso de cancelamento do estado em duas vias",
-     "flag": "Applies only to a sale the customer did not ask for."
+     "flag": "Applies only to a sale the customer did not ask for.",
+     "links": [
+      {
+       "url": "https://iga.in.gov/ic/2026/Title_24.pdf",
+       "en": "Open Indiana Code Title 24 (PDF; see IC 24-5-10-9)",
+       "pt": "Abrir o Indiana Code Title 24 (PDF; veja IC 24-5-10-9)"
+      }
+     ],
+     "held": {
+      "cat": "none",
+      "why": "IC 24-5-10-9 lists what the notice must contain and prescribes no sentence."
+     }
     },
     "notice:IN-cancel-10-6": {
      "c": "A",
@@ -1676,7 +1768,14 @@
      },
      "sys_en": "Attorney General's consumer information addendum given to the customer with the contract",
      "sys_pt": "Adendo de informações ao consumidor do Attorney General entregue ao cliente junto com o contrato",
-     "flag": "The addendum changes (it lists contractors the State has sued). Apex staff must load the current copy each time the Attorney General updates it."
+     "flag": "The addendum changes (it lists contractors the State has sued). Apex staff must load the current copy each time the Attorney General updates it.",
+     "links": [
+      {
+       "url": "https://www.maine.gov/ag/sites/maine.gov.ag/files/documents/Home%20Construction%20Contracts%20Addendum.docx",
+       "en": "Open the Attorney General's addendum (Word file)",
+       "pt": "Abrir o adendo do Attorney General (arquivo Word)"
+      }
+     ]
     },
     "notice:ME-cancel": {
      "c": "H",
@@ -1727,7 +1826,22 @@
     "notice:MD-cancel": {
      "c": "A",
      "en": "Attach the state cancellation statement, and the Notice of Cancellation form on a separate sheet",
-     "pt": "Anexe a declaração de cancelamento do estado e o formulário Notice of Cancellation em folha separada"
+     "pt": "Anexe a declaração de cancelamento do estado e o formulário Notice of Cancellation em folha separada",
+     "links": [
+      {
+       "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302",
+       "en": "Open Maryland's cancellation statement and form (Commercial Law 14-302)",
+       "pt": "Abrir a declaração e o formulário de cancelamento de Maryland (Commercial Law 14-302)"
+      }
+     ],
+     "link_note": {
+      "en": "The form there says three business days; a home improvement contract must say five (seven at 65 or older).",
+      "pt": "O formulário lá diz três dias úteis; um contrato de reforma precisa dizer cinco (sete a partir dos 65 anos)."
+     },
+     "held": {
+      "cat": "none",
+      "why": "The official statement and form (CL 14-302) say three business days; a home improvement contract must allow five (seven at 65 or older) and nothing official prints that wording."
+     }
     },
     "notice:MD-security": {
      "c": "A",
@@ -1754,7 +1868,18 @@
     "notice:MD-oral-ack": {
      "c": "A",
      "en": "Get the customer's signature confirming you told them about the right to cancel",
-     "pt": "Pegue a assinatura do cliente confirmando que você avisou sobre o direito de cancelar"
+     "pt": "Pegue a assinatura do cliente confirmando que você avisou sobre o direito de cancelar",
+     "links": [
+      {
+       "url": "https://mgaleg.maryland.gov/mgawebsite/Laws/StatuteText?article=gcl&section=14-302.1",
+       "en": "Open Maryland's acknowledgment wording (Commercial Law 14-302.1)",
+       "pt": "Abrir o texto do recibo de Maryland (Commercial Law 14-302.1)"
+      }
+     ],
+     "held": {
+      "cat": "review",
+      "why": "The official page serves the acknowledgment's check box as a question mark; it may not be printed until someone reviews it against the statute."
+     }
     },
     "item:1": {
      "c": "A",
@@ -1984,8 +2109,29 @@
      "c": "A",
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
-     "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "flag": "The Revisor's page lays the notice out in a table; only the paragraph the buyer reads is cut, the caption is printed as its heading and the date above it. Compare with the rendered page; a lawyer should confirm.",
+     "fact": "credit",
+     "sys": "parts",
+     "only_yes": true,
+     "parts": [
+      {
+       "n": "MO-cancel-credit",
+       "heading": "NOTICE OF CANCELLATION",
+       "date_above": true,
+       "style": {
+        "bold": true,
+        "min_pt": 10
+       },
+       "fill": [
+        [
+         "(______)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "NOTICE OF CANCELLATION statement printed in the contract (10 point bold), with the transaction date and your name and address filled in",
+     "sys_pt": "Declaração NOTICE OF CANCELLATION impressa no contrato (negrito, corpo 10), com a data da transação e o seu nome e endereço preenchidos"
     },
     "notice:MO-consent": {
      "c": "A",
@@ -2167,12 +2313,42 @@
     "notice:NJ-division": {
      "c": "A",
      "en": "Add the Division of Consumer Affairs statement with its toll-free number (capitals, 10 point bold)",
-     "pt": "Inclua a declaração da Division of Consumer Affairs com o telefone gratuito (maiúsculas, negrito, corpo 10)"
+     "pt": "Inclua a declaração da Division of Consumer Affairs com o telefone gratuito (maiúsculas, negrito, corpo 10)",
+     "links": [
+      {
+       "url": "https://www.njconsumeraffairs.gov/regulations/Chapter-45A-Administrative-Rules-of-the-Division-of-Consumer-Affairs.pdf",
+       "en": "Open New Jersey's rule with the statement (N.J.A.C. 13:45A-17.11, PDF)",
+       "pt": "Abrir a regra de New Jersey com a declaração (N.J.A.C. 13:45A-17.11, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "The rule prints the number 1-888-656-6225. The Attorney General's pages give 800-242-5846; which one is current is not settled.",
+      "pt": "A regra imprime o número 1-888-656-6225. As páginas do Attorney General dão 800-242-5846; não está decidido qual vale hoje."
+     },
+     "held": {
+      "cat": "lawyer",
+      "why": "New Jersey is held: the rule prints 1-888-656-6225 and the Attorney General's pages give 800-242-5846. Which number is current is not settled."
+     }
     },
     "notice:NJ-cancel": {
      "c": "A",
      "en": "Add the three day cancellation notice with your name, address and phone",
-     "pt": "Inclua o aviso de cancelamento de três dias com o seu nome, endereço e telefone"
+     "pt": "Inclua o aviso de cancelamento de três dias com o seu nome, endereço e telefone",
+     "links": [
+      {
+       "url": "https://pub.njleg.state.nj.us/Bills/2004/PL04/16_.HTM",
+       "en": "Open New Jersey's cancellation notice as passed in 2004 (N.J.S.A. 56:8-151)",
+       "pt": "Abrir o aviso de cancelamento de New Jersey como aprovado em 2004 (N.J.S.A. 56:8-151)"
+      }
+     ],
+     "link_note": {
+      "en": "This is the text as first enacted; check that it was not amended since.",
+      "pt": "Este é o texto como foi aprovado; confira se não mudou depois."
+     },
+     "held": {
+      "cat": "current",
+      "why": "New Jersey is held: the official copy is the 2004 enactment, not checked for later amendments."
+     }
     },
     "item:1": {
      "c": "B",
@@ -2205,13 +2381,26 @@
      "c": "A",
      "en": "Give the state's residential default disclosure form before work, signing or payment, and get it signed",
      "pt": "Entregue o formulário estadual de residential default disclosure antes do serviço, da assinatura ou do pagamento, e pegue a assinatura",
-     "sys": "official",
-     "official": {
-      "slot": "NM-default",
-      "ack": true
+     "held": {
+      "cat": "missing",
+      "why": "The statute (60-13-19(C)) gives the substance only; the disclosure must be on a form approved by the Construction Industries Division, and the third pass did not find that form."
      },
-     "sys_en": "State residential default disclosure form given to the customer, with their signed acknowledgment",
-     "sys_pt": "Formulário estadual de residential default disclosure entregue ao cliente, com o recibo assinado"
+     "links": [
+      {
+       "url": "https://www.rld.nm.gov/construction-industries/investigation-and-enforcement/",
+       "en": "Open the Construction Industries Division page",
+       "pt": "Abrir a página da Construction Industries Division"
+      },
+      {
+       "url": "https://www.rld.nm.gov/wp-content/uploads/2021/07/Article-13-CILA-7.1.21.pdf",
+       "en": "Open the law that requires the form (NMSA 60-13-19, PDF)",
+       "pt": "Abrir a lei que exige o formulário (NMSA 60-13-19, PDF)"
+      }
+     ],
+     "link_note": {
+      "en": "The state does not publish this form online. Ask the Construction Industries Division.",
+      "pt": "O estado não publica este formulário na internet. Peça à Construction Industries Division."
+     }
     },
     "item:1": {
      "c": "B",
@@ -2430,7 +2619,18 @@
      "en": "If the customer pays on credit, attach the state's credit-sale cancellation notice before they sign",
      "pt": "Se o cliente pagar a crédito, anexe o aviso de cancelamento de venda a crédito do estado antes de ele assinar",
      "flag": "Applies only to a sale on credit. The builder asks whether the customer pays on credit.",
-     "fact": "credit"
+     "fact": "credit",
+     "links": [
+      {
+       "url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os14A.pdf",
+       "en": "Open Oklahoma's cancellation statement (Title 14A, PDF; see section 2-503)",
+       "pt": "Abrir a declaração de cancelamento de Oklahoma (Title 14A, PDF; veja a seção 2-503)"
+      }
+     ],
+     "held": {
+      "cat": "lawyer",
+      "why": "The official wording (14A O.S. 2-503) is on record, but it lets the seller keep up to five percent of the down payment, which conflicts with the federal full-refund notice printed in the same contract."
+     }
     },
     "item:1": {
      "c": "H",
@@ -2455,7 +2655,10 @@
      "pt": "Entregue ao proprietário o \"Information Notice to Owner About Construction Lien Rights\" do CCB até a data do contrato",
      "sys": "official",
      "official": {
-      "slot": "OR-lien"
+      "slot": "OR-lien",
+      "file": "state-docs/or-information-notice-liens.pdf",
+      "version": "CCB form adopted 9-16",
+      "sha256": "111d94e5cea6575169bb140c84af2f111fae2094e772d6cce0c6d0ab6778f938"
      },
      "sys_en": "CCB \"Information Notice to Owner About Construction Lien Rights\" given to the owner with the contract",
      "sys_pt": "\"Information Notice to Owner About Construction Lien Rights\" do CCB entregue ao proprietário junto com o contrato"
@@ -2471,7 +2674,10 @@
      "sys": "official",
      "official": {
       "slot": "OR-ccb",
-      "ack": true
+      "ack": true,
+      "file": "state-docs/or-consumer-protection-notice.pdf",
+      "version": "CCB form CPN 4-26-2011",
+      "sha256": "a89916480fb4a6408f1c9b93552b2694910a5e81f343ce65d08bc36274d159e3"
      },
      "sys_en": "CCB Consumer Protection Notice given to the owner, with their signed acknowledgment",
      "sys_pt": "Consumer Protection Notice do CCB entregue ao proprietário, com o recibo assinado"
@@ -2539,7 +2745,28 @@
     "notice:RI-cancel-form": {
      "c": "A",
      "en": "Attach the Notice of Cancellation, with a second copy for the customer",
-     "pt": "Anexe o Notice of Cancellation, com uma segunda via para o cliente"
+     "pt": "Anexe o Notice of Cancellation, com uma segunda via para o cliente",
+     "sys": "parts",
+     "parts": [
+      {
+       "n": "RI-cancel-form",
+       "as": "page",
+       "copies": 2,
+       "heading": "Notice of Cancellation",
+       "date_above": true,
+       "style": {
+        "bold": true
+       },
+       "fill": [
+        [
+         "(insert name and address of the seller)",
+         "{business_legal_name}, {business_address}"
+        ]
+       ]
+      }
+     ],
+     "sys_en": "Notice of Cancellation in two copies, with the transaction date and your name and address filled in",
+     "sys_pt": "Notice of Cancellation em duas vias, com a data da transação e o seu nome e endereço preenchidos"
     },
     "notice:RI-62": {
      "c": "A",
@@ -2575,10 +2802,26 @@
      "pt": "Anexe as informações ao consumidor do Board e o Summary of Registration Law",
      "sys": "official",
      "official": {
-      "slot": "RI-board"
+      "slot": "RI-board",
+      "file": "state-docs/ri-what-homeowners-should-know.pdf",
+      "version": "Approved by the Board March 8, 2023",
+      "sha256": "2982c903684c48817e32a85cbfd309f480e2ab1d62a463fdd8884c1420271066"
      },
-     "sys_en": "Board's consumer disclosures and Summary of Registration Law given to the customer with the contract",
-     "sys_pt": "Informações ao consumidor do Board e Summary of Registration Law entregues ao cliente junto com o contrato"
+     "sys_en": "Board's summary \"What Homeowners Should Know\" given to the customer with the contract",
+     "sys_pt": "Resumo do Board \"What Homeowners Should Know\" entregue ao cliente junto com o contrato",
+     "also": {
+      "en": "Add the Board's consumer disclosures to the contract",
+      "pt": "Inclua no contrato as informações ao consumidor exigidas pelo Board",
+      "needs_text": true,
+      "why": "5-65-3(o) points to disclosures set by the Board's regulations; the third pass read the Board's rules and found no such wording."
+     },
+     "also_links": [
+      {
+       "url": "https://webserver.rilegislature.gov/Statutes/TITLE5/5-65/5-65-3.htm",
+       "en": "Open R.I. Gen. Laws 5-65-3 (what the contract must include)",
+       "pt": "Abrir R.I. Gen. Laws 5-65-3 (o que o contrato precisa ter)"
+      }
+     ]
     },
     "item:1": {
      "c": "H",
@@ -2642,7 +2885,22 @@
     "notice:TN-owner": {
      "c": "A",
      "en": "Add the NOTICE TO OWNER line directly above the owner's signature",
-     "pt": "Inclua a linha NOTICE TO OWNER logo acima da assinatura do proprietário"
+     "pt": "Inclua a linha NOTICE TO OWNER logo acima da assinatura do proprietário",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 62-6-508 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 62-6-508 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 62-6-508 was obtained; the only copy is a secondary mirror."
+     }
     },
     "notice:TN-board": {
      "c": "A",
@@ -2652,12 +2910,42 @@
     "notice:TN-cancel": {
      "c": "A",
      "en": "Add the BUYER'S RIGHT TO CANCEL statement on the front or just above the customer's signature",
-     "pt": "Inclua a declaração BUYER'S RIGHT TO CANCEL na frente ou logo acima da assinatura do cliente"
+     "pt": "Inclua a declaração BUYER'S RIGHT TO CANCEL na frente ou logo acima da assinatura do cliente",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 47-18-704 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 47-18-704 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 47-18-704 was obtained; the only copy is a secondary mirror."
+     }
     },
     "notice:TN-lien": {
      "c": "A",
      "en": "Give the owner the lien NOTICE TO OWNER before the work or the contract",
-     "pt": "Entregue ao proprietário o NOTICE TO OWNER de gravame antes do serviço ou do contrato"
+     "pt": "Entregue ao proprietário o NOTICE TO OWNER de gravame antes do serviço ou do contrato",
+     "links": [
+      {
+       "url": "https://www.capitol.tn.gov/",
+       "en": "Open the Tennessee General Assembly site",
+       "pt": "Abrir o site da Assembleia Geral do Tennessee"
+      }
+     ],
+     "link_note": {
+      "en": "Tennessee publishes its code only through LexisNexis public access, which this link cannot open directly. Look up T.C.A. 66-11-203 there.",
+      "pt": "O Tennessee publica o código só pelo acesso público da LexisNexis, que este link não abre direto. Procure T.C.A. 66-11-203 lá."
+     },
+     "held": {
+      "cat": "missing",
+      "why": "No official copy of T.C.A. 66-11-203 was obtained; the only copy is a secondary mirror."
+     }
     },
     "item:1": {
      "c": "B",
@@ -2867,7 +3155,10 @@
      "sys": "official",
      "official": {
       "slot": "VA-dpor",
-      "ack": true
+      "ack": true,
+      "file": "state-docs/va-statement-of-consumer-protections.pdf",
+      "version": "Revised 4/29/2025 (effective 07/01/2025)",
+      "sha256": "243937bc89a3a03c18d68e36c83d146338a0689b0e1401e0817e65798e58fbc4"
      },
      "sys_en": "DPOR Statement of Consumer Protections given to the customer, with their signed acknowledgment",
      "sys_pt": "DPOR Statement of Consumer Protections entregue ao cliente, com o recibo assinado"
@@ -2944,18 +3235,40 @@
      "c": "A",
      "en": "Hand over L&I's construction lien information with the Notice to Customer",
      "pt": "Entregue as informações de gravame do L&I junto com o Notice to Customer",
-     "sys": "official",
-     "official": {
-      "slot": "WA-lien-info"
+     "held": {
+      "cat": "missing",
+      "why": "RCW 60.04.255 wants L&I's own master document handed over; the third pass did not find it on L&I's site."
      },
-     "sys_en": "L&I's construction lien information given to the customer with the contract",
-     "sys_pt": "Informações de gravame do L&I entregues ao cliente junto com o contrato"
+     "links": [
+      {
+       "url": "https://app.leg.wa.gov/RCW/default.aspx?cite=60.04.250",
+       "en": "Open RCW 60.04.250 (what the lien information must be)",
+       "pt": "Abrir RCW 60.04.250 (o que a informação de gravame precisa ser)"
+      }
+     ],
+     "link_note": {
+      "en": "The research did not find this document on the Department of Labor and Industries' site. Ask the Department of Labor and Industries for it.",
+      "pt": "A pesquisa não achou este documento no site do Department of Labor and Industries. Peça ao Department of Labor and Industries."
+     }
     },
     "item:1": {
      "c": "A",
      "en": "Keep the signed Notice to Customer for three years",
      "pt": "Guarde o Notice to Customer assinado por três anos",
-     "ref": "RCW 18.27.114"
+     "ref": "RCW 18.27.114",
+     "sys": "official",
+     "official": {
+      "slot": "WA-customer-form",
+      "ack": true,
+      "title": "L&I Contractor Registration Disclosure Statement, Notice to Customers (F625-030-000)",
+      "cite": "RCW 18.27.114",
+      "file": "state-docs/wa-notice-to-customer-f625-030-000.pdf",
+      "version": "F625-030-000, 12-2015",
+      "sha256": "70dc3e0ac9fe5ed53c748d61b62ef592e930f3ae1864faef281e2d60fdf6e37c"
+     },
+     "sys_en": "L&I's own Notice to Customers form given to the customer, with their signed acknowledgment kept on the contract",
+     "sys_pt": "Formulário Notice to Customers do L&I entregue ao cliente, com o recibo assinado guardado no contrato",
+     "flag": "L&I's form is handed over unaltered, so its blanks (registration number, bond amount) are not filled in on the form itself; the contract's own Notice to Customer and license line carry the registration. The signed acknowledgment is kept with the contract for as long as the contract is kept; a lawyer should confirm that this meets the three-year rule."
     },
     "item:2": {
      "c": "H",
@@ -3059,20 +3372,21 @@
      "c": "A",
      "en": "For building or remodeling a home, give the construction defect notice with the state brochure before signing",
      "pt": "Para construção ou reforma de casa, entregue o aviso de defeitos de construção com o folheto do estado antes da assinatura",
-     "sys": "official",
-     "official": {
-      "slot": "WI-brochure"
-     },
+     "sys": "parts",
      "parts": [
       {
        "n": "WI-defect",
        "style": {
         "bold": true
        }
+      },
+      {
+       "n": "WI-brochure",
+       "as": "page"
       }
      ],
-     "sys_en": "Construction defect notice printed in the contract and the state brochure given with it",
-     "sys_pt": "Aviso de defeitos de construção impresso no contrato e o folheto do estado entregue junto",
+     "sys_en": "Construction defect notice printed in the contract and the state's Right to Cure brochure given with it as its own page",
+     "sys_pt": "Aviso de defeitos de construção impresso no contrato e o folheto Right to Cure do estado entregue junto, em página própria",
      "flag": "The notice is for building or remodeling a home (not repair or maintenance only). The system prints it on every residential job (the safe side)."
     },
     "notice:WI-brochure": {

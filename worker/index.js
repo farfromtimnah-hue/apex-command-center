@@ -28160,7 +28160,8 @@ function contractStateFinishPlan(st, job, facts, x) {
         if (plan.missing.length) { plan.state = "wait_fields"; }
         if (e.sys === "official") {
             var sl = slots[e.official.slot] || null;
-            plan.slot = { slot: e.official.slot, ack: !!e.official.ack, loaded: !!sl, version: sl ? sl.version || null : null, title: own ? own.title : e.official.slot, cite: own ? own.cite || null : null };
+            plan.slot = { slot: e.official.slot, ack: !!e.official.ack, loaded: !!sl, version: sl ? sl.version || null : null, title: e.official.title || (own ? own.title : e.official.slot), cite: e.official.cite || (own ? own.cite || null : null),
+                file: sl && !sl.key && sl.file ? sl.file : null };
             if (!sl) { plan.state = "no_slot"; }
         }
         if (e.sys === "list") {
@@ -28593,13 +28594,17 @@ function contractStateActionCard(st, lines, flags, sys, causes) {
         // person; only Apex staff are told why (contractStateCardFor).
         if (!status && l.plan && l.plan.state === "no_slot") { a.staff_en = "Waiting: official document not loaded"; a.staff_pt = "Aguardando: documento oficial n\u00e3o carregado"; a.staff_slot = l.plan.slot ? l.plan.slot.slot : null; }
         if (e.ask && l.plan && l.plan.state !== "off" && l.plan.state !== "ask") { e.ask.forEach(function(k) { wanted[k] = true; }); }
+        // The official page or document, right on the line (opening it records nothing).
+        a.links = contractStateLineLinks({ links: e.links, ref: a.ref }, l, null, (contractStateRider(st.code) || {}).notices || []);
+        if (e.link_note) { a.link_note_en = e.link_note.en; a.link_note_pt = e.link_note.pt; }
         actions.push(a);
         // The piece of a line no system can do keeps its own hand tick, once
         // the system has taken the rest.
         if (status && e.also) {
             var alsoTick = done[l.key + "#also"];
             actions.push({ key: l.key + "#also", kind: "person", en: fill(e.also.en, l), pt: fill(e.also.pt, l), ref: a.ref, ref_pt: a.ref_pt, context_en: l.en, context_pt: l.pt, source_url: l.url || null,
-                done: alsoTick && alsoTick.at ? { by: gmDisplayActor(alsoTick.by), at: alsoTick.at } : null });
+                done: alsoTick && alsoTick.at ? { by: gmDisplayActor(alsoTick.by), at: alsoTick.at } : null,
+                links: e.also_links ? contractStateLineLinks(e, l, e.also_links) : contractStateLineLinks({ ref: a.ref }, { url: l.url, ref: l.ref }, null) });
         }
     });
     // The per-contract values a blank needs (asked on the card, in the data file's order).
@@ -28611,6 +28616,31 @@ function contractStateActionCard(st, lines, flags, sys, causes) {
     });
     return { state: st.code, actions: actions, more: more, facts: questions, values: values, total: actions.length, done_count: actions.filter(function(a) { return a.done; }).length,
         second_signer: contractSecondSignerWanted(st.code, flags) ? { signed: contractSecondSigner(flags) ? { name: contractSecondSigner(flags).name || null, at: contractSecondSigner(flags).at } : null } : null };
+}
+// The official page or document behind a line, so the person opens it in one
+// tap: [{ url, en, pt }], each label saying what it opens. From the data file
+// when the line names one; else the agency file the line hands over; else the
+// notice's own official address. links (optional) = the list to use instead.
+function contractStateLineLinks(e, l, links, notices) {
+    var out = [];
+    function push(url, en, pt) { if (/^https:\/\//.test(String(url || "")) && !out.some(function(x) { return x.url === url; })) { out.push({ url: url, en: en, pt: pt }); } }
+    (links || e.links || []).forEach(function(k) { push(k.url, k.en, k.pt); });
+    if (links) { return out; }
+    var slot = l.plan && l.plan.slot;
+    if (!out.length && slot && slot.file) { push(CONTRACT_STATE_DOC_ORIGIN + "/" + slot.file, "Open the official document: " + slot.title, "Abrir o documento oficial: " + slot.title); }
+    if (!out.length && l.url) {
+        var what = e.ref || l.ref || (l.vars && l.vars.title) || "";
+        push(l.url, "Open the official text" + (what ? ": " + what : ""), "Abrir o texto oficial" + (what ? ": " + what : ""));
+    }
+    // A line that names a law section (a check, a rule) and has no address of
+    // its own: the official page of that same section, when a notice of the
+    // state was copied from it.
+    var ref = String(e.ref || l.ref || "");
+    if (!out.length && ref.length >= 6) {
+        var hit = (notices || []).filter(function(n) { return /^https:\/\//.test(String(n.source_url || "")) && String(n.cite || "").indexOf(ref) === 0; })[0];
+        if (hit) { push(hit.source_url, "Open the official text: " + ref, "Abrir o texto oficial: " + ref); }
+    }
+    return out;
 }
 // The card a screen gets. "Waiting: official document not loaded" is for Apex
 // staff only: a contractor cannot load an agency's file, so they are not told.
@@ -29233,7 +29263,7 @@ function contractCompose(ctx, c, today, mode) {
         var parties = ctx.job_parties || { subs: [], suppliers: [] };
         finishFacts = contractStateFacts(flags, { subs: (ctx.job_sub_count > 0 || (parties.suppliers || []).length > 0) ? true : null, arbitration: c.selections.C14 === "C14-B", arb_or_jury: c.selections.C14 === "C14-B" || c.selections.C14 === "C14-C",
             deposit: built.sums.schedule.length >= 2, progress: built.sums.schedule.length >= 3, small_repair: amount > 75000 ? false : null, installments: built.sums.schedule.length > 4 ? true : null });
-        finishPlans = contractStateFinishPlan(st, finishJob, finishFacts, { values: contractStateFillValues(v, ctx.settings, flags), biz: contractStateBiz(ctx.settings), slots: ctx.state_slots || {}, parties: parties });
+        finishPlans = contractStateFinishPlan(st, finishJob, finishFacts, { values: contractStateFillValues(v, ctx.settings, flags), biz: contractStateBiz(ctx.settings), slots: ctx.state_slots || contractStateSlots(null), parties: parties });
         contractStateFinishSections(finishPlans).forEach(function(fp) {
             var where = fp.part.mode === "page" ? "page" : (fp.part.place || "body");
             if (/^after:/.test(where) && !c.selections[where.slice(6)]) { where = "body"; }
@@ -30190,7 +30220,7 @@ function contractStatePublicParts(c, comp, tokenBase) {
     Object.keys(plans).forEach(function(key) {
         var p = plans[key];
         if (p.sys === "official" && p.slot && p.slot.loaded) {
-            docs.push({ slot: p.slot.slot, title: p.slot.title, cite: p.slot.cite, version: p.slot.version, ack: !!p.slot.ack, url: tokenBase + "/state-doc/" + encodeURIComponent(p.slot.slot),
+            docs.push({ slot: p.slot.slot, title: p.slot.title, cite: p.slot.cite, version: p.slot.version, ack: !!p.slot.ack, url: p.slot.file ? CONTRACT_STATE_DOC_ORIGIN + "/" + p.slot.file : tokenBase + "/state-doc/" + encodeURIComponent(p.slot.slot),
                 acknowledged: done.ack[p.slot.slot] ? { signer_name: done.ack[p.slot.slot].name, signed_at: done.ack[p.slot.slot].at } : null });
         }
         if (p.sys === "list" && p.list && p.list.rows.length && p.state !== "off") {
@@ -31610,8 +31640,13 @@ async function contractJobParties(env, clientId, jobId) {
 }
 // The agency documents Apex staff loaded: { slot: { key, version } }, read
 // from the admin settings (keys "state_doc:<slot>" and "state_doc_version:<slot>").
+// An agency PDF that ships with the site (state-docs/, copied unaltered from
+// the official source, fingerprinted in the data file) fills its slot by
+// itself; a file Apex staff upload for the same slot replaces it.
+var CONTRACT_STATE_DOC_ORIGIN = "https://apex.resonateai.online";
 function contractStateSlots(admin) {
     var out = {};
+    contractStateSlotList().forEach(function(s) { if (s.file) { out[s.slot] = { key: null, file: s.file, version: s.version || null }; } });
     Object.keys(admin || {}).forEach(function(k) {
         var m = /^state_doc:([A-Za-z0-9.-]{1,40})$/.exec(k);
         if (m && admin[k]) { out[m[1]] = { key: admin[k], version: admin["state_doc_version:" + m[1]] || null }; }
@@ -31627,7 +31662,8 @@ function contractStateSlotList() {
             var e = lines[key];
             if (!e || e.sys !== "official" || !e.official) { return; }
             var n = (rider.notices || []).filter(function(x) { return x.id === e.official.slot; })[0] || (rider.notices || []).filter(function(x) { return "notice:" + x.id === key; })[0] || {};
-            out.push({ slot: e.official.slot, state: code, state_name: contractStateName(code), title: n.title || e.official.slot, cite: n.cite || null, source_url: n.source_url || null, ack: !!e.official.ack });
+            out.push({ slot: e.official.slot, state: code, state_name: contractStateName(code), title: e.official.title || n.title || e.official.slot, cite: e.official.cite || n.cite || null, source_url: n.source_url || null, ack: !!e.official.ack,
+                file: e.official.file || null, version: e.official.version || null });
         });
     });
     return out;
@@ -31638,7 +31674,11 @@ async function handleGetContractStateDocs(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!contractIsReviewer(user) && !isAdminRole(user)) { return jsonErr("Forbidden", 403); }
         var slots = contractStateSlots(await contractAdminSettings(env));
-        return jsonOk({ slots: contractStateSlotList().map(function(s) { return Object.assign({}, s, { loaded: !!slots[s.slot], version: slots[s.slot] ? slots[s.slot].version : null }); }) });
+        return jsonOk({ slots: contractStateSlotList().map(function(s) {
+            var cur = slots[s.slot] || null;
+            // url: where the file opens from when it ships with the site (no upload yet).
+            return Object.assign({}, s, { loaded: !!cur, version: cur ? cur.version : null, shipped: !!(cur && cur.file && !cur.key), url: cur && cur.file && !cur.key ? CONTRACT_STATE_DOC_ORIGIN + "/" + cur.file : null });
+        }) });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 // POST multipart "file" (PDF, exactly as the agency publishes it) + "version".
@@ -31664,7 +31704,9 @@ async function handlePostContractStateDoc(slot, request, env) {
 }
 async function contractStateDocResponse(env, slot) {
     var sl = contractStateSlots(await contractAdminSettings(env))[slot];
-    if (!sl || !/^contracts\/admin\/statedoc-[a-z0-9]+-\d+\.pdf$/.test(sl.key)) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
+    // A file that ships with the site is served by the site itself, unaltered.
+    if (sl && !sl.key && sl.file) { return Response.redirect(CONTRACT_STATE_DOC_ORIGIN + "/" + sl.file, 302); }
+    if (!sl || !/^contracts\/admin\/statedoc-[a-z0-9]+-\d+\.pdf$/.test(String(sl.key))) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
     var obj = await env.ASSETS.get(sl.key);
     if (!obj) { return new Response(null, { status: 404, headers: CORS_HEADERS }); }
     return new Response(obj.body, { status: 200, headers: Object.assign({}, CORS_HEADERS, { "Content-Type": "application/pdf", "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=300", "Content-Disposition": "inline; filename=\"" + slot + ".pdf\"" }) });

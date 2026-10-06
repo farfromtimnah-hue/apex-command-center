@@ -833,6 +833,214 @@ function gmCardSendRender() {
   body.appendChild(extra);
 }
 
+// ── Facebook and Instagram lead ads (job 38) ─────────────────────────────
+// The owner connects the business's Facebook Page once (Estimates >
+// Settings). From then on every lead from its lead ads lands in the pipeline
+// by itself; the lead keeps the campaign, the ad and every answer on the
+// form. A salesperson never reaches the card (gmEstimatesSections), and the
+// Worker refuses a seller on every route behind it.
+var gmMetaStatus = null;      // last GET gm/meta/status
+var gmMetaLoading = false;
+var gmMetaBusy = false;
+var gmMetaNotice = "";        // "failed" | "nopages" | "" : how the sign-in came back
+var gmMetaFocus = false;      // Settings is opening to show the card
+var gmMetaAwaiting = false;   // the sign-in was opened outside the app
+var gmMetaReturnDone = false;
+var gmMetaDeepLeadDone = false;
+
+// Read once: how the Facebook sign-in came back (?meta=...). The word is
+// taken out of the address so a reload does not repeat the message.
+function gmMetaReturnRead() {
+  if (gmMetaReturnDone) { return; }
+  gmMetaReturnDone = true;
+  var m = /[?&]meta=([a-z]+)/.exec(window.location.search || "");
+  if (!m) { return; }
+  gmEstimatesSection = "settings";
+  gmMetaFocus = true;
+  gmMetaStatus = null;
+  gmMetaNotice = (m[1] === "failed" || m[1] === "nopages") ? m[1] : "";
+  try {
+    var rest = (window.location.search || "").replace(/([?&])meta=[a-z]+(&|$)/, function(all, a, b) { return b ? a : ""; });
+    window.history.replaceState(null, "", window.location.pathname + rest + window.location.hash);
+  } catch (e) {}
+}
+function gmMetaFocusCard() {
+  if (!gmMetaFocus || gmEstimatesSection !== "settings") { return; }
+  var el = document.getElementById("gmMetaCard");
+  if (!el) { return; }
+  gmMetaFocus = false;
+  try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+}
+function gmMetaLoad(force) {
+  if (gmMetaLoading || (gmMetaStatus && !force)) { return; }
+  gmMetaLoading = true;
+  gmApi("meta/status").then(function(d) {
+    gmMetaLoading = false; gmMetaStatus = d || { available: false, connected: false, pages: [] };
+    if (gmMetaStatus.connected) { gmMetaAwaiting = false; }
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmMetaLoading = false; gmMetaStatus = { available: false, connected: false, pages: [] };
+    console.error("facebook status: " + e.message); gmRenderEstimatesTab();
+  });
+}
+function gmMetaPagesHtml(st, ticks) {
+  var h = "";
+  (st.pages || []).forEach(function(p) {
+    var problem = p.problem ? '<p class="gm-warn" style="margin:0 0 6px;">' + escHtml(gmT(
+      "O Facebook n\u00e3o deixou conectar esta P\u00e1gina. Quem entra precisa ter permiss\u00e3o de anunciar nela.",
+      "Facebook did not let this Page connect. The person who signs in needs permission to advertise on it.")) + '</p>' : "";
+    if (ticks) {
+      h += '<label style="display:flex;gap:10px;align-items:center;min-height:44px;"><input type="checkbox" class="gm-meta-page-pick" value="' + escHtml(p.page_id) + '"' +
+        (p.subscribed ? " checked" : "") + ' style="width:22px;height:22px;"> <span>' + escHtml(p.name) + '</span></label>' + problem;
+    } else if (p.subscribed) {
+      h += '<p style="margin:4px 0;"><strong>' + escHtml(p.name) + '</strong></p>';
+    }
+  });
+  return h;
+}
+function gmMetaCardHtml() {
+  if (gmIsSeller()) { return ""; }
+  var st = gmMetaStatus;
+  var h = '<div class="content-card" id="gmMetaCard"><div class="card-title">' +
+    escHtml(gmT("An\u00fancios de leads do Facebook e Instagram", "Facebook and Instagram lead ads")) + '</div>' +
+    '<p class="muted" style="margin-bottom:12px;">' + escHtml(gmT(
+      "Conecte a sua P\u00e1gina do Facebook e cada lead dos seus an\u00fancios cai direto no seu funil.",
+      "Connect your Facebook Page and every lead from your lead ads lands in your pipeline by itself.")) + '</p>';
+  if (!st) {
+    gmMetaLoad(false);
+    return h + '<p class="muted">' + escHtml(gmT("Verificando o Facebook...", "Checking Facebook...")) + '</p></div>';
+  }
+  if (!st.available) {
+    return h + '<p class="muted">' + escHtml(gmT("Ainda n\u00e3o dispon\u00edvel.", "Not available yet.")) + '</p></div>';
+  }
+  var tryAgain = '<button type="button" class="gm-btn-primary" onclick="gmMetaConnect(this)">' + escHtml(gmT("Tentar de novo", "Try again")) + '</button>';
+  if (gmMetaNotice === "failed") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT("O Facebook n\u00e3o foi conectado. Nada mudou.", "Facebook was not connected. Nothing changed.")) + '</p>';
+    if (!st.connected) { return h + tryAgain + '</div>'; }
+  }
+  if (gmMetaNotice === "nopages") {
+    h += '<p class="gm-warn" style="margin:0 0 10px;">' + escHtml(gmT(
+      "O Facebook n\u00e3o liberou nenhuma P\u00e1gina. Nada mudou. Entre de novo e escolha a P\u00e1gina da sua empresa.",
+      "Facebook did not share any Page. Nothing changed. Sign in again and choose your business Page.")) + '</p>';
+    if (!st.connected) { return h + tryAgain + '</div>'; }
+  }
+  if (!st.connected) {
+    return h + '<button type="button" class="gm-btn-primary" onclick="gmMetaConnect(this)">' + escHtml(gmT("Conectar Facebook", "Connect Facebook")) + '</button>' +
+      (gmMetaAwaiting ? ' <button type="button" class="gm-btn-secondary" onclick="gmMetaLoad(true)">' + escHtml(gmT("Atualizar status", "Refresh status")) + '</button>' : "") + '</div>';
+  }
+  if (st.needs_reconnect) {
+    h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("O Facebook precisa ser reconectado", "Facebook needs to be reconnected")) + '</p>' +
+      '<p style="margin:0 0 12px;"><button type="button" class="gm-btn-primary" onclick="gmMetaConnect(this)">' + escHtml(gmT("Reconectar", "Reconnect")) + '</button></p>';
+  }
+  var pages = st.pages || [];
+  var on = st.subscribed_count || 0;
+  var ticks = pages.length > 1 || on === 0;
+  if (on === 0) {
+    h += '<p class="gm-warn" style="margin:0 0 8px;">' + escHtml(gmT("Escolha as P\u00e1ginas que devem enviar os leads.", "Choose the Pages that should send their leads.")) + '</p>';
+  }
+  h += gmMetaPagesHtml(st, ticks);
+  if (ticks && pages.length) {
+    h += '<p style="margin:8px 0 12px;"><button type="button" class="gm-btn-primary" onclick="gmMetaSavePages(this)">' + escHtml(gmT("Salvar P\u00e1ginas", "Save Pages")) + '</button></p>';
+  }
+  h += '<p class="muted" style="margin:8px 0 2px;">' + escHtml(gmT("Conectado em ", "Connected ") + formatDateUTC(st.connected_at) +
+    (st.connected_by ? gmT(" por ", " by ") + st.connected_by : "")) + '</p>' +
+    '<p class="muted" style="margin:0 0 12px;">' + escHtml(st.last_lead_at
+      ? gmT("\u00daltimo lead: ", "Last lead: ") + formatDateTimeUTC(st.last_lead_at)
+      : gmT("Nenhum lead recebido ainda", "No leads received yet")) + '</p>' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmMetaDisconnect()">' + escHtml(gmT("Desconectar", "Disconnect")) + '</button>';
+  return h + '</div>';
+}
+// Asks the Worker for Facebook's sign-in address and goes there in this tab.
+function gmMetaConnect(btn) {
+  if (gmMetaBusy) { return; }
+  gmMetaBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("meta/connect", { method: "POST", body: {} }).then(function(d) {
+    gmMetaBusy = false;
+    if (!d || !d.url || String(d.url).indexOf("https://www.facebook.com/") !== 0) { throw new Error(gmT("O Facebook n\u00e3o respondeu.", "Facebook did not answer.")); }
+    if (gmInApp()) {
+      apexOpenExternal(d.url);
+      gmMetaAwaiting = true; gmMetaNotice = "";
+      gmToast(gmT("Termine no Facebook, volte aqui e toque em Atualizar status.", "Finish on Facebook, come back here and tap Refresh status."));
+      gmRenderEstimatesTab();
+      return;
+    }
+    window.location.href = d.url;
+  }).catch(function(e) { gmMetaBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("facebook connect: " + e.message); });
+}
+function gmMetaSavePages(btn) {
+  if (gmMetaBusy) { return; }
+  var ids = [];
+  var boxes = document.querySelectorAll(".gm-meta-page-pick");
+  for (var i = 0; i < boxes.length; i++) { if (boxes[i].checked) { ids.push(boxes[i].value); } }
+  gmMetaBusy = true;
+  if (btn) { btn.disabled = true; }
+  gmApi("meta/pages", { method: "POST", body: { page_ids: ids } }).then(function(d) {
+    gmMetaBusy = false; gmMetaStatus = d; gmMetaNotice = "";
+    gmToast(gmT("P\u00e1ginas salvas.", "Pages saved."));
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmMetaBusy = false; if (btn) { btn.disabled = false; } gmToast(e.message); console.error("facebook pages: " + e.message); });
+}
+function gmMetaDisconnect() {
+  gmAsk({
+    message: gmT("Desconectar o Facebook?\n\nOs novos leads dos seus an\u00fancios param de chegar. Os leads que voc\u00ea j\u00e1 recebeu continuam no seu funil.",
+                 "Disconnect Facebook?\n\nNew leads from your lead ads stop arriving. The leads you already received stay in your pipeline."),
+    yes: gmT("Sim, desconectar o Facebook", "Yes, disconnect Facebook"), keep: gmT("Manter conectado", "Keep it connected"),
+    onYes: function() { gmMetaDisconnectDo(); }
+  });
+}
+function gmMetaDisconnectDo() {
+  gmApi("meta/disconnect", { method: "POST", body: {} }).then(function(d) {
+    gmMetaStatus = d; gmMetaNotice = ""; gmMetaAwaiting = false;
+    gmRenderEstimatesTab();
+  }).catch(function(e) { gmToast(e.message); console.error("facebook disconnect: " + e.message); });
+}
+
+// A question as Meta names it ("what_service_do_you_need?") made readable.
+var GM_META_Q_PT = { state: "Estado", zip_code: "CEP", post_code: "CEP", country: "Pa\u00eds" };
+function gmMetaQuestion(q) {
+  var raw = String(q || "").trim();
+  var pt = GM_META_Q_PT[raw.toLowerCase()];
+  if (pt && !isEn()) { return pt; }
+  var s = raw.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : raw;
+}
+// On a lead that came from a lead ad: where it came from and every answer on
+// the form. Read-only, and never mixed into the lead's notes.
+function gmMetaLeadHtml(lead) {
+  if (!lead || !lead.meta_leadgen_id) { return ""; }
+  var rows = "";
+  if (lead.meta_platform === "fb" || lead.meta_platform === "ig") {
+    rows += gmSheetRowHtml("compass", gmT("Veio de", "Came from"), escHtml(lead.meta_platform === "ig"
+      ? gmT("An\u00fancio do Instagram", "Instagram ad") : gmT("An\u00fancio do Facebook", "Facebook ad")));
+  }
+  if (lead.meta_campaign_name) { rows += gmSheetRowHtml("tag", gmT("Campanha", "Campaign"), escHtml(lead.meta_campaign_name)); }
+  if (lead.meta_ad_name) { rows += gmSheetRowHtml("tag", gmT("An\u00fancio", "Ad"), escHtml(lead.meta_ad_name)); }
+  if (lead.meta_form_id) { rows += gmSheetRowHtml("tag", gmT("ID do formul\u00e1rio", "Form ID"), escHtml(lead.meta_form_id)); }
+  var answers = [];
+  try { answers = JSON.parse(lead.meta_answers_json || "[]") || []; } catch (e) { answers = []; }
+  if (!Array.isArray(answers)) { answers = []; }
+  answers.forEach(function(a) {
+    if (!a || !a.q || !a.a) { return; }
+    rows += gmSheetRowHtml("check", escHtml(gmMetaQuestion(a.q)), escHtml(String(a.a)));
+  });
+  if (!rows) { return ""; }
+  return gmSheetSection(gmT("Do formul\u00e1rio do Facebook", "From the Facebook form"), rows);
+}
+// A push for a new Facebook lead opens the pipeline with ?lead=<id>: that
+// lead's sheet opens once, and the id is taken out of the address.
+function gmMetaOpenDeepLead() {
+  if (gmMetaDeepLeadDone) { return; }
+  gmMetaDeepLeadDone = true;
+  var m = /[?&]lead=([A-Za-z0-9-]+)/.exec(window.location.search || "");
+  if (!m) { return; }
+  try {
+    var rest = (window.location.search || "").replace(/([?&])lead=[A-Za-z0-9-]+(&|$)/, function(all, a, b) { return b ? a : ""; });
+    window.history.replaceState(null, "", window.location.pathname + rest + window.location.hash);
+  } catch (e) {}
+  gmOpenLeadById(m[1]);
+}
+
 // ── Ask for a Google review (job 37) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 // The owner saves the business's Google review link once (Estimates >
 // Settings). On a project, one tap opens a send sheet (WhatsApp, text
@@ -1294,6 +1502,7 @@ function gmLoadCrm() {
     .then(function(results) {
       gmLeadsData = results[1];
       gmRenderCrm();
+      gmMetaOpenDeepLead();
     })
     .catch(function(e) {
       body.innerHTML = '<div class="content-card"><p class="muted">' +
@@ -2828,6 +3037,10 @@ function gmRenderLeadSheet() {
     // to fill in — never a warning, and never a reason to hide the lead.
     gmSheetRowHtml("map-pin", gmT("Endereço", "Address"), val("address"), edit("address")) +
     gmSheetRowHtml("building", gmT("Cidade", "City"), val("city"), edit("city")));
+
+  // Job 38: a lead from a Facebook or Instagram lead ad shows the ad and the
+  // answers from its form.
+  body += gmMetaLeadHtml(lead);
 
   // ── Everything else, still tap-to-edit ────────────────────────────────
   // The remaining fields keep the flat treatment: they are lower-frequency,
@@ -9189,6 +9402,7 @@ function gmLoadEstimates() {
       .catch(function(e) { console.error("estimates load failed", e); body.innerHTML = '<div class="content-card"><p class="muted">' + escHtml(e.message) + '</p></div>'; });
     return;
   }
+  gmMetaReturnRead();
   Promise.all([gmApi("doc-settings"), gmLoadEstimatesList()])
     .then(function(r) {
       gmDocSettings = r[0].settings || null;
@@ -9231,6 +9445,7 @@ function gmRenderEstimatesTab() {
   var html = gmEstimatesSubnavHtml();
   if (gmEstimatesSection === "settings") {
     html += gmDocSettingsFormHtml();
+    html += gmMetaCardHtml();
     html += gmConSettingsHtml();
     html += gmDSubsSettingsHtml();
   } else {
@@ -9238,6 +9453,7 @@ function gmRenderEstimatesTab() {
   }
   body.innerHTML = html;
   gmReviewFocusSettingsField();
+  gmMetaFocusCard();
 }
 
 // ── Settings form ─────────────────────────────────────────────────────────

@@ -4145,8 +4145,12 @@
         var t = mtGiven[i];
         if (t.completed_by === "voice-undo") { continue; }
         if (t.status === "done") {
-          var day = mtNyDay(t.updated_at) || mtNyDay(t.created_at);
-          if (mtGivenDoneStillShown(t.due_date, day, today)) { done.push({ task: t, day: day }); }
+          // completed_at is when it was marked done. A row closed before
+          // that column existed has none: the day is read as it was before.
+          var day = mtNyDay(t.completed_at) || mtNyDay(t.updated_at) || mtNyDay(t.created_at);
+          if (mtGivenDoneStillShown(t.due_date, day, today)) {
+            done.push({ task: t, day: day, at: t.completed_at || "" });
+          }
         } else {
           open.push(t);
         }
@@ -4162,8 +4166,11 @@
       });
       // Most recently done first.
       done.sort(function(a, b) {
-        if (a.day === b.day) { return 0; }
-        return a.day < b.day ? 1 : -1;
+        if (a.day !== b.day) { return a.day < b.day ? 1 : -1; }
+        var ka = mtSortKey(a.at);
+        var kb = mtSortKey(b.at);
+        if (ka === kb) { return 0; }
+        return ka < kb ? 1 : -1;
       });
       container.innerHTML = "";
       if (!open.length && !done.length) {
@@ -4177,7 +4184,7 @@
         container.appendChild(buildMyTaskRow(open[j], { given: true }));
       }
       for (var k = 0; k < done.length; k++) {
-        container.appendChild(buildMyTaskRow(done[k].task, { given: true, doneDay: done[k].day }));
+        container.appendChild(buildMyTaskRow(done[k].task, { given: true, doneDay: done[k].day, doneAt: done[k].at }));
       }
     }
 
@@ -4213,6 +4220,8 @@
     //   given:   a row of "Given to others": no checkbox, and a tag saying
     //            who has the task.
     //   doneDay: YYYY-MM-DD the task was marked done; the row is crossed off.
+    //   doneAt:  the stored moment it was marked done (tasks.completed_at),
+    //            when known: the tag then carries the time as well.
     function buildMyTaskRow(t, opt) {
       opt = opt || {};
       var row = document.createElement("div");
@@ -4277,7 +4286,9 @@
       if (opt.doneDay) {
         var doneEl = document.createElement("span");
         doneEl.className = "mt-due";
-        var doneWhen = escHtml(formatDate(opt.doneDay));
+        // Date and time in America/New_York when the moment is known; the
+        // date alone for a row closed before completed_at was recorded.
+        var doneWhen = escHtml(opt.doneAt ? formatDateTimeUTC(opt.doneAt) : formatDate(opt.doneDay));
         doneEl.innerHTML = mtBoth("Conclu\u00edda " + doneWhen, "Done " + doneWhen);
         meta.appendChild(doneEl);
       }

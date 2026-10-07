@@ -24,12 +24,14 @@ CREATE TABLE sessions (id TEXT PRIMARY KEY, date TEXT);
 const MIG = readFileSync(new URL("migrations/2026-10-05_tasks_client_optional.sql", root), "utf8");
 // tasks.assigned_to (2026-10-07): who a spoken to-do was handed to.
 const MIG_ASSIGNED = readFileSync(new URL("migrations/2026-10-07_tasks_assigned_to.sql", root), "utf8");
+// tasks.completed_at (2026-10-07): the moment a task was marked done, UTC.
+const MIG_COMPLETED = readFileSync(new URL("migrations/2026-10-07_tasks_completed_at.sql", root), "utf8");
 const USERS = "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT)";
 
 function world(migrated) {
   const d = makeDb([]);
   d.raw.exec(CURRENT);
-  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); }
+  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); }
   // Role alice has two rows (the same person), as it does live.
   d.raw.exec(USERS);
   const u = d.raw.prepare("INSERT INTO users (email, role, display_name) VALUES (?,?,?)");
@@ -583,6 +585,106 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   ok(mtNyDay(new Date("2026-10-07T16:00:00Z")) === "2026-10-07", "a Date is accepted (today)");
   ok(mtNyDay("") === "" && mtNyDay(null) === "" && mtNyDay("nonsense") === "", "an empty or unreadable timestamp gives no day");
   ok(!/\b(confirm|alert|prompt)\s*\(/.test(names.map((n) => cut(rootHtml, n)).join("\n")), "no browser pop-up in the new dashboard code");
+}
+
+// ── 14. completed_at: the moment a task was marked done ─────────────────────
+{
+  const d = world(true);
+  const h = harness(d, { name: "Rafa", claude: { tasks: [T("Alice precisa ligar", "alice"), T("Fix it", "system"), T("Mine"), T("To undo", "alice")] } });
+  const r = await h.speak();
+  const [idA, idS, idM, idU] = r.data.tasks.map((t) => t.id);
+  const row = (id) => d.q("SELECT status, completed_by, completed_at, updated_at FROM tasks WHERE id = ?", id)[0];
+  const patch = (role, id, status) => harness(d, { role }).F.handlePatchTask(id, jsonReq({ status }), h.env);
+  const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+  ok(d.q("SELECT COUNT(*) AS n FROM tasks WHERE completed_at IS NOT NULL")[0].n === 0, "a new task has no completed_at");
+
+  const before = Date.now();
+  const p1 = await patch("alice", idA, "done");
+  const after = Date.now();
+  const a = row(idA);
+  ok(p1.status === 200 && a.status === "done" && ISO.test(a.completed_at || ""), "marking a task done sets completed_at to a UTC time: " + a.completed_at);
+  ok(new Date(a.completed_at).getTime() >= before && new Date(a.completed_at).getTime() <= after, "completed_at is the moment it was marked done (now)");
+  ok(a.completed_at === a.updated_at && a.completed_by === "alice", "completed_at is written in the same statement as the status (same moment as updated_at), with completed_by");
+  ok(d.log.some((s) => /UPDATE tasks SET status = \?, completed_by = \?, completed_at = \?, updated_at = \? WHERE id = \?/.test(s)), "PATCH is one UPDATE that carries status and completed_at together");
+
+  const p2 = await patch("alice", idA, "pending");
+  const a2 = row(idA);
+  ok(p2.status === 200 && a2.status === "pending" && a2.completed_at === null && a2.completed_by === null, "setting a task back to pending clears completed_at (and completed_by)");
+  await patch("developer", idS, "done");
+  ok(ISO.test(row(idS).completed_at || "") && row(idS).completed_by === "developer", "the developer marking a system task done sets completed_at");
+  await patch("rafa", idM, "done");
+  ok(ISO.test(row(idM).completed_at || ""), "his own task marked done sets completed_at too (every task, not only handed-out ones)");
+  ok(row(idU).completed_at === null, "a task nobody touched still has no completed_at");
+
+  // The request a cached page sends is unchanged: { status } and nothing else.
+  const old = await harness(d, { role: "rafa" }).F.handlePatchTask(idM, { url: "https://x.test/", json: async () => ({ status: "pending" }) }, h.env);
+  ok(old.status === 200 && old.data.ok === true && old.data.status === "pending" && row(idM).completed_at === null, "the same { status } body an old page sends still works, and the answer has the same shape");
+
+  const u = await h.F.handlePostTasksVoiceUndo(jsonReq({ ids: [idU] }), h.env);
+  const un = row(idU);
+  ok(u.status === 200 && u.data.undone === 1 && un.status === "done" && un.completed_by === "voice-undo" && ISO.test(un.completed_at || "") && un.completed_at === un.updated_at, "voice undo sets completed_at in the same statement as status 'done'");
+
+  await patch("alice", idA, "done");
+  const all = await h.F.handleGetAllTasks(jsonReq({}), h.env);
+  const by = {}; all.data.tasks.forEach((t) => { by[t.id] = t; });
+  ok(all.data.tasks.every((t) => "completed_at" in t), "GET /api/tasks returns completed_at on every task");
+  ok(by[idA].completed_at === row(idA).completed_at && by[idM].completed_at === null, "GET /api/tasks: the done task carries its completed_at, the open one null");
+  ok(!by[idU], "GET /api/tasks still never returns the undone task");
+
+  // Every statement in the Worker that sets a task done also sets completed_at.
+  const setsDone = [...workerSrc.matchAll(/"UPDATE tasks SET status = [^"]*"/g)].map((m) => m[0]);
+  ok(setsDone.length === 2 && setsDone.every((s) => /completed_at = \?/.test(s)), "the Worker has exactly two statements that set a task's status, and both set completed_at (" + setsDone.length + ")");
+}
+
+// ── 15. The done date and time on screen, and tasks.html ────────────────────
+{
+  const dt = readFileSync(new URL("datetime.js", root), "utf8");
+  const iosDt = readFileSync(new URL("ios/App/App/public/datetime.js", root), "utf8");
+  ok(dt === iosDt, "datetime.js (the formatter both pages call) is the same in root and iOS");
+  const { formatDateTimeUTC: fmt, formatDateUTC: fmtDay } = new Function(dt + "\nreturn { formatDateTimeUTC, formatDateUTC };")();
+  ok(fmt("2026-10-07T16:00:00.000Z") === "10/07/2026 12:00 PM", "noon in New York: " + fmt("2026-10-07T16:00:00.000Z"));
+  ok(fmt("2026-10-07T04:00:00.000Z") === "10/07/2026 12:00 AM", "midnight in New York is 12:00 AM, not 0:00 or 24:00: " + fmt("2026-10-07T04:00:00.000Z"));
+  ok(fmt("2026-10-08T02:15:00.000Z") === "10/07/2026 10:15 PM", "a UTC time on 10/08 that is still 10/07 in New York: " + fmt("2026-10-08T02:15:00.000Z"));
+  ok(fmt("2026-10-07T18:05:00.000Z") === "10/07/2026 2:05 PM", "an afternoon time is 12-hour with PM and a two-digit minute: " + fmt("2026-10-07T18:05:00.000Z"));
+  ok(fmt("2026-12-01T04:30:00.000Z") === "11/30/2026 11:30 PM", "winter time (UTC-5): " + fmt("2026-12-01T04:30:00.000Z"));
+  ok(fmt("2026-10-08 02:15:00") === "10/07/2026 10:15 PM", "a bare database timestamp is read as UTC");
+  ok(fmtDay("2026-10-08T02:15:00.000Z") === "10/07/2026", "the date-only fallback (an old row with no completed_at) is the New York day: " + fmtDay("2026-10-08T02:15:00.000Z"));
+
+  const html = { "dashboard.html": [readFileSync(new URL("dashboard.html", root), "utf8"), readFileSync(new URL("ios/App/App/public/dashboard.html", root), "utf8")],
+                 "tasks.html": [readFileSync(new URL("tasks.html", root), "utf8"), readFileSync(new URL("ios/App/App/public/tasks.html", root), "utf8")] };
+  for (const name of Object.keys(html)) {
+    ok(html[name][0] === html[name][1], name + ": the root and iOS copies are the same file");
+    ok(/<script src="datetime\.js"><\/script>/.test(html[name][0]), name + " loads datetime.js");
+    let n = 0, bad = 0;
+    for (const m of html[name][0].matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) { n++; try { new Function(m[1]); } catch (e) { bad++; console.log("      " + name + " inline script " + n + ": " + e.message); } }
+    ok(n > 0 && bad === 0, name + ": all " + n + " inline scripts parse");
+  }
+  const dash = html["dashboard.html"][0];
+  ok(dash.indexOf("opt.doneAt ? formatDateTimeUTC(opt.doneAt) : formatDate(opt.doneDay)") >= 0, "dashboard: the done tag uses completed_at with the time, and the date alone without it");
+  ok(dash.indexOf("mtNyDay(t.completed_at) || mtNyDay(t.updated_at) || mtNyDay(t.created_at)") >= 0, "dashboard: the 2-day rule reads the completed_at day first");
+
+  // tasks.html: the small functions that decide what a handed-out row shows.
+  const page = html["tasks.html"][0];
+  const cut = (name) => { const i = page.indexOf("\n    function " + name + "("); if (i < 0) { throw new Error("not in tasks.html: " + name); } return page.slice(i + 1, page.indexOf("\n    }\n", i) + 6); };
+  const make = (role) => new Function("sessionStorage", "formatDateTimeUTC", "formatDateUTC",
+    ["isOwnConsultantTask", "isGivenTask", "givenCanCheck", "givenDoneWhen", "givenDoneSortKey"].map(cut).join("\n") +
+    "\nreturn { isOwnConsultantTask, isGivenTask, givenCanCheck, givenDoneWhen, givenDoneSortKey };")({ getItem: () => role }, fmt, fmtDay);
+  const P = make("rafa");
+  const own = { type: "rafa", assignedTo: null }, toAlice = { type: "rafa", assignedTo: "alice" }, toSys = { type: "rafa", assignedTo: "developer" };
+  ok(P.isOwnConsultantTask(own) && !P.isOwnConsultantTask(toAlice) && !P.isOwnConsultantTask(toSys) && !P.isOwnConsultantTask({ type: "client", assignedTo: null }), "tasks.html: a handed-out task is not in the consultant tab or its count");
+  ok(P.isGivenTask(toAlice) && P.isGivenTask(toSys) && !P.isGivenTask(own) && !P.isGivenTask({ type: "rafa", assignedTo: "alice", completedBy: "voice-undo" }), "tasks.html: Given to others takes tasks with assigned_to set, never one undone by voice");
+  ok(!P.givenCanCheck(toAlice) && !P.givenCanCheck(toSys), "tasks.html: role rafa gets no checkbox on a handed-out task");
+  ok(make("alice").givenCanCheck(toAlice) && !make("alice").givenCanCheck(toSys), "tasks.html: role alice gets a checkbox on tasks for Alice only");
+  ok(make("developer").givenCanCheck(toSys) && !make("developer").givenCanCheck(toAlice), "tasks.html: role developer gets a checkbox on system tasks only");
+  ok(!make("client").givenCanCheck(toAlice) && !make(null).givenCanCheck(toAlice), "tasks.html: any other role, or none, gets no checkbox");
+  ok(P.givenDoneWhen({ completedAt: "2026-10-08T02:15:00.000Z", updatedAt: "2026-10-09T10:00:00.000Z" }) === "10/07/2026 10:15 PM", "tasks.html: the done tag is completed_at as date and time in New York");
+  ok(P.givenDoneWhen({ completedAt: null, updatedAt: "2026-10-08T02:15:00.000Z" }) === "10/07/2026", "tasks.html: an old row with no completed_at shows the date alone");
+  ok(P.givenDoneWhen({ completedAt: null, updatedAt: null }) === "", "tasks.html: nothing known, no done tag");
+  const order = [{ k: "old", completedAt: null, updatedAt: "2026-10-01 09:00:00" }, { k: "new", completedAt: "2026-10-07T20:00:00.000Z" }, { k: "mid", completedAt: "2026-10-07T13:00:00.000Z" }]
+    .sort((a, b) => (P.givenDoneSortKey(a) === P.givenDoneSortKey(b) ? 0 : (P.givenDoneSortKey(a) < P.givenDoneSortKey(b) ? 1 : -1))).map((x) => x.k).join(",");
+  ok(order === "new,mid,old", "tasks.html: done handed-out tasks sort newest done first: " + order);
+  for (const id of ["tabBtnGiven", "tabCountGiven"]) { ok(page.split('id="' + id + '"').length === 2, "tasks.html: id=\"" + id + "\" is there once"); }
+  ok(page.indexOf('appendDoneGroup("Passei para outros", "Given to others", givenDone, true);') >= 0, "tasks.html: the Done tab has a Given to others section built with the same header as the other two");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

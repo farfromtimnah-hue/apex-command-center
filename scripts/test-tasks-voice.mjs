@@ -22,11 +22,22 @@ CREATE INDEX idx_tasks_session ON tasks (session_id);
 CREATE TABLE sessions (id TEXT PRIMARY KEY, date TEXT);
 `;
 const MIG = readFileSync(new URL("migrations/2026-10-05_tasks_client_optional.sql", root), "utf8");
+// tasks.assigned_to (2026-10-07): who a spoken to-do was handed to.
+const MIG_ASSIGNED = readFileSync(new URL("migrations/2026-10-07_tasks_assigned_to.sql", root), "utf8");
+const USERS = "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT)";
 
 function world(migrated) {
   const d = makeDb([]);
   d.raw.exec(CURRENT);
-  if (migrated) { d.raw.exec(MIG); }
+  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); }
+  // Role alice has two rows (the same person), as it does live.
+  d.raw.exec(USERS);
+  const u = d.raw.prepare("INSERT INTO users (email, role, display_name) VALUES (?,?,?)");
+  u.run("a-first@x.test", "alice", "");
+  u.run("b-second@x.test", "alice", "Pra. Alice");
+  u.run("rafa@x.test", "rafa", "Rafa");
+  u.run("dev@x.test", "developer", "The Developer");
+  u.run("client@x.test", "client", "A Client");
   const c = d.raw.prepare("INSERT INTO clients (id, name, status, archived) VALUES (?,?,?,?)");
   c.run("c-gator", "GATOR OUTDOOR LIVING", "active", 0);
   c.run("c-jm", "JM Luxury Pools", "active", 0);
@@ -47,7 +58,7 @@ const TRANSCRIPT = "Preciso ligar para o contador amanha, mandar a proposta para
 // was sent to each service.
 function harness(d, opts) {
   const o = Object.assign({ role: "rafa", name: "Tester", claude: { tasks: [] }, claudeStatus: 200, asrFail: null, transcript: TRANSCRIPT, now: FIXED_NOW }, opts || {});
-  const calls = { asr: [], claude: [], logs: [] };
+  const calls = { asr: [], claude: [], logs: [], push: [] };
   const env = {
     DB: d.DB, CLAUDE_API_KEY: "test-key",
     AI: { run: async (model, input) => {
@@ -61,6 +72,13 @@ function harness(d, opts) {
     authenticate: async () => (o.role ? { role: o.role, display_name: o.name } : null),
     actorName: (u) => (u && (u.display_name || u.role)) || null,
     crypto: globalThis.crypto, Response: globalThis.Response, Intl: globalThis.Intl,
+    // Stand-in for the real push sender. It records what it was asked to send
+    // and how many task rows were already saved at that moment.
+    pushToUsers: async (env, emails, payload) => {
+      calls.push.push({ emails, payload, tasksSaved: Number(d.q("SELECT COUNT(*) AS n FROM tasks")[0].n) });
+      if (o.pushFail) { throw new Error("push service down"); }
+      return { sent: emails.length };
+    },
     CLAUDE_API_URL: "https://claude.test/v1/messages",
     CLAUDE_MODEL: /\nvar CLAUDE_MODEL\s*=\s*"([^"]+)"/.exec(workerSrc)[1],
     APEX_TIMEZONE: "America/New_York", VOICE_MAX_AUDIO_BYTES: 8 * 1024 * 1024,
@@ -75,8 +93,9 @@ function harness(d, opts) {
   });
   const F = build(
     ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
-     "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks"],
-    ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL"], stubs);
+     "taskAssigneeAliceName", "taskVoicePushText", "taskVoiceNotify",
+     "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask"],
+    ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX"], stubs);
   const audioReq = (bytes, lang) => ({
     url: "https://x.test/api/tasks/voice",
     formData: async () => ({ get: (k) => (k === "audio" ? { type: "audio/webm", arrayBuffer: async () => new Uint8Array(bytes === undefined ? 2048 : bytes).buffer } : (k === "lang" ? (lang || "pt") : null)) })
@@ -118,7 +137,10 @@ const dumps = (d) => d.q("SELECT * FROM task_voice_dumps ORDER BY created_at, ro
   ok(p.indexOf("Today is Wednesday, 2026-10-07 (America/New_York).") >= 0, "the prompt gives the date and weekday of the fixed moment in America/New_York (Wednesday, 2026-10-07)");
   ok(p.indexOf("- GATOR OUTDOOR LIVING") >= 0 && p.indexOf("- JM Luxury Pools") >= 0, "the prompt lists the active clients");
   ok(p.indexOf("Old Company") < 0 && p.indexOf("Lead Company") < 0, "an archived client and a lead are not in the list");
-  ok(p.indexOf('{"tasks":[{"description": string, "due_date": "YYYY-MM-DD" or null, "client_name": string or null}]}') >= 0, "the prompt asks for the fixed JSON shape");
+  ok(p.indexOf('{"tasks":[{"description": string, "due_date": "YYYY-MM-DD" or null, "client_name": string or null, "for": "self" | "alice" | "system"}]}') >= 0, "the prompt asks for the fixed JSON shape, with \"for\"");
+  ok(p.indexOf('"alice": he says Alice') >= 0 && p.indexOf("pedir para a Alice") >= 0 && p.indexOf('"system": it is something to build, fix or change') >= 0 && p.indexOf("Nicole must do it") >= 0 && p.indexOf('When unsure, use "self". Never guess.') >= 0, "the prompt says when a to-do is for Alice, for the system, or his own");
+  ok(rows.every((t) => t.assigned_to === null) && r.data.tasks.every((t) => t.assigned_to === null && t.assignee_name === null), "a reply with no \"for\" hands nothing out: assigned_to NULL on every row");
+  ok(h.calls.push.length === 0, "no push when nothing was handed out");
   ok(p.indexOf(TRANSCRIPT) >= 0, "the prompt carries the transcript");
   ok(h.calls.logs.every((l) => l.indexOf("contador") < 0), "the transcript is not written to the console");
   ok(!/openai|whisper|gpt-/i.test(workerSrc.slice(workerSrc.indexOf('// "SPEAK MY TASKS"'), workerSrc.indexOf("// Route: GET /api/settings/templates"))), "no OpenAI product is named in the new code");
@@ -346,6 +368,221 @@ function h_today(iso) { return harness(world(true), {}).F.taskVoiceToday(new Dat
     const cr = await h.F.handleGetClientTasks(cid, jsonReq({}, "https://x.test/api/clients/" + cid + "/tasks"), h.env);
     ok(cr.status === 200 && cr.data.tasks.every((t) => t.client_id === cid && t.client_id !== null), "a client's own task list (" + (cid || "empty id") + ") never shows a task with no client");
   }
+}
+
+// ── 11. Handing a to-do to Alice or to the system ───────────────────────────
+const T = (description, who, due) => { const t = { description, due_date: due || null, client_name: null }; if (who !== undefined) { t["for"] = who; } return t; };
+{
+  const d = world(true);
+  const h = harness(d, { name: "Rafa", claude: { tasks: [
+    T("Pedir para a Alice fazer 1 follow up com a contabilidade sobre a Beraca", "alice"),
+    T("No sistema precisa aparecer o telefone do cliente", "system"),
+    T("Ligar para o contador"),
+    T("Odd value in capitals", "ALICE"),
+    T("A name that is not a choice", "nicole"),
+    T("Not text at all", 42),
+    T("Explicitly his own", "self")
+  ] } });
+  const r = await h.speak();
+  const rows = d.q("SELECT * FROM tasks ORDER BY rowid");
+  ok(r.status === 200 && rows.length === 7, "seven to-dos are saved");
+  ok(rows[0].assigned_to === "alice", "\"for\":\"alice\" inserts assigned_to 'alice'");
+  ok(rows[1].assigned_to === "developer", "\"for\":\"system\" inserts assigned_to 'developer'");
+  ok(rows[2].assigned_to === null, "a missing \"for\" inserts assigned_to NULL");
+  ok(rows[3].assigned_to === null && rows[4].assigned_to === null && rows[5].assigned_to === null, "an odd \"for\" (\"ALICE\", \"nicole\", 42) inserts assigned_to NULL");
+  ok(rows[6].assigned_to === null, "\"for\":\"self\" inserts assigned_to NULL");
+  ok(rows.every((t) => t.type === "consultant" && t.source === "voice" && t.status === "pending" && t.created_by === "Rafa"), "a handed-out task is otherwise the same row: consultant, voice, pending, created_by him");
+  ok(rows[0].description === "Pedir para a Alice fazer 1 follow up com a contabilidade sobre a Beraca", "the description keeps his own words");
+  const out = r.data.tasks;
+  ok(out[0].assigned_to === "alice" && out[1].assigned_to === "developer" && out[2].assigned_to === null, "each returned task carries assigned_to");
+  ok(out[0].assignee_name === "Pra. Alice", "assignee_name for Alice is the first non-empty display_name of a role alice user: " + out[0].assignee_name);
+  ok(out[1].assignee_name === null && out[2].assignee_name === null, "assignee_name is null for the system and for his own tasks");
+  ok(JSON.stringify(out).indexOf("The Developer") < 0, "the developer's name is nowhere in the response");
+
+  ok(h.calls.push.length === 2, "one push per role: two calls for one dictation (" + h.calls.push.length + ")");
+  const pa = h.calls.push.find((c) => c.payload.title === "Nova tarefa");
+  const pd = h.calls.push.find((c) => c.payload.title === "New system task");
+  ok(!!pa && pa.emails.slice().sort().join(",") === "a-first@x.test,b-second@x.test", "the Alice push goes to every user with role alice (both rows), and nobody else");
+  ok(!!pa && pa.payload.body === rows[0].description && pa.payload.url === "/dashboard.html" && pa.payload.tag === "apex-assigned-tasks", "one task for Alice: title 'Nova tarefa', body the description, url /dashboard.html, tag apex-assigned-tasks");
+  ok(!!pd && pd.emails.join(",") === "dev@x.test", "the system push goes to every user with role developer, and nobody else");
+  ok(!!pd && pd.payload.body === rows[1].description && pd.payload.url === "/dashboard.html" && pd.payload.tag === "apex-assigned-tasks", "one system task: title 'New system task', body the description");
+  ok(h.calls.push.every((c) => c.tasksSaved === 7), "each push is sent after all seven rows are saved, never before");
+  ok(dumps(d)[0].status === "done" && Number(dumps(d)[0].tasks_created) === 7, "the dump row is closed as done before the push");
+
+  // Undo still works for what was handed out.
+  const u = await h.F.handlePostTasksVoiceUndo(jsonReq({ ids: [out[0].id, out[1].id] }), h.env);
+  const after = d.q("SELECT id, status, completed_by FROM tasks WHERE assigned_to IS NOT NULL");
+  ok(u.status === 200 && u.data.undone === 2 && after.every((t) => t.status === "done" && t.completed_by === "voice-undo"), "undo closes handed-out tasks too (2 undone)");
+}
+// More than one for each: one push per role, with the count.
+{
+  const d = world(true);
+  const long = "Uma tarefa bem comprida para a Alice que passa do tamanho de um aviso ".repeat(3).trim();
+  const h = harness(d, { claude: { tasks: [
+    T("Alice precisa ligar para o banco", "alice"), T(long, "alice"),
+    T("Fix the invoice total", "system"), T("Add a phone field", "system"), T("Change the logo", "system"),
+    T("Mine")
+  ] } });
+  const r = await h.speak();
+  ok(r.status === 200 && h.calls.push.length === 2, "five handed-out tasks are still two pushes, one per role");
+  const pa = h.calls.push.find((c) => /novas tarefas$/.test(c.payload.title));
+  const pd = h.calls.push.find((c) => /new system tasks$/.test(c.payload.title));
+  ok(!!pa && pa.payload.title === "2 novas tarefas", "two for Alice: title '2 novas tarefas'");
+  ok(!!pd && pd.payload.title === "3 new system tasks", "three for the system: title '3 new system tasks'");
+  ok(!!pd && pd.payload.body === "Fix the invoice total · Add a phone field · Change the logo", "the body is the descriptions joined with ' · ': " + (pd && pd.payload.body));
+  const full = "Alice precisa ligar para o banco · " + long;
+  ok(!!pa && full.length > 160 && pa.payload.body.length === 160 && pa.payload.body === full.slice(0, 160), "a long body is cut at 160 characters (" + (pa && pa.payload.body.length) + ")");
+  ok(pa.payload.body.indexOf("Mine") < 0 && pd.payload.body.indexOf("Mine") < 0, "his own task is in neither push");
+}
+// Only Alice: no push to the developer. Only his own: none at all.
+{
+  const h1 = harness(world(true), { claude: { tasks: [T("Pra. Alice precisa mandar o recibo", "alice"), T("Mine")] } });
+  await h1.speak();
+  ok(h1.calls.push.length === 1 && h1.calls.push[0].payload.title === "Nova tarefa", "only Alice was handed something: one push, to Alice");
+  const h2 = harness(world(true), { claude: { tasks: [T("Mine"), T("Also mine", "self")] } });
+  await h2.speak();
+  ok(h2.calls.push.length === 0, "nothing handed out: no push");
+}
+// The insert fails: no push, ever.
+{
+  const d = world(true);
+  d.raw.exec("CREATE TRIGGER t_block2 BEFORE INSERT ON tasks WHEN NEW.description = 'BOOM' BEGIN SELECT RAISE(ABORT, 'blocked'); END");
+  const h = harness(d, { claude: { tasks: [T("Alice precisa ver isso", "alice"), T("BOOM", "system")] } });
+  const r = await h.speak();
+  ok(r.status === 500 && d.q("SELECT COUNT(*) AS n FROM tasks")[0].n === 0 && h.calls.push.length === 0, "when the insert fails nothing is saved and NO push is sent");
+  const hb = harness(world(false), { claude: { tasks: [T("Alice precisa ver isso", "alice")] } });
+  const rb = await hb.speak();
+  ok(rb.status === 500 && hb.calls.push.length === 0, "a table without the column: a plain error, no push");
+}
+// The push throws: the tasks are still saved and returned.
+{
+  const d = world(true);
+  const h = harness(d, { pushFail: true, claude: { tasks: [T("Alice precisa ligar para o banco", "alice"), T("Fix the invoice total", "system")] } });
+  const r = await h.speak();
+  ok(r.status === 200 && r.data.ok === true && r.data.tasks.length === 2, "a push that throws still returns 200 and the tasks");
+  ok(d.q("SELECT COUNT(*) AS n FROM tasks")[0].n === 2 && dumps(d)[0].status === "done", "a push that throws loses no task and leaves the dump row done");
+  ok(h.calls.push.length === 2, "a failed push to Alice does not stop the push to the developer");
+  ok(h.calls.logs.every((l) => l.indexOf("banco") < 0 && l.indexOf("invoice") < 0), "a failed push writes none of his words to the console");
+}
+// Nobody holds the role: pushToUsers is never called with an empty list
+// (an empty list there means every device).
+{
+  const d = world(true);
+  d.raw.exec("DELETE FROM users WHERE role IN ('alice', 'developer')");
+  const h = harness(d, { claude: { tasks: [T("Alice precisa ligar", "alice"), T("Fix it", "system")] } });
+  const r = await h.speak();
+  ok(r.status === 200 && h.calls.push.length === 0, "no user with the role: no push call at all (never the send-to-everyone call)");
+  ok(r.data.tasks[0].assignee_name === "Alice", "no display_name to use: assignee_name falls back to 'Alice'");
+  const d2 = world(true);
+  d2.raw.exec("DROP TABLE users");
+  const h2 = harness(d2, { claude: { tasks: [T("Alice precisa ligar", "alice")] } });
+  const r2 = await h2.speak();
+  ok(r2.status === 200 && r2.data.tasks[0].assignee_name === "Alice" && d2.q("SELECT COUNT(*) AS n FROM tasks")[0].n === 1, "the users table cannot be read: the task is saved anyway, named 'Alice'");
+}
+// The parser on its own.
+{
+  const P = harness(world(true), {}).F.taskVoiceParseTasks;
+  const got = P(JSON.stringify({ tasks: [T("a", "alice"), T("b", "system"), T("c", "self"), T("d"), T("e", "developer"), T("f", " alice "), T("g", null), T("h", ["alice"])] })).tasks.map((t) => t["for"]);
+  ok(got.join(",") === "alice,system,self,self,self,self,self,self", "taskVoiceParseTasks: only exactly \"alice\" or \"system\" pass; anything else is \"self\": " + got.join(","));
+}
+
+// ── 12. The readers: his own lists leave handed-out tasks out ───────────────
+{
+  const d = world(true);
+  const h = harness(d, {});
+  const today = new Date().toISOString().split("T")[0];
+  const ins = d.raw.prepare("INSERT INTO tasks (id, client_id, type, description, due_date, status, source, created_by, assigned_to, completed_by, updated_at, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+  ins.run("own-today", null, "consultant", "His own, today", today, "pending", "voice", "Rafa", null, null, null, "2026-10-01 10:00:00");
+  ins.run("al-today", null, "consultant", "For Alice, today", today, "pending", "voice", "Rafa", "alice", null, null, "2026-10-01 10:01:00");
+  ins.run("sys-today", "c-jm", "consultant", "For the system, today", today, "pending", "voice", "Rafa", "developer", null, null, "2026-10-01 10:02:00");
+  ins.run("own-late", null, "consultant", "His own, late", "2020-01-01", "pending", "voice", "Rafa", null, null, null, "2026-10-01 10:03:00");
+  ins.run("al-late", null, "consultant", "For Alice, late", "2020-01-01", "pending", "voice", "Rafa", "alice", null, null, "2026-10-01 10:04:00");
+  ins.run("sys-late", null, "consultant", "For the system, late", "2020-01-02", "pending", "voice", "Rafa", "developer", null, null, "2026-10-01 10:05:00");
+  ins.run("al-done", null, "consultant", "For Alice, done", "2026-10-06", "done", "voice", "Rafa", "alice", "alice", "2026-10-07T15:00:00.000Z", "2026-10-01 10:06:00");
+  ins.run("al-undone", null, "consultant", "For Alice, undone", null, "done", "voice", "Rafa", "alice", "voice-undo", "2026-10-07T15:00:00.000Z", "2026-10-01 10:07:00");
+  const ids = (r) => r.data.tasks.map((t) => t.id).sort().join(",");
+
+  const td = await h.F.handleGetConsultantTasks(jsonReq({}, "https://x.test/api/tasks/consultant?scope=today"), h.env);
+  ok(td.status === 200 && ids(td) === "own-today", "today's consultant tasks leave out the ones handed to Alice and to the system: " + ids(td));
+  const wk = await h.F.handleGetConsultantTasks(jsonReq({}, "https://x.test/api/tasks/consultant?scope=week"), h.env);
+  ok(wk.status === 200 && wk.data.tasks.every((t) => t.id.indexOf("own-") === 0) && wk.data.tasks.some((t) => t.id === "own-today"), "this week's consultant tasks leave out handed-out tasks: " + ids(wk));
+  const wv = await h.F.handleGetConsultantTasks(jsonReq({}, "https://x.test/api/tasks/consultant?scope=week&source=voice"), h.env);
+  ok(wv.status === 200 && wv.data.tasks.every((t) => t.id.indexOf("own-") === 0), "the source filter still leaves handed-out tasks out");
+  const od = await h.F.handleGetConsultantTasksOverdue(jsonReq({}), h.env);
+  ok(od.status === 200 && ids(od) === "own-late" && od.data.count === 1, "the overdue list and its count leave out handed-out tasks: " + ids(od) + " (count " + od.data.count + ")");
+
+  const all = await h.F.handleGetAllTasks(jsonReq({}), h.env);
+  const by = {}; all.data.tasks.forEach((t) => { by[t.id] = t; });
+  ok(all.status === 200 && all.data.tasks.every((t) => "assigned_to" in t && "assignee_name" in t), "GET /api/tasks returns assigned_to and assignee_name on every task");
+  ok(by["al-today"].assigned_to === "alice" && by["al-today"].assignee_name === "Pra. Alice", "GET /api/tasks: a task for Alice carries her display name");
+  ok(by["sys-today"].assigned_to === "developer" && by["sys-today"].assignee_name === null && by["sys-today"].client_name === "JM Luxury Pools", "GET /api/tasks: a system task carries no name (and still its client)");
+  ok(by["own-today"].assigned_to === null && by["own-today"].assignee_name === null, "GET /api/tasks: his own task has assigned_to null and assignee_name null");
+  ok(!!by["al-done"] && by["al-done"].status === "done" && by["al-done"].completed_by === "alice" && by["al-done"].updated_at === "2026-10-07T15:00:00.000Z", "GET /api/tasks returns a handed-out task that is DONE, with completed_by and updated_at");
+  ok(!by["al-undone"], "GET /api/tasks never returns a task undone by voice");
+  ok(JSON.stringify(all.data).indexOf("The Developer") < 0, "GET /api/tasks never carries the developer's name");
+
+  // Marking done: who may, and what completed_by records.
+  const patch = (role, id, status) => harness(d, { role }).F.handlePatchTask(id, jsonReq({ status: status || "done" }), h.env);
+  const p1 = await patch("alice", "al-today");
+  const a1 = d.q("SELECT status, completed_by, updated_at FROM tasks WHERE id = 'al-today'")[0];
+  ok(p1.status === 200 && a1.status === "done" && a1.completed_by === "alice" && /^\d{4}-\d{2}-\d{2}T/.test(a1.updated_at), "role alice can mark her task done; completed_by is 'alice' and updated_at is set");
+  const p2 = await patch("developer", "sys-today");
+  const a2 = d.q("SELECT status, completed_by FROM tasks WHERE id = 'sys-today'")[0];
+  ok(p2.status === 200 && a2.status === "done" && a2.completed_by === "developer", "role developer can mark a system task done; completed_by is 'developer'");
+  ok((await patch("client", "al-late")).status === 403 && (await patch("seller", "al-late")).status === 403, "a client or a seller cannot mark a task done");
+}
+
+// ── 13. dashboard.html: the rule for a done row, and the two copies ─────────
+{
+  const rootHtml = readFileSync(new URL("dashboard.html", root), "utf8");
+  const iosHtml = readFileSync(new URL("ios/App/App/public/dashboard.html", root), "utf8");
+  const cut = (html, name) => {
+    const i = html.indexOf("\n    function " + name + "(");
+    if (i < 0) { throw new Error("not found in dashboard.html: " + name); }
+    return html.slice(i + 1, html.indexOf("\n    }\n", i) + 6);
+  };
+  const names = ["mtNyDay", "mtGivenDoneStillShown", "renderMyGivenList", "buildMyTaskRow", "placeAssignedTasksCard", "loadAssignedTasks", "renderAssignedTasks", "markAssignedTaskDone"];
+  ok(names.every((n) => cut(rootHtml, n) === cut(iosHtml, n)), "the root and iOS copies of dashboard.html carry the same new functions");
+  for (const id of ["assignedTasksCard", "atTitle", "atStatus", "atList", "mtGivenList", "devBelowSection"]) {
+    ok(rootHtml.split('id="' + id + '"').length === 2 && iosHtml.split('id="' + id + '"').length === 2, "id=\"" + id + "\" is in both copies, once");
+  }
+  for (const [label, html] of [["dashboard.html", rootHtml], ["ios/App/App/public/dashboard.html", iosHtml]]) {
+    let n = 0, bad = 0;
+    for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
+      n++;
+      try { new Function(m[1]); } catch (e) { bad++; console.log("      " + label + " inline script " + n + ": " + e.message); }
+    }
+    ok(n > 0 && bad === 0, label + ": all " + n + " inline scripts parse");
+  }
+  const { mtNyDay, mtGivenDoneStillShown: shown } = new Function(cut(rootHtml, "mtNyDay") + "\n" + cut(rootHtml, "mtGivenDoneStillShown") + "\nreturn { mtNyDay, mtGivenDoneStillShown };")();
+
+  // No due date: the day it was done decides. Done 10/07 -> listed 10/07, 10/08, 10/09; gone 10/10.
+  ok(shown(null, "2026-10-07", "2026-10-07") === true, "done 10/07, no due date: listed the same day");
+  ok(shown(null, "2026-10-07", "2026-10-08") === true && shown(null, "2026-10-07", "2026-10-09") === true, "done 10/07: still listed 10/08 and 10/09 (the two full days after)");
+  ok(shown(null, "2026-10-07", "2026-10-10") === false, "done 10/07: no longer listed on 10/10");
+  // Due date later than the done day: the due date decides.
+  ok(shown("2026-10-12", "2026-10-07", "2026-10-14") === true && shown("2026-10-12", "2026-10-07", "2026-10-15") === false, "done 10/07 but due 10/12: listed through 10/14, gone 10/15 (the LATER of the two)");
+  // Done day later than the due date: the done day decides.
+  ok(shown("2026-10-01", "2026-10-07", "2026-10-09") === true && shown("2026-10-01", "2026-10-07", "2026-10-10") === false, "due 10/01 but done 10/07: listed through 10/09, gone 10/10");
+  ok(shown("2026-10-07", "2026-10-07", "2026-10-09") === true && shown("2026-10-07", "2026-10-07", "2026-10-10") === false, "due and done the same day: listed through the second day after");
+  // Month and year ends, and a leap day.
+  ok(shown(null, "2026-10-30", "2026-11-01") === true && shown(null, "2026-10-30", "2026-11-02") === false, "across a month end: done 10/30, listed through 11/01, gone 11/02");
+  ok(shown(null, "2026-12-31", "2027-01-02") === true && shown(null, "2026-12-31", "2027-01-03") === false, "across a year end: done 12/31, listed through 01/02, gone 01/03");
+  ok(shown(null, "2028-02-28", "2028-03-01") === true && shown(null, "2028-02-28", "2028-03-02") === false, "across a leap day: done 02/28/2028, listed through 03/01, gone 03/02");
+  // Nothing to go on.
+  ok(shown(null, "", "2026-10-07") === false && shown("", null, "2026-10-07") === false && shown(undefined, undefined, "2026-10-07") === false, "no due date and no done day: not listed");
+  ok(shown("10/07/2026", "not a date", "2026-10-07") === false, "dates that are not YYYY-MM-DD are not used");
+  ok(shown("2026-10-12", "", "2026-10-14") === true && shown("2026-10-12", "", "2026-10-15") === false, "no done day known: the due date alone decides");
+  ok(shown(null, "2026-10-07", "") === false, "no today: not listed");
+
+  // The day it was marked done, in America/New_York.
+  ok(mtNyDay("2026-10-08T03:30:00.000Z") === "2026-10-07", "marked done at 2026-10-08T03:30Z is 10/07 in Florida (11:30 PM): " + mtNyDay("2026-10-08T03:30:00.000Z"));
+  ok(mtNyDay("2026-10-08T04:30:00.000Z") === "2026-10-08", "marked done at 2026-10-08T04:30Z is 10/08 in Florida (12:30 AM)");
+  ok(mtNyDay("2026-10-08 03:30:00") === "2026-10-07", "a bare database timestamp is read as UTC");
+  ok(mtNyDay("2026-12-01T04:30:00Z") === "2026-11-30", "winter time: 2026-12-01T04:30Z is still 11/30 in Florida");
+  ok(mtNyDay(new Date("2026-10-07T16:00:00Z")) === "2026-10-07", "a Date is accepted (today)");
+  ok(mtNyDay("") === "" && mtNyDay(null) === "" && mtNyDay("nonsense") === "", "an empty or unreadable timestamp gives no day");
+  ok(!/\b(confirm|alert|prompt)\s*\(/.test(names.map((n) => cut(rootHtml, n)).join("\n")), "no browser pop-up in the new dashboard code");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

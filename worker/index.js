@@ -4865,9 +4865,13 @@ async function handlePatchTask(id, request, env) {
         // task is re-opened — otherwise a swept task toggled back to pending
         // would keep reading as 'system-sweep'.
         var completedBy = body.status === "done" ? (user.role || "user") : null;
+        // completed_at is the moment it was marked done (UTC), written in the
+        // same statement as the status; a task set back to pending has none.
+        var stamp = new Date().toISOString();
+        var completedAt = body.status === "done" ? stamp : null;
         await env.DB.prepare(
-            "UPDATE tasks SET status = ?, completed_by = ?, updated_at = ? WHERE id = ?"
-        ).bind(body.status, completedBy, new Date().toISOString(), id).run();
+            "UPDATE tasks SET status = ?, completed_by = ?, completed_at = ?, updated_at = ? WHERE id = ?"
+        ).bind(body.status, completedBy, completedAt, stamp, id).run();
 
         return jsonOk({ ok: true, status: body.status });
     } catch (e) {
@@ -8768,7 +8772,7 @@ async function handleGetAllTasks(request, env) {
             "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
             "t.description, t.due_date, t.due_date_source, t.status, t.source, " +
             "t.completed_by, t.session_id, s.date as session_date, t.created_at, " +
-            "t.updated_at, t.assigned_to " +
+            "t.updated_at, t.completed_at, t.assigned_to " +
             "FROM tasks t " +
             "LEFT JOIN clients c ON t.client_id = c.id " +
             "LEFT JOIN sessions s ON t.session_id = s.id " +
@@ -9241,10 +9245,10 @@ async function handlePostTasksVoiceUndo(request, env) {
         var now = new Date().toISOString();
         var marks = ids.map(function() { return "?"; }).join(", ");
         var stmt = env.DB.prepare(
-            "UPDATE tasks SET status = 'done', completed_by = ?, updated_at = ? " +
+            "UPDATE tasks SET status = 'done', completed_by = ?, completed_at = ?, updated_at = ? " +
             "WHERE source = 'voice' AND status = 'pending' AND created_by = ? AND id IN (" + marks + ")"
         );
-        var res = await stmt.bind.apply(stmt, [TASK_VOICE_UNDO_MARK, now, who].concat(ids)).run();
+        var res = await stmt.bind.apply(stmt, [TASK_VOICE_UNDO_MARK, now, now, who].concat(ids)).run();
         return jsonOk({ ok: true, undone: (res && res.meta && res.meta.changes) || 0 });
     } catch (e) {
         return jsonErr("Error undoing tasks: " + e.message, 500);

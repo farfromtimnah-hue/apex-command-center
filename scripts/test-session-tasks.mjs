@@ -22,7 +22,7 @@ function world() {
     CREATE TABLE IF NOT EXISTS session_summaries (id TEXT PRIMARY KEY, session_id TEXT UNIQUE, rafa_followups_pt TEXT, client_action_items_pt TEXT);
     CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, type TEXT NOT NULL, description TEXT NOT NULL, due_date TEXT,
       status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, due_date_source TEXT,
-      completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, assigned_to TEXT);
+      completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, assigned_to TEXT, completed_at TEXT);
     CREATE UNIQUE INDEX idx_tasks_session_dedupe ON tasks (session_id, type, description) WHERE session_id IS NOT NULL;`);
   return d;
 }

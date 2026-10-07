@@ -804,6 +804,11 @@
             <span class="show-en">Client</span>
             <span class="role-tab-count" id="tabCountClient">0</span>
           </button>
+          <button class="role-tab-btn" id="tabBtnGiven" onclick="setTabRole('given')">
+            <span class="show-pt">Passei para outros</span>
+            <span class="show-en">Given to others</span>
+            <span class="role-tab-count" id="tabCountGiven">0</span>
+          </button>
           <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
             <span class="show-pt">Concluidas</span>
             <span class="show-en">Done</span>
@@ -878,7 +883,7 @@
     var auth         = null;
     var currentUser  = null;
     var taskView     = "date";         // "date" | "type"
-    var tabRole      = "consultant";   // "consultant" | "client" | "done"
+    var tabRole      = "consultant";   // "consultant" | "client" | "given" | "done"
     var clientFilter = "";             // "" = all clients, otherwise clientName string
     var overdueOnly  = false;          // true when arrived via ?overdue=1 (dashboard tile deep link)
     var allTasks     = [];             // all derived task rows (both tabs)
@@ -959,7 +964,7 @@
       today.setHours(0, 0, 0, 0);
 
       var consultantCount = allTasks.filter(function(t) {
-        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+        return isOwnConsultantTask(t) && !completedMap[t.key];
       }).length;
 
       var clientCount = allTasks.filter(function(t) {
@@ -1082,6 +1087,8 @@
       var btnConsultant = document.getElementById("tabBtnConsultant");
       var btnClient      = document.getElementById("tabBtnClient");
       var btnDone        = document.getElementById("tabBtnDone");
+      var btnGiven       = document.getElementById("tabBtnGiven");
+      if (btnGiven)      { btnGiven.className       = "role-tab-btn"; }
       if (btnConsultant) { btnConsultant.className = "role-tab-btn active"; }
       if (btnClient)      { btnClient.className      = "role-tab-btn"; }
       if (btnDone)        { btnDone.className        = "role-tab-btn"; }
@@ -1273,9 +1280,61 @@
           clientName:  r.client_name || (r.client_id ? "—" : ""),
           clientId:    r.client_id || null,
           sessionDate: r.session_date || null,
-          sessionId:   r.session_id || null
+          sessionId:   r.session_id || null,
+          // Handed to someone else by voice ("alice" or "developer"), or
+          // null for a task that belongs to whoever it always did.
+          assignedTo:   r.assigned_to || null,
+          assigneeName: r.assignee_name || null,
+          completedBy:  r.completed_by || null,
+          // The moment it was marked done (UTC). A row closed before this
+          // was recorded has none; updatedAt is then the nearest thing.
+          completedAt:  r.completed_at || null,
+          updatedAt:    r.updated_at || null
         };
       });
+    }
+
+    // ── Handed-out tasks (tasks.assigned_to) ──────────────────────────────
+    // A task he handed to Alice or to the system is not the consultant's own
+    // work: it has its own tab and its own section in the Done tab.
+
+    function isOwnConsultantTask(task) {
+      return (task.type === "rafa" || task.type === "text") && !task.assignedTo;
+    }
+
+    // A dictation he undid is never listed anywhere.
+    function isGivenTask(task) {
+      return !!task.assignedTo && task.completedBy !== "voice-undo";
+    }
+
+    // Which rows get a checkbox: only the person the task was handed to.
+    // He does not tick other people's work. (The Worker enforces nothing
+    // here; this is only what the page offers.)
+    function givenCanCheck(task) {
+      var role = sessionStorage.getItem("apex_role") || "";
+      return (role === "alice" || role === "developer") && task.assignedTo === role;
+    }
+
+    // "10/07/2026 2:15 PM" in America/New_York for the moment a task was
+    // marked done; the date alone for a row closed before the moment was
+    // recorded; "" when nothing is known.
+    function givenDoneWhen(task) {
+      if (task.completedAt) { return formatDateTimeUTC(task.completedAt); }
+      if (task.updatedAt) { return formatDateUTC(task.updatedAt); }
+      return "";
+    }
+
+    function givenDoneSortKey(task) {
+      return String(task.completedAt || task.updatedAt || "").replace(" ", "T").slice(0, 19);
+    }
+
+    function makeGivenEmpty() {
+      var el = document.createElement("div");
+      el.className = "tasks-empty";
+      el.innerHTML =
+        '<span class="show-pt">Nada passado para outros.</span>' +
+        '<span class="show-en">Nothing given to others.</span>';
+      return el;
     }
 
     function deriveTasks(sessions) {
@@ -1416,6 +1475,8 @@
         "role-tab-btn" + (role === "client" ? " active" : "");
       document.getElementById("tabBtnDone").className =
         "role-tab-btn" + (role === "done" ? " active" : "");
+      var givenBtn = document.getElementById("tabBtnGiven");
+      if (givenBtn) { givenBtn.className = "role-tab-btn" + (role === "given" ? " active" : ""); }
 
       // Hide sort/filter controls on Done tab — not applicable
       var controlsBar   = document.querySelector(".controls-bar");
@@ -1444,7 +1505,9 @@
     function getTabTasks() {
       var base;
       if (tabRole === "consultant") {
-        base = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+        base = allTasks.filter(isOwnConsultantTask);
+      } else if (tabRole === "given") {
+        base = allTasks.filter(isGivenTask);
       } else {
         base = allTasks.filter(function(t) { return t.type === "client"; });
       }
@@ -1460,11 +1523,15 @@
     }
 
     function updateTabCounts() {
-      var consultantTotal = allTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; }).length;
+      var consultantTotal = allTasks.filter(isOwnConsultantTask).length;
       var clientTotal     = allTasks.filter(function(t) { return t.type === "client"; }).length;
 
       var consultantPending = allTasks.filter(function(t) {
-        return (t.type === "rafa" || t.type === "text") && !completedMap[t.key];
+        return isOwnConsultantTask(t) && !completedMap[t.key];
+      }).length;
+      // Given to others: the ones still open.
+      var givenOpen = allTasks.filter(function(t) {
+        return isGivenTask(t) && !completedMap[t.key];
       }).length;
       var clientPending = allTasks.filter(function(t) {
         return t.type === "client" && !completedMap[t.key];
@@ -1475,6 +1542,8 @@
       document.getElementById("tabCountConsultant").textContent = consultantPending + "/" + consultantTotal;
       document.getElementById("tabCountClient").textContent     = clientPending + "/" + clientTotal;
       document.getElementById("tabCountDone").textContent       = doneCount;
+      var givenCountEl = document.getElementById("tabCountGiven");
+      if (givenCountEl) { givenCountEl.textContent = givenOpen; }
     }
 
     function updateDoneChip(tabTasks) {
@@ -1573,6 +1642,13 @@
 
       overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
 
+      // Given to others lists the open ones only; the done ones are history
+      // and live in the Done tab.
+      if (tabRole === "given" && overdueTasks.length === 0 && remainingTasks.length === 0) {
+        container.appendChild(makeGivenEmpty());
+        return;
+      }
+
       if (overdueTasks.length > 0) {
         container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
         for (var oi = 0; oi < overdueTasks.length; oi++) {
@@ -1599,7 +1675,8 @@
         container.appendChild(makeTaskRow(sorted[j], showTypeTag));
       }
 
-      container.appendChild(makeFooterNote());
+      // The footer note is about session tasks; a handed-out task is spoken.
+      if (tabRole !== "given") { container.appendChild(makeFooterNote()); }
     }
 
     // ── Render: by type ────────────────────────────────────────────────────
@@ -1620,6 +1697,11 @@
 
       var overdueTasks    = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
       var nonOverdueTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
+
+      if (tabRole === "given" && overdueTasks.length === 0 && nonOverdueTasks.length === 0) {
+        container.appendChild(makeGivenEmpty());
+        return;
+      }
 
       if (overdueTasks.length > 0) {
         overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
@@ -1656,11 +1738,13 @@
         var textTasks = nonOverdueTasks.filter(function(t) { return t.type === "text"; });
         appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
         appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
+      } else if (tabRole === "given") {
+        appendGroup("Passei para outros", "Given to others", nonOverdueTasks);
       } else {
         appendGroup("Ações do Cliente", "Client Action Items", nonOverdueTasks);
       }
 
-      container.appendChild(makeFooterNote());
+      if (tabRole !== "given") { container.appendChild(makeFooterNote()); }
     }
 
     // ── Render: Done tab ──────────────────────────────────────────────────
@@ -1676,8 +1760,17 @@
         return;
       }
 
-      var consultantDone = doneTasks.filter(function(t) { return t.type === "rafa" || t.type === "text"; });
+      var consultantDone = doneTasks.filter(isOwnConsultantTask);
       var clientDone     = doneTasks.filter(function(t) { return t.type === "client"; });
+      // Every done handed-out task, with no time limit: this is the history.
+      // Newest done first.
+      var givenDone      = doneTasks.filter(isGivenTask);
+      givenDone.sort(function(a, b) {
+        var ka = givenDoneSortKey(a);
+        var kb = givenDoneSortKey(b);
+        if (ka === kb) { return 0; }
+        return ka < kb ? 1 : -1;
+      });
 
       function sortDoneGroup(arr) {
         arr.sort(function(a, b) {
@@ -1689,7 +1782,8 @@
         return arr;
       }
 
-      function appendDoneGroup(labelPt, labelEn, tasks) {
+      // keepOrder: the list is already in the order it must show in.
+      function appendDoneGroup(labelPt, labelEn, tasks, keepOrder) {
         if (tasks.length === 0) { return; }
         var heading = document.createElement("div");
         heading.className = "done-section-header";
@@ -1697,7 +1791,7 @@
           '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
           '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
         container.appendChild(heading);
-        var sorted = sortDoneGroup(tasks);
+        var sorted = keepOrder ? tasks : sortDoneGroup(tasks);
         for (var i = 0; i < sorted.length; i++) {
           container.appendChild(makeTaskRow(sorted[i], false, true));
         }
@@ -1705,6 +1799,7 @@
 
       appendDoneGroup("Consultor", "Consultant", consultantDone);
       appendDoneGroup("Cliente",   "Client",     clientDone);
+      appendDoneGroup("Passei para outros", "Given to others", givenDone, true);
 
       container.appendChild(makeFooterNote());
     }
@@ -1718,6 +1813,12 @@
     function toggleComplete(taskKey, sessionId) {
       var newVal = !completedMap[taskKey];
       completedMap[taskKey] = newVal;
+      // The moment it was marked done, for the tag on a handed-out task; the
+      // Worker records its own. Put back as it was if the write fails.
+      var toggled = null;
+      for (var ti = 0; ti < allTasks.length; ti++) { if (allTasks[ti].key === taskKey) { toggled = allTasks[ti]; } }
+      var hadCompletedAt = toggled ? toggled.completedAt : null;
+      if (toggled) { toggled.completedAt = newVal ? new Date().toISOString() : null; }
 
       // Optimistic: repaint now, reconcile if the write fails.
       updateTabCounts();
@@ -1738,6 +1839,7 @@
         // while D1 still says pending is the exact divergence this unification
         // was meant to remove.
         completedMap[taskKey] = !newVal;
+        if (toggled) { toggled.completedAt = hadCompletedAt; }
         updateTabCounts();
         updateTasksHeroTiles();
         updateDoneChip(getTabTasks());
@@ -1754,6 +1856,15 @@
       var row = document.createElement("div");
       row.className = "task-row" + (showDone ? " done" : "");
 
+      if (task.assignedTo && !givenCanCheck(task)) {
+        // A task handed to someone else: no checkbox for anyone but that
+        // person. An empty space of the same size keeps the words in line.
+        var gap = document.createElement("span");
+        gap.className = "task-check";
+        gap.style.visibility = "hidden";
+        gap.setAttribute("aria-hidden", "true");
+        row.appendChild(gap);
+      } else {
       // Checkbox toggle button
       var check = document.createElement("button");
       check.className = "task-check" + (showDone ? " checked" : "");
@@ -1764,6 +1875,7 @@
         check.onclick = function() { toggleComplete(tKey, sId); };
       })(task.key, task.sessionId);
       row.appendChild(check);
+      }
 
       var body = document.createElement("div");
       body.className = "task-body";
@@ -1824,8 +1936,31 @@
         meta.appendChild(dueEl);
       }
 
+      // A handed-out task: who has it, and when it was done.
+      if (task.assignedTo) {
+        var whoEl = document.createElement("span");
+        whoEl.className = "task-type-tag";
+        // The system is never a person's name.
+        if (task.assignedTo === "developer") {
+          whoEl.innerHTML = '<span class="show-pt">Sistema</span><span class="show-en">System</span>';
+        } else {
+          whoEl.textContent = task.assigneeName || "Alice";
+        }
+        meta.appendChild(whoEl);
+
+        var doneWhen = isDone ? givenDoneWhen(task) : "";
+        if (doneWhen) {
+          var doneEl = document.createElement("span");
+          doneEl.className = "task-due";
+          doneEl.innerHTML =
+            '<span class="show-pt">Conclu&iacute;da ' + escHtml(doneWhen) + '</span>' +
+            '<span class="show-en">Done ' + escHtml(doneWhen) + '</span>';
+          meta.appendChild(doneEl);
+        }
+      }
+
       // Type tag (only shown in consultant tab, by-date view)
-      if (showTypeTag && task.type !== "client") {
+      if (showTypeTag && task.type !== "client" && !task.assignedTo) {
         var tagEl = document.createElement("span");
         if (task.type === "rafa") {
           tagEl.className = "task-type-tag rafa";

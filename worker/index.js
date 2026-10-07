@@ -24132,6 +24132,9 @@ async function gmDocSettingsRow(env, clientId) {
         phone:                 r.phone || null,
         email:                 r.email || null,
         license_numbers:       gmDocParseLicenses(r.license_numbers || "[]"),
+        // Job 40: the owner's statement that no state license is required.
+        // False when the column is not there yet (SELECT * simply lacks it).
+        license_not_required:  Number(r.license_not_required) === 1,
         min_margin_pct:        oneMargin,
         estimate_valid_days:   (r.estimate_valid_days === null || r.estimate_valid_days === undefined) ? 30 : r.estimate_valid_days,
         default_terms_days:    (r.default_terms_days === null || r.default_terms_days === undefined) ? 0 : r.default_terms_days,
@@ -24147,6 +24150,49 @@ async function gmDocSettingsRow(env, clientId) {
         updated_at:            r.updated_at || null,
         updated_by:            r.updated_by || null
     };
+}
+
+// ── License not required (job 40) ────────────────────────────────────────────
+// A business whose work needs no state contractor license has no number to
+// give. The OWNER states it with one tick box in the document settings; Apex
+// records who stated it and when (gm_doc_settings.license_not_required, _by,
+// _at) and never decides or tells anyone that a business is exempt. Wherever
+// a license number used to be required, a number OR this statement is enough.
+// A business with numbers prints them exactly as before, ticked or not; with
+// no numbers a document simply has no license line.
+//
+// The three columns arrive in migrations/license_not_required.sql. Every read
+// here is defensive, so this Worker is safe to deploy before OR after that
+// migration: with no column the box reads as unticked and cannot be saved.
+var GM_LICENSE_NEEDED_PT = "Informe ao menos um n\u00famero de licen\u00e7a, ou marque a caixa se o seu trabalho n\u00e3o exige licen\u00e7a estadual.";
+var GM_LICENSE_NEEDED_EN = "Enter at least one license number, or tick the box if your work does not require a state license.";
+
+// True when the settings carry a license number or the owner's statement.
+function gmLicenseSatisfied(settings) {
+    if (!settings) { return false; }
+    return (settings.license_numbers || []).length > 0 || settings.license_not_required === true;
+}
+
+// Does gm_doc_settings have the columns yet? False until the migration runs.
+async function gmLicenseNotRequiredColumnReady(env) {
+    try {
+        await env.DB.prepare("SELECT license_not_required, license_not_required_by, license_not_required_at FROM gm_doc_settings LIMIT 1").first();
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Who ticked the box and when: { by, at }, both null when it is not ticked or
+// the columns are not there yet. Owner screens only.
+async function gmLicenseNotRequiredRead(env, clientId) {
+    try {
+        var row = await env.DB.prepare("SELECT license_not_required, license_not_required_by, license_not_required_at FROM gm_doc_settings WHERE client_id = ?").bind(clientId).first();
+        if (!row || Number(row.license_not_required) !== 1) { return { by: null, at: null }; }
+        return { by: row.license_not_required_by || null, at: row.license_not_required_at || null };
+    } catch (e) {
+        return { by: null, at: null };
+    }
 }
 
 // Sellers are refused HERE as well as by the allowlist: this data carries the
@@ -24185,6 +24231,10 @@ async function handleGetGmDocSettings(id, request, env) {
         // Job 37: owner-only, so it is added here and not in gmDocSettingsRow
         // (which the public document routes and the seller slice also read).
         settings.google_review_link = await gmReviewLinkRead(env, id);
+        // Job 40: who stated that no license is required, and when.
+        var lnrGet = await gmLicenseNotRequiredRead(env, id);
+        settings.license_not_required_by = lnrGet.by;
+        settings.license_not_required_at = lnrGet.at;
         settings.has_logo = !!(client && client.logo_url);
         settings.has_hero = !!settings.hero_r2_key;
         // What the customer documents show right now (gallery pick or upload).
@@ -24302,17 +24352,43 @@ async function handlePutGmDocSettings(id, request, env) {
             }
         }
 
-        // Setup is complete only once at least one license number is on file:
-        // Florida §489.119 requires it on every bid and contract, so a document
-        // without one must never be producible.
+        // Job 40: the owner's tick "my work does not require a state contractor
+        // license". Until the migration has added the columns a tick cannot
+        // be stored: say so plainly instead of failing the whole save. A save
+        // that does not change the box never needs the columns.
+        var lnrBefore = Number(cur.license_not_required) === 1 ? 1 : 0;
+        var lnrAfter = lnrBefore;
+        if (has("license_not_required")) {
+            var lnrWant = (body.license_not_required === true || body.license_not_required === 1 || body.license_not_required === "1") ? 1 : 0;
+            if (lnrWant !== lnrBefore) {
+                if (!(await gmLicenseNotRequiredColumnReady(env))) {
+                    return jsonErr2("A caixa de licen\u00e7a n\u00e3o exigida ainda n\u00e3o pode ser salva. Nada foi salvo. Tente de novo mais tarde.", "The license not required box cannot be saved yet. Nothing was saved. Try again later.", 503);
+                }
+                lnrAfter = lnrWant;
+            }
+        }
+
+        // Setup is complete once at least one license number is on file OR
+        // the owner has stated that the work requires no state license (job
+        // 40). A save that touches either one and leaves neither is refused,
+        // whatever the page did.
         var licensesAfter = gmDocParseLicenses(f.license_numbers !== undefined ? f.license_numbers : (cur.license_numbers || "[]"));
-        var completing = !cur.setup_completed_at && licensesAfter.length > 0;
-        if (!cur.setup_completed_at && !licensesAfter.length && has("license_numbers")) {
-            return jsonErr("At least one license number is required. Florida law (§489.119) requires your license number on every bid and contract.", 400);
+        var licenseOk = licensesAfter.length > 0 || lnrAfter === 1;
+        var completing = !cur.setup_completed_at && licenseOk;
+        if (!licenseOk && (has("license_numbers") || has("license_not_required"))) {
+            return jsonErr2(GM_LICENSE_NEEDED_PT, GM_LICENSE_NEEDED_EN, 400);
         }
 
         var actor = actorName(user);
         var changes = [];
+        // Job 40: who and when are stamped on the tick and cleared with it;
+        // both directions are one line in the settings history.
+        if (lnrAfter !== lnrBefore) {
+            f.license_not_required = lnrAfter;
+            f.license_not_required_by = lnrAfter ? actor : null;
+            f.license_not_required_at = lnrAfter ? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+            changes.push({ field: "license_not_required", old_value: String(lnrBefore), new_value: String(lnrAfter) });
+        }
         GM_DOC_SETTINGS_FIELDS.forEach(function(k) {
             if (f[k] === undefined) { return; }
             var before = cur[k] === undefined || cur[k] === null ? null : String(cur[k]);
@@ -24378,6 +24454,9 @@ async function handlePutGmDocSettings(id, request, env) {
         }
         var settings = await gmDocSettingsRow(env, id);
         settings.google_review_link = await gmReviewLinkRead(env, id);
+        var lnrPut = await gmLicenseNotRequiredRead(env, id);
+        settings.license_not_required_by = lnrPut.by;
+        settings.license_not_required_at = lnrPut.at;
         return jsonOk({ saved: true, changed: changes.length, setup_completed: completing, settings: settings });
     } catch (e) {
         return jsonErr("Error saving document settings: " + e.message, 500);
@@ -25576,7 +25655,8 @@ async function handlePostGmEstimate(id, request, env) {
         var guard = await gmEstSellerGuard(env, user, id, leadId);
         if (guard) { return guard; }
         var settings = await gmDocSettingsRow(env, id);
-        if (!settings.setup_completed_at || !settings.license_numbers.length) {
+        // Job 40: a license number, or the owner's statement that none is required.
+        if (!settings.setup_completed_at || !gmLicenseSatisfied(settings)) {
             return jsonErr("Complete the document settings (license number) before creating an estimate", 400);
         }
         settings._trust_body_costs = !sessionSellerName(user);
@@ -28094,7 +28174,10 @@ function contractStateChecklist(st, job) {
         add("license_word", "In " + name + " say \"registered\", never \"licensed\".", "Em " + name + " diga \"registered\" (registrado), nunca \"licensed\" (licenciado).");
     }
     if (job.license_number) { add("license_number", "Number on file: " + job.license_number + ".", "N\u00famero cadastrado: " + job.license_number + "."); }
-    else {
+    // Job 40: the owner stated that no state license is required. There is no
+    // number to add and the contract prints no license line, so the "add your
+    // number" line is not shown.
+    else if (!job.license_not_required) {
         add("license_number", "No license or registration number is on file. The contract prints \"not provided\". Add the number in the document settings.",
             "Nenhum n\u00famero de licen\u00e7a ou registro cadastrado. O contrato imprime \"not provided\". Cadastre o n\u00famero nas configura\u00e7\u00f5es dos documentos.", true, { variant: "missing" });
     }
@@ -29438,10 +29521,15 @@ function contractCompose(ctx, c, today, mode) {
     var soldInHome = flags.sold_in_home !== false;
     var isPool = !!flags.is_pool && ctx.settings.builds_pools;
     var firstPct = built.sums.schedule.length ? (Number(built.sums.schedule[0].pct) || 0) : 0;
+    // Job 40: no number on file and the owner stated that the work requires
+    // no state contractor license. The contract then has no license line at
+    // all (never "not provided", never a claim of exemption) and no license
+    // blocker. With a number on file nothing here changes.
+    var licStated = !v.license_number && !!(ctx.doc && ctx.doc.license_not_required === true);
     var rules = {
         L1: { on: amount > 250000 && res14 === true, why: amount > 250000 ? (res14 === null ? "property type not answered" : (res14 ? "over $2,500, residential 1-4 family" : "not a 1-4 family residence")) : "contract $2,500 or less" },
         L2: { on: amount > 250000 && residential === true, why: amount > 250000 ? (residential === null ? "property type not answered" : (residential ? "over $2,500, residential" : "not residential")) : "contract $2,500 or less" },
-        L3: { on: true, why: "every contract" }, L4: { on: true, why: "every contract" },
+        L3: { on: true, why: "every contract" }, L4: licStated ? { on: false, why: "no license number on file: the owner stated that the work requires no state contractor license" } : { on: true, why: "every contract" },
         L5: { on: soldInHome, why: soldInHome ? "sold during a visit to the customer's home" : "not sold at the home" },
         L6: { on: isPool, why: isPool ? "pool contract" : (ctx.settings.builds_pools ? "pool box unchecked" : "business does not build pools") },
         L7: { on: firstPct > 10 && residential !== false, why: firstPct > 10 ? "first payment over 10%" : "first payment 10% or less" }
@@ -29500,10 +29588,10 @@ function contractCompose(ctx, c, today, mode) {
         // contract apart from the other provisions, comes before everything.
         addFinish("first_page"); addFinish("face");
         // Never a blocker outside Florida: a missing number prints as "not provided".
-        add("locked", "L4", CONTRACT_STATE_LICENSE_TITLE, v.license_number ? CONTRACT_STATE_LICENSE_LINE + (v.qualifier_name ? CONTRACT_STATE_LICENSE_QUALIFIER : "") : CONTRACT_STATE_LICENSE_MISSING);
+        if (!licStated) { add("locked", "L4", CONTRACT_STATE_LICENSE_TITLE, v.license_number ? CONTRACT_STATE_LICENSE_LINE + (v.qualifier_name ? CONTRACT_STATE_LICENSE_QUALIFIER : "") : CONTRACT_STATE_LICENSE_MISSING); }
     } else {
-    if (!v.license_number) { blockers.push({ code: "license", pt: "Falta o número da licença da Flórida (configurações dos documentos).", en: "A Florida license number is required (document settings)." }); }
-    if (locked.L4) { add("locked", "L4", locked.L4.title, locked.L4.text); }
+    if (!v.license_number && !licStated) { blockers.push({ code: "license", pt: "Falta o número da licença da Flórida (configurações dos documentos).", en: "A Florida license number is required (document settings)." }); }
+    if (locked.L4 && !licStated) { add("locked", "L4", locked.L4.title, locked.L4.text); }
     }
     CONTRACT_AREA_ORDER.forEach(function(areaId) {
         var optId = c.selections[areaId];
@@ -29547,7 +29635,7 @@ function contractCompose(ctx, c, today, mode) {
     }
     // A state notice prints ONLY when the data file holds its exact official
     // wording (text). Until then it is a line on the owner's checklist.
-    var job = { amount_cents: amount, sold_in_home: soldInHome, is_pool: !!flags.is_pool, residential: residential, selections: c.selections || {}, license_number: v.license_number || "",
+    var job = { amount_cents: amount, sold_in_home: soldInHome, is_pool: !!flags.is_pool, residential: residential, selections: c.selections || {}, license_number: v.license_number || "", license_not_required: licStated,
                 has_deposit: built.sums.schedule.length >= 2, first_payment_cents: built.sums.schedule.length ? (built.sums.schedule[0].amount_cents || 0) : 0 };
     // The one-question facts, and what this contract and the project already
     // record (never asked): the dispute clause chosen, a subcontractor assigned.
@@ -30640,7 +30728,7 @@ async function handleGetContractSettings(id, request, env) {
             exclusion_checklists: lib ? lib.exclusion_checklists : [],
             library: lib ? { version: lib.version.version, status: lib.version.status, attorney_name: lib.version.attorney_name } : null,
             admin_ready: { recovery_fund: !!admin.recovery_fund_contact_block, pool_docs: !!(admin.ch515_doc_r2_key && admin.drowning_pub_r2_key) },
-            doc_ready: { license: (doc.license_numbers || []).length > 0, legal_name: !!doc.legal_name, payment_methods: Object.keys(doc.payment_methods || {}).length > 0 }
+            doc_ready: { license: gmLicenseSatisfied(doc), legal_name: !!doc.legal_name, payment_methods: Object.keys(doc.payment_methods || {}).length > 0 }
         });
     } catch (e) {
         return jsonErr("Error loading contract settings: " + e.message, 500);
@@ -30732,7 +30820,7 @@ async function handlePostGmJobContract(id, jobId, request, env) {
         var cleaning = kind === "cleaning";
         if (cleaning && CONTRACT_CLEANING_TEMPLATES.indexOf(body.cleaning_template) === -1) { return jsonErr2("Escolha o modelo do contrato de limpeza.", "Choose the cleaning agreement template.", 400, { code: "template_required", cleaning_templates: contractCleaningTemplateList() }); }
         // The license blocker is the construction library's; it does not apply to cleaning.
-        if (!cleaning && jobState === "FL" && !doc.license_numbers.length) { return jsonErr2("Falta o n\u00famero da licen\u00e7a da Fl\u00f3rida nas configura\u00e7\u00f5es dos documentos.", "A Florida license number is required in the document settings", 400); }
+        if (!cleaning && jobState === "FL" && !gmLicenseSatisfied(doc)) { return jsonErr2("Falta o n\u00famero da licen\u00e7a da Fl\u00f3rida nas configura\u00e7\u00f5es dos documentos.", "A Florida license number is required in the document settings", 400); }
         var ests = (await env.DB.prepare("SELECT id FROM gm_estimates WHERE client_id = ? AND lead_id = ? AND status = 'accepted' ORDER BY accepted_at").bind(id, job.lead_id).all()).results || [];
         if (!ests.length) { return jsonErr2("Este projeto n\u00e3o veio de um lead com estimate aceito; o contrato \u00e9 montado a partir do estimate.", "No accepted estimate on this project", 400, { code: "no_estimate" }); }
         // Several accepted estimates: the owner picks which ones this contract

@@ -16,8 +16,10 @@ const migration = readFileSync(new URL("migrations/google_review_link.sql", root
 const FNS = ["gmReviewLinkParse", "gmReviewMessage", "gmReviewLinkColumnReady", "gmReviewLinkRead", "gmReviewLast", "gmReviewJobFor", "gmReviewPayload",
   "handleGetGmJobReviewRequest", "handlePostGmJobReviewRequest", "gmOwnedRow", "gmInvSellerGuardJob", "gmSellerLeadGuard", "sellerCanActOnLead", "sessionSellerName",
   "gmStr", "gmNum", "gmRunUpdate", "gmDocHexColor", "gmDocParseLicenses", "gmDocParsePaymentMethods", "gmDocParseLateFeePct", "gmDocParseSchedulePresets", "gmDocScheduleStepsError",
-  "gmDocSettingsOwnerOnly", "handlePutGmDocSettings", "clientRequestAllowed", "sellerRequestAllowed"];
-const VARS = ["GM_REVIEW_LINK_HOSTS", "GM_REVIEW_LINK_BAD_PT", "GM_REVIEW_LINK_BAD_EN", "GM_SEND_CHANNELS", "GM_DOC_SETTINGS_FIELDS", "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE"];
+  "gmDocSettingsOwnerOnly", "handlePutGmDocSettings", "clientRequestAllowed", "sellerRequestAllowed",
+  // Job 40: the settings save also reads the license-not-required columns.
+  "gmLicenseNotRequiredColumnReady", "gmLicenseNotRequiredRead"];
+const VARS = ["GM_REVIEW_LINK_HOSTS", "GM_REVIEW_LINK_BAD_PT", "GM_REVIEW_LINK_BAD_EN", "GM_SEND_CHANNELS", "GM_DOC_SETTINGS_FIELDS", "GM_DOC_PAYMENT_METHODS", "GM_DOC_LATE_FEE_MAX_PCT", "GM_DOC_LATE_FEE_CAP_MESSAGE", "GM_LICENSE_NEEDED_PT", "GM_LICENSE_NEEDED_EN"];
 
 const OWNER = { role: "client", client_id: "c1", login_role: "client", display_name: "ZETA POOLS", username: "zeta" };
 const MARIA = { role: "client", client_id: "c1", login_role: "seller", seller_name: "Maria Silva", display_name: "Maria Silva", username: "maria" };

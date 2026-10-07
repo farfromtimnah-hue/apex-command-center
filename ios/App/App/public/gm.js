@@ -9406,6 +9406,14 @@ var gmDocSaveMsg = null;       // last inline save/validation message
 // Fixed statutory texts. Shown verbatim; not editable.
 var GM_DOC_LICENSE_HELP_PT = "A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.";
 var GM_DOC_LICENSE_HELP_EN = "Florida law (§489.119) requires your license number on every bid and contract.";
+// Job 40: the owner states that the work needs no state contractor license.
+// Apex records who stated it and when; it never decides it for the owner.
+var GM_DOC_LNR_LABEL_PT = "O meu trabalho n\u00e3o exige licen\u00e7a estadual de contractor.";
+var GM_DOC_LNR_LABEL_EN = "My work does not require a state contractor license.";
+var GM_DOC_LNR_HELP_PT = "Marque s\u00f3 se nenhum servi\u00e7o que voc\u00ea or\u00e7a exige licen\u00e7a estadual. Mudan\u00e7as estruturais, el\u00e9trica, encanamento, ar-condicionado, telhado e piscinas exigem. Se n\u00e3o tiver certeza, pergunte \u00e0 ag\u00eancia de licenciamento de contractors do seu estado antes de marcar.";
+var GM_DOC_LNR_HELP_EN = "Tick this only if none of the work you quote needs a state license. Structural changes, electrical, plumbing, air conditioning, roofing and pools do. If you are not sure, ask your state's contractor licensing agency before you tick it.";
+var GM_DOC_LNR_NEEDED_PT = "Informe ao menos um n\u00famero de licen\u00e7a, ou marque a caixa se o seu trabalho n\u00e3o exige licen\u00e7a estadual.";
+var GM_DOC_LNR_NEEDED_EN = "Enter at least one license number, or tick the box if your work does not require a state license.";
 var GM_DOC_LATE_FEE_CAP_PT = "A lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).";
 var GM_DOC_LATE_FEE_CAP_EN = "Florida law (§687.03) caps interest at 18% per year (1.5% per month).";
 var GM_DOC_TAX_NOTICE_PT = "O imposto sobre vendas (sales tax) não aparece nos seus estimates nem nas suas faturas. Pela Florida Administrative Code Rule 12A-1.051(4), em contratos de valor global (lump-sum) e de tempo e materiais para melhoria de imóvel, o empreiteiro paga o sales tax sobre os materiais ao comprá-los e não cobra nenhum do cliente. Uma proposta itemizada com preços unitários continua sendo um contrato de valor global.";
@@ -9498,6 +9506,7 @@ function gmDocDraftFromSettings() {
     email:      st.email || pre.email || "",
     google_review_link: st.google_review_link || "",
     licenses:   (st.license_numbers && st.license_numbers.length) ? st.license_numbers.slice() : [""],
+    license_not_required: st.license_not_required === true,
     min_margin_pct: (st.min_margin_pct === null || st.min_margin_pct === undefined) ? "" : String(st.min_margin_pct),
     estimate_valid_days: String(st.estimate_valid_days === undefined ? 30 : st.estimate_valid_days),
     default_terms_days: String(st.default_terms_days === undefined ? 0 : st.default_terms_days),
@@ -9581,10 +9590,11 @@ function gmDocSettingsFormHtml() {
       '<textarea id="gmDocAddress" class="gm-input" rows="2" oninput="gmDocDraftSet(\'address\', this.value)">' + escHtml(d.address) + '</textarea>') +
     gmDocField("gmDocPhone", "Telefone", "Phone", gmDocTextInput("gmDocPhone", "phone", d.phone, 'inputmode="tel"')) +
     gmDocField("gmDocEmail", "Email", "Email", gmDocTextInput("gmDocEmail", "email", d.email, 'inputmode="email"')) +
-    '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn">*</span></div>' +
+    '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn" id="gmDocLicenseStar"' + (d.license_not_required ? ' hidden' : '') + '>*</span></div>' +
     '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
     '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
+    gmDocLicenseNotRequiredHtml(d, st) +
     gmReviewSettingsFieldHtml(d) +
     '</div>';
 
@@ -9760,6 +9770,36 @@ function gmDocLicensesHtml() {
       '</div>';
   });
   return h;
+}
+
+// Job 40: the tick box under the license numbers, its small text, and (once
+// saved) who stated it and when. The date is MM/DD/YYYY in both languages.
+function gmDocLicenseNotRequiredStatedText(st) {
+  if (!st || st.license_not_required !== true || !st.license_not_required_at) { return ""; }
+  var when = formatDateUTC(st.license_not_required_at);
+  var who = String(st.license_not_required_by || "").trim();
+  if (!who) { return gmT("Declarado em ", "Stated on ") + when; }
+  return gmT("Declarado por ", "Stated by ") + who + gmT(" em ", " on ") + when;
+}
+function gmDocLicenseNotRequiredHtml(d, st) {
+  var stated = d.license_not_required ? gmDocLicenseNotRequiredStatedText(st) : "";
+  return '<label style="display:flex;gap:10px;align-items:flex-start;min-height:44px;margin-top:10px;">' +
+      '<input type="checkbox" id="gmDocLicenseNotRequired" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;"' + (d.license_not_required ? ' checked' : '') +
+        ' aria-describedby="gmDocLicenseNotRequiredHelp" onchange="gmDocLicenseNotRequiredSet(this.checked)">' +
+      ' <span>' + escHtml(gmT(GM_DOC_LNR_LABEL_PT, GM_DOC_LNR_LABEL_EN)) + '</span></label>' +
+    '<p class="muted" id="gmDocLicenseNotRequiredHelp" style="margin:2px 0 4px;font-size:13px;">' + escHtml(gmT(GM_DOC_LNR_HELP_PT, GM_DOC_LNR_HELP_EN)) + '</p>' +
+    '<p class="muted" id="gmDocLicenseNotRequiredStated" style="margin:0 0 8px;font-size:13px;"' + (stated ? '' : ' hidden') + '>' + escHtml(stated) + '</p>';
+}
+// The red star goes while the box is ticked. The "Stated by" line belongs to
+// the saved tick: it hides on untick and comes back if the tick is restored
+// before saving.
+function gmDocLicenseNotRequiredSet(on) {
+  if (!gmDocDraft) { return; }
+  gmDocDraft.license_not_required = !!on;
+  var star = document.getElementById("gmDocLicenseStar");
+  if (star) { star.hidden = !!on; }
+  var stated = document.getElementById("gmDocLicenseNotRequiredStated");
+  if (stated) { stated.hidden = !on || !gmDocLicenseNotRequiredStatedText(gmDocSettings); }
 }
 
 function gmDocPresetsHtml() {
@@ -9961,8 +10001,9 @@ function gmDocSettingsSave() {
   var d = gmDocDraft;
   if (!d) { return; }
   var licenses = d.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
-  if (!licenses.length) {
-    gmDocShowMsg(false, gmT("Informe ao menos um número de licença. ", "Enter at least one license number. ") + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN));
+  // Job 40: a license number OR the owner's tick. The Worker checks it again.
+  if (!licenses.length && !d.license_not_required) {
+    gmDocShowMsg(false, gmT(GM_DOC_LNR_NEEDED_PT, GM_DOC_LNR_NEEDED_EN));
     return;
   }
   if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
@@ -10007,6 +10048,7 @@ function gmDocSettingsSave() {
     email: d.email.trim() || null,
     google_review_link: String(d.google_review_link || "").trim() || null,
     license_numbers: licenses,
+    license_not_required: !!d.license_not_required,
     estimate_valid_days: Number(d.estimate_valid_days) || 30,
     default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode),
     payment_methods: pm,
@@ -10375,7 +10417,7 @@ function gmHeroSaveUpload() {
 var GM_DOC_HISTORY_LABELS = {
   brand_primary: ["Cor principal", "Primary color"], brand_accent: ["Cor de destaque", "Accent color"],
   legal_name: ["Nome legal", "Legal name"], address: ["Endereço", "Address"], phone: ["Telefone", "Phone"], email: ["Email", "Email"],
-  license_numbers: ["Licenças", "License numbers"], min_margin_pct: ["Margem mínima (%)", "Minimum margin (%)"],
+  license_numbers: ["Licenças", "License numbers"], license_not_required: ["Licen\u00e7a n\u00e3o exigida", "License not required"], min_margin_pct: ["Margem mínima (%)", "Minimum margin (%)"],
   estimate_valid_days: ["Validade do orçamento (dias)", "Estimate validity (days)"], default_terms_days: ["Prazo de pagamento (dias)", "Payment terms (days)"],
   payment_methods_json: ["Formas de pagamento", "Payment methods"], late_fee_annual_pct: ["Juros por atraso (% ao ano)", "Late payment interest (% per year)"],
   late_fee_grace_days: ["Carência (dias)", "Grace period (days)"], schedule_presets_json: ["Modelos de parcelamento", "Schedule presets"],
@@ -10392,6 +10434,7 @@ function gmDocHistoryValue(field, v) {
   if (v === null || v === undefined || v === "") { return "—"; }
   var str = String(v);
   if (field === "hero_r2_key") { return gmT("imagem enviada", "image uploaded"); }
+  if (field === "license_not_required") { return str === "1" ? gmT("Sim", "Yes") : gmT("N\u00e3o", "No"); }
   if (field === "payment_methods_json" || field === "schedule_presets_json" || field === "license_numbers") {
     var parsed = null;
     try { parsed = JSON.parse(str); } catch (e) { parsed = null; }

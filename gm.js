@@ -8920,9 +8920,11 @@ function gmRenderCalendar() {
 
 // Re-render on a breakpoint crossing so a rotated phone gets the right
 // pattern. Registered once; the grid module only fires it on a real crossing.
-CalendarGrid.onBreakpointCross(function() {
-  if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
-});
+if (typeof CalendarGrid !== "undefined" && CalendarGrid && typeof CalendarGrid.onBreakpointCross === "function") {
+  CalendarGrid.onBreakpointCross(function() {
+    if (gmCurrentTab === "gmcalendar" && gmCalData) { gmRenderCalendar(); }
+  });
+}
 
 // ── The composer ────────────────────────────────────────────────────────
 //

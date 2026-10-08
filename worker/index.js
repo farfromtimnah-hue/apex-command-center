@@ -16172,12 +16172,36 @@ async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
         var wasCompleted = !!(row && row.completed);
         var sectionsStr = JSON.stringify(sections);
 
+        // A staff correction of an already-submitted section: one row per
+        // changed ENTERED field (derived fields are recomputed, never recorded),
+        // written in the same batch as the entry update.
+        var editStmts = [];
+        if (row && !isDraft && user.role !== "client") {
+            var beforeSec = parseSectionsJson(row.sections_json)[sectionKey];
+            var beforeVals = (beforeSec && beforeSec.submitted_at && beforeSec.values) ? beforeSec.values : null;
+            if (beforeVals) {
+                var actor = actorName(user) || user.role;
+                for (var ei = 0; ei < inputKeys.length; ei++) {
+                    var ek = inputKeys[ei];
+                    var oldV = (beforeVals[ek] === undefined || beforeVals[ek] === null) ? null : Number(beforeVals[ek]);
+                    var newV = values[ek];
+                    if (oldV !== null && oldV === newV) { continue; }
+                    editStmts.push(env.DB.prepare(
+                        "INSERT INTO client_daily_entry_edits (id, client_id, entry_date, section_key, field_key, old_value, new_value, actor, actor_role) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    ).bind(crypto.randomUUID(), id, dateStr, sectionKey, ek, oldV, newV, actor, user.role));
+                }
+            }
+        }
+
         if (row) {
-            await env.DB.prepare(
+            var updateStmt = env.DB.prepare(
                 "UPDATE client_daily_entries SET sections_json = ?, completed = ?, " +
                 "completed_at = CASE WHEN ? = 1 AND completed_at IS NULL THEN datetime('now') WHEN ? = 0 THEN NULL ELSE completed_at END, " +
                 "updated_at = datetime('now') WHERE id = ?"
-            ).bind(sectionsStr, completed ? 1 : 0, completed ? 1 : 0, completed ? 1 : 0, row.id).run();
+            ).bind(sectionsStr, completed ? 1 : 0, completed ? 1 : 0, completed ? 1 : 0, row.id);
+            if (editStmts.length) { await env.DB.batch([updateStmt].concat(editStmts)); }
+            else { await updateStmt.run(); }
         } else {
             await env.DB.prepare(
                 "INSERT INTO client_daily_entries (id, client_id, entry_date, sections_json, completed, completed_at) " +
@@ -16197,6 +16221,38 @@ async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
         return jsonOk({ saved: true, draft: isDraft, completed: completed, sections: sections });
     } catch (e) {
         return jsonErr("Error saving entry: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/entry-edits?month=YYYY-MM  (staff only)
+// The corrections staff made to a month's daily entries. A developer's edit
+// is returned with no name (the screen prints System).
+// ---------------------------------------------------------------------------
+
+async function handleGetEntryEdits(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "rafa" && user.role !== "alice" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month");
+        if (!isValidMonthStr(month)) { month = new Date().toISOString().slice(0, 7); }
+        var rows = await env.DB.prepare(
+            "SELECT entry_date, section_key, field_key, old_value, new_value, actor, actor_role, created_at " +
+            "FROM client_daily_entry_edits WHERE client_id = ? AND entry_date LIKE ? ORDER BY created_at ASC, rowid ASC"
+        ).bind(id, month + "-%").all();
+        var out = (rows.results || []).map(function(r) {
+            return {
+                date: r.entry_date, section: r.section_key, field: r.field_key,
+                old_value: r.old_value, new_value: r.new_value,
+                actor: r.actor_role === "developer" ? null : r.actor,
+                actor_role: r.actor_role, created_at: r.created_at
+            };
+        });
+        return jsonOk({ month: month, edits: out });
+    } catch (e) {
+        return jsonErr("Error fetching entry edits: " + e.message, 500);
     }
 }
 
@@ -48599,6 +48655,9 @@ async function handleFetch(request, env, ctx) {
             }
             if (segs.length === 4 && segs[3] === "entries-summary" && method === "GET") {
                 return handleGetEntriesSummary(cid, request, env);
+            }
+            if (segs.length === 4 && segs[3] === "entry-edits" && method === "GET") {
+                return handleGetEntryEdits(cid, request, env);
             }
             if (segs.length === 4 && segs[3] === "weekly-summary" && method === "GET") {
                 return handleGetWeeklySummary(cid, request, env);

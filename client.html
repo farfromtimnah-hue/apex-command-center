@@ -2765,6 +2765,7 @@
           <div id="weeklySummaryBody" style="padding:16px 20px;">
             <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
           </div>
+          <div id="monthEntriesBox" style="display:none;padding:0 20px 16px;"></div>
         </div>
 
         <!-- Activity timeline: placeholder -->
@@ -4301,6 +4302,7 @@
       loadPipelineGap();
       loadAssessments();
       loadWeeklySummary();
+      initMonthEntries();
       gmSectionsLoad();
       initCollapseStates();
       // After the cards exist. ?day= is handled inside loadWeeklySummary,
@@ -5272,6 +5274,227 @@
           panel.innerHTML = '<div style="color:var(--muted);font-size:13px;">' +
             (isEnLang ? "Could not load that day." : "Não foi possível carregar esse dia.") + '</div>';
         });
+    }
+
+    // ── Staff corrections of a client's daily log (rafa / developer) ───────
+    // Reached from the Entry Week card. Nothing is editable until the pencil
+    // on a section is pressed. A save is the existing PUT with draft=false;
+    // the Worker recomputes derived fields and records every changed field.
+    var ME_SECTION_ORDER = ["financeiro", "clientes_mercado", "processos", "crescimento", "rotina"];
+    var ME_SECTION_LABELS = {
+      financeiro:       ["Financeiro", "Financial"],
+      clientes_mercado: ["Clientes e Mercado", "Clients and Market"],
+      processos:        ["Processos", "Processes"],
+      crescimento:      ["Crescimento", "Growth"],
+      rotina:           ["Rotina", "Routine"]
+    };
+    var ME = { month: null, cfg: null, entries: [], edits: [], editing: null };
+
+    function meMoney(n) {
+      var v = Number(n);
+      if (!isFinite(v)) { return "--"; }
+      return (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function meValue(ind, v) {
+      if (v === null || v === undefined || v === "") { return "--"; }
+      var n = Number(v);
+      if (!isFinite(n)) { return "--"; }
+      if (ind.type === "currency" || ind.key === "lucro_liquido") { return meMoney(n); }
+      if (ind.key === "margem_lucro" || ind.key === "taxa_conversao") { return n.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%"; }
+      if (ind.type === "toggle") { return n ? t("Sim", "Yes") : t("Não", "No"); }
+      return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+
+    function meInd(key) {
+      var list = (ME.cfg && ME.cfg.indicators) || [];
+      for (var i = 0; i < list.length; i++) { if (list[i].key === key) { return list[i]; } }
+      return null;
+    }
+
+    function meLabel(key) {
+      var ind = meInd(key);
+      if (!ind) { return '<span>' + escHtml(key.replace(/_/g, " ")) + '</span>'; }
+      return '<span class="show-pt">' + escHtml(ind.label_pt) + '</span><span class="show-en">' + escHtml(ind.label_en) + '</span>';
+    }
+
+    function meLabelText(key) {
+      var ind = meInd(key);
+      if (!ind) { return key.replace(/_/g, " "); }
+      return t(ind.label_pt, ind.label_en);
+    }
+
+    function meCanUse() {
+      var role = sessionStorage.getItem("apex_role") || "";
+      return role === "rafa" || role === "developer";
+    }
+
+    function initMonthEntries() {
+      var box = document.getElementById("monthEntriesBox");
+      if (!box || !meCanUse()) { return; }
+      box.style.display = "block";
+      var now = new Date();
+      var opts = "";
+      for (var i = 0; i < 24; i++) {
+        var d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+        var ym = d.toISOString().slice(0, 7);
+        opts += '<option value="' + ym + '">' + ym.slice(5, 7) + '/' + ym.slice(0, 4) + '</option>';
+      }
+      box.innerHTML =
+        '<div style="border-top:1px solid var(--border);padding-top:12px;">' +
+          '<label style="font-size:12px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<span class="show-pt">Ver registros do m&ecirc;s</span><span class="show-en">See entries for month</span>' +
+            '<select id="meMonthSel" class="form-input" style="width:auto;padding:4px 8px;font-size:13px;" onchange="loadMonthEntries(this.value)">' +
+              '<option value="">--</option>' + opts +
+            '</select>' +
+          '</label>' +
+          '<div id="meList" style="margin-top:10px;"></div>' +
+        '</div>';
+      document.addEventListener("apex:langchange", function() { renderMonthEntries(); });
+    }
+
+    function loadMonthEntries(month) {
+      var list = document.getElementById("meList");
+      if (!list) { return; }
+      if (!month) { list.innerHTML = ""; ME.month = null; return; }
+      ME.month = month;
+      ME.editing = null;
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;">' + t("Carregando...", "Loading...") + '</div>';
+      var base = "/api/clients/" + CLIENT_ID;
+      Promise.all([
+        apiFetch(base + "/field-config?month=" + month).then(function(r) { return r.json(); }),
+        apiFetch(base + "/entries?month=" + month).then(function(r) { return r.json(); }),
+        apiFetch(base + "/entry-edits?month=" + month).then(function(r) { return r.json(); })
+      ]).then(function(res) {
+        if (ME.month !== month) { return; }
+        if (res[0].error || res[1].error || res[2].error) { throw new Error("load"); }
+        ME.cfg = res[0];
+        ME.entries = res[1].entries || [];
+        ME.edits = res[2].edits || [];
+        renderMonthEntries();
+      }).catch(function() {
+        list.innerHTML = '<div style="color:#b44040;font-size:13px;">' +
+          t("Não foi possível carregar esse mês.", "Could not load that month.") + '</div>';
+      });
+    }
+
+    function meEditLines(date, sk) {
+      var out = "";
+      ME.edits.forEach(function(e) {
+        if (e.date !== date || e.section !== sk) { return; }
+        var ind = meInd(e.field) || { key: e.field, type: "count" };
+        var who = e.actor_role === "developer" || !e.actor ? t("Sistema", "System") : e.actor;
+        var when = formatDateTimeUTC(e.created_at);
+        var line = t(
+          "Corrigido por " + who + " em " + when + ": " + meLabelText(e.field) + " de " + meValue(ind, e.old_value) + " para " + meValue(ind, e.new_value),
+          "Corrected by " + who + " on " + when + ": " + meLabelText(e.field) + " from " + meValue(ind, e.old_value) + " to " + meValue(ind, e.new_value)
+        );
+        out += '<div style="font-size:11.5px;color:var(--muted);margin-top:3px;">' + escHtml(line) + '</div>';
+      });
+      return out;
+    }
+
+    function meSectionHtml(entry, sk) {
+      var sec = (entry.sections || {})[sk];
+      if (!sec || typeof sec !== "object") { return ""; }
+      var submitted = !!(sec.values && typeof sec.values === "object");
+      var vals = submitted ? sec.values : sec.draft_values;
+      if (!vals || typeof vals !== "object") { return ""; }
+      var editKey = entry.date + "|" + sk;
+      var editing = submitted && ME.editing === editKey;
+      var inds = ((ME.cfg && ME.cfg.indicators) || []).filter(function(i) { return i.section === sk; });
+      var rows = "";
+      inds.forEach(function(ind) {
+        var v = vals[ind.key];
+        var derived = ind.type === "computed" || ind.type === "computed_month";
+        var editable = editing && !derived && ind.enabled;
+        if ((v === null || v === undefined || v === "") && !editable) { return; }
+        if (v === null || v === undefined) { v = ""; }
+        var right;
+        if (editable) {
+          if (ind.type === "toggle") {
+            right = '<select class="form-input" data-me-field="' + ind.key + '" style="width:110px;padding:3px 6px;font-size:12.5px;">' +
+              '<option value="1"' + (Number(v) ? " selected" : "") + '>' + t("Sim", "Yes") + '</option>' +
+              '<option value="0"' + (Number(v) ? "" : " selected") + '>' + t("Não", "No") + '</option></select>';
+          } else {
+            right = '<input type="number" step="any" class="form-input" data-me-field="' + ind.key + '" value="' + escHtml(String(v)) +
+              '" style="width:130px;padding:3px 6px;font-size:12.5px;text-align:right;">';
+          }
+        } else {
+          right = '<span style="font-variant-numeric:tabular-nums;">' + escHtml(meValue(ind, v)) + '</span>';
+        }
+        rows += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;padding:2px 0;">' +
+          '<span style="color:var(--muted);">' + meLabel(ind.key) + '</span>' + right + '</div>';
+      });
+      if (!rows) { return ""; }
+      var lbl = ME_SECTION_LABELS[sk] || [sk, sk];
+      var pencil = (submitted && !editing)
+        ? '<button type="button" class="btn btn-sm" title="' + t("Corrigir este registro", "Correct this entry") +
+          '" aria-label="' + t("Corrigir este registro", "Correct this entry") + '" onclick="meStartEdit(\'' + editKey + '\')" style="padding:1px 7px;">&#9998;</button>'
+        : "";
+      var actions = editing
+        ? '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">' +
+            '<button type="button" class="btn btn-sm btn-primary" onclick="meSaveEdit(\'' + entry.date + '\',\'' + sk + '\')">' +
+              '<span class="show-pt">Salvar corre&ccedil;&atilde;o</span><span class="show-en">Save correction</span></button>' +
+            '<button type="button" class="btn btn-sm" onclick="meCancelEdit()"><span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>' +
+            '<span id="meErr" style="font-size:12px;color:#b44040;"></span></div>'
+        : "";
+      return '<div style="margin-top:10px;" data-me-section="' + editKey + '">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">' +
+            '<span class="show-pt">' + lbl[0] + '</span><span class="show-en">' + lbl[1] + '</span>' +
+            (submitted ? "" : ' <span style="color:#8a6d1d;">(<span class="show-pt">rascunho</span><span class="show-en">draft</span>)</span>') +
+          '</div>' + pencil +
+        '</div>' + rows + actions + meEditLines(entry.date, sk) + '</div>';
+    }
+
+    function renderMonthEntries() {
+      var list = document.getElementById("meList");
+      if (!list || !ME.month || !ME.cfg) { return; }
+      if (!ME.entries.length) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:13px;"><span class="show-pt">Nenhum registro neste m&ecirc;s.</span><span class="show-en">No entries this month.</span></div>';
+        return;
+      }
+      var html = "";
+      ME.entries.forEach(function(entry) {
+        var secs = "";
+        ME_SECTION_ORDER.forEach(function(sk) { secs += meSectionHtml(entry, sk); });
+        if (!secs) { return; }
+        html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
+          '<strong style="font-size:13px;">' + escHtml(formatDate(entry.date)) + '</strong>' + secs + '</div>';
+      });
+      list.innerHTML = html || '<div style="color:var(--muted);font-size:13px;"><span class="show-pt">Nenhum registro neste m&ecirc;s.</span><span class="show-en">No entries this month.</span></div>';
+    }
+
+    function meStartEdit(key) { ME.editing = key; renderMonthEntries(); }
+    function meCancelEdit() { ME.editing = null; renderMonthEntries(); }
+
+    function meSaveEdit(date, sk) {
+      var box = document.querySelector('[data-me-section="' + date + '|' + sk + '"]');
+      if (!box) { return; }
+      var errEl = document.getElementById("meErr");
+      var values = {};
+      box.querySelectorAll("[data-me-field]").forEach(function(inp) {
+        values[inp.getAttribute("data-me-field")] = inp.value;
+      });
+      if (errEl) { errEl.textContent = ""; }
+      apiFetch("/api/clients/" + CLIENT_ID + "/entries/" + date + "/sections/" + sk, {
+        method: "PUT",
+        body: { values: values, draft: false }
+      }).then(function(res) {
+        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+      }).then(function(r) {
+        if (!r.ok || r.data.error) {
+          var e2 = document.getElementById("meErr");
+          if (e2) { e2.textContent = (r.data && r.data.error) || t("Não foi possível salvar.", "Could not save."); }
+          return;
+        }
+        ME.editing = null;
+        loadMonthEntries(ME.month);
+      }).catch(function() {
+        var e3 = document.getElementById("meErr");
+        if (e3) { e3.textContent = t("Não foi possível salvar.", "Could not save."); }
+      });
     }
 
     // ── Prev/next client navigation (hero header) ──────────────────────────

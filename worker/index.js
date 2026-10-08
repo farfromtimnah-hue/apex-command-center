@@ -9020,7 +9020,7 @@ function taskNoteView(note, userRow) {
 async function taskNotesTask(id, env) {
     var t = await env.DB.prepare(
         "SELECT t.id, t.type, t.description, t.due_date, t.status, t.progress, " +
-        "c.name AS client_name, t.assigned_to, t.created_by_role " +
+        "c.name AS client_name, t.client_id, t.assigned_to, t.created_by_role " +
         "FROM tasks t LEFT JOIN clients c ON t.client_id = c.id WHERE t.id = ?"
     ).bind(id).first();
     if (!t) { return { error: jsonErr("Task not found", 404) }; }
@@ -9034,11 +9034,58 @@ async function taskNotesTask(id, env) {
     return { task: {
         id: t.id, description: t.description, due_date: t.due_date || null,
         status: t.status, progress: t.progress || null, client_name: t.client_name || null,
+        client_id: t.client_name ? (t.client_id || null) : null,
         assigned_to: t.assigned_to || null, created_by_role: t.created_by_role || null,
         assignee_name: t.assigned_to === "alice" ? await taskAssigneeAliceName(env) : null,
         owner_name: (!t.assigned_to && giver) ? await taskAssigneeRafaName(env) : null,
         giver_name: giverName
     } };
+}
+
+// Who is told about a note: the task's owner role (assigned_to, 'rafa' when
+// empty) and the role that created it (created_by_role, 'rafa' when empty),
+// minus the author's own role. A third party (the developer on a task between
+// Rafa and Alice) tells both.
+function taskNoteRecipients(assignedTo, createdByRole, authorRole) {
+    var roles = [assignedTo ? String(assignedTo) : "rafa", createdByRole ? String(createdByRole) : "rafa"];
+    var out = [];
+    for (var i = 0; i < roles.length; i++) {
+        if (roles[i] !== authorRole && out.indexOf(roles[i]) === -1) { out.push(roles[i]); }
+    }
+    return out;
+}
+
+// The push a recipient role gets for a note: { title, body }. Rafa and Alice
+// read Portuguese; the developer reads English. The developer author is
+// "Sistema" / "System": the developer's name never appears.
+function taskNotePushText(recipientRole, authorRole, authorName, noteBody) {
+    var pt = recipientRole !== "developer";
+    var who = authorRole === "developer" ? (pt ? "Sistema" : "System") : (String(authorName || "").trim() || (pt ? "Sistema" : "System"));
+    return {
+        title: pt ? "Nova nota em uma tarefa" : "New note on a task",
+        body: who + ": " + String(noteBody || "").slice(0, 140)
+    };
+}
+
+// One push per recipient role, to every user with that role (never an empty
+// list: pushToUsers would read it as everyone). Never throws: the note is
+// already saved.
+async function taskNoteNotify(env, taskId, task, authorRole, authorName, noteBody) {
+    var roles = taskNoteRecipients(task.assigned_to, task.created_by_role, authorRole);
+    for (var i = 0; i < roles.length; i++) {
+        try {
+            var text = taskNotePushText(roles[i], authorRole, authorName, noteBody);
+            var res = await env.DB.prepare("SELECT email FROM users WHERE role = ?").bind(roles[i]).all();
+            var emails = (res.results || []).map(function(r) { return r.email; });
+            if (!emails.length) { continue; }
+            await pushToUsers(env, emails, {
+                title: text.title, body: text.body,
+                url: "/tasks.html?task=" + encodeURIComponent(taskId), tag: "apex-task-note"
+            });
+        } catch (e) {
+            console.error("task note push failed", roles[i], e && e.message);
+        }
+    }
 }
 
 async function handleGetTaskNotes(id, request, env) {
@@ -9113,6 +9160,9 @@ async function handlePostTaskNote(id, request, env) {
             stmts.push(env.DB.prepare("UPDATE tasks SET progress = ? WHERE id = ?").bind(progress, id));
         }
         await env.DB.batch(stmts);
+
+        // The note is saved: now tell the other people on the task. Never throws.
+        await taskNoteNotify(env, id, found.task, user.role, note.author_name, note.body);
 
         return jsonOk({
             ok: true, progress: progress || null,

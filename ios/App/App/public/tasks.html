@@ -85,7 +85,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791425410"></script>
+  <script src="task-sheet.js?v=1791492945"></script>
   <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -330,6 +330,8 @@
     .btn-voice-mic:hover    { opacity: 0.88; }
     .btn-voice-mic.recording { background: #b4322a; color: #fff; }
     .btn-voice-mic[disabled] { opacity: 0.55; cursor: default; }
+    /* "Add task": the same button shape, outlined, beside the microphone. */
+    .btn-voice-mic.btn-task-add { background: transparent; color: #fff; border: 1px solid #c9a227; }
     .mt-timer { font-size: 13px; color: rgba(255,255,255,0.8); font-variant-numeric: tabular-nums; }
     .mt-link-btn {
       background: none; border: none; padding: 6px 4px; cursor: pointer;
@@ -910,6 +912,13 @@
                 <span class="show-en">Speak my tasks</span>
               </span>
             </button>
+            <button type="button" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask()">
+              <span aria-hidden="true">+</span>
+              <span>
+                <span class="show-pt">Adicionar tarefa</span>
+                <span class="show-en">Add task</span>
+              </span>
+            </button>
             <span class="mt-timer" id="mtTimer"></span>
             <button type="button" class="mt-link-btn" id="mtCancelBtn" hidden onclick="cancelMyTasksRecording()">
               <span class="show-pt">Cancelar</span>
@@ -1423,6 +1432,57 @@
       var staff = role === "rafa" || role === "alice" || role === "developer";
       if (!staff) { cancelMyTasksRecording(); }
       block.hidden = !staff;
+    }
+
+    // "Adicionar tarefa" / "Add task": a task typed instead of spoken. The
+    // form is in task-sheet.js (taskAddOpen) and saves with POST /api/tasks.
+    function openAddTask() {
+      if (typeof taskAddOpen !== "function" || mtBusy) { return; }
+      if (mtRecorder && mtRecorder.state === "recording") { return; }
+      taskAddOpen({
+        viewerRole: viewerRole(), names: taskPeopleNames(), loadClients: loadAddTaskClients,
+        apiBase: WORKER_URL, getToken: user_getToken, onAdded: taskAdded
+      });
+    }
+
+    // The names the who-tags on this page print, read from the same task
+    // rows. With none loaded the form prints the plain "Rafa" / "Alice", as
+    // the tags do.
+    function taskPeopleNames() {
+      var names = { rafa: "", alice: "" };
+      for (var i = 0; i < allTasks.length; i++) {
+        var tk = allTasks[i];
+        if (!names.alice && tk.assignedTo === "alice" && tk.assigneeName) { names.alice = tk.assigneeName; }
+        if (!names.rafa && tk.ownerName) { names.rafa = tk.ownerName; }
+        if (tk.giverName && tk.createdByRole === "alice" && !names.alice) { names.alice = tk.giverName; }
+        if (tk.giverName && tk.createdByRole === "rafa" && !names.rafa) { names.rafa = tk.giverName; }
+      }
+      return names;
+    }
+
+    // This page keeps no client list of its own (its filter is built from
+    // the tasks), so the form's list is read from GET /api/clients, the
+    // route the dashboard reads its own from. Kept once it has arrived.
+    var addTaskClients = null;
+    function loadAddTaskClients() {
+      if (addTaskClients) { return Promise.resolve(addTaskClients); }
+      return user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/clients", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          if (!d || !Array.isArray(d.clients)) { throw new Error("clients"); }
+          addTaskClients = d.clients;
+          return addTaskClients;
+        });
+    }
+
+    // A typed task was saved: the list is loaded again, the same way it is
+    // after a dictation. No Undo for a typed task.
+    function taskAdded() {
+      mtLastAdded = [];
+      loadTasks();
+      mtShowHeard("");
+      mtSetStatus(mtBoth("Tarefa adicionada.", "Task added."), "ok");
     }
 
     function mtBoth(pt, en) {
@@ -2883,6 +2943,7 @@
         if (tk.key !== c.id) { continue; }
         tk.progress = c.progress || null;
         tk.due = c.due_date || null;
+        if (c.description) { tk.text = c.description; }
         tk.dueDate = null;
         if (tk.due) {
           var p = String(tk.due).split("-");

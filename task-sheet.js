@@ -1,7 +1,8 @@
 // The task sheet: a staff task, opened. ONE copy, loaded by dashboard.html
 // and tasks.html (and their iOS copies).
 //
-// Inside, top to bottom: the task's words and tags, two one-click pills
+// Inside, top to bottom: the task's words (with "Editar" / "Edit" to fix
+// them) and tags, two one-click pills
 // ("Em andamento" / "Aguardando cliente"), the due date, the note thread, and
 // a box to add a note. It is an in-page dialog built the same way as the
 // pages' pageDialog (an overlay with role="dialog"; Escape and a tap outside
@@ -9,13 +10,17 @@
 //
 // Staff tasks only (type 'consultant'). A client's own to-do never opens it.
 //
+// The same file holds the "Adicionar tarefa" / "Add task" form (taskAddOpen,
+// at the end): a task typed instead of spoken, in the same overlay style.
+//
 // What a page gives it:
 //   taskSheetOpen({ id, description, clientName, tags, done, progress, dueDate,
 //                   apiBase, getToken, onChange, onClose })
 //     tags      HTML strings, the who-has-it / who-gave-it tags the row shows
 //     getToken  returns a Promise of the signed-in user's token
 //     onChange  called after every save with { id, progress, due_date,
-//               note_count, last_note } so the page can update its own row
+//               description, note_count, last_note } so the page can update
+//               its own row
 //     onClose   called once when the sheet closes (the page redraws its list)
 // And for the row itself:
 //   taskSheetMakeOpener(el, taskId, onOpen)   the row's words open the sheet
@@ -26,6 +31,7 @@
 // MM/DD/YYYY and 12-hour, America/New_York, in both languages.
 
 var TASK_SHEET_NOTE_MAX = 2000;
+var TASK_SHEET_WORDS_MAX = 500;
 var TASK_SHEET_ROW_NOTE_MAX = 90;
 var TASK_SHEET_PROGRESS = {
   working:        { pt: "Em andamento",       en: "Working on it" },
@@ -34,6 +40,7 @@ var TASK_SHEET_PROGRESS = {
 
 var taskSheetNow = null;     // the open sheet's state, or null
 var taskSheetDrafts = {};    // words typed and not yet added, by task id
+var taskAddNow = null;       // the open "Add task" form's state, or null
 
 function taskSheetIsEn() {
   return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
@@ -94,7 +101,24 @@ function taskSheetStyles() {
     ".task-sheet-write { margin-top: 12px; }" +
     ".task-sheet-write textarea { width: 100%; box-sizing: border-box; min-height: 70px; padding: 10px; border: 1px solid #d8d2c8; border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.4; resize: vertical; background: #fff; color: #1a1712; }" +
     ".task-sheet-add { margin-top: 8px; background: #c9a227; color: #1a1712; border: none; border-radius: 8px; padding: 9px 16px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }" +
-    ".task-sheet-add:disabled { opacity: 0.6; cursor: default; }";
+    ".task-sheet-add:disabled { opacity: 0.6; cursor: default; }" +
+    ".task-sheet-title[hidden], .task-sheet-btn[hidden], .task-sheet-edit[hidden] { display: none; }" +
+    ".task-sheet-btn:disabled { opacity: 0.6; cursor: default; }" +
+    ".task-sheet-edit { flex: 1; min-width: 0; }" +
+    ".task-sheet-edit textarea, .task-add-field textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 10px; border: 1px solid #d8d2c8; border-radius: 8px; font-family: inherit; font-size: 14px; line-height: 1.4; resize: vertical; background: #fff; color: #1a1712; }" +
+    ".task-sheet-editrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }" +
+    ".task-sheet-editrow .task-sheet-add { margin-top: 0; }" +
+    ".task-sheet-editmsg { margin-top: 6px; font-size: 12px; color: #b44040; }" +
+    ".task-sheet-editmsg:empty { display: none; }" +
+    ".task-add-head { font-size: 16px; font-weight: 700; line-height: 1.4; }" +
+    ".task-add-field { margin-top: 14px; font-size: 13px; color: #6b6459; }" +
+    ".task-add-field > label, .task-add-label { display: block; font-weight: 600; margin-bottom: 6px; }" +
+    ".task-add-field .task-sheet-pills { margin-top: 0; }" +
+    ".task-add-field select, .task-add-field input[type=\"date\"] { max-width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d8d2c8; border-radius: 8px; font-family: inherit; font-size: 14px; background: #fff; color: #1a1712; }" +
+    ".task-add-field select { width: 100%; }" +
+    ".task-add-quiet { margin-top: 4px; font-size: 12px; color: #8a8275; }" +
+    ".task-add-quiet:empty { display: none; }" +
+    ".task-add-duerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }";
   document.head.appendChild(st);
 }
 
@@ -168,9 +192,9 @@ function taskSheetErrorHtml(data, pt, en) {
   return taskSheetBoth(pt, en);
 }
 
-function taskSheetApi(path, method, body) {
-  var s = taskSheetNow;
-  if (!s) { return Promise.reject(new Error("closed")); }
+// One call to the Worker as the signed-in user: { ok, data }. s is the state
+// of the sheet or of the "Add task" form (apiBase, getToken).
+function taskSheetSend(s, path, method, body) {
   return s.getToken().then(function(token) {
     var opts = { method: method || "GET", headers: { "Authorization": "Bearer " + token } };
     if (body) {
@@ -184,10 +208,23 @@ function taskSheetApi(path, method, body) {
   });
 }
 
+function taskSheetApi(path, method, body) {
+  var s = taskSheetNow;
+  if (!s) { return Promise.reject(new Error("closed")); }
+  return taskSheetSend(s, path, method, body);
+}
+
+// A task's words as the Worker saves them: trimmed, every run of spaces or
+// line breaks made one space.
+function taskSheetCleanWords(raw) {
+  return String(raw === null || raw === undefined ? "" : raw).replace(/\s+/g, " ").trim();
+}
+
 function taskSheetTellPage() {
   var s = taskSheetNow;
   if (!s || !s.onChange) { return; }
   var change = { id: s.id, progress: s.progress || null, due_date: s.dueDate || null };
+  if (s.description) { change.description = s.description; }
   // The note line is only sent once the thread is known: a thread that did
   // not load must not empty the note line the row already shows.
   if (s.loadState === "ready") {
@@ -288,6 +325,103 @@ function taskSheetSaveDue(value) {
       taskSheetPaintDue();
       taskSheetSetStatus(taskSheetErrorHtml(data, "N&atilde;o consegui salvar. Tente de novo.",
         "Could not save. Please try again."), true);
+    });
+}
+
+// -- The words: "Editar" / "Edit" turns the title into a text box -------------
+
+function taskSheetPaintWords() {
+  var s = taskSheetNow;
+  if (!s) { return; }
+  var title = document.getElementById("taskSheetTitle");
+  var editBtn = document.getElementById("taskSheetEdit");
+  var wrap = document.getElementById("taskSheetEditWrap");
+  var save = document.getElementById("taskSheetEditSave");
+  var cancel = document.getElementById("taskSheetEditCancel");
+  if (title) {
+    title.textContent = s.description || "--";
+    title.hidden = !!s.editing;
+  }
+  if (editBtn) { editBtn.hidden = !!s.editing; }
+  if (wrap) { wrap.hidden = !s.editing; }
+  if (save) { save.disabled = !!s.savingWords; }
+  if (cancel) { cancel.disabled = !!s.savingWords; }
+}
+
+function taskSheetEditMsg(html) {
+  var el = document.getElementById("taskSheetEditMsg");
+  if (el) { el.innerHTML = html || ""; }
+}
+
+function taskSheetEditStart() {
+  var s = taskSheetNow;
+  var box = document.getElementById("taskSheetEditBox");
+  if (!s || !box || s.editing) { return; }
+  s.editing = true;
+  box.value = s.description || "";
+  taskSheetEditMsg("");
+  taskSheetSetStatus("");
+  taskSheetPaintWords();
+  box.focus();
+}
+
+// Cancel, or Escape: the words stay as they were. Not while a save is on
+// its way.
+function taskSheetEditCancel() {
+  var s = taskSheetNow;
+  if (!s || !s.editing || s.savingWords) { return; }
+  s.editing = false;
+  taskSheetEditMsg("");
+  taskSheetPaintWords();
+  var editBtn = document.getElementById("taskSheetEdit");
+  if (editBtn) { editBtn.focus(); }
+}
+
+// Save sends the new words. If it fails the box stays open with the words
+// kept and a plain message.
+function taskSheetEditSave() {
+  var s = taskSheetNow;
+  var box = document.getElementById("taskSheetEditBox");
+  if (!s || !box || !s.editing || s.savingWords) { return; }
+  var words = taskSheetCleanWords(box.value);
+  if (!words) {
+    taskSheetEditMsg(taskSheetBoth("Escreva a tarefa antes de salvar.", "Write the task before saving."));
+    box.focus();
+    return;
+  }
+  if (words.length > TASK_SHEET_WORDS_MAX) {
+    taskSheetEditMsg(taskSheetBoth(
+      "Tarefa longa demais. O limite &eacute; de " + TASK_SHEET_WORDS_MAX + " caracteres.",
+      "That task is too long. The limit is " + TASK_SHEET_WORDS_MAX + " characters."));
+    return;
+  }
+  // Nothing changed: nothing to send.
+  if (words === s.description) {
+    taskSheetEditCancel();
+    return;
+  }
+  s.savingWords = true;
+  taskSheetEditMsg("");
+  taskSheetPaintWords();
+  taskSheetApi("/api/tasks/" + encodeURIComponent(s.id), "PATCH", { description: words })
+    .then(function(r) {
+      if (taskSheetNow !== s) { return; }
+      if (!r.ok) { throw r.data; }
+      s.savingWords = false;
+      s.editing = false;
+      s.description = r.data.description || words;
+      taskSheetPaintWords();
+      taskSheetSetStatus(taskSheetBoth("Salvo.", "Saved."));
+      taskSheetTellPage();
+      var editBtn = document.getElementById("taskSheetEdit");
+      if (editBtn) { editBtn.focus(); }
+    })
+    .catch(function(data) {
+      if (taskSheetNow !== s) { return; }
+      s.savingWords = false;
+      taskSheetPaintWords();
+      taskSheetEditMsg(taskSheetErrorHtml(data, "N&atilde;o consegui salvar. Tente de novo.",
+        "Could not save. Please try again."));
     });
 }
 
@@ -434,6 +568,8 @@ function taskSheetLoad(s) {
       s.done = t.status === "done";
       if (!s.savingProgress) { s.progress = t.progress || null; }
       if (!s.savingDue) { s.dueDate = t.due_date || null; }
+      // The words as they are saved now (someone else may have fixed them).
+      if (t.description && !s.savingWords) { s.description = t.description; }
       // A note added while the thread was on its way may not be in the
       // answer yet: it is kept, after the ones that are.
       var got = r.data.notes || [];
@@ -446,6 +582,7 @@ function taskSheetLoad(s) {
       s.loadState = "ready";
       var title = document.getElementById("taskSheetTitle");
       if (title) { title.className = "task-sheet-title" + (s.done ? " is-done" : ""); }
+      taskSheetPaintWords();
       taskSheetPaintPills();
       taskSheetPaintDue();
       taskSheetPaintThread();
@@ -480,13 +617,14 @@ function taskSheetClose() {
 }
 
 function taskSheetOpen(o) {
-  if (taskSheetNow || !o || !o.id || !o.getToken) { return false; }
+  if (taskSheetNow || taskAddNow || !o || !o.id || !o.getToken) { return false; }
   taskSheetStyles();
   var en = taskSheetIsEn();
   var s = {
     id: o.id, apiBase: o.apiBase || "", getToken: o.getToken,
     onChange: o.onChange || null, onClose: o.onClose || null,
     done: !!o.done, progress: o.progress || null, dueDate: o.dueDate || null,
+    description: o.description || "", editing: false, savingWords: false,
     notes: [], loadState: "loading", sending: false, savingProgress: false, savingDue: false,
     prevFocus: document.activeElement, overlay: null, onKey: null
   };
@@ -501,7 +639,7 @@ function taskSheetOpen(o) {
   box.className = "task-sheet-box";
   box.addEventListener("click", function(e) { e.stopPropagation(); });
 
-  // The task's words, and Close.
+  // The task's words, Edit (which swaps them for a text box), and Close.
   var top = document.createElement("div");
   top.className = "task-sheet-top";
   var title = document.createElement("div");
@@ -509,6 +647,53 @@ function taskSheetOpen(o) {
   title.className = "task-sheet-title" + (s.done ? " is-done" : "");
   title.textContent = o.description || "--";
   top.appendChild(title);
+  var editWrap = document.createElement("div");
+  editWrap.id = "taskSheetEditWrap";
+  editWrap.className = "task-sheet-edit";
+  editWrap.hidden = true;
+  var editBox = document.createElement("textarea");
+  editBox.id = "taskSheetEditBox";
+  editBox.maxLength = TASK_SHEET_WORDS_MAX;
+  editBox.setAttribute("aria-label", en ? "The task's words" : "As palavras da tarefa");
+  // A task is one line: Enter saves, it does not start a new line.
+  editBox.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      taskSheetEditSave();
+    }
+  });
+  editWrap.appendChild(editBox);
+  var editRow = document.createElement("div");
+  editRow.className = "task-sheet-editrow";
+  var editSave = document.createElement("button");
+  editSave.type = "button";
+  editSave.id = "taskSheetEditSave";
+  editSave.className = "task-sheet-add";
+  editSave.innerHTML = taskSheetBoth("Salvar", "Save");
+  editSave.addEventListener("click", taskSheetEditSave);
+  editRow.appendChild(editSave);
+  var editCancel = document.createElement("button");
+  editCancel.type = "button";
+  editCancel.id = "taskSheetEditCancel";
+  editCancel.className = "task-sheet-btn";
+  editCancel.innerHTML = taskSheetBoth("Cancelar", "Cancel");
+  editCancel.addEventListener("click", taskSheetEditCancel);
+  editRow.appendChild(editCancel);
+  editWrap.appendChild(editRow);
+  var editMsg = document.createElement("div");
+  editMsg.id = "taskSheetEditMsg";
+  editMsg.className = "task-sheet-editmsg";
+  editMsg.setAttribute("role", "status");
+  editMsg.setAttribute("aria-live", "polite");
+  editWrap.appendChild(editMsg);
+  top.appendChild(editWrap);
+  var editBtn = document.createElement("button");
+  editBtn.type = "button";
+  editBtn.id = "taskSheetEdit";
+  editBtn.className = "task-sheet-btn";
+  editBtn.innerHTML = taskSheetBoth("Editar", "Edit");
+  editBtn.addEventListener("click", taskSheetEditStart);
+  top.appendChild(editBtn);
   var closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.id = "taskSheetClose";
@@ -615,13 +800,15 @@ function taskSheetOpen(o) {
   ov.appendChild(box);
   ov.addEventListener("click", function(e) { if (e.target === ov) { taskSheetClose(); } });
 
-  // Escape closes. Tab stays inside the sheet.
+  // Escape closes (with the words being edited, it only leaves the edit and
+  // the words stay as they were). Tab stays inside the sheet.
   s.onKey = function(e) {
     if (taskSheetNow !== s) { return; }
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      taskSheetClose();
+      if (s.editing) { taskSheetEditCancel(); }
+      else { taskSheetClose(); }
       return;
     }
     if (e.key !== "Tab") { return; }
@@ -648,5 +835,324 @@ function taskSheetOpen(o) {
   closeBtn.focus();
 
   taskSheetLoad(s);
+  return true;
+}
+
+// -- "Adicionar tarefa" / "Add task": a task typed instead of spoken ---------
+//
+//   taskAddOpen({ viewerRole, names, loadClients, apiBase, getToken, onAdded })
+//     viewerRole   the signed-in role ("rafa", "alice" or "developer"): that
+//                  person's own entry is left out of "For whom"
+//     names        { rafa, alice }: the names the page's who-tags print
+//     loadClients  returns a Promise of the page's client list ({ id, name,
+//                  status, archived }); only the active ones are offered
+//     onAdded      called with the saved task (the shape a spoken task has)
+// It saves with POST /api/tasks. Cancel, Escape and a tap outside (while
+// nothing is typed) close it and save nothing.
+
+var TASK_ADD_PEOPLE = ["rafa", "alice", "system"];
+
+function taskAddMsg(html) {
+  var el = document.getElementById("taskAddMsg");
+  if (el) { el.innerHTML = html || ""; }
+}
+
+// The pills of "For whom": "self" first, then everyone but the viewer.
+function taskAddForList(viewerRole) {
+  var own = viewerRole === "developer" ? "system" : viewerRole;
+  var list = ["self"];
+  for (var i = 0; i < TASK_ADD_PEOPLE.length; i++) {
+    if (TASK_ADD_PEOPLE[i] !== own) { list.push(TASK_ADD_PEOPLE[i]); }
+  }
+  return list;
+}
+
+// What a pill reads. The system is never a person's name.
+function taskAddForHtml(key, names) {
+  if (key === "self") { return taskSheetBoth("Para mim", "For me"); }
+  if (key === "system") { return taskSheetBoth("Sistema", "System"); }
+  if (key === "alice") { return taskSheetEsc((names && names.alice) || "Alice"); }
+  return taskSheetEsc((names && names.rafa) || "Rafa");
+}
+
+function taskAddPaintFor() {
+  var s = taskAddNow;
+  if (!s) { return; }
+  for (var i = 0; i < s.forList.length; i++) {
+    var b = document.getElementById("taskAddFor_" + s.forList[i]);
+    if (b) { b.setAttribute("aria-pressed", s.forWho === s.forList[i] ? "true" : "false"); }
+  }
+}
+
+// The active clients, by name, into the select (after "none").
+function taskAddFillClients(list) {
+  var sel = document.getElementById("taskAddClient");
+  if (!sel) { return; }
+  var rows = [];
+  for (var i = 0; i < (list || []).length; i++) {
+    var c = list[i];
+    if (!c || !c.id || !c.name) { continue; }
+    if (c.status && c.status !== "active") { continue; }
+    if (Number(c.archived) === 1) { continue; }
+    rows.push(c);
+  }
+  rows.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+  for (var j = 0; j < rows.length; j++) {
+    var opt = document.createElement("option");
+    opt.value = rows[j].id;
+    opt.textContent = rows[j].name;
+    sel.appendChild(opt);
+  }
+}
+
+function taskAddPaintDue() {
+  var input = document.getElementById("taskAddDue");
+  var shown = document.getElementById("taskAddDueShown");
+  if (!input || !shown) { return; }
+  shown.textContent = (input.value && typeof formatDate === "function") ? formatDate(input.value) : "";
+}
+
+function taskAddClose() {
+  var s = taskAddNow;
+  if (!s) { return; }
+  taskAddNow = null;
+  document.removeEventListener("keydown", s.onKey, true);
+  if (s.overlay && s.overlay.parentNode) { s.overlay.parentNode.removeChild(s.overlay); }
+  if (s.prevFocus && s.prevFocus.focus && document.body.contains(s.prevFocus)) {
+    try { s.prevFocus.focus(); } catch (e) {}
+  }
+}
+
+// The Add button. While it is saving the button is off. If it fails the
+// form stays, with everything kept and a plain message.
+function taskAddSave() {
+  var s = taskAddNow;
+  var box = document.getElementById("taskAddWords");
+  var btn = document.getElementById("taskAddSave");
+  var sel = document.getElementById("taskAddClient");
+  var due = document.getElementById("taskAddDue");
+  if (!s || !box || !btn || s.saving) { return; }
+  var words = taskSheetCleanWords(box.value);
+  if (!words) {
+    taskAddMsg(taskSheetBoth("Escreva a tarefa antes de adicionar.", "Write the task before adding it."));
+    box.focus();
+    return;
+  }
+  if (words.length > TASK_SHEET_WORDS_MAX) {
+    taskAddMsg(taskSheetBoth(
+      "Tarefa longa demais. O limite &eacute; de " + TASK_SHEET_WORDS_MAX + " caracteres.",
+      "That task is too long. The limit is " + TASK_SHEET_WORDS_MAX + " characters."));
+    return;
+  }
+  var body = { description: words, "for": s.forWho };
+  if (sel && sel.value) { body.client_id = sel.value; }
+  if (due && due.value) { body.due_date = due.value; }
+  s.saving = true;
+  btn.disabled = true;
+  taskAddMsg("");
+  taskSheetSend(s, "/api/tasks", "POST", body)
+    .then(function(r) {
+      if (taskAddNow !== s) { return; }
+      if (!r.ok || !r.data.task) { throw r.data; }
+      taskAddClose();
+      if (s.onAdded) { s.onAdded(r.data.task); }
+    })
+    .catch(function(data) {
+      if (taskAddNow !== s) { return; }
+      s.saving = false;
+      btn.disabled = false;
+      taskAddMsg(taskSheetErrorHtml(data, "N&atilde;o consegui adicionar a tarefa. Tente de novo.",
+        "Could not add the task. Please try again."));
+    });
+}
+
+function taskAddOpen(o) {
+  if (taskAddNow || taskSheetNow || !o || !o.getToken) { return false; }
+  taskSheetStyles();
+  var en = taskSheetIsEn();
+  var s = {
+    apiBase: o.apiBase || "", getToken: o.getToken, onAdded: o.onAdded || null,
+    forList: taskAddForList(o.viewerRole), forWho: "self", saving: false,
+    prevFocus: document.activeElement, overlay: null, onKey: null
+  };
+
+  var ov = document.createElement("div");
+  ov.id = "taskAdd";
+  ov.className = "task-sheet-overlay";
+  ov.setAttribute("role", "dialog");
+  ov.setAttribute("aria-modal", "true");
+  ov.setAttribute("aria-labelledby", "taskAddTitle");
+  var box = document.createElement("div");
+  box.className = "task-sheet-box";
+  box.addEventListener("click", function(e) { e.stopPropagation(); });
+
+  var head = document.createElement("div");
+  head.id = "taskAddTitle";
+  head.className = "task-add-head";
+  head.innerHTML = taskSheetBoth("Adicionar tarefa", "Add task");
+  box.appendChild(head);
+
+  // 1. The words.
+  var f1 = document.createElement("div");
+  f1.className = "task-add-field";
+  var l1 = document.createElement("label");
+  l1.setAttribute("for", "taskAddWords");
+  l1.innerHTML = taskSheetBoth("O que precisa ser feito?", "What needs to be done?");
+  f1.appendChild(l1);
+  var words = document.createElement("textarea");
+  words.id = "taskAddWords";
+  words.maxLength = TASK_SHEET_WORDS_MAX;
+  words.required = true;
+  f1.appendChild(words);
+  box.appendChild(f1);
+
+  // 2. For whom: exactly one pill lit, the first by default.
+  var f2 = document.createElement("div");
+  f2.className = "task-add-field";
+  var l2 = document.createElement("div");
+  l2.id = "taskAddForLabel";
+  l2.className = "task-add-label";
+  l2.innerHTML = taskSheetBoth("Para quem", "For whom");
+  f2.appendChild(l2);
+  var pills = document.createElement("div");
+  pills.className = "task-sheet-pills";
+  pills.setAttribute("role", "group");
+  pills.setAttribute("aria-labelledby", "taskAddForLabel");
+  for (var i = 0; i < s.forList.length; i++) {
+    (function(key) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.id = "taskAddFor_" + key;
+      b.className = "task-sheet-pill";
+      b.innerHTML = taskAddForHtml(key, o.names);
+      b.addEventListener("click", function() {
+        if (s.saving) { return; }
+        s.forWho = key;
+        taskAddPaintFor();
+      });
+      pills.appendChild(b);
+    })(s.forList[i]);
+  }
+  f2.appendChild(pills);
+  box.appendChild(f2);
+
+  // 3. The client, optional: the first option is none.
+  var f3 = document.createElement("div");
+  f3.className = "task-add-field";
+  var l3 = document.createElement("label");
+  l3.setAttribute("for", "taskAddClient");
+  l3.innerHTML = taskSheetBoth("Cliente", "Client");
+  f3.appendChild(l3);
+  var sel = document.createElement("select");
+  sel.id = "taskAddClient";
+  var none = document.createElement("option");
+  none.value = "";
+  none.textContent = en ? "None" : "Nenhum";
+  sel.appendChild(none);
+  f3.appendChild(sel);
+  var clientNote = document.createElement("div");
+  clientNote.id = "taskAddClientNote";
+  clientNote.className = "task-add-quiet";
+  f3.appendChild(clientNote);
+  box.appendChild(f3);
+
+  // 4. The due date, optional, printed beside the field as the site prints it.
+  var f4 = document.createElement("div");
+  f4.className = "task-add-field";
+  var l4 = document.createElement("label");
+  l4.setAttribute("for", "taskAddDue");
+  l4.innerHTML = taskSheetBoth("Prazo", "Due date");
+  f4.appendChild(l4);
+  var dueRow = document.createElement("div");
+  dueRow.className = "task-add-duerow";
+  var due = document.createElement("input");
+  due.type = "date";
+  due.id = "taskAddDue";
+  due.addEventListener("change", taskAddPaintDue);
+  dueRow.appendChild(due);
+  var dueShown = document.createElement("span");
+  dueShown.id = "taskAddDueShown";
+  dueShown.className = "task-sheet-dueshown";
+  dueRow.appendChild(dueShown);
+  f4.appendChild(dueRow);
+  box.appendChild(f4);
+
+  var msg = document.createElement("div");
+  msg.id = "taskAddMsg";
+  msg.className = "task-sheet-editmsg";
+  msg.setAttribute("role", "status");
+  msg.setAttribute("aria-live", "polite");
+  box.appendChild(msg);
+
+  var row = document.createElement("div");
+  row.className = "task-sheet-editrow";
+  var saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.id = "taskAddSave";
+  saveBtn.className = "task-sheet-add";
+  saveBtn.innerHTML = taskSheetBoth("Adicionar", "Add");
+  saveBtn.addEventListener("click", taskAddSave);
+  row.appendChild(saveBtn);
+  var cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.id = "taskAddCancel";
+  cancelBtn.className = "task-sheet-btn";
+  cancelBtn.innerHTML = taskSheetBoth("Cancelar", "Cancel");
+  cancelBtn.addEventListener("click", taskAddClose);
+  row.appendChild(cancelBtn);
+  box.appendChild(row);
+
+  ov.appendChild(box);
+  // A tap outside closes it only while nothing is typed: a stray tap must
+  // not throw away a half-written task.
+  ov.addEventListener("click", function(e) {
+    if (e.target === ov && !taskSheetCleanWords(words.value)) { taskAddClose(); }
+  });
+
+  // Escape closes. Tab stays inside the form.
+  s.onKey = function(e) {
+    if (taskAddNow !== s) { return; }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      taskAddClose();
+      return;
+    }
+    if (e.key !== "Tab") { return; }
+    var all = box.querySelectorAll("button, input, select, textarea");
+    var can = [];
+    for (var k = 0; k < all.length; k++) {
+      if (!all[k].disabled && all[k].offsetParent !== null) { can.push(all[k]); }
+    }
+    if (!can.length) { return; }
+    var first = can[0];
+    var last = can[can.length - 1];
+    if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  document.addEventListener("keydown", s.onKey, true);
+
+  s.overlay = ov;
+  taskAddNow = s;
+  document.body.appendChild(ov);
+  taskAddPaintFor();
+  words.focus();
+
+  // The client list the page has (or loads the way it already does). The
+  // client is optional: when the list cannot be read the form still works.
+  if (o.loadClients) {
+    var asked;
+    try { asked = o.loadClients(); } catch (e) { asked = null; }
+    Promise.resolve(asked).then(function(list) {
+      if (taskAddNow !== s) { return; }
+      if (!list) { throw new Error("no list"); }
+      taskAddFillClients(list);
+    }).catch(function() {
+      if (taskAddNow !== s) { return; }
+      clientNote.innerHTML = taskSheetBoth("N&atilde;o foi poss&iacute;vel carregar os clientes.",
+        "Could not load the clients.");
+    });
+  }
   return true;
 }

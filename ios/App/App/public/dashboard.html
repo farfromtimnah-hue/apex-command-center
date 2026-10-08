@@ -4225,6 +4225,15 @@
     //   doneDay: YYYY-MM-DD the task was marked done; the row is crossed off.
     //   doneAt:  the stored moment it was marked done (tasks.completed_at),
     //            when known: the tag then carries the time as well.
+    // Is this task given, and by which role? Given = created_by_role is set
+    // and differs from the owner (assigned_to, or the consultant when empty).
+    function mtGivenBy(t) {
+      var by = t && t.created_by_role ? String(t.created_by_role) : "";
+      if (!by) { return null; }
+      var owner = t.assigned_to ? String(t.assigned_to) : "rafa";
+      return by === owner ? null : by;
+    }
+
     function buildMyTaskRow(t, opt) {
       opt = opt || {};
       var row = document.createElement("div");
@@ -4265,6 +4274,21 @@
         if (t.assigned_to === "developer") { who.innerHTML = mtBoth("Sistema", "System"); }
         else { who.textContent = t.assignee_name || "Alice"; }
         meta.appendChild(who);
+      }
+      if (!opt.given) {
+        // A task someone else gave its owner says who it came from. A task
+        // the owner made for themself, or an old row, has no tag.
+        var giver = mtGivenBy(t);
+        if (giver) {
+          var from = document.createElement("span");
+          from.className = "mt-due";
+          if (giver === "developer") { from.innerHTML = mtBoth("Do sistema", "From the system"); }
+          else {
+            var giverName = escHtml(t.giver_name || (giver === "alice" ? "Alice" : "Rafa"));
+            from.innerHTML = mtBoth("De " + giverName, "From " + giverName);
+          }
+          meta.appendChild(from);
+        }
       }
       // A task may have no client at all: then there is simply no name here.
       if (t.client_id && t.client_name) {

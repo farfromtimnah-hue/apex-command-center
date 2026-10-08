@@ -97,7 +97,7 @@ function harness(d, opts) {
   });
   const F = build(
     ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
-     "taskAssigneeAliceName", "taskAssigneeRafaName", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
+     "taskAssigneeAliceName", "taskAssigneeRafaName", "taskGivenByRole", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask"],
     ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX"], stubs);
   const audioReq = (bytes, lang) => ({
@@ -768,6 +768,24 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   const by = {}; all.data.tasks.forEach((t) => { by[t.id] = t; });
   ok(all.status === 200 && all.data.tasks.every((t) => "created_by_role" in t), "GET /api/tasks returns created_by_role on every task");
   ok(by[a3.out[0].id].created_by_role === "alice" && by["old-row"].created_by_role === null, "GET /api/tasks: 'alice' on the task she spoke, null on an old row");
+
+  // giver_name: who a task came from, for its owner's lists.
+  a3.d.raw.exec("INSERT INTO tasks (id, client_id, type, description, source, assigned_to, created_by_role) VALUES " +
+    "('g-alice-to-rafa', NULL, 'consultant', 'x', 'voice', NULL, 'alice'), ('g-rafa-to-alice', NULL, 'consultant', 'x', 'voice', 'alice', 'rafa'), " +
+    "('g-dev-to-rafa', NULL, 'consultant', 'x', 'voice', NULL, 'developer'), ('g-dev-to-alice', NULL, 'consultant', 'x', 'voice', 'alice', 'developer'), " +
+    "('g-rafa-self', NULL, 'consultant', 'x', 'voice', NULL, 'rafa'), ('g-alice-self', NULL, 'consultant', 'x', 'voice', 'alice', 'alice')");
+  const gv = await a3.h.F.handleGetAllTasks(jsonReq({}), a3.h.env);
+  const gb = {}; gv.data.tasks.forEach((t) => { gb[t.id] = t; });
+  ok(gv.data.tasks.every((t) => "giver_name" in t), "GET /api/tasks returns giver_name on every task");
+  ok(gb["g-alice-to-rafa"].giver_name === "Pra. Alice", "giver_name is Alice's display name on a task Alice gave the consultant: " + gb["g-alice-to-rafa"].giver_name);
+  ok(gb["g-rafa-to-alice"].giver_name === "Rafa", "giver_name is Rafa's display name on a task he gave Alice");
+  ok(gb["g-dev-to-rafa"].giver_name === null && gb["g-dev-to-alice"].giver_name === null, "giver_name is null on a task from the developer");
+  ok(gb["g-rafa-self"].giver_name === null && gb["g-alice-self"].giver_name === null, "giver_name is null on a self task");
+  ok(gb["old-row"].giver_name === null, "giver_name is null on a row with created_by_role NULL");
+  ok(JSON.stringify(gv.data).indexOf("The Developer") < 0, "GET /api/tasks never carries the developer's name (giver_name included)");
+  const G = a3.h.F.taskGivenByRole;
+  ok(G(null, "alice") === "alice" && G("alice", "rafa") === "rafa" && G("alice", "developer") === "developer" && G(null, "developer") === "developer", "taskGivenByRole: the giver's role when it differs from the owner");
+  ok(G(null, "rafa") === null && G("alice", "alice") === null && G("developer", "developer") === null && G(null, null) === null && G("alice", null) === null && G("alice", "") === null, "taskGivenByRole: null for a self task and for created_by_role empty");
 
   ok(MIG_ROLE.trim() === "ALTER TABLE tasks ADD COLUMN created_by_role TEXT;", "the migration file is exactly the one statement");
 }

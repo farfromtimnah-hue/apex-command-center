@@ -1635,6 +1635,8 @@
           // null for a task that belongs to whoever it always did.
           assignedTo:   r.assigned_to || null,
           assigneeName: r.assignee_name || null,
+          createdByRole: r.created_by_role || null,
+          giverName:    r.giver_name || null,
           completedBy:  r.completed_by || null,
           // The moment it was marked done (UTC). A row closed before this
           // was recorded has none; updatedAt is then the nearest thing.
@@ -2199,6 +2201,15 @@
 
     // ── DOM builders ───────────────────────────────────────────────────────
 
+    // Is this task given, and by which role? Given = created_by_role is set
+    // and differs from the owner (assigned_to, or the consultant when empty).
+    function taskGivenBy(task) {
+      var by = task.createdByRole ? String(task.createdByRole) : "";
+      if (!by) { return null; }
+      var owner = task.assignedTo ? String(task.assignedTo) : "rafa";
+      return by === owner ? null : by;
+    }
+
     function makeTaskRow(task, showTypeTag, suppressDoneStyle) {
       var isDone = !!completedMap[task.key];
       var showDone = isDone && !suppressDoneStyle;
@@ -2307,6 +2318,22 @@
             '<span class="show-en">Done ' + escHtml(doneWhen) + '</span>';
           meta.appendChild(doneEl);
         }
+      }
+
+      // A task someone else gave its owner says who it came from. A task
+      // the owner made for themself, or an old row, has no such tag.
+      // Rows handed to someone else keep the tag that says who has them.
+      var giverRole = task.assignedTo ? null : taskGivenBy(task);
+      if (giverRole) {
+        var fromEl = document.createElement("span");
+        fromEl.className = "task-type-tag";
+        if (giverRole === "developer") {
+          fromEl.innerHTML = '<span class="show-pt">Do sistema</span><span class="show-en">From the system</span>';
+        } else {
+          var fromName = escHtml(task.giverName || (giverRole === "alice" ? "Alice" : "Rafa"));
+          fromEl.innerHTML = '<span class="show-pt">De ' + fromName + '</span><span class="show-en">From ' + fromName + '</span>';
+        }
+        meta.appendChild(fromEl);
       }
 
       // Type tag (only shown in consultant tab, by-date view)

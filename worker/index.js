@@ -14796,6 +14796,27 @@ async function handlePostHelpRequest(id, request, env) {
         await env.DB.prepare(
             "INSERT INTO tasks (id, client_id, type, description, due_date, status, source) VALUES (?, ?, 'consultant', ?, ?, 'pending', 'help_request')"
         ).bind(taskId, id, description, dueDate).run();
+        // Tell the consultant at once: one push to every user with role
+        // 'rafa'. Only when the CLIENT asked (a staff member pressing the
+        // button while managing a portal does not ping him). The task is
+        // already saved, so a push that fails never fails the request, and
+        // pushToUsers is never called with an empty list (that means everyone).
+        if (!isAdminRole(user)) {
+            try {
+                var helpTo = await env.DB.prepare("SELECT email FROM users WHERE role = 'rafa'").all();
+                var helpEmails = (helpTo.results || []).map(function(r) { return r.email; });
+                if (helpEmails.length) {
+                    await pushToUsers(env, helpEmails, {
+                        title: "Pedido de ajuda",
+                        body: (client.name + ": " + label).slice(0, 160),
+                        url: "/tasks.html?task=" + taskId,
+                        tag: "apex-help-request"
+                    });
+                }
+            } catch (helpPushErr) {
+                console.error("help-request push failed", helpPushErr && helpPushErr.message);
+            }
+        }
         var waText = "Oi Rafa! Aqui é " + client.name +
             ". Preciso de ajuda com \"" + label + "\" no Portal Apex. Os números estão na sua aba de tarefas.";
         return jsonOk({

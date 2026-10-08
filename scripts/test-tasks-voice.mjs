@@ -669,12 +669,13 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   const page = html["tasks.html"][0];
   const cut = (name) => { const i = page.indexOf("\n    function " + name + "("); if (i < 0) { throw new Error("not in tasks.html: " + name); } return page.slice(i + 1, page.indexOf("\n    }\n", i) + 6); };
   const make = (role) => new Function("sessionStorage", "formatDateTimeUTC", "formatDateUTC",
-    ["isOwnConsultantTask", "isGivenTask", "givenCanCheck", "givenDoneWhen", "givenDoneSortKey"].map(cut).join("\n") +
-    "\nreturn { isOwnConsultantTask, isGivenTask, givenCanCheck, givenDoneWhen, givenDoneSortKey };")({ getItem: () => role }, fmt, fmtDay);
+    ["isOwnConsultantTask", "taskOwnerRole", "taskMakerRole", "taskSectionFor", "givenCanCheck", "givenDoneWhen", "taskStampKey", "taskDoneStamp"].map(cut).join("\n") +
+    "\nreturn { isOwnConsultantTask, taskSectionFor, givenCanCheck, givenDoneWhen, taskStampKey, taskDoneStamp };")({ getItem: () => role }, fmt, fmtDay);
   const P = make("rafa");
   const own = { type: "rafa", assignedTo: null }, toAlice = { type: "rafa", assignedTo: "alice" }, toSys = { type: "rafa", assignedTo: "developer" };
   ok(P.isOwnConsultantTask(own) && !P.isOwnConsultantTask(toAlice) && !P.isOwnConsultantTask(toSys) && !P.isOwnConsultantTask({ type: "client", assignedTo: null }), "tasks.html: a handed-out task is not in the consultant tab or its count");
-  ok(P.isGivenTask(toAlice) && P.isGivenTask(toSys) && !P.isGivenTask(own) && !P.isGivenTask({ type: "rafa", assignedTo: "alice", completedBy: "voice-undo" }), "tasks.html: Given to others takes tasks with assigned_to set, never one undone by voice");
+  // The Given to others tab became a section of "My tasks" (scripts/test-tasks-page-sections.mjs has the full rules).
+  ok(P.taskSectionFor(toAlice, "rafa") === "given" && P.taskSectionFor(toSys, "rafa") === "given" && P.taskSectionFor(own, "rafa") === "mine" && P.taskSectionFor({ type: "rafa", assignedTo: "alice", completedBy: "voice-undo" }, "rafa") === null, "tasks.html: Given to others takes the tasks he handed out, never one undone by voice");
   ok(!P.givenCanCheck(toAlice) && !P.givenCanCheck(toSys), "tasks.html: role rafa gets no checkbox on a handed-out task");
   ok(make("alice").givenCanCheck(toAlice) && !make("alice").givenCanCheck(toSys), "tasks.html: role alice gets a checkbox on tasks for Alice only");
   ok(make("developer").givenCanCheck(toSys) && !make("developer").givenCanCheck(toAlice), "tasks.html: role developer gets a checkbox on system tasks only");
@@ -683,10 +684,10 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   ok(P.givenDoneWhen({ completedAt: null, updatedAt: "2026-10-08T02:15:00.000Z" }) === "10/07/2026", "tasks.html: an old row with no completed_at shows the date alone");
   ok(P.givenDoneWhen({ completedAt: null, updatedAt: null }) === "", "tasks.html: nothing known, no done tag");
   const order = [{ k: "old", completedAt: null, updatedAt: "2026-10-01 09:00:00" }, { k: "new", completedAt: "2026-10-07T20:00:00.000Z" }, { k: "mid", completedAt: "2026-10-07T13:00:00.000Z" }]
-    .sort((a, b) => (P.givenDoneSortKey(a) === P.givenDoneSortKey(b) ? 0 : (P.givenDoneSortKey(a) < P.givenDoneSortKey(b) ? 1 : -1))).map((x) => x.k).join(",");
+    .sort((a, b) => { const ka = P.taskStampKey(P.taskDoneStamp(a)), kb = P.taskStampKey(P.taskDoneStamp(b)); return ka === kb ? 0 : (ka < kb ? 1 : -1); }).map((x) => x.k).join(",");
   ok(order === "new,mid,old", "tasks.html: done handed-out tasks sort newest done first: " + order);
-  for (const id of ["tabBtnGiven", "tabCountGiven"]) { ok(page.split('id="' + id + '"').length === 2, "tasks.html: id=\"" + id + "\" is there once"); }
-  ok(page.indexOf('appendDoneGroup("Passei para outros", "Given to others", givenDone, true);') >= 0, "tasks.html: the Done tab has a Given to others section built with the same header as the other two");
+  for (const id of ["tabBtnMine", "tabCountMine"]) { ok(page.split('id="' + id + '"').length === 2, "tasks.html: id=\"" + id + "\" is there once"); }
+  ok(page.indexOf('given:      ["Passei para outros", "Given to others"]') >= 0 && page.indexOf('var keys = ["mine", "sessions", "given", "client"];') >= 0, "tasks.html: the Done tab has a Given to others section built with the same header as the others");
 }
 
 // ── 16. Whoever speaks owns the task, unless they name someone else ─────────

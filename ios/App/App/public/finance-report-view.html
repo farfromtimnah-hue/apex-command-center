@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Relat&oacute;rio financeiro</title>
+  <link rel="stylesheet" href="doc-hero.css?v=1790541646">
+  <script src="doc-hero.js?v=1790547506"></script>
+  <style>
+    /* The printable financial report, built from the portal's Finance
+       records. A sibling of estimate-view.html / receipt-view.html: the same
+       hero band (doc-hero.css), fonts, cards and brand variables. Unlike
+       those pages it is NEVER public: it needs a signed-in session with
+       access to the client (the owner's own login, or staff), and it reads
+       GET /api/clients/:id/gm/finance/report with that session.
+       The CLIENT's brand only: no Apex name, logo or colours on this page.
+       Money and dates are US format in both languages. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink: #1f2328; --muted: #5a6470; --border: #e3e7ec; --bg: #f5f6f8; --red: #a63d3d; --green: #2f6b3e;
+      --brand-bg: #2b2f36; --brand-accent: #2b2f36; --on-brand-bg: #ffffff; --on-brand-accent: #ffffff; --accent-on-dark: #ffffff;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh; }
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 60px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 14px; }
+    h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .toolbar { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .btn { min-height: 44px; padding: 0 18px; border: none; border-radius: 10px; background: var(--brand-accent); color: var(--on-brand-accent); font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .btn.secondary { background: #fff; color: var(--ink); border: 2px solid var(--border); }
+    .title { font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--brand-bg); line-height: 1.15; overflow-wrap: anywhere; }
+    .sub { font-size: 14px; color: #444; margin-top: 4px; overflow-wrap: anywhere; }
+    /* The closing balance: the soft-price look of the document pages (light
+       weight, contained in a pill), only larger. */
+    .balance-tile { background: #faf7f1; color: #2b2b2b; border: 1px solid var(--brand-accent); border-radius: 18px; padding: 14px 24px; margin-top: 14px; text-align: center; }
+    .balance-tile .bt-label { font-size: 11px; font-weight: 600; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.1em; }
+    .balance-tile .bt-value { font-size: 38px; font-weight: 300; line-height: 1.2; color: #2b2b2b; }
+    .balance-tile .bt-note { font-size: 13px; color: #6b6b6b; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table.led { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.led th { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; text-align: left; padding: 6px 6px; border-bottom: 2px solid var(--brand-accent); white-space: nowrap; }
+    table.led td { padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    table.led th.num, table.led td.num { text-align: right; white-space: nowrap; }
+    table.led td.date { white-space: nowrap; color: #444; }
+    table.led td.desc { overflow-wrap: anywhere; }
+    table.led .detail { font-size: 12px; color: var(--muted); white-space: pre-wrap; margin-top: 2px; }
+    table.led td.bal { font-weight: 600; }
+    table.led tr.totals-row td { border-top: 2px solid var(--ink); border-bottom: none; font-weight: 700; }
+    table.led tr.opening-row td { color: #444; }
+    .check { margin-top: 12px; font-size: 13px; color: #444; overflow-wrap: anywhere; }
+    .foot { text-align: center; font-size: 12px; color: var(--muted); padding: 16px 0 4px; overflow-wrap: anywhere; }
+    .state { text-align: center; padding: 20px 0; }
+    .state p { color: var(--muted); }
+    .hidden { display: none !important; }
+    @media (max-width: 560px) {
+      table.led.entries { min-width: 540px; }
+      .balance-tile .bt-value { font-size: 32px; }
+    }
+    /* ---- PAPER: US Letter. Rows are never cut across pages, the column
+       header repeats on every page, and the hero band prints with its
+       colours. The buttons are left off. */
+    @page { size: letter; margin: 0.5in; }
+    @media print {
+      html, body { background: #fff; }
+      body { min-height: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .card { border: none; border-radius: 0; padding: 0; margin-top: 14px; }
+      .hero-band, .hero-band img.hero-img, .balance-tile { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .hero-band.doc-screen .header-tile-row { margin-left: 16px; }
+      .balance-tile, .check, .foot, #cardHead { break-inside: avoid; page-break-inside: avoid; }
+      .table-scroll { overflow: visible; }
+      table.led.entries { min-width: 0; }
+      table.led thead { display: table-header-group; }
+      table.led tr { break-inside: avoid; page-break-inside: avoid; }
+      table.led tr.totals-row { break-before: avoid; page-break-before: avoid; }
+      h2 { break-after: avoid; page-break-after: avoid; }
+      table.led.cats { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="lang-pt">
+  <div class="hero-band doc-screen" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap" role="main">
+    <div class="toolbar no-print">
+      <button type="button" class="btn secondary" id="btnLang">PT / EN</button>
+      <button type="button" class="btn" id="btnPrint"><span class="show-pt">Imprimir / Salvar em PDF</span><span class="show-en">Print / Save as PDF</span></button>
+    </div>
+    <div class="card" id="cardState" role="status"><div class="state"><p id="stateMsg"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></p></div></div>
+    <div id="doc" class="hidden">
+      <div class="card" id="cardHead">
+        <div class="title" role="heading" aria-level="1" id="repTitle"></div>
+        <div class="sub" id="repPrepared"></div>
+        <div class="sub" id="repPeriod"></div>
+        <div class="balance-tile" id="repBalance"></div>
+      </div>
+      <div class="card hidden" id="cardEmpty"><div class="state"><p><span class="show-pt">Nenhum lan&ccedil;amento neste per&iacute;odo.</span><span class="show-en">No entries in this period.</span></p></div></div>
+      <div class="card" id="cardEntries">
+        <h2><span class="show-pt">Lan&ccedil;amentos</span><span class="show-en">Entries</span></h2>
+        <div class="table-scroll" id="repEntries"></div>
+        <div class="check" id="repCheck"></div>
+      </div>
+      <div class="card" id="cardCats">
+        <h2><span class="show-pt">Totais por categoria</span><span class="show-en">Totals by category</span></h2>
+        <div class="table-scroll" id="repCats"></div>
+      </div>
+      <div class="foot" id="repFoot"></div>
+    </div>
+  </div>
+
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-app-compat.js"
+    integrity="sha384-5y/1XyjXGriVPCsfTI3ap84Bg9Db2y/GiQjR3nbrVJE03bworx9G08uSJEMme/mI"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://www.gstatic.com/firebasejs/10.12.1/firebase-auth-compat.js"
+    integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE"
+    crossorigin="anonymous"></script>
+
+  <!-- The report's arithmetic and formatters. PURE: no DOM, no network, no
+       clock except the Date handed in. scripts/test-finance-report.mjs cuts
+       this block out by its id and runs it in node, so keep it that way. -->
+  <script id="frMath">
+    // A stored amount (REAL dollars, e.g. 4091.8) as whole cents. Every sum
+    // on the report is done on these integers, never on the dollars:
+    // 4091.8 - 467.9 is 3623.9000000000005 in floating point.
+    function frCents(v) {
+      var n = Number(v);
+      if (!isFinite(n)) { return 0; }
+      return Math.round(n * 100);
+    }
+
+    // Whole cents as US money in BOTH languages: 378943 -> "$3,789.43",
+    // -500 -> "-$5.00".
+    function frMoney(cents) {
+      var c = Math.round(Number(cents) || 0);
+      var neg = c < 0;
+      c = Math.abs(c);
+      var whole = String(Math.floor(c / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      var frac = String(c % 100);
+      if (frac.length < 2) { frac = "0" + frac; }
+      return (neg ? "-" : "") + "$" + whole + "." + frac;
+    }
+
+    // "2026-10-01" -> "10/01/2026" (month first, in both languages). Anything
+    // that is not a calendar date comes back empty.
+    function frDate(ymd) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd == null ? "" : ymd));
+      return m ? m[2] + "/" + m[3] + "/" + m[1] : "";
+    }
+
+    function frEasternParts(d) {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "numeric", minute: "2-digit", hour12: true
+      }).formatToParts(d).reduce(function(a, x) { a[x.type] = x.value; return a; }, {});
+    }
+
+    // A moment as the Eastern calendar date, "YYYY-MM-DD".
+    function frEasternYmd(d) {
+      var p = frEasternParts(d);
+      return p.year + "-" + p.month + "-" + p.day;
+    }
+
+    // A moment as Eastern "MM/DD/YYYY h:mm AM/PM".
+    function frDateTime(d) {
+      var p = frEasternParts(d);
+      return p.month + "/" + p.day + "/" + p.year + " " + p.hour + ":" + p.minute + " " + String(p.dayPeriod || "").toUpperCase();
+    }
+
+    // rows (already in date order) + the opening balance in cents ->
+    //   lines:      one per row, each with in_cents / out_cents and the
+    //               running balance_cents after it. When an opening balance
+    //               was given (not zero) it is the first line, kind "opening".
+    //   total_in_cents / total_out_cents: the rows only, never the opening.
+    //   closing_cents: the balance after the last line.
+    //   check_cents:   opening + total in - total out, summed separately from
+    //                  the running balance; check_ok says the two agree.
+    //   categories:    in and out per categoria, by name (no category last).
+    // A row is money in when its tipo is exactly "Entrada", as in the
+    // Finance list; anything else is money out.
+    function frBuild(rows, openingCents) {
+      var opening = Math.round(Number(openingCents) || 0);
+      var lines = [];
+      var balance = opening;
+      var totalIn = 0, totalOut = 0;
+      var cats = {}, catKeys = [];
+      if (opening !== 0) {
+        lines.push({ kind: "opening", date: null, descricao: null, obs: null, in_cents: 0, out_cents: 0, balance_cents: opening });
+      }
+      (rows || []).forEach(function(r) {
+        var cents = frCents(r.valor);
+        var isIn = r.tipo === "Entrada";
+        var inC = isIn ? cents : 0;
+        var outC = isIn ? 0 : cents;
+        totalIn += inC;
+        totalOut += outC;
+        balance += inC - outC;
+        lines.push({
+          kind: "entry", date: r.date || null, descricao: r.descricao || "", obs: r.obs || null,
+          in_cents: inC, out_cents: outC, balance_cents: balance
+        });
+        var key = r.categoria ? String(r.categoria) : "";
+        if (!cats.hasOwnProperty(key)) { cats[key] = { categoria: key || null, in_cents: 0, out_cents: 0 }; catKeys.push(key); }
+        cats[key].in_cents += inC;
+        cats[key].out_cents += outC;
+      });
+      catKeys.sort(function(a, b) {
+        if (a === b) { return 0; }
+        if (a === "") { return 1; }
+        if (b === "") { return -1; }
+        return a < b ? -1 : 1;
+      });
+      var check = opening + totalIn - totalOut;
+      return {
+        lines: lines,
+        entry_count: (rows || []).length,
+        has_opening: opening !== 0,
+        opening_cents: opening,
+        total_in_cents: totalIn,
+        total_out_cents: totalOut,
+        closing_cents: balance,
+        check_cents: check,
+        check_ok: check === balance,
+        categories: catKeys.map(function(k) { return cats[k]; })
+      };
+    }
+
+    // The sum behind the check line, without its label:
+    // "$5,207.70 - $1,418.27 = $3,789.43", or with an opening balance
+    // "$121.00 + $5,207.70 - $1,418.27 = $3,910.43".
+    function frCheckSum(r) {
+      return (r.has_opening ? frMoney(r.opening_cents) + " + " : "") +
+        frMoney(r.total_in_cents) + " - " + frMoney(r.total_out_cents) + " = " + frMoney(r.check_cents);
+    }
+  </script>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+
+    // Everything the Finance panel in the portal chose travels in the address:
+    //   client  the client id            from / to  YYYY-MM-DD
+    //   for     "prepared for" (text)    title      the report title (text)
+    //   open    opening balance in CENTS (integer)  lang  pt | en
+    //   previewAs  staff previewing a client, as on portal.html
+    var params = new URLSearchParams(window.location.search);
+    var YMD = /^\d{4}-\d{2}-\d{2}$/;
+    var CLIENT_ID  = params.get("client");
+    var PREVIEW_AS = params.get("previewAs");
+    var REP_FROM   = YMD.test(params.get("from") || "") ? params.get("from") : "";
+    var REP_TO     = YMD.test(params.get("to") || "") ? params.get("to") : "";
+    var REP_FOR    = String(params.get("for") || "").trim().slice(0, 120);
+    var REP_TITLE  = String(params.get("title") || "").trim().slice(0, 120);
+    var REP_OPEN   = /^-?\d{1,12}$/.test(params.get("open") || "") ? parseInt(params.get("open"), 10) : 0;
+
+    var currentUser = null;
+    var auth = null;
+    var triedFirebaseFallback = false;
+    var bizName = "";
+
+    function byId(id) { return document.getElementById(id); }
+    function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+    function ptEn(pt, en) { return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>'; }
+    function isEn() { return document.body.classList.contains("lang-en"); }
+    function lum(hex) { var h = hex.replace("#", ""); var rgb = [0, 2, 4].map(function(i) { var c = parseInt(h.slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }); return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]; }
+    function textOn(hex) { return (1.05 / (lum(hex) + 0.05)) >= 4.5 ? "#ffffff" : "#111111"; }
+
+    // A <title> cannot hold the two-language spans, so it follows the toggle.
+    function applyTitle() {
+      var t = REP_TITLE || (isEn() ? "Financial report" : "Relatório financeiro");
+      document.title = t + (bizName ? " - " + bizName : "");
+      document.documentElement.lang = isEn() ? "en" : "pt";
+    }
+    function setLang(en) {
+      var b = document.body;
+      b.classList.remove(en ? "lang-pt" : "lang-en");
+      b.classList.add(en ? "lang-en" : "lang-pt");
+      applyTitle();
+    }
+    function toggleLang() { setLang(!isEn()); }
+
+    function showState(pt, en) {
+      var msg = byId("stateMsg");
+      if (msg) { msg.innerHTML = ptEn(escHtml(pt), escHtml(en)); }
+      var card = byId("cardState");
+      if (card) { card.classList.remove("hidden"); }
+      var doc = byId("doc");
+      if (doc) { doc.classList.add("hidden"); }
+      var print = byId("btnPrint");
+      if (print) { print.classList.add("hidden"); }
+    }
+
+    // ---- Session: the same rules as the portal. A client's own password
+    // login carries a capt_ token in localStorage; staff and Google-linked
+    // clients are a Firebase session. While staff preview a client
+    // (?previewAs=) the stored client token is NOT used, as on portal.html,
+    // and previewAs rides on the request so the Worker sees the same preview.
+    function clientTokenStored() { return PREVIEW_AS ? null : localStorage.getItem("apex_client_token"); }
+
+    function firebaseUser() {
+      if (currentUser) { return Promise.resolve(currentUser); }
+      return new Promise(function(resolve, reject) {
+        if (typeof firebase === "undefined") { reject(new Error("Not authenticated")); return; }
+        if (!auth) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+          auth = firebase.auth();
+        }
+        var settled = false;
+        auth.onAuthStateChanged(function(user) {
+          if (settled) { return; }
+          if (user) { settled = true; currentUser = user; resolve(user); return; }
+          // Firebase reports a momentary null during a token refresh and then
+          // restores the session: wait a second, then decide.
+          setTimeout(function() {
+            if (settled) { return; }
+            settled = true;
+            if (auth.currentUser) { currentUser = auth.currentUser; resolve(auth.currentUser); }
+            else { reject(new Error("Not authenticated")); }
+          }, 1000);
+        });
+      });
+    }
+
+    function getToken() {
+      var capt = clientTokenStored();
+      if (capt && !triedFirebaseFallback) { return Promise.resolve(capt); }
+      return firebaseUser().then(function(user) { return user.getIdToken(); });
+    }
+
+    function apiFetch(path) {
+      if (PREVIEW_AS) {
+        path += (path.indexOf("?") > -1 ? "&" : "?") + "previewAs=" + encodeURIComponent(PREVIEW_AS);
+      }
+      return getToken().then(function(token) {
+        return fetch(WORKER_URL + path, { headers: { "Authorization": "Bearer " + token } });
+      });
+    }
+
+    // The header: brand colours, the photo (or the solid band), the logo
+    // tile (or the name as a wordmark), the name pill. As on an estimate.
+    function applyBranding(b) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      var primary = hex.test(b.brand_primary || "") ? b.brand_primary : null;
+      var accent = hex.test(b.brand_accent || "") ? b.brand_accent : primary;
+      if (primary) { root.setProperty("--brand-bg", primary); root.setProperty("--on-brand-bg", textOn(primary)); }
+      if (accent) {
+        root.setProperty("--brand-accent", accent); root.setProperty("--on-brand-accent", textOn(accent));
+        root.setProperty("--accent-on-dark", lum(accent) > 0.18 ? accent : "#ffffff");
+      }
+      var name = b.name || "";
+      var mark = byId("bizMark");
+      var logo = byId("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (b.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = b.logo_url;
+      }
+      var hero = byId("heroImg");
+      if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+
+    function moneyCell(cents) { return cents ? frMoney(cents) : ""; }
+
+    function entriesHtml(r) {
+      var h = '<table class="led entries"><thead><tr>' +
+        '<th>' + ptEn("Data", "Date") + '</th>' +
+        '<th>' + ptEn("Descri&ccedil;&atilde;o", "Description") + '</th>' +
+        '<th class="num">' + ptEn("Entrada", "In") + '</th>' +
+        '<th class="num">' + ptEn("Sa&iacute;da", "Out") + '</th>' +
+        '<th class="num">' + ptEn("Saldo", "Balance") + '</th>' +
+        '</tr></thead><tbody>';
+      r.lines.forEach(function(l) {
+        if (l.kind === "opening") {
+          h += '<tr class="opening-row"><td class="date"></td><td class="desc">' + ptEn("Saldo inicial", "Opening balance") + '</td>' +
+            '<td class="num"></td><td class="num"></td><td class="num bal">' + frMoney(l.balance_cents) + '</td></tr>';
+          return;
+        }
+        h += '<tr><td class="date">' + escHtml(frDate(l.date)) + '</td>' +
+          '<td class="desc">' + escHtml(l.descricao) + (l.obs ? '<div class="detail">' + escHtml(l.obs) + '</div>' : "") + '</td>' +
+          '<td class="num">' + moneyCell(l.in_cents) + '</td>' +
+          '<td class="num">' + moneyCell(l.out_cents) + '</td>' +
+          '<td class="num bal">' + frMoney(l.balance_cents) + '</td></tr>';
+      });
+      h += '<tr class="totals-row"><td class="date"></td><td class="desc">' + ptEn("Totais e saldo final", "Totals and closing balance") + '</td>' +
+        '<td class="num">' + frMoney(r.total_in_cents) + '</td>' +
+        '<td class="num">' + frMoney(r.total_out_cents) + '</td>' +
+        '<td class="num bal">' + frMoney(r.closing_cents) + '</td></tr>';
+      return h + '</tbody></table>';
+    }
+
+    function catsHtml(r) {
+      var h = '<table class="led cats"><thead><tr>' +
+        '<th>' + ptEn("Categoria", "Category") + '</th>' +
+        '<th class="num">' + ptEn("Entrada", "In") + '</th>' +
+        '<th class="num">' + ptEn("Sa&iacute;da", "Out") + '</th>' +
+        '</tr></thead><tbody>';
+      r.categories.forEach(function(c) {
+        h += '<tr><td class="desc">' + (c.categoria ? escHtml(c.categoria) : ptEn("Sem categoria", "No category")) + '</td>' +
+          '<td class="num">' + moneyCell(c.in_cents) + '</td>' +
+          '<td class="num">' + moneyCell(c.out_cents) + '</td></tr>';
+      });
+      h += '<tr class="totals-row"><td class="desc">' + ptEn("Totais", "Totals") + '</td>' +
+        '<td class="num">' + frMoney(r.total_in_cents) + '</td>' +
+        '<td class="num">' + frMoney(r.total_out_cents) + '</td></tr>';
+      return h + '</tbody></table>';
+    }
+
+    function render(d) {
+      var b = d.business || {};
+      var rows = d.entries || [];
+      var now = new Date();
+      var today = frEasternYmd(now);
+      bizName = b.name || "";
+      applyBranding(b);
+      applyTitle();
+
+      var r = frBuild(rows, REP_OPEN);
+      var from = REP_FROM || (rows.length ? rows[0].date : "");
+      var to = REP_TO || today;
+
+      var title = byId("repTitle");
+      if (title) { title.innerHTML = REP_TITLE ? escHtml(REP_TITLE) : ptEn("Relat&oacute;rio financeiro", "Financial report"); }
+      var prepared = byId("repPrepared");
+      if (prepared) {
+        prepared.innerHTML = REP_FOR
+          ? ptEn("Preparado para " + escHtml(REP_FOR) + " em " + frDate(today), "Prepared for " + escHtml(REP_FOR) + " on " + frDate(today))
+          : ptEn("Preparado em " + frDate(today), "Prepared on " + frDate(today));
+      }
+      var period = byId("repPeriod");
+      if (period) {
+        period.innerHTML = (from && to)
+          ? ptEn("Per&iacute;odo: " + frDate(from) + " a " + frDate(to), "Period: " + frDate(from) + " to " + frDate(to))
+          : "";
+      }
+
+      var empty = rows.length === 0;
+      ["repBalance", "cardEntries", "cardCats"].forEach(function(id) {
+        var el = byId(id);
+        if (el) { el.classList.toggle("hidden", empty); }
+      });
+      var cardEmpty = byId("cardEmpty");
+      if (cardEmpty) { cardEmpty.classList.toggle("hidden", !empty); }
+
+      if (!empty) {
+        var bal = byId("repBalance");
+        if (bal) {
+          bal.innerHTML = '<div class="bt-label">' + ptEn("Saldo final", "Closing balance") + '</div>' +
+            '<div class="bt-value">' + frMoney(r.closing_cents) + '</div>' +
+            '<div class="bt-note">' + ptEn("depois de todas as entradas e sa&iacute;das abaixo", "after all the money in and out below") + '</div>';
+        }
+        var entries = byId("repEntries");
+        if (entries) { entries.innerHTML = entriesHtml(r); }
+        var check = byId("repCheck");
+        if (check) { check.innerHTML = ptEn("Confer&ecirc;ncia: ", "Check: ") + frCheckSum(r); }
+        var cats = byId("repCats");
+        if (cats) { cats.innerHTML = catsHtml(r); }
+      }
+
+      var foot = byId("repFoot");
+      if (foot) {
+        var stamp = frDateTime(now);
+        foot.innerHTML = (bizName ? escHtml(bizName) + " &middot; " : "") + ptEn("Gerado em " + stamp, "Generated on " + stamp);
+      }
+
+      var card = byId("cardState");
+      if (card) { card.classList.add("hidden"); }
+      var doc = byId("doc");
+      if (doc) { doc.classList.remove("hidden"); }
+      var print = byId("btnPrint");
+      if (print) { print.classList.remove("hidden"); }
+    }
+
+    function reportPath() {
+      var q = [];
+      if (REP_FROM) { q.push("from=" + encodeURIComponent(REP_FROM)); }
+      if (REP_TO) { q.push("to=" + encodeURIComponent(REP_TO)); }
+      return "/api/clients/" + encodeURIComponent(CLIENT_ID) + "/gm/finance/report" + (q.length ? "?" + q.join("&") : "");
+    }
+
+    function load() {
+      var path = reportPath();
+      apiFetch(path)
+        .then(function(res) {
+          // A stale client token in this browser would win over a staff
+          // session and be refused. Retry once as the Firebase session
+          // (the same fallback xray-report.html makes), without deleting
+          // the stored token.
+          if ((res.status === 401 || res.status === 403 || res.status === 500) &&
+              !triedFirebaseFallback && clientTokenStored()) {
+            triedFirebaseFallback = true;
+            return apiFetch(path);
+          }
+          return res;
+        })
+        .then(function(res) {
+          if (res.status === 401 || res.status === 403) { var e = new Error("auth"); e.auth = true; throw e; }
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(render)
+        .catch(function(e) {
+          console.error(e);
+          if (e && (e.auth || e.message === "Not authenticated")) {
+            showState("Entre no portal para ver este relatório.", "Sign in to the portal to view this report.");
+            return;
+          }
+          showState("Não foi possível carregar o relatório. Verifique sua conexão e tente de novo.",
+                    "Could not load the report. Check your connection and try again.");
+        });
+    }
+
+    window.onload = function() {
+      setLang(params.get("lang") === "en");
+      var lang = byId("btnLang");
+      if (lang) { lang.onclick = toggleLang; }
+      var print = byId("btnPrint");
+      if (print) { print.onclick = function() { window.print(); }; print.classList.add("hidden"); }
+      if (!CLIENT_ID) {
+        showState("Relatório não encontrado.", "Report not found.");
+        return;
+      }
+      load();
+    };
+  </script>
+</body>
+</html>

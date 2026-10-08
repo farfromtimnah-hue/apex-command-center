@@ -4198,13 +4198,75 @@ function gmRenderFinance() {
     });
   }
   html += '<button type="button" class="btn-gold gm-add-btn" data-tour="finance-add-entry" onclick="gmOpenFinance(-1)">' +
-    gmT("+ Novo lançamento", "+ New entry") + '</button></div>';
+    gmT("+ Novo lançamento", "+ New entry") + '</button>' +
+    '<button type="button" class="btn-outline gm-add-btn" onclick="gmOpenFinanceReport()">' +
+    gmT("Relat\u00f3rio", "Report") + '</button></div>';
   body.innerHTML = html;
 }
 
 function gmOpenFinance(idx) {
   gmSheetRow = idx === -1 ? null : gmFinanceData.entries[idx];
   gmRenderSimpleSheet("finance");
+}
+
+// The printable financial report (finance-report-view.html). This sheet only
+// collects the choices; the page reads the entries itself, with the same
+// signed-in session, and does every sum in cents.
+function gmFinanceFirstDate() {
+  var first = "";
+  ((gmFinanceData && gmFinanceData.entries) || []).forEach(function(e) {
+    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(e.data || e.created_at || ""));
+    if (m && (!first || m[1] < first)) { first = m[1]; }
+  });
+  return first || gmTodayLocal();
+}
+
+function gmOpenFinanceReport() {
+  var body =
+    '<label class="gm-field-label" for="gmFinRepFrom">' + gmT("De", "From") + '</label>' +
+    '<input type="date" id="gmFinRepFrom" class="gm-input" value="' + escHtml(gmFinanceFirstDate()) + '">' +
+    '<label class="gm-field-label" for="gmFinRepTo">' + gmT("At\u00e9", "To") + '</label>' +
+    '<input type="date" id="gmFinRepTo" class="gm-input" value="' + escHtml(gmTodayLocal()) + '">' +
+    '<label class="gm-field-label" for="gmFinRepFor">' + gmT("Preparado para", "Prepared for") + '</label>' +
+    '<input type="text" id="gmFinRepFor" class="gm-input" maxlength="120">' +
+    '<label class="gm-field-label" for="gmFinRepTitle">' + gmT("T\u00edtulo", "Title") + '</label>' +
+    '<input type="text" id="gmFinRepTitle" class="gm-input" maxlength="120" placeholder="' +
+      escHtml(gmT("Relat\u00f3rio financeiro", "Financial report")) + '">' +
+    '<label class="gm-field-label" for="gmFinRepOpen">' + gmT("Saldo inicial", "Opening balance") + '</label>' +
+    '<input type="text" inputmode="decimal" id="gmFinRepOpen" class="gm-input" placeholder="0.00">' +
+    '<div class="gm-editor-actions">' +
+    '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
+    '<button type="button" class="btn-gold" onclick="gmFinanceReportOpen()">' + gmT("Abrir relat\u00f3rio", "Open report") + '</button></div>';
+  gmSheetOpen(gmT("Relat\u00f3rio", "Report"), body);
+}
+
+function gmFinanceReportOpen() {
+  function val(id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; }
+  var from = val("gmFinRepFrom"), to = val("gmFinRepTo");
+  if (!from || !to) { gmToast(gmT("Escolha as duas datas.", "Choose both dates.")); return; }
+  if (from > to) { gmToast(gmT("A data inicial deve ser antes da final.", "The start date must be before the end date.")); return; }
+  var openCents = 0;
+  var openRaw = val("gmFinRepOpen");
+  if (openRaw) {
+    var open = gmParseMoney(openRaw);
+    if (open === null) { gmToast(gmT("Saldo inicial inv\u00e1lido.", "The opening balance is not valid.")); return; }
+    openCents = Math.round(open * 100);
+  }
+  var href = "finance-report-view.html?client=" + encodeURIComponent(clientId) +
+    "&from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) +
+    "&lang=" + (isEn() ? "en" : "pt");
+  var who = val("gmFinRepFor"), title = val("gmFinRepTitle");
+  if (who) { href += "&for=" + encodeURIComponent(who); }
+  if (title) { href += "&title=" + encodeURIComponent(title); }
+  if (openCents) { href += "&open=" + openCents; }
+  // Staff previewing a client: the page makes its request the way the portal
+  // does, with previewAs on it.
+  if (typeof PREVIEW_AS !== "undefined" && PREVIEW_AS) { href += "&previewAs=" + encodeURIComponent(PREVIEW_AS); }
+  gmSheetClose();
+  // In the iOS app a new tab does not exist: the app's own copy of the page
+  // opens in the in-app viewer, same origin, same signed-in session.
+  if (gmInApp()) { gmAppViewer(href); return; }
+  window.open(href, "_blank");
 }
 
 // ═════════════════════════════════════════════════════════════════════════

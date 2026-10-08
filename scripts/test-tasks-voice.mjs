@@ -545,7 +545,7 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
     if (i < 0) { throw new Error("not found in dashboard.html: " + name); }
     return html.slice(i + 1, html.indexOf("\n    }\n", i) + 6);
   };
-  const names = ["mtNyDay", "mtGivenDoneStillShown", "renderMyGivenList", "buildMyTaskRow", "placeAssignedTasksCard", "loadAssignedTasks", "renderAssignedTasks", "markAssignedTaskDone"];
+  const names = ["mtNyDay", "mtGivenDoneStillShown", "mtTasksGivenBy", "renderGivenList", "buildMyTaskRow", "placeAssignedTasksCard", "loadAssignedTasks", "renderAssignedTasks", "markAssignedTaskDone"];
   ok(names.every((n) => cut(rootHtml, n) === cut(iosHtml, n)), "the root and iOS copies of dashboard.html carry the same new functions");
   for (const id of ["assignedTasksCard", "atTitle", "atStatus", "atList", "mtGivenList", "devBelowSection"]) {
     ok(rootHtml.split('id="' + id + '"').length === 2 && iosHtml.split('id="' + id + '"').length === 2, "id=\"" + id + "\" is in both copies, once");
@@ -782,6 +782,11 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   ok(gb["g-dev-to-rafa"].giver_name === null && gb["g-dev-to-alice"].giver_name === null, "giver_name is null on a task from the developer");
   ok(gb["g-rafa-self"].giver_name === null && gb["g-alice-self"].giver_name === null, "giver_name is null on a self task");
   ok(gb["old-row"].giver_name === null, "giver_name is null on a row with created_by_role NULL");
+  ok(gv.data.tasks.every((t) => "owner_name" in t), "GET /api/tasks returns owner_name on every task");
+  ok(gb["g-alice-to-rafa"].owner_name === "Rafa", "owner_name is the consultant's display name on a task given to him: " + gb["g-alice-to-rafa"].owner_name);
+  ok(gb["g-dev-to-rafa"].owner_name === "Rafa", "owner_name is set on a task the developer gave the consultant");
+  ok(gb["g-rafa-to-alice"].owner_name === null && gb["g-dev-to-alice"].owner_name === null, "owner_name is null when the owner is Alice (assignee_name carries hers)");
+  ok(gb["g-rafa-self"].owner_name === null && gb["old-row"].owner_name === null, "owner_name is null on a self task and on an old row");
   ok(JSON.stringify(gv.data).indexOf("The Developer") < 0, "GET /api/tasks never carries the developer's name (giver_name included)");
   const G = a3.h.F.taskGivenByRole;
   ok(G(null, "alice") === "alice" && G("alice", "rafa") === "rafa" && G("alice", "developer") === "developer" && G(null, "developer") === "developer", "taskGivenByRole: the giver's role when it differs from the owner");
@@ -825,20 +830,25 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   const up = cutFrom(dash, "uploadMyTasksBlob");
   ok(up.indexOf("d.tasks[i].given === true") >= 0 && up.indexOf('toRafa + " para Rafa"') >= 0 && up.indexOf('toRafa + " for Rafa"') >= 0, "dashboard: the second part counts given tasks by owner, with Rafa");
   // Given to others, run against a stand-in page.
-  const givenShown = (rows) => {
+  const givenShown = (rows, role) => {
     const made = [];
     const mk = () => ({ className: "", innerHTML: "", appendChild() {} });
     const container = { innerHTML: "", appendChild: (el) => { made.push(el); } };
-    const f = new Function("mtGiven", "document", "mtNyDay", "mtGivenDoneStillShown", "mtSortKey", "mtBoth", "buildMyTaskRow", "MT_LIST_MAX",
-      cutFrom(dash, "renderMyGivenList") + "\nreturn renderMyGivenList;")(
-      rows, { getElementById: () => container, createElement: mk }, () => "2026-10-07", () => true, (x) => String(x || ""), (pt, en) => en,
+    const f = new Function("container", "document", "mtNyDay", "mtGivenDoneStillShown", "mtSortKey", "mtBoth", "buildMyTaskRow", "MT_LIST_MAX",
+      cutFrom(dash, "mtTasksGivenBy") + "\n" + cutFrom(dash, "renderGivenList") + "\nreturn function(rows, role) { renderGivenList(container, mtTasksGivenBy(rows, role)); };")(
+      container, { createElement: mk }, () => "2026-10-07", () => true, (x) => String(x || ""), (pt, en) => en,
       (t) => ({ id: t.id }), 50);
-    f();
+    f(rows, role || "rafa");
     return made.filter((el) => el.id).map((el) => el.id).join(",");
   };
   const G = (id, assigned_to, created_by_role) => ({ id, assigned_to, created_by_role, status: "pending", completed_by: null, due_date: null, created_at: "2026-10-07 10:00:0" + id.length });
   const shownIds = givenShown([G("a", "alice", "rafa"), G("bb", "alice", "alice"), G("ccc", "developer", "developer"), G("dddd", "developer", "alice"), G("eeeee", "alice", null), G("ffffff", "alice", "developer")]);
-  ok(shownIds === "a,dddd,eeeee,ffffff", "dashboard Given to others: Alice's and the developer's own tasks are left out; handed-out ones and old rows (created_by_role NULL) stay: " + shownIds);
+  ok(shownIds === "a,eeeee", "dashboard Given to others (rafa): only tasks GIVEN BY rafa; what Alice or the developer gave is left out; an old row (created_by_role NULL) with an owner stays: " + shownIds);
+  const rows2 = [G("a", "alice", "rafa"), G("bb", "alice", "alice"), G("ccc", "developer", "developer"), G("dddd", "developer", "alice"), G("eeeee", "alice", null), G("ffffff", "alice", "developer"), G("g", null, "alice"), G("h", null, "developer"), G("i", null, "rafa"), G("j", null, null)];
+  ok(givenShown(rows2, "rafa") === "a,eeeee", "tasks given by rafa: a, eeeee (NULL role counts as rafa; self tasks and NULL/NULL excluded)");
+  ok(givenShown(rows2, "alice") === "g,dddd", "tasks given by alice: g (to the consultant) and dddd (to the system); her self task bb is excluded");
+  ok(givenShown(rows2, "developer") === "h,ffffff", "tasks given by developer: h and ffffff; his self task ccc is excluded");
+  ok(cutFrom(dash, "buildMyTaskRow").indexOf("t.owner_name || \"Rafa\"") >= 0, "dashboard: a task with the consultant is tagged with owner_name, fallback Rafa");
   ok(/var MY_TASKS_VIEWS = \{ rafa: "rafaMeetingsCard" \};/.test(dash), "dashboard: who sees the microphone card is unchanged (rafa)");
 }
 

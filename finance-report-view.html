@@ -371,17 +371,19 @@
       var name = b.name || "";
       var mark = byId("bizMark");
       var logo = byId("bizLogo");
+      // The name pill only sits beside a real logo. With no logo the tile
+      // already reads the name, and saying it twice looks like a mistake.
+      var pill = byId("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = true; }
       if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
       if (b.logo_url && logo) {
-        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
-        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } if (pill) { pill.hidden = !name; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } if (pill) { pill.hidden = true; } };
         logo.src = b.logo_url;
       }
       var hero = byId("heroImg");
       if (b.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = b.hero_url; }
       if (typeof docHeroApply === "function") { docHeroApply(byId("hero"), hero, b.hero); }
-      var pill = byId("bizName");
-      if (pill) { pill.textContent = name; pill.hidden = !name; }
     }
 
     function moneyCell(cents) { return cents ? frMoney(cents) : ""; }

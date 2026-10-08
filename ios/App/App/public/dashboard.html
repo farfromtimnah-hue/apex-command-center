@@ -1005,6 +1005,11 @@
           </div>
           <div class="mt-status" id="atStatus" aria-live="polite"></div>
           <div id="atList"></div>
+          <div class="section-sub-heading">
+            <span class="show-pt">Passei para outros</span>
+            <span class="show-en">Given to others</span>
+          </div>
+          <div id="atGivenList"></div>
         </div>
 
         <!-- Scheduling queue. THE SAME shared module calendar.html renders
@@ -4044,7 +4049,7 @@
           mtTasks = all.filter(function(t) {
             return t.type === "consultant" && t.status === "pending" && !t.assigned_to;
           });
-          mtGiven = all.filter(function(t) { return !!t.assigned_to; });
+          mtGiven = mtTasksGivenBy(all, "rafa");
           renderMyTasks();
         })
         .catch(function() {
@@ -4088,7 +4093,7 @@
         "Nenhuma tarefa sua em aberto.", "No open tasks of your own.");
       renderMyTaskList("mtSessionList", sess,
         "Nenhuma tarefa de sess\u00e3o em aberto.", "No open tasks from sessions.");
-      renderMyGivenList();
+      renderGivenList(document.getElementById("mtGivenList"), mtGiven);
     }
 
     // The calendar day (YYYY-MM-DD) in America/New_York of a Date or of a
@@ -4131,22 +4136,32 @@
       return now <= last.toISOString().slice(0, 10);
     }
 
-    // Given to others: what he handed out by voice. Open ones always show,
+    // The tasks GIVEN BY one role: the speaker's role (created_by_role, an old
+    // row without one counts as rafa) is that role and the owner's role
+    // (assigned_to, empty = rafa) is not. A task for oneself is given to nobody.
+    function mtTasksGivenBy(tasks, role) {
+      var out = [];
+      for (var i = 0; i < (tasks || []).length; i++) {
+        var t = tasks[i];
+        var by = t.created_by_role ? String(t.created_by_role) : "rafa";
+        var owner = t.assigned_to ? String(t.assigned_to) : "rafa";
+        if (by === role && owner !== role) { out.push(t); }
+      }
+      return out;
+    }
+
+    // Given to others: what a person handed out by voice. Open ones always show,
     // soonest due first and the ones with no date last. Done ones are crossed
     // off below them and leave by mtGivenDoneStillShown. No checkbox on any
     // row: he does not tick other people's work.
-    function renderMyGivenList() {
-      var container = document.getElementById("mtGivenList");
+    function renderGivenList(container, tasks) {
       if (!container) { return; }
       var today = mtNyDay(new Date());
       var open = [];
       var done = [];
-      for (var i = 0; i < mtGiven.length; i++) {
-        var t = mtGiven[i];
+      for (var i = 0; i < tasks.length; i++) {
+        var t = tasks[i];
         if (t.completed_by === "voice-undo") { continue; }
-        // Alice's or the developer's own task for themself was handed to
-        // nobody. A row from before created_by_role existed stays listed.
-        if (t.created_by_role && t.created_by_role === t.assigned_to) { continue; }
         if (t.status === "done") {
           // completed_at is when it was marked done. A row closed before
           // that column existed has none: the day is read as it was before.
@@ -4272,7 +4287,8 @@
         var who = document.createElement("span");
         who.className = "mt-due";
         if (t.assigned_to === "developer") { who.innerHTML = mtBoth("Sistema", "System"); }
-        else { who.textContent = t.assignee_name || "Alice"; }
+        else if (t.assigned_to === "alice") { who.textContent = t.assignee_name || "Alice"; }
+        else { who.textContent = t.owner_name || "Rafa"; }
         meta.appendChild(who);
       }
       if (!opt.given) {
@@ -4611,6 +4627,7 @@
 
     var atWho   = "";     // whose list is showing: "alice", "developer" or ""
     var atTasks = [];     // that person's open tasks
+    var atGiven = [];     // the tasks that person gave to others, open and done
 
     function atSetStatus(html, kind) {
       var st = document.getElementById("atStatus");
@@ -4637,6 +4654,7 @@
       }
       atWho = who;
       atTasks = [];
+      atGiven = [];
       var title = document.getElementById("atTitle");
       if (title) {
         title.innerHTML = who === "alice"
@@ -4645,6 +4663,8 @@
       }
       var list = document.getElementById("atList");
       if (list) { list.innerHTML = ""; }
+      var givenBox = document.getElementById("atGivenList");
+      if (givenBox) { givenBox.innerHTML = ""; }
       atSetStatus("");
       card.hidden = false;
       loadAssignedTasks();
@@ -4661,6 +4681,7 @@
           atTasks = (data.tasks || []).filter(function(t) {
             return t.assigned_to === who && t.status !== "done";
           });
+          atGiven = mtTasksGivenBy(data.tasks || [], who);
           renderAssignedTasks();
         })
         .catch(function() {
@@ -4670,10 +4691,13 @@
             list.innerHTML = '<div class="mt-empty">' +
               mtBoth("N\u00e3o foi poss\u00edvel carregar as tarefas.", "Could not load the tasks.") + '</div>';
           }
+          var givenBox = document.getElementById("atGivenList");
+          if (givenBox) { givenBox.innerHTML = ""; }
         });
     }
 
     function renderAssignedTasks() {
+      renderGivenList(document.getElementById("atGivenList"), atGiven);
       var list = document.getElementById("atList");
       if (!list) { return; }
       list.innerHTML = "";

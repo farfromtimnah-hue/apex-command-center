@@ -8828,6 +8828,16 @@ async function handleGetAllTasks(request, env) {
                 giverName = rafaName;
             }
             tasks[i].giver_name = giverName;
+
+            // Who a GIVEN task is with when the owner is the consultant
+            // (assigned_to empty). Other owners already have assignee_name;
+            // a task he owns that nobody gave him has no owner_name.
+            var ownerName = null;
+            if (!tasks[i].assigned_to && giver) {
+                if (rafaName === null) { rafaName = await taskAssigneeRafaName(env); }
+                ownerName = rafaName;
+            }
+            tasks[i].owner_name = ownerName;
         }
 
         return jsonOk({ tasks: tasks });

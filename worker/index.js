@@ -4882,12 +4882,33 @@ async function handlePostClientTask(id, request, env) {
 // ---------------------------------------------------------------------------
 // Route: PATCH /api/tasks/:id
 // Body: { status?: string, progress?: null|"working"|"waiting_client",
-//         due_date?: null|"YYYY-MM-DD" }   (at least one of the three)
+//         due_date?: null|"YYYY-MM-DD", description?: string }
+//         (at least one of the four)
 // Any staff user can toggle task status (done/pending). progress (the
-// one-click pill) and due_date are for staff tasks only (type 'consultant').
-// A body with only { status } behaves exactly as it did before the other two
+// one-click pill), due_date and description (the task's words) are for staff
+// tasks only (type 'consultant').
+// A body with only { status } behaves exactly as it did before the others
 // existed, except that marking a task done also empties its pill.
+// New words do not move updated_at: on a task closed before completed_at
+// existed that stamp is the only record of when it was done.
 // ---------------------------------------------------------------------------
+
+var TASK_DESC_MAX = 500;
+
+// A task's words as they are saved: trimmed, every run of spaces, tabs or
+// line breaks made one space. Returns { description } or { error: Response }.
+function taskDescriptionClean(raw) {
+    var words = (typeof raw === "string") ? raw.replace(/\s+/g, " ").trim() : "";
+    if (!words) {
+        return { error: jsonErr2("Escreva a tarefa.", "Write the task.", 400) };
+    }
+    if (words.length > TASK_DESC_MAX) {
+        return { error: jsonErr2(
+            "Tarefa longa demais. O limite \u00e9 de " + TASK_DESC_MAX + " caracteres.",
+            "That task is too long. The limit is " + TASK_DESC_MAX + " characters.", 400) };
+    }
+    return { description: words };
+}
 
 async function handlePatchTask(id, request, env) {
     try {
@@ -4898,7 +4919,8 @@ async function handlePatchTask(id, request, env) {
         var hasStatus = body.hasOwnProperty("status");
         var hasProgress = body.hasOwnProperty("progress");
         var hasDue = body.hasOwnProperty("due_date");
-        if (!hasStatus && !hasProgress && !hasDue) { return jsonErr("status is required", 400); }
+        var hasDesc = body.hasOwnProperty("description");
+        if (!hasStatus && !hasProgress && !hasDue && !hasDesc) { return jsonErr("status is required", 400); }
 
         var allowed = ["pending", "done"];
         if (hasStatus && allowed.indexOf(body.status) === -1) { return jsonErr("status must be pending or done", 400); }
@@ -4915,15 +4937,22 @@ async function handlePatchTask(id, request, env) {
                 return jsonErr2("Data inválida.", "That is not a valid date.", 400);
             }
         }
+        var words = null;
+        if (hasDesc) {
+            var cleaned = taskDescriptionClean(body.description);
+            if (cleaned.error) { return cleaned.error; }
+            words = cleaned.description;
+        }
 
         // Verify the task exists and caller has access via their role
         var task = await env.DB.prepare("SELECT id, client_id, type, status FROM tasks WHERE id = ?").bind(id).first();
         if (!task) { return jsonErr("Task not found", 404); }
         // Only alice, rafa, and developer can mutate tasks (same gate as task creation and client writes)
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-        // The pill and the due date belong to staff tasks. A client's own
-        // to-do (type 'client') is shown in the client portal and gets neither.
-        if ((hasProgress || hasDue) && task.type !== "consultant") {
+        // The pill, the due date and the words belong to staff tasks. A
+        // client's own to-do (type 'client') is shown in the client portal
+        // and gets none of them.
+        if ((hasProgress || hasDue || hasDesc) && task.type !== "consultant") {
             return jsonErr2("Isso só vale para tarefas da equipe.", "This is only for staff tasks.", 400);
         }
 
@@ -4959,22 +4988,39 @@ async function handlePatchTask(id, request, env) {
             sets.push("due_date = ?");
             binds.push(due);
         }
+        if (hasDesc) {
+            sets.push("description = ?");
+            binds.push(words);
+        }
         binds.push(id);
         // One statement either way. With a status it starts with the same
         // status, completed_by, completed_at, updated_at it always wrote.
         var stmt = env.DB.prepare(statusSql
             ? statusSql + (sets.length ? ", " + sets.join(", ") : "") + " WHERE id = ?"
             : "UPDATE tasks SET " + sets.join(", ") + " WHERE id = ?");
-        await stmt.bind.apply(stmt, binds).run();
+        try {
+            await stmt.bind.apply(stmt, binds).run();
+        } catch (e) {
+            // A task that came from a session cannot carry the same words as
+            // another task of that session (the unique index on session_id,
+            // type, description). Nothing was saved.
+            if (hasDesc && /UNIQUE constraint/i.test(String(e && e.message))) {
+                return jsonErr2("J\u00e1 existe uma tarefa com essas mesmas palavras nesta sess\u00e3o.",
+                                "This session already has a task with these same words.", 409);
+            }
+            throw e;
+        }
 
         // Old pages send only { status } and get the same two fields back.
-        if (!hasProgress && !hasDue) { return jsonOk({ ok: true, status: body.status }); }
-        var after = await env.DB.prepare("SELECT status, progress, due_date FROM tasks WHERE id = ?").bind(id).first();
-        return jsonOk({
+        if (!hasProgress && !hasDue && !hasDesc) { return jsonOk({ ok: true, status: body.status }); }
+        var after = await env.DB.prepare("SELECT status, progress, due_date, description FROM tasks WHERE id = ?").bind(id).first();
+        var answer = {
             ok: true, status: after ? after.status : statusAfter,
             progress: after ? (after.progress || null) : (progressAfter || null),
             due_date: after ? (after.due_date || null) : due
-        });
+        };
+        if (hasDesc) { answer.description = after ? after.description : words; }
+        return jsonOk(answer);
     } catch (e) {
         return jsonErr("Error updating task: " + e.message, 500);
     }
@@ -9657,6 +9703,92 @@ async function handlePostTasksVoice(request, env, now) {
         if (dumpId) { await taskVoiceDumpSet(env, dumpId, { status: "failed", error: "unexpected: " + e.message }); }
         return jsonErr2("Algo deu errado. Nada foi adicionado.", "Something went wrong. Nothing was added.",
                         500, transcript ? { transcript: transcript, dump_id: dumpId } : { dump_id: dumpId });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/tasks   { description, for, client_id?, due_date? }
+// "Add task": ONE task typed by a staff member (rafa, alice or developer),
+// saved exactly as a spoken one is, with source 'manual'. `for` is "self",
+// "rafa", "alice" or "system" (nothing sent means "self"); the owner comes
+// from taskVoiceOwnerRole, so "self" and naming yourself are both your own.
+// A client is attached only when that client exists. The due date is a real
+// YYYY-MM-DD or nothing. Whoever was handed the task gets the same push a
+// spoken task sends; a push that fails never fails the request.
+// ---------------------------------------------------------------------------
+async function handlePostTaskTyped(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") {
+            return jsonErr("Forbidden", 403);
+        }
+        var body = null;
+        try { body = await request.json(); } catch (e) { body = null; }
+        if (!body || typeof body !== "object") { return jsonErr("Invalid body", 400); }
+
+        var cleaned = taskDescriptionClean(body.description);
+        if (cleaned.error) { return cleaned.error; }
+
+        var forWho = body.hasOwnProperty("for") ? body["for"] : "self";
+        if (forWho !== "self" && forWho !== "rafa" && forWho !== "alice" && forWho !== "system") {
+            return jsonErr2("Escolha para quem \u00e9 a tarefa.", "Choose who the task is for.", 400);
+        }
+
+        var due = null;
+        if (body.due_date !== undefined && body.due_date !== null && body.due_date !== "") {
+            // A real calendar day: 2026-02-30 has the right shape and is refused.
+            due = String(body.due_date);
+            var dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due);
+            var dd = dm ? new Date(Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]))) : null;
+            if (!dm || isNaN(dd.getTime()) || dd.toISOString().slice(0, 10) !== due) {
+                return jsonErr2("Data inv\u00e1lida.", "That is not a valid date.", 400);
+            }
+        }
+
+        var clientId = null;
+        var clientName = null;
+        if (body.client_id !== undefined && body.client_id !== null && body.client_id !== "") {
+            var c = (typeof body.client_id === "string")
+                ? await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(body.client_id).first()
+                : null;
+            if (!c) {
+                return jsonErr2("Cliente n\u00e3o encontrado.", "That client was not found.", 400);
+            }
+            clientId = c.id;
+            clientName = c.name || null;
+        }
+
+        // Who owns it, the same way a spoken task decides. The consultant's
+        // tasks are the ones with assigned_to NULL.
+        var who = actorName(user) || "user";
+        var ownerRole = taskVoiceOwnerRole(forWho, user.role);
+        var assignedTo = ownerRole === "rafa" ? null : ownerRole;
+        var given = ownerRole !== user.role;
+        var assigneeName = null;
+        if (assignedTo === "alice") { assigneeName = await taskAssigneeAliceName(env); }
+        else if (assignedTo === null && given) { assigneeName = await taskAssigneeRafaName(env); }
+
+        var now = new Date().toISOString();
+        var row = {
+            id: crypto.randomUUID(), client_id: clientId, client_name: clientName, type: "consultant",
+            description: cleaned.description, due_date: due, due_date_source: due ? "stated" : null,
+            status: "pending", source: "manual", created_by: who, created_at: now,
+            assigned_to: assignedTo, assignee_name: assigneeName,
+            created_by_role: user.role, given: given
+        };
+        await env.DB.prepare(
+            "INSERT INTO tasks (id, client_id, type, description, due_date, due_date_source, status, source, created_by, updated_at, assigned_to, created_by_role) " +
+            "VALUES (?, ?, 'consultant', ?, ?, ?, 'pending', 'manual', ?, ?, ?, ?)"
+        ).bind(row.id, row.client_id, row.description, row.due_date, row.due_date_source, who, now, assignedTo, user.role).run();
+
+        // Only now, with the row saved. taskVoiceNotify never throws, and
+        // sends nothing for a task the person kept (given false).
+        await taskVoiceNotify(env, [row]);
+
+        return jsonOk({ ok: true, task: row });
+    } catch (e) {
+        return jsonErr2("Algo deu errado. Nada foi adicionado.", "Something went wrong. Nothing was added.", 500);
     }
 }
 
@@ -48867,6 +48999,12 @@ async function handleFetch(request, env, ctx) {
             return handleGetAllTasks(request, env);
         }
 
+        // /api/tasks  POST ("Add task": one typed staff task). Exactly this
+        // path: /api/tasks/voice and /api/clients/:id/tasks are other routes.
+        if (segs[0] === "api" && segs[1] === "tasks" && !segs[2] && method === "POST") {
+            return handlePostTaskTyped(request, env);
+        }
+
         // /api/tasks/consultant/overdue  GET — must come before generic tasks/:id match
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] === "consultant" && segs[3] === "overdue" && method === "GET") {
             return handleGetConsultantTasksOverdue(request, env);
@@ -48898,7 +49036,7 @@ async function handleFetch(request, env, ctx) {
             return handlePostTaskNote(segs[2], request, env);
         }
 
-        // /api/tasks/:id  PATCH (status toggle, and the pill and due date on a staff task)
+        // /api/tasks/:id  PATCH (status toggle, and the pill, due date and words of a staff task)
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
             return handlePatchTask(segs[2], request, env);
         }

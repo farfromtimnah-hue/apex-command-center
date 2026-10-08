@@ -87,7 +87,7 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791425410"></script>
+  <script src="task-sheet.js?v=1791492945"></script>
   <script src="scheduling-queue.js?v=1787608441"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
@@ -741,6 +741,8 @@
     /* --- My tasks card ("Speak my tasks") --- */
     .mt-speak { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px 8px; }
     .btn-voice-mic[disabled] { opacity: 0.55; cursor: default; }
+    /* "Add task": the same button shape, outlined, beside the microphone. */
+    .btn-voice-mic.btn-task-add { background: transparent; color: var(--text); border: 1px solid #c9a227; }
     .mt-timer { font-size: 13px; color: #6b6459; font-variant-numeric: tabular-nums; }
     .mt-link-btn {
       background: none; border: none; padding: 6px 4px; cursor: pointer;
@@ -1169,6 +1171,13 @@
               <span id="mtSpeakLabel">
                 <span class="show-pt">Falar minhas tarefas</span>
                 <span class="show-en">Speak my tasks</span>
+              </span>
+            </button>
+            <button type="button" class="btn-voice-mic btn-task-add" id="mtAddBtn" onclick="openAddTask()">
+              <span aria-hidden="true">+</span>
+              <span>
+                <span class="show-pt">Adicionar tarefa</span>
+                <span class="show-en">Add task</span>
               </span>
             </button>
             <span class="mt-timer" id="mtTimer"></span>
@@ -4138,6 +4147,66 @@
       else { renderMyTasks(); }
     }
 
+    // "Adicionar tarefa" / "Add task": a task typed instead of spoken. The
+    // form is in task-sheet.js (taskAddOpen) and saves with POST /api/tasks.
+    // "For me" means the signed-in person, as the Worker decides it, so the
+    // role here is the signed-in one and not the view being previewed.
+    function openAddTask() {
+      if (typeof taskAddOpen !== "function" || mtBusy) { return; }
+      if (mtRecorder && mtRecorder.state === "recording") { return; }
+      var role = "";
+      try { role = sessionStorage.getItem("apex_role") || ""; } catch (e) { role = ""; }
+      taskAddOpen({
+        viewerRole: role || currentRole, names: mtPeopleNames(), loadClients: mtAddTaskClients,
+        apiBase: WORKER_URL, getToken: getToken, onAdded: mtTaskAdded
+      });
+    }
+
+    // The names the who-tags on this page print, read from the same task
+    // rows. With none loaded the form prints the plain "Rafa" / "Alice", as
+    // the tags do.
+    function mtPeopleNames() {
+      var names = { rafa: "", alice: "" };
+      var lists = [mtTasks, mtGiven, atTasks, atGiven];
+      for (var l = 0; l < lists.length; l++) {
+        for (var i = 0; i < lists[l].length; i++) {
+          var t = lists[l][i];
+          if (!names.alice && t.assigned_to === "alice" && t.assignee_name) { names.alice = t.assignee_name; }
+          if (!names.rafa && t.owner_name) { names.rafa = t.owner_name; }
+          if (t.giver_name && t.created_by_role === "alice" && !names.alice) { names.alice = t.giver_name; }
+          if (t.giver_name && t.created_by_role === "rafa" && !names.rafa) { names.rafa = t.giver_name; }
+        }
+      }
+      return names;
+    }
+
+    // The client list this page already keeps (loadDashClients). If it has
+    // not arrived yet it is read the same way, once more.
+    function mtAddTaskClients() {
+      if (dashClients.length) { return Promise.resolve(dashClients); }
+      return apiFetch("/api/clients")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d || !Array.isArray(d.clients)) { throw new Error("clients"); }
+          dashClients = d.clients;
+          return dashClients;
+        });
+    }
+
+    // A typed task was saved: it goes into the lists the same way a spoken
+    // one does, and the lists are drawn again. No Undo for a typed task.
+    function mtTaskAdded(task) {
+      if (!task || !task.id) { return; }
+      mtFresh = {};
+      mtLastAdded = [];
+      if (task.assigned_to) { mtGiven.push(task); }
+      else { mtTasks.push(task); }
+      mtFresh[task.id] = true;
+      mtRefreshLists();
+      mtShowHeard("");
+      mtSetStatus(mtBoth("Tarefa adicionada.", "Task added."), "ok");
+    }
+
     function mtBoth(pt, en) {
       return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
     }
@@ -4504,12 +4573,23 @@
           if (t.id !== c.id) { continue; }
           t.progress = c.progress;
           t.due_date = c.due_date;
+          if (c.description) { t.description = c.description; }
           if (c.hasOwnProperty("note_count")) {
             t.note_count = c.note_count;
             t.last_note = c.last_note;
           }
         }
       }
+      // The consultant's task list further down the page may hold the same
+      // task: edited words are put there too, and that list is drawn again.
+      var reworded = false;
+      for (var r = 0; r < rafaTasks.length; r++) {
+        if (rafaTasks[r].id === c.id && c.description && rafaTasks[r].description !== c.description) {
+          rafaTasks[r].description = c.description;
+          reworded = true;
+        }
+      }
+      if (reworded) { renderRafaTasks(rafaTasks); }
     }
 
     // The sheet closed: the lists being shown are drawn again from what the

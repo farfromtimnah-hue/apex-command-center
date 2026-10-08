@@ -5570,11 +5570,32 @@ async function handleGetVoiceFlagged(request, env) {
             "ORDER BY created_at DESC"
         ).all();
 
-        var rows = (res.results || []).map(function(r) {
+        // Now on Apex's clock, as "YYYY-MM-DD HH:MM", to compare with a
+        // meeting's own date and time.
+        var nowNy = new Intl.DateTimeFormat("sv-SE", {
+            timeZone: APEX_TIMEZONE, dateStyle: "short", timeStyle: "short"
+        }).format(new Date());
+
+        var rows = [];
+        (res.results || []).forEach(function(r) {
             var miss = [];
             try { miss = r.voice_missing ? JSON.parse(r.voice_missing) : []; } catch (e) { miss = []; }
+            // A company that is on the row is not missing, whatever the flag
+            // written at dictation time says: it was filled in somewhere else.
+            if (r.client_id) { miss = miss.filter(function(m) { return m !== "client"; }); }
             r.missing = miss;
-            return r;
+
+            // Nothing left to ask for: not a row for the banner.
+            var notOnGoogle = !!(r.voice_gcal_error && !r.google_event_id);
+            if (!miss.length && !notOnGoogle) { return; }
+
+            // The meeting is over: asking her to complete it now is noise.
+            // A meeting whose date was never captured has no end to pass.
+            if (r.date && miss.indexOf("date") === -1) {
+                var ends = (r.date + " " + String(r.end_time || r.time || "23:59")).slice(0, 16);
+                if (ends < nowNy) { return; }
+            }
+            rows.push(r);
         });
         return jsonOk({ sessions: rows });
     } catch (e) {

@@ -1071,6 +1071,15 @@
     .guest-name .zelle-review { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.9; }
     .guest-name .zelle-review .gbtn { margin-left: 4px; }
     .guest-tools { display: flex; gap: 6px; flex: none; }
+    /* Instant tooltip for the guest-row buttons (see clubTip). */
+    .gbtn[data-tip] { position: relative; }
+    .gbtn[data-tip]:hover::after, .gbtn[data-tip]:focus-visible::after {
+      content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); right: 0;
+      width: max-content; max-width: 250px; white-space: normal; text-align: left;
+      background: #1f1c18; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.35;
+      padding: 7px 10px; border-radius: 7px; z-index: 60; pointer-events: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    }
     .gbtn {
       font-family: inherit; font-size: 11.5px; font-weight: 600;
       padding: 5px 9px; border-radius: 6px; cursor: pointer;
@@ -6273,14 +6282,14 @@
             '<span class="guest-tools">' +
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
                 encodeURIComponent(waText) + '" target="_blank" rel="noopener" ' +
-                'onclick="markClubConfirmed(\'' + g.id + '\')">WhatsApp</a>' +
-              '<button class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')">+1</button>' +
+                'onclick="markClubConfirmed(\'' + g.id + '\')" ' + clubTip("Abrir o WhatsApp com a mensagem de confirma&ccedil;&atilde;o deste convidado", "Open WhatsApp with this guest&#39;s confirmation message") + '>WhatsApp</a>' +
+              '<button class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')" ' + clubTip("Traz mais uma pessoa (conta dois lugares)", "Bringing one more person (counts as two seats)") + '>+1</button>' +
               '<button class="gbtn' + (isNext ? " on" : "") + '" onclick="toggleClubNextTime(\'' + g.id + '\',' + (isNext ? "true" : "false") + ')" ' +
-                'title="' + (isEn() ? "Coming next time instead" : "Vem na pr&oacute;xima") + '">&rarr;</button>' +
+                clubTip("N&atilde;o vem desta vez; vem na pr&oacute;xima", "Not coming this time; coming to the next one") + '>&rarr;</button>' +
               '<button class="gbtn' + (g.attended === 1 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 1 ? "null" : "1") + ')" ' +
-                'title="' + (isEn() ? "Came" : "Veio") + '">&check;</button>' +
+                clubTip("Veio ao evento", "Came to the event") + '>&check;</button>' +
               '<button class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
-                'title="' + (isEn() ? "No-show" : "N&atilde;o veio") + '">&times;</button>' +
+                clubTip("N&atilde;o veio", "Did not show up") + '>&times;</button>' +
               clubPayTools(g) +
             "</span></div>";
         }).join("");
@@ -6828,14 +6837,21 @@
         })
         .catch(function() { toast(t("Erro", "Error")); });
     }
+    // What a guest-row button does, shown at once on hover or keyboard focus
+    // (the browser's own title tooltip waits about a second and never shows
+    // on a touch screen). Returns the attributes for the button's tag.
+    function clubTip(pt, en) {
+      var text = isEn() ? en : pt;
+      return 'data-tip="' + text + '" aria-label="' + text + '"';
+    }
     function clubPayTools(g) {
       if (!clubPayVisible()) { return ""; }
-      var h = '<button class="gbtn" onclick="copyClubPayLink(\'' + g.id + '\')">' + t("Copiar link de pagamento", "Copy payment link") + "</button>";
+      var h = '<button class="gbtn" onclick="copyClubPayLink(\'' + g.id + '\')" ' + clubTip("Copiar o link da p&aacute;gina de pagamento deste convidado", "Copy the link to this guest&#39;s payment page") + '>' + t("Copiar link de pagamento", "Copy payment link") + "</button>";
       if (!g.paid_at) {
-        h += '<button class="gbtn" onclick="markClubPaid(\'' + g.id + '\', true)">' + t("Marcar como pago", "Mark as paid") + "</button>";
+        h += '<button class="gbtn" onclick="markClubPaid(\'' + g.id + '\', true)" ' + clubTip("Marcar como pago &agrave; m&atilde;o (dinheiro ou outro meio)", "Mark as paid by hand (cash or another way)") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
       } else if (g.paid_method === "manual") {
         // The same button, lit: tapping it again takes the manual mark back.
-        h += '<button class="gbtn on" onclick="markClubPaid(\'' + g.id + '\', false)">' + t("Marcar como pago", "Mark as paid") + "</button>";
+        h += '<button class="gbtn on" onclick="markClubPaid(\'' + g.id + '\', false)" ' + clubTip("Marcado como pago &agrave; m&atilde;o. Toque para desfazer", "Marked as paid by hand. Tap to undo") + '>' + t("Marcar como pago", "Mark as paid") + "</button>";
       }
       return h;
     }

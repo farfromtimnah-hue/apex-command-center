@@ -9626,11 +9626,11 @@ function taskWordsForRole(role, original, en, pt) {
 function taskVoiceTranslationRule(speakerRole) {
     if (speakerRole === "developer") {
         return '- Add "description_pt" to EVERY entry: that same to-do in Portuguese of Brazil. ' +
-            'Keep names, numbers, dates and money exactly as he said them. ' +
+            'Keep names, numbers, numeric dates and money exactly as he said them; translate ordinary words for days and months like any other word. ' +
             '"description" itself stays in his own words, untranslated.\n';
     }
     return '- Add "description_en" to an entry ONLY when its "for" is "system": that same to-do in English. ' +
-        'Keep names, numbers, dates and money exactly as he said them. ' +
+        'Keep names, numbers, numeric dates and money exactly as he said them; translate ordinary words for days and months like any other word. ' +
         '"description" itself stays in his own words, untranslated. No other entry has "description_en".\n';
 }
 
@@ -9638,7 +9638,8 @@ function taskTranslatePrompt(text, column) {
     var target = column === "description_pt" ? "Portuguese of Brazil" : "English";
     return "Translate the text below into " + target + ". It is a short work note between the staff of a " +
         "business consulting firm in Florida and the developer of their system.\n" +
-        "- Keep names of people and companies, numbers, dates and money exactly as written.\n" +
+        "- Keep names of people and companies, numbers, numeric dates and money exactly as written.\n" +
+        "- Translate ordinary words for days and months (Friday, sexta, March, amanha), like any other word.\n" +
         "- Keep the line breaks.\n" +
         "- If the text is already in " + target + ", return it unchanged.\n" +
         "- Return ONLY the translation: no quotes, no explanation.\n" +

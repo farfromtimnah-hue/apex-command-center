@@ -24,7 +24,10 @@ for (const f of FILES) {
   ok(count(src, "aliceProgressFill") === 0, f + ": aliceProgressFill gone");
   ok(count(src, 'id="aliceResourceStatusLabel"') === 1, f + ": aliceResourceStatusLabel kept");
   ok(count(src, 'id="aliceResourceProgressFill"') === 1, f + ": aliceResourceProgressFill kept");
-  ok(/if \(who === "alice"\) \{\s*mtMoveVoiceBlock\(card\);/.test(src), f + ": Alice card takes the block");
+  // The card takes the block whenever it sits in Alice's dashboard: her own
+  // view, and the developer's own view of that dashboard.
+  ok(/if \(onAliceDash\) \{\s*mtMoveVoiceBlock\(card\);/.test(src), f + ": Alice card takes the block");
+  ok(/if \(onAliceDash && currentRole === "developer" && devView === "dev"\) \{ who = "developer"; \}/.test(src), f + ": the developer's own view lists the system's tasks");
   const dir = mtemp();
   const scripts = [...src.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   scripts.forEach((code, i) => {

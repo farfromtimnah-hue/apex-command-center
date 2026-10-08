@@ -3592,7 +3592,7 @@
     }
 
     function updateAliceTasksTile() {
-      if (atWho === "alice") { aliceSetTile("aliceStatTasks", atTasks.length); }
+      if (atOnAliceDash) { aliceSetTile("aliceStatTasks", atTasks.length); }
     }
 
     function renderAliceDashboard() {
@@ -4885,6 +4885,8 @@
     // is in "Given to others" on his own card.
 
     var atWho   = "";     // whose list is showing: "alice", "developer" or ""
+
+    var atOnAliceDash = false;   // the card is sitting in Alice's dashboard (hers, or the developer's own view of it)
     var atTasks = [];     // that person's open tasks
     var atGiven = [];     // the tasks that person gave to others, open and done
 
@@ -4899,8 +4901,17 @@
       var card = document.getElementById("assignedTasksCard");
       if (!card) { return; }
       var who = view === "alice" ? "alice" : (view === "rafa" ? "" : "developer");
-      var anchor = who === "alice" ? document.getElementById("aliceReminderBlock") : null;
-      var section = who === "developer" ? document.getElementById("devBelowSection") : null;
+      // The sidebar's Dev button draws ALICE's dashboard for the developer
+      // (nav.js maps "dev" to it). On that screen the developer is looking at
+      // her own work, so the card lists the system's tasks, not Alice's.
+      // Only the Alice button (apex_dev_view "alice") is Alice's list.
+      var onAliceDash = view === "alice";
+      var devView = "dev";
+      try { devView = sessionStorage.getItem("apex_dev_view") || "dev"; } catch (eView) { devView = "dev"; }
+      if (onAliceDash && currentRole === "developer" && devView === "dev") { who = "developer"; }
+      atOnAliceDash = onAliceDash;
+      var anchor = onAliceDash ? document.getElementById("aliceReminderBlock") : null;
+      var section = (!onAliceDash && who === "developer") ? document.getElementById("devBelowSection") : null;
       if (!anchor && !section) {
         atWho = "";
         card.hidden = true;
@@ -4913,7 +4924,7 @@
       } else if (section.firstElementChild !== card) {
         section.insertBefore(card, section.firstChild);
       }
-      if (who === "alice") {
+      if (onAliceDash) {
         mtMoveVoiceBlock(card);
       } else {
         var home = document.getElementById("myTasksCard");
@@ -4934,7 +4945,7 @@
       if (givenBox) { givenBox.innerHTML = ""; }
       atSetStatus("");
       card.hidden = false;
-      if (who === "alice") { aliceSetTile("aliceStatTasks", "--"); }
+      if (atOnAliceDash) { aliceSetTile("aliceStatTasks", "--"); }
       loadAssignedTasks();
     }
 
@@ -4954,7 +4965,7 @@
         })
         .catch(function() {
           if (who !== atWho) { return; }
-          if (who === "alice") { aliceSetTile("aliceStatTasks", "--"); }
+          if (atOnAliceDash) { aliceSetTile("aliceStatTasks", "--"); }
           var list = document.getElementById("atList");
           if (list) {
             list.innerHTML = '<div class="mt-empty">' +

@@ -26,12 +26,14 @@ const MIG = readFileSync(new URL("migrations/2026-10-05_tasks_client_optional.sq
 const MIG_ASSIGNED = readFileSync(new URL("migrations/2026-10-07_tasks_assigned_to.sql", root), "utf8");
 // tasks.completed_at (2026-10-07): the moment a task was marked done, UTC.
 const MIG_COMPLETED = readFileSync(new URL("migrations/2026-10-07_tasks_completed_at.sql", root), "utf8");
+// tasks.created_by_role (2026-10-07): the role of the person who spoke the task.
+const MIG_ROLE = readFileSync(new URL("migrations/2026-10-07_tasks_created_by_role.sql", root), "utf8");
 const USERS = "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT)";
 
 function world(migrated) {
   const d = makeDb([]);
   d.raw.exec(CURRENT);
-  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); }
+  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); d.raw.exec(MIG_ROLE); }
   // Role alice has two rows (the same person), as it does live.
   d.raw.exec(USERS);
   const u = d.raw.prepare("INSERT INTO users (email, role, display_name) VALUES (?,?,?)");
@@ -95,7 +97,7 @@ function harness(d, opts) {
   });
   const F = build(
     ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
-     "taskAssigneeAliceName", "taskVoicePushText", "taskVoiceNotify",
+     "taskAssigneeAliceName", "taskAssigneeRafaName", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask"],
     ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX"], stubs);
   const audioReq = (bytes, lang) => ({
@@ -139,7 +141,7 @@ const dumps = (d) => d.q("SELECT * FROM task_voice_dumps ORDER BY created_at, ro
   ok(p.indexOf("Today is Wednesday, 2026-10-07 (America/New_York).") >= 0, "the prompt gives the date and weekday of the fixed moment in America/New_York (Wednesday, 2026-10-07)");
   ok(p.indexOf("- GATOR OUTDOOR LIVING") >= 0 && p.indexOf("- JM Luxury Pools") >= 0, "the prompt lists the active clients");
   ok(p.indexOf("Old Company") < 0 && p.indexOf("Lead Company") < 0, "an archived client and a lead are not in the list");
-  ok(p.indexOf('{"tasks":[{"description": string, "due_date": "YYYY-MM-DD" or null, "client_name": string or null, "for": "self" | "alice" | "system"}]}') >= 0, "the prompt asks for the fixed JSON shape, with \"for\"");
+  ok(p.indexOf('{"tasks":[{"description": string, "due_date": "YYYY-MM-DD" or null, "client_name": string or null, "for": "self" | "rafa" | "alice" | "system"}]}') >= 0, "the prompt asks for the fixed JSON shape, with \"for\"");
   ok(p.indexOf('"alice": he says Alice') >= 0 && p.indexOf("pedir para a Alice") >= 0 && p.indexOf('"system": it is something to build, fix or change') >= 0 && p.indexOf("Nicole must do it") >= 0 && p.indexOf('When unsure, use "self". Never guess.') >= 0, "the prompt says when a to-do is for Alice, for the system, or his own");
   ok(rows.every((t) => t.assigned_to === null) && r.data.tasks.every((t) => t.assigned_to === null && t.assignee_name === null), "a reply with no \"for\" hands nothing out: assigned_to NULL on every row");
   ok(h.calls.push.length === 0, "no push when nothing was handed out");
@@ -484,8 +486,8 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
 // The parser on its own.
 {
   const P = harness(world(true), {}).F.taskVoiceParseTasks;
-  const got = P(JSON.stringify({ tasks: [T("a", "alice"), T("b", "system"), T("c", "self"), T("d"), T("e", "developer"), T("f", " alice "), T("g", null), T("h", ["alice"])] })).tasks.map((t) => t["for"]);
-  ok(got.join(",") === "alice,system,self,self,self,self,self,self", "taskVoiceParseTasks: only exactly \"alice\" or \"system\" pass; anything else is \"self\": " + got.join(","));
+  const got = P(JSON.stringify({ tasks: [T("a", "alice"), T("b", "system"), T("c", "self"), T("d"), T("e", "developer"), T("f", " alice "), T("g", null), T("h", ["alice"]), T("i", "rafa"), T("j", "Rafa")] })).tasks.map((t) => t["for"]);
+  ok(got.join(",") === "alice,system,self,self,self,self,self,self,rafa,self", "taskVoiceParseTasks: only exactly \"rafa\", \"alice\" or \"system\" pass; anything else is \"self\": " + got.join(","));
 }
 
 // ── 12. The readers: his own lists leave handed-out tasks out ───────────────
@@ -685,6 +687,141 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   ok(order === "new,mid,old", "tasks.html: done handed-out tasks sort newest done first: " + order);
   for (const id of ["tabBtnGiven", "tabCountGiven"]) { ok(page.split('id="' + id + '"').length === 2, "tasks.html: id=\"" + id + "\" is there once"); }
   ok(page.indexOf('appendDoneGroup("Passei para outros", "Given to others", givenDone, true);') >= 0, "tasks.html: the Done tab has a Given to others section built with the same header as the other two");
+}
+
+// ── 16. Whoever speaks owns the task, unless they name someone else ─────────
+{
+  const say = async (role, name, tasks, edit) => {
+    const d = world(true);
+    if (edit) { edit(d); }
+    const h = harness(d, { role, name, claude: { tasks } });
+    const r = await h.speak();
+    return { d, h, r, rows: d.q("SELECT * FROM tasks ORDER BY rowid"), out: r.data ? r.data.tasks : [] };
+  };
+
+  // Alice, for herself.
+  const a1 = await say("alice", "Pra. Alice", [T("Ligar para o banco", "self"), T("No word about who")]);
+  ok(a1.r.status === 200 && a1.rows.length === 2 && a1.rows.every((t) => t.assigned_to === "alice" && t.created_by_role === "alice"), "speaker alice + \"self\" (or no \"for\"): assigned_to 'alice', created_by_role 'alice'");
+  ok(a1.out.every((t) => t.given === false && t.created_by_role === "alice" && t.assigned_to === "alice"), "speaker alice + \"self\": the returned task has given false and created_by_role 'alice'");
+  ok(a1.h.calls.push.length === 0, "speaker alice + \"self\": NO push (" + a1.h.calls.push.length + ")");
+  ok(a1.rows.every((t) => t.created_by === "Pra. Alice" && t.type === "consultant" && t.source === "voice"), "speaker alice: created_by is still her name, so her own undo works");
+
+  // Alice names herself: still hers, no push.
+  const a2 = await say("alice", "Pra. Alice", [T("A Alice precisa mandar o recibo", "alice")]);
+  ok(a2.rows[0].assigned_to === "alice" && a2.out[0].given === false && a2.h.calls.push.length === 0, "speaker alice + \"alice\" is self: assigned_to 'alice', given false, no push");
+
+  // Alice hands one to Rafa.
+  const a3 = await say("alice", "Pra. Alice", [T("O pastor precisa assinar o contrato", "rafa"), T("Minha tarefa", "self")]);
+  ok(a3.rows[0].assigned_to === null && a3.rows[0].created_by_role === "alice", "speaker alice + \"rafa\": assigned_to NULL, created_by_role 'alice'");
+  ok(a3.out[0].given === true && a3.out[0].assignee_name === "Rafa" && a3.out[1].given === false, "speaker alice + \"rafa\": given true, assignee_name 'Rafa'; her own task in the same dictation is given false");
+  ok(a3.h.calls.push.length === 1 && a3.h.calls.push[0].emails.join(",") === "rafa@x.test", "speaker alice + \"rafa\": ONE push, to role rafa and nobody else");
+  ok(a3.h.calls.push[0].payload.title === "Nova tarefa" && a3.h.calls.push[0].payload.body === "O pastor precisa assinar o contrato" && a3.h.calls.push[0].payload.tag === "apex-assigned-tasks", "the Rafa push: title 'Nova tarefa', body the description of his task only");
+  const a3b = await say("alice", "Pra. Alice", [T("Um", "rafa"), T("Dois", "rafa"), T("Meu")]);
+  ok(a3b.h.calls.push.length === 1 && a3b.h.calls.push[0].payload.title === "2 novas tarefas" && a3b.h.calls.push[0].payload.body === "Um · Dois", "two for Rafa: one push, title '2 novas tarefas'");
+  // No display_name for role rafa, or no users table: the plain name.
+  const a3c = await say("alice", "Pra. Alice", [T("Um", "rafa")], (d) => d.raw.exec("UPDATE users SET display_name = '' WHERE role = 'rafa'"));
+  ok(a3c.out[0].assignee_name === "Rafa", "no display_name for role rafa: assignee_name falls back to 'Rafa'");
+  const a3d = await say("alice", "Pra. Alice", [T("Um", "rafa")], (d) => d.raw.exec("DROP TABLE users"));
+  ok(a3d.r.status === 200 && a3d.out[0].assignee_name === "Rafa" && a3d.rows.length === 1 && a3d.h.calls.push.length === 0, "the users table cannot be read: the task is saved, named 'Rafa', and no push call is made");
+
+  // Alice hands one to the system.
+  const a4 = await say("alice", "Pra. Alice", [T("No sistema precisa aparecer o telefone", "system")]);
+  ok(a4.rows[0].assigned_to === "developer" && a4.rows[0].created_by_role === "alice" && a4.out[0].given === true && a4.out[0].assignee_name === null, "speaker alice + \"system\": assigned_to 'developer', given true, no name");
+  ok(a4.h.calls.push.length === 1 && a4.h.calls.push[0].emails.join(",") === "dev@x.test" && a4.h.calls.push[0].payload.title === "New system task", "speaker alice + \"system\": one push, to the developer");
+
+  // Rafa: unchanged from today.
+  const r1 = await say("rafa", "Rafa", [T("Ligar para o contador", "self"), T("Sem dono")]);
+  ok(r1.rows.every((t) => t.assigned_to === null && t.created_by_role === "rafa") && r1.out.every((t) => t.given === false && t.assignee_name === null), "speaker rafa + \"self\": assigned_to NULL as today, created_by_role 'rafa', given false, no name");
+  ok(r1.h.calls.push.length === 0, "speaker rafa + \"self\": no push");
+  const r2 = await say("rafa", "Rafa", [T("O Rafa precisa ligar para o banco", "rafa")]);
+  ok(r2.rows[0].assigned_to === null && r2.out[0].given === false && r2.out[0].assignee_name === null && r2.h.calls.push.length === 0, "speaker rafa + \"rafa\" is self: assigned_to NULL, given false, no name, no push");
+  const r3 = await say("rafa", "Rafa", [T("Alice precisa ligar", "alice"), T("Fix it", "system"), T("Meu")]);
+  ok(r3.out[0].given === true && r3.out[1].given === true && r3.out[2].given === false && r3.h.calls.push.length === 2, "speaker rafa handing to Alice and the system: given true on both, two pushes, as today");
+  ok(r3.h.calls.push.every((c) => c.emails.indexOf("rafa@x.test") < 0), "Rafa is never pushed a dictation of his own");
+
+  // The developer.
+  const d1 = await say("developer", "The Developer", [T("Fix the invoice total", "self"), T("Nothing said about who")]);
+  ok(d1.rows.every((t) => t.assigned_to === "developer" && t.created_by_role === "developer") && d1.out.every((t) => t.given === false && t.assignee_name === null), "speaker developer + \"self\": assigned_to 'developer', created_by_role 'developer', given false");
+  ok(d1.h.calls.push.length === 0, "speaker developer + \"self\": no push");
+  const d2 = await say("developer", "The Developer", [T("The system needs a phone field", "system")]);
+  ok(d2.rows[0].assigned_to === "developer" && d2.out[0].given === false && d2.h.calls.push.length === 0, "speaker developer + \"system\" is self: no push");
+  const d3 = await say("developer", "The Developer", [T("Rafa needs to call the bank", "rafa"), T("Alice needs to send it", "alice")]);
+  ok(d3.rows[0].assigned_to === null && d3.rows[1].assigned_to === "alice" && d3.out.every((t) => t.given === true) && d3.h.calls.push.length === 2, "speaker developer handing to Rafa and Alice: given true on both, one push each");
+  ok(JSON.stringify(d3.r.data).indexOf("The Developer") < 0 || d3.out.every((t) => t.assignee_name !== "The Developer"), "the developer's name is never an assignee_name");
+  ok(d1.out.concat(d2.out).every((t) => t.assignee_name === null), "a system task never carries a name, whoever spoke it");
+
+  // Undo still keys on created_by.
+  const u = await a1.h.F.handlePostTasksVoiceUndo(jsonReq({ ids: a1.out.map((t) => t.id) }), a1.h.env);
+  ok(u.status === 200 && u.data.undone === 2, "Alice can undo her own dictation (2 undone)");
+
+  // The prompt names the speaker.
+  const pr = (x) => x.h.calls.claude[0].prompt;
+  ok(pr(r1).indexOf("The speaker is Rafa, the consultant,") >= 0, "the prompt names the speaker: Rafa, the consultant");
+  ok(pr(a1).indexOf("The speaker is Alice, who runs the office,") >= 0, "the prompt names the speaker: Alice, who runs the office");
+  ok(pr(d1).indexOf("The speaker is the developer who maintains the system,") >= 0 && pr(d1).indexOf("The Developer") < 0, "the prompt names the speaker: the developer who maintains the system (never by name)");
+  ok(pr(a1).indexOf('"self": the speaker. If the speaker names themself') >= 0 && pr(a1).indexOf('"rafa": he says Rafa (Rafa, Pr. Rafa, pastor Rafa, "o pastor") must do it') >= 0, "the prompt says what \"self\" and \"rafa\" mean");
+  ok(pr(a1).indexOf("business consultant in Florida listing things HE has to do") < 0, "the prompt no longer assumes the speaker is the consultant");
+
+  // GET /api/tasks returns created_by_role.
+  a3.d.raw.exec("INSERT INTO tasks (id, client_id, type, description, source) VALUES ('old-row', NULL, 'consultant', 'Before the column', 'manual')");
+  const all = await a3.h.F.handleGetAllTasks(jsonReq({}), a3.h.env);
+  const by = {}; all.data.tasks.forEach((t) => { by[t.id] = t; });
+  ok(all.status === 200 && all.data.tasks.every((t) => "created_by_role" in t), "GET /api/tasks returns created_by_role on every task");
+  ok(by[a3.out[0].id].created_by_role === "alice" && by["old-row"].created_by_role === null, "GET /api/tasks: 'alice' on the task she spoke, null on an old row");
+
+  ok(MIG_ROLE.trim() === "ALTER TABLE tasks ADD COLUMN created_by_role TEXT;", "the migration file is exactly the one statement");
+}
+
+// ── 17. The pages: the button on tasks.html, and the two dashboard corrections ─
+{
+  const read = (f) => readFileSync(new URL(f, root), "utf8");
+  const page = read("tasks.html"), dash = read("dashboard.html");
+  ok(page === read("ios/App/App/public/tasks.html") && dash === read("ios/App/App/public/dashboard.html"), "root and iOS copies of tasks.html and dashboard.html carry the same edit");
+  const cutFrom = (html, name) => { const i = html.indexOf("\n    function " + name + "("); if (i < 0) { throw new Error("not found: " + name); } return html.slice(i + 1, html.indexOf("\n    }\n", i) + 6); };
+  for (const id of ["mtSpeakBlock", "mtSpeakBtn", "mtSpeakLabel", "mtTimer", "mtCancelBtn", "mtStatus", "mtHeard", "mtHeardText"]) {
+    ok(page.split('id="' + id + '"').length === 2, "tasks.html: id=\"" + id + "\" is there once");
+  }
+  ok(page.indexOf('id="mtSpeakBlock"') < page.indexOf('<div class="role-tabs">') && page.indexOf('id="mtSpeakBlock"') > page.indexOf('class="page-heading-hero"'), "tasks.html: the control sits under the heading and above the tabs");
+  const fns = ["placeSpeakTasks", "toggleMyTasksRecording", "startMyTasksRecording", "stopMyTasksRecording", "cancelMyTasksRecording", "setMyTasksRecordingUi", "sendMyTasksRecording", "retryMyTasksUpload", "mtGaveText", "uploadMyTasksBlob", "undoMyTasksDictation"];
+  const code = fns.map((n) => cutFrom(page, n)).join("\n");
+  ok(!/\b(confirm|alert|prompt)\s*\(/.test(code), "tasks.html: no browser pop-up in the new code");
+  ok(!/\b(const|let)\s|=>/.test(code), "tasks.html: the new code uses var and regular functions");
+  ok(!/[^\x00-\x7f]/.test(code), "tasks.html: the new code is plain ASCII");
+  ok(/loadTasks\(\);/.test(cutFrom(page, "uploadMyTasksBlob")) && /loadTasks\(\);/.test(cutFrom(page, "undoMyTasksDictation")), "tasks.html: a dictation and an undo both load the list again");
+
+  // Who sees it.
+  const place = (role) => { const el = { hidden: true }; new Function("document", "cancelMyTasksRecording", cutFrom(page, "placeSpeakTasks") + "\nreturn placeSpeakTasks;")({ getElementById: () => el }, () => {})(role); return !el.hidden; };
+  ok(place("rafa") && place("alice") && place("developer"), "tasks.html: rafa, alice and developer see the button");
+  ok(!place("client") && !place("seller") && !place(null), "tasks.html: any other role, or none, does not");
+
+  // The second part of the "Added N tasks" line.
+  const gave = new Function("function mtBoth(pt, en) { return pt + ' | ' + en; }\n" + cutFrom(page, "mtGaveText") + "\nreturn mtGaveText;")();
+  const g = (assigned_to, given) => ({ assigned_to, given });
+  ok(gave([g(null, false), g("alice", false), g("developer", false)]) === "", "tasks.html: nothing handed out, no second part (the speaker's own tasks never count)");
+  ok(gave([g("alice", true)]) === " 1 para Alice. | 1 for Alice.", "tasks.html: " + gave([g("alice", true)]));
+  ok(gave([g(null, true)]) === " 1 para Rafa. | 1 for Rafa.", "tasks.html: " + gave([g(null, true)]));
+  ok(gave([g("developer", true)]) === " 1 para o sistema. | 1 for the system.", "tasks.html: " + gave([g("developer", true)]));
+  ok(gave([g("alice", true), g(null, true), g(null, true), g("developer", true), g("alice", false)]) === " 1 para Alice, 2 para Rafa, 1 para o sistema. | 1 for Alice, 2 for Rafa, 1 for the system.", "tasks.html: all three, own task left out:" + gave([g("alice", true), g(null, true), g(null, true), g("developer", true), g("alice", false)]));
+
+  // dashboard.html
+  const up = cutFrom(dash, "uploadMyTasksBlob");
+  ok(up.indexOf("d.tasks[i].given === true") >= 0 && up.indexOf('toRafa + " para Rafa"') >= 0 && up.indexOf('toRafa + " for Rafa"') >= 0, "dashboard: the second part counts given tasks by owner, with Rafa");
+  // Given to others, run against a stand-in page.
+  const givenShown = (rows) => {
+    const made = [];
+    const mk = () => ({ className: "", innerHTML: "", appendChild() {} });
+    const container = { innerHTML: "", appendChild: (el) => { made.push(el); } };
+    const f = new Function("mtGiven", "document", "mtNyDay", "mtGivenDoneStillShown", "mtSortKey", "mtBoth", "buildMyTaskRow", "MT_LIST_MAX",
+      cutFrom(dash, "renderMyGivenList") + "\nreturn renderMyGivenList;")(
+      rows, { getElementById: () => container, createElement: mk }, () => "2026-10-07", () => true, (x) => String(x || ""), (pt, en) => en,
+      (t) => ({ id: t.id }), 50);
+    f();
+    return made.filter((el) => el.id).map((el) => el.id).join(",");
+  };
+  const G = (id, assigned_to, created_by_role) => ({ id, assigned_to, created_by_role, status: "pending", completed_by: null, due_date: null, created_at: "2026-10-07 10:00:0" + id.length });
+  const shownIds = givenShown([G("a", "alice", "rafa"), G("bb", "alice", "alice"), G("ccc", "developer", "developer"), G("dddd", "developer", "alice"), G("eeeee", "alice", null), G("ffffff", "alice", "developer")]);
+  ok(shownIds === "a,dddd,eeeee,ffffff", "dashboard Given to others: Alice's and the developer's own tasks are left out; handed-out ones and old rows (created_by_role NULL) stay: " + shownIds);
+  ok(/var MY_TASKS_VIEWS = \{ rafa: "rafaMeetingsCard" \};/.test(dash), "dashboard: who sees the microphone card is unchanged (rafa)");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

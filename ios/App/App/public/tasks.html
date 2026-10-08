@@ -316,6 +316,37 @@
       flex-wrap: wrap;
     }
 
+    /* ─── Speak my tasks (same control as the dashboard card) — hero dark bg ─ */
+    .mt-speak-block { margin-bottom: 18px; }
+    .mt-speak-block[hidden] { display: none; }
+    .mt-speak { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 0 8px; }
+    .btn-voice-mic {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      padding: 10px 18px; border-radius: 8px; cursor: pointer;
+      background: #c9a227; color: #1a1712; border: none;
+    }
+    .btn-voice-mic:hover    { opacity: 0.88; }
+    .btn-voice-mic.recording { background: #b4322a; color: #fff; }
+    .btn-voice-mic[disabled] { opacity: 0.55; cursor: default; }
+    .mt-timer { font-size: 13px; color: rgba(255,255,255,0.8); font-variant-numeric: tabular-nums; }
+    .mt-link-btn {
+      background: none; border: none; padding: 6px 4px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: rgba(255,255,255,0.8); text-decoration: underline;
+    }
+    .mt-link-btn[hidden] { display: none; }
+    .mt-status { padding: 2px 0 8px; font-size: 13px; color: rgba(255,255,255,0.8); }
+    .mt-status:empty { display: none; }
+    .mt-status.is-error { color: #ffb4a8; }
+    .mt-status.is-ok { color: #fff; font-weight: 600; }
+    .mt-heard { padding: 0 0 8px; }
+    .mt-heard[hidden] { display: none; }
+    .mt-heard-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); }
+    .voice-transcript {
+      background: #f1ece2; color: #1a1712; border-radius: 8px; padding: 12px;
+      font-size: 14px; margin: 6px 0 0; white-space: pre-wrap;
+    }
+
     /* ─── Help requests (same-day, always visible) ──────────────────────── */
     .help-requests-section {
       margin-bottom: 18px;
@@ -792,6 +823,33 @@
           <div id="helpRequestsContainer"><!-- Rendered by JS --></div>
         </div>
 
+        <!-- Speak my tasks: the same control as the dashboard card. Hidden
+             until placeSpeakTasks() sees a staff role (rafa, alice, developer). -->
+        <div class="mt-speak-block" id="mtSpeakBlock" hidden>
+          <div class="mt-speak">
+            <button class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
+              <span aria-hidden="true">&#127908;</span>
+              <span id="mtSpeakLabel">
+                <span class="show-pt">Falar minhas tarefas</span>
+                <span class="show-en">Speak my tasks</span>
+              </span>
+            </button>
+            <span class="mt-timer" id="mtTimer"></span>
+            <button type="button" class="mt-link-btn" id="mtCancelBtn" hidden onclick="cancelMyTasksRecording()">
+              <span class="show-pt">Cancelar</span>
+              <span class="show-en">Cancel</span>
+            </button>
+          </div>
+          <div class="mt-status" id="mtStatus" aria-live="polite"></div>
+          <div class="mt-heard" id="mtHeard" hidden>
+            <div class="mt-heard-label">
+              <span class="show-pt">O que eu ouvi:</span>
+              <span class="show-en">What I heard:</span>
+            </div>
+            <div class="voice-transcript" id="mtHeardText"></div>
+          </div>
+        </div>
+
         <!-- Role tabs -->
         <div class="role-tabs">
           <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
@@ -1048,6 +1106,7 @@
         var roleEl = document.getElementById("headerRole");
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
+        placeSpeakTasks(data.role);
         return data;
       });
     }
@@ -1069,6 +1128,7 @@
       initHeroBg('tasksHeroBg', 'tasksHeroScrim');
       applyOverdueParam();
       loadLocalCompletions();
+      placeSpeakTasks(role);
       loadTasks();
       if (role === "rafa" || role === "alice" || role === "developer") {
         loadHelpRequests();
@@ -1170,6 +1230,296 @@
         .catch(function(e) {
           document.getElementById("tasksContainer").innerHTML =
             '<div class="tasks-empty" style="color:#b44040;">' + t("Erro ao carregar tarefas: ", "Could not load tasks: ") + escHtml(e.message) + '</div>';
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // SPEAK MY TASKS (the dashboard's "MY TASKS CARD" recorder, copied here)
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // A staff member presses one button, says everything they have to do, and
+    // each to-do becomes a task (POST /api/tasks/voice). A to-do is the
+    // speaker's own unless they name someone else. After a dictation the page
+    // loads its list again, so each new task shows in the tab it belongs to.
+
+    // Five minutes is long enough to list a full day and short enough that a
+    // phone left recording stops itself. The worker has its own size cap.
+    var MT_MAX_SECONDS = 300;
+    // A tap that was never speech is discarded, not interpreted.
+    var VOICE_MIN_MS   = 2000;
+
+    var mtLastAdded  = [];     // ids of the last dictation, for Undo
+    var mtRecorder   = null;
+    var mtChunks     = [];
+    var mtTimerId    = null;
+    var mtStartedAt  = 0;
+    var mtCancelled  = false;
+    var mtBusy       = false;
+    var mtLastBlob   = null;   // kept only until the worker answers, for "Try again"
+
+    // WHO SEES THE BUTTON: the three staff roles, and nobody else.
+    function placeSpeakTasks(role) {
+      var block = document.getElementById("mtSpeakBlock");
+      if (!block) { return; }
+      var staff = role === "rafa" || role === "alice" || role === "developer";
+      if (!staff) { cancelMyTasksRecording(); }
+      block.hidden = !staff;
+    }
+
+    function mtBoth(pt, en) {
+      return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+    }
+
+    function mtSetStatus(html, kind) {
+      var st = document.getElementById("mtStatus");
+      if (!st) { return; }
+      st.className = "mt-status" + (kind ? " is-" + kind : "");
+      st.innerHTML = html || "";
+    }
+
+    function mtShowHeard(text) {
+      var box = document.getElementById("mtHeard");
+      var txt = document.getElementById("mtHeardText");
+      if (!box || !txt) { return; }
+      if (!text) { box.hidden = true; txt.textContent = ""; return; }
+      txt.textContent = text;
+      box.hidden = false;
+    }
+
+    function toggleMyTasksRecording() {
+      if (mtBusy) { return; }
+      if (mtRecorder && mtRecorder.state === "recording") { stopMyTasksRecording(); return; }
+      startMyTasksRecording();
+    }
+
+    function startMyTasksRecording() {
+      mtShowHeard("");
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        mtSetStatus(mtBoth("Este navegador n\u00e3o consegue gravar \u00e1udio.",
+                           "This browser cannot record audio."), "error");
+        return;
+      }
+      mtSetStatus("");
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          mtChunks = [];
+          mtCancelled = false;
+          mtRecorder = new MediaRecorder(stream);
+          mtRecorder.ondataavailable = function(e) {
+            if (e.data && e.data.size) { mtChunks.push(e.data); }
+          };
+          mtRecorder.onstop = function() {
+            // Release the microphone the moment recording ends.
+            for (var i = 0; i < stream.getTracks().length; i++) { stream.getTracks()[i].stop(); }
+            if (mtCancelled) {
+              mtChunks = [];
+              mtSetStatus(mtBoth("Grava\u00e7\u00e3o descartada.", "Recording discarded."));
+              return;
+            }
+            sendMyTasksRecording();
+          };
+          mtRecorder.start();
+          mtStartedAt = Date.now();
+          setMyTasksRecordingUi(true);
+          tickMyTasksTimer();
+          mtTimerId = setInterval(tickMyTasksTimer, 250);
+        })
+        .catch(function() {
+          mtSetStatus(mtBoth("Permiss\u00e3o do microfone negada.", "Microphone permission denied."), "error");
+        });
+    }
+
+    function mtClock(secs) {
+      var s = secs % 60;
+      return Math.floor(secs / 60) + ":" + (s < 10 ? "0" + s : "" + s);
+    }
+
+    function tickMyTasksTimer() {
+      var secs = Math.floor((Date.now() - mtStartedAt) / 1000);
+      var tm = document.getElementById("mtTimer");
+      if (tm) { tm.textContent = mtClock(secs) + " / " + mtClock(MT_MAX_SECONDS); }
+      if (secs >= MT_MAX_SECONDS) { stopMyTasksRecording(); }
+    }
+
+    function stopMyTasksRecording() {
+      if (mtTimerId) { clearInterval(mtTimerId); mtTimerId = null; }
+      if (mtRecorder && mtRecorder.state === "recording") { mtRecorder.stop(); }
+      setMyTasksRecordingUi(false);
+    }
+
+    function cancelMyTasksRecording() {
+      if (!mtRecorder || mtRecorder.state !== "recording") { return; }
+      mtCancelled = true;
+      stopMyTasksRecording();
+    }
+
+    function setMyTasksRecordingUi(on) {
+      var btn = document.getElementById("mtSpeakBtn");
+      if (btn) { btn.className = "btn-voice-mic" + (on ? " recording" : ""); }
+      var label = document.getElementById("mtSpeakLabel");
+      if (label) {
+        label.innerHTML = on
+          ? mtBoth("Gravando. Toque para terminar", "Recording. Tap to finish")
+          : mtBoth("Falar minhas tarefas", "Speak my tasks");
+      }
+      var cancel = document.getElementById("mtCancelBtn");
+      if (cancel) { cancel.hidden = !on; }
+      if (!on) {
+        var tm = document.getElementById("mtTimer");
+        if (tm) { tm.textContent = ""; }
+      }
+    }
+
+    function setMyTasksBusy(on) {
+      mtBusy = on;
+      var btn = document.getElementById("mtSpeakBtn");
+      if (btn) { btn.disabled = on; }
+    }
+
+    function sendMyTasksRecording() {
+      if (!mtChunks.length) {
+        mtSetStatus(mtBoth("Nada foi gravado.", "Nothing was recorded."), "error");
+        return;
+      }
+      if (mtStartedAt && (Date.now() - mtStartedAt) < VOICE_MIN_MS) {
+        mtChunks = [];
+        mtSetStatus(mtBoth("Muito curto. Toque e fale suas tarefas.",
+                           "Too short. Tap and say your tasks."), "error");
+        return;
+      }
+      var blob = new Blob(mtChunks, { type: "audio/webm" });
+      mtChunks = [];
+      uploadMyTasksBlob(blob);
+    }
+
+    function retryMyTasksUpload() {
+      if (mtBusy || !mtLastBlob) { return; }
+      uploadMyTasksBlob(mtLastBlob);
+    }
+
+    // The second part of the "Added N tasks" line: where the handed-out ones
+    // went. Only tasks with given true count, by owner: assigned_to "alice",
+    // "developer" (the system), or none (Rafa). Returns "" when none were.
+    function mtGaveText(tasks) {
+      var toAlice = 0;
+      var toRafa = 0;
+      var toSystem = 0;
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].given !== true) { continue; }
+        if (tasks[i].assigned_to === "alice") { toAlice++; }
+        else if (tasks[i].assigned_to === "developer") { toSystem++; }
+        else { toRafa++; }
+      }
+      var gavePt = [];
+      var gaveEn = [];
+      if (toAlice)  { gavePt.push(toAlice + " para Alice");      gaveEn.push(toAlice + " for Alice"); }
+      if (toRafa)   { gavePt.push(toRafa + " para Rafa");        gaveEn.push(toRafa + " for Rafa"); }
+      if (toSystem) { gavePt.push(toSystem + " para o sistema"); gaveEn.push(toSystem + " for the system"); }
+      return gavePt.length ? " " + mtBoth(gavePt.join(", ") + ".", gaveEn.join(", ") + ".") : "";
+    }
+
+    function uploadMyTasksBlob(blob) {
+      mtLastBlob = blob;
+      setMyTasksBusy(true);
+      mtShowHeard("");
+      mtSetStatus(mtBoth("Ouvindo o que voc\u00ea disse...", "Listening to what you said..."));
+
+      var fd = new FormData();
+      fd.append("audio", blob, "tasks.webm");
+      // Only used if the automatic language setting is refused by the model.
+      fd.append("lang", isEn() ? "en" : "pt");
+
+      // No Content-Type header: the browser must set the multipart boundary itself.
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/voice", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: fd
+        });
+      })
+        .then(function(r) {
+          return r.json().then(
+            function(d) { return { ok: r.ok, data: d || {} }; },
+            function() { return { ok: false, data: {} }; });
+        })
+        .then(function(res) {
+          setMyTasksBusy(false);
+          var d = res.data;
+          if (!res.ok || d.error || !d.ok || !Array.isArray(d.tasks)) {
+            // The worker answered. If it heard the speaker, show what it
+            // heard, so nothing said is lost; if it did not, it can be sent again.
+            var retry = d.transcript ? "" :
+              ' <button type="button" class="mt-link-btn" onclick="retryMyTasksUpload()">' +
+              mtBoth("Tentar de novo", "Try again") + '</button>';
+            if (d.transcript) { mtLastBlob = null; }
+            mtSetStatus(mtBoth(
+              escHtml(d.error_pt || d.error || "Algo deu errado. Nada foi adicionado."),
+              escHtml(d.error_en || d.error || "Something went wrong. Nothing was added.")) + retry, "error");
+            mtShowHeard(d.transcript || "");
+            return;
+          }
+          mtLastBlob = null;
+          if (!d.tasks.length) {
+            mtSetStatus(mtBoth("Nada foi adicionado: n\u00e3o encontrei nenhuma tarefa no que voc\u00ea disse.",
+                               "Nothing was added: I found no task in what you said."));
+            mtShowHeard(d.transcript || "");
+            return;
+          }
+          mtLastAdded = [];
+          for (var i = 0; i < d.tasks.length; i++) { mtLastAdded.push(d.tasks[i].id); }
+          // The list is loaded again, so each new task is in its own tab.
+          loadTasks();
+          var n = d.tasks.length;
+          mtSetStatus(
+            mtBoth(n === 1 ? "1 tarefa adicionada." : n + " tarefas adicionadas.",
+                   n === 1 ? "Added 1 task." : "Added " + n + " tasks.") +
+            mtGaveText(d.tasks) +
+            (d.truncated ? " " + mtBoth("S\u00f3 as primeiras " + n + " entraram.", "Only the first " + n + " were added.") : "") +
+            ' <button type="button" class="mt-link-btn" id="mtUndoBtn" onclick="undoMyTasksDictation()">' +
+            mtBoth("Desfazer", "Undo") + '</button>', "ok");
+        })
+        .catch(function() {
+          // No answer at all (no connection, or the token could not be read).
+          setMyTasksBusy(false);
+          mtSetStatus(mtBoth("N\u00e3o consegui enviar a grava\u00e7\u00e3o. Verifique a conex\u00e3o.",
+                             "Could not send the recording. Check the connection.") +
+            ' <button type="button" class="mt-link-btn" onclick="retryMyTasksUpload()">' +
+            mtBoth("Tentar de novo", "Try again") + '</button>', "error");
+        });
+    }
+
+    // Undo removes exactly the tasks the last dictation added. Tasks cannot be
+    // deleted anywhere in the app, so the worker closes them with the marker
+    // completed_by 'voice-undo' and no list shows them again.
+    function undoMyTasksDictation() {
+      if (mtBusy || !mtLastAdded.length) { return; }
+      var ids = mtLastAdded.slice();
+      setMyTasksBusy(true);
+      user_getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/tasks/voice/undo", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: ids })
+        });
+      })
+        .then(function(r) {
+          return r.json().then(function(d) { return { ok: r.ok, data: d || {} }; });
+        })
+        .then(function(res) {
+          setMyTasksBusy(false);
+          if (!res.ok || !res.data.ok) { throw new Error("undo"); }
+          mtLastAdded = [];
+          loadTasks();
+          var n = Number(res.data.undone) || 0;
+          mtSetStatus(mtBoth(
+            n === 1 ? "Desfeito: 1 tarefa removida." : "Desfeito: " + n + " tarefas removidas.",
+            n === 1 ? "Undone: 1 task removed." : "Undone: " + n + " tasks removed."));
+        })
+        .catch(function() {
+          setMyTasksBusy(false);
+          mtSetStatus(mtBoth("N\u00e3o consegui desfazer. Tente de novo.", "Could not undo. Please try again.") +
+            ' <button type="button" class="mt-link-btn" onclick="undoMyTasksDictation()">' +
+            mtBoth("Desfazer", "Undo") + '</button>', "error");
         });
     }
 

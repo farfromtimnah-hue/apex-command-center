@@ -4144,6 +4144,9 @@
       for (var i = 0; i < mtGiven.length; i++) {
         var t = mtGiven[i];
         if (t.completed_by === "voice-undo") { continue; }
+        // Alice's or the developer's own task for themself was handed to
+        // nobody. A row from before created_by_role existed stays listed.
+        if (t.created_by_role && t.created_by_role === t.assigned_to) { continue; }
         if (t.status === "done") {
           // completed_at is when it was marked done. A row closed before
           // that column existed has none: the day is read as it was before.
@@ -4498,15 +4501,21 @@
           }
           mtFresh = {};
           mtLastAdded = [];
-          // What he handed to someone else goes to "Given to others".
+          // What was handed to someone else (given) is counted by owner:
+          // assigned_to "alice", "developer" (the system), or none (Rafa).
           var toAlice = 0;
+          var toRafa = 0;
           var toSystem = 0;
           for (var i = 0; i < d.tasks.length; i++) {
             if (d.tasks[i].assigned_to) {
               mtGiven.push(d.tasks[i]);
-              if (d.tasks[i].assigned_to === "alice") { toAlice++; } else { toSystem++; }
             } else {
               mtTasks.push(d.tasks[i]);
+            }
+            if (d.tasks[i].given === true) {
+              if (d.tasks[i].assigned_to === "alice") { toAlice++; }
+              else if (d.tasks[i].assigned_to === "developer") { toSystem++; }
+              else { toRafa++; }
             }
             mtFresh[d.tasks[i].id] = true;
             mtLastAdded.push(d.tasks[i].id);
@@ -4516,6 +4525,7 @@
           var gavePt = [];
           var gaveEn = [];
           if (toAlice)  { gavePt.push(toAlice + " para Alice");      gaveEn.push(toAlice + " for Alice"); }
+          if (toRafa)   { gavePt.push(toRafa + " para Rafa");        gaveEn.push(toRafa + " for Rafa"); }
           if (toSystem) { gavePt.push(toSystem + " para o sistema"); gaveEn.push(toSystem + " for the system"); }
           mtSetStatus(
             mtBoth(n === 1 ? "1 tarefa adicionada." : n + " tarefas adicionadas.",

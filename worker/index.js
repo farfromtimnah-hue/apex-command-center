@@ -14456,6 +14456,10 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "config" || gmRest === "leads" || gmRest === "roadmap" ||
                     gmRest === "base-ouro" || gmRest === "partners" || gmRest === "finance" ||
                     gmRest === "jobs" || gmRest === "pricing") { return true; }
+                // The printable financial report: the same ledger rows as
+                // gm/finance for one period. Owner only -- the seller list
+                // below never names it, as it never names gm/finance.
+                if (gmRest === "finance/report") { return true; }
                 // Estimates & invoices build: the business's own document
                 // settings and their audit trail. Owner only -- the seller
                 // list below deliberately never names these.
@@ -21314,6 +21318,71 @@ async function handleGetGmFinance(id, request, env) {
         return jsonOk({ entries: rows.results || [], monthly: monthly });
     } catch (e) {
         return jsonErr("Error fetching finance entries: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/finance/report?from=YYYY-MM-DD&to=YYYY-MM-DD
+// The rows of one period for finance-report-view.html, oldest first, plus the
+// business name and the brand fields its hero band needs. Nothing else: no
+// job names, no monthly sums, no payment links. Same access check as the
+// finance GET above. Read-only. The page does the sums (in cents).
+// ---------------------------------------------------------------------------
+
+// A row's report date: its own data when that is a calendar date, otherwise
+// the Eastern date it was created on. Rows inside [from, to] (either bound may
+// be empty), in date order, then created_at, then id.
+function gmFinanceReportRows(rows, from, to) {
+    var out = [];
+    (rows || []).forEach(function(r) {
+        var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(r.data || ""));
+        var date = m ? m[1] : gmUtcStampToEasternDate(r.created_at);
+        if (!date) { return; }
+        if (from && date < from) { return; }
+        if (to && date > to) { return; }
+        out.push({
+            id: r.id, date: date, descricao: r.descricao || "", categoria: r.categoria || null,
+            tipo: r.tipo, valor: r.valor, obs: r.obs || null, created_at: r.created_at || null
+        });
+    });
+    out.sort(function(a, b) {
+        if (a.date !== b.date) { return a.date < b.date ? -1 : 1; }
+        var ca = String(a.created_at || ""), cb = String(b.created_at || "");
+        if (ca !== cb) { return ca < cb ? -1 : 1; }
+        return String(a.id) < String(b.id) ? -1 : (String(a.id) > String(b.id) ? 1 : 0);
+    });
+    return out;
+}
+
+async function handleGetGmFinanceReport(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var url = new URL(request.url);
+        var from = url.searchParams.get("from") || "";
+        var to = url.searchParams.get("to") || "";
+        var ymd = /^\d{4}-\d{2}-\d{2}$/;
+        if ((from && !ymd.test(from)) || (to && !ymd.test(to))) { return jsonErr("Invalid date", 400); }
+        var rows = await env.DB.prepare(
+            "SELECT id, data, descricao, categoria, tipo, valor, obs, created_at FROM gm_finance WHERE client_id = ?"
+        ).bind(id).all();
+        var client = await env.DB.prepare("SELECT name, logo_url FROM clients WHERE id = ?").bind(id).first();
+        if (!client) { return jsonErr("Not found", 404); }
+        var settings = await gmDocSettingsRow(env, id);
+        var hero = gmDocHero(url.origin, id, settings);
+        return jsonOk({
+            from: from || null, to: to || null,
+            entries: gmFinanceReportRows(rows.results || [], from, to),
+            business: {
+                name: settings.legal_name || client.name || "",
+                logo_url: client.logo_url ? url.origin + "/api/clients/" + id + "/logo-image" + logoVersionParam(client.logo_url) : null,
+                hero_url: hero.url, hero: hero.hero,
+                brand_primary: settings.brand_primary || null, brand_accent: settings.brand_accent || null
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching finance report: " + e.message, 500);
     }
 }
 
@@ -48125,6 +48194,10 @@ async function handleFetch(request, env, ctx) {
                 }
                 if (segs.length === 6 && gmCol === "pricing" && method === "PUT") {
                     return handlePutGmPricing(cid, segs[5], request, env);
+                }
+                // The printable financial report (finance-report-view.html).
+                if (segs.length === 6 && gmCol === "finance" && segs[5] === "report" && method === "GET") {
+                    return handleGetGmFinanceReport(cid, request, env);
                 }
                 // Card payments: the business's own Stripe account (Connect).
                 if (segs.length === 6 && gmCol === "stripe") {

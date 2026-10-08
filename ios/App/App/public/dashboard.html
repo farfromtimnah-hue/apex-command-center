@@ -932,16 +932,6 @@
               <div class="glass-tile-value" id="aliceStatResourcePending">--</div>
             </div>
           </div>
-          <!-- Status bar -->
-          <div class="glass-status-bar">
-            <div class="glass-status-label" id="aliceStatusLabel">
-              <span class="show-pt">0/0 sessoes aprovadas</span>
-              <span class="show-en">0/0 sessions approved</span>
-            </div>
-            <div class="glass-progress-track">
-              <div class="glass-progress-fill" id="aliceProgressFill" style="width:0%"></div>
-            </div>
-          </div>
           <!-- Resource sends status bar (Resource Hub) — recalculates daily -->
           <div class="glass-status-bar">
             <div class="glass-status-label" id="aliceResourceStatusLabel">
@@ -994,8 +984,9 @@
         <!-- Tasks handed to this person by voice (tasks.assigned_to). ONE card,
              moved by placeAssignedTasksCard(): directly under the reminders
              for Alice, first under the greeting for the developer. It shows
-             whether or not the reminders card above it is hidden. There is
-             deliberately no microphone here. -->
+             whether or not the reminders card above it is hidden. In Alice's
+             view the "Speak my tasks" block (mtVoiceBlock) is moved to the top
+             of this card; the developer's view does not get it. -->
         <div class="content-card" id="assignedTasksCard" hidden>
           <div class="content-card-header">
             <h2 class="content-card-title" id="atTitle">
@@ -1153,6 +1144,7 @@
               <span class="show-en">My tasks</span>
             </h2>
           </div>
+          <div id="mtVoiceBlock">
           <div class="mt-speak">
             <button class="btn-voice-mic" id="mtSpeakBtn" onclick="toggleMyTasksRecording()">
               <span aria-hidden="true">&#127908;</span>
@@ -1174,6 +1166,7 @@
               <span class="show-en">What I heard:</span>
             </div>
             <div class="voice-transcript" id="mtHeardText"></div>
+          </div>
           </div>
           <div class="section-sub-heading">
             <span class="show-pt">Minhas</span>
@@ -3485,17 +3478,6 @@
           if (approvedEl)   { approvedEl.textContent   = approved; }
           if (totalEl)      { totalEl.textContent       = total; }
 
-          // Status bar
-          var statusLabelEl = document.getElementById("aliceStatusLabel");
-          var fillEl        = document.getElementById("aliceProgressFill");
-          var pct = total > 0 ? Math.round((approved / total) * 100) : 0;
-          if (statusLabelEl) {
-            statusLabelEl.innerHTML =
-              '<span class="show-pt">' + approved + '/' + total + ' sessoes aprovadas</span>' +
-              '<span class="show-en">' + approved + '/' + total + ' sessions approved</span>';
-          }
-          if (fillEl) { fillEl.style.width = pct + "%"; }
-
           // Recent sessions table
           renderAliceRecentSessions(sessions);
         })
@@ -4011,9 +3993,34 @@
         card.hidden = true;
         return;
       }
+      mtMoveVoiceBlock(card);
       if (card.previousElementSibling !== anchor) { anchor.insertAdjacentElement("afterend", card); }
       card.hidden = false;
       loadMyTasks();
+    }
+
+    // The "Speak my tasks" control exists ONCE (mtVoiceBlock). It sits right
+    // under the header of the card whose view is showing: myTasksCard for
+    // Rafa, assignedTasksCard for Alice. Moving it to another card cancels a
+    // recording in progress and clears the old status line.
+    function mtMoveVoiceBlock(card) {
+      var block = document.getElementById("mtVoiceBlock");
+      if (!block || !card || block.parentNode === card) { return; }
+      cancelMyTasksRecording();
+      mtSetStatus("");
+      mtShowHeard("");
+      var header = card.querySelector(".content-card-header");
+      if (header) { header.insertAdjacentElement("afterend", block); }
+      else { card.insertBefore(block, card.firstChild); }
+    }
+
+    // After a dictation or an Undo: reload the lists of the card that holds
+    // the control. Rows just added stay highlighted (mtFresh is kept).
+    function mtRefreshLists() {
+      var block = document.getElementById("mtVoiceBlock");
+      var atCard = document.getElementById("assignedTasksCard");
+      if (block && atCard && block.parentNode === atCard) { loadAssignedTasks(); }
+      else { renderMyTasks(); }
     }
 
     function mtBoth(pt, en) {
@@ -4560,7 +4567,7 @@
             mtFresh[d.tasks[i].id] = true;
             mtLastAdded.push(d.tasks[i].id);
           }
-          renderMyTasks();
+          mtRefreshLists();
           var n = d.tasks.length;
           var gavePt = [];
           var gaveEn = [];
@@ -4600,7 +4607,7 @@
           setMyTasksBusy(false);
           if (!res.ok || !res.data.ok) { throw new Error("undo"); }
           for (var i = 0; i < ids.length; i++) { mtForget(ids[i]); }
-          renderMyTasks();
+          mtRefreshLists();
           var n = Number(res.data.undone) || 0;
           mtSetStatus(mtBoth(
             n === 1 ? "Desfeito: 1 tarefa removida." : "Desfeito: " + n + " tarefas removidas.",
@@ -4645,12 +4652,20 @@
       if (!anchor && !section) {
         atWho = "";
         card.hidden = true;
+        var homeCard = document.getElementById("myTasksCard");
+        if (homeCard) { mtMoveVoiceBlock(homeCard); }
         return;
       }
       if (anchor) {
         if (card.previousElementSibling !== anchor) { anchor.insertAdjacentElement("afterend", card); }
       } else if (section.firstElementChild !== card) {
         section.insertBefore(card, section.firstChild);
+      }
+      if (who === "alice") {
+        mtMoveVoiceBlock(card);
+      } else {
+        var home = document.getElementById("myTasksCard");
+        if (home) { mtMoveVoiceBlock(home); }
       }
       atWho = who;
       atTasks = [];

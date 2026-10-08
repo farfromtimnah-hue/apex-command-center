@@ -6039,22 +6039,19 @@
     // is the headline; anything still only suggested is shown separately and
     // never folded into it, because a P&L that quietly includes guesses is
     // worse than one that admits what it does not know.
-    // The month the picker opens on: the newest month that actually HELD an
-    // event, meaning one with confirmed transactions behind it.
+    // The month the picker opens on: the month of the NEWEST event, whether
+    // or not any payment has been matched to it yet. (It used to prefer
+    // events with confirmed transactions, which opened July while October's
+    // registrations were already coming in.)
     //
     // Not the current month -- events run roughly monthly, so "now" lands her
     // on a blank screen in any gap month, which reads as the feature being
     // broken. Not a hardcoded date either, which goes stale the moment the
     // next dinner happens. Derived from the data every time.
     //
-    // Falls back to the newest event of any kind (one created but not yet
-    // matched is still the most relevant thing to show), and only then to the
-    // current month, which is reached only when there are no events at all.
+    // Falls back to the current month only when there are no events at all.
     function newestEventMonth() {
-      var withTxns = CLUB_EVENTS.filter(function(e) {
-        return e.confirmed && e.confirmed.txn_count > 0;
-      });
-      var pool = withTxns.length ? withTxns : CLUB_EVENTS;
+      var pool = CLUB_EVENTS;
       if (!pool.length) { return new Date().toISOString().slice(0, 7); }
 
       var newest = pool[0].event.event_date;

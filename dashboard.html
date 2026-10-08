@@ -364,6 +364,17 @@
       white-space: nowrap;
     }
 
+    /* Alice's hero has five tiles with two-word labels. On a wide screen they
+       share one row evenly and a long label wraps inside its tile, instead of
+       the last tile dropping to a row of its own. */
+    @media (min-width: 900px) {
+      #aliceDash .glass-tile-row { flex-wrap: nowrap; }
+      #aliceDash .glass-tile { flex: 1 1 0; min-width: 0; }
+    }
+    /* The dollar total beside a count ("1 - $1,250.00"): smaller, may wrap. */
+    .glass-tile-value.has-sub { white-space: normal; }
+    .glass-tile-sub { font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.82); white-space: nowrap; }
+
     .glass-tile-value.is-gold { color: var(--gold); }
     .glass-tile-value.is-red  { color: #f87171; }
 
@@ -3486,6 +3497,44 @@
       return n;
     }
 
+    // What the counted overdue invoices still owe, in cents (the same
+    // invoices aliceCountOverdueInvoices counts).
+    function aliceOverdueCents(list, today) {
+      var cents = 0;
+      for (var i = 0; i < (list || []).length; i++) {
+        var inv = list[i];
+        if (!inv || inv.status !== "sent" || inv.partially_paid) { continue; }
+        if (inv.due_at && String(inv.due_at).slice(0, 10) < today) {
+          cents += Math.max(0, Math.round(Number(inv.amount_cents) || 0) - Math.round(Number(inv.paid_cents) || 0));
+        }
+      }
+      return cents;
+    }
+
+    // Cents -> "$4,198.50" (US format in both languages).
+    function aliceMoney(cents) {
+      var v = Math.round(Number(cents) || 0);
+      var whole = String(Math.floor(v / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      var frac = String(v % 100);
+      return "$" + whole + "." + (frac.length < 2 ? "0" + frac : frac);
+    }
+
+    // The overdue tile: the count, then " - $total" when there is any.
+    function aliceSetOverdueTile(n, cents) {
+      var el = document.getElementById("aliceStatOverdueInvoices");
+      if (!el) { return; }
+      el.textContent = String(n);
+      if (n > 0) {
+        el.classList.add("has-sub");
+        var sub = document.createElement("span");
+        sub.className = "glass-tile-sub";
+        sub.textContent = " - " + aliceMoney(cents);
+        el.appendChild(sub);
+      } else {
+        el.classList.remove("has-sub");
+      }
+    }
+
     function aliceSetTile(id, value) {
       var el = document.getElementById(id);
       if (el) { el.textContent = value; }
@@ -3512,7 +3561,8 @@
         .then(function(data) {
           var list = data.invoices || [];
           aliceSetTile("aliceStatUnsentInvoices", aliceCountUnsentInvoices(list));
-          aliceSetTile("aliceStatOverdueInvoices", aliceCountOverdueInvoices(list, mtNyDay(new Date())));
+          var nyToday = mtNyDay(new Date());
+          aliceSetOverdueTile(aliceCountOverdueInvoices(list, nyToday), aliceOverdueCents(list, nyToday));
         })
         .catch(function() {
           aliceSetTile("aliceStatUnsentInvoices", "--");

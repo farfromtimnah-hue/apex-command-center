@@ -8806,6 +8806,7 @@ async function handleGetAllTasks(request, env) {
         // which is what "Given to others" on the dashboard is built from.
         var tasks = res.results || [];
         var aliceName = null;
+        var rafaName = null;
         for (var i = 0; i < tasks.length; i++) {
             var name = null;
             if (tasks[i].assigned_to === "alice") {
@@ -8813,6 +8814,20 @@ async function handleGetAllTasks(request, env) {
                 name = aliceName;
             }
             tasks[i].assignee_name = name;
+
+            // Who a task came from, for its owner's lists. The developer's
+            // name never reaches a screen: that giver is null here and the
+            // page prints "Sistema" / "System".
+            var giver = taskGivenByRole(tasks[i].assigned_to, tasks[i].created_by_role);
+            var giverName = null;
+            if (giver === "alice") {
+                if (aliceName === null) { aliceName = await taskAssigneeAliceName(env); }
+                giverName = aliceName;
+            } else if (giver === "rafa") {
+                if (rafaName === null) { rafaName = await taskAssigneeRafaName(env); }
+                giverName = rafaName;
+            }
+            tasks[i].giver_name = giverName;
         }
 
         return jsonOk({ tasks: tasks });
@@ -8891,6 +8906,16 @@ var TASK_NOT_UNDONE_SQL = " AND COALESCE(t.completed_by, '') <> 'voice-undo'";
 // task is not the consultant's own work, so his lists and counts leave it out.
 var TASK_NOT_GIVEN_SQL = " AND t.assigned_to IS NULL";
 var TASK_PUSH_BODY_MAX = 160;
+
+// Is a task "given", and by which role? Given = created_by_role is set and
+// differs from the owner's role (assigned_to, or 'rafa' when NULL). Returns
+// the giver's role ('rafa', 'alice', 'developer') or null.
+function taskGivenByRole(assignedTo, createdByRole) {
+    var by = createdByRole ? String(createdByRole) : "";
+    if (!by) { return null; }
+    var owner = assignedTo ? String(assignedTo) : "rafa";
+    return by === owner ? null : by;
+}
 
 // The name the page prints for a task handed to Alice: the display_name of a
 // role 'alice' user (she has two rows; the first non-empty one), or "Alice".

@@ -85,6 +85,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <script src="task-sheet.js?v=1791424774"></script>
   <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1780,7 +1781,13 @@
           // was recorded has none; updatedAt is then the nearest thing.
           completedAt:  r.completed_at || null,
           updatedAt:    r.updated_at || null,
-          createdAt:    r.created_at || null
+          createdAt:    r.created_at || null,
+          // Staff tasks only (task-sheet.js): the one-click status
+          // ('working' | 'waiting_client' | null) and the note thread's
+          // count and newest note.
+          progress:     r.progress || null,
+          noteCount:    r.note_count || 0,
+          lastNote:     r.last_note || null
         };
       });
     }
@@ -2691,6 +2698,15 @@
       textEl.textContent = task.text;
       body.appendChild(textEl);
 
+      // A staff task can be opened (task-sheet.js): its words open the
+      // sheet, the latest note shows under them, and its pill is in the tags.
+      // A client's own to-do gets none of it.
+      var isStaff = task.type === "rafa";
+      var sheetTags = [];
+      var noteLine = (isStaff && typeof taskSheetRowNote === "function")
+        ? taskSheetRowNote(task.lastNote, task.noteCount) : null;
+      if (noteLine) { body.appendChild(noteLine); }
+
       // Meta line
       var meta = document.createElement("div");
       meta.className = "task-meta";
@@ -2757,6 +2773,7 @@
           whoEl.textContent = task.ownerName || "Rafa";
         }
         meta.appendChild(whoEl);
+        sheetTags.push(whoEl.innerHTML);
       }
 
       // When it was done, on every done row.
@@ -2786,6 +2803,7 @@
           fromEl.innerHTML = '<span class="show-pt">De ' + fromName + '</span><span class="show-en">From ' + fromName + '</span>';
         }
         meta.appendChild(fromEl);
+        sheetTags.push(fromEl.innerHTML);
       }
 
       // Type tag (only shown in consultant tab, by-date view)
@@ -2801,9 +2819,66 @@
         meta.appendChild(tagEl);
       }
 
+      // The one-click status, when it is set. A done task has none.
+      var pill = (isStaff && !isDone && typeof taskSheetRowPill === "function")
+        ? taskSheetRowPill(task.progress, "task-due") : null;
+      if (pill) { meta.appendChild(pill); }
+
       body.appendChild(meta);
       row.appendChild(body);
+      if (isStaff && typeof taskSheetMakeOpener === "function") {
+        (function(tk, tags, done) {
+          taskSheetMakeOpener(textEl, tk.key, function() { openTaskSheet(tk, tags, done); });
+        })(task, sheetTags, isDone);
+      }
       return row;
+    }
+
+    // Opens a staff task in the sheet (task-sheet.js). tags are the
+    // who-has-it / who-gave-it tags of the row that was pressed.
+    function openTaskSheet(task, tags, isDone) {
+      if (typeof taskSheetOpen !== "function") { return; }
+      taskSheetOpen({
+        id: task.key, description: task.text,
+        clientName: task.clientName && task.clientName !== "\u2014" ? task.clientName : "",
+        tags: tags, done: !!isDone,
+        progress: task.progress || null, dueDate: task.due || null,
+        apiBase: WORKER_URL, getToken: user_getToken,
+        onChange: taskSheetChanged, onClose: taskSheetClosed
+      });
+    }
+
+    // What was saved in the sheet goes onto the task this page holds, so the
+    // row is right without loading again. The due date is kept the same three
+    // ways rowsToTasks keeps it.
+    function taskSheetChanged(c) {
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      for (var i = 0; i < allTasks.length; i++) {
+        var tk = allTasks[i];
+        if (tk.key !== c.id) { continue; }
+        tk.progress = c.progress || null;
+        tk.due = c.due_date || null;
+        tk.dueDate = null;
+        if (tk.due) {
+          var p = String(tk.due).split("-");
+          tk.dueDate = new Date(+p[0], +p[1] - 1, +p[2]);
+          tk.dueDate.setHours(0, 0, 0, 0);
+        }
+        tk.overdue = (!completedMap[tk.key] && tk.dueDate) ? tk.dueDate < today : false;
+        if (c.hasOwnProperty("note_count")) {
+          tk.noteCount = c.note_count || 0;
+          tk.lastNote = c.last_note || null;
+        }
+      }
+    }
+
+    // The sheet closed: the counts and the list are drawn again from what the
+    // page already holds (no reload).
+    function taskSheetClosed() {
+      updateTabCounts();
+      updateTasksHeroTiles();
+      renderTaskView();
     }
 
     function makeEmpty() {

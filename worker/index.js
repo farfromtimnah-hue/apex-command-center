@@ -4881,8 +4881,12 @@ async function handlePostClientTask(id, request, env) {
 
 // ---------------------------------------------------------------------------
 // Route: PATCH /api/tasks/:id
-// Body: { status?: string }
-// Any authenticated user can toggle task status (done/pending).
+// Body: { status?: string, progress?: null|"working"|"waiting_client",
+//         due_date?: null|"YYYY-MM-DD" }   (at least one of the three)
+// Any staff user can toggle task status (done/pending). progress (the
+// one-click pill) and due_date are for staff tasks only (type 'consultant').
+// A body with only { status } behaves exactly as it did before the other two
+// existed, except that marking a task done also empties its pill.
 // ---------------------------------------------------------------------------
 
 async function handlePatchTask(id, request, env) {
@@ -4891,30 +4895,86 @@ async function handlePatchTask(id, request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
 
         var body = await request.json();
-        if (!body.hasOwnProperty("status")) { return jsonErr("status is required", 400); }
+        var hasStatus = body.hasOwnProperty("status");
+        var hasProgress = body.hasOwnProperty("progress");
+        var hasDue = body.hasOwnProperty("due_date");
+        if (!hasStatus && !hasProgress && !hasDue) { return jsonErr("status is required", 400); }
 
         var allowed = ["pending", "done"];
-        if (allowed.indexOf(body.status) === -1) { return jsonErr("status must be pending or done", 400); }
+        if (hasStatus && allowed.indexOf(body.status) === -1) { return jsonErr("status must be pending or done", 400); }
+        if (hasProgress && body.progress !== null && body.progress !== "working" && body.progress !== "waiting_client") {
+            return jsonErr("progress must be null, working or waiting_client", 400);
+        }
+        var due = null;
+        if (hasDue && body.due_date !== null && body.due_date !== "") {
+            // A real calendar day: 2026-02-30 has the right shape and is refused.
+            due = String(body.due_date);
+            var dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(due);
+            var dd = dm ? new Date(Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]))) : null;
+            if (!dm || isNaN(dd.getTime()) || dd.toISOString().slice(0, 10) !== due) {
+                return jsonErr2("Data inválida.", "That is not a valid date.", 400);
+            }
+        }
 
         // Verify the task exists and caller has access via their role
-        var task = await env.DB.prepare("SELECT id, client_id FROM tasks WHERE id = ?").bind(id).first();
+        var task = await env.DB.prepare("SELECT id, client_id, type, status FROM tasks WHERE id = ?").bind(id).first();
         if (!task) { return jsonErr("Task not found", 404); }
         // Only alice, rafa, and developer can mutate tasks (same gate as task creation and client writes)
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        // The pill and the due date belong to staff tasks. A client's own
+        // to-do (type 'client') is shown in the client portal and gets neither.
+        if ((hasProgress || hasDue) && task.type !== "consultant") {
+            return jsonErr2("Isso só vale para tarefas da equipe.", "This is only for staff tasks.", 400);
+        }
 
-        // completed_by tracks who closed the task, so it must be cleared when a
-        // task is re-opened — otherwise a swept task toggled back to pending
-        // would keep reading as 'system-sweep'.
-        var completedBy = body.status === "done" ? (user.role || "user") : null;
-        // completed_at is the moment it was marked done (UTC), written in the
-        // same statement as the status; a task set back to pending has none.
+        var sets = [];
+        var binds = [];
         var stamp = new Date().toISOString();
-        var completedAt = body.status === "done" ? stamp : null;
-        await env.DB.prepare(
-            "UPDATE tasks SET status = ?, completed_by = ?, completed_at = ?, updated_at = ? WHERE id = ?"
-        ).bind(body.status, completedBy, completedAt, stamp, id).run();
+        var statusAfter = hasStatus ? body.status : task.status;
+        var statusSql = "";
+        if (hasStatus) {
+            // completed_by tracks who closed the task, so it must be cleared when a
+            // task is re-opened — otherwise a swept task toggled back to pending
+            // would keep reading as 'system-sweep'.
+            var completedBy = body.status === "done" ? (user.role || "user") : null;
+            // completed_at is the moment it was marked done (UTC), written in the
+            // same statement as the status; a task set back to pending has none.
+            var completedAt = body.status === "done" ? stamp : null;
+            statusSql = "UPDATE tasks SET status = ?, completed_by = ?, completed_at = ?, updated_at = ?";
+            binds.push(body.status, completedBy, completedAt, stamp);
+        }
+        // A done task carries no pill: marking done empties it in this same
+        // statement, and a pill sent for a done task is saved as empty. A
+        // re-opened task therefore starts with none.
+        var progressAfter;
+        if (statusAfter === "done") {
+            if (hasStatus || hasProgress) { sets.push("progress = NULL"); }
+            progressAfter = null;
+        } else if (hasProgress) {
+            sets.push("progress = ?");
+            binds.push(body.progress);
+            progressAfter = body.progress;
+        }
+        if (hasDue) {
+            sets.push("due_date = ?");
+            binds.push(due);
+        }
+        binds.push(id);
+        // One statement either way. With a status it starts with the same
+        // status, completed_by, completed_at, updated_at it always wrote.
+        var stmt = env.DB.prepare(statusSql
+            ? statusSql + (sets.length ? ", " + sets.join(", ") : "") + " WHERE id = ?"
+            : "UPDATE tasks SET " + sets.join(", ") + " WHERE id = ?");
+        await stmt.bind.apply(stmt, binds).run();
 
-        return jsonOk({ ok: true, status: body.status });
+        // Old pages send only { status } and get the same two fields back.
+        if (!hasProgress && !hasDue) { return jsonOk({ ok: true, status: body.status }); }
+        var after = await env.DB.prepare("SELECT status, progress, due_date FROM tasks WHERE id = ?").bind(id).first();
+        return jsonOk({
+            ok: true, status: after ? after.status : statusAfter,
+            progress: after ? (after.progress || null) : (progressAfter || null),
+            due_date: after ? (after.due_date || null) : due
+        });
     } catch (e) {
         return jsonErr("Error updating task: " + e.message, 500);
     }
@@ -8834,7 +8894,7 @@ async function handleGetAllTasks(request, env) {
             "SELECT t.id, t.client_id, c.name as client_name, t.type, " +
             "t.description, t.due_date, t.due_date_source, t.status, t.source, " +
             "t.completed_by, t.session_id, s.date as session_date, t.created_at, " +
-            "t.updated_at, t.completed_at, t.assigned_to, t.created_by_role " +
+            "t.updated_at, t.completed_at, t.assigned_to, t.created_by_role, t.progress " +
             "FROM tasks t " +
             "LEFT JOIN clients c ON t.client_id = c.id " +
             "LEFT JOIN sessions s ON t.session_id = s.id " +
@@ -8881,9 +8941,185 @@ async function handleGetAllTasks(request, env) {
             tasks[i].owner_name = ownerName;
         }
 
+        // The note thread, for staff tasks only: how many notes and the
+        // newest one, read in ONE query for the whole list. A client's own
+        // to-do (type 'client') carries no pill and no notes at all.
+        var noteRes = await env.DB.prepare(
+            "SELECT n.task_id, n.body, n.author_role, n.author_name, n.created_at, " +
+            "u.display_name AS user_name, " +
+            "(SELECT COUNT(*) FROM task_notes k WHERE k.task_id = n.task_id) AS note_count " +
+            "FROM task_notes n LEFT JOIN users u ON u.email = n.author_email " +
+            "WHERE n.id = (SELECT m.id FROM task_notes m WHERE m.task_id = n.task_id " +
+            "ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1)"
+        ).all();
+        var lastByTask = {};
+        var noteRows = noteRes.results || [];
+        for (var n = 0; n < noteRows.length; n++) { lastByTask[noteRows[n].task_id] = noteRows[n]; }
+        for (var j = 0; j < tasks.length; j++) {
+            if (tasks[j].type !== "consultant") { delete tasks[j].progress; continue; }
+            tasks[j].progress = tasks[j].progress || null;
+            var last = lastByTask[tasks[j].id] || null;
+            tasks[j].note_count = last ? Number(last.note_count) : 0;
+            // The developer's name never reaches a screen (the page prints
+            // "Sistema" / "System").
+            tasks[j].last_note = last ? {
+                body: String(last.body || "").slice(0, 140),
+                author_role: last.author_role,
+                author_name: last.author_role === "developer" ? null
+                    : (String(last.user_name || "").trim() || last.author_name || null),
+                created_at: last.created_at
+            } : null;
+        }
+
         return jsonOk({ tasks: tasks });
     } catch (e) {
         return jsonErr("Error fetching tasks: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TASK NOTES: a staff task can be opened and talked about.
+// Route: GET  /api/tasks/:id/notes   the task and its thread, oldest first
+// Route: POST /api/tasks/:id/notes   { body, progress? } adds one note
+//
+// Staff only (rafa, alice, developer) and only on a staff task (type
+// 'consultant'). A client's own to-do (type 'client') is shown in the client
+// portal and has no thread: both routes refuse it, and neither path is on the
+// client or the salesperson allowlist, so the central gate refuses those
+// sessions before a handler runs.
+//
+// A note keeps who wrote it by email. The name and the picture printed next
+// to it are read from that person's users row when the thread is opened (the
+// name saved with the note is the fallback), so a new picture shows on old
+// notes. A note written by the developer carries no name and no picture: the
+// page prints "Sistema" / "System". The developer's name never reaches a screen.
+// ---------------------------------------------------------------------------
+
+var TASK_NOTE_MAX = 2000;
+
+// One note in the shape the page reads. userRow is the author's users row
+// (or null). The picture is the route the site already serves pictures from.
+function taskNoteView(note, userRow) {
+    var isDev = note.author_role === "developer";
+    var name = null;
+    var avatar = null;
+    if (!isDev) {
+        name = String((userRow && userRow.display_name) || "").trim() || note.author_name || null;
+        if (userRow && userRow.avatar_url && note.author_email) {
+            avatar = "/api/users/" + encodeURIComponent(note.author_email) + "/avatar-image";
+        }
+    }
+    return {
+        id: note.id, body: note.body, author_role: note.author_role,
+        author_name: name, author_avatar_url: avatar, created_at: note.created_at
+    };
+}
+
+// The staff task behind a notes route, with the same names GET /api/tasks
+// gives the page. Returns { error: Response } or { task: {...} }.
+async function taskNotesTask(id, env) {
+    var t = await env.DB.prepare(
+        "SELECT t.id, t.type, t.description, t.due_date, t.status, t.progress, " +
+        "c.name AS client_name, t.assigned_to, t.created_by_role " +
+        "FROM tasks t LEFT JOIN clients c ON t.client_id = c.id WHERE t.id = ?"
+    ).bind(id).first();
+    if (!t) { return { error: jsonErr("Task not found", 404) }; }
+    if (t.type !== "consultant") {
+        return { error: jsonErr2("Isso só vale para tarefas da equipe.", "This is only for staff tasks.", 400) };
+    }
+    var giver = taskGivenByRole(t.assigned_to, t.created_by_role);
+    var giverName = null;
+    if (giver === "alice") { giverName = await taskAssigneeAliceName(env); }
+    else if (giver === "rafa") { giverName = await taskAssigneeRafaName(env); }
+    return { task: {
+        id: t.id, description: t.description, due_date: t.due_date || null,
+        status: t.status, progress: t.progress || null, client_name: t.client_name || null,
+        assigned_to: t.assigned_to || null, created_by_role: t.created_by_role || null,
+        assignee_name: t.assigned_to === "alice" ? await taskAssigneeAliceName(env) : null,
+        owner_name: (!t.assigned_to && giver) ? await taskAssigneeRafaName(env) : null,
+        giver_name: giverName
+    } };
+}
+
+async function handleGetTaskNotes(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+
+        var res = await env.DB.prepare(
+            "SELECT n.id, n.body, n.author_email, n.author_role, n.author_name, n.created_at, " +
+            "u.display_name AS user_name, u.avatar_url AS user_avatar " +
+            "FROM task_notes n LEFT JOIN users u ON u.email = n.author_email " +
+            "WHERE n.task_id = ? ORDER BY n.created_at ASC, n.rowid ASC"
+        ).bind(id).all();
+        var rows = res.results || [];
+        var notes = [];
+        for (var i = 0; i < rows.length; i++) {
+            notes.push(taskNoteView(rows[i], { display_name: rows[i].user_name, avatar_url: rows[i].user_avatar }));
+        }
+        return jsonOk({ task: found.task, notes: notes });
+    } catch (e) {
+        return jsonErr("Error fetching task notes: " + e.message, 500);
+    }
+}
+
+async function handlePostTaskNote(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json();
+        var text = String((body && body.body) || "").trim();
+        if (!text) { return jsonErr2("Escreva a nota antes de adicionar.", "Write the note before adding it.", 400); }
+        if (text.length > TASK_NOTE_MAX) {
+            return jsonErr2("Nota longa demais. O limite é de " + TASK_NOTE_MAX + " caracteres.",
+                "That note is too long. The limit is " + TASK_NOTE_MAX + " characters.", 400);
+        }
+        var hasProgress = !!body && body.hasOwnProperty("progress");
+        if (hasProgress && body.progress !== null && body.progress !== "working" && body.progress !== "waiting_client") {
+            return jsonErr("progress must be null, working or waiting_client", 400);
+        }
+
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+
+        // The name saved with the note is only the fallback for the day the
+        // author's users row has no name. The developer's is never saved.
+        var savedName = null;
+        if (user.role !== "developer") {
+            savedName = String(user.display_name || "").trim() || null;
+            if (!savedName) {
+                savedName = user.role === "alice" ? await taskAssigneeAliceName(env) : await taskAssigneeRafaName(env);
+            }
+        }
+        var note = {
+            id: crypto.randomUUID(), body: text, author_email: user.email || null,
+            author_role: user.role, author_name: savedName, created_at: new Date().toISOString()
+        };
+        // The note and the pill are ONE batch: both are saved or neither is.
+        // A done task carries no pill, so one sent for it is saved as empty.
+        var progress = found.task.progress;
+        var stmts = [env.DB.prepare(
+            "INSERT INTO task_notes (id, task_id, body, author_email, author_role, author_name, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        ).bind(note.id, id, note.body, note.author_email, note.author_role, note.author_name, note.created_at)];
+        if (hasProgress) {
+            progress = found.task.status === "done" ? null : body.progress;
+            stmts.push(env.DB.prepare("UPDATE tasks SET progress = ? WHERE id = ?").bind(progress, id));
+        }
+        await env.DB.batch(stmts);
+
+        return jsonOk({
+            ok: true, progress: progress || null,
+            note: taskNoteView(note, { display_name: user.display_name, avatar_url: user.avatar_url })
+        });
+    } catch (e) {
+        return jsonErr("Error adding task note: " + e.message, 500);
     }
 }
 
@@ -48604,7 +48840,15 @@ async function handleFetch(request, env, ctx) {
             return handlePostStaffClick(request, env);
         }
 
-        // /api/tasks/:id  PATCH (status toggle — syncs with tasks.html)
+        // /api/tasks/:id/notes  GET | POST (the note thread on a staff task)
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "notes" && !segs[4] && method === "GET") {
+            return handleGetTaskNotes(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "notes" && !segs[4] && method === "POST") {
+            return handlePostTaskNote(segs[2], request, env);
+        }
+
+        // /api/tasks/:id  PATCH (status toggle, and the pill and due date on a staff task)
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && method === "PATCH") {
             return handlePatchTask(segs[2], request, env);
         }

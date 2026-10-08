@@ -13,11 +13,13 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fai
 
 // The tasks table as it is live, then the migration of this job.
 const TASKS = `
-CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, type TEXT NOT NULL, description TEXT NOT NULL, due_date TEXT, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, due_date_source TEXT, completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, created_by TEXT, assigned_to TEXT, completed_at TEXT, created_by_role TEXT);
+CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, type TEXT NOT NULL, description TEXT NOT NULL, due_date TEXT, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, due_date_source TEXT, completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, created_by TEXT, assigned_to TEXT, completed_at TEXT, created_by_role TEXT, description_en TEXT, description_pt TEXT);
 CREATE TABLE sessions (id TEXT PRIMARY KEY, date TEXT);
 CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT);
 `;
-const MIG = readFileSync(new URL("migrations/2026-10-07_task_notes.sql", root), "utf8");
+const MIG = readFileSync(new URL("migrations/2026-10-07_task_notes.sql", root), "utf8") +
+  // The translation columns of task_notes (2026-10-08). The tasks ones are in TASKS above.
+  "\nALTER TABLE task_notes ADD COLUMN body_en TEXT;\nALTER TABLE task_notes ADD COLUMN body_pt TEXT;\n";
 
 const USERS = {
   rafa:  { email: "rafa@x.test", role: "rafa", display_name: "Rafael", avatar_url: "avatars/rafa@x.test.png" },
@@ -54,14 +56,22 @@ function as(d, who) {
   const stubs = Object.assign({}, baseStubs, {
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     authenticate: async () => (user ? Object.assign({}, user) : null),
+    // Task translation (2026-10-08): this file's tests are about other things, so
+    // the model is unreachable here. A note or edit on a task that involves the
+    // developer must then behave exactly as it did before: saved, no translation.
+    // (scripts/test-task-translation.mjs is where translation itself is tested.)
+    CLAUDE_API_URL: "https://claude.test/v1/messages", CLAUDE_MODEL: "test-model",
+    fetch: async () => { throw new Error("no model in this test"); },
+    console: { log() {}, error() {}, warn() {} },
     crypto: globalThis.crypto,
     pushToUsers: async (env, emails, payload) => { if (pushFail) { throw new Error("push down"); } pushes.push({ emails, payload }); }
   });
   const F = build(
     ["taskGivenByRole", "taskNoteRecipients", "taskNotePushText", "taskNoteNotify", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskNoteView", "taskNotesTask",
+     "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
      "handleGetTaskNotes", "handlePostTaskNote", "handlePatchTask", "handleGetAllTasks",
      "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
-    ["TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL"], stubs);
+    ["TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const env = { DB: d.DB };
   const req = (body) => ({ url: "https://x.test/", headers: { get: (k) => (k === "Authorization" ? "Bearer tok" : null) }, json: async () => body });
   return {
@@ -83,7 +93,7 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   const empty = await as(d, "rafa").list("t-alice");
   ok(empty.status === 200 && Array.isArray(empty.data.notes) && empty.data.notes.length === 0, "a task with no notes answers 200 with an empty list");
   const tk = empty.data.task;
-  ok(JSON.stringify(Object.keys(tk).sort()) === JSON.stringify(["assigned_to", "assignee_name", "client_id", "client_name", "created_by_role", "description", "due_date", "giver_name", "id", "owner_name", "progress", "status"]), "GET notes: the task carries exactly the eleven fields the job names");
+  ok(JSON.stringify(Object.keys(tk).sort()) === JSON.stringify(["assigned_to", "assignee_name", "client_id", "client_name", "created_by_role", "description", "description_en", "description_pt", "due_date", "giver_name", "id", "owner_name", "progress", "status"]), "GET notes: the task carries exactly its twelve fields and the two translation fields");
   ok(tk.client_id === "c-acme" && (await as(d, "rafa").list("t-own")).data.task.client_id === null && tk.id === "t-alice" && tk.description === "Call the Acme accountant" && tk.due_date === "2026-10-12" && tk.status === "pending" && tk.progress === null && tk.client_name === "Acme Pools", "GET notes: the task's words, due date, status, progress and client name");
   ok(tk.assigned_to === "alice" && tk.created_by_role === "rafa" && tk.assignee_name === "Pra. Alice" && tk.giver_name === "Rafael" && tk.owner_name === null, "GET notes: who has it (Alice) and who gave it (the consultant)");
   const back = (await as(d, "alice").list("t-to-rafa")).data.task;
@@ -98,7 +108,7 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   const a3 = await as(d, "aliceNoPic").add("t-alice", { body: "Got it." });
   ok(a1.status === 200 && a2.status === 200 && a3.status === 200, "alice, the consultant and alice's second login can each add a note");
   ok(a1.data.note.body === "Left a message.\nWill try again tomorrow.", "the note is trimmed at the ends and keeps its line break");
-  ok(JSON.stringify(Object.keys(a1.data.note).sort()) === JSON.stringify(["author_avatar_url", "author_name", "author_role", "body", "created_at", "id"]), "POST answers with the new note in the same six-field shape");
+  ok(JSON.stringify(Object.keys(a1.data.note).sort()) === JSON.stringify(["author_avatar_url", "author_name", "author_role", "body", "body_en", "body_pt", "created_at", "id"]), "POST answers with the new note in the same shape: six fields and the two translation fields");
   ok(a1.data.note.author_role === "alice" && a1.data.note.author_name === "Pra. Alice" && a1.data.note.author_avatar_url === "/api/users/b-second%40x.test/avatar-image", "POST: the new note carries her name and her picture's address (the route the site already serves pictures from)");
   ok("progress" in a1.data && a1.data.progress === null, "POST answers with the task's progress (none yet)");
   ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(a1.data.note.created_at), "the note's time is a UTC moment: " + a1.data.note.created_at);
@@ -360,7 +370,7 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   ok(sqls.length === queriesEmpty, "46 tasks with notes cost the same number of queries as 6 tasks with none (" + sqls.length + " and " + queriesEmpty + ")");
   ok(by["t-alice"].progress === "working" && by["t-alice"].note_count === 3, "the task carries its progress and its note count (3)");
   const ln = by["t-alice"].last_note;
-  ok(JSON.stringify(Object.keys(ln).sort()) === JSON.stringify(["author_name", "author_role", "body", "created_at"]), "last_note has exactly body, author_role, author_name, created_at");
+  ok(JSON.stringify(Object.keys(ln).sort()) === JSON.stringify(["author_name", "author_role", "body", "body_en", "body_pt", "created_at"]), "last_note has exactly body, body_en, body_pt, author_role, author_name, created_at");
   ok(ln.body.length === 140 && ln.body === longBody.slice(0, 140) && ln.author_role === "alice" && ln.author_name === "Pra. Alice", "last_note is the NEWEST note, its first 140 characters, with the author's current name");
   ok(by["t-sys"].note_count === 1 && by["t-sys"].last_note.author_role === "developer" && by["t-sys"].last_note.author_name === null && by["t-sys"].last_note.body === "Shipped.", "a developer's last note carries no name");
   ok(by["t-own"].note_count === 1 && by["t-own"].last_note.author_name === "Rafael", "one note: count 1 and its author");
@@ -406,7 +416,7 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   ok(sheet.indexOf("formatDateTimeUTC(note.created_at)") > 0 && sheet.indexOf("formatDate(s.dueDate)") > 0, "times and dates are printed by the site's own formatters (datetime.js)");
   ok(!/keydown[\s\S]{0,200}taskSheetAddNote/.test(sheet) && sheet.indexOf('addBtn.addEventListener("click", taskSheetAddNote)') > 0, "only the button adds a note: no key sends it");
   ok(/s\.sending = true;\s*btn\.disabled = true;/.test(sheet), "the button is off while a note is being sent");
-  ok(/white-space: pre-wrap/.test(sheet) && sheet.indexOf("text.textContent = note.body") > 0, "a note's words are written as text with line breaks kept");
+  ok(/white-space: pre-wrap/.test(sheet) && /var mine = taskSheetNoteWords\(note\);\s+text\.textContent = mine;/.test(sheet) && sheet.indexOf("text.innerHTML") < 0, "a note's words are written as text with line breaks kept");
   ok(sheet.indexOf('e.key === "Enter"') > 0 && sheet.indexOf('el.setAttribute("tabindex", "0")') > 0 && /\.task-sheet-open \{ cursor: pointer/.test(sheet) && /\.task-sheet-open:focus-visible \{ outline/.test(sheet), "the row's words: pointer, focus ring, reachable by keyboard, Enter opens");
 
   // What the row prints, run for real against a stand-in document.

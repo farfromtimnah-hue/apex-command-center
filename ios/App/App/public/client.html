@@ -2679,8 +2679,10 @@
                  Read-only is enforced Worker-side, not by hiding controls. -->
             <a class="btn-add" id="btnViewPortal" href="#" target="_blank" rel="noopener" hidden
                style="text-decoration:none;">
-              <span class="show-pt">Ver portal do cliente</span>
-              <span class="show-en">View client portal</span>
+              <span id="btnViewPortalRO"><span class="show-pt">Ver portal do cliente</span>
+              <span class="show-en">View client portal</span></span>
+              <span id="btnViewPortalManage" hidden><span class="show-pt">Gerenciar portal do cliente</span>
+              <span class="show-en">Manage client portal</span></span>
             </a>
           </div>
           <div id="portalAccessBody" style="padding:16px 20px;">
@@ -6753,6 +6755,13 @@
         var vpAllowed = (vpRole === "alice" || vpRole === "rafa" || vpRole === "developer");
         vpBtn.href = "portal.html?previewAs=" + encodeURIComponent(CLIENT_ID || "");
         vpBtn.hidden = !vpAllowed;
+        // A client flagged staff_manage opens in manage mode (same link): only
+        // the words change. Every other client keeps the read-only label.
+        var vpManage = (client.staff_manage === 1 || client.staff_manage === true);
+        var vpROLabel = document.getElementById("btnViewPortalRO");
+        var vpManageLabel = document.getElementById("btnViewPortalManage");
+        if (vpROLabel) { vpROLabel.hidden = vpManage; }
+        if (vpManageLabel) { vpManageLabel.hidden = !vpManage; }
         // target="_blank" is a silent no-op in the app: WKWebView asks
         // WKUIDelegate.createWebViewWith for the new window and nothing
         // implements it (ApexUptimePlugin.swift deliberately installs no

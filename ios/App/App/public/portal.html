@@ -1128,12 +1128,13 @@
        enforced by the Worker; this just makes the mode unmistakable. -->
   <div id="previewBanner" hidden>
     <span>
-      <span class="show-pt">Pr&eacute;via: </span><span class="show-en">Preview: </span>
+      <span id="previewLeadRO"><span class="show-pt">Pr&eacute;via: </span><span class="show-en">Preview: </span></span>
+      <span id="previewLeadManage" hidden><span class="show-pt">Gerenciando: </span><span class="show-en">Managing: </span></span>
       <strong id="previewClientLabel"></strong>
       <!-- Filled only in seller preview, so the banner never lets Nicole forget
            WHICH salesperson's view she is looking at. -->
       <span id="previewSellerLabel"></span>
-      <span class="show-pt"> — somente leitura</span><span class="show-en"> — read-only</span>
+      <span id="previewTailRO"><span class="show-pt"> — somente leitura</span><span class="show-en"> — read-only</span></span>
     </span>
     <span style="display:flex;gap:8px;">
       <!-- Developer-only: drives the dev view picker in nav.js, which no other
@@ -2142,6 +2143,12 @@
     // PREVIEW_AS is set; null on a real client session.
     var previewRealRole = null;
 
+    // True only when an admin previews a client flagged staff_manage = 1 (the
+    // Worker says so in GET /api/portal/me) and is NOT previewing a seller.
+    // The Worker decides what is allowed; this only stops the page from acting
+    // as a read-only viewer. Every request still carries previewAs.
+    var PREVIEW_MANAGE = false;
+
     function previewSwitchClient() {
       if (window.apexNavSetView) { window.apexNavSetView("client"); }
     }
@@ -2372,7 +2379,7 @@
 
     function showEntryHome() {
       // Never render the daily log before the one-time schedule setup.
-      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS) {
+      if (entryState && entryState.work_schedule_set === false && (!PREVIEW_AS || PREVIEW_MANAGE)) {
         showScheduleSetup();
         return;
       }
@@ -2784,7 +2791,7 @@
     // Decides what the client sees right after login (runs BEFORE the
     // pending-days logic). Preview mode skips every gate.
     function decideBootView() {
-      if (PREVIEW_AS) { showPortal(); return; }
+      if (PREVIEW_AS && !PREVIEW_MANAGE) { showPortal(); return; }
       // A seller has no goals, no daily log and no assessments, so every gate
       // below is meaningless to them — and the goals hard gate would be a wall
       // they could not get past, i.e. a broken login. Straight to the Pipeline.
@@ -3664,7 +3671,7 @@
       // One-time schedule setup comes before the daily log ever renders.
       // Daily log OFF (hero build, E): no daily-log screen at login at all;
       // the setup still runs if the client opens the log themselves.
-      if (entryState && entryState.work_schedule_set === false && !PREVIEW_AS && dailyLogOn()) {
+      if (entryState && entryState.work_schedule_set === false && (!PREVIEW_AS || PREVIEW_MANAGE) && dailyLogOn()) {
         showScheduleSetup();
         return;
       }
@@ -7345,8 +7352,15 @@
           clientStatus = me.status || "active";
           helpRequestTemplate = me.help_request_template || null;
           document.getElementById("headerClientName").textContent = clientName;
+          PREVIEW_MANAGE = !!(PREVIEW_AS && !PREVIEW_SELLER && me.staff_manage === true);
           if (PREVIEW_AS) {
             document.getElementById("previewClientLabel").textContent = clientName;
+            var pvRO = document.getElementById("previewLeadRO");
+            var pvManage = document.getElementById("previewLeadManage");
+            var pvTail = document.getElementById("previewTailRO");
+            if (pvRO) { pvRO.hidden = PREVIEW_MANAGE; }
+            if (pvManage) { pvManage.hidden = !PREVIEW_MANAGE; }
+            if (pvTail) { pvTail.hidden = PREVIEW_MANAGE; }
             var psLabel = document.getElementById("previewSellerLabel");
             if (psLabel && PREVIEW_SELLER) {
               psLabel.textContent = " · " + PREVIEW_SELLER;

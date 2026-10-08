@@ -478,6 +478,47 @@ function previewClientId(user, request) {
     return pa || null;
 }
 
+// STAFF MANAGE (clients.staff_manage = 1). The read-only preview gate in
+// fetch() lets an admin's write through ONLY for a client with this flag, and
+// only on that client's own /api/clients/<id>/ routes. The session stays the
+// signed-in staff user, so every actor column records the staff person.
+//
+// These are the routes that record a LEGAL ACT by the client in the client's
+// own name. They stay closed even in manage mode: the owner's company
+// signature on a contract or change order, the Stripe Connect agreement
+// (connect / reaccept / disconnect), and the client's own login.
+function staffManageBlockedRest(rest) {
+    if (/^gm\/stripe\/(connect|reaccept|disconnect)$/.test(rest)) { return true; }
+    if (/^gm\/contracts\/[^\/]+\/company-sign$/.test(rest)) { return true; }
+    if (/^gm\/change-orders\/[^\/]+\/company-sign$/.test(rest)) { return true; }
+    if (rest === "login") { return true; }
+    return false;
+}
+
+var PREVIEW_READONLY_MSG = "Modo preview \u00e9 somente leitura / Preview mode is read-only";
+var STAFF_MANAGE_BLOCKED_MSG = "Este ato s\u00f3 pode ser feito pelo pr\u00f3prio cliente / Only the client can do this themselves";
+
+// Returns null when the write may continue, or the 403 to send. Fail closed:
+// no flag row, a flag that is not 1, or a lookup that throws all give the
+// same read-only answer a plain preview always gave.
+async function previewWriteGate(request, env, path) {
+    var url = new URL(request.url);
+    var cid = url.searchParams.get("previewAs");
+    var readOnly = jsonErr(PREVIEW_READONLY_MSG, 403);
+    var flag = null;
+    try {
+        flag = await env.DB.prepare("SELECT staff_manage FROM clients WHERE id = ?").bind(cid).first();
+    } catch (e) { return readOnly; }
+    if (!flag || Number(flag.staff_manage) !== 1) { return readOnly; }
+    if (url.searchParams.get("previewSeller")) { return readOnly; }
+    var segs = path.split("/");
+    var segCid = "";
+    try { segCid = decodeURIComponent(segs[3] || ""); } catch (e2) { return readOnly; }
+    if (segs[1] !== "api" || segs[2] !== "clients" || segCid !== cid || segs.length < 5) { return readOnly; }
+    if (staffManageBlockedRest(segs.slice(4).join("/"))) { return jsonErr(STAFF_MANAGE_BLOCKED_MSG, 403); }
+    return null;
+}
+
 function isAdminRole(user) {
     return !!user && (user.role === "alice" || user.role === "rafa" || user.role === "developer");
 }
@@ -2551,7 +2592,7 @@ async function handleGetClient(id, request, env) {
             "c.daily_log_enabled, c.daily_log_enabled_set_by, c.daily_log_enabled_set_at, " +
             "c.goals_enabled, c.goals_enabled_set_by, c.goals_enabled_set_at, " +
             "c.source_type, c.source_detail, c.referred_by_partner_id, p.name AS referred_by_partner_name, " +
-            "c.lead_temperature, c.created_at FROM clients c " +
+            "c.lead_temperature, c.created_at, c.staff_manage FROM clients c " +
             "LEFT JOIN apex_partners p ON p.id = c.referred_by_partner_id " +
             "WHERE c.id = ?"
         ).bind(id).first();
@@ -15161,7 +15202,7 @@ async function handleGetPortalMe(request, env) {
         // Outcome Control sees the full client portal on their very next load,
         // with no re-login and no migration step — same client_id row throughout.
         var client = await env.DB.prepare(
-            "SELECT id, name, logo_url, industry, location, status FROM clients WHERE id = ?"
+            "SELECT id, name, logo_url, industry, location, status, staff_manage FROM clients WHERE id = ?"
         ).bind(previewId || user.client_id).first();
         if (!client) { return jsonErr("Client not found", 404); }
         var helpTemplateRow = await env.DB.prepare(
@@ -15178,7 +15219,10 @@ async function handleGetPortalMe(request, env) {
             username: user.username || null,
             auth_method: user.auth_method,
             must_change_password: !!user.must_change_password,
-            help_request_template: helpTemplateText
+            help_request_template: helpTemplateText,
+            // Only meaningful to an admin previewing this client: tells the
+            // portal whether it is in manage mode (see previewWriteGate).
+            staff_manage: !!(previewId && Number(client.staff_manage) === 1)
         });
     } catch (e) {
         return jsonErr("Error fetching portal profile: " + e.message, 500);
@@ -47313,7 +47357,7 @@ async function handleFetch(request, env, ctx) {
         var gateResponse = await enforceClientRoleGate(request, env, path, method);
         if (gateResponse) { return gateResponse; }
 
-        // Admin preview-as is READ-ONLY, enforced here at the API level — not
+        // Admin preview-as is READ-ONLY (except a staff_manage client, see previewWriteGate), enforced here at the API level — not
         // by hiding buttons. portal.html appends previewAs=<id> to every
         // request while previewing, so any non-GET arriving with that param
         // from an admin is rejected before route dispatch. Covers all three
@@ -47323,7 +47367,8 @@ async function handleFetch(request, env, ctx) {
             var previewUser = null;
             try { previewUser = await authenticate(request, env); } catch (e) { previewUser = null; }
             if (isAdminRole(previewUser)) {
-                return jsonErr("Modo preview é somente leitura / Preview mode is read-only", 403);
+                var manageGate = await previewWriteGate(request, env, path);
+                if (manageGate) { return manageGate; }
             }
         }
 

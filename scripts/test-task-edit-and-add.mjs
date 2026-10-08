@@ -15,7 +15,7 @@ let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fail++; } };
 
 const TASKS = `
-CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, type TEXT NOT NULL, description TEXT NOT NULL, due_date TEXT, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, due_date_source TEXT, completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, created_by TEXT, assigned_to TEXT, completed_at TEXT, created_by_role TEXT);
+CREATE TABLE tasks (id TEXT PRIMARY KEY, client_id TEXT, type TEXT NOT NULL, description TEXT NOT NULL, due_date TEXT, status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT (datetime('now')), session_id TEXT, due_date_source TEXT, completed_by TEXT, updated_at TEXT, source TEXT, nota TEXT, created_by TEXT, assigned_to TEXT, completed_at TEXT, created_by_role TEXT, description_en TEXT, description_pt TEXT);
 CREATE UNIQUE INDEX idx_tasks_session_dedup ON tasks (session_id, type, description) WHERE session_id IS NOT NULL;
 CREATE TABLE sessions (id TEXT PRIMARY KEY, date TEXT);
 CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT);
@@ -55,14 +55,22 @@ function as(d, who) {
   const stubs = Object.assign({}, baseStubs, {
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     authenticate: async () => (user ? Object.assign({}, user) : null),
+    // Task translation (2026-10-08): this file's tests are about other things, so
+    // the model is unreachable here. A task or edit that involves the developer
+    // must then behave exactly as it did before: saved, no translation.
+    // (scripts/test-task-translation.mjs is where translation itself is tested.)
+    CLAUDE_API_URL: "https://claude.test/v1/messages", CLAUDE_MODEL: "test-model",
+    fetch: async () => { throw new Error("no model in this test"); },
+    console: { log() {}, error() {}, warn() {} },
     crypto: globalThis.crypto,
     pushToUsers: async (env, emails, payload) => { if (pushFail) { throw new Error("push down"); } pushes.push({ emails, payload }); }
   });
   const F = build(
     ["taskDescriptionClean", "handlePatchTask", "handlePostTaskTyped", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskAssigneeAliceName", "taskAssigneeRafaName",
+     "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
      "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
-    ["TASK_DESC_MAX", "TASK_PUSH_BODY_MAX"], stubs);
+    ["TASK_DESC_MAX", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const env = { DB: d.DB };
   const req = (body) => ({ url: "https://x.test/", headers: { get: (k) => (k === "Authorization" ? "Bearer tok" : null) },
     json: async () => { if (body === "not json") { throw new Error("bad json"); } return body; } });
@@ -216,7 +224,7 @@ const count = (d) => d.q("SELECT COUNT(*) AS n FROM tasks")[0].n;
   ok(r.status === 200 && r.data.ok === true && row.type === "consultant" && row.status === "pending" && row.source === "manual", "saved as type 'consultant', status 'pending', source 'manual'");
   ok(row.description === "Ask Acme for the bank statement" && row.created_by === "Rafael" && row.created_by_role === "rafa" && row.assigned_to === "alice", "the words are cleaned; created_by is the person's name, created_by_role the signed-in role");
   ok(row.client_id === "c-acme" && row.due_date === "2026-11-03" && row.due_date_source === "stated" && /^\d{4}-\d{2}-\d{2}T/.test(row.updated_at) && row.session_id === null && row.completed_at === null, "the client, the due date (due_date_source 'stated') and updated_at are saved; no session");
-  const voiceKeys = ["assigned_to", "assignee_name", "client_id", "client_name", "created_at", "created_by", "created_by_role", "description", "due_date", "due_date_source", "given", "id", "source", "status", "type"];
+  const voiceKeys = ["assigned_to", "assignee_name", "client_id", "client_name", "created_at", "created_by", "created_by_role", "description", "description_en", "description_pt", "due_date", "due_date_source", "given", "id", "source", "status", "type"];
   ok(JSON.stringify(Object.keys(tk).sort()) === JSON.stringify(voiceKeys), "the answer's task has exactly the fields a spoken task is answered with");
   ok(tk.assignee_name === "Pra. Alice" && tk.client_name === "Acme Pools" && tk.given === true && tk.source === "manual" && tk.created_by_role === "rafa", "with assignee_name, client_name, given and created_by_role");
   ok(pushes.length === 1 && pushes[0].payload.title === "Nova tarefa" && pushes[0].payload.body === "Ask Acme for the bank statement" && pushes[0].payload.tag === "apex-assigned-tasks" && pushes[0].payload.url === "/dashboard.html", "the push is the one a spoken task sends: same title, body, tag and address");
@@ -326,7 +334,7 @@ const sheet = read("task-sheet.js");
   const tasksPage = read("tasks.html");
   ok(/function mtTaskAdded\(task\) \{[\s\S]*?mtRefreshLists\(\);/.test(dash), "dashboard.html: after a typed task the lists are refreshed by mtRefreshLists, as after a dictation");
   ok(/function taskAdded\(\) \{[\s\S]*?loadTasks\(\);/.test(tasksPage), "tasks.html: after a typed task the list is loaded again by loadTasks, as after a dictation");
-  ok(/if \(c\.description\) \{ t\.description = c\.description; \}/.test(dash) && /if \(c\.description\) \{ tk\.text = c\.description; \}/.test(tasksPage), "both pages put edited words onto the task they hold, so the row is right with no reload");
+  ok(/if \(c\.description\) \{\s+t\.description = c\.description;/.test(dash) && /if \(c\.description\) \{\s+tk\.text = c\.description;/.test(tasksPage), "both pages put edited words onto the task they hold, so the row is right with no reload");
   ok(/id="mtVoiceBlock">\s*<div class="mt-speak">[\s\S]*?id="mtAddBtn"/.test(dash), "dashboard.html: the button is inside mtVoiceBlock, the one block moved between the consultant's card and Alice's card");
   ok(/if \(dashClients\.length\) \{ return Promise\.resolve\(dashClients\); \}/.test(dash) && dash.split('"/api/clients"').length >= 2 && /WORKER_URL \+ "\/api\/clients"/.test(tasksPage), "the form's clients are the dashboard's own list; tasks.html reads the same existing route");
   const others = ["client.html", "portal.html"].filter((p) => /mtAddBtn|taskAddOpen|openAddTask\(/.test(read(p)));

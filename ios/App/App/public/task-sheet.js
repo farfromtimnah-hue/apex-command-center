@@ -14,18 +14,27 @@
 // at the end): a task typed instead of spoken, in the same overlay style.
 //
 // What a page gives it:
-//   taskSheetOpen({ id, description, clientName, tags, done, progress, dueDate,
+//   taskSheetOpen({ id, description, descriptionEn, descriptionPt, clientName,
+//                   tags, done, progress, dueDate,
 //                   apiBase, getToken, onChange, onClose })
+//     descriptionEn / descriptionPt  the task's other-language versions, when
+//               it has them (description_en / description_pt)
 //     tags      HTML strings, the who-has-it / who-gave-it tags the row shows
 //     getToken  returns a Promise of the signed-in user's token
 //     onChange  called after every save with { id, progress, due_date,
-//               description, note_count, last_note } so the page can update
-//               its own row
+//               description, description_en, description_pt, note_count,
+//               last_note } so the page can update its own row
 //     onClose   called once when the sheet closes (the page redraws its list)
 // And for the row itself:
 //   taskSheetMakeOpener(el, taskId, onOpen)   the row's words open the sheet
 //   taskSheetRowPill(progress, className)     the pill, or null
 //   taskSheetRowNote(lastNote, noteCount)     the muted latest-note line, or null
+//   taskSheetTaskWords(task)                  the task's words for whoever is signed in
+//
+// Whose language: a task that involves the developer carries its words twice
+// (the original, and description_en or description_pt; a note, body_en or
+// body_pt). taskSheetWords picks what the signed-in person reads. When that
+// is a translation, the opened task has "Ver original" / "Show original".
 //
 // Dates and times are printed by the page's own formatters (datetime.js):
 // MM/DD/YYYY and 12-hour, America/New_York, in both languages.
@@ -54,6 +63,38 @@ function taskSheetEsc(str) {
 
 function taskSheetBoth(pt, en) {
   return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
+}
+
+// -- Whose language -----------------------------------------------------------
+
+// The signed-in role (never the view being previewed).
+function taskSheetViewerRole() {
+  try { return sessionStorage.getItem("apex_role") || ""; } catch (e) { return ""; }
+}
+
+// The ONE place that decides which words are printed: the developer reads
+// the English version, rafa and alice the Portuguese one, when there is one;
+// otherwise the original.
+function taskSheetWords(original, en, pt) {
+  var words = (original === null || original === undefined) ? "" : String(original);
+  var role = taskSheetViewerRole();
+  if (role === "developer") { return en ? String(en) : words; }
+  if (role === "rafa" || role === "alice") { return pt ? String(pt) : words; }
+  return words;
+}
+
+// A task's words (as GET /api/tasks gives the task) and a note's words.
+function taskSheetTaskWords(t) {
+  return t ? taskSheetWords(t.description, t.description_en, t.description_pt) : "";
+}
+function taskSheetNoteWords(n) {
+  return n ? taskSheetWords(n.body, n.body_en, n.body_pt) : "";
+}
+
+function taskSheetToggleHtml(showingOriginal) {
+  return showingOriginal
+    ? taskSheetBoth("Ver tradu&ccedil;&atilde;o", "Show translation")
+    : taskSheetBoth("Ver original", "Show original");
 }
 
 function taskSheetStyles() {
@@ -118,7 +159,9 @@ function taskSheetStyles() {
     ".task-add-field select { width: 100%; }" +
     ".task-add-quiet { margin-top: 4px; font-size: 12px; color: #8a8275; }" +
     ".task-add-quiet:empty { display: none; }" +
-    ".task-add-duerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }";
+    ".task-add-duerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }" +
+    ".task-sheet-orig { display: block; margin-top: 4px; padding-left: 0; }" +
+    ".task-sheet-orig[hidden] { display: none; }";
   document.head.appendChild(st);
 }
 
@@ -163,7 +206,7 @@ function taskSheetAuthorHtml(role, name) {
 function taskSheetRowNote(lastNote, noteCount) {
   if (!lastNote) { return null; }
   taskSheetStyles();
-  var words = String(lastNote.body || "").replace(/\s+/g, " ").trim();
+  var words = taskSheetNoteWords(lastNote).replace(/\s+/g, " ").trim();
   if (words.length > TASK_SHEET_ROW_NOTE_MAX) {
     words = words.slice(0, TASK_SHEET_ROW_NOTE_MAX).replace(/\s+$/, "") + "\u2026";
   }
@@ -224,14 +267,21 @@ function taskSheetTellPage() {
   var s = taskSheetNow;
   if (!s || !s.onChange) { return; }
   var change = { id: s.id, progress: s.progress || null, due_date: s.dueDate || null };
-  if (s.description) { change.description = s.description; }
+  if (s.description) {
+    change.description = s.description;
+    change.description_en = s.descriptionEn || null;
+    change.description_pt = s.descriptionPt || null;
+  }
   // The note line is only sent once the thread is known: a thread that did
   // not load must not empty the note line the row already shows.
   if (s.loadState === "ready") {
     var last = s.notes.length ? s.notes[s.notes.length - 1] : null;
     change.note_count = s.notes.length;
     change.last_note = last ? {
-      body: String(last.body || "").slice(0, 140), author_role: last.author_role,
+      body: String(last.body || "").slice(0, 140),
+      body_en: last.body_en ? String(last.body_en).slice(0, 140) : null,
+      body_pt: last.body_pt ? String(last.body_pt).slice(0, 140) : null,
+      author_role: last.author_role,
       author_name: last.author_name || null, created_at: last.created_at
     } : null;
   }
@@ -338,9 +388,18 @@ function taskSheetPaintWords() {
   var wrap = document.getElementById("taskSheetEditWrap");
   var save = document.getElementById("taskSheetEditSave");
   var cancel = document.getElementById("taskSheetEditCancel");
+  var toggle = document.getElementById("taskSheetOriginal");
+  // What this person reads, and whether that is a translation.
+  var mine = taskSheetWords(s.description, s.descriptionEn, s.descriptionPt);
+  var translated = !!mine && mine !== s.description;
+  if (!translated) { s.showOriginal = false; }
   if (title) {
-    title.textContent = s.description || "--";
+    title.textContent = (s.showOriginal ? s.description : mine) || "--";
     title.hidden = !!s.editing;
+  }
+  if (toggle) {
+    toggle.hidden = !translated || !!s.editing;
+    toggle.innerHTML = taskSheetToggleHtml(!!s.showOriginal);
   }
   if (editBtn) { editBtn.hidden = !!s.editing; }
   if (wrap) { wrap.hidden = !s.editing; }
@@ -358,7 +417,16 @@ function taskSheetEditStart() {
   var box = document.getElementById("taskSheetEditBox");
   if (!s || !box || s.editing) { return; }
   s.editing = true;
+  // Always the ORIGINAL words. If a translation is what was on screen, one
+  // muted line says so.
   box.value = s.description || "";
+  var mine = taskSheetWords(s.description, s.descriptionEn, s.descriptionPt);
+  var editNote = document.getElementById("taskSheetEditNote");
+  if (editNote) {
+    editNote.innerHTML = (mine && mine !== s.description && !s.showOriginal)
+      ? taskSheetBoth("Voc&ecirc; est&aacute; editando o texto original.", "You are editing the original text.")
+      : "";
+  }
   taskSheetEditMsg("");
   taskSheetSetStatus("");
   taskSheetPaintWords();
@@ -410,6 +478,11 @@ function taskSheetEditSave() {
       s.savingWords = false;
       s.editing = false;
       s.description = r.data.description || words;
+      // New words: the old translation is gone, the new one came with the
+      // answer (or did not).
+      s.descriptionEn = r.data.description_en || null;
+      s.descriptionPt = r.data.description_pt || null;
+      s.showOriginal = false;
       taskSheetPaintWords();
       taskSheetSetStatus(taskSheetBoth("Salvo.", "Saved."));
       taskSheetTellPage();
@@ -463,8 +536,25 @@ function taskSheetNoteEl(note) {
   body.appendChild(head);
   var text = document.createElement("div");
   text.className = "task-sheet-notetext";
-  text.textContent = note.body || "";
+  var original = note.body || "";
+  var mine = taskSheetNoteWords(note);
+  text.textContent = mine;
   body.appendChild(text);
+  // A translated note: the original is one tap away, and back.
+  if (mine && mine !== original) {
+    var showing = false;
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "task-sheet-link task-sheet-orig";
+    toggle.setAttribute("data-note-original", String(note.id));
+    toggle.innerHTML = taskSheetToggleHtml(false);
+    toggle.addEventListener("click", function() {
+      showing = !showing;
+      text.textContent = showing ? original : mine;
+      toggle.innerHTML = taskSheetToggleHtml(showing);
+    });
+    body.appendChild(toggle);
+  }
   row.appendChild(body);
   return row;
 }
@@ -569,7 +659,11 @@ function taskSheetLoad(s) {
       if (!s.savingProgress) { s.progress = t.progress || null; }
       if (!s.savingDue) { s.dueDate = t.due_date || null; }
       // The words as they are saved now (someone else may have fixed them).
-      if (t.description && !s.savingWords) { s.description = t.description; }
+      if (t.description && !s.savingWords) {
+        s.description = t.description;
+        s.descriptionEn = t.description_en || null;
+        s.descriptionPt = t.description_pt || null;
+      }
       // A note added while the thread was on its way may not be in the
       // answer yet: it is kept, after the ones that are.
       var got = r.data.notes || [];
@@ -624,7 +718,9 @@ function taskSheetOpen(o) {
     id: o.id, apiBase: o.apiBase || "", getToken: o.getToken,
     onChange: o.onChange || null, onClose: o.onClose || null,
     done: !!o.done, progress: o.progress || null, dueDate: o.dueDate || null,
-    description: o.description || "", editing: false, savingWords: false,
+    description: o.description || "", descriptionEn: o.descriptionEn || null,
+    descriptionPt: o.descriptionPt || null, showOriginal: false,
+    editing: false, savingWords: false,
     notes: [], loadState: "loading", sending: false, savingProgress: false, savingDue: false,
     prevFocus: document.activeElement, overlay: null, onKey: null
   };
@@ -645,7 +741,7 @@ function taskSheetOpen(o) {
   var title = document.createElement("div");
   title.id = "taskSheetTitle";
   title.className = "task-sheet-title" + (s.done ? " is-done" : "");
-  title.textContent = o.description || "--";
+  title.textContent = taskSheetWords(s.description, s.descriptionEn, s.descriptionPt) || "--";
   top.appendChild(title);
   var editWrap = document.createElement("div");
   editWrap.id = "taskSheetEditWrap";
@@ -663,6 +759,10 @@ function taskSheetOpen(o) {
     }
   });
   editWrap.appendChild(editBox);
+  var editNote = document.createElement("div");
+  editNote.id = "taskSheetEditNote";
+  editNote.className = "task-add-quiet";
+  editWrap.appendChild(editNote);
   var editRow = document.createElement("div");
   editRow.className = "task-sheet-editrow";
   var editSave = document.createElement("button");
@@ -702,6 +802,19 @@ function taskSheetOpen(o) {
   closeBtn.addEventListener("click", taskSheetClose);
   top.appendChild(closeBtn);
   box.appendChild(top);
+
+  // Shown only while the title is a translation: the original, and back.
+  var origBtn = document.createElement("button");
+  origBtn.type = "button";
+  origBtn.id = "taskSheetOriginal";
+  origBtn.className = "task-sheet-link task-sheet-orig";
+  origBtn.hidden = true;
+  origBtn.addEventListener("click", function() {
+    if (taskSheetNow !== s || s.editing) { return; }
+    s.showOriginal = !s.showOriginal;
+    taskSheetPaintWords();
+  });
+  box.appendChild(origBtn);
 
   // The client, and the tags the row shows (who has it, who gave it).
   var meta = document.createElement("div");
@@ -829,6 +942,7 @@ function taskSheetOpen(o) {
   s.overlay = ov;
   taskSheetNow = s;
   document.body.appendChild(ov);
+  taskSheetPaintWords();
   taskSheetPaintPills();
   taskSheetPaintDue();
   taskSheetPaintThread();

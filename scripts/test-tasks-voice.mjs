@@ -30,12 +30,14 @@ const MIG_COMPLETED = readFileSync(new URL("migrations/2026-10-07_tasks_complete
 const MIG_ROLE = readFileSync(new URL("migrations/2026-10-07_tasks_created_by_role.sql", root), "utf8");
 // task_notes and tasks.progress (2026-10-07): the note thread and the pill.
 const MIG_NOTES = readFileSync(new URL("migrations/2026-10-07_task_notes.sql", root), "utf8");
+// description_en / description_pt and body_en / body_pt (2026-10-08): the other-language versions.
+const MIG_TRANSLATIONS = readFileSync(new URL("migrations/2026-10-08_task_translations.sql", root), "utf8");
 const USERS = "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT)";
 
 function world(migrated) {
   const d = makeDb([]);
   d.raw.exec(CURRENT);
-  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); d.raw.exec(MIG_ROLE); d.raw.exec(MIG_NOTES); }
+  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); d.raw.exec(MIG_ROLE); d.raw.exec(MIG_NOTES); d.raw.exec(MIG_TRANSLATIONS); }
   // Role alice has two rows (the same person), as it does live.
   d.raw.exec(USERS);
   const u = d.raw.prepare("INSERT INTO users (email, role, display_name) VALUES (?,?,?)");
@@ -100,8 +102,9 @@ function harness(d, opts) {
   const F = build(
     ["taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceAskClaude", "taskVoiceDumpOpen", "taskVoiceDumpSet",
      "taskAssigneeAliceName", "taskAssigneeRafaName", "taskGivenByRole", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
+     "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceTranslationRule",
      "handlePostTasksVoice", "handlePostTasksVoiceUndo", "handleGetAllTasks", "handleGetConsultantTasks", "handleGetConsultantTasksOverdue", "handleGetClientTasks", "handlePatchTask"],
-    ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX"], stubs);
+    ["TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_VOICE_UNDO_MARK", "TASK_NOT_UNDONE_SQL", "TASK_NOT_GIVEN_SQL", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const audioReq = (bytes, lang) => ({
     url: "https://x.test/api/tasks/voice",
     formData: async () => ({ get: (k) => (k === "audio" ? { type: "audio/webm", arrayBuffer: async () => new Uint8Array(bytes === undefined ? 2048 : bytes).buffer } : (k === "lang" ? (lang || "pt") : null)) })

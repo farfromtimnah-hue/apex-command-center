@@ -85,7 +85,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791492945"></script>
+  <script src="task-sheet.js?v=1791493642"></script>
   <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1840,6 +1840,11 @@
           key:         r.id,
           type:        r.type === "consultant" ? "rafa" : "client",
           text:        r.description || "",
+          // The same words in the other language, when the task has them
+          // (a task that involves the developer). The row prints what the
+          // signed-in person reads (taskSheetWords in task-sheet.js).
+          textEn:      r.description_en || null,
+          textPt:      r.description_pt || null,
           due:         r.due_date || null,
           dueDate:     dueDate,
           overdue:     (!isDone && dueDate) ? dueDate < today : false,
@@ -2779,7 +2784,8 @@
       // Task text
       var textEl = document.createElement("div");
       textEl.className = "task-text";
-      textEl.textContent = task.text;
+      textEl.textContent = (typeof taskSheetWords === "function")
+        ? taskSheetWords(task.text, task.textEn, task.textPt) : task.text;
       body.appendChild(textEl);
 
       // A staff task can be opened (task-sheet.js): its words open the
@@ -2924,6 +2930,7 @@
       if (typeof taskSheetOpen !== "function") { return; }
       taskSheetOpen({
         id: task.key, description: task.text,
+        descriptionEn: task.textEn || null, descriptionPt: task.textPt || null,
         clientName: task.clientName && task.clientName !== "\u2014" ? task.clientName : "",
         tags: tags, done: !!isDone,
         progress: task.progress || null, dueDate: task.due || null,
@@ -2943,7 +2950,11 @@
         if (tk.key !== c.id) { continue; }
         tk.progress = c.progress || null;
         tk.due = c.due_date || null;
-        if (c.description) { tk.text = c.description; }
+        if (c.description) {
+          tk.text = c.description;
+          tk.textEn = c.description_en || null;
+          tk.textPt = c.description_pt || null;
+        }
         tk.dueDate = null;
         if (tk.due) {
           var p = String(tk.due).split("-");

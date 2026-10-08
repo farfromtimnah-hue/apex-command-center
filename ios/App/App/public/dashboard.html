@@ -87,7 +87,7 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791492945"></script>
+  <script src="task-sheet.js?v=1791493642"></script>
   <script src="scheduling-queue.js?v=1787608441"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
@@ -4011,7 +4011,8 @@
 
         var main = document.createElement("div");
         main.className = "list-row-main";
-        main.textContent = t.description || t.text || "--";
+        // The words in the signed-in person's language (task-sheet.js).
+        main.textContent = (typeof taskSheetTaskWords === "function" ? taskSheetTaskWords(t) : t.description) || t.text || "--";
         body.appendChild(main);
 
         var meta = document.createElement("div");
@@ -4468,7 +4469,8 @@
 
       var main = document.createElement("div");
       main.className = "list-row-main";
-      main.textContent = t.description || "--";
+      // The words in the signed-in person's language (task-sheet.js).
+      main.textContent = (typeof taskSheetTaskWords === "function" ? taskSheetTaskWords(t) : t.description) || "--";
       body.appendChild(main);
 
       // A staff task can be opened (task-sheet.js): its words open the
@@ -4555,7 +4557,9 @@
     function mtOpenTaskSheet(t, tags, isDone) {
       if (typeof taskSheetOpen !== "function") { return; }
       taskSheetOpen({
-        id: t.id, description: t.description, clientName: t.client_name || "",
+        id: t.id, description: t.description,
+        descriptionEn: t.description_en || null, descriptionPt: t.description_pt || null,
+        clientName: t.client_name || "",
         tags: tags, done: !!isDone || t.status === "done",
         progress: t.progress || null, dueDate: t.due_date || null,
         apiBase: WORKER_URL, getToken: getToken,
@@ -4573,7 +4577,11 @@
           if (t.id !== c.id) { continue; }
           t.progress = c.progress;
           t.due_date = c.due_date;
-          if (c.description) { t.description = c.description; }
+          if (c.description) {
+            t.description = c.description;
+            t.description_en = c.description_en || null;
+            t.description_pt = c.description_pt || null;
+          }
           if (c.hasOwnProperty("note_count")) {
             t.note_count = c.note_count;
             t.last_note = c.last_note;
@@ -4586,6 +4594,8 @@
       for (var r = 0; r < rafaTasks.length; r++) {
         if (rafaTasks[r].id === c.id && c.description && rafaTasks[r].description !== c.description) {
           rafaTasks[r].description = c.description;
+          rafaTasks[r].description_en = c.description_en || null;
+          rafaTasks[r].description_pt = c.description_pt || null;
           reworded = true;
         }
       }

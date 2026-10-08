@@ -87,6 +87,7 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
+  <script src="task-sheet.js?v=1791424774"></script>
   <script src="scheduling-queue.js?v=1787608441"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
@@ -4401,6 +4402,14 @@
       main.textContent = t.description || "--";
       body.appendChild(main);
 
+      // A staff task can be opened (task-sheet.js): its words open the
+      // sheet, the latest note shows under them, and its pill is in the tags.
+      var isStaff = t.type === "consultant";
+      var sheetTags = [];
+      var noteLine = (isStaff && typeof taskSheetRowNote === "function")
+        ? taskSheetRowNote(t.last_note, t.note_count) : null;
+      if (noteLine) { body.appendChild(noteLine); }
+
       var meta = document.createElement("div");
       meta.className = "list-row-meta";
       if (opt.given) {
@@ -4411,6 +4420,7 @@
         else if (t.assigned_to === "alice") { who.textContent = t.assignee_name || "Alice"; }
         else { who.textContent = t.owner_name || "Rafa"; }
         meta.appendChild(who);
+        sheetTags.push(who.innerHTML);
       }
       if (!opt.given) {
         // A task someone else gave its owner says who it came from. A task
@@ -4425,6 +4435,7 @@
             from.innerHTML = mtBoth("De " + giverName, "From " + giverName);
           }
           meta.appendChild(from);
+          sheetTags.push(from.innerHTML);
         }
       }
       // A task may have no client at all: then there is simply no name here.
@@ -4456,9 +4467,56 @@
         doneEl.innerHTML = mtBoth("Conclu\u00edda " + doneWhen, "Done " + doneWhen);
         meta.appendChild(doneEl);
       }
+      // The one-click status, when it is set. A done task has none.
+      var pill = (isStaff && !opt.doneDay && typeof taskSheetRowPill === "function")
+        ? taskSheetRowPill(t.progress, "mt-due") : null;
+      if (pill) { meta.appendChild(pill); }
       if (meta.childNodes.length) { body.appendChild(meta); }
       row.appendChild(body);
+      if (isStaff && typeof taskSheetMakeOpener === "function") {
+        (function(task, tags, isDone) {
+          taskSheetMakeOpener(main, task.id, function() { mtOpenTaskSheet(task, tags, isDone); });
+        })(t, sheetTags, !!opt.doneDay);
+      }
       return row;
+    }
+
+    // Opens a staff task in the sheet (task-sheet.js). tags are the
+    // who-has-it / who-gave-it tags of the row that was pressed.
+    function mtOpenTaskSheet(t, tags, isDone) {
+      if (typeof taskSheetOpen !== "function") { return; }
+      taskSheetOpen({
+        id: t.id, description: t.description, clientName: t.client_name || "",
+        tags: tags, done: !!isDone || t.status === "done",
+        progress: t.progress || null, dueDate: t.due_date || null,
+        apiBase: WORKER_URL, getToken: getToken,
+        onChange: mtTaskSheetChanged, onClose: mtTaskSheetClosed
+      });
+    }
+
+    // What was saved in the sheet goes onto the task in every list on this
+    // page that holds it, so the row is right without loading again.
+    function mtTaskSheetChanged(c) {
+      var lists = [mtTasks, mtGiven, atTasks, atGiven];
+      for (var l = 0; l < lists.length; l++) {
+        for (var i = 0; i < lists[l].length; i++) {
+          var t = lists[l][i];
+          if (t.id !== c.id) { continue; }
+          t.progress = c.progress;
+          t.due_date = c.due_date;
+          if (c.hasOwnProperty("note_count")) {
+            t.note_count = c.note_count;
+            t.last_note = c.last_note;
+          }
+        }
+      }
+    }
+
+    // The sheet closed: the lists being shown are drawn again from what the
+    // page already holds (no reload).
+    function mtTaskSheetClosed() {
+      if (atWho) { renderAssignedTasks(); }
+      else { renderMyTasks(); }
     }
 
     function mtForget(taskId) {

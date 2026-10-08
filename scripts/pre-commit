@@ -96,7 +96,10 @@ fi
 # finance-new.html (a script tag) and apex-invoice-view.html (loaded by name
 # from its script, for staff review mode only; the quoted name matches the
 # same pattern). A stale copy would send with last week's steps.
-VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js doc-hero.css doc-hero.js apex-contract.js apex-invoice-send.js"
+# task-sheet.js added 2026-10-07: the opened staff task (notes, pills, due
+# date), one copy shared by dashboard.html and tasks.html. A stale copy would
+# draw last week's sheet against this week's rows.
+VERSIONED_ASSETS="gm.css gm.js calendar-grid.js calendar-grid.css gm-labels.js scheduling-queue.js scheduling-queue.css template-edit.js template-edit.css native-bridge.js doc-hero.css doc-hero.js apex-contract.js apex-invoice-send.js task-sheet.js"
 
 # The test below was once `grep -qx "$ASSET"` — an EXACT whole-line match. That
 # meant staging ios/App/App/public/gm.js matched nothing, the entire block was

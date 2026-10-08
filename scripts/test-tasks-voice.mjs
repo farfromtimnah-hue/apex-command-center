@@ -28,12 +28,14 @@ const MIG_ASSIGNED = readFileSync(new URL("migrations/2026-10-07_tasks_assigned_
 const MIG_COMPLETED = readFileSync(new URL("migrations/2026-10-07_tasks_completed_at.sql", root), "utf8");
 // tasks.created_by_role (2026-10-07): the role of the person who spoke the task.
 const MIG_ROLE = readFileSync(new URL("migrations/2026-10-07_tasks_created_by_role.sql", root), "utf8");
+// task_notes and tasks.progress (2026-10-07): the note thread and the pill.
+const MIG_NOTES = readFileSync(new URL("migrations/2026-10-07_task_notes.sql", root), "utf8");
 const USERS = "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, role TEXT, display_name TEXT, avatar_url TEXT, client_id TEXT)";
 
 function world(migrated) {
   const d = makeDb([]);
   d.raw.exec(CURRENT);
-  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); d.raw.exec(MIG_ROLE); }
+  if (migrated) { d.raw.exec(MIG); d.raw.exec(MIG_ASSIGNED); d.raw.exec(MIG_COMPLETED); d.raw.exec(MIG_ROLE); d.raw.exec(MIG_NOTES); }
   // Role alice has two rows (the same person), as it does live.
   d.raw.exec(USERS);
   const u = d.raw.prepare("INSERT INTO users (email, role, display_name) VALUES (?,?,?)");
@@ -607,7 +609,7 @@ const T = (description, who, due) => { const t = { description, due_date: due ||
   ok(p1.status === 200 && a.status === "done" && ISO.test(a.completed_at || ""), "marking a task done sets completed_at to a UTC time: " + a.completed_at);
   ok(new Date(a.completed_at).getTime() >= before && new Date(a.completed_at).getTime() <= after, "completed_at is the moment it was marked done (now)");
   ok(a.completed_at === a.updated_at && a.completed_by === "alice", "completed_at is written in the same statement as the status (same moment as updated_at), with completed_by");
-  ok(d.log.some((s) => /UPDATE tasks SET status = \?, completed_by = \?, completed_at = \?, updated_at = \? WHERE id = \?/.test(s)), "PATCH is one UPDATE that carries status and completed_at together");
+  ok(d.log.some((s) => /UPDATE tasks SET status = \?, completed_by = \?, completed_at = \?, updated_at = \?(, progress = NULL)? WHERE id = \?/.test(s)), "PATCH is one UPDATE that carries status and completed_at together");
 
   const p2 = await patch("alice", idA, "pending");
   const a2 = row(idA);

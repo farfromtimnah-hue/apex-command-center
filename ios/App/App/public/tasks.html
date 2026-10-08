@@ -85,7 +85,7 @@
   <link rel="stylesheet" href="mobile.css">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791424774"></script>
+  <script src="task-sheet.js?v=1791425410"></script>
   <title data-title-pt="Apex — Tarefas" data-title-en="Apex &#8212; Tasks">Apex — Tarefas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1351,6 +1351,29 @@
 
     // ── Data: fetch sessions and derive tasks ──────────────────────────────
 
+    // A push about a note opens tasks.html?task=<id>: once the list is loaded,
+    // that staff task's sheet opens, the same call a click makes. The address
+    // is read once. An id that is not a staff task on this list does nothing.
+    var taskUrlRead = false;
+    function openTaskFromUrl() {
+      if (taskUrlRead) { return; }
+      taskUrlRead = true;
+      try {
+        var id = new URLSearchParams(window.location.search).get("task");
+        if (!id) { return; }
+        for (var i = 0; i < allTasks.length; i++) {
+          var tk = allTasks[i];
+          if (tk.key !== id || tk.type !== "rafa") { continue; }
+          var openers = document.querySelectorAll("[data-task-open]");
+          for (var j = 0; j < openers.length; j++) {
+            if (openers[j].getAttribute("data-task-open") === String(id)) { openers[j].click(); return; }
+          }
+          openTaskSheet(tk, [], !!completedMap[tk.key]);
+          return;
+        }
+      } catch (e) { /* a bad address never breaks the page */ }
+    }
+
     function loadTasks() {
       user_getToken().then(function(token) {
         return fetch(WORKER_URL + "/api/tasks", { headers: { "Authorization": "Bearer " + token } });
@@ -1361,6 +1384,7 @@
           updateTasksHeroTiles();
           populateClientFilter();
           renderTaskView();
+          openTaskFromUrl();
         })
         .catch(function(e) {
           document.getElementById("tasksContainer").innerHTML =

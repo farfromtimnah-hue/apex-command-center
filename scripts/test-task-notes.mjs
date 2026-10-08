@@ -28,6 +28,9 @@ const USERS = {
   seller: { email: null, role: "client", display_name: "Sam Seller", avatar_url: null, client_id: "c-acme", login_role: "seller", seller_name: "Sam Seller", auth_method: "password" }
 };
 
+const pushes = [];
+let pushFail = false;
+
 function world() {
   const d = makeDb([]);
   d.raw.exec(TASKS);
@@ -51,10 +54,11 @@ function as(d, who) {
   const stubs = Object.assign({}, baseStubs, {
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt, error_en: en }, extra || {}),
     authenticate: async () => (user ? Object.assign({}, user) : null),
-    crypto: globalThis.crypto
+    crypto: globalThis.crypto,
+    pushToUsers: async (env, emails, payload) => { if (pushFail) { throw new Error("push down"); } pushes.push({ emails, payload }); }
   });
   const F = build(
-    ["taskGivenByRole", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskNoteView", "taskNotesTask",
+    ["taskGivenByRole", "taskNoteRecipients", "taskNotePushText", "taskNoteNotify", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskNoteView", "taskNotesTask",
      "handleGetTaskNotes", "handlePostTaskNote", "handlePatchTask", "handleGetAllTasks",
      "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
     ["TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL"], stubs);
@@ -79,8 +83,8 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   const empty = await as(d, "rafa").list("t-alice");
   ok(empty.status === 200 && Array.isArray(empty.data.notes) && empty.data.notes.length === 0, "a task with no notes answers 200 with an empty list");
   const tk = empty.data.task;
-  ok(JSON.stringify(Object.keys(tk).sort()) === JSON.stringify(["assigned_to", "assignee_name", "client_name", "created_by_role", "description", "due_date", "giver_name", "id", "owner_name", "progress", "status"]), "GET notes: the task carries exactly the eleven fields the job names");
-  ok(tk.id === "t-alice" && tk.description === "Call the Acme accountant" && tk.due_date === "2026-10-12" && tk.status === "pending" && tk.progress === null && tk.client_name === "Acme Pools", "GET notes: the task's words, due date, status, progress and client name");
+  ok(JSON.stringify(Object.keys(tk).sort()) === JSON.stringify(["assigned_to", "assignee_name", "client_id", "client_name", "created_by_role", "description", "due_date", "giver_name", "id", "owner_name", "progress", "status"]), "GET notes: the task carries exactly the eleven fields the job names");
+  ok(tk.client_id === "c-acme" && (await as(d, "rafa").list("t-own")).data.task.client_id === null && tk.id === "t-alice" && tk.description === "Call the Acme accountant" && tk.due_date === "2026-10-12" && tk.status === "pending" && tk.progress === null && tk.client_name === "Acme Pools", "GET notes: the task's words, due date, status, progress and client name");
   ok(tk.assigned_to === "alice" && tk.created_by_role === "rafa" && tk.assignee_name === "Pra. Alice" && tk.giver_name === "Rafael" && tk.owner_name === null, "GET notes: who has it (Alice) and who gave it (the consultant)");
   const back = (await as(d, "alice").list("t-to-rafa")).data.task;
   ok(back.assigned_to === null && back.owner_name === "Rafael" && back.giver_name === "Pra. Alice" && back.assignee_name === null, "GET notes: a task Alice gave the consultant names him as owner and her as giver");
@@ -625,6 +629,124 @@ const tick = () => new Promise((r) => setTimeout(r, 3));
   const c1 = changes[changes.length - 1];
   ok(changes.length === n0 + 1 && c1.progress === "working" && !("note_count" in c1) && !("last_note" in c1), "a pill saved then updates the row's pill and leaves its note line alone");
   S.taskSheetClose();
+
+  // The client's name is a link to the client's profile.
+  answer = () => ({ ok: true, data: { task: Object.assign({}, serverTask, { client_id: "c 1&2" }), notes: [] } });
+  open();
+  await settle();
+  const cl = $("taskSheetClient");
+  ok(cl && cl.tagName === "a" && cl.href === "client.html?id=" + encodeURIComponent("c 1&2") && cl.textContent === "Acme Pools", "the client's name is a link to client.html?id=<client id>, as on the task row");
+  ok(cl.attrs.title === "Abrir o perfil do cliente" && /task-sheet-tag/.test(cl.className) && !("tabindex" in cl.attrs) && $("taskSheetMeta").children[0] === cl, "it has a Portuguese title, keeps the pill look, and a real link is keyboard reachable");
+  S.taskSheetClose();
+  answer = () => ({ ok: true, data: { task: Object.assign({}, serverTask, { client_id: null }), notes: [] } });
+  open();
+  await settle();
+  ok($("taskSheetClient").tagName === "span" && $("taskSheetClient").href === undefined, "a task with no client id shows the name with no link");
+  S.taskSheetClose();
+  answer = () => ({ ok: true, data: { task: Object.assign({}, serverTask, { client_id: null }), notes: [] } });
+  open({ clientName: "" });
+  await settle();
+  ok($("taskSheetClient") === null, "a task with no client shows no client pill and no link");
+  ok(/"Open the client's profile"/.test(sheet) && /"Abrir o perfil do cliente"/.test(sheet), "the title is in both languages");
+  S.taskSheetClose();
+}
+
+// ── 14. A note tells the OTHER people on the task ───────────────────────────
+{
+  const d = world();
+  d.raw.prepare("INSERT INTO users (email, role, display_name, avatar_url) VALUES (?,?,?,?)").run("rafa2@x.test", "rafa", "Rafael Dois", null);
+  const last = () => pushes[pushes.length - 1];
+  // Alice notes on a task Rafa gave her -> rafa (both rafa logins, ONE push).
+  pushes.length = 0;
+  const r1 = await as(d, "alice").add("t-alice", { body: "Called them." });
+  ok(r1.status === 200 && pushes.length === 1 && JSON.stringify(pushes[0].emails.slice().sort()) === JSON.stringify(["rafa2@x.test", "rafa@x.test"]), "Alice notes on a task Rafa gave her: ONE push, to every rafa login");
+  ok(last().payload.title === "Nova nota em uma tarefa" && last().payload.body === "Pra. Alice: Called them." && last().payload.tag === "apex-task-note" && last().payload.url === "/tasks.html?task=t-alice", "Portuguese recipient: title, \"<author>: <note>\", tag and url");
+  // Rafa answers -> alice.
+  pushes.length = 0;
+  await as(d, "rafa").add("t-alice", { body: "Thanks." });
+  ok(pushes.length === 1 && pushes[0].emails.indexOf("a-first@x.test") >= 0 && pushes[0].emails.indexOf("b-second@x.test") >= 0 && pushes[0].emails.length === 2 && last().payload.body === "Rafael: Thanks.", "Rafa answers: one push to alice's logins");
+  // Self task, nobody gave it -> nobody.
+  pushes.length = 0;
+  await as(d, "rafa").add("t-own", { body: "Reminder to me." });
+  ok(pushes.length === 0, "a note on your own task that nobody gave you sends nothing");
+  // Alice's task from Alice (assigned alice, created alice) -> nobody.
+  d.raw.prepare("INSERT INTO tasks (id, type, description, status, assigned_to, created_by_role) VALUES ('t-a-self','consultant','Hers','pending','alice','alice')").run();
+  await as(d, "alice").add("t-a-self", { body: "x" });
+  ok(pushes.length === 0, "same for Alice on her own task");
+  // Owner notes on the task someone gave him -> the giver (alice).
+  await as(d, "rafa").add("t-to-rafa", { body: "On it." });
+  ok(pushes.length === 1 && pushes[0].emails.length === 2 && last().payload.url === "/tasks.html?task=t-to-rafa", "the owner notes on a task Alice gave him: Alice is told");
+  // Third party: the developer on a task between Rafa and Alice -> both, in their own language.
+  pushes.length = 0;
+  await as(d, "dev").add("t-alice", { body: "Deploying a fix." });
+  const toRafa = pushes.filter((p) => p.emails.indexOf("rafa@x.test") >= 0)[0];
+  const toAlice = pushes.filter((p) => p.emails.indexOf("a-first@x.test") >= 0)[0];
+  ok(pushes.length === 2 && !!toRafa && !!toAlice, "a third party (the developer) notes: rafa AND alice are each told once");
+  ok(toRafa.payload.body === "Sistema: Deploying a fix." && toAlice.payload.title === "Nova nota em uma tarefa", "the developer author reads Sistema for Portuguese recipients");
+  ok(JSON.stringify(pushes).indexOf("The Developer") < 0 && JSON.stringify(pushes).indexOf("dev@x.test") < 0, "the developer's name is in no push");
+  // A task for the developer from Rafa; Rafa notes -> developer, in English.
+  pushes.length = 0;
+  await as(d, "rafa").add("t-sys", { body: "Any news?" });
+  ok(pushes.length === 1 && pushes[0].emails.join() === "dev@x.test" && last().payload.title === "New note on a task" && last().payload.body === "Rafael: Any news?", "to the developer: English title, author named");
+  pushes.length = 0;
+  await as(d, "dev").add("t-sys", { body: "Done." });
+  ok(pushes.length === 1 && pushes[0].emails.join() === "rafa@x.test,rafa2@x.test" && last().payload.body === "Sistema: Done.", "developer on a task he owns, given by Rafa: Rafa is told, as Sistema");
+  // English recipient sees System: developer is recipient, author developer cannot happen on own task; test the text function directly.
+  const F = as(d, "rafa").F;
+  ok(F.taskNotePushText("developer", "developer", null, "x").body === "System: x" && F.taskNotePushText("rafa", "developer", null, "x").body === "Sistema: x", "the text: System for the English recipient, Sistema for Portuguese");
+  // 140 cut.
+  pushes.length = 0;
+  await as(d, "alice").add("t-alice", { body: "z".repeat(300) });
+  ok(last().payload.body === "Pra. Alice: " + "z".repeat(140), "the note is cut at 140 characters (no ellipsis)");
+  // A push that throws: the note is still saved and returned.
+  pushFail = true;
+  const before = notes(d, "t-alice").length;
+  const rf = await as(d, "alice").add("t-alice", { body: "Push is down." });
+  pushFail = false;
+  ok(rf.status === 200 && rf.data.note.body === "Push is down." && notes(d, "t-alice").length === before + 1, "a push that throws still returns the note, and it is saved");
+  // Pill or due date alone: nothing.
+  pushes.length = 0;
+  await as(d, "alice").patch("t-alice", { progress: "working" });
+  await as(d, "alice").patch("t-alice", { due_date: "2026-11-01" });
+  ok(pushes.length === 0, "a pill or due-date change alone sends nothing");
+  // Nobody to send to: pushToUsers is never called with an empty list.
+  d.raw.prepare("DELETE FROM users WHERE role = 'rafa'").run();
+  pushes.length = 0;
+  const re = await as(d, "alice").add("t-alice", { body: "Nobody home." });
+  ok(re.status === 200 && pushes.length === 0, "a role with no users is skipped (never an empty list)");
+  // The push is after the save: a refused note sends nothing.
+  pushes.length = 0;
+  await as(d, "alice").add("t-alice", { body: "   " });
+  ok(pushes.length === 0, "a refused note sends nothing");
+}
+
+// ── 15. tasks.html?task=<id> opens the sheet ────────────────────────────────
+{
+  const page = readFileSync(new URL("tasks.html", root), "utf8");
+  const ios = readFileSync(new URL("ios/App/App/public/tasks.html", root), "utf8");
+  ok(page === ios, "tasks.html: root and iOS copies are the same file");
+  const m = page.match(/function openTaskFromUrl\(\) \{[\s\S]*?\n    \}\n/);
+  ok(!!m && /get\("task"\)/.test(m[0]) && /taskUrlRead/.test(m[0]), "the page reads the task parameter, once");
+  let opened = [], clicked = [];
+  const mk = (search, tasks, openers) => new Function("window", "document", "allTasks", "completedMap", "openTaskSheet",
+    "var taskUrlRead = false;\n" + m[0] + "\nreturn openTaskFromUrl;")(
+    { location: { search } },
+    { querySelectorAll: () => openers },
+    tasks, {}, (tk, tags, done) => { opened.push(tk.key); });
+  const tasks = [{ key: "t1", type: "rafa" }, { key: "t2", type: "client" }];
+  const row = { getAttribute: () => "t1", click: () => clicked.push("t1") };
+  mk("?task=t1", tasks, [row])();
+  ok(clicked.join() === "t1" && opened.length === 0, "with the row drawn, the same click opens it");
+  mk("?task=t1", tasks, [])();
+  ok(opened.join() === "t1", "with the row not drawn, the sheet opens straight from the list");
+  opened = []; clicked = [];
+  const once = mk("?task=t1", tasks, []);
+  once(); once();
+  ok(opened.length === 1, "the parameter is read once");
+  opened = []; clicked = [];
+  mk("?task=t2", tasks, [])(); mk("?task=nope", tasks, [])(); mk("", tasks, [])();
+  ok(opened.length === 0 && clicked.length === 0, "a client-type task, an unknown id or no parameter does nothing and errors nothing");
+  ok(/renderTaskView\(\);\s*openTaskFromUrl\(\);/.test(page), "it runs after the list has loaded and drawn");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

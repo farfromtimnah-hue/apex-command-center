@@ -67,6 +67,8 @@ function taskSheetStyles() {
     ".task-sheet-btn:focus-visible, .task-sheet-pill:focus-visible, .task-sheet-add:focus-visible, .task-sheet-link:focus-visible { outline: 2px solid #C9A43A; outline-offset: 2px; }" +
     ".task-sheet-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }" +
     ".task-sheet-meta:empty { display: none; }" +
+    "a.task-sheet-tag { text-decoration: underline; cursor: pointer; }" +
+    "a.task-sheet-tag:focus-visible { outline: 2px solid #C9A43A; outline-offset: 2px; }" +
     ".task-sheet-tag { font-size: 11px; color: #6b6459; padding: 2px 8px; border: 1px solid #d8d2c8; border-radius: 10px; background: #f6f1e7; }" +
     ".task-sheet-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }" +
     ".task-sheet-pills[hidden] { display: none; }" +
@@ -406,6 +408,21 @@ function taskSheetAddNote() {
 }
 
 // The task as it is saved now, and its thread.
+// The client's name at the top is a link to the client's profile (the same
+// address the task row uses) once the task says which client it has. A task
+// with no client gets no link.
+function taskSheetPaintClient(clientId) {
+  var el = document.getElementById("taskSheetClient");
+  if (!el || !clientId || el.tagName === "A") { return; }
+  var a = document.createElement("a");
+  a.id = "taskSheetClient";
+  a.className = "task-sheet-tag";
+  a.href = "client.html?id=" + encodeURIComponent(clientId);
+  a.textContent = el.textContent;
+  a.setAttribute("title", taskSheetIsEn() ? "Open the client's profile" : "Abrir o perfil do cliente");
+  if (el.parentNode) { el.parentNode.replaceChild(a, el); }
+}
+
 function taskSheetLoad(s) {
   if (taskSheetNow !== s) { return; }
   taskSheetApi("/api/tasks/" + encodeURIComponent(s.id) + "/notes", "GET")
@@ -413,6 +430,7 @@ function taskSheetLoad(s) {
       if (taskSheetNow !== s) { return; }
       if (!r.ok || !r.data.task) { throw r.data; }
       var t = r.data.task;
+      taskSheetPaintClient(t.client_id);
       s.done = t.status === "done";
       if (!s.savingProgress) { s.progress = t.progress || null; }
       if (!s.savingDue) { s.dueDate = t.due_date || null; }
@@ -506,6 +524,7 @@ function taskSheetOpen(o) {
   meta.className = "task-sheet-meta";
   if (o.clientName) {
     var cl = document.createElement("span");
+    cl.id = "taskSheetClient";
     cl.className = "task-sheet-tag";
     cl.textContent = o.clientName;
     meta.appendChild(cl);

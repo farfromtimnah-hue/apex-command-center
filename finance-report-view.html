@@ -371,14 +371,14 @@
       var name = b.name || "";
       var mark = byId("bizMark");
       var logo = byId("bizLogo");
-      // The name pill only sits beside a real logo. With no logo the tile
-      // already reads the name, and saying it twice looks like a mistake.
+      // No name pill on this page: the tile already says who it is, as the
+      // logo or as the name, and a second label under it reads as a mistake.
       var pill = byId("bizName");
       if (pill) { pill.textContent = name; pill.hidden = true; }
       if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
       if (b.logo_url && logo) {
-        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } if (pill) { pill.hidden = !name; } };
-        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } if (pill) { pill.hidden = true; } };
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
         logo.src = b.logo_url;
       }
       var hero = byId("heroImg");

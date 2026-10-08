@@ -670,20 +670,95 @@
       padding-top: 0;
     }
 
-    /* ─── Done section headers (inside Done tab) ─────────────────────────── */
-    .done-section-header {
+    /* ─── Sections that open and close (My tasks tab, Done tab) ──────────── */
+    /* Level 1 is a section, level 2 a month, level 3 a person. */
+    .fold {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .fold-head {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0 8px;
+      font-family: 'Inter', sans-serif;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.8px;
       text-transform: uppercase;
       color: var(--muted);
-      padding: 14px 0 6px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 4px;
+      text-align: left;
+      cursor: pointer;
     }
 
-    .done-section-header:first-child {
-      padding-top: 0;
+    .fold-head:hover { color: var(--text); }
+    .fold-head:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+    .fold-caret {
+      flex-shrink: 0;
+      display: inline-block;
+      font-size: 12px;
+      transition: transform 0.12s;
+    }
+    .fold-head[aria-expanded="true"] .fold-caret { transform: rotate(90deg); }
+
+    .fold-label { flex: 1; min-width: 0; }
+
+    .fold-count {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: var(--muted);
+      padding: 1px 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .fold-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-bottom: 10px;
+    }
+    .fold-body[hidden] { display: none; }
+
+    .fold-l2 > .fold-head,
+    .fold-l3 > .fold-head {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--text);
+    }
+    .fold-l2 > .fold-head:hover,
+    .fold-l3 > .fold-head:hover { border-color: rgba(201,164,58,0.5); }
+    .fold-l2 > .fold-body,
+    .fold-l3 > .fold-body { padding: 0 0 4px 14px; }
+    .fold-l2 > .fold-body { border-left: 2px solid var(--border); margin-left: 6px; }
+
+    .fold-quiet {
+      font-size: 13px;
+      color: var(--muted);
+      padding: 4px 0 6px;
+    }
+
+    .role-tab-btn[hidden] { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fold-caret { transition: none; }
     }
 
     /* ─── Client filter row ─────────────────────────────────────────────── */
@@ -852,20 +927,22 @@
 
         <!-- Role tabs -->
         <div class="role-tabs">
-          <button class="role-tab-btn active" id="tabBtnConsultant" onclick="setTabRole('consultant')">
-            <span class="show-pt">Consultor</span>
-            <span class="show-en">Consultant</span>
-            <span class="role-tab-count" id="tabCountConsultant">0</span>
+          <button class="role-tab-btn active" id="tabBtnMine" onclick="setTabRole('mine')">
+            <span class="show-pt">Minhas tarefas</span>
+            <span class="show-en">My tasks</span>
+            <span class="role-tab-count" id="tabCountMine">0</span>
           </button>
           <button class="role-tab-btn" id="tabBtnClient" onclick="setTabRole('client')">
             <span class="show-pt">Cliente</span>
             <span class="show-en">Client</span>
             <span class="role-tab-count" id="tabCountClient">0</span>
           </button>
-          <button class="role-tab-btn" id="tabBtnGiven" onclick="setTabRole('given')">
-            <span class="show-pt">Passei para outros</span>
-            <span class="show-en">Given to others</span>
-            <span class="role-tab-count" id="tabCountGiven">0</span>
+          <!-- The consultant's list, for the office (alice, developer) only:
+               placeTabs() shows it. For the consultant his list is "My tasks". -->
+          <button class="role-tab-btn" id="tabBtnConsultant" hidden onclick="setTabRole('consultant')">
+            <span class="show-pt">Consultor</span>
+            <span class="show-en">Consultant</span>
+            <span class="role-tab-count" id="tabCountConsultant">0</span>
           </button>
           <button class="role-tab-btn" id="tabBtnDone" onclick="setTabRole('done')">
             <span class="show-pt">Concluidas</span>
@@ -875,7 +952,7 @@
         </div>
 
         <!-- Client filter -->
-        <div class="client-filter-row">
+        <div class="client-filter-row" id="clientFilterRow">
           <span class="client-filter-label show-pt">Cliente:</span>
           <span class="client-filter-label show-en">Client:</span>
           <select class="client-filter-select" id="clientFilterSelect" onchange="onClientFilterChange()">
@@ -884,7 +961,7 @@
         </div>
 
         <!-- Sort controls + done chip -->
-        <div class="controls-bar">
+        <div class="controls-bar" id="controlsBar" style="display:none;">
           <div class="view-toggle">
             <button class="view-toggle-btn active" id="btnViewDate" onclick="setTaskView('date')">
               <span class="show-pt">Por Data</span>
@@ -941,7 +1018,11 @@
     var auth         = null;
     var currentUser  = null;
     var taskView     = "date";         // "date" | "type"
-    var tabRole      = "consultant";   // "consultant" | "client" | "given" | "done"
+    var tabRole      = "mine";         // "mine" | "client" | "consultant" (office only) | "done"
+    var tabsRole     = null;           // the role the tabs were last laid out for
+    var mineClosed   = {};             // "My tasks" sections the person closed: mine, sessions, given
+    var archOpen     = {};             // Done tab: what is open now (sections, months, people)
+    var foldSeq      = 0;              // makes each opening section's id unique
     var clientFilter = "";             // "" = all clients, otherwise clientName string
     var overdueOnly  = false;          // true when arrived via ?overdue=1 (dashboard tile deep link)
     var allTasks     = [];             // all derived task rows (both tabs)
@@ -1107,6 +1188,7 @@
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
         placeSpeakTasks(data.role);
+        placeTabs(data.role);
         return data;
       });
     }
@@ -1126,7 +1208,9 @@
 
       window.initNav && window.initNav();
       initHeroBg('tasksHeroBg', 'tasksHeroScrim');
-      applyOverdueParam();
+      loadMineFolds();
+      placeTabs(role);
+      applyOverdueParam(role);
       loadLocalCompletions();
       placeSpeakTasks(role);
       loadTasks();
@@ -1136,22 +1220,72 @@
     }
 
     // Deep link from the dashboard's overdue-tasks tile (?overdue=1): lands on the
-    // Consultant tab pre-filtered to overdue tasks. Rafa's dashboard tile counts
-    // consultant tasks specifically (/api/tasks/consultant/overdue), so this always
-    // targets that tab regardless of role.
-    function applyOverdueParam() {
+    // consultant's own list pre-filtered to overdue tasks. Rafa's dashboard tile
+    // counts consultant tasks specifically (/api/tasks/consultant/overdue). For
+    // him that list is "My tasks" (Mine and From sessions); for the office it
+    // is the Consultant tab.
+    function applyOverdueParam(role) {
       var params = new URLSearchParams(window.location.search);
       if (params.get("overdue") !== "1") { return; }
       overdueOnly = true;
-      tabRole = "consultant";
-      var btnConsultant = document.getElementById("tabBtnConsultant");
-      var btnClient      = document.getElementById("tabBtnClient");
-      var btnDone        = document.getElementById("tabBtnDone");
-      var btnGiven       = document.getElementById("tabBtnGiven");
-      if (btnGiven)      { btnGiven.className       = "role-tab-btn"; }
-      if (btnConsultant) { btnConsultant.className = "role-tab-btn active"; }
-      if (btnClient)      { btnClient.className      = "role-tab-btn"; }
-      if (btnDone)        { btnDone.className        = "role-tab-btn"; }
+      tabRole = (role === "alice" || role === "developer") ? "consultant" : "mine";
+      paintTabs();
+    }
+
+    // WHICH TABS: everyone has My tasks, Client and Done. The office (alice,
+    // developer) also keeps the consultant's list as its own tab; for the
+    // consultant that list is "My tasks", so the tab is not there.
+    function placeTabs(role) {
+      var office = role === "alice" || role === "developer";
+      var btn = document.getElementById("tabBtnConsultant");
+      if (btn) { btn.hidden = !office; }
+      if (!office && tabRole === "consultant") { tabRole = "mine"; }
+      paintTabs();
+      // The role can arrive (or change) after the list was drawn: the
+      // sections depend on who is looking, so draw them again.
+      if (tabsRole !== null && tabsRole !== role) {
+        updateTabCounts();
+        renderTaskView();
+      }
+      tabsRole = role;
+    }
+
+    // The active tab, and the controls that belong to it: By Date / By Type
+    // sort the Client and Consultant tabs only; the client filter is on every
+    // tab but Done.
+    function paintTabs() {
+      var ids = { mine: "tabBtnMine", client: "tabBtnClient", consultant: "tabBtnConsultant", done: "tabBtnDone" };
+      for (var k in ids) {
+        var btn = document.getElementById(ids[k]);
+        if (btn) { btn.className = "role-tab-btn" + (tabRole === k ? " active" : ""); }
+      }
+      var sorted = tabRole === "client" || tabRole === "consultant";
+      var controlsBar = document.getElementById("controlsBar");
+      var clientFilterRow = document.getElementById("clientFilterRow");
+      if (controlsBar)     { controlsBar.style.display     = sorted ? "" : "none"; }
+      if (clientFilterRow) { clientFilterRow.style.display = tabRole === "done" ? "none" : ""; }
+    }
+
+    function viewerRole() {
+      try { return sessionStorage.getItem("apex_role") || ""; } catch (e) { return ""; }
+    }
+
+    // Which "My tasks" sections are closed is remembered on this device. The
+    // page works the same when storage is not available: all three are open.
+    var MINE_FOLDS_KEY = "apex_tasks_sections_closed";
+
+    function loadMineFolds() {
+      try {
+        var raw = localStorage.getItem(MINE_FOLDS_KEY);
+        var got = raw ? JSON.parse(raw) : null;
+        if (got && typeof got === "object") {
+          mineClosed = { mine: !!got.mine, sessions: !!got.sessions, given: !!got.given };
+        }
+      } catch (e) {}
+    }
+
+    function saveMineFolds() {
+      try { localStorage.setItem(MINE_FOLDS_KEY, JSON.stringify(mineClosed)); } catch (e) {}
     }
 
     function init() {
@@ -1637,26 +1771,196 @@
           assigneeName: r.assignee_name || null,
           createdByRole: r.created_by_role || null,
           giverName:    r.giver_name || null,
+          // The consultant's name, on a task someone gave him.
+          ownerName:    r.owner_name || null,
+          // 'voice' | 'manual' | 'session' | 'help_request'
+          source:       r.source || null,
           completedBy:  r.completed_by || null,
           // The moment it was marked done (UTC). A row closed before this
           // was recorded has none; updatedAt is then the nearest thing.
           completedAt:  r.completed_at || null,
-          updatedAt:    r.updated_at || null
+          updatedAt:    r.updated_at || null,
+          createdAt:    r.created_at || null
         };
       });
     }
 
     // ── Handed-out tasks (tasks.assigned_to) ──────────────────────────────
     // A task he handed to Alice or to the system is not the consultant's own
-    // work: it has its own tab and its own section in the Done tab.
+    // work: it is not in the Consultant tab or its count.
 
     function isOwnConsultantTask(task) {
       return (task.type === "rafa" || task.type === "text") && !task.assignedTo;
     }
 
-    // A dictation he undid is never listed anywhere.
-    function isGivenTask(task) {
-      return !!task.assignedTo && task.completedBy !== "voice-undo";
+    // ── Whose task is it (the same rule as the dashboard's task cards) ─────
+    // The owner is assigned_to, and the consultant when that is empty. The
+    // maker is created_by_role, and the consultant on an old row without one.
+
+    function taskOwnerRole(task) {
+      return task.assignedTo ? String(task.assignedTo) : "rafa";
+    }
+
+    function taskMakerRole(task) {
+      return task.createdByRole ? String(task.createdByRole) : "rafa";
+    }
+
+    // Where a task sits for the person looking (viewer = rafa, alice or
+    // developer), open or done alike:
+    //   "client"   a client's task (the Client tab; Client in the Done tab)
+    //   "mine"     the viewer owns it and it did not come from a session
+    //   "sessions" the viewer owns it and it came from a session
+    //   "given"    the viewer made it and someone else owns it
+    //   null       not the viewer's, or a dictation that was undone
+    function taskSectionFor(task, viewer) {
+      if (!task || task.completedBy === "voice-undo") { return null; }
+      if (task.type === "client") { return "client"; }
+      if (!viewer) { return null; }
+      if (taskOwnerRole(task) === viewer) { return task.source === "session" ? "sessions" : "mine"; }
+      if (taskMakerRole(task) === viewer) { return "given"; }
+      return null;
+    }
+
+    // The tasks of one section, open ones or done ones. "consultant" is the
+    // consultant's own list whoever is looking (the office's Consultant tab,
+    // and its section in the Done tab).
+    function tasksInSection(tasks, viewer, section, wantDone, doneMap) {
+      var out = [];
+      for (var i = 0; i < (tasks || []).length; i++) {
+        var task = tasks[i];
+        if (!!doneMap[task.key] !== !!wantDone) { continue; }
+        if (section === "consultant") {
+          if (isOwnConsultantTask(task) && task.completedBy !== "voice-undo") { out.push(task); }
+        } else if (taskSectionFor(task, viewer) === section) {
+          out.push(task);
+        }
+      }
+      return out;
+    }
+
+    function taskStampKey(s) {
+      return String(s || "").replace(" ", "T").slice(0, 19);
+    }
+
+    // The order inside a "My tasks" section, as on the dashboard. Mine: the
+    // consultant's newest first, the office's oldest first (what has waited
+    // longest is on top). From sessions and Given to others: soonest due
+    // first, the ones with no date last.
+    function sortSectionTasks(section, viewer, tasks) {
+      var rows = tasks.slice();
+      var newestFirst = section === "mine" && viewer === "rafa";
+      var byDue = section !== "mine";
+      rows.sort(function(a, b) {
+        if (byDue) {
+          var da = a.due || "9999-12-31";
+          var db = b.due || "9999-12-31";
+          if (da !== db) { return da < db ? -1 : 1; }
+        }
+        var ka = taskStampKey(a.createdAt);
+        var kb = taskStampKey(b.createdAt);
+        if (ka === kb) { return 0; }
+        if (newestFirst) { return ka < kb ? 1 : -1; }
+        return ka < kb ? -1 : 1;
+      });
+      return rows;
+    }
+
+    // ── The Done tab's tree: months, and months then people ────────────────
+
+    // When a done task was done: completed_at; an older row has none, then
+    // updated_at, then created_at.
+    function taskDoneStamp(task) {
+      return task.completedAt || task.updatedAt || task.createdAt || "";
+    }
+
+    // "2026-10" for a stored UTC moment, read in America/New_York: a task
+    // done at 11:30 PM on 10/31 in New York belongs to October. A plain date
+    // is its own month. "" when it cannot be read.
+    function taskNyMonth(when) {
+      var s = String(when || "").replace(" ", "T");
+      if (!s) { return ""; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { return s.slice(0, 7); }
+      if (!/[Zz]$|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s);
+      if (isNaN(d.getTime())) { return ""; }
+      try {
+        var parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", year: "numeric", month: "2-digit"
+        }).formatToParts(d);
+        var got = {};
+        for (var i = 0; i < parts.length; i++) { got[parts[i].type] = parts[i].value; }
+        return got.year + "-" + got.month;
+      } catch (e) { return s.slice(0, 7); }
+    }
+
+    // "Outubro 2026" / "October 2026" for "2026-10". Accents are HTML
+    // entities: the result goes into innerHTML.
+    function archiveMonthLabel(key) {
+      var pt = ["Janeiro", "Fevereiro", "Mar&ccedil;o", "Abril", "Maio", "Junho",
+                "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      var en = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+      var m = /^(\d{4})-(\d{2})$/.exec(String(key || ""));
+      var idx = m ? Number(m[2]) - 1 : -1;
+      if (idx < 0 || idx > 11) { return { pt: "Sem data", en: "No date" }; }
+      return { pt: pt[idx] + " " + m[1], en: en[idx] + " " + m[1] };
+    }
+
+    // Done tasks by month, newest month first; inside a month, newest done
+    // first. A task whose date cannot be read goes in a last group with key "".
+    function buildArchiveMonths(tasks) {
+      var byKey = {};
+      var months = [];
+      for (var i = 0; i < (tasks || []).length; i++) {
+        var key = taskNyMonth(taskDoneStamp(tasks[i]));
+        if (!byKey[key]) { byKey[key] = { key: key, tasks: [] }; months.push(byKey[key]); }
+        byKey[key].tasks.push(tasks[i]);
+      }
+      months.sort(function(a, b) {
+        if (a.key === b.key) { return 0; }
+        return a.key < b.key ? 1 : -1;
+      });
+      for (var j = 0; j < months.length; j++) {
+        months[j].tasks.sort(function(a, b) {
+          var ka = taskStampKey(taskDoneStamp(a));
+          var kb = taskStampKey(taskDoneStamp(b));
+          if (ka === kb) { return 0; }
+          return ka < kb ? 1 : -1;
+        });
+      }
+      return months;
+    }
+
+    // Given to others, done: the same months, and inside each month one group
+    // per person the tasks were given to. key is the owner's role; name is
+    // the person's name for the consultant and for Alice, and null for the
+    // developer, who is always shown as "Sistema" / "System".
+    function buildArchiveGivenTree(tasks) {
+      var months = buildArchiveMonths(tasks);
+      var order = ["rafa", "alice", "developer"];
+      for (var i = 0; i < months.length; i++) {
+        var byRole = {};
+        for (var j = 0; j < months[i].tasks.length; j++) {
+          var task = months[i].tasks[j];
+          var role = taskOwnerRole(task);
+          if (!byRole[role]) {
+            byRole[role] = { key: role, name: null, tasks: [] };
+            if (order.indexOf(role) < 0) { order.push(role); }
+          }
+          byRole[role].tasks.push(task);
+          if (!byRole[role].name && role === "alice") { byRole[role].name = task.assigneeName || null; }
+          if (!byRole[role].name && role === "rafa")  { byRole[role].name = task.ownerName || null; }
+        }
+        months[i].people = [];
+        for (var k = 0; k < order.length; k++) {
+          var person = byRole[order[k]];
+          if (!person) { continue; }
+          if (!person.name && person.key === "alice") { person.name = "Alice"; }
+          if (!person.name && person.key === "rafa")  { person.name = "Rafa"; }
+          months[i].people.push(person);
+        }
+      }
+      return months;
     }
 
     // Which rows get a checkbox: only the person the task was handed to.
@@ -1674,19 +1978,6 @@
       if (task.completedAt) { return formatDateTimeUTC(task.completedAt); }
       if (task.updatedAt) { return formatDateUTC(task.updatedAt); }
       return "";
-    }
-
-    function givenDoneSortKey(task) {
-      return String(task.completedAt || task.updatedAt || "").replace(" ", "T").slice(0, 19);
-    }
-
-    function makeGivenEmpty() {
-      var el = document.createElement("div");
-      el.className = "tasks-empty";
-      el.innerHTML =
-        '<span class="show-pt">Nada passado para outros.</span>' +
-        '<span class="show-en">Nothing given to others.</span>';
-      return el;
     }
 
     function deriveTasks(sessions) {
@@ -1821,20 +2112,9 @@
       overdueOnly = false;
       var sel = document.getElementById("clientFilterSelect");
       if (sel) { sel.value = ""; }
-      document.getElementById("tabBtnConsultant").className =
-        "role-tab-btn" + (role === "consultant" ? " active" : "");
-      document.getElementById("tabBtnClient").className =
-        "role-tab-btn" + (role === "client" ? " active" : "");
-      document.getElementById("tabBtnDone").className =
-        "role-tab-btn" + (role === "done" ? " active" : "");
-      var givenBtn = document.getElementById("tabBtnGiven");
-      if (givenBtn) { givenBtn.className = "role-tab-btn" + (role === "given" ? " active" : ""); }
-
-      // Hide sort/filter controls on Done tab — not applicable
-      var controlsBar   = document.querySelector(".controls-bar");
-      var clientFilterRow = document.querySelector(".client-filter-row");
-      if (controlsBar)    { controlsBar.style.display   = role === "done" ? "none" : ""; }
-      if (clientFilterRow){ clientFilterRow.style.display = role === "done" ? "none" : ""; }
+      // The Done tab always opens with every section closed.
+      if (role === "done") { archOpen = {}; }
+      paintTabs();
 
       renderTaskView();
     }
@@ -1858,10 +2138,11 @@
       var base;
       if (tabRole === "consultant") {
         base = allTasks.filter(isOwnConsultantTask);
-      } else if (tabRole === "given") {
-        base = allTasks.filter(isGivenTask);
-      } else {
+      } else if (tabRole === "client") {
         base = allTasks.filter(function(t) { return t.type === "client"; });
+      } else {
+        // My tasks and Done draw their own sections.
+        base = [];
       }
       if (clientFilter) {
         base = base.filter(function(t) { return t.clientName === clientFilter; });
@@ -1881,26 +2162,50 @@
       var consultantPending = allTasks.filter(function(t) {
         return isOwnConsultantTask(t) && !completedMap[t.key];
       }).length;
-      // Given to others: the ones still open.
-      var givenOpen = allTasks.filter(function(t) {
-        return isGivenTask(t) && !completedMap[t.key];
-      }).length;
       var clientPending = allTasks.filter(function(t) {
         return t.type === "client" && !completedMap[t.key];
       }).length;
 
-      var doneCount = allTasks.filter(function(t) { return !!completedMap[t.key]; }).length;
+      // My tasks: every open row of its three sections.
+      var role = viewerRole();
+      var mineOpen = tasksInSection(allTasks, role, "mine", false, completedMap).length +
+                     tasksInSection(allTasks, role, "sessions", false, completedMap).length +
+                     tasksInSection(allTasks, role, "given", false, completedMap).length;
 
-      document.getElementById("tabCountConsultant").textContent = consultantPending + "/" + consultantTotal;
-      document.getElementById("tabCountClient").textContent     = clientPending + "/" + clientTotal;
-      document.getElementById("tabCountDone").textContent       = doneCount;
-      var givenCountEl = document.getElementById("tabCountGiven");
-      if (givenCountEl) { givenCountEl.textContent = givenOpen; }
+      // Done: every done task this person's Done tab lists, each counted once
+      // (for the office a task can sit in two of its sections).
+      var seen = {};
+      var doneCount = 0;
+      var sections = archiveSectionKeys(role);
+      for (var i = 0; i < sections.length; i++) {
+        var rows = tasksInSection(allTasks, role, sections[i], true, completedMap);
+        for (var j = 0; j < rows.length; j++) {
+          if (!seen[rows[j].key]) { seen[rows[j].key] = true; doneCount++; }
+        }
+      }
+
+      var elConsultant = document.getElementById("tabCountConsultant");
+      var elClient     = document.getElementById("tabCountClient");
+      var elDone       = document.getElementById("tabCountDone");
+      var elMine       = document.getElementById("tabCountMine");
+      if (elConsultant) { elConsultant.textContent = consultantPending + "/" + consultantTotal; }
+      if (elClient)     { elClient.textContent     = clientPending + "/" + clientTotal; }
+      if (elDone)       { elDone.textContent       = doneCount; }
+      if (elMine)       { elMine.textContent       = mineOpen; }
+    }
+
+    // The sections of the Done tab for the person looking. The office also
+    // gets the consultant's done list, as it has the Consultant tab.
+    function archiveSectionKeys(viewer) {
+      var keys = ["mine", "sessions", "given", "client"];
+      if (viewer === "alice" || viewer === "developer") { keys.push("consultant"); }
+      return keys;
     }
 
     function updateDoneChip(tabTasks) {
       var chip = document.getElementById("doneChip");
-      if (tabRole === "done") { chip.textContent = ""; return; }
+      if (!chip) { return; }
+      if (tabRole === "done" || tabRole === "mine") { chip.textContent = ""; return; }
       var done  = tabTasks.filter(function(t) { return completedMap[t.key]; }).length;
       var total = tabTasks.length;
       if (done === 0) {
@@ -1964,6 +2269,8 @@
     function renderTaskView() {
       if (tabRole === "done") {
         renderDoneTab();
+      } else if (tabRole === "mine") {
+        renderMineTab();
       } else if (taskView === "date") {
         renderByDate();
       } else {
@@ -1994,13 +2301,6 @@
 
       overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
 
-      // Given to others lists the open ones only; the done ones are history
-      // and live in the Done tab.
-      if (tabRole === "given" && overdueTasks.length === 0 && remainingTasks.length === 0) {
-        container.appendChild(makeGivenEmpty());
-        return;
-      }
-
       if (overdueTasks.length > 0) {
         container.appendChild(makeOverdueSectionHeader(overdueTasks.length));
         for (var oi = 0; oi < overdueTasks.length; oi++) {
@@ -2027,8 +2327,7 @@
         container.appendChild(makeTaskRow(sorted[j], showTypeTag));
       }
 
-      // The footer note is about session tasks; a handed-out task is spoken.
-      if (tabRole !== "given") { container.appendChild(makeFooterNote()); }
+      container.appendChild(makeFooterNote());
     }
 
     // ── Render: by type ────────────────────────────────────────────────────
@@ -2049,11 +2348,6 @@
 
       var overdueTasks    = tabTasks.filter(function(t) { return t.dueDate && t.dueDate < today && !completedMap[t.key]; });
       var nonOverdueTasks = tabTasks.filter(function(t) { return !completedMap[t.key] && !(t.dueDate && t.dueDate < today); });
-
-      if (tabRole === "given" && overdueTasks.length === 0 && nonOverdueTasks.length === 0) {
-        container.appendChild(makeGivenEmpty());
-        return;
-      }
 
       if (overdueTasks.length > 0) {
         overdueTasks.sort(function(a, b) { return a.dueDate - b.dueDate; });
@@ -2090,70 +2384,211 @@
         var textTasks = nonOverdueTasks.filter(function(t) { return t.type === "text"; });
         appendGroup("Follow-ups do Consultor", "Consultant Follow-ups", rafaTasks);
         appendGroup("Resumo de Follow-ups",     "Follow-up Summary",    textTasks);
-      } else if (tabRole === "given") {
-        appendGroup("Passei para outros", "Given to others", nonOverdueTasks);
       } else {
         appendGroup("Ações do Cliente", "Client Action Items", nonOverdueTasks);
       }
 
-      if (tabRole !== "given") { container.appendChild(makeFooterNote()); }
+      container.appendChild(makeFooterNote());
     }
 
-    // ── Render: Done tab ──────────────────────────────────────────────────
+    // ── Sections that open and close ──────────────────────────────────────
 
-    function renderDoneTab() {
+    // One header with what it opens under it. The header is a real button
+    // (Tab reaches it, Enter and Space press it) and says with aria-expanded
+    // whether it is open. fill(body) draws what is inside, the first time it
+    // is opened; onToggle(open) is told each time the person opens or closes it.
+    function makeFold(level, labelHtml, count, isOpen, onToggle, fill) {
+      var wrap = document.createElement("div");
+      wrap.className = "fold fold-l" + level;
+
+      var body = document.createElement("div");
+      body.className = "fold-body";
+      foldSeq++;
+      body.id = "foldBody" + foldSeq;
+
+      var head = document.createElement("button");
+      head.type = "button";
+      head.className = "fold-head";
+      head.setAttribute("aria-controls", body.id);
+      head.innerHTML =
+        '<span class="fold-caret" aria-hidden="true">&#9656;</span>' +
+        '<span class="fold-label">' + labelHtml + '</span>' +
+        '<span class="fold-count">' + count + '</span>';
+
+      var filled = false;
+      function show(open) {
+        head.setAttribute("aria-expanded", open ? "true" : "false");
+        body.hidden = !open;
+        if (open && !filled) { filled = true; fill(body); }
+      }
+      head.onclick = function() {
+        var open = head.getAttribute("aria-expanded") !== "true";
+        show(open);
+        if (onToggle) { onToggle(open); }
+      };
+      show(!!isOpen);
+
+      wrap.appendChild(head);
+      wrap.appendChild(body);
+      return wrap;
+    }
+
+    function makeQuietLine(pt, en) {
+      var el = document.createElement("div");
+      el.className = "fold-quiet";
+      el.innerHTML = mtBoth(pt, en);
+      return el;
+    }
+
+    // The names of the sections, the same words as the dashboard's task card
+    // (and, for Client and Consultant, as the tabs of this page).
+    var SECTION_LABELS = {
+      mine:       ["Minhas", "Mine"],
+      sessions:   ["Das sess&otilde;es", "From sessions"],
+      given:      ["Passei para outros", "Given to others"],
+      client:     ["Cliente", "Client"],
+      consultant: ["Consultor", "Consultant"]
+    };
+
+    function sectionLabelHtml(key) {
+      return mtBoth(SECTION_LABELS[key][0], SECTION_LABELS[key][1]);
+    }
+
+    // How a row of a section is drawn (see makeTaskRow).
+    function sectionRowMode(key) {
+      if (key === "given") { return "given"; }
+      if (key === "mine" || key === "sessions") { return "own"; }
+      return "";
+    }
+
+    // ── Render: My tasks tab ──────────────────────────────────────────────
+    // The viewer's open tasks in the three lists of their dashboard: Mine,
+    // From sessions, Given to others. All of them: no row limit here.
+
+    var MINE_EMPTY = {
+      mine:     ["Nenhuma tarefa sua em aberto.", "No open tasks of your own."],
+      sessions: ["Nenhuma tarefa de sess&atilde;o em aberto.", "No open tasks from sessions."],
+      given:    ["Nada passado para outros.", "Nothing given to others."]
+    };
+
+    function mineSectionRows(key, role) {
+      var rows = tasksInSection(allTasks, role, key, false, completedMap);
+      if (clientFilter) {
+        rows = rows.filter(function(t) { return t.clientName === clientFilter; });
+      }
+      if (overdueOnly) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        rows = rows.filter(function(t) { return t.dueDate && t.dueDate < today; });
+      }
+      return sortSectionTasks(key, role, rows);
+    }
+
+    function appendMineSection(container, key, role) {
+      var rows = mineSectionRows(key, role);
+      // From the overdue link every section is open, whatever was remembered.
+      var open = overdueOnly || !mineClosed[key];
+      container.appendChild(makeFold(1, sectionLabelHtml(key), rows.length, open,
+        function(isOpen) {
+          if (overdueOnly) { return; }
+          mineClosed[key] = !isOpen;
+          saveMineFolds();
+        },
+        function(body) {
+          if (!rows.length) {
+            body.appendChild(makeQuietLine(MINE_EMPTY[key][0], MINE_EMPTY[key][1]));
+            return;
+          }
+          for (var i = 0; i < rows.length; i++) {
+            body.appendChild(makeTaskRow(rows[i], false, false, sectionRowMode(key)));
+          }
+        }));
+    }
+
+    function renderMineTab() {
       var container = document.getElementById("tasksContainer");
+      if (!container) { return; }
       container.innerHTML = "";
+      var role = viewerRole();
 
-      var doneTasks = allTasks.filter(function(t) { return !!completedMap[t.key]; });
-
-      if (doneTasks.length === 0) {
-        container.appendChild(makeEmpty());
+      if (overdueOnly) {
+        // The dashboard's overdue tile counts the consultant's own tasks:
+        // Mine and From sessions. Given to others is not part of that number.
+        var late = mineSectionRows("mine", role).length + mineSectionRows("sessions", role).length;
+        container.appendChild(makeOverdueSectionHeader(late));
+        appendMineSection(container, "mine", role);
+        appendMineSection(container, "sessions", role);
         return;
       }
 
-      var consultantDone = doneTasks.filter(isOwnConsultantTask);
-      var clientDone     = doneTasks.filter(function(t) { return t.type === "client"; });
-      // Every done handed-out task, with no time limit: this is the history.
-      // Newest done first.
-      var givenDone      = doneTasks.filter(isGivenTask);
-      givenDone.sort(function(a, b) {
-        var ka = givenDoneSortKey(a);
-        var kb = givenDoneSortKey(b);
-        if (ka === kb) { return 0; }
-        return ka < kb ? 1 : -1;
-      });
+      appendMineSection(container, "mine", role);
+      appendMineSection(container, "sessions", role);
+      appendMineSection(container, "given", role);
+    }
 
-      function sortDoneGroup(arr) {
-        arr.sort(function(a, b) {
-          if (a.dueDate && b.dueDate) { return a.dueDate - b.dueDate; }
-          if (a.dueDate) { return -1; }
-          if (b.dueDate) { return 1; }
-          return a.clientName.localeCompare(b.clientName);
-        });
-        return arr;
+    // ── Render: Done tab ──────────────────────────────────────────────────
+    // Every done task, with no time limit. Sections, then months, then (for
+    // Given to others) the person the task was given to. Everything starts
+    // closed; archOpen remembers what is open while the person stays here,
+    // so reopening a task does not close the month it was in.
+
+    function appendArchiveRows(body, tasks, mode) {
+      for (var i = 0; i < tasks.length; i++) {
+        body.appendChild(makeTaskRow(tasks[i], false, true, mode));
       }
+    }
 
-      // keepOrder: the list is already in the order it must show in.
-      function appendDoneGroup(labelPt, labelEn, tasks, keepOrder) {
-        if (tasks.length === 0) { return; }
-        var heading = document.createElement("div");
-        heading.className = "done-section-header";
-        heading.innerHTML =
-          '<span class="show-pt">' + escHtml(labelPt) + ' (' + tasks.length + ')</span>' +
-          '<span class="show-en">' + escHtml(labelEn) + ' (' + tasks.length + ')</span>';
-        container.appendChild(heading);
-        var sorted = keepOrder ? tasks : sortDoneGroup(tasks);
-        for (var i = 0; i < sorted.length; i++) {
-          container.appendChild(makeTaskRow(sorted[i], false, true));
-        }
+    function archivePersonLabelHtml(person) {
+      // The system is never a person's name.
+      if (person.key === "developer") { return mtBoth("Sistema", "System"); }
+      return escHtml(person.name || "");
+    }
+
+    function appendArchivePerson(body, openKey, person, mode) {
+      body.appendChild(makeFold(3, archivePersonLabelHtml(person), person.tasks.length, !!archOpen[openKey],
+        function(isOpen) { archOpen[openKey] = isOpen; },
+        function(inner) { appendArchiveRows(inner, person.tasks, mode); }));
+    }
+
+    function appendArchiveMonth(body, sectionKey, month, mode) {
+      var openKey = sectionKey + "|" + month.key;
+      var label = archiveMonthLabel(month.key);
+      body.appendChild(makeFold(2, mtBoth(label.pt, label.en), month.tasks.length, !!archOpen[openKey],
+        function(isOpen) { archOpen[openKey] = isOpen; },
+        function(inner) {
+          if (!month.people) { appendArchiveRows(inner, month.tasks, mode); return; }
+          for (var i = 0; i < month.people.length; i++) {
+            appendArchivePerson(inner, openKey + "|" + month.people[i].key, month.people[i], mode);
+          }
+        }));
+    }
+
+    function appendArchiveSection(container, key, role) {
+      var tasks = tasksInSection(allTasks, role, key, true, completedMap);
+      var mode = sectionRowMode(key);
+      container.appendChild(makeFold(1, sectionLabelHtml(key), tasks.length, !!archOpen[key],
+        function(isOpen) { archOpen[key] = isOpen; },
+        function(body) {
+          if (!tasks.length) {
+            body.appendChild(makeQuietLine("Nada conclu&iacute;do aqui.", "Nothing done here."));
+            return;
+          }
+          var months = key === "given" ? buildArchiveGivenTree(tasks) : buildArchiveMonths(tasks);
+          for (var i = 0; i < months.length; i++) {
+            appendArchiveMonth(body, key, months[i], mode);
+          }
+        }));
+    }
+
+    function renderDoneTab() {
+      var container = document.getElementById("tasksContainer");
+      if (!container) { return; }
+      container.innerHTML = "";
+      var role = viewerRole();
+      var keys = archiveSectionKeys(role);
+      for (var i = 0; i < keys.length; i++) {
+        appendArchiveSection(container, keys[i], role);
       }
-
-      appendDoneGroup("Consultor", "Consultant", consultantDone);
-      appendDoneGroup("Cliente",   "Client",     clientDone);
-      appendDoneGroup("Passei para outros", "Given to others", givenDone, true);
-
-      container.appendChild(makeFooterNote());
     }
 
     // ── Completion toggle ──────────────────────────────────────────────────
@@ -2210,14 +2645,23 @@
       return by === owner ? null : by;
     }
 
-    function makeTaskRow(task, showTypeTag, suppressDoneStyle) {
+    // mode says which list the row is in:
+    //   "own"    a section of the viewer's own tasks (Mine, From sessions):
+    //            a checkbox, and a From tag when someone else gave it.
+    //   "given"  Given to others: no checkbox, and a tag saying who has it.
+    //   ""       the Client and Consultant lists, drawn as they always were.
+    function makeTaskRow(task, showTypeTag, suppressDoneStyle, mode) {
       var isDone = !!completedMap[task.key];
       var showDone = isDone && !suppressDoneStyle;
 
       var row = document.createElement("div");
       row.className = "task-row" + (showDone ? " done" : "");
 
-      if (task.assignedTo && !givenCanCheck(task)) {
+      var noCheck = !!task.assignedTo && !givenCanCheck(task);
+      if (mode === "given") { noCheck = true; }
+      if (mode === "own")   { noCheck = false; }
+
+      if (noCheck) {
         // A task handed to someone else: no checkbox for anyone but that
         // person. An empty space of the same size keeps the words in line.
         var gap = document.createElement("span");
@@ -2292,38 +2736,46 @@
         var dueEl = document.createElement("span");
         dueEl.className = "task-due" + (task.overdue && !isDone ? " overdue" : "");
         dueEl.innerHTML =
-          '<span class="show-pt">Prazo: ' + escHtml(task.due) + '</span>' +
-          '<span class="show-en">Due: ' + escHtml(task.due) + '</span>';
+          '<span class="show-pt">Prazo: ' + escHtml(formatDate(task.due)) + '</span>' +
+          '<span class="show-en">Due: ' + escHtml(formatDate(task.due)) + '</span>';
         meta.appendChild(dueEl);
       }
 
-      // A handed-out task: who has it, and when it was done.
-      if (task.assignedTo) {
+      // A handed-out task: who has it. Not on the viewer's own row: they
+      // know it is theirs.
+      var showWho = mode === "given" || (mode !== "own" && !!task.assignedTo);
+      if (showWho) {
         var whoEl = document.createElement("span");
         whoEl.className = "task-type-tag";
         // The system is never a person's name.
         if (task.assignedTo === "developer") {
           whoEl.innerHTML = '<span class="show-pt">Sistema</span><span class="show-en">System</span>';
-        } else {
+        } else if (task.assignedTo) {
           whoEl.textContent = task.assigneeName || "Alice";
+        } else {
+          // Given to the consultant.
+          whoEl.textContent = task.ownerName || "Rafa";
         }
         meta.appendChild(whoEl);
+      }
 
-        var doneWhen = isDone ? givenDoneWhen(task) : "";
-        if (doneWhen) {
-          var doneEl = document.createElement("span");
-          doneEl.className = "task-due";
-          doneEl.innerHTML =
-            '<span class="show-pt">Conclu&iacute;da ' + escHtml(doneWhen) + '</span>' +
-            '<span class="show-en">Done ' + escHtml(doneWhen) + '</span>';
-          meta.appendChild(doneEl);
-        }
+      // When it was done, on every done row.
+      var doneWhen = isDone ? givenDoneWhen(task) : "";
+      if (doneWhen) {
+        var doneEl = document.createElement("span");
+        doneEl.className = "task-due";
+        doneEl.innerHTML =
+          '<span class="show-pt">Conclu&iacute;da ' + escHtml(doneWhen) + '</span>' +
+          '<span class="show-en">Done ' + escHtml(doneWhen) + '</span>';
+        meta.appendChild(doneEl);
       }
 
       // A task someone else gave its owner says who it came from. A task
       // the owner made for themself, or an old row, has no such tag.
       // Rows handed to someone else keep the tag that says who has them.
-      var giverRole = task.assignedTo ? null : taskGivenBy(task);
+      var giverRole = null;
+      if (mode === "own") { giverRole = taskGivenBy(task); }
+      else if (mode !== "given" && !task.assignedTo) { giverRole = taskGivenBy(task); }
       if (giverRole) {
         var fromEl = document.createElement("span");
         fromEl.className = "task-type-tag";

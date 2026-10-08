@@ -893,34 +893,40 @@
           <!-- Glass tiles -->
           <div class="glass-tile-row">
             <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
-                 onclick="window.location.href='sessions.html'"
-                 data-title-attr-pt="Ver Inbox de Sessões" data-title-attr-en="Open Sessions Inbox" title="Ver Inbox de Sessões">
+                 onclick="window.location.href='finance-new.html?highlight=invoice'" onkeydown="aliceTileKey(event, this)"
+                 data-title-attr-pt="Ver faturas n&atilde;o enviadas" data-title-attr-en="See unsent invoices" title="Ver faturas n&atilde;o enviadas">
               <div class="glass-tile-label">
-                <span class="show-pt">Pendentes</span>
-                <span class="show-en">Pending</span>
+                <span class="show-pt">Faturas n&atilde;o enviadas</span>
+                <span class="show-en">Unsent invoices</span>
               </div>
-              <div class="glass-tile-value" id="aliceStatPending">--</div>
+              <div class="glass-tile-value" id="aliceStatUnsentInvoices">--</div>
             </div>
-            <div class="glass-tile">
+            <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
+                 onclick="window.location.href='finance-new.html'" onkeydown="aliceTileKey(event, this)"
+                 data-title-attr-pt="Ver faturas vencidas" data-title-attr-en="See overdue invoices" title="Ver faturas vencidas">
               <div class="glass-tile-label">
-                <span class="show-pt">Resumidos</span>
-                <span class="show-en">Summarized</span>
+                <span class="show-pt">Faturas vencidas</span>
+                <span class="show-en">Overdue invoices</span>
               </div>
-              <div class="glass-tile-value" id="aliceStatSummarized">--</div>
+              <div class="glass-tile-value" id="aliceStatOverdueInvoices">--</div>
             </div>
-            <div class="glass-tile">
+            <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
+                 onclick="aliceScrollTo('aliceReminderBlock')" onkeydown="aliceTileKey(event, this)"
+                 data-title-attr-pt="Ir para os lembretes de reuni&atilde;o" data-title-attr-en="Go to the meeting reminders" title="Ir para os lembretes de reuni&atilde;o">
               <div class="glass-tile-label">
-                <span class="show-pt">Aprovados</span>
-                <span class="show-en">Approved</span>
+                <span class="show-pt">Lembretes de reuni&atilde;o</span>
+                <span class="show-en">Meeting reminders</span>
               </div>
-              <div class="glass-tile-value is-gold" id="aliceStatApproved">--</div>
+              <div class="glass-tile-value" id="aliceStatReminders">--</div>
             </div>
-            <div class="glass-tile">
+            <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
+                 onclick="aliceScrollTo('assignedTasksCard')" onkeydown="aliceTileKey(event, this)"
+                 data-title-attr-pt="Ir para as tarefas" data-title-attr-en="Go to the tasks" title="Ir para as tarefas">
               <div class="glass-tile-label">
-                <span class="show-pt">Total</span>
-                <span class="show-en">Total</span>
+                <span class="show-pt">Tarefas</span>
+                <span class="show-en">Tasks</span>
               </div>
-              <div class="glass-tile-value" id="aliceStatTotal">--</div>
+              <div class="glass-tile-value" id="aliceStatTasks">--</div>
             </div>
             <div class="glass-tile" style="cursor:pointer;" role="link" tabindex="0"
                  onclick="window.location.href='clients.html'"
@@ -3058,6 +3064,7 @@
           if (tomEl)   { tomEl.hidden   = true; }
           if (errEl)   { errEl.hidden   = false; }
           block.hidden = false;
+          aliceSetTile("aliceStatReminders", "--");
         });
     }
 
@@ -3089,6 +3096,7 @@
         block.hidden = true;
         todayEl.hidden = true;
         tomEl.hidden   = true;
+        aliceSetTile("aliceStatReminders", 0);
         return;
       }
       block.hidden = false;
@@ -3102,6 +3110,7 @@
       tomEl.hidden   = tomRows.length === 0;
 
       attachReminderEditors();
+      updateAliceReminderTile();
     }
 
     // The pencil + right-click editor, attached AFTER the rows are in the DOM
@@ -3435,6 +3444,7 @@
 
     function markReminderSent(m, btn) {
       applyReminderSentLook(btn);
+      updateAliceReminderTile();
       var stampedAt = new Date().toISOString();
       m.reminder_sent_at = stampedAt;
       apiFetch("/api/sessions/" + encodeURIComponent(m.id) + "/reminder-sent", { method: "POST" })
@@ -3449,35 +3459,89 @@
           btn.classList.remove("is-sent");
           btn.innerHTML = '<span class="show-pt">Enviar Lembrete</span><span class="show-en">Send Reminder</span>';
           btn.setAttribute("title", "Enviado, mas nao foi possivel registrar. / Sent, but could not be recorded.");
+          updateAliceReminderTile();
         });
+    }
+
+
+    // ── Alice's hero tiles: invoices, reminders, tasks ─────────────────────
+    // Unsent = Finance page's Draft tab (status "draft"). Overdue = Finance
+    // page's "vencida" label: status "sent", due before today, and not part
+    // paid (statusLabel in finance-new.html). Today is the New York day.
+    function aliceCountUnsentInvoices(list) {
+      var n = 0;
+      for (var i = 0; i < (list || []).length; i++) {
+        if (list[i] && list[i].status === "draft") { n++; }
+      }
+      return n;
+    }
+
+    function aliceCountOverdueInvoices(list, today) {
+      var n = 0;
+      for (var i = 0; i < (list || []).length; i++) {
+        var inv = list[i];
+        if (!inv || inv.status !== "sent" || inv.partially_paid) { continue; }
+        if (inv.due_at && String(inv.due_at).slice(0, 10) < today) { n++; }
+      }
+      return n;
+    }
+
+    function aliceSetTile(id, value) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = value; }
+    }
+
+    function aliceTileKey(ev, el) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        el.click();
+      }
+    }
+
+    function aliceScrollTo(id) {
+      var el = document.getElementById(id);
+      if (el && !el.hidden) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    }
+
+    function loadAliceInvoiceTiles() {
+      apiFetch("/api/finance-new/invoices")
+        .then(function(res) {
+          if (!res.ok) { throw new Error("HTTP " + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          var list = data.invoices || [];
+          aliceSetTile("aliceStatUnsentInvoices", aliceCountUnsentInvoices(list));
+          aliceSetTile("aliceStatOverdueInvoices", aliceCountOverdueInvoices(list, mtNyDay(new Date())));
+        })
+        .catch(function() {
+          aliceSetTile("aliceStatUnsentInvoices", "--");
+          aliceSetTile("aliceStatOverdueInvoices", "--");
+        });
+    }
+
+    // Counts the green "Send Reminder" buttons in the card, so the tile is
+    // always the number of unsent rows the card shows.
+    function updateAliceReminderTile() {
+      var btns = document.querySelectorAll("#aliceReminderBlock .btn-join-wa");
+      var n = 0;
+      for (var i = 0; i < btns.length; i++) {
+        if (!btns[i].classList.contains("is-sent")) { n++; }
+      }
+      aliceSetTile("aliceStatReminders", n);
+    }
+
+    function updateAliceTasksTile() {
+      if (atWho === "alice") { aliceSetTile("aliceStatTasks", atTasks.length); }
     }
 
     function renderAliceDashboard() {
       renderAliceResourceProgress();
+      loadAliceInvoiceTiles();
       apiFetch("/api/sessions")
         .then(function(res) { return res.json(); })
         .then(function(data) {
           var sessions = (data.sessions || []).filter(function(s) { return s.status !== "discarded"; });
-          var pending    = 0;
-          var summarized = 0;
-          var approved   = 0;
-          for (var i = 0; i < sessions.length; i++) {
-            var s = sessions[i].status;
-            if (s === "pending")    { pending++; }
-            if (s === "summarized") { summarized++; }
-            if (s === "approved")   { approved++; }
-          }
-          var total = sessions.length;
-
-          var pendingEl    = document.getElementById("aliceStatPending");
-          var summarizedEl = document.getElementById("aliceStatSummarized");
-          var approvedEl   = document.getElementById("aliceStatApproved");
-          var totalEl      = document.getElementById("aliceStatTotal");
-          if (pendingEl)    { pendingEl.textContent    = pending; }
-          if (summarizedEl) { summarizedEl.textContent = summarized; }
-          if (approvedEl)   { approvedEl.textContent   = approved; }
-          if (totalEl)      { totalEl.textContent       = total; }
-
           // Recent sessions table
           renderAliceRecentSessions(sessions);
         })
@@ -4682,6 +4746,7 @@
       if (givenBox) { givenBox.innerHTML = ""; }
       atSetStatus("");
       card.hidden = false;
+      if (who === "alice") { aliceSetTile("aliceStatTasks", "--"); }
       loadAssignedTasks();
     }
 
@@ -4701,6 +4766,7 @@
         })
         .catch(function() {
           if (who !== atWho) { return; }
+          if (who === "alice") { aliceSetTile("aliceStatTasks", "--"); }
           var list = document.getElementById("atList");
           if (list) {
             list.innerHTML = '<div class="mt-empty">' +
@@ -4712,6 +4778,7 @@
     }
 
     function renderAssignedTasks() {
+      updateAliceTasksTile();
       renderGivenList(document.getElementById("atGivenList"), atGiven);
       var list = document.getElementById("atList");
       if (!list) { return; }

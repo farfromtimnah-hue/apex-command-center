@@ -3205,13 +3205,16 @@
 
         <!-- The whole reason this modal exists. These drive the transaction
              matching: a fixed $50/$75 in the code meant an $80 night matched
-             nothing at all and never said why. -->
+             nothing at all and never said why.
+             NO default and NO example number here: an empty price per person
+             means Apex is not charging for this event. -->
         <!-- With "accept card" ticked these two read "Zelle price": the
              number itself keeps its meaning (what a guest pays by Zelle or
              cash, and what the bank-deposit matching runs on). -->
         <label class="ev-f">
           <span class="ev-lbl" id="evLblSingle"><span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span></span>
-          <input type="text" id="evPriceSingle" inputmode="decimal" placeholder="50.00" oninput="evCardPrefill(false)">
+          <input type="text" id="evPriceSingle" inputmode="decimal" oninput="evPriceApply(); evCardPrefill(false)">
+          <span style="font-size:12.5px;color:var(--muted);line-height:1.5;"><span class="show-pt">Deixe vazio quando a Apex n&atilde;o cobra por este evento.</span><span class="show-en">Leave empty when Apex is not charging for this event.</span></span>
         </label>
 
         <label class="ev-f">
@@ -3219,7 +3222,7 @@
             <span id="evLblCouple"><span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span></span>
             <span class="ev-opt"><span class="show-pt">opcional</span><span class="show-en">optional</span></span>
           </span>
-          <input type="text" id="evPriceCouple" inputmode="decimal" placeholder="75.00" oninput="evCardPrefill(false)">
+          <input type="text" id="evPriceCouple" inputmode="decimal" oninput="evCardPrefill(false)">
         </label>
 
         <!-- Apex Club payments: the card price is the POSTED price, Zelle is
@@ -3228,13 +3231,18 @@
           <input type="checkbox" id="evCardOn" onchange="evCardToggle()" style="width:auto;">
           <span><span class="show-pt">Aceitar cart&atilde;o neste evento</span><span class="show-en">Accept card at this event</span></span>
         </label>
+        <!-- No price per person: the couple price and the card tick are off. -->
+        <div class="ev-f ev-wide" id="evNoPriceHelp" hidden style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+          <span class="show-pt">Valor por casal e cart&atilde;o s&oacute; valem quando o evento tem valor por pessoa.</span>
+          <span class="show-en">Price per couple and card only apply when the event has a price per person.</span>
+        </div>
         <label class="ev-f" id="evCardSingleWrap" hidden>
           <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (individual)</span><span class="show-en">Card price (single)</span></span>
-          <input type="text" id="evPriceCardSingle" inputmode="decimal" placeholder="52.00" oninput="this.setAttribute('data-touched','1')">
+          <input type="text" id="evPriceCardSingle" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
         </label>
         <label class="ev-f" id="evCardCoupleWrap" hidden>
           <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (casal)</span><span class="show-en">Card price (couple)</span></span>
-          <input type="text" id="evPriceCardCouple" inputmode="decimal" placeholder="78.00" oninput="this.setAttribute('data-touched','1')">
+          <input type="text" id="evPriceCardCouple" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
         </label>
         <div class="ev-f ev-wide" id="evCardHelp" hidden style="font-size:12.5px;color:var(--muted);line-height:1.5;">
           <span class="show-pt">O pre&ccedil;o do cart&atilde;o &eacute; o pre&ccedil;o divulgado. O flyer e todo an&uacute;ncio devem mostrar o pre&ccedil;o do cart&atilde;o, e o Zelle &eacute; um desconto. Nunca divulgue o pre&ccedil;o do Zelle como pre&ccedil;o normal.</span>
@@ -6154,9 +6162,13 @@
         if (ev.event_date) { metaBits.push(fmtDate(ev.event_date) + (ev.start_time ? " &middot; " + esc(ev.start_time) : "")); }
         if (ev.venue)      { metaBits.push(esc(ev.venue)); }
         if (ev.speakers)   { metaBits.push(esc(ev.speakers)); }
-        var priceBit = fmtCents(ev.price_single_cents || 5000) + (isEn() ? " per person" : " por pessoa");
-        if (ev.price_couple_cents) {
-          priceBit += " &middot; " + fmtCents(ev.price_couple_cents) + (isEn() ? " per couple" : " por casal");
+        var evPaid = clubEventCharged(ev);
+        var priceBit = t("Sem cobran&ccedil;a pela Apex", "Not charged by Apex");
+        if (evPaid) {
+          priceBit = fmtCents(ev.price_single_cents) + (isEn() ? " per person" : " por pessoa");
+          if (ev.price_couple_cents) {
+            priceBit += " &middot; " + fmtCents(ev.price_couple_cents) + (isEn() ? " per couple" : " por casal");
+          }
         }
         metaBits.push(priceBit);
 
@@ -6276,8 +6288,7 @@
               (g.plus_one ? '<span class="plus">+1</span>' : "") +
               (isNext ? ' <span class="tag-meta">(' + (isEn() ? "next time" : "pr&oacute;xima") + ")</span>" : "") +
               (g.company ? '<span class="guest-company">' + esc(g.company) + "</span>" : "") +
-              clubPayBadge(g) +
-              clubZelleReview(g) +
+              (evPaid ? clubPayBadge(g) + clubZelleReview(g) : "") +
             "</span>" +
             '<span class="guest-tools">' +
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
@@ -6290,7 +6301,7 @@
                 clubTip("Veio ao evento", "Came to the event") + '>&check;</button>' +
               '<button class="gbtn' + (g.attended === 0 ? " on" : "") + '" onclick="setClubAttended(\'' + g.id + '\',' + (g.attended === 0 ? "null" : "0") + ')" ' +
                 clubTip("N&atilde;o veio", "Did not show up") + '>&times;</button>' +
-              clubPayTools(g) +
+              (evPaid ? clubPayTools(g) : "") +
             "</span></div>";
         }).join("");
 
@@ -6564,17 +6575,15 @@
       document.getElementById("evWinStart").value    = e ? (e.window_start || "") : "";
       document.getElementById("evWinEnd").value      = e ? (e.window_end || "") : "";
 
-      // Shown in dollars, stored in cents. Defaults only pre-fill a NEW
-      // event -- an existing one always shows its own saved price.
-      document.getElementById("evPriceSingle").value = e
-        ? centsToInput(e.price_single_cents)
-        : "50.00";
-      document.getElementById("evPriceCouple").value = e
-        ? centsToInput(e.price_couple_cents)
-        : "75.00";
+      // Shown in dollars, stored in cents. A NEW event starts with the price
+      // boxes EMPTY (no default): empty means Apex is not charging. An
+      // existing one shows its own saved price, and blank when it has none.
+      var evHasPrice = clubEventCharged(e);
+      document.getElementById("evPriceSingle").value = evHasPrice ? centsToInput(e.price_single_cents) : "";
+      document.getElementById("evPriceCouple").value = evHasPrice ? centsToInput(e.price_couple_cents) : "";
 
       // Card prices: ticked only when this event already has one.
-      var hasCard = !!(e && e.price_card_single_cents !== null && e.price_card_single_cents !== undefined);
+      var hasCard = !!(evHasPrice && e.price_card_single_cents !== null && e.price_card_single_cents !== undefined);
       var cs = document.getElementById("evPriceCardSingle"), cc = document.getElementById("evPriceCardCouple");
       document.getElementById("evCardOn").checked = hasCard;
       cs.value = hasCard ? centsToInput(e.price_card_single_cents) : "";
@@ -6583,6 +6592,7 @@
       if (hasCard) { cs.setAttribute("data-touched", "1"); cc.setAttribute("data-touched", "1"); }
       else { cs.removeAttribute("data-touched"); cc.removeAttribute("data-touched"); }
       evCardApply();
+      evPriceApply();
 
       document.getElementById("evDeleteBtn").hidden = !e;
       document.getElementById("clubEvErr").hidden = true;
@@ -6623,6 +6633,35 @@
       var z = Number(zelleCents) || 0;
       if (z <= 0) { return null; }
       return Math.ceil((z + 30) / 0.971 / 100) * 100;
+    }
+    // An Apex Club event either has a price per person (a positive number
+    // of cents) or has none: then Apex collects nothing for it and nothing
+    // on this page asks about a payment. There is no default price.
+    function clubEventCharged(ev) {
+      return !!ev && Number(ev.price_single_cents) > 0;
+    }
+    // The couple price and the "accept card" tick only make sense with a
+    // price per person. With the box empty (or 0) they are disabled and
+    // cleared, and one muted line says why.
+    function evPriceApply() {
+      var singleEl = document.getElementById("evPriceSingle");
+      var coupleEl = document.getElementById("evPriceCouple");
+      var cardOn = document.getElementById("evCardOn");
+      var help = document.getElementById("evNoPriceHelp");
+      if (!singleEl || !coupleEl || !cardOn) { return; }
+      var cents = dollarsToCents(singleEl.value);
+      var none = cents === null || isNaN(cents);
+      coupleEl.disabled = none;
+      cardOn.disabled = none;
+      if (help) { help.hidden = !none; }
+      if (none) {
+        coupleEl.value = "";
+        if (cardOn.checked) { cardOn.checked = false; }
+        var cs = document.getElementById("evPriceCardSingle"), cc = document.getElementById("evPriceCardCouple");
+        if (cs) { cs.value = ""; cs.removeAttribute("data-touched"); }
+        if (cc) { cc.value = ""; cc.removeAttribute("data-touched"); }
+        evCardApply();
+      }
     }
     // Shows or hides the card fields and relabels the two existing price
     // fields as "Zelle price" while card is ticked.
@@ -6667,6 +6706,16 @@
       return Math.round(n * 100);
     }
 
+    // The price-per-person box: blank and 0 both mean "no price" (0). A
+    // positive amount gives its cents. Anything else is NaN.
+    function clubSinglePriceCents(raw) {
+      var s = String(raw == null ? "" : raw).trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+      if (!s) { return 0; }
+      var n = parseFloat(s);
+      if (!isFinite(n) || n < 0) { return NaN; }
+      return Math.round(n * 100);
+    }
+
     function saveClubEvent() {
       var name = document.getElementById("evName").value.trim();
       var date = document.getElementById("evDate").value.trim();
@@ -6674,18 +6723,23 @@
       if (!name) { return evErr(t("Dê um nome ao evento.", "Give the event a name.")); }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { return evErr(t("Escolha uma data.", "Pick a date.")); }
 
-      var single = dollarsToCents(document.getElementById("evPriceSingle").value);
-      if (single === null || isNaN(single)) {
-        return evErr(t("Valor por pessoa precisa ser um número.", "Price per person must be a number."));
+      // Empty or 0 = no price: Apex is not charging for this event. Saved as
+      // 0 with the couple and card prices NULL. Never a default.
+      var single = clubSinglePriceCents(document.getElementById("evPriceSingle").value);
+      if (isNaN(single)) {
+        return evErr(t("Valor por pessoa precisa ser um número, ou vazio.", "Price per person must be a number, or blank."));
       }
-      var couple = dollarsToCents(document.getElementById("evPriceCouple").value);
-      if (isNaN(couple)) {
-        return evErr(t("Valor por casal precisa ser um número, ou vazio.", "Price per couple must be a number, or blank."));
+      var couple = null;
+      if (single > 0) {
+        couple = dollarsToCents(document.getElementById("evPriceCouple").value);
+        if (isNaN(couple)) {
+          return evErr(t("Valor por casal precisa ser um número, ou vazio.", "Price per couple must be a number, or blank."));
+        }
       }
 
       // Card prices: sent as NULL when the box is unticked (card not offered).
       var cardSingle = null, cardCouple = null;
-      if (document.getElementById("evCardOn").checked) {
+      if (single > 0 && document.getElementById("evCardOn").checked) {
         cardSingle = dollarsToCents(document.getElementById("evPriceCardSingle").value);
         if (cardSingle === null || isNaN(cardSingle)) {
           return evErr(t("Preço no cartão (individual) precisa ser um número.", "Card price (single) must be a number."));
@@ -6874,15 +6928,34 @@
         .catch(function() { toast(t("Erro", "Error")); });
     }
 
+    // Removes the payment lines from a message template: any line with the
+    // {valor} placeholder, the word Zelle, or a payment word (pagamento,
+    // pagar, pague, payment, pay link). Blank lines left doubled by a removed
+    // line are closed up.
+    function clubDropPaymentLines(tpl) {
+      var kept = String(tpl || "").split("\n").filter(function(line) {
+        return !/\{valor\}|zelle|pagamento|pagar|pague|payment|pay link/i.test(line);
+      });
+      return kept.join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\n+|\n+$/g, "");
+    }
+
     function buildClubWhatsAppText(ev, guest) {
       var tpl = (BUSINESS_SETTINGS && BUSINESS_SETTINGS.club_confirm_template) || "";
       if (!tpl) {
         tpl = "Oi {nome}! Confirmando sua presença no {evento}, dia {data} às {hora}, em {local}.";
       }
+      // An event Apex does not charge for: every line of the template that
+      // carries the price, Zelle or a payment is left out. Every other line
+      // goes out exactly as written.
+      var charged = clubEventCharged(ev);
+      if (!charged) { tpl = clubDropPaymentLines(tpl); }
       // The Zelle side, worked out here as it always was. The Worker's
       // clubPriceFor() is the one source of truth for what a guest owes.
-      var price = fmtCents(ev.price_single_cents || 5000);
-      if (guest && guest.plus_one && ev.price_couple_cents) { price = fmtCents(ev.price_couple_cents); }
+      var price = "";
+      if (charged) {
+        price = fmtCents(ev.price_single_cents);
+        if (guest && guest.plus_one && ev.price_couple_cents) { price = fmtCents(ev.price_couple_cents); }
+      }
 
       return tpl
         .replace(/\{nome\}/g,   (guest && guest.name ? String(guest.name).split(" ")[0] : ""))

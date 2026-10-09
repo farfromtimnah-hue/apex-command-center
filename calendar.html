@@ -1848,9 +1848,11 @@
              nothing is asked twice. Saving creates BOTH records and links
              them, which is what makes the registration link exist the moment
              the calendar entry does.
-             Nothing in this block is required -- price defaults to the usual
-             $50/$75 and everything else can be filled in later from the
-             finance tab. -->
+             Nothing in this block is required. The price boxes start EMPTY and
+             have no example number: an empty price per person means Apex is
+             not charging for this event (there is no default price).
+             The notes box here is the ONE notes box of an Apex Club entry: it
+             is saved on the event and on the calendar entry alike. -->
         <div id="nsClubGroup" hidden>
           <div class="field-group">
             <div class="field-label">
@@ -1866,14 +1868,18 @@
                 <span class="show-pt">Valor por pessoa</span>
                 <span class="show-en">Price per person</span>
               </div>
-              <input type="text" id="nsClubPriceSingle" inputmode="decimal" value="50.00" placeholder="50.00" oninput="nsClubCardPrefill(false)">
+              <input type="text" id="nsClubPriceSingle" inputmode="decimal" oninput="clubPriceApply('nsClub'); nsClubCardPrefill(false)">
+              <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;">
+                <span class="show-pt">Deixe vazio quando a Apex n&atilde;o cobra por este evento.</span>
+                <span class="show-en">Leave empty when Apex is not charging for this event.</span>
+              </div>
             </div>
             <div class="field-group" style="flex:1 1 140px;">
               <div class="field-label" id="nsClubLblCouple">
                 <span class="show-pt">Valor por casal</span>
                 <span class="show-en">Price per couple</span>
               </div>
-              <input type="text" id="nsClubPriceCouple" inputmode="decimal" placeholder="75.00" oninput="nsClubCardPrefill(false)">
+              <input type="text" id="nsClubPriceCouple" inputmode="decimal" oninput="nsClubCardPrefill(false)">
             </div>
           </div>
 
@@ -1885,6 +1891,10 @@
               <span><span class="show-pt">Aceitar cartão neste evento</span><span class="show-en">Accept card at this event</span></span>
             </label>
           </div>
+          <div id="nsClubNoPriceHelp" hidden style="font-size:12px;color:var(--muted);margin:-4px 0 12px;line-height:1.5;">
+            <span class="show-pt">Valor por casal e cart&atilde;o s&oacute; valem quando o evento tem valor por pessoa.</span>
+            <span class="show-en">Price per couple and card only apply when the event has a price per person.</span>
+          </div>
           <div id="nsClubCardRow" hidden>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
               <div class="field-group" style="flex:1 1 140px;">
@@ -1892,14 +1902,14 @@
                   <span class="show-pt">Preço no cartão (individual)</span>
                   <span class="show-en">Card price (single)</span>
                 </div>
-                <input type="text" id="nsClubPriceCardSingle" inputmode="decimal" placeholder="52.00" oninput="this.setAttribute('data-touched','1')">
+                <input type="text" id="nsClubPriceCardSingle" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
               </div>
               <div class="field-group" style="flex:1 1 140px;">
                 <div class="field-label">
                   <span class="show-pt">Preço no cartão (casal)</span>
                   <span class="show-en">Card price (couple)</span>
                 </div>
-                <input type="text" id="nsClubPriceCardCouple" inputmode="decimal" placeholder="78.00" oninput="this.setAttribute('data-touched','1')">
+                <input type="text" id="nsClubPriceCardCouple" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
               </div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;line-height:1.5;">
@@ -1910,8 +1920,8 @@
 
           <div class="field-group">
             <div class="field-label">
-              <span class="show-pt">Observações <span style="font-weight:400;color:var(--muted);">— aparece na inscrição</span></span>
-              <span class="show-en">Notes <span style="font-weight:400;color:var(--muted);">— shown on the registration page</span></span>
+              <span class="show-pt">Observa&ccedil;&otilde;es (aparecem na p&aacute;gina de inscri&ccedil;&atilde;o)</span>
+              <span class="show-en">Notes (shown on the registration page)</span>
             </div>
             <textarea id="nsClubNotes" rows="2" placeholder="Estacionamento gratuito nos fundos."></textarea>
           </div>
@@ -2141,8 +2151,9 @@
             <div class="recur-preview" id="nsRecurPreview"></div>
           </div>
         </div>
-        <!-- Notes -->
-        <div class="field-group">
+        <!-- Notes. Not shown for an Apex Club entry: its one notes box is in
+             the Apex Club block above. -->
+        <div class="field-group" id="nsNotesGroup">
           <div class="field-label">
             <span class="show-pt">Notas (opcional)</span>
             <span class="show-en">Notes (optional)</span>
@@ -2886,7 +2897,10 @@
           <textarea id="edNotes"></textarea>
         </div>
         <!-- Apex Club details: shown only when the session being edited is
-             linked to an Apex Club event. Same fields as the new-session block. -->
+             linked to an Apex Club event. Same fields as the new-session block.
+             While it shows, the general notes box above is hidden: the notes
+             box in here is the entry's one notes box. The registration page
+             carries this entry's name, date, time, place and notes. -->
         <div id="edClubGroup" hidden>
           <div class="field-label" style="font-weight:700;margin-top:6px;">
             <span class="show-pt">Apex Club</span>
@@ -2905,14 +2919,18 @@
                 <span class="show-pt">Valor por pessoa</span>
                 <span class="show-en">Price per person</span>
               </div>
-              <input type="text" id="edClubPriceSingle" inputmode="decimal" oninput="clubCardPrefill('edClub', false)">
+              <input type="text" id="edClubPriceSingle" inputmode="decimal" oninput="clubPriceApply('edClub'); clubCardPrefill('edClub', false)">
+              <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;">
+                <span class="show-pt">Deixe vazio quando a Apex n&atilde;o cobra por este evento.</span>
+                <span class="show-en">Leave empty when Apex is not charging for this event.</span>
+              </div>
             </div>
             <div class="field-group" style="flex:1 1 140px;">
               <div class="field-label" id="edClubLblCouple">
                 <span class="show-pt">Valor por casal</span>
                 <span class="show-en">Price per couple</span>
               </div>
-              <input type="text" id="edClubPriceCouple" inputmode="decimal" placeholder="75.00" oninput="clubCardPrefill('edClub', false)">
+              <input type="text" id="edClubPriceCouple" inputmode="decimal" oninput="clubCardPrefill('edClub', false)">
             </div>
           </div>
           <div class="field-group">
@@ -2920,6 +2938,10 @@
               <input type="checkbox" id="edClubCardOn" onchange="clubCardToggle('edClub')" style="width:auto;">
               <span><span class="show-pt">Aceitar cart&atilde;o neste evento</span><span class="show-en">Accept card at this event</span></span>
             </label>
+          </div>
+          <div id="edClubNoPriceHelp" hidden style="font-size:12px;color:var(--muted);margin:-4px 0 12px;line-height:1.5;">
+            <span class="show-pt">Valor por casal e cart&atilde;o s&oacute; valem quando o evento tem valor por pessoa.</span>
+            <span class="show-en">Price per couple and card only apply when the event has a price per person.</span>
           </div>
           <div id="edClubCardRow" hidden>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -2945,8 +2967,8 @@
           </div>
           <div class="field-group">
             <div class="field-label">
-              <span class="show-pt">Observa&ccedil;&otilde;es <span style="font-weight:400;color:var(--muted);">&mdash; aparece na inscri&ccedil;&atilde;o</span></span>
-              <span class="show-en">Notes <span style="font-weight:400;color:var(--muted);">&mdash; shown on the registration page</span></span>
+              <span class="show-pt">Observa&ccedil;&otilde;es (aparecem na p&aacute;gina de inscri&ccedil;&atilde;o)</span>
+              <span class="show-en">Notes (shown on the registration page)</span>
             </div>
             <textarea id="edClubNotes" rows="2"></textarea>
           </div>
@@ -2966,10 +2988,6 @@
                 <span class="show-en">No flyer yet. Shows on the registration page and the event card.</span>
               </span>
             </div>
-          </div>
-          <div style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5;">
-            <span class="show-pt">O nome na p&aacute;gina de inscri&ccedil;&atilde;o muda em Financeiro, Eventos.</span>
-            <span class="show-en">The name on the registration page is changed in Finance, Events.</span>
           </div>
         </div>
         <button class="btn-submit" id="btnEditSubmit" onclick="handleEditSubmit()">
@@ -3961,6 +3979,7 @@
         var clubGroup = document.getElementById("nsClubGroup");
         if (clubGroup) { clubGroup.hidden = true; }
       }
+      nsSyncNotesBox();
 
       // Client vs prospective is a distinction that only means anything for
       // an ordinary client meeting. An X-Ray or an onsite visit carries its
@@ -4104,6 +4123,36 @@
       if (clubGroup) { clubGroup.hidden = !on; }
       var nameEl = document.getElementById("nsEventName");
       if (nameEl && on && !nameEl.value) { nameEl.value = "Apex Club"; }
+      if (on) { clubPriceApply("nsClub"); }
+      // Text already typed in the general notes box moves into the Apex Club
+      // notes box (when that one is still empty), so it is not left behind
+      // in a box that is no longer on screen.
+      var general = document.getElementById("nsNotes"), clubNotes = document.getElementById("nsClubNotes");
+      if (on && general && clubNotes && general.value.trim() && !clubNotes.value.trim()) {
+        clubNotes.value = general.value;
+        general.value = "";
+      }
+      nsSyncNotesBox();
+    }
+
+    // An Apex Club entry has ONE notes box (in its own block, shown on the
+    // registration page), so the general notes box steps aside for it.
+    function nsSyncNotesBox() {
+      var g = document.getElementById("nsNotesGroup");
+      if (g) { g.hidden = !!NS_IS_APEX_CLUB; }
+    }
+
+    // A new session starts with an empty Apex Club block: no price, no card.
+    function resetNsClubBlock() {
+      var ids = ["nsClubSpeakers", "nsClubPriceSingle", "nsClubPriceCouple", "nsClubPriceCardSingle", "nsClubPriceCardCouple", "nsClubNotes", "nsClubFlyer"];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) { el.value = ""; el.removeAttribute("data-touched"); }
+      }
+      var on = document.getElementById("nsClubCardOn");
+      if (on) { on.checked = false; }
+      clubCardToggle("nsClub");
+      clubPriceApply("nsClub");
     }
 
     // "Event shape" = no client, free-text name, forced in_person. Church and
@@ -4141,10 +4190,8 @@
         if (!card || !src) { continue; }
         if (!force && card.getAttribute("data-touched") === "1") { continue; }
         if (force && card.value.trim()) { continue; }
-        // The new-session couple box is empty with a grey example; that example
-        // seeds its card price. The edit screen has no such fallback.
-        var rawSrc = src.value || (prefix === "nsClub" ? src.getAttribute("placeholder") : "") || "";
-        var raw = rawSrc.trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+        // Only what is typed counts: there is no example number to fall back on.
+        var raw = String(src.value || "").trim().replace(/[^0-9.,]/g, "").replace(",", ".");
         var n = parseFloat(raw);
         var c = (isFinite(n) && n > 0) ? clubCardPriceFromZelle(Math.round(n * 100)) : null;
         card.value = c === null ? "" : (c / 100).toFixed(2);
@@ -4192,13 +4239,24 @@
     function clubStartTimeText(time) {
       return time ? formatTime(time) : null;
     }
-    // f = what the edit screen holds. Returns { body: {...} } for the existing
-    // PUT, or { error: "single" | "couple" | "cardSingle" | "cardCouple" }.
-    // The event's name is NOT taken from the calendar; f.eventName is the one
-    // the event already has.
-    function buildClubEventUpdateBody(f) {
-      var single = clubMoneyToCents(f.priceSingle);
-      if (single === null || isNaN(single)) { return { error: "single" }; }
+    // The price-per-person box. Blank and 0 both mean "no price": Apex is not
+    // charging for this event, saved as 0. A positive amount gives its cents.
+    // Anything else is NaN. There is no default price.
+    function clubSinglePriceCents(raw) {
+      var s = String(raw === undefined || raw === null ? "" : raw).trim().replace(/[^0-9.,]/g, "").replace(",", ".");
+      if (!s) { return 0; }
+      var n = parseFloat(s);
+      if (!isFinite(n) || n < 0) { return NaN; }
+      return Math.round(n * 100);
+    }
+    // The prices of both blocks, read the same way. Returns { single, couple,
+    // cardSingle, cardCouple } in cents, or { error: "single" | "couple" |
+    // "cardSingle" | "cardCouple" }. With no price per person the couple and
+    // card prices are null whatever the boxes hold.
+    function clubPricesFromBoxes(f) {
+      var single = clubSinglePriceCents(f.priceSingle);
+      if (isNaN(single)) { return { error: "single" }; }
+      if (single === 0) { return { single: 0, couple: null, cardSingle: null, cardCouple: null }; }
       var couple = clubMoneyToCents(f.priceCouple);
       if (isNaN(couple)) { return { error: "couple" }; }
       var cardSingle = null, cardCouple = null;
@@ -4208,17 +4266,36 @@
         cardCouple = clubMoneyToCents(f.cardCouple);
         if (isNaN(cardCouple)) { return { error: "cardCouple" }; }
       }
+      return { single: single, couple: couple, cardSingle: cardSingle, cardCouple: cardCouple };
+    }
+    // The ONE notes box of an Apex Club entry on the edit screen: the event's
+    // notes. A calendar entry saved before the two were one may hold its own
+    // text; nothing typed is dropped, so that text follows after a blank line
+    // for the person to keep or delete before saving.
+    function clubNotesForBox(eventNotes, sessionNotes) {
+      var a = String(eventNotes || "").trim(), b = String(sessionNotes || "").trim();
+      if (!a) { return b; }
+      if (!b || a === b || a.indexOf(b) !== -1) { return a; }
+      return a + "\n\n" + b;
+    }
+    // f = what the edit screen holds. Returns { body: {...} } for the existing
+    // PUT, or { error: "single" | "couple" | "cardSingle" | "cardCouple" }.
+    // The event's name IS the calendar entry's name (f.eventName): the
+    // registration page shows what the calendar shows.
+    function buildClubEventUpdateBody(f) {
+      var pr = clubPricesFromBoxes(f);
+      if (pr.error) { return { error: pr.error }; }
       var body = {
-        name: f.eventName,
+        name: String(f.eventName || "").trim(),
         event_date: f.date,
         start_time: clubStartTimeText(f.time),
         venue: f.location ? String(f.location).trim() || null : null,
         speakers: String(f.speakers || "").trim() || null,
         notes: String(f.notes || "").trim() || null,
-        price_single_cents: single,
-        price_couple_cents: couple,
-        price_card_single_cents: cardSingle,
-        price_card_couple_cents: cardCouple
+        price_single_cents: pr.single,
+        price_couple_cents: pr.couple,
+        price_card_single_cents: pr.cardSingle,
+        price_card_couple_cents: pr.cardCouple
       };
       // Keep a custom registration window unless the date moved (then the
       // server works out a fresh one from the new date).
@@ -4227,6 +4304,63 @@
         body.window_end = f.windowEnd;
       }
       return { body: body };
+    }
+    // f = what the new-session screen holds. Returns { body: {...} } for the
+    // POST that creates the event linked to the session just scheduled, or
+    // { error: ... } as above. Name, date, time, place and notes are the
+    // calendar entry's own.
+    function buildClubEventCreateBody(f) {
+      var pr = clubPricesFromBoxes(f);
+      if (pr.error) { return { error: pr.error }; }
+      return { body: {
+        name: String(f.eventName || "").trim() || "Apex Club",
+        event_date: f.date,
+        start_time: clubStartTimeText(f.time),
+        venue: f.location ? String(f.location).trim() || null : null,
+        speakers: String(f.speakers || "").trim() || null,
+        notes: String(f.notes || "").trim() || null,
+        session_id: f.sessionId,
+        price_single_cents: pr.single,
+        price_couple_cents: pr.couple,
+        price_card_single_cents: pr.cardSingle,
+        price_card_couple_cents: pr.cardCouple
+      } };
+    }
+    // What the new-session Apex Club block holds, for the builder above.
+    function nsClubFormValues(eventName, date, time, location, sessionId) {
+      var cardOn = document.getElementById("nsClubCardOn");
+      return {
+        eventName: eventName, date: date, time: time, location: location, sessionId: sessionId,
+        speakers: clubVal("nsClubSpeakers"), notes: clubVal("nsClubNotes"),
+        priceSingle: clubVal("nsClubPriceSingle"), priceCouple: clubVal("nsClubPriceCouple"),
+        cardOn: !!(cardOn && cardOn.checked),
+        cardSingle: clubVal("nsClubPriceCardSingle"), cardCouple: clubVal("nsClubPriceCardCouple")
+      };
+    }
+    // The couple price and the "accept card" tick only make sense with a price
+    // per person. With that box empty (or 0) they are disabled and cleared, and
+    // one muted line says why. prefix: "nsClub" or "edClub".
+    function clubPriceApply(prefix) {
+      var singleEl = document.getElementById(prefix + "PriceSingle");
+      var coupleEl = document.getElementById(prefix + "PriceCouple");
+      var cardOn = document.getElementById(prefix + "CardOn");
+      var help = document.getElementById(prefix + "NoPriceHelp");
+      if (!singleEl) { return; }
+      var cents = clubSinglePriceCents(singleEl.value);
+      var none = !(cents > 0);
+      if (coupleEl) { coupleEl.disabled = none; if (none) { coupleEl.value = ""; } }
+      if (help) { help.hidden = !none; }
+      if (cardOn) {
+        cardOn.disabled = none;
+        if (none) {
+          var wasOn = cardOn.checked;
+          cardOn.checked = false;
+          var cs = document.getElementById(prefix + "PriceCardSingle"), cc = document.getElementById(prefix + "PriceCardCouple");
+          if (cs) { cs.value = ""; cs.removeAttribute("data-touched"); }
+          if (cc) { cc.value = ""; cc.removeAttribute("data-touched"); }
+          if (wasOn) { clubCardToggle(prefix); }
+        }
+      }
     }
 
     // Set by applyNsMeetingType/onNsApexClubToggle; read after the session
@@ -4246,31 +4380,10 @@
       var sessionId = session && session.id;
       if (!sessionId) { return Promise.resolve(); }
 
-      function dollars(id) {
-        var raw = (document.getElementById(id).value || "").trim().replace(/[^0-9.,]/g, "").replace(",", ".");
-        if (!raw) { return null; }
-        var n = parseFloat(raw);
-        return isFinite(n) && n > 0 ? Math.round(n * 100) : null;
-      }
-
-      var body = {
-        name: eventName || "Apex Club",
-        event_date: date,
-        // The calendar already collected these -- never ask twice.
-        start_time: time ? formatTime(time) : null,
-        venue: location || null,
-        speakers: (document.getElementById("nsClubSpeakers").value || "").trim() || null,
-        notes: (document.getElementById("nsClubNotes").value || "").trim() || null,
-        session_id: sessionId
-      };
-      var ps = dollars("nsClubPriceSingle");
-      var pc = dollars("nsClubPriceCouple");
-      if (ps !== null) { body.price_single_cents = ps; }
-      if (pc !== null) { body.price_couple_cents = pc; }
-      // Card prices only when "accept card" is ticked; otherwise NULL.
-      var cardOn = document.getElementById("nsClubCardOn");
-      body.price_card_single_cents = (cardOn && cardOn.checked) ? dollars("nsClubPriceCardSingle") : null;
-      body.price_card_couple_cents = (cardOn && cardOn.checked) ? dollars("nsClubPriceCardCouple") : null;
+      // Prices were checked before the session was saved (handleNewSession).
+      var built = buildClubEventCreateBody(nsClubFormValues(eventName, date, time, location, sessionId));
+      if (built.error) { return Promise.resolve(); }
+      var body = built.body;
 
       return apiFetch("/api/finance-new/club/events", { method: "POST", body: body })
         .then(function(r) { return r.json(); })
@@ -6050,6 +6163,7 @@
       if (covered) { covered.checked = false; }
       var clubCk = document.getElementById("nsApexClub");
       if (clubCk) { clubCk.checked = false; }
+      resetNsClubBlock();
       applyNsMeetingType("client_meeting");
       document.getElementById("nsRecurring").checked = false;
       document.getElementById("nsRecurFields").hidden = true;
@@ -6382,6 +6496,9 @@
         category = document.getElementById("nsCategoryVal").value || "client";
       }
       var notes     = document.getElementById("nsNotes").value;
+      // An Apex Club entry has one notes box: what is typed there is saved on
+      // the calendar entry AND on the event, so the two cannot differ.
+      if (NS_IS_APEX_CLUB && isEvent) { notes = clubVal("nsClubNotes").trim(); }
       var location  = (document.getElementById("nsLocation").value || "").trim();
       var eventName = (document.getElementById("nsEventName").value || "").trim();
       var statusEl  = document.getElementById("nsStatus");
@@ -6420,16 +6537,12 @@
         return;
       }
 
-      // An Apex Club night is charged at the price in the box. Blank or zero
-      // is refused here, before anything is saved.
+      // An Apex Club night with the price box empty is saved with NO price:
+      // Apex is not charging for it. Only a price that cannot be read is
+      // refused here, before anything is saved.
       if (NS_IS_APEX_CLUB && isEvent) {
-        var nsPs = document.getElementById("nsClubPriceSingle");
-        var nsPsCents = clubMoneyToCents(nsPs ? nsPs.value : "");
-        if (nsPsCents === null || isNaN(nsPsCents)) {
-          fail(en ? "Enter the price per person for the Apex Club event."
-                  : "Informe o valor por pessoa do evento Apex Club.");
-          return;
-        }
+        var nsClubBuilt = buildClubEventCreateBody(nsClubFormValues(eventName, date, time, location, null));
+        if (nsClubBuilt.error) { fail(editClubErrorText(nsClubBuilt.error)); return; }
       }
 
       var recurring  = !isEvent && !isVendor && document.getElementById("nsRecurring").checked;
@@ -8167,10 +8280,15 @@
     function fillEditClubBlock(e) {
       EDIT_CLUB = e;
       setEditClubValue("edClubSpeakers", e.speakers || "");
-      setEditClubValue("edClubPriceSingle", clubCentsToBoxText(e.price_single_cents));
-      setEditClubValue("edClubPriceCouple", clubCentsToBoxText(e.price_couple_cents));
-      setEditClubValue("edClubNotes", e.notes || "");
-      var hasCard = e.price_card_single_cents !== null && e.price_card_single_cents !== undefined;
+      // No price (0) shows as an EMPTY box, never as 0.00 and never a default.
+      var hasPrice = Number(e.price_single_cents) > 0;
+      setEditClubValue("edClubPriceSingle", hasPrice ? clubCentsToBoxText(e.price_single_cents) : "");
+      setEditClubValue("edClubPriceCouple", hasPrice ? clubCentsToBoxText(e.price_couple_cents) : "");
+      // One notes box for the entry: the general one steps aside.
+      setEditClubValue("edClubNotes", clubNotesForBox(e.notes, editOriginal ? editOriginal.notes : ""));
+      var ng = document.getElementById("edNotesGroup");
+      if (ng) { ng.hidden = true; }
+      var hasCard = hasPrice && e.price_card_single_cents !== null && e.price_card_single_cents !== undefined;
       var on = document.getElementById("edClubCardOn");
       if (on) { on.checked = hasCard; }
       var cs = document.getElementById("edClubPriceCardSingle");
@@ -8181,6 +8299,7 @@
       if (cs) { if (hasCard) { cs.setAttribute("data-touched", "1"); } else { cs.removeAttribute("data-touched"); } }
       if (cc) { if (hasCard) { cc.setAttribute("data-touched", "1"); } else { cc.removeAttribute("data-touched"); } }
       clubCardToggle("edClub");
+      clubPriceApply("edClub");
       var hasFlyer = !!e.flyer_r2_key;
       var f1 = document.getElementById("edClubFlyerOn"), f2 = document.getElementById("edClubFlyerNone");
       if (f1) { f1.hidden = !hasFlyer; }
@@ -8191,7 +8310,7 @@
 
     function editClubErrorText(code) {
       var en = isEn();
-      if (code === "single") { return en ? "Price per person must be a number above zero." : "O valor por pessoa precisa ser um n\u00famero maior que zero."; }
+      if (code === "single") { return en ? "Price per person must be a number, or blank." : "O valor por pessoa precisa ser um n\u00famero, ou ficar vazio."; }
       if (code === "couple") { return en ? "Price per couple must be a number, or blank." : "O valor por casal precisa ser um n\u00famero, ou ficar vazio."; }
       if (code === "cardSingle") { return en ? "Card price (single) must be a number." : "O pre\u00e7o no cart\u00e3o (individual) precisa ser um n\u00famero."; }
       return en ? "Card price (couple) must be a number, or blank." : "O pre\u00e7o no cart\u00e3o (casal) precisa ser um n\u00famero, ou ficar vazio.";
@@ -8283,7 +8402,8 @@
       if (clubVisible) {
         var cardEl = document.getElementById("edClubCardOn");
         var built = buildClubEventUpdateBody({
-          eventName: EDIT_CLUB.name,
+          // The registration page carries the calendar entry's name.
+          eventName: eventName || EDIT_CLUB.name,
           existingDate: String(EDIT_CLUB.event_date || "").slice(0, 10),
           windowStart: EDIT_CLUB.window_start, windowEnd: EDIT_CLUB.window_end,
           date: date, time: time,
@@ -8323,7 +8443,13 @@
         // one -- clear it rather than leaving a stale address behind.
         body.location = null;
       }
-      if (!document.getElementById("edNotesGroup").hidden) {
+      if (clubVisible) {
+        // The Apex Club notes box IS the entry's notes: the same text goes to
+        // the calendar entry (kept where its notes always were, and only while
+        // the session is still just scheduled) and to the event.
+        var clubNotes = clubVal("edClubNotes").trim() || null;
+        if (session.status === "scheduled" && clubNotes !== (session.notes || null)) { body.notes = clubNotes; }
+      } else if (!document.getElementById("edNotesGroup").hidden) {
         var notes = document.getElementById("edNotes").value.trim() || null;
         if (notes !== (session.notes || null)) { body.notes = notes; }
       }

@@ -153,7 +153,7 @@ const paySum = (d, id) => d.q("SELECT COALESCE(SUM(amount_cents),0) AS s, COUNT(
   const d = makeDb(MIGS); const env = { DB: d.DB };
   // clubCardTotals is a helper the P&L gained in the Club payments build; it
   // is loaded when it exists so the same script runs before and after.
-  const F = build(["apexClubMemoHit", "buildApexClubEventPL", "parseClubPrices"].concat(hasFn("clubCardTotals") ? ["clubCardTotals"] : []), ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"], baseStubs);
+  const F = build(["apexClubMemoHit", "buildApexClubEventPL", "parseClubPrices"].concat(hasFn("clubCardTotals") ? ["clubCardTotals"] : []).concat(hasFn("clubEventHasPrice") ? ["clubEventHasPrice"] : []), [], baseStubs);
   seedAccounts(d);
   const ev = (id, single, couple) => {
     d.raw.prepare("INSERT INTO apex_club_events (id, name, event_date, window_start, window_end, price_single_cents, price_couple_cents) VALUES (?, ?, '2026-07-20', '2026-07-06', '2026-07-27', ?, ?)").run(id, "Apex Club " + id, single, couple);

@@ -20,7 +20,7 @@ function seedEvent(d, id, extra) {
 // ── Phase 1: the business name on the registration ─────────────────────────
 {
   const d = makeDb(MIGS); const env = { DB: d.DB };
-  const names = ["normalizeUsPhone", "handlePostClubRegister"].concat(hasFn("gmEstNewToken") ? ["gmEstNewToken"] : []);
+  const names = ["normalizeUsPhone", "handlePostClubRegister", "clubEventHasPrice"].concat(hasFn("gmEstNewToken") ? ["gmEstNewToken"] : []);
   const F = build(names, [], stubs);
   seedEvent(d, "ev1");
   const reg = (body) => F.handlePostClubRegister("ev1", req(body), env);
@@ -83,12 +83,12 @@ function fakeStripe() {
     notifyNicoleTelegram: async (env, msg) => { alerts.push(msg); } };
 }
 const clubFns = ["normalizeUsPhone", "gmEstNewToken", "apexClubMemoHit", "addInterval", "apxInvSwitches", "apxInvNoIndex", "apxUsd", "apxPayLockTake", "apxPayLockRelease",
-  "clubCardPriceFromZelle", "clubPriceFor", "parseClubPrices", "parseClubCardPrices", "clubRegByToken", "clubPayPayload", "clubPayGuard", "clubRetirePayLinks", "clubCardTotals",
+  "clubCardPriceFromZelle", "clubEventHasPrice", "clubPriceFor", "parseClubPrices", "parseClubCardPrices", "clubRegByToken", "clubPayPayload", "clubPayGuard", "clubRetirePayLinks", "clubCardTotals",
   "handlePostClubRegister", "handleGetClubPay", "handlePostClubPayCard", "applyStripeChargesToClubRegistrations", "buildApexClubEventPL",
   "handlePostFinanceNewClubEvent", "handlePutFinanceNewClubEvent", "handlePostClubRegPayLink", "handlePostClubRegMarkPaid"]
   .concat(["clubZelleNormalize", "clubZelleTokens", "clubZellePayerName", "clubZelleCandidateFor", "clubZellePayerTokens", "clubZelleNameTokens", "clubZelleNamesOverlap", "clubZelleEvaluate", "clubZelleCandidates", "clubZelleApply", "matchClubZelleConf", "clubZelleRetry",
     "handlePostClubPayZelleConf", "handlePostClubRegZelleDecision", "confNumber"].filter(hasFn));
-const clubVars = ["APEX_CLUB_PRICE_SINGLE", "APEX_CLUB_PRICE_COUPLE"].concat(workerSrc.indexOf("\nvar CLUB_ZELLE_NOISE =") >= 0 ? ["CLUB_ZELLE_NOISE", "CLUB_ZELLE_MESSAGES"] : []);
+const clubVars = ["CLUB_NO_CHARGE_MESSAGE", "CLUB_NOT_CHARGED_STAFF"].concat(workerSrc.indexOf("\nvar CLUB_ZELLE_NOISE =") >= 0 ? ["CLUB_ZELLE_NOISE", "CLUB_ZELLE_MESSAGES"] : []);
 function clubWorld(extraStubs) {
   const d = makeDb(MIGS); const st = fakeStripe();
   d.raw.exec("INSERT INTO business_settings (id, zelle_handle, zelle_qr_r2_key, club_pay_enabled) VALUES (1, 'pay@apex.test', 'business/zelle-qr.png', 1)");
@@ -129,7 +129,7 @@ const setCard = (d, id, single, couple) => d.raw.prepare("UPDATE apex_club_event
   const evId = r.data.event.id;
   const evRow = () => d.q("SELECT price_single_cents, price_couple_cents, price_card_single_cents, price_card_couple_cents, registration_open FROM apex_club_events WHERE id = ?", evId)[0];
   ok(r.status === 200 && evRow().price_card_single_cents === 5200 && evRow().price_card_couple_cents === 7800, "creating an event saves the card prices");
-  r = await F.handlePostFinanceNewClubEvent(req({ name: "Sem cartão", event_date: "2026-11-21" }), env);
+  r = await F.handlePostFinanceNewClubEvent(req({ name: "Sem cartão", event_date: "2026-11-21", price_single_cents: 5000 }), env);
   ok(r.data.event.price_card_single_cents === null && r.data.event.price_card_couple_cents === null && r.data.event.price_single_cents === 5000, "an event created without card fields has card NULL (not offered)");
   r = await F.handlePutFinanceNewClubEvent(evId, req({ name: "Jantar", event_date: "2026-11-20", price_single_cents: 5000, price_couple_cents: 7500, price_card_single_cents: 4900 }), env);
   ok(r.status === 400 && /cartão precisa ser igual ou maior/.test(r.error) && evRow().price_card_single_cents === 5200, "a card price below the Zelle price is refused with a clear 400");

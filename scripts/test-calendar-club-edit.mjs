@@ -16,7 +16,7 @@ function cut(src, name) {
   return src.slice(i + 1, j + 6);
 }
 const dt = readFileSync(new URL("datetime.js", root), "utf8");
-const NAMES = ["clubMoneyToCents", "clubCentsToBoxText", "clubStartTimeText", "buildClubEventUpdateBody"];
+const NAMES = ["clubMoneyToCents", "clubCentsToBoxText", "clubStartTimeText", "clubSinglePriceCents", "clubPricesFromBoxes", "buildClubEventUpdateBody"];
 
 for (const file of ["calendar.html", "ios/App/App/public/calendar.html"]) {
   const html = readFileSync(new URL(file, root), "utf8");
@@ -39,7 +39,7 @@ for (const file of ["calendar.html", "ios/App/App/public/calendar.html"]) {
     priceSingle: "50,00", priceCouple: "", cardOn: false, cardSingle: "52.00", cardCouple: "78.00" };
   let r = F.buildClubEventUpdateBody(base);
   const b = r.body;
-  ok(b && b.name === "Apex Club Outubro", tag + "name stays the event's own");
+  ok(b && b.name === "Apex Club Outubro", tag + "name is the one handed in (the calendar entry's name)");
   ok(b.event_date === "2026-10-20" && b.start_time === "7:00 PM" && b.venue === "123 Main St, Tampa", tag + "date, time and venue come from the session fields");
   ok(b.price_single_cents === 5000 && b.price_couple_cents === null, tag + "prices parsed; empty couple -> null");
   ok(b.price_card_single_cents === null && b.price_card_couple_cents === null, tag + "card prices null when unticked");
@@ -49,8 +49,13 @@ for (const file of ["calendar.html", "ios/App/App/public/calendar.html"]) {
   r = F.buildClubEventUpdateBody(Object.assign({}, base, { date: "2026-10-22", cardOn: true, priceCouple: "75.00" }));
   ok(r.body.price_card_single_cents === 5200 && r.body.price_card_couple_cents === 7800 && r.body.price_couple_cents === 7500, tag + "card ticked -> card prices parsed");
   ok(r.body.window_start === undefined && r.body.window_end === undefined && r.body.event_date === "2026-10-22", tag + "window left to the server when the date moved");
-  ok(F.buildClubEventUpdateBody(Object.assign({}, base, { priceSingle: "" })).error === "single", tag + "blank price per person refused");
-  ok(F.buildClubEventUpdateBody(Object.assign({}, base, { priceSingle: "0" })).error === "single", tag + "zero price per person refused");
+  // 2026-10-08: no default price. A blank or zero price per person is no longer
+  // refused: it saves "no price" (0) with the couple and card prices null.
+  for (const blank of ["", "0", "0.00", "  "]) {
+    const nb = F.buildClubEventUpdateBody(Object.assign({}, base, { priceSingle: blank, priceCouple: "75.00", cardOn: true })).body;
+    ok(nb && nb.price_single_cents === 0 && nb.price_couple_cents === null && nb.price_card_single_cents === null && nb.price_card_couple_cents === null,
+      tag + "price per person " + JSON.stringify(blank) + " saves no price (0), couple and card null");
+  }
   ok(F.buildClubEventUpdateBody(Object.assign({}, base, { priceCouple: "0" })).error === "couple", tag + "zero couple price refused");
   ok(F.buildClubEventUpdateBody(Object.assign({}, base, { cardOn: true, cardSingle: "" })).error === "cardSingle", tag + "ticked card with blank card price refused");
 }

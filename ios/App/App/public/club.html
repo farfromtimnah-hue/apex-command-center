@@ -343,6 +343,17 @@
         <p class="sub" id="payGuest"></p>
         <div id="payNotice" class="notice hidden"></div>
         <div class="facts" id="payFacts"></div>
+        <!-- An event Apex does not charge for: one plain line, then the same
+             invite and calendar actions as the thank-you screen. No amount,
+             no Zelle, no card, no confirmation-number field. -->
+        <div id="payNoCharge" class="hidden">
+          <p class="sub" id="payNoChargeLine">N&atilde;o h&aacute; nada a pagar &agrave; Apex por este evento.</p>
+          <div class="invite">
+            <div class="invite-copy">Conhece algu&eacute;m que ia gostar dessa noite?</div>
+            <button class="cta" id="btnSharePay">Compartilhar convite</button>
+          </div>
+          <button class="ghost" id="btnCalPay">📅 &nbsp;Adicionar ao calendário</button>
+        </div>
       </div>
 
       <!-- The payment box used when Apex Club payments are on and the event
@@ -379,6 +390,13 @@
 
   function money(cents) {
     return "$" + (cents / 100).toFixed(2).replace(/\.00$/, "");
+  }
+
+  // An Apex Club event either has a price per person or has none. With none,
+  // Apex collects nothing for it and this page never shows an amount, Zelle,
+  // a card button or the confirmation-number field. There is no default.
+  function evCharged() {
+    return !!EV && Number(EV.price_single_cents) > 0;
   }
   // Always with cents and the thousands comma ($1,250.00): the payment box
   // shows exact amounts.
@@ -436,7 +454,7 @@
     // the flyer, and July's payments arrived with no confusion about it.
     // After the RSVP the same number stops being a hurdle and becomes what
     // they actually need next: how much, how to pay, what to put in the memo.
-    if (opts && opts.withPrice) {
+    if (opts && opts.withPrice && Number(ev.price_single_cents) > 0) {
         var price = money(ev.price_single_cents) + " por pessoa";
         if (ev.price_couple_cents) { price += " · " + money(ev.price_couple_cents) + " o casal"; }
         rows.push({ i: "💵", l: "Valor", v: price });
@@ -530,7 +548,7 @@
         // Payments on and a card price on this event: the Worker sends the
         // guest's pay token and prices, and the payment box changes. With
         // payments off res.d.pay is null and the screen is what done() built.
-        if (res.d.pay && res.d.pay_token) {
+        if (evCharged() && res.d.pay && res.d.pay_token) {
           PAY_TOKEN = res.d.pay_token;
           PAY = {
             zelle_cents: res.d.pay.zelle_cents, card_cents: res.d.pay.card_cents, discount_cents: res.d.pay.discount_cents,
@@ -559,6 +577,15 @@
         ? "Anotamos você e mais uma pessoa na lista."
         : "Já anotamos você na lista.");
     $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true });
+
+    // No price on this event: the screen is the confirmation, the facts, the
+    // invite and the calendar button. The payment box stays out entirely.
+    if (!evCharged()) {
+      hide("payBox");
+      show("screenDone");
+      window.scrollTo(0, 0);
+      return;
+    }
 
     // Lead with the price that actually applies to them.
     if (plusOne && EV.price_couple_cents) {
@@ -799,8 +826,27 @@
   // The pay screen. Back from Stripe (paid=1) it first asks the Worker to
   // check this registration with Stripe.
   var payTries = 0;
+  // A pay link for an event with no price: nothing to pay, said plainly.
+  function showNoChargePay(guestName) {
+    $("payEvName").textContent = EV.name;
+    $("payGuest").textContent = guestName || "";
+    $("payFacts").innerHTML = factsHtml(EV);
+    hide("payNotice");
+    hide("payBoxNew");
+    show("payNoCharge");
+    show("screenPay");
+  }
   function loadPayScreen() {
     var base = WORKER_URL + "/api/club/pay/" + PAY_TOKEN;
+    if (!evCharged()) {
+      // Only the guest's name is asked for; whatever the answer, no payment
+      // is shown.
+      fetch(base)
+        .then(function (r) { return r.json(); })
+        .then(function (d) { showNoChargePay(d && !d.error ? d.name : ""); })
+        .catch(function () { showNoChargePay(""); });
+      return;
+    }
     var first = PAID_RETURN
       ? fetch(base + "/refresh", { method: "POST" }).then(function (r) { if (!r.ok) { throw new Error("refresh"); } return r; })
           .catch(function () { return fetch(base); })
@@ -809,6 +855,7 @@
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         if (!res.ok || !res.d || res.d.error) { PAY_TOKEN = null; showForm(); return; }
+        if (res.d.charged === false) { showNoChargePay(res.d.name); return; }
         PAY = res.d;
         $("payEvName").textContent = EV.name;
         $("payGuest").textContent = PAY.name || "";
@@ -830,7 +877,7 @@
   // A downloaded .ics works on iOS, Android and desktop with no service and
   // no account. The venue goes in as LOCATION, so it becomes tappable for
   // directions in their own calendar app on the day.
-  $("btnCal").addEventListener("click", function () {
+  function addToCalendar() {
     if (!EV) { return; }
 
     var d = String(EV.event_date).replace(/-/g, "");
@@ -876,7 +923,9 @@
     // It cannot know the event reached anyone's calendar.
     fetch(WORKER_URL + "/api/club/calendar-click/" + encodeURIComponent(EVENT_ID), { method: "POST" })
       .catch(function () {});
-  });
+  }
+  $("btnCal").addEventListener("click", addToCalendar);
+  if ($("btnCalPay")) { $("btnCalPay").addEventListener("click", addToCalendar); }
 
   function icsEsc(s) {
     return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
@@ -886,8 +935,18 @@
   // ── Invite someone ──────────────────────────────────────────────────
   // The growth path: an attendee forwards this to a business owner Apex has
   // never met. navigator.share opens the native sheet straight into WhatsApp.
-  $("btnShare").addEventListener("click", function () {
-    var url = location.href;
+  // The link that is shared is the event's registration page. A guest's own
+  // pay token (p=) and the back-from-Stripe marker never travel with it.
+  function shareUrl() {
+    try {
+      var u = new URL(location.href);
+      u.searchParams.delete("p");
+      u.searchParams.delete("paid");
+      return u.toString();
+    } catch (e) { return location.href; }
+  }
+  function shareInvite() {
+    var url = shareUrl();
 
     // What gets forwarded has to stand on its own -- the person receiving it
     // has never heard of Apex Club and is reading it cold in WhatsApp. Name,
@@ -905,7 +964,9 @@
     } else {
       window.open("https://wa.me/?text=" + encodeURIComponent(text + "\n\n" + url), "_blank");
     }
-  });
+  }
+  $("btnShare").addEventListener("click", shareInvite);
+  if ($("btnSharePay")) { $("btnSharePay").addEventListener("click", shareInvite); }
 })();
 </script>
 </body>

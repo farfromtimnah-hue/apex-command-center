@@ -39681,8 +39681,14 @@ async function handleGetFinanceNewForward(request, env) {
 // returned alongside, clearly separated, for her to accept.
 // ===========================================================================
 
-var APEX_CLUB_PRICE_SINGLE = 5000;   // $50 per person
-var APEX_CLUB_PRICE_COUPLE = 7500;   // $75 per couple
+// THE RULE (2026-10-08): an Apex Club event either has a price per person (a
+// positive number of cents: Apex collects) or has NO price (stored as 0: Apex
+// collects nothing for it, guests pay the venue or nobody). There is no
+// default and no fallback price anywhere. The $50 default this replaced is
+// how a dinner with no price ended up asking guests for a Zelle to Apex.
+function clubEventHasPrice(event) {
+    return !!event && Number(event.price_single_cents) > 0;
+}
 
 // Words that mark a transaction as Apex Club in the memo the sender typed --
 // the column that only started carrying signal after the Zelle backfill.
@@ -39696,18 +39702,14 @@ function apexClubMemoHit(text) {
 }
 
 async function buildApexClubEventPL(env, event) {
-    // Prices belong to the event. The module constants are only the defaults
-    // a new event starts from, and older rows created before the columns
-    // existed fall back to them rather than matching nothing.
-    var singlePrice = event.price_single_cents || APEX_CLUB_PRICE_SINGLE;
-    // NULL is meaningful here: "this event has no couple rate", which is not
-    // the same as a couple rate of zero. Only fall back when the column is
-    // genuinely absent (pre-migration rows), never when it was set to NULL
-    // deliberately... but an existing row that predates the column reads as
-    // undefined, so distinguish the two.
-    var couplePrice = event.price_couple_cents === undefined
-        ? APEX_CLUB_PRICE_COUPLE
-        : event.price_couple_cents;
+    // Prices belong to the event, and only to the event. An event with no
+    // price is not charged by Apex: nothing below looks for guest payments
+    // for it (no price-point match, no memo match on deposits, no Zelle
+    // numbers). Its expenses still count.
+    var charged = clubEventHasPrice(event);
+    var singlePrice = charged ? Number(event.price_single_cents) : null;
+    // NULL = "this event has no couple rate".
+    var couplePrice = (charged && Number(event.price_couple_cents) > 0) ? Number(event.price_couple_cents) : null;
 
     // Confirmed membership first. These are the only rows that move the
     // number.
@@ -39765,6 +39767,8 @@ async function buildApexClubEventPL(env, event) {
         var memoHit = apexClubMemoHit(t.memo) || apexClubMemoHit(t.description);
 
         if (t.amount_cents > 0) {
+            // An event Apex does not charge for has no guest payments to find.
+            if (!charged) { return; }
             // Income side: the price points are the primary tell. They come
             // from the EVENT, not from a constant -- Apex Club is not a
             // fixed-price dinner (June was a churrascaria at roughly $80), and
@@ -39819,7 +39823,7 @@ async function buildApexClubEventPL(env, event) {
     // A guest waiting on Alice (Zelle number in review or mismatch) carries
     // the deposit to look at. No extra query unless there is such a guest.
     for (var zi = 0; zi < regs.length; zi++) {
-        if (!regs[zi].paid_at && regs[zi].zelle_conf && (regs[zi].zelle_state === "review" || regs[zi].zelle_state === "mismatch")) {
+        if (charged && !regs[zi].paid_at && regs[zi].zelle_conf && (regs[zi].zelle_state === "review" || regs[zi].zelle_state === "mismatch")) {
             regs[zi].zelle_candidate = await clubZelleCandidateFor(env, regs[zi], event);
         }
     }
@@ -39855,6 +39859,8 @@ async function buildApexClubEventPL(env, event) {
 
     return {
         event: event,
+        // false = Apex collects nothing for this event (no price).
+        charged: charged,
         confirmed: {
             income_cents: incomeCents,
             expense_cents: expenseCents,
@@ -39970,18 +39976,20 @@ async function handlePostFinanceNewClubEvent(request, env) {
     }
 }
 
-// Shared by create and update. A couple price is optional -- an event can be
-// per-person only -- but a single price is what the matching rule runs on, so
-// it must be a real positive number rather than silently falling back to $50
-// on a night that cost $80.
+// Shared by create and update. The price per person is either a positive
+// number of cents or nothing at all: missing, null, blank and 0 all mean "no
+// price" and are stored as 0 (the column is NOT NULL). There is no default.
+// A couple price only exists next to a price per person, so one sent without
+// it is REFUSED (not dropped): the person typed money and must be told.
 function parseClubPrices(body) {
     var single = body.price_single_cents;
     if (single === undefined || single === null || single === "") {
-        single = APEX_CLUB_PRICE_SINGLE;
-    }
-    single = parseInt(single, 10);
-    if (!isFinite(single) || single <= 0) {
-        return { error: "price_single_cents must be a positive number of cents" };
+        single = 0;
+    } else {
+        single = Number(single);
+        if (!isFinite(single) || single < 0 || Math.floor(single) !== single) {
+            return { error: "price_single_cents must be a positive number of cents, or blank" };
+        }
     }
 
     var couple = body.price_couple_cents;
@@ -39992,6 +40000,9 @@ function parseClubPrices(body) {
         if (!isFinite(couple) || couple <= 0) {
             return { error: "price_couple_cents must be a positive number of cents, or blank" };
         }
+    }
+    if (single === 0 && couple !== null) {
+        return { error: "O valor por casal precisa do valor por pessoa. Deixe os dois vazios quando a Apex n\u00e3o cobra por este evento. / A price per couple needs a price per person. Leave both empty when Apex is not charging for this event." };
     }
 
     return { single: single, couple: couple };
@@ -40046,6 +40057,34 @@ async function handlePutFinanceNewClubEvent(eventId, request, env) {
         return jsonOk(await buildApexClubEventPL(env, row));
     } catch (e) {
         return jsonErr("Error updating event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/events/by-session/:sessionId
+//
+// The full event row for the Calendar's EDIT screen: it needs the prices (card
+// prices included) so the person editing sees what is saved. The calendar's
+// own by-session view stays money-free on purpose; this one is for the people
+// who may already edit the event (same roles as the PUT).
+// ---------------------------------------------------------------------------
+
+async function handleGetClubEventBySession(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var ev = await env.DB.prepare(
+            "SELECT id, name, event_date, start_time, venue, speakers, notes, price_single_cents, price_couple_cents, " +
+            "price_card_single_cents, price_card_couple_cents, flyer_r2_key, registration_open, session_id, window_start, window_end " +
+            "FROM apex_club_events WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (!ev) { return jsonErr("No Apex Club event linked to this session", 404); }
+
+        return jsonOk({ event: ev });
+    } catch (e) {
+        return jsonErr("Error loading club event: " + e.message, 500);
     }
 }
 
@@ -40212,8 +40251,12 @@ async function handleGetClubRegisterInfo(eventId, request, env) {
         // Deliberately no guest list, no counts, no totals: this endpoint is
         // world-readable, and who is coming is Apex's business, not a
         // visitor's.
+        // An event Apex does not charge for sends no amounts and no Zelle
+        // contact: there is nothing on it a page could ask a guest to pay.
+        var charged = clubEventHasPrice(ev);
         return jsonOk({
-            zelle_handle: (pay && pay.zelle_handle) || null,
+            charged: charged,
+            zelle_handle: charged ? ((pay && pay.zelle_handle) || null) : null,
             id: ev.id,
             name: ev.name,
             event_date: ev.event_date,
@@ -40226,8 +40269,8 @@ async function handleGetClubRegisterInfo(eventId, request, env) {
             // is never a place for internal remarks.
             notes: ev.notes,
             has_flyer: !!ev.flyer_r2_key,
-            price_single_cents: ev.price_single_cents,
-            price_couple_cents: ev.price_couple_cents,
+            price_single_cents: charged ? ev.price_single_cents : null,
+            price_couple_cents: charged ? ev.price_couple_cents : null,
             registration_open: ev.registration_open === 1
         });
     } catch (e) {
@@ -40278,13 +40321,14 @@ async function handlePostClubRegister(eventId, request, env) {
             "pay_token = COALESCE(pay_token, excluded.pay_token)"
         ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company, gmEstNewToken()).run();
 
-        // The payment offer on the thank-you screen: only with the Club
+        // The payment offer on the thank-you screen: only for an event with a
+        // price, with the Club
         // payments switch ON and a card price on this event. Otherwise null,
         // and the page shows exactly what it always has. Never blocks the RSVP.
         var payToken = null, pay = null;
         try {
             var sw = await apxInvSwitches(env);
-            if (sw.club_pay && APX_CLUB_CARD_AVAILABLE && ev.price_card_single_cents !== null && ev.price_card_single_cents !== undefined) {
+            if (clubEventHasPrice(ev) && sw.club_pay && APX_CLUB_CARD_AVAILABLE && ev.price_card_single_cents !== null && ev.price_card_single_cents !== undefined) {
                 var mine = await env.DB.prepare("SELECT pay_token FROM apex_club_registrations WHERE event_id = ? AND phone = ?").bind(eventId, phone).first();
                 var pr = clubPriceFor(ev, plusOne === 1);
                 if (mine && mine.pay_token && pr.card_cents !== null) {
@@ -49404,6 +49448,8 @@ async function handleFetch(request, env, ctx) {
             if (method === "PUT")    { return handlePutFinanceNewClubEvent(clubEvMatch[1], request, env); }
             if (method === "DELETE") { return handleDeleteFinanceNewClubEvent(clubEvMatch[1], request, env); }
         }
+        var clubEvBySession = path.match(/^\/api\/finance-new\/club\/events\/by-session\/([A-Za-z0-9-]+)$/);
+        if (clubEvBySession && method === "GET") { return handleGetClubEventBySession(clubEvBySession[1], request, env); }
         var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
         if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
 
@@ -53687,9 +53733,14 @@ function clubCardPriceFromZelle(zelleCents) {
 // THE price for a registration: one source of truth for the Worker.
 // club.html done() and buildClubWhatsAppText (finance-new.html) work the
 // Zelle side out themselves with the same seat rules.
+// An event with no price answers charged: false and NO amounts (null, never
+// 0 and never a default): nothing is owed to Apex for it.
 function clubPriceFor(event, plusOne) {
     var seats = plusOne ? 2 : 1;
-    var single = event.price_single_cents || APEX_CLUB_PRICE_SINGLE;
+    if (!clubEventHasPrice(event)) {
+        return { seats: seats, charged: false, zelle_cents: null, card_cents: null, discount_cents: 0 };
+    }
+    var single = event.price_single_cents;
     var hasCouple = event.price_couple_cents !== null && event.price_couple_cents !== undefined;
     var zelle = (seats === 2 && hasCouple) ? event.price_couple_cents : single * seats;
     var card = null;
@@ -53703,9 +53754,18 @@ function clubPriceFor(event, plusOne) {
 // Card prices from an event create or edit. Absent keys (an older cached
 // form) keep what is stored; blank or null means "card not offered". A card
 // price below the Zelle price is refused: the card price is the posted one.
+// An event with no price has no card price either: a card price sent for one
+// is REFUSED, and card prices already stored are cleared with the price.
 function parseClubCardPrices(body, prices, existing) {
     var hasSingle = Object.prototype.hasOwnProperty.call(body, "price_card_single_cents");
     var hasCouple = Object.prototype.hasOwnProperty.call(body, "price_card_couple_cents");
+    if (!prices.single) {
+        var sentCard = function(v) { return v !== undefined && v !== null && v !== ""; };
+        if (sentCard(body.price_card_single_cents) || sentCard(body.price_card_couple_cents)) {
+            return { error: "O pre\u00e7o no cart\u00e3o precisa do valor por pessoa. Deixe tudo vazio quando a Apex n\u00e3o cobra por este evento. / A card price needs a price per person. Leave everything empty when Apex is not charging for this event." };
+        }
+        return { single: null, couple: null };
+    }
     if (!hasSingle && !hasCouple) {
         return { single: existing ? (existing.price_card_single_cents === undefined ? null : existing.price_card_single_cents) : null,
                  couple: existing ? (existing.price_card_couple_cents === undefined ? null : existing.price_card_couple_cents) : null };
@@ -53748,11 +53808,25 @@ async function clubRegByToken(env, token) {
 // received: a paid guest sees the price that applied to them.
 async function clubPayPayload(env, reg, ev) {
     var price = clubPriceFor(ev, reg.plus_one === 1);
+    // Nothing is owed to Apex for an event with no price: no amounts, no
+    // Zelle contact, no QR, no payment state.
+    if (!clubEventHasPrice(ev)) {
+        return {
+            name: reg.name,
+            event: { id: ev.id, name: ev.name, date: ev.event_date, start_time: ev.start_time, venue: ev.venue },
+            seats: price.seats,
+            charged: false,
+            zelle_cents: null, card_cents: null, discount_cents: 0,
+            paid: false, paid_method: null, paid_cents: null,
+            zelle_state: null, zelle_conf_sent: false, zelle_handle: null, has_qr: false
+        };
+    }
     var s = await env.DB.prepare("SELECT zelle_handle, zelle_qr_r2_key FROM business_settings WHERE id = 1").first();
     return {
         name: reg.name,
         event: { id: ev.id, name: ev.name, date: ev.event_date, start_time: ev.start_time, venue: ev.venue },
         seats: price.seats,
+        charged: true,
         zelle_cents: price.zelle_cents,
         card_cents: (APX_CLUB_CARD_AVAILABLE ? price.card_cents : null),
         discount_cents: (APX_CLUB_CARD_AVAILABLE ? price.discount_cents : 0),
@@ -53768,6 +53842,9 @@ async function clubPayPayload(env, reg, ev) {
 
 // Card payment links were accepted by the live probe (2026-10-04).
 var APX_CLUB_CARD_AVAILABLE = true;
+
+// What a pay route says for an event with no price.
+var CLUB_NO_CHARGE_MESSAGE = "N\u00e3o h\u00e1 nada a pagar \u00e0 Apex por este evento.";
 
 // The per-IP limit is deliberately wide (120 an hour): a whole room of guests
 // shares the venue's WiFi and so one address.
@@ -53801,6 +53878,8 @@ async function handlePostClubPayCard(token, request, env) {
         var g = await clubPayGuard(env, request, token, "cd", 20);
         if (g.res) { return apxInvNoIndex(g.res); }
         var reg = g.reg, ev = g.ev;
+        // No price, no Stripe: answered plainly, never a link.
+        if (!clubEventHasPrice(ev)) { return apxInvNoIndex(jsonOk({ charged: false, url: null, message: CLUB_NO_CHARGE_MESSAGE })); }
         if (reg.paid_at) { return apxInvNoIndex(jsonErr("Este ingresso já está pago.", 409)); }
         var price = clubPriceFor(ev, reg.plus_one === 1);
         if (!APX_CLUB_CARD_AVAILABLE || price.card_cents === null) { return apxInvNoIndex(jsonErr("Pagamento por cartão não disponível neste evento.", 409)); }
@@ -53935,7 +54014,7 @@ async function handlePostClubPayRefresh(token, request, env) {
         var g = await clubPayGuard(env, request, token, "rf", 6);
         if (g.res) { return apxInvNoIndex(g.res); }
         try {
-            if (!g.reg.paid_at) {
+            if (!g.reg.paid_at && clubEventHasPrice(g.ev)) {
                 await apxStripeRefreshCharges(env, "apex_club_registration_id", g.reg.id);
                 await applyStripeChargesToClubRegistrations(env, g.reg.id);
                 await clubZelleRetry(env, g.reg.id);
@@ -53969,6 +54048,9 @@ async function clubCardTotals(env, eventId) {
     return { received: (paid && paid.received) || 0, count: (paid && paid.n) || 0, seats: (paid && paid.seats) || 0, fee: (fee && fee.fee) || 0 };
 }
 
+// What the staff payment routes say for an event with no price.
+var CLUB_NOT_CHARGED_STAFF = "Este evento n\u00e3o tem cobran\u00e7a pela Apex. / This event is not charged by Apex.";
+
 // POST /api/finance-new/club/registrations/:id/pay-link   alice / rafa / developer
 // The guest's own payment page. The token is minted here for a registration
 // made before tokens existed (lazily, one row; never backfilled).
@@ -53979,6 +54061,8 @@ async function handlePostClubRegPayLink(regId, request, env) {
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var reg = await env.DB.prepare("SELECT id, event_id, pay_token FROM apex_club_registrations WHERE id = ?").bind(regId).first();
         if (!reg) { return jsonErr("Registration not found", 404); }
+        var evPl = await env.DB.prepare("SELECT price_single_cents FROM apex_club_events WHERE id = ?").bind(reg.event_id).first();
+        if (!clubEventHasPrice(evPl)) { return jsonErr(CLUB_NOT_CHARGED_STAFF, 409); }
         if (!reg.pay_token) {
             await env.DB.prepare("UPDATE apex_club_registrations SET pay_token = ? WHERE id = ? AND pay_token IS NULL").bind(gmEstNewToken(), regId).run();
             reg = await env.DB.prepare("SELECT id, event_id, pay_token FROM apex_club_registrations WHERE id = ?").bind(regId).first();
@@ -54006,6 +54090,7 @@ async function handlePostClubRegMarkPaid(regId, request, env) {
         if (!ev) { return jsonErr("Event not found", 404); }
         var r;
         if (body.paid) {
+            if (!clubEventHasPrice(ev)) { return jsonErr(CLUB_NOT_CHARGED_STAFF, 409); }
             r = await env.DB.prepare(
                 "UPDATE apex_club_registrations SET paid_at = ?, paid_cents = ?, paid_method = 'manual', paid_ref = ?, zelle_state = NULL WHERE id = ? AND paid_at IS NULL"
             ).bind(new Date().toISOString(), clubPriceFor(ev, reg.plus_one === 1).zelle_cents, actorName(user), regId).run();
@@ -54149,6 +54234,8 @@ async function clubZelleApply(env, reg, ev, txn, conf, seats, confirmedBy) {
 async function matchClubZelleConf(env, reg, ev, candidates) {
     var conf = reg.zelle_conf;
     if (!conf || reg.paid_at) { return reg.paid_at ? "paid" : "pending"; }
+    // No price, nothing to match: no deposit is ever claimed for this event.
+    if (!clubEventHasPrice(ev)) { return "pending"; }
     var used = await env.DB.prepare("SELECT registration_id FROM apex_club_conf_used WHERE conf = ?").bind(conf).first();
     if (used && used.registration_id !== reg.id) { return "used"; }
     var found = candidates || await clubZelleCandidates(env, ev, conf);
@@ -54211,6 +54298,7 @@ async function clubZelleRetry(env, onlyRegId) {
         var w = waiting[i];
         var ev = { id: w.event_id, name: w.ev_name, window_start: w.window_start, window_end: w.window_end, price_single_cents: w.price_single_cents,
                    price_couple_cents: w.price_couple_cents, price_card_single_cents: w.price_card_single_cents, price_card_couple_cents: w.price_card_couple_cents };
+        if (!clubEventHasPrice(ev)) { continue; }
         // Only deposits inside THIS event's own window count for it.
         var mine = (byConf[w.zelle_conf] || []).filter(function(t) {
             return t.date >= addInterval(ev.window_start, -3, "day") && t.date <= addInterval(ev.window_end, 3, "day");
@@ -54238,6 +54326,8 @@ async function handlePostClubPayZelleConf(token, request, env) {
         var g = await clubPayGuard(env, request, token, "zc", 5);
         if (g.res) { return apxInvNoIndex(g.res); }
         var reg = g.reg, ev = g.ev;
+        // No price: a Zelle number is not accepted and nothing is stored.
+        if (!clubEventHasPrice(ev)) { return apxInvNoIndex(jsonOk({ charged: false, state: "none", message: CLUB_NO_CHARGE_MESSAGE })); }
         var body = await request.json().catch(function() { return {}; });
         var conf = clubZelleNormalize(body.conf);
         if (!conf) { return apxInvNoIndex(jsonErr("Confira o número de confirmação.", 400)); }
@@ -54291,6 +54381,7 @@ async function handlePostClubRegZelleDecision(regId, action, request, env) {
             ).bind(regId).run();
             return jsonOk(await buildApexClubEventPL(env, ev));
         }
+        if (!clubEventHasPrice(ev)) { return jsonErr(CLUB_NOT_CHARGED_STAFF, 409); }
         if (reg.paid_at) { return jsonErr("Já está pago. / Already paid.", 409); }
         if (!reg.zelle_conf) { return jsonErr("Este convidado não enviou um número de confirmação. / This guest has not sent a confirmation number.", 409); }
         var found = await clubZelleCandidates(env, ev, reg.zelle_conf);

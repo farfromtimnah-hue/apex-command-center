@@ -25287,18 +25287,19 @@ async function handlePutGmDocSettings(id, request, env) {
         var existing = await env.DB.prepare("SELECT * FROM gm_doc_settings WHERE client_id = ?").bind(id).first();
         var cur = existing || {};
         var f = {};
+        // Nothing a person typed is ever thrown away because a different
+        // blank is empty or invalid: every field is validated on its own,
+        // and an invalid one is left out of f (not saved, not stored) with
+        // its reason recorded here, instead of refusing the whole PUT.
+        var fieldErrors = {};
 
         ["brand_primary", "brand_accent"].forEach(function(k) {
             if (!has(k)) { return; }
             if (body[k] === null || body[k] === "") { f[k] = null; return; }
             var hex = gmDocHexColor(body[k]);
-            if (!hex) { f[k] = undefined; return; }
+            if (!hex) { fieldErrors[k] = { pt: "As cores precisam ter 6 d\u00edgitos hex, ex.: #1F2A44.", en: "Colors must be a 6-digit hex value, e.g. #1F2A44." }; return; }
             f[k] = hex;
         });
-        if ((has("brand_primary") && body.brand_primary && !f.brand_primary) ||
-            (has("brand_accent") && body.brand_accent && !f.brand_accent)) {
-            return jsonErr("Colors must be a 6-digit hex value like #1F2A44", 400);
-        }
         if (has("legal_name")) { f.legal_name = body.legal_name === null ? null : gmStr(body.legal_name, 200); }
         if (has("address"))    { f.address    = body.address    === null ? null : gmStr(body.address, 400); }
         if (has("phone"))      { f.phone      = body.phone      === null ? null : gmStr(body.phone, 40); }
@@ -25311,60 +25312,68 @@ async function handlePutGmDocSettings(id, request, env) {
         if (has("min_margin_pct")) {
             var mm = gmNum(body.min_margin_pct);
             if (body.min_margin_pct !== null && body.min_margin_pct !== "" && (mm === null || mm < 0 || mm > 100)) {
-                return jsonErr("min_margin_pct must be between 0 and 100", 400);
+                fieldErrors.min_margin_pct = { pt: "A margem m\u00ednima precisa ficar entre 0 e 100.", en: "min_margin_pct must be between 0 and 100." };
+            } else {
+                oneMarginTouched = true;
+                oneMarginWrite = (body.min_margin_pct === null || body.min_margin_pct === "" || mm <= 0) ? null : mm;
             }
-            oneMarginTouched = true;
-            oneMarginWrite = (body.min_margin_pct === null || body.min_margin_pct === "" || mm <= 0) ? null : mm;
         }
         if (has("estimate_valid_days")) {
             var vd = gmNum(body.estimate_valid_days);
-            if (vd === null || vd < 1 || vd > 365) { return jsonErr("estimate_valid_days must be between 1 and 365", 400); }
-            f.estimate_valid_days = Math.round(vd);
+            if (vd === null || vd < 1 || vd > 365) { fieldErrors.estimate_valid_days = { pt: "A validade do or\u00e7amento precisa ficar entre 1 e 365 dias.", en: "estimate_valid_days must be between 1 and 365." }; }
+            else { f.estimate_valid_days = Math.round(vd); }
         }
         if (has("default_terms_days")) {
             var td = gmNum(body.default_terms_days);
-            if (td === null || td < 0 || td > 365) { return jsonErr("default_terms_days must be between 0 and 365", 400); }
-            f.default_terms_days = Math.round(td);
+            if (td === null || td < 0 || td > 365) { fieldErrors.default_terms_days = { pt: "O prazo de pagamento precisa ficar entre 0 e 365 dias.", en: "default_terms_days must be between 0 and 365." }; }
+            else { f.default_terms_days = Math.round(td); }
         }
         if (has("payment_methods")) {
             var pm = gmDocParsePaymentMethods(body.payment_methods);
-            if (pm.error) { return jsonErr(pm.error, 400); }
-            f.payment_methods_json = JSON.stringify(pm.methods);
+            if (pm.error) { fieldErrors.payment_methods = { pt: pm.error, en: pm.error }; }
+            else { f.payment_methods_json = JSON.stringify(pm.methods); }
         }
         if (has("late_fee_annual_pct")) {
             var lf = gmDocParseLateFeePct(body.late_fee_annual_pct);
-            if (lf.error) { return jsonErr(lf.error, 400); }
-            f.late_fee_annual_pct = lf.value;
+            // gmDocParseLateFeePct's own message (English only, same as it
+            // always was here); the page's own copy already shows this in
+            // Portuguese before the request ever reaches the Worker.
+            if (lf.error) { fieldErrors.late_fee_annual_pct = { pt: lf.error, en: lf.error }; }
+            else { f.late_fee_annual_pct = lf.value; }
         }
         if (has("late_fee_grace_days")) {
             if (body.late_fee_grace_days === null || body.late_fee_grace_days === "") { f.late_fee_grace_days = null; }
             else {
                 var gd = gmNum(body.late_fee_grace_days);
-                if (gd === null || gd < 0 || gd > 365) { return jsonErr("late_fee_grace_days must be between 0 and 365", 400); }
-                f.late_fee_grace_days = Math.round(gd);
+                if (gd === null || gd < 0 || gd > 365) { fieldErrors.late_fee_grace_days = { pt: "Os dias de car\u00eancia precisam ficar entre 0 e 365.", en: "late_fee_grace_days must be between 0 and 365." }; }
+                else { f.late_fee_grace_days = Math.round(gd); }
             }
         }
         if (has("schedule_presets")) {
             var sp = gmDocParseSchedulePresets(body.schedule_presets);
-            if (sp.error) { return jsonErr(sp.error, 400); }
-            f.schedule_presets_json = JSON.stringify(sp.presets);
+            if (sp.error) { fieldErrors.schedule_presets = { pt: sp.error, en: sp.error }; }
+            else { f.schedule_presets_json = JSON.stringify(sp.presets); }
         }
         ["estimate_message", "invoice_message", "receipt_message", "contract_message"].forEach(function(k) {
             if (has(k)) { f[k] = body[k] === null ? null : gmStr(body[k], 1000); }
         });
-        // Job 37: the Google review link. Refused here whatever the page did;
-        // nothing at all is saved when it is refused. Until the migration has
-        // added the column, a real link cannot be stored: say so plainly
-        // instead of failing the whole save with a database error.
+        // Job 37: the Google review link. An invalid one is left out of the
+        // save (not stored) with its own message; everything else still
+        // saves. Until the migration has added the column, a real link
+        // cannot be stored either: say so plainly instead of failing the
+        // whole save with a database error.
         if (has("google_review_link")) {
             var rl = gmReviewLinkParse(body.google_review_link);
-            if (rl.error) { return jsonErr2(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN, 400); }
-            var rlBefore = cur.google_review_link === undefined || cur.google_review_link === null ? null : String(cur.google_review_link);
-            if (rl.value !== rlBefore) {
-                if (!(await gmReviewLinkColumnReady(env))) {
-                    return jsonErr2("O link de avalia\u00e7\u00e3o do Google ainda n\u00e3o pode ser salvo. Nada foi salvo. Tente de novo mais tarde.", "The Google review link cannot be saved yet. Nothing was saved. Try again later.", 503);
+            if (rl.error) { fieldErrors.google_review_link = { pt: GM_REVIEW_LINK_BAD_PT, en: GM_REVIEW_LINK_BAD_EN }; }
+            else {
+                var rlBefore = cur.google_review_link === undefined || cur.google_review_link === null ? null : String(cur.google_review_link);
+                if (rl.value !== rlBefore) {
+                    if (!(await gmReviewLinkColumnReady(env))) {
+                        fieldErrors.google_review_link = { pt: "O link de avalia\u00e7\u00e3o do Google ainda n\u00e3o pode ser salvo. Tente de novo mais tarde.", en: "The Google review link cannot be saved yet. Try again later." };
+                    } else {
+                        f.google_review_link = rl.value;
+                    }
                 }
-                f.google_review_link = rl.value;
             }
         }
 
@@ -25378,22 +25387,37 @@ async function handlePutGmDocSettings(id, request, env) {
             var lnrWant = (body.license_not_required === true || body.license_not_required === 1 || body.license_not_required === "1") ? 1 : 0;
             if (lnrWant !== lnrBefore) {
                 if (!(await gmLicenseNotRequiredColumnReady(env))) {
-                    return jsonErr2("A caixa de licen\u00e7a n\u00e3o exigida ainda n\u00e3o pode ser salva. Nada foi salvo. Tente de novo mais tarde.", "The license not required box cannot be saved yet. Nothing was saved. Try again later.", 503);
+                    fieldErrors.license_not_required = { pt: "A caixa de licen\u00e7a n\u00e3o exigida ainda n\u00e3o pode ser salva. Tente de novo mais tarde.", en: "The license not required box cannot be saved yet. Try again later." };
+                } else {
+                    lnrAfter = lnrWant;
                 }
-                lnrAfter = lnrWant;
             }
         }
 
         // Setup is complete once at least one license number is on file OR
         // the owner has stated that the work requires no state license (job
-        // 40). A save that touches either one and leaves neither is refused,
-        // whatever the page did.
-        var licensesAfter = gmDocParseLicenses(f.license_numbers !== undefined ? f.license_numbers : (cur.license_numbers || "[]"));
+        // 40). The license answer is no longer a wall on saving: a save with
+        // no license number and the box unticked still stores every other
+        // field below. The ONE protection that stays: a save that would
+        // REMOVE the license answer from a business that already has one
+        // satisfied (the last number deleted and the box unticked, with
+        // nothing else to replace it) is refused for ONLY those two fields;
+        // every other field in the same save still writes.
+        var licensesBefore = gmDocParseLicenses(cur.license_numbers || "[]");
+        var hadLicenseAnswer = licensesBefore.length > 0 || lnrBefore === 1;
+        var licensesAfter = f.license_numbers !== undefined ? gmDocParseLicenses(f.license_numbers) : licensesBefore;
+        var licenseOkAfter = licensesAfter.length > 0 || lnrAfter === 1;
+        var touchedLicenseFields = has("license_numbers") || has("license_not_required");
+        if (touchedLicenseFields && hadLicenseAnswer && !licenseOkAfter) {
+            // Refuse only the two license fields; keep cur's existing answer.
+            delete f.license_numbers;
+            lnrAfter = lnrBefore;
+            licensesAfter = licensesBefore;
+            fieldErrors.license_numbers = { pt: GM_LICENSE_NEEDED_PT, en: GM_LICENSE_NEEDED_EN };
+            fieldErrors.license_not_required = { pt: GM_LICENSE_NEEDED_PT, en: GM_LICENSE_NEEDED_EN };
+        }
         var licenseOk = licensesAfter.length > 0 || lnrAfter === 1;
         var completing = !cur.setup_completed_at && licenseOk;
-        if (!licenseOk && (has("license_numbers") || has("license_not_required"))) {
-            return jsonErr2(GM_LICENSE_NEEDED_PT, GM_LICENSE_NEEDED_EN, 400);
-        }
 
         var actor = actorName(user);
         var changes = [];
@@ -25473,7 +25497,7 @@ async function handlePutGmDocSettings(id, request, env) {
         var lnrPut = await gmLicenseNotRequiredRead(env, id);
         settings.license_not_required_by = lnrPut.by;
         settings.license_not_required_at = lnrPut.at;
-        return jsonOk({ saved: true, changed: changes.length, setup_completed: completing, settings: settings });
+        return jsonOk({ saved: true, changed: changes.length, setup_completed: completing, settings: settings, field_errors: fieldErrors });
     } catch (e) {
         return jsonErr("Error saving document settings: " + e.message, 500);
     }

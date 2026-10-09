@@ -1073,7 +1073,8 @@ function gmReviewLinkOk(v) {
 // salesperson never reaches that screen (gmEstimatesSections).
 function gmReviewSettingsFieldHtml(d) {
   return gmDocField("gmDocReviewLink", "Link de avalia\u00e7\u00e3o do Google", "Google review link",
-      gmDocTextInput("gmDocReviewLink", "google_review_link", d.google_review_link, 'inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://g.page/r/.../review"')) +
+      gmDocTextInput("gmDocReviewLink", "google_review_link", d.google_review_link, 'inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://g.page/r/.../review"'),
+      "google_review_link") +
     '<p class="gm-warn" id="gmDocReviewLinkErr" style="margin:4px 0 0;"' + (gmReviewLinkOk(d.google_review_link) ? ' hidden' : '') + '>' + escHtml(gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN)) + '</p>' +
     '<p class="muted" style="margin:4px 0 2px;">' + escHtml(gmT("No seu Perfil da Empresa no Google, escolha Pedir avalia\u00e7\u00f5es, copie o link e cole aqui. O cliente que tocar nele vai direto para o formul\u00e1rio de avalia\u00e7\u00e3o.",
         "In your Google Business Profile, choose Ask for reviews, copy the link and paste it here. Customers who tap it go straight to your review form.")) + '</p>' +
@@ -9503,8 +9504,9 @@ function gmLoadEstimates() {
   Promise.all([gmApi("doc-settings"), gmLoadEstimatesList()])
     .then(function(r) {
       gmDocSettings = r[0].settings || null;
-      // First open with setup incomplete: land on Settings, not the list.
-      if (gmDocSettings && !gmDocSettings.setup_completed_at) { gmEstimatesSection = "settings"; }
+      // First open with setup incomplete: land on Settings, not the list,
+      // and scroll straight to the first item still needed.
+      if (gmDocSettings && !gmDocSettings.setup_completed_at) { gmEstimatesSection = "settings"; gmDocScrollToFirstPending = true; }
       if (gmEstimatesSection === "settings") { gmDocDraftFromSettings(); }
       gmRenderEstimatesTab();
     })
@@ -9551,11 +9553,54 @@ function gmRenderEstimatesTab() {
   body.innerHTML = html;
   gmReviewFocusSettingsField();
   gmMetaFocusCard();
+  gmDocMaybeScrollToFirstPending();
 }
 
 // ── Settings form ─────────────────────────────────────────────────────────
 // Field entries copy the price-list item sheet exactly: .gm-field-label +
 // .gm-input inside .gm-sheet-section, one .gm-btn-primary to save.
+//
+// Nothing a person typed is ever thrown away because a different blank is
+// empty: every blank saves on its own when it is left (blur) or changed,
+// with its own message beside it. The Save button still saves everything
+// outstanding at once. A copy of what has not reached the server yet is
+// kept on the device (localStorage) so a closed tab or a dropped network
+// loses nothing; it is merged back in the next time Settings opens and
+// cleared field by field as each one is confirmed saved.
+
+// One field's own last save status: { saving, ok, text } or undefined.
+var gmDocFieldStatus = {};
+
+function gmDocDraftStorageKey() {
+  return "apex_doc_draft_" + clientId;
+}
+function gmDocDraftLoadStored() {
+  try {
+    var raw = localStorage.getItem(gmDocDraftStorageKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function gmDocDraftSaveStored() {
+  try { localStorage.setItem(gmDocDraftStorageKey(), JSON.stringify(gmDocDraft)); } catch (e) {}
+}
+// Called once a field is confirmed saved: drop it from the kept draft so a
+// later reload does not re-offer an already-saved value as still pending.
+// The PUT-body key a field saves under is not always the on-device draft's
+// own key name (the draft keeps "licenses"/"presets"; the save group is
+// named "license_numbers"/"schedule_presets").
+var GM_DOC_SAVE_KEY_TO_DRAFT_KEY = { license_numbers: "licenses", license_not_required: "license_not_required", schedule_presets: "presets", payment_methods: "payment_methods" };
+function gmDocDraftClearStoredKey(key) {
+  var draftKey = GM_DOC_SAVE_KEY_TO_DRAFT_KEY[key] || key;
+  try {
+    var raw = localStorage.getItem(gmDocDraftStorageKey());
+    if (!raw) { return; }
+    var obj = JSON.parse(raw);
+    if (obj && Object.prototype.hasOwnProperty.call(obj, draftKey)) {
+      delete obj[draftKey];
+      localStorage.setItem(gmDocDraftStorageKey(), JSON.stringify(obj));
+    }
+  } catch (e) {}
+}
 
 function gmDocDraftFromSettings() {
   var st = gmDocSettings || {};
@@ -9584,16 +9629,149 @@ function gmDocDraftFromSettings() {
       return { name: p.name || "", steps: (p.steps || []).map(function(x) { return { label: x.label || "", pct: x.pct === null || x.pct === undefined ? "" : String(x.pct) }; }) };
     })
   };
+  // Restore whatever had not reached the server yet.
+  var stored = gmDocDraftLoadStored();
+  if (stored && typeof stored === "object") {
+    ["brand_primary", "brand_accent", "legal_name", "address", "phone", "email", "google_review_link",
+     "late_fee_annual_pct", "late_fee_grace_days", "estimate_valid_days", "default_terms_days"].forEach(function(k) {
+      if (Object.prototype.hasOwnProperty.call(stored, k) && stored[k] !== gmDocDraft[k]) { gmDocDraft[k] = stored[k]; }
+    });
+    if (Array.isArray(stored.licenses) && JSON.stringify(stored.licenses) !== JSON.stringify(gmDocDraft.licenses)) {
+      gmDocDraft.licenses = stored.licenses.slice();
+    }
+    if (Array.isArray(stored.payment_methods) && stored.payment_methods.length === gmDocDraft.payment_methods.length) {
+      stored.payment_methods.forEach(function(sm, i) {
+        if (sm && gmDocDraft.payment_methods[i] && sm.key === gmDocDraft.payment_methods[i].key) {
+          gmDocDraft.payment_methods[i].detail = sm.detail || "";
+        }
+      });
+    }
+    if (Array.isArray(stored.presets)) { gmDocDraft.presets = stored.presets; }
+  }
   gmDocSaveMsg = null;
+  gmDocFieldStatus = {};
+  // A blur only saves when the value actually changed since the last
+  // load; seed that baseline from what the server already has so simply
+  // opening and leaving a field does not fire a no-op save.
+  gmDocLastSavedScalar = {};
+  GM_DOC_SCALAR_FIELDS.forEach(function(k) { gmDocLastSavedScalar[k] = JSON.stringify(gmDocDraft[k]); });
+  gmDocLastSavedScalar.license_numbers = JSON.stringify((st.license_numbers || []).slice());
+  gmDocLastSavedScalar.payment_methods = JSON.stringify(st.payment_methods || {});
+  gmDocLastSavedScalar.schedule_presets = JSON.stringify(st.schedule_presets || []);
 }
 
-function gmDocField(id, labelPt, labelEn, inputHtml) {
-  return '<label class="gm-field-label" for="' + id + '">' + gmT(labelPt, labelEn) + '</label>' + inputHtml;
+// ── What is left to finish setup ────────────────────────────────────────
+// Today the only REQUIRED thing is the license answer (a number or the
+// tick). Each item links (scrolls) to its blank.
+function gmDocOutstandingItems() {
+  var items = [];
+  var st = gmDocSettings || {};
+  if (!gmLicenseSatisfiedClient(st)) {
+    items.push({ id: "gmDocLicenses", label: gmT("N\u00famero de licen\u00e7a (ou marque que n\u00e3o \u00e9 exigida)", "License number (or tick that none is required)") });
+  }
+  return items;
+}
+function gmLicenseSatisfiedClient(st) {
+  return !!((st.license_numbers && st.license_numbers.length) || st.license_not_required === true);
+}
+function gmDocSetupStatusHtml() {
+  var st = gmDocSettings || {};
+  if (st.setup_completed_at) {
+    return '<p class="gm-ok" style="margin:0 0 12px;">✓ ' + gmT("Configura\u00e7\u00e3o conclu\u00edda", "Setup complete") + '</p>';
+  }
+  var items = gmDocOutstandingItems();
+  if (!items.length) { return ""; }
+  var html = '<div class="gm-sheet-section" style="padding-top:0;">' +
+    '<p class="gm-field-label" style="margin:0 0 6px;">' + gmT("Falta para concluir a configura\u00e7\u00e3o", "Left to finish setup") + '</p>';
+  items.forEach(function(it) {
+    html += '<p style="margin:0 0 4px;"><a href="#" onclick="gmDocScrollTo(\'' + it.id + '\'); return false;">' + escHtml(it.label) + '</a></p>';
+  });
+  return html + '</div>';
+}
+function gmDocScrollTo(id) {
+  var el = document.getElementById(id);
+  if (!el) { return; }
+  try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+  try { el.focus(); } catch (e3) {}
+}
+// First open with setup incomplete: scroll to the first item still needed.
+var gmDocScrollToFirstPending = false;
+function gmDocMaybeScrollToFirstPending() {
+  if (!gmDocScrollToFirstPending || gmEstimatesSection !== "settings") { return; }
+  gmDocScrollToFirstPending = false;
+  var items = gmDocOutstandingItems();
+  if (items.length) { gmDocScrollTo(items[0].id); }
+}
+
+// A small quiet mark beside a blank: "Saving…", "Saved" or the field's own
+// error, in the page's own style (.gm-ok / .gm-warn / muted).
+function gmDocFieldMarkHtml(key) {
+  var s = gmDocFieldStatus[key];
+  if (!s) { return ""; }
+  if (s.saving) { return '<span class="muted" style="font-size:12px;">' + gmT("Salvando\u2026", "Saving…") + '</span>'; }
+  if (s.ok) { return '<span class="gm-ok" style="font-size:12px;">✓ ' + gmT("Salvo", "Saved") + '</span>'; }
+  return '<span class="gm-warn" style="font-size:12px;">' + escHtml(s.text) + '</span>';
+}
+function gmDocFieldMarkDraw(key) {
+  var el = document.getElementById("gmDocMark_" + key);
+  if (el) { el.innerHTML = gmDocFieldMarkHtml(key); }
+}
+
+// Saves exactly one field (or a small related group under one key, e.g. a
+// payment method or a preset) by itself. Builds the PUT body the same way
+// gmDocSettingsSave does for that one key, but never touches any other
+// field: an invalid value here is never sent, so it can never come back
+// from the server as an error for a DIFFERENT blank.
+function gmDocFieldSave(key, payload) {
+  gmDocFieldStatus[key] = { saving: true };
+  gmDocFieldMarkDraw(key);
+  return gmApi("doc-settings", { method: "PUT", body: payload })
+    .then(function(r) {
+      var prev = gmDocSettings || {};
+      gmDocSettings = r.settings || gmDocSettings;
+      ["has_logo", "has_hero", "prefill"].forEach(function(k) { if (gmDocSettings[k] === undefined && prev[k] !== undefined) { gmDocSettings[k] = prev[k]; } });
+      if (typeof referralSettings !== "undefined" && referralSettings) {
+        referralSettings.referral_bg_color = gmDocSettings.brand_primary || null;
+        referralSettings.referral_text_color = gmDocSettings.brand_accent || null;
+      }
+      var errs = r.field_errors || {};
+      var failedKeys = Object.keys(payload).filter(function(k) { return errs[k]; });
+      if (failedKeys.length) {
+        var first = errs[failedKeys[0]];
+        gmDocFieldStatus[key] = { ok: false, text: gmT(first.pt, first.en) };
+      } else {
+        gmDocFieldStatus[key] = { ok: true };
+        gmDocDraftClearStoredKey(key);
+      }
+      gmDocFieldMarkDraw(key);
+      gmDocRedrawSetupStatus();
+      return r;
+    })
+    .catch(function(e) {
+      gmDocFieldStatus[key] = { ok: false, text: e.message };
+      gmDocFieldMarkDraw(key);
+      throw e;
+    });
+}
+function gmDocRedrawSetupStatus() {
+  var el = document.getElementById("gmDocSetupStatus");
+  if (el) { el.innerHTML = gmDocSetupStatusHtml(); }
+  var star = document.getElementById("gmDocLicenseStar");
+  if (star) { star.hidden = !!(gmDocDraft && gmDocDraft.license_not_required); }
+  gmDocRepaintLicenses();
+}
+
+// The label plus, when the field saves on its own, a small "Saved" mark
+// beside it (the field's own key names its mark span).
+function gmDocField(id, labelPt, labelEn, inputHtml, markKey) {
+  return '<label class="gm-field-label" for="' + id + '">' + gmT(labelPt, labelEn) +
+    (markKey ? ' <span id="gmDocMark_' + markKey + '">' + gmDocFieldMarkHtml(markKey) + '</span>' : '') +
+    '</label>' + inputHtml;
 }
 
 function gmDocTextInput(id, key, value, extra) {
   return '<input type="text" id="' + id + '" class="gm-input" value="' + escHtml(value || "") + '" ' +
-    (extra || "") + ' oninput="gmDocDraftSet(\'' + key + '\', this.value)">';
+    (extra || "") + ' oninput="gmDocDraftSet(\'' + key + '\', this.value)" onblur="gmDocFieldBlur(\'' + key + '\')">';
 }
 
 // Running total of a preset's steps, to two decimals.
@@ -9622,7 +9800,8 @@ function gmDocSettingsFormHtml() {
     '<div class="card-title">' + gmT("Configurações dos documentos", "Document settings") + '</div>' +
     '<p class="muted" style="margin-bottom:12px;">' +
     gmT("O que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
-        "What appears on your estimates, invoices and receipts to your customers.") + '</p>';
+        "What appears on your estimates, invoices and receipts to your customers.") + '</p>' +
+    '<div id="gmDocSetupStatus">' + gmDocSetupStatusHtml() + '</div>';
 
   // ── Images ──
   html += '<div class="gm-sheet-section">' +
@@ -9649,12 +9828,12 @@ function gmDocSettingsFormHtml() {
   // ── Business ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Empresa", "Business") + '</p>' +
-    gmDocField("gmDocLegalName", "Razão social (nome legal)", "Legal business name", gmDocTextInput("gmDocLegalName", "legal_name", d.legal_name)) +
+    gmDocField("gmDocLegalName", "Razão social (nome legal)", "Legal business name", gmDocTextInput("gmDocLegalName", "legal_name", d.legal_name), "legal_name") +
     gmDocField("gmDocAddress", "Endereço", "Address",
-      '<textarea id="gmDocAddress" class="gm-input" rows="2" oninput="gmDocDraftSet(\'address\', this.value)">' + escHtml(d.address) + '</textarea>') +
-    gmDocField("gmDocPhone", "Telefone", "Phone", gmDocTextInput("gmDocPhone", "phone", d.phone, 'inputmode="tel"')) +
-    gmDocField("gmDocEmail", "Email", "Email", gmDocTextInput("gmDocEmail", "email", d.email, 'inputmode="email"')) +
-    '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn" id="gmDocLicenseStar"' + (d.license_not_required ? ' hidden' : '') + '>*</span></div>' +
+      '<textarea id="gmDocAddress" class="gm-input" rows="2" oninput="gmDocDraftSet(\'address\', this.value)" onblur="gmDocFieldBlur(\'address\')">' + escHtml(d.address) + '</textarea>', "address") +
+    gmDocField("gmDocPhone", "Telefone", "Phone", gmDocTextInput("gmDocPhone", "phone", d.phone, 'inputmode="tel"'), "phone") +
+    gmDocField("gmDocEmail", "Email", "Email", gmDocTextInput("gmDocEmail", "email", d.email, 'inputmode="email"'), "email") +
+    '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn" id="gmDocLicenseStar"' + (d.license_not_required ? ' hidden' : '') + '>*</span> <span id="gmDocMark_license_numbers">' + gmDocFieldMarkHtml("license_numbers") + '</span></div>' +
     '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
     '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
@@ -9665,7 +9844,8 @@ function gmDocSettingsFormHtml() {
   // ── Payment methods ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Formas de pagamento aceitas", "Accepted payment methods") +
-    ' <span class="gm-sheet-section-note">' + gmT("só as marcadas aparecem nos documentos", "only ticked ones print on documents") + '</span></p>';
+    ' <span class="gm-sheet-section-note">' + gmT("só as marcadas aparecem nos documentos", "only ticked ones print on documents") + '</span> ' +
+    '<span id="gmDocMark_payment_methods">' + gmDocFieldMarkHtml("payment_methods") + '</span></p>';
   // The Stripe connection is known before the boxes draw, so a connected
   // business sees Card / Stripe ticked without having to tick it first.
   if (!gmStripeStatus) { gmStripeLoad(false); }
@@ -9681,7 +9861,7 @@ function gmDocSettingsFormHtml() {
       if (m.on || stripeOn) { html += gmStripeBlockHtml(i, m, hint); }
     } else if (m.on && hint) {
       html += '<input type="text" class="gm-input" value="' + escHtml(m.detail) + '" placeholder="' + escHtml(hint) + '" ' +
-        'aria-label="' + escHtml(hint) + '" oninput="gmDocPmDetail(' + i + ', this.value)">';
+        'aria-label="' + escHtml(hint) + '" oninput="gmDocPmDetail(' + i + ', this.value)" onblur="gmDocPmDetailBlur(' + i + ')">';
     }
   });
   html += '</div>';
@@ -9690,7 +9870,7 @@ function gmDocSettingsFormHtml() {
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Prazos", "Terms") + '</p>' +
     gmDocField("gmDocValidDays", "Validade do orçamento (dias)", "Estimate valid for (days)",
-      gmDocTextInput("gmDocValidDays", "estimate_valid_days", d.estimate_valid_days, 'inputmode="numeric"')) +
+      gmDocTextInput("gmDocValidDays", "estimate_valid_days", d.estimate_valid_days, 'inputmode="numeric"'), "estimate_valid_days") +
     '<label class="gm-field-label" for="gmDocTerms">' + gmT("Prazo de pagamento padrão", "Default payment terms") + '</label>' +
     '<select id="gmDocTerms" class="gm-input" onchange="gmDocTermsMode(this.value)">' +
       GmLabels.DOC_TERMS_PRESETS.map(function(t) {
@@ -9700,14 +9880,15 @@ function gmDocSettingsFormHtml() {
       '<option value="custom"' + (d.terms_mode === "custom" ? " selected" : "") + '>' + gmT("Outro (dias)", "Custom (days)") + '</option>' +
     '</select>' +
     (d.terms_mode === "custom"
-      ? gmDocField("gmDocTermsDays", "Dias", "Days", gmDocTextInput("gmDocTermsDays", "default_terms_days", d.default_terms_days, 'inputmode="numeric"'))
+      ? gmDocField("gmDocTermsDays", "Dias", "Days", gmDocTextInput("gmDocTermsDays", "default_terms_days", d.default_terms_days, 'inputmode="numeric"'), "default_terms_days")
       : "") +
     '</div>';
 
   // ── Schedule presets ──
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Modelos de parcelamento", "Payment schedule presets") +
-    ' <span class="gm-sheet-section-note">' + gmT("as etapas precisam somar exatamente 100%", "steps must total exactly 100%") + '</span></p>' +
+    ' <span class="gm-sheet-section-note">' + gmT("as etapas precisam somar exatamente 100%", "steps must total exactly 100%") + '</span> ' +
+    '<span id="gmDocMark_schedule_presets">' + gmDocFieldMarkHtml("schedule_presets") + '</span></p>' +
     '<div id="gmDocPresets">' + gmDocPresetsHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddPreset()">' + gmT("+ Novo modelo", "+ New preset") + '</button>' +
     '</div>';
@@ -9723,12 +9904,12 @@ function gmDocSettingsFormHtml() {
       gmT("Margem mínima: defina em Projetos (margem alvo); o assistente avisa quando um orçamento fica abaixo dela.",
           "Minimum margin: set it on Projects (target margin); the builder warns when an estimate falls below it.")) + '</p>' +
     gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
-      gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"')) +
+      gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"'), "late_fee_annual_pct") +
     '<p class="muted" id="gmDocLateFeeNote" style="margin:-4px 0 10px;">' +
       (Number(d.late_fee_annual_pct) > 18 ? '<span class="gm-warn">' + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) + '</span>'
                                           : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN)) + '</p>' +
     gmDocField("gmDocGrace", "Dias de carência", "Grace days",
-      gmDocTextInput("gmDocGrace", "late_fee_grace_days", d.late_fee_grace_days, 'inputmode="numeric"')) +
+      gmDocTextInput("gmDocGrace", "late_fee_grace_days", d.late_fee_grace_days, 'inputmode="numeric"'), "late_fee_grace_days") +
     '</div>';
 
   // ── Sales tax notice (fixed) ──
@@ -9760,12 +9941,13 @@ function gmDocSettingsFormHtml() {
 function gmDocColorField(key, labelPt, labelEn, value) {
   var hex = gmDocHexOk(value) ? value.toLowerCase() : "";
   var textOn = hex ? gmDocTextOn(hex) : "#ffffff";
-  return '<label class="gm-field-label" for="gmDocHex_' + key + '">' + gmT(labelPt, labelEn) + '</label>' +
+  return '<label class="gm-field-label" for="gmDocHex_' + key + '">' + gmT(labelPt, labelEn) +
+      ' <span id="gmDocMark_' + key + '">' + gmDocFieldMarkHtml(key) + '</span></label>' +
     '<div class="gm-cost-line">' +
       '<input type="color" class="gm-input gm-doc-color-pick" id="gmDocPick_' + key + '" value="' + escHtml(hex || "#2b2f36") + '" ' +
         'aria-label="' + gmT(labelPt, labelEn) + '" oninput="gmDocColorSet(\'' + key + '\', this.value, \'pick\')">' +
       '<input type="text" class="gm-input gm-cost-label" id="gmDocHex_' + key + '" value="' + escHtml(hex) + '" placeholder="#1f2a44" maxlength="7" ' +
-        'aria-label="' + gmT(labelPt, labelEn) + ' (hex)" oninput="gmDocColorSet(\'' + key + '\', this.value, \'hex\')">' +
+        'aria-label="' + gmT(labelPt, labelEn) + ' (hex)" oninput="gmDocColorSet(\'' + key + '\', this.value, \'hex\')" onblur="gmDocFieldBlur(\'' + key + '\')">' +
       '<span class="gm-doc-color-swatch" id="gmDocSwatch_' + key + '" style="background:' + escHtml(hex || "#2b2f36") + ';color:' + textOn + ';">Aa</span>' +
     '</div>' +
     '<p class="muted gm-doc-color-note" id="gmDocColorNote_' + key + '" style="margin:-4px 0 10px;">' +
@@ -9801,6 +9983,7 @@ function gmDocColorSet(key, value, from) {
   if (!gmDocDraft) { return; }
   var v = String(value || "").trim();
   gmDocDraft[key] = v;
+  gmDocDraftSaveStored();
   var pick = document.getElementById("gmDocPick_" + key);
   var hexEl = document.getElementById("gmDocHex_" + key);
   var swatch = document.getElementById("gmDocSwatch_" + key);
@@ -9814,6 +9997,9 @@ function gmDocColorSet(key, value, from) {
       ? '<span class="gm-warn">' + gmT("Use 6 dígitos hex, ex.: #1F2A44", "Use a 6-digit hex value, e.g. #1F2A44") + '</span>'
       : gmT("Em branco = cinza escuro e branco (padrão neutro).", "Blank = dark gray and white (neutral default).");
   }
+  // The color picker has no blur a user notices (one click, done): save
+  // right away for "pick"; the hex text field saves on its own blur.
+  if (from === "pick") { gmDocFieldBlur(key); }
 }
 
 function gmDocSaveMsgHtml() {
@@ -9827,7 +10013,7 @@ function gmDocLicensesHtml() {
   d.licenses.forEach(function(v, i) {
     h += '<div class="gm-cost-line">' +
       '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="CPC1234567" ' +
-        'aria-label="' + gmT("Número de licença", "License number") + '" oninput="gmDocLicenseSet(' + i + ', this.value)">' +
+        'aria-label="' + gmT("Número de licença", "License number") + '" oninput="gmDocLicenseSet(' + i + ', this.value)" onblur="gmDocLicensesBlur()">' +
       (d.licenses.length > 1
         ? '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDocRemoveLicense(' + i + ')">&times;</button>'
         : "") +
@@ -9864,6 +10050,26 @@ function gmDocLicenseNotRequiredSet(on) {
   if (star) { star.hidden = !!on; }
   var stated = document.getElementById("gmDocLicenseNotRequiredStated");
   if (stated) { stated.hidden = !on || !gmDocLicenseNotRequiredStatedText(gmDocSettings); }
+  gmDocLicenseNotRequiredSave();
+}
+// A choice, not typing: saves the moment it is ticked or unticked. If the
+// Worker refuses it (removing the only license answer a business already
+// has), the box visually reverts to what is actually saved and the message
+// shows beside the licenses, exactly as the Worker reported it.
+function gmDocLicenseNotRequiredSave() {
+  gmDocFieldSave("license_not_required", { license_not_required: !!gmDocDraft.license_not_required })
+    .then(function(r) {
+      var errs = (r && r.field_errors) || {};
+      if (errs.license_not_required) {
+        // Refused: keep the saved answer (licenses unaffected either way).
+        gmDocDraft.license_not_required = gmDocSettings.license_not_required === true;
+        var box = document.getElementById("gmDocLicenseNotRequired");
+        if (box) { box.checked = gmDocDraft.license_not_required; }
+      }
+      gmDocRepaintLicenses();
+      gmDocRedrawSetupStatus();
+    })
+    .catch(function(e) { console.error("doc-settings license_not_required save: " + e.message); });
 }
 
 function gmDocPresetsHtml() {
@@ -9910,9 +10116,17 @@ function gmDocRepaintLicenses() {
   if (el) { el.innerHTML = gmDocLicensesHtml(); }
 }
 
+// Scalar fields that save on their own (blur) and are kept in the on-device
+// draft until the server has them. Everything else (licenses, payment
+// methods, presets) has its own add/remove/toggle below, each saving right
+// away since there is no mid-typing value to lose for a toggle or a click.
+var GM_DOC_SCALAR_FIELDS = ["brand_primary", "brand_accent", "legal_name", "address", "phone", "email",
+  "google_review_link", "late_fee_annual_pct", "late_fee_grace_days", "estimate_valid_days", "default_terms_days"];
+
 function gmDocDraftSet(key, value) {
   if (!gmDocDraft) { return; }
   gmDocDraft[key] = value;
+  gmDocDraftSaveStored();
   if (key === "late_fee_annual_pct") {
     var note = document.getElementById("gmDocLateFeeNote");
     if (note) {
@@ -9922,19 +10136,111 @@ function gmDocDraftSet(key, value) {
     }
   }
 }
+// Builds the one-field PUT payload for a scalar key, in the same shape
+// gmDocSettingsSave uses for it. Returns null when the value is invalid
+// (never sent) alongside setting the field's own message.
+function gmDocScalarFieldPayload(key) {
+  var d = gmDocDraft;
+  if (key === "brand_primary" || key === "brand_accent") {
+    var v = String(d[key] || "").trim();
+    if (v && !gmDocHexOk(v)) {
+      gmDocFieldStatus[key] = { ok: false, text: gmT("Use 6 d\u00edgitos hex, ex.: #1F2A44.", "Use a 6-digit hex value, e.g. #1F2A44.") };
+      return null;
+    }
+    var p = {}; p[key] = v ? v.toLowerCase() : null; return p;
+  }
+  if (key === "legal_name" || key === "address" || key === "phone" || key === "email") {
+    var p2 = {}; p2[key] = String(d[key] || "").trim() || null; return p2;
+  }
+  if (key === "google_review_link") {
+    if (!gmReviewLinkOk(d.google_review_link)) {
+      gmDocFieldStatus[key] = { ok: false, text: gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN) };
+      var errEl = document.getElementById("gmDocReviewLinkErr");
+      if (errEl) { errEl.hidden = false; }
+      return null;
+    }
+    var errEl2 = document.getElementById("gmDocReviewLinkErr");
+    if (errEl2) { errEl2.hidden = true; }
+    return { google_review_link: String(d.google_review_link || "").trim() || null };
+  }
+  if (key === "late_fee_annual_pct") {
+    if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
+      gmDocFieldStatus[key] = { ok: false, text: gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) };
+      return null;
+    }
+    return { late_fee_annual_pct: d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct) };
+  }
+  if (key === "late_fee_grace_days") {
+    return { late_fee_grace_days: d.late_fee_grace_days === "" ? null : Number(d.late_fee_grace_days) };
+  }
+  if (key === "estimate_valid_days") {
+    return { estimate_valid_days: Number(d.estimate_valid_days) || 30 };
+  }
+  if (key === "default_terms_days") {
+    return { default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode) };
+  }
+  return null;
+}
+// The blur handler every scalar field's input/textarea calls. Saves only
+// when the value actually changed since the last load, and only when it is
+// valid; an empty blank is simply left unfinished (nothing sent, nothing
+// shown as saved).
+var gmDocLastSavedScalar = {};
+function gmDocFieldBlur(key) {
+  if (!gmDocDraft) { return; }
+  var cur = JSON.stringify(gmDocDraft[key]);
+  if (gmDocLastSavedScalar[key] === cur) { return; }
+  var payload = gmDocScalarFieldPayload(key);
+  if (!payload) { gmDocFieldMarkDraw(key); return; }
+  gmDocLastSavedScalar[key] = cur;
+  gmDocFieldSave(key, payload).catch(function(e) { console.error("doc-settings field save: " + e.message); });
+}
 function gmDocTermsMode(v) {
   if (!gmDocDraft) { return; }
   gmDocDraft.terms_mode = v;
   if (v !== "custom") { gmDocDraft.default_terms_days = v; }
+  gmDocDraftSaveStored();
   gmRenderEstimatesTab();
+  if (v !== "custom") { gmDocFieldBlur("default_terms_days"); }
 }
-function gmDocLicenseSet(i, v) { if (gmDocDraft && gmDocDraft.licenses[i] !== undefined) { gmDocDraft.licenses[i] = v; } }
+function gmDocLicenseSet(i, v) { if (gmDocDraft && gmDocDraft.licenses[i] !== undefined) { gmDocDraft.licenses[i] = v; gmDocDraftSaveStored(); } }
+// Licenses save as a group right on blur (same "no license wall" rule the
+// Worker enforces): an empty row is simply dropped, never a reason to
+// refuse the others.
+function gmDocLicensesBlur() {
+  if (!gmDocDraft) { return; }
+  var licenses = gmDocDraft.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
+  var cur = JSON.stringify(licenses);
+  if (gmDocLastSavedScalar.license_numbers === cur) { return; }
+  gmDocLastSavedScalar.license_numbers = cur;
+  gmDocFieldSave("license_numbers", { license_numbers: licenses })
+    .catch(function(e) { console.error("doc-settings license save: " + e.message); });
+}
 function gmDocAddLicense() { if (gmDocDraft) { gmDocDraft.licenses.push(""); gmDocRepaintLicenses(); } }
-function gmDocRemoveLicense(i) { if (gmDocDraft && gmDocDraft.licenses.length > 1) { gmDocDraft.licenses.splice(i, 1); gmDocRepaintLicenses(); } }
+function gmDocRemoveLicense(i) {
+  if (!gmDocDraft || gmDocDraft.licenses.length <= 1) { return; }
+  gmDocDraft.licenses.splice(i, 1);
+  gmDocRepaintLicenses();
+  gmDocLicensesBlur();
+}
 function gmDocPmToggle(i, on) {
   if (!gmDocDraft || !gmDocDraft.payment_methods[i]) { return; }
   gmDocDraft.payment_methods[i].on = !!on;
   gmRenderEstimatesTab();
+  gmDocPaymentMethodsSave();
+}
+// Payment methods save as one group on every toggle or detail blur.
+function gmDocPaymentMethodsSave() {
+  var pm = {};
+  gmDocDraft.payment_methods.forEach(function(m) {
+    var stripeOn = m.key === "card_link" && gmStripeStatus && gmStripeStatus.connected;
+    if (m.on || stripeOn) { pm[m.key] = stripeOn ? "" : (m.detail || "").trim(); }
+  });
+  var cur = JSON.stringify(pm);
+  if (gmDocLastSavedScalar.payment_methods === cur) { return; }
+  gmDocLastSavedScalar.payment_methods = cur;
+  gmDocFieldSave("payment_methods", { payment_methods: pm })
+    .catch(function(e) { console.error("doc-settings payment methods save: " + e.message); });
 }
 // ── Card payments: the business's own Stripe account (Stripe Connect) ──
 var gmStripeStatus = null;      // { available, connected, charges_enabled, details_submitted }
@@ -10030,15 +10336,16 @@ function gmStripeDisconnectDo() {
   gmApi("stripe/disconnect", { method: "POST", body: {} }).then(function() { gmStripeLoad(true); })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
-function gmDocPmDetail(i, v) { if (gmDocDraft && gmDocDraft.payment_methods[i]) { gmDocDraft.payment_methods[i].detail = v; } }
-function gmDocPresetSet(pi, v) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].name = v; } }
+function gmDocPmDetail(i, v) { if (gmDocDraft && gmDocDraft.payment_methods[i]) { gmDocDraft.payment_methods[i].detail = v; gmDocDraftSaveStored(); } }
+function gmDocPresetSet(pi, v) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].name = v; gmDocDraftSaveStored(); } }
 function gmDocAddPreset() { if (gmDocDraft) { gmDocDraft.presets.push({ name: "", steps: [] }); gmDocRepaintPresets(); } }
-function gmDocRemovePreset(pi) { if (gmDocDraft) { gmDocDraft.presets.splice(pi, 1); gmDocRepaintPresets(); } }
+function gmDocRemovePreset(pi) { if (gmDocDraft) { gmDocDraft.presets.splice(pi, 1); gmDocRepaintPresets(); gmDocPresetsBlur(); } }
 function gmDocAddStep(pi) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].steps.push({ label: "", pct: "" }); gmDocRepaintPresets(); } }
-function gmDocRemoveStep(pi, si) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].steps.splice(si, 1); gmDocRepaintPresets(); } }
+function gmDocRemoveStep(pi, si) { if (gmDocDraft && gmDocDraft.presets[pi]) { gmDocDraft.presets[pi].steps.splice(si, 1); gmDocRepaintPresets(); gmDocPresetsBlur(); } }
 function gmDocStepSet(pi, si, key, v) {
   if (!gmDocDraft || !gmDocDraft.presets[pi] || !gmDocDraft.presets[pi].steps[si]) { return; }
   gmDocDraft.presets[pi].steps[si][key] = v;
+  gmDocDraftSaveStored();
   // Only the footer totals repaint as they type; re-rendering the inputs
   // would move the caret (same rule as the price-list cost lines).
   var box = document.getElementById("gmDocPresets");
@@ -10053,6 +10360,36 @@ function gmDocStepSet(pi, si, key, v) {
       : gmT("Sem etapas: definidas em cada orçamento", "No steps: set on each estimate");
   }
 }
+// A preset with no name, or with steps that do not total exactly 100%, is
+// not sent: it is kept on screen exactly as typed, with its own message,
+// while every other preset still saves. "Add preset" / "add step" do not
+// themselves save (there is nothing valid yet); every blank in a preset
+// row calls this on blur.
+function gmDocPresetsBlur() {
+  if (!gmDocDraft) { return; }
+  var bad = [];
+  var good = [];
+  gmDocDraft.presets.forEach(function(p, pi) {
+    var name = String(p.name || "").trim();
+    if (!name) { bad.push(pi); return; }
+    if (!gmDocStepsOk(p.steps)) { bad.push(pi); return; }
+    good.push({ name: name, steps: p.steps.map(function(st) { return { label: st.label.trim(), pct: Number(st.pct) }; }) });
+  });
+  var cur = JSON.stringify(good);
+  var statusKey = "schedule_presets";
+  if (bad.length) {
+    gmDocFieldStatus[statusKey] = { ok: false, text: gmT("Todo modelo precisa de um nome, e as etapas somarem 100%.", "Every preset needs a name, with its steps totalling 100%.") };
+    gmDocFieldMarkDraw(statusKey);
+  }
+  if (gmDocLastSavedScalar[statusKey] === cur) { return; }
+  gmDocLastSavedScalar[statusKey] = cur;
+  gmDocFieldSave(statusKey, { schedule_presets: good })
+    .then(function() { if (!bad.length) { gmDocFieldStatus[statusKey] = { ok: true }; gmDocFieldMarkDraw(statusKey); } })
+    .catch(function(e) { console.error("doc-settings presets save: " + e.message); });
+}
+function gmDocPmDetailBlur(i) {
+  gmDocPaymentMethodsSave();
+}
 
 function gmDocShowMsg(ok, text) {
   gmDocSaveMsg = { ok: ok, text: text };
@@ -10061,67 +10398,80 @@ function gmDocShowMsg(ok, text) {
   if (!ok) { console.error("doc-settings: " + text); }
 }
 
+// The Save button saves everything outstanding at once. Nothing a person
+// typed is ever thrown away because a different blank is empty or wrong:
+// every blank with a valid value is sent; a blank that is empty is simply
+// left unfinished; a blank whose value is invalid is left out of the
+// payload (kept on screen exactly as typed) and reported beside itself,
+// without stopping the rest from saving. The Worker checks every field
+// again and is the one source of truth for what actually saved.
 function gmDocSettingsSave() {
   var d = gmDocDraft;
   if (!d) { return; }
-  var licenses = d.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
-  // Job 40: a license number OR the owner's tick. The Worker checks it again.
-  if (!licenses.length && !d.license_not_required) {
-    gmDocShowMsg(false, gmT(GM_DOC_LNR_NEEDED_PT, GM_DOC_LNR_NEEDED_EN));
-    return;
-  }
-  if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
-    gmDocShowMsg(false, gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN));
-    return;
-  }
-  if ((d.brand_primary && !gmDocHexOk(d.brand_primary)) || (d.brand_accent && !gmDocHexOk(d.brand_accent))) {
-    gmDocShowMsg(false, gmT("As cores precisam ter 6 dígitos hex, ex.: #1F2A44.", "Colors must be a 6-digit hex value, e.g. #1F2A44."));
-    return;
-  }
-  // Job 37: a review link that is not a Google https address is refused here
-  // and again by the Worker; nothing is saved.
+  var payload = {};
+  var skipped = []; // [{ key, text }] for the fields left out here
+
   var reviewErr = document.getElementById("gmDocReviewLinkErr");
-  if (!gmReviewLinkOk(d.google_review_link)) {
+  if (gmReviewLinkOk(d.google_review_link)) {
+    if (reviewErr) { reviewErr.hidden = true; }
+    payload.google_review_link = String(d.google_review_link || "").trim() || null;
+  } else {
     if (reviewErr) { reviewErr.hidden = false; }
-    gmDocShowMsg(false, gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN));
-    return;
+    skipped.push({ key: "google_review_link", text: gmT(GM_REVIEW_LINK_BAD_PT, GM_REVIEW_LINK_BAD_EN) });
   }
-  if (reviewErr) { reviewErr.hidden = true; }
-  for (var i = 0; i < d.presets.length; i++) {
-    if (!String(d.presets[i].name || "").trim()) {
-      gmDocShowMsg(false, gmT("Todo modelo de parcelamento precisa de um nome.", "Every schedule preset needs a name."));
-      return;
-    }
-    if (!gmDocStepsOk(d.presets[i].steps)) {
-      gmDocShowMsg(false, gmT("As etapas de \"" + d.presets[i].name + "\" precisam somar exatamente 100%.",
-                              "The steps of \"" + d.presets[i].name + "\" must total exactly 100%."));
-      return;
-    }
+
+  if (d.brand_primary && !gmDocHexOk(d.brand_primary)) {
+    skipped.push({ key: "brand_primary", text: gmT("As cores precisam ter 6 dígitos hex, ex.: #1F2A44.", "Colors must be a 6-digit hex value, e.g. #1F2A44.") });
+  } else {
+    payload.brand_primary = d.brand_primary ? d.brand_primary.toLowerCase() : null;
   }
+  if (d.brand_accent && !gmDocHexOk(d.brand_accent)) {
+    skipped.push({ key: "brand_accent", text: gmT("As cores precisam ter 6 dígitos hex, ex.: #1F2A44.", "Colors must be a 6-digit hex value, e.g. #1F2A44.") });
+  } else {
+    payload.brand_accent = d.brand_accent ? d.brand_accent.toLowerCase() : null;
+  }
+
+  payload.legal_name = d.legal_name.trim() || null;
+  payload.address = d.address.trim() || null;
+  payload.phone = d.phone.trim() || null;
+  payload.email = d.email.trim() || null;
+
+  // Job 40: a license number OR the owner's tick is no longer a wall on
+  // this save -- an empty license answer simply stays unfinished, and
+  // everything else below still saves.
+  var licenses = d.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
+  payload.license_numbers = licenses;
+  payload.license_not_required = !!d.license_not_required;
+
+  payload.estimate_valid_days = Number(d.estimate_valid_days) || 30;
+  payload.default_terms_days = d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode);
+
   var pm = {};
   d.payment_methods.forEach(function(m) {
     var stripeOn = m.key === "card_link" && gmStripeStatus && gmStripeStatus.connected;
     if (m.on || stripeOn) { pm[m.key] = stripeOn ? "" : (m.detail || "").trim(); }
   });
-  var payload = {
-    brand_primary: d.brand_primary ? d.brand_primary.toLowerCase() : null,
-    brand_accent:  d.brand_accent  ? d.brand_accent.toLowerCase()  : null,
-    legal_name: d.legal_name.trim() || null,
-    address: d.address.trim() || null,
-    phone: d.phone.trim() || null,
-    email: d.email.trim() || null,
-    google_review_link: String(d.google_review_link || "").trim() || null,
-    license_numbers: licenses,
-    license_not_required: !!d.license_not_required,
-    estimate_valid_days: Number(d.estimate_valid_days) || 30,
-    default_terms_days: d.terms_mode === "custom" ? (Number(d.default_terms_days) || 0) : Number(d.terms_mode),
-    payment_methods: pm,
-    late_fee_annual_pct: d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct),
-    late_fee_grace_days: d.late_fee_grace_days === "" ? null : Number(d.late_fee_grace_days),
-    schedule_presets: d.presets.map(function(p) {
-      return { name: p.name.trim(), steps: p.steps.map(function(st) { return { label: st.label.trim(), pct: Number(st.pct) }; }) };
-    })
-  };
+  payload.payment_methods = pm;
+
+  if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
+    skipped.push({ key: "late_fee_annual_pct", text: gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) });
+  } else {
+    payload.late_fee_annual_pct = d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct);
+  }
+  payload.late_fee_grace_days = d.late_fee_grace_days === "" ? null : Number(d.late_fee_grace_days);
+
+  var goodPresets = [], badPresetNames = [];
+  d.presets.forEach(function(p) {
+    var name = String(p.name || "").trim();
+    if (!name || !gmDocStepsOk(p.steps)) { badPresetNames.push(name || gmT("(sem nome)", "(no name)")); return; }
+    goodPresets.push({ name: name, steps: p.steps.map(function(st) { return { label: st.label.trim(), pct: Number(st.pct) }; }) });
+  });
+  payload.schedule_presets = goodPresets;
+  if (badPresetNames.length) {
+    skipped.push({ key: "schedule_presets", text: gmT("Todo modelo precisa de um nome, e as etapas somarem 100%: " + badPresetNames.join(", "),
+                                                        "Every preset needs a name, with its steps totalling 100%: " + badPresetNames.join(", ")) });
+  }
+
   var btn = document.getElementById("gmDocSaveBtn");
   if (btn) { btn.disabled = true; }
   gmApi("doc-settings", { method: "PUT", body: payload })
@@ -10136,10 +10486,36 @@ function gmDocSettingsSave() {
         referralSettings.referral_bg_color = gmDocSettings.brand_primary || null;
         referralSettings.referral_text_color = gmDocSettings.brand_accent || null;
       }
+      if (btn) { btn.disabled = false; }
+      // The server's own field_errors (e.g. removing the only license
+      // answer a business already has) join whatever was skipped here.
+      // Nothing a person typed is thrown away: the draft is rebuilt from
+      // the now-saved settings, then every field that did NOT save (here
+      // or on the server) gets its typed value put straight back, so the
+      // blank still shows exactly what the person left in it.
+      var errs = r.field_errors || {};
+      var allBad = skipped.slice();
+      Object.keys(errs).forEach(function(k) {
+        if (!skipped.some(function(it) { return it.key === k; })) { allBad.push({ key: k, text: gmT(errs[k].pt, errs[k].en) }); }
+      });
+      var beforeDraft = d;
       gmDocDraftFromSettings();
-      gmDocSaveMsg = { ok: true, text: gmT("Configurações salvas.", "Settings saved.") };
+      allBad.forEach(function(it) {
+        if (Object.prototype.hasOwnProperty.call(beforeDraft, it.key)) { gmDocDraft[it.key] = beforeDraft[it.key]; }
+        if (it.key === "license_numbers") { gmDocDraft.licenses = beforeDraft.licenses; }
+        if (it.key === "license_not_required") { gmDocDraft.license_not_required = beforeDraft.license_not_required; }
+        if (it.key === "schedule_presets") { gmDocDraft.presets = beforeDraft.presets; }
+        gmDocFieldStatus[it.key] = { ok: false, text: it.text };
+      });
+      if (!allBad.length) {
+        gmDocSaveMsg = { ok: true, text: gmT("Configurações salvas.", "Settings saved.") };
+      } else {
+        gmDocSaveMsg = { ok: false, text: gmT(
+          "Salvo, exceto: " + allBad.map(function(it) { return it.text; }).join(" "),
+          "Saved, except: " + allBad.map(function(it) { return it.text; }).join(" ")) };
+      }
       gmRenderEstimatesTab();
-      gmToast(gmT("Configurações salvas", "Settings saved"));
+      gmToast(allBad.length ? gmT("Configura\u00e7\u00f5es salvas (com pend\u00eancias)", "Settings saved (with issues)") : gmT("Configurações salvas", "Settings saved"));
     })
     .catch(function(e) {
       if (btn) { btn.disabled = false; }

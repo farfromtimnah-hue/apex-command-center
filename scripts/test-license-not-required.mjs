@@ -77,15 +77,19 @@ function world(opts) {
 }
 
 // ── 1. the rule on a first save
+// Document settings save (2026-10-09): the license answer is no longer a
+// wall on saving. With no license number and the box not ticked, the save
+// still stores everything else; setup_completed_at stays null until the
+// answer is satisfied.
 {
   user = OWNER;
   const w = world();
   let r = await w.put({ legal_name: "Zeta Floors LLC", license_numbers: [] });
-  ok(r.status === 400 && r.error_en === NEEDED_EN && r.error_pt === NEEDED_PT && w.row() === null, "refused with neither a number nor the box, with the exact message in both languages, and nothing saved");
-  r = await w.put({ legal_name: "Zeta Floors LLC", license_numbers: [], license_not_required: false });
-  ok(r.status === 400 && r.error_en === NEEDED_EN && w.row() === null, "refused with no number and the box sent unticked");
-  r = await w.put({ legal_name: "Zeta Floors LLC", license_numbers: ["  "], license_not_required: 0 });
-  ok(r.status === 400 && w.row() === null, "a blank license number does not count as a number");
+  ok(r.status === 200 && !r.data.field_errors.license_numbers && w.row().legal_name === "Zeta Floors LLC" && r.data.setup_completed === false && w.row().setup_completed_at === null, "neither a number nor the box: still saves the legal name; setup stays incomplete");
+  r = await w.put({ legal_name: "Zeta Floors LLC v2", license_numbers: [], license_not_required: false });
+  ok(r.status === 200 && w.row().legal_name === "Zeta Floors LLC v2" && w.row().setup_completed_at === null, "no number and the box sent unticked: still saves, setup still incomplete");
+  r = await w.put({ legal_name: "Zeta Floors LLC v3", license_numbers: ["  "], license_not_required: 0 });
+  ok(r.status === 200 && w.row().legal_name === "Zeta Floors LLC v3" && w.row().setup_completed_at === null, "a blank license number does not count as a number, but the rest of the save still lands");
   r = await w.put({ brand_primary: "#1f2a44" });
   ok(r.status === 200 && r.data.setup_completed === false && w.row().setup_completed_at === null, "a save that touches neither one (a color) still works and does not complete setup");
 }
@@ -119,8 +123,11 @@ function world(opts) {
   r = await w.put({ license_numbers: [], license_not_required: true, phone: "4075550100" });
   ok(r.status === 200 && w.hist("license_not_required").length === 1 && w.row().license_not_required_at === row.license_not_required_at, "saving again with the box still ticked keeps the first who and when and adds no history line");
 
+  // The ONE protection that stays: unticking the only license answer a
+  // business already has (no number to replace it) is refused for those
+  // two fields alone, now via field_errors (status 200), not a whole-save 400.
   r = await w.put({ license_numbers: [], license_not_required: false });
-  ok(r.status === 400 && r.error_en === NEEDED_EN && w.row().license_not_required === 1, "unticking with no number on file is refused and nothing changes");
+  ok(r.status === 200 && !!r.data.field_errors.license_not_required && r.data.field_errors.license_not_required.en === NEEDED_EN && w.row().license_not_required === 1, "unticking with no number on file is refused for that field; nothing about the license answer changes");
 
   r = await w.put({ license_numbers: ["CFC000111"], license_not_required: false });
   row = w.row();
@@ -180,13 +187,13 @@ function world(opts) {
   let r = await w.put({ phone: "4075550100", license_numbers: ["CPC123"], license_not_required: false });
   ok(r.status === 200 && w.row().phone === "4075550100", "no columns: an ordinary save (box unticked, as the page sends it) works");
   r = await w.put({ phone: "4075550199", license_not_required: true });
-  ok(r.status === 503 && /cannot be saved yet/.test(r.error_en) && !/SQL|column|no such/i.test(r.error_en + r.error_pt) && w.row().phone === "4075550100", "no columns: ticking the box is refused with a plain message and nothing is saved");
+  ok(r.status === 200 && !!r.data.field_errors.license_not_required && /cannot be saved yet/.test(r.data.field_errors.license_not_required.en) && !/SQL|column|no such/i.test(r.data.field_errors.license_not_required.en + r.data.field_errors.license_not_required.pt) && w.row().phone === "4075550199", "no columns: ticking the box is refused with a plain field message, but the OTHER field (phone) in the same save still writes");
   ok((await w.startEstimate()).error === "REACHED_PARSER", "no columns: a business with a number still starts an estimate");
   const w2 = world({ migrated: false });
   r = await w2.put({ legal_name: "New LLC", license_numbers: ["CGC1"] });
   ok(r.status === 200 && r.data.setup_completed === true, "no columns: a first save with a number completes setup as today");
   r = await world({ migrated: false }).put({ legal_name: "New LLC", license_numbers: [] });
-  ok(r.status === 400 && r.error_en === NEEDED_EN, "no columns: a first save with no number is refused with the same message");
+  ok(r.status === 200 && !r.data.field_errors.license_numbers && r.data.setup_completed === false, "no columns: a first save with no number still saves the legal name; setup stays incomplete");
 }
 
 // ── 6. a business that already completed setup with a number is not affected
@@ -304,8 +311,13 @@ PAGES.forEach(function (rel) {
   const has = (s) => src.indexOf(s) !== -1;
   ok(has('var GM_DOC_LNR_LABEL_EN = "My work does not require a state contractor license.";') && has('var GM_DOC_LNR_LABEL_PT = "O meu trabalho n\\u00e3o exige licen\\u00e7a estadual de contractor.";'), name + ": the tick box label, both languages");
   ok(has("Tick this only if none of the work you quote needs a state license. Structural changes, electrical, plumbing, air conditioning, roofing and pools do. If you are not sure, ask your state's contractor licensing agency before you tick it."), name + ": the small text, English, word for word");
-  ok(has('var GM_DOC_LNR_NEEDED_EN = "' + NEEDED_EN + '";'), name + ": the refusal message matches the Worker's");
-  ok(has("if (!licenses.length && !d.license_not_required) {") && has("license_not_required: !!d.license_not_required,"), name + ": the save check accepts the tick and sends it");
+  // Document settings save (2026-10-09): the license answer is no longer a
+  // wall on the Save button -- an empty answer simply stays unfinished and
+  // the rest of the save still goes out. The tick is still sent as its own
+  // field, and the Worker's own message (now field-level) is still quoted
+  // in the page's fallback text.
+  ok(has("payload.license_not_required = !!d.license_not_required;"), name + ": the Save button always sends the tick, whatever it is");
+  ok(has("gmDocFieldSave(\"license_not_required\", { license_not_required: !!gmDocDraft.license_not_required })"), name + ": the tick also saves on its own, right when it is clicked");
   const formAt = src.indexOf('gmT("+ Adicionar licen\u00e7a", "+ Add license")');
   ok(formAt !== -1 && src.slice(formAt, formAt + 120).indexOf("gmDocLicenseNotRequiredHtml(d, st)") !== -1, name + ": the box sits directly under the '+ Add license' button");
   ok(has('var GM_DOC_LICENSE_HELP_EN = "Florida law (\u00a7489.119) requires your license number on every bid and contract.";') && has('gmT("N\u00famero(s) de licen\u00e7a", "License number(s)")'), name + ": the existing label and help sentence are untouched");

@@ -238,9 +238,13 @@ ok(M("en", "   ", "Zeta", L).indexOf("Hi, thank") === 0, "a first name of only s
   const s = await put({ google_review_link: L });
   ok(s.status === 403 && saved() === null, "a salesperson's attempt to save the link is refused by the Worker");
   user = OWNER;
+  // Document settings save (2026-10-09): nothing a person typed is thrown
+  // away because a different blank is invalid. A bad review link is left
+  // out of the save (its own field_errors entry, 200) while every other
+  // field in the same PUT still writes.
   for (const badLink of ["http://g.page/r/x/review", "https://google.com.evil.com/x", "javascript:alert(1)"]) {
     const r = await put({ legal_name: "Changed Name", google_review_link: badLink });
-    ok(r.status === 400 && !!r.error_pt && !!r.error_en && saved() === null && w.d.q("SELECT legal_name FROM gm_doc_settings")[0].legal_name === "Zeta Pools LLC", "refused, in both languages, and NOTHING is saved (not even the other fields): " + badLink);
+    ok(r.status === 200 && !!r.data.field_errors.google_review_link && saved() === null && w.d.q("SELECT legal_name FROM gm_doc_settings")[0].legal_name === "Changed Name", "the link is refused with its own field_errors entry; the OTHER field in the same save still writes: " + badLink);
   }
   const good = await put({ google_review_link: "  " + L + " " });
   ok(good.status === 200 && saved() === L && good.data.settings.google_review_link === L, "the owner saves a good link (trimmed)");
@@ -257,7 +261,7 @@ ok(M("en", "   ", "Zeta", L).indexOf("Hi, thank") === 0, "a first name of only s
   const a = await w.F.handlePutGmDocSettings("c1", req({ legal_name: "New Legal Name", google_review_link: null }), w.env);
   ok(a.status === 200 && w.d.q("SELECT legal_name FROM gm_doc_settings")[0].legal_name === "New Legal Name", "missing column: the settings screen still saves the other fields");
   const b = await w.F.handlePutGmDocSettings("c1", req({ legal_name: "Third Name", google_review_link: L }), w.env);
-  ok(b.status === 503 && !!b.error_pt && w.d.q("SELECT legal_name FROM gm_doc_settings")[0].legal_name === "New Legal Name", "missing column: a real link is refused with a plain message and nothing is saved");
+  ok(b.status === 200 && !!b.data.field_errors.google_review_link && b.data.field_errors.google_review_link.pt && w.d.q("SELECT legal_name FROM gm_doc_settings")[0].legal_name === "Third Name", "missing column: the link is refused with its own field message, but the OTHER field (legal_name) in the same save still writes");
 }
 
 // ── the route lists

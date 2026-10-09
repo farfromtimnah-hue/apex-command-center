@@ -36615,31 +36615,35 @@ async function orphansWithLinks(env, rowIds) {
     return out;
 }
 
-// TEMPORARY (2026-10-08). Developer only. Asks Plaid to refresh the business
-// bank link once and answers with Plaid's own status and error code, nothing
-// else: no token, no account data. Remove after the answer is known.
-async function handlePostPlaidRefreshProbe(request, env) {
+// Asks Plaid to go to the bank NOW for every linked bank, instead of waiting
+// for Plaid's own schedule. Why it exists (measured 2026-10-08): left alone,
+// Plaid collected Bank of America about once a day, so the "Update now" button
+// and the 4-hourly sync nearly always came back empty and a deposit made in
+// the evening was invisible until the next morning. With a refresh first, the
+// same deposit arrived within a minute.
+// Best effort: returns how many banks accepted the refresh. A refusal (a plan
+// limit, a bank that is down) is not an error for the caller: the sync that
+// follows simply brings whatever Plaid already has, as it always did.
+async function plaidRefreshAll(env) {
+    var accepted = 0;
     try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var items = (await env.DB.prepare(
-            "SELECT DISTINCT i.id, i.access_token, i.institution FROM plaid_items i " +
-            "JOIN accounts a ON a.plaid_item_id = i.plaid_item_id WHERE i.status != 'revoked' AND a.purpose = 'business'"
+            "SELECT id, access_token FROM plaid_items WHERE status != 'revoked'"
         ).all()).results || [];
-        var out = [];
         for (var i = 0; i < items.length; i++) {
-            var token = await tokenOpen(env, items[i].access_token);
-            var res = await plaidFetch(env, "/transactions/refresh", { access_token: token });
-            var d = res.data || {};
-            out.push({ institution: items[i].institution, http: res.status, ok: res.ok,
-                       error_type: d.error_type || null, error_code: d.error_code || null,
-                       error_message: d.error_message || null, request_id: d.request_id || null });
+            try {
+                var token = await tokenOpen(env, items[i].access_token);
+                var res = await plaidFetch(env, "/transactions/refresh", { access_token: token });
+                if (res.ok) { accepted++; }
+                else { console.log("plaid refresh refused: " + ((res.data && res.data.error_code) || res.status)); }
+            } catch (eOne) {
+                console.log("plaid refresh failed for one bank: " + (eOne && eOne.message));
+            }
         }
-        return jsonOk({ items: out });
     } catch (e) {
-        return jsonErr("probe failed: " + e.message, 500);
+        console.log("plaid refresh could not start: " + (e && e.message));
     }
+    return accepted;
 }
 
 async function syncPlaidTransactions(env) {
@@ -41520,7 +41524,24 @@ async function handlePostFinanceNewSync(request, env) {
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
 
-        var result = await syncPlaidTransactions(env);
+        // "Update now" means now: ask the bank first, then read. Plaid's
+        // refresh is not instant, so the read is tried up to three times a few
+        // seconds apart and stops at the first one that brings anything.
+        var refreshed = await plaidRefreshAll(env);
+        var result = null, addedAll = 0, modifiedAll = 0, removedAll = 0;
+        var tries = refreshed > 0 ? 3 : 1;
+        for (var attempt = 0; attempt < tries; attempt++) {
+            if (refreshed > 0) { await new Promise(function(done) { setTimeout(done, attempt === 0 ? 8000 : 10000); }); }
+            result = await syncPlaidTransactions(env);
+            addedAll += (result && result.added) || 0;
+            modifiedAll += (result && result.modified) || 0;
+            removedAll += (result && result.removed) || 0;
+            if (addedAll || modifiedAll || removedAll) { break; }
+            if (result && result.errors && result.errors.length) { break; }
+        }
+        result = result || {};
+        result.added = addedAll; result.modified = modifiedAll; result.removed = removedAll;
+        result.refreshed = refreshed;
         // Known payers are applied right after the sync (2026-10-04). Its own
         // try: it can never change or fail what the sync reports.
         try { await applyKnownPayerMatches(env); } catch (autoErr) {
@@ -49440,8 +49461,6 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
-        // TEMPORARY (2026-10-08): one-off check of whether this Plaid plan has /transactions/refresh. Remove after use.
-        if (path === "/api/finance-new/plaid-refresh-probe" && method === "POST") { return handlePostPlaidRefreshProbe(request, env); }
         if (path === "/api/admin/seal-tokens"             && method === "POST") { return handlePostAdminSealTokens(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }

@@ -273,6 +273,9 @@
         </form>
 
         <p class="fine">Seus dados ficam só com a equipe do Apex Club.</p>
+
+        <!-- The event's notes, under the form so the boxes stay in reach. -->
+        <div class="facts hidden" id="factsNotes" style="margin-top:22px;"></div>
       </div>
 
       <!-- ══ Screen two: confirmed ═════════════════════════════════════ -->
@@ -419,7 +422,10 @@
     if (ev.speakers) { rows.push({ i: "🎤", l: "Convidados", v: esc(ev.speakers) }); }
     // Whatever the fixed fields could not say. Line breaks are preserved
     // because this is hand-typed prose, not a single value.
-    if (ev.notes) {
+    // On the sign-up form the notes go UNDER the fields and the button (see
+    // notesHtml): a long invitation text must never push the three boxes
+    // out of reach of someone who came to confirm in ten seconds.
+    if (ev.notes && !(opts && opts.notesBelow)) {
         rows.push({ i: "ℹ️", l: "Observações", v: esc(ev.notes).replace(/\n/g, "<br>") });
     }
 
@@ -440,6 +446,15 @@
       return '<div class="fact"><div class="ico">' + r.i + '</div>' +
              '<div class="val"><span class="lbl">' + r.l + "</span>" + r.v + "</div></div>";
     }).join("");
+  }
+
+  // The notes as their own block, for under the sign-up form. Same row
+  // look as the facts above; empty string when the event has no notes.
+  function notesHtml(ev) {
+    if (!ev.notes) { return ""; }
+    return '<div class="fact"><div class="ico">ℹ️</div>' +
+           '<div class="val"><span class="lbl">Observações</span>' +
+           esc(ev.notes).replace(/\n/g, "<br>") + "</div></div>";
   }
 
   // ── Load ────────────────────────────────────────────────────────────
@@ -474,7 +489,13 @@
   function showForm() {
     if (!EV.registration_open) { show("screenClosed"); return; }
     $("evName").textContent = EV.name;
-    $("facts").innerHTML = factsHtml(EV);
+    $("facts").innerHTML = factsHtml(EV, { notesBelow: true });
+    var notesBox = $("factsNotes");
+    if (notesBox) {
+      var nh = notesHtml(EV);
+      notesBox.innerHTML = nh;
+      notesBox.classList.toggle("hidden", !nh);
+    }
     show("screenForm");
   }
 

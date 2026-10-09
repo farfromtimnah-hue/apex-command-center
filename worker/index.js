@@ -36615,6 +36615,33 @@ async function orphansWithLinks(env, rowIds) {
     return out;
 }
 
+// TEMPORARY (2026-10-08). Developer only. Asks Plaid to refresh the business
+// bank link once and answers with Plaid's own status and error code, nothing
+// else: no token, no account data. Remove after the answer is known.
+async function handlePostPlaidRefreshProbe(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var items = (await env.DB.prepare(
+            "SELECT DISTINCT i.id, i.access_token, i.institution FROM plaid_items i " +
+            "JOIN accounts a ON a.plaid_item_id = i.plaid_item_id WHERE i.status != 'revoked' AND a.purpose = 'business'"
+        ).all()).results || [];
+        var out = [];
+        for (var i = 0; i < items.length; i++) {
+            var token = await tokenOpen(env, items[i].access_token);
+            var res = await plaidFetch(env, "/transactions/refresh", { access_token: token });
+            var d = res.data || {};
+            out.push({ institution: items[i].institution, http: res.status, ok: res.ok,
+                       error_type: d.error_type || null, error_code: d.error_code || null,
+                       error_message: d.error_message || null, request_id: d.request_id || null });
+        }
+        return jsonOk({ items: out });
+    } catch (e) {
+        return jsonErr("probe failed: " + e.message, 500);
+    }
+}
+
 async function syncPlaidTransactions(env) {
     var items = await env.DB.prepare(
         "SELECT id, plaid_item_id, access_token, cursor FROM plaid_items WHERE status != 'revoked'"
@@ -49413,6 +49440,8 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/transfers/confirm" && method === "POST") { return handlePostFinanceNewTransferConfirm(request, env); }
         if (path === "/api/finance-new/transfers/reject"  && method === "POST") { return handlePostFinanceNewTransferReject(request, env); }
         if (path === "/api/finance-new/sync"              && method === "POST") { return handlePostFinanceNewSync(request, env); }
+        // TEMPORARY (2026-10-08): one-off check of whether this Plaid plan has /transactions/refresh. Remove after use.
+        if (path === "/api/finance-new/plaid-refresh-probe" && method === "POST") { return handlePostPlaidRefreshProbe(request, env); }
         if (path === "/api/admin/seal-tokens"             && method === "POST") { return handlePostAdminSealTokens(request, env); }
         if (path === "/api/finance-new/backfill-merchants" && method === "POST") { return handlePostFinanceNewBackfillMerchants(request, env); }
         if (path === "/api/finance-new/attention"         && method === "GET")  { return handleGetFinanceNewAttention(request, env); }
@@ -54139,10 +54168,18 @@ function clubZelleTokens(text) {
     });
     return out;
 }
-// Who paid, from the bank's own line: the text after "Zelle payment from" up
-// to " for " or " Conf#".
+// Who paid, from the bank's own line. The bank writes a Zelle deposit two
+// ways (both seen live on 2026-10-08):
+//   posted:   Zelle payment from NICOLE LEPAGE "Apex Club"; Conf# f69za60ei
+//   pending:  Zelle Transfer Conf# F69ZA60EI; NICOLE LEPAGE
+// The pending form carries no note and puts the name AFTER the number. Reading
+// only the first form left the payer empty on every pending deposit, so a
+// correct confirmation number always fell to "review" and was never marked
+// paid by itself.
 function clubZellePayerName(description) {
     var d = String(description || "");
+    var pend = /zelle transfer\s+conf#\s*[a-z0-9]+\s*;\s*(.*)$/i.exec(d);
+    if (pend) { return pend[1].trim(); }
     var m = /zelle payment from\s+(.*)$/i.exec(d);
     if (!m) { return ""; }
     var rest = m[1];

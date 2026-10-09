@@ -40049,6 +40049,34 @@ async function handlePutFinanceNewClubEvent(eventId, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Route: GET /api/finance-new/club/events/by-session/:sessionId
+//
+// The full event row for the Calendar's EDIT screen: it needs the prices (card
+// prices included) so the person editing sees what is saved. The calendar's
+// own by-session view stays money-free on purpose; this one is for the people
+// who may already edit the event (same roles as the PUT).
+// ---------------------------------------------------------------------------
+
+async function handleGetClubEventBySession(sessionId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var ev = await env.DB.prepare(
+            "SELECT id, name, event_date, start_time, venue, speakers, notes, price_single_cents, price_couple_cents, " +
+            "price_card_single_cents, price_card_couple_cents, flyer_r2_key, registration_open, session_id, window_start, window_end " +
+            "FROM apex_club_events WHERE session_id = ?"
+        ).bind(sessionId).first();
+        if (!ev) { return jsonErr("No Apex Club event linked to this session", 404); }
+
+        return jsonOk({ event: ev });
+    } catch (e) {
+        return jsonErr("Error loading club event: " + e.message, 500);
+    }
+}
+
 async function handleDeleteFinanceNewClubEvent(eventId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -49404,6 +49432,8 @@ async function handleFetch(request, env, ctx) {
             if (method === "PUT")    { return handlePutFinanceNewClubEvent(clubEvMatch[1], request, env); }
             if (method === "DELETE") { return handleDeleteFinanceNewClubEvent(clubEvMatch[1], request, env); }
         }
+        var clubEvBySession = path.match(/^\/api\/finance-new\/club\/events\/by-session\/([A-Za-z0-9-]+)$/);
+        if (clubEvBySession && method === "GET") { return handleGetClubEventBySession(clubEvBySession[1], request, env); }
         var clubFlyerMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)\/flyer$/);
         if (clubFlyerMatch && method === "POST") { return handlePostClubFlyer(clubFlyerMatch[1], request, env); }
 

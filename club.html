@@ -385,11 +385,14 @@
   "use strict";
 
   var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+  // TEMP DIAGNOSTIC 2026-10-10 - remove after the "Evento nao encontrado" bug is found.
+  console.log("[DIAG] typeof DOC_PAGE_LINK=" + (typeof window.DOC_PAGE_LINK) + " value=" + JSON.stringify(window.DOC_PAGE_LINK) + " search=" + JSON.stringify(location.search));
   // The doc.resonateai.online/apex/<slug> link carries no ?e= in its own
   // address bar (that's the point); window.DOC_PAGE_LINK supplies the event
   // id instead. A direct club.html?e=... link still works unchanged.
   var EVENT_ID = new URLSearchParams(location.search).get("e") ||
       (window.DOC_PAGE_LINK && window.DOC_PAGE_LINK.kind === "club" ? window.DOC_PAGE_LINK.token : "") || "";
+  console.log("[DIAG] EVENT_ID=" + JSON.stringify(EVENT_ID));
   var EV = null;
 
   function $(id) { return document.getElementById(id); }

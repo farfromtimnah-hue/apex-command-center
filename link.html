@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- GLOBAL JS ERROR HOOK. Must be the FIRST script on the page, before
+       native-bridge.js, so it is installed before anything that can throw.
+       Copied verbatim from referral.html -- see that file for the full
+       rationale (Capacitor only prints a generic eval-error string). -->
+  <script>
+  (function () {
+    var P = String(window.location.protocol || "").toLowerCase();
+    if (P !== "capacitor:" && P !== "ionic:" && P !== "file:") { return; }
+
+    function stash(kind, detail) {
+      var line = "[" + kind + "] " + detail;
+      try { if (window.console && console.log) { console.log("[APEXERR] " + line); } } catch (e) {}
+      try {
+        var name = "apextrace=";
+        var parts = String(document.cookie || "").split(";");
+        var buf = "";
+        for (var i = 0; i < parts.length; i++) {
+          var p = parts[i];
+          while (p.charAt(0) === " ") { p = p.substring(1); }
+          if (p.indexOf(name) === 0) { buf = decodeURIComponent(p.substring(name.length)); break; }
+        }
+        buf = buf + (buf ? "\n" : "") + "ERR " + line;
+        if (buf.length > 7000) { buf = buf.slice(buf.length - 7000); }
+        document.cookie = "apextrace=" + encodeURIComponent(buf) + "; max-age=86400; path=/";
+      } catch (e) {}
+      try {
+        var C = window.Capacitor;
+        if (C && C.Plugins && C.Plugins.ApexLockCover && C.Plugins.ApexLockCover.trace) {
+          C.Plugins.ApexLockCover.trace({ message: "JSERROR " + line });
+        }
+      } catch (e) {}
+    }
+
+    window.addEventListener("error", function (ev) {
+      if (ev && ev.target && ev.target !== window && ev.target.tagName) {
+        stash("RESOURCE", ev.target.tagName + " failed to load: " +
+          (ev.target.src || ev.target.href || "?"));
+        return;
+      }
+      var e = ev && ev.error;
+      stash("ERROR",
+        (ev && ev.message ? ev.message : "?") +
+        " @ " + (ev && ev.filename ? ev.filename : "?") +
+        ":" + (ev && ev.lineno !== undefined ? ev.lineno : "?") +
+        ":" + (ev && ev.colno !== undefined ? ev.colno : "?") +
+        " | stack=" + (e && e.stack ? String(e.stack).slice(0, 400) : "none"));
+    }, true);
+
+    window.addEventListener("unhandledrejection", function (ev) {
+      var r = ev && ev.reason;
+      stash("REJECTION",
+        (r && r.message ? r.message : String(r)) +
+        " | stack=" + (r && r.stack ? String(r.stack).slice(0, 400) : "none"));
+    });
+
+    window.__apexErrHookInstalled = true;
+  })();
+  </script>
+  <script src="native-bridge.js?v=1790484921"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Link</title>
+  <link rel="stylesheet" href="doc-hero.css">
+  <script src="doc-hero.js"></script>
+  <style>
+    /* Public, no-login page: self-contained, no app JS/CSS pulled in — same
+       rule as referral.html. Looks like a Linktree page (hero, logo,
+       business name, pills) but with the lead-capture form on the SAME
+       page, not a second click-through.
+
+       --brand-bg / --accent-on-dark mirror referral.html's --brand-bg /
+       --brand-accent (clients.referral_bg_color / referral_text_color) —
+       same two columns, same fallback rule (Apex black/gold, never shown
+       as a client's own color, just the hardcoded baseline until a real
+       value loads). doc-hero.css's hero-band already reads --brand-bg for
+       its own background, and --accent-on-dark for the name pill text, so
+       both are set here rather than introducing a third variable name. */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --gold: #C9A43A; --ink: #1a1a1d; --muted: #6b6660;
+      --border: #e3ded6; --bg: #f7f4ee; --red: #b44040; --green: #3f7d4e;
+      --brand-bg: var(--ink);
+      --brand-accent: var(--gold);
+      --accent-on-dark: var(--gold);
+    }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--ink); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 0 40px;
+    }
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+    .wrap { width: 100%; max-width: 440px; padding: 0 14px; display: flex; flex-direction: column; align-items: center; }
+    .card {
+      background: #fff; border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px 18px; width: 100%; margin-top: 14px;
+      box-shadow: 0 2px 10px rgba(26,26,29,0.06);
+    }
+    /* Hero band: full-bleed, doc-hero.css's own look (same as the six
+       homeowner document pages). No hero set -> the band is just the
+       flat --brand-bg with the logo tile on it, never a broken image. */
+    .hero-band { width: 100%; height: 190px; background: var(--brand-bg); }
+    @media (max-width: 480px) { .hero-band { height: 150px; } }
+    .eyebrow { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--brand-accent); font-weight: 700; text-align: center; margin-top: 16px; }
+    /* Pills: Linktree-style stack. Only rendered when the page has JS data
+       for them — see renderPills(); an empty .pills stays invisible. */
+    .pills { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+    .pill {
+      display: block; width: 100%; min-height: 52px; line-height: 52px; text-align: center;
+      border-radius: 12px; border: 1px solid var(--border); background: #fff;
+      color: var(--ink); font-size: 15px; font-weight: 700; text-decoration: none;
+    }
+    .pill:active { background: #faf9f6; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
+    input[type="text"], input[type="tel"] {
+      width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px;
+      border: 1px solid var(--border); border-radius: 10px; background: #fff;
+    }
+    input:focus { outline: none; border-color: var(--brand-accent); }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chips button {
+      min-height: 48px; padding: 10px 14px; font-size: 15px; border-radius: 999px;
+      border: 1px solid var(--border); background: #fff; color: var(--ink); cursor: pointer;
+    }
+    .chips button.sel { background: var(--brand-accent); border-color: var(--brand-accent); color: #fff; font-weight: 700; }
+    .btn {
+      width: 100%; min-height: 52px; margin-top: 18px; border: none; border-radius: 10px;
+      background: var(--brand-accent); color: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
+    }
+    .btn[disabled] { opacity: 0.6; }
+    .err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 18px; }
+    .lang-btn {
+      align-self: flex-end; margin: 10px 14px 0 0; min-height: 44px; padding: 8px 14px; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 999px; background: #fff;
+      color: var(--muted); cursor: pointer;
+    }
+    .done { text-align: center; padding: 10px 0; }
+    .done .check { font-size: 44px; color: var(--green); }
+    .done h2 { font-size: 20px; margin: 10px 0 8px; }
+    .done p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .hp-field { position: absolute; left: -9999px; top: -9999px; height: 0; overflow: hidden; }
+    .loading, .notfound { text-align: center; color: var(--muted); padding: 30px 0; font-size: 15px; }
+  </style>
+</head>
+<body class="lang-en">
+  <button type="button" class="lang-btn" onclick="toggleLang()">
+    <span class="show-pt">English</span><span class="show-en">Português</span>
+  </button>
+
+  <div class="hero-band" id="hero" role="banner">
+    <img class="hero-img" id="heroImg" alt="" hidden>
+    <div class="header-tile-row">
+      <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
+      <span class="brand-pill" id="bizName" hidden></span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card" id="cardLoading">
+      <div class="loading">
+        <span class="show-pt">Carregando…</span><span class="show-en">Loading…</span>
+      </div>
+    </div>
+
+    <div class="card" id="cardNotFound" hidden>
+      <div class="notfound">
+        <span class="show-pt">Link inválido ou expirado.</span>
+        <span class="show-en">Invalid or expired link.</span>
+      </div>
+    </div>
+
+    <div id="pills" class="pills" hidden></div>
+
+    <div class="card" id="cardForm" hidden>
+      <label for="fNome"><span class="show-pt">Seu nome</span><span class="show-en">Your name</span> *</label>
+      <input type="text" id="fNome" autocomplete="name">
+      <label for="fTel"><span class="show-pt">Telefone</span><span class="show-en">Phone</span></label>
+      <input type="tel" id="fTel" autocomplete="tel">
+      <label><span class="show-pt">Quais serviços você procura? Pode marcar mais de um.</span><span class="show-en">Which services are you looking for? You can pick more than one.</span></label>
+      <div class="chips" id="chips"></div>
+      <!-- Honeypot: humans never see or fill this. -->
+      <div class="hp-field" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+      <div class="err" id="formErr"></div>
+      <button type="button" class="btn" id="btnSend" onclick="submitLink()">
+        <span class="show-pt">Enviar</span><span class="show-en">Send</span>
+      </button>
+    </div>
+
+    <div class="card" id="cardDone" hidden>
+      <div class="done">
+        <div class="check">&#10003;</div>
+        <h2><span class="show-pt">Recebido!</span><span class="show-en">Received!</span></h2>
+        <p>
+          <span class="show-pt">Obrigado! <span id="doneBiz"></span> recebeu seus dados e vai entrar em contato em breve.</span>
+          <span class="show-en">Thank you! <span id="doneBizEn"></span> has received your details and will reach out shortly.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var slug = (window.location.search.match(/[?&]p=([a-z2-7]{10,40})/) || [])[1] || null;
+    var loadedAt = Date.now();
+    var pickedServicos = [];
+    var bizName = "";
+
+    function escHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function toggleLang() {
+      var b = document.body;
+      if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
+      else { b.classList.remove("lang-en"); b.classList.add("lang-pt"); }
+    }
+
+    // Same rule as referral.html: starting language from the client's
+    // setting, English unless explicitly "pt" (their customers are American).
+    function applyLanguage(lang) {
+      var b = document.body;
+      b.classList.remove("lang-pt", "lang-en");
+      b.classList.add(lang === "pt" ? "lang-pt" : "lang-en");
+      document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+    }
+
+    // Client branding over the hardcoded Apex palette. Same discipline as
+    // referral.html's applyBranding: the Worker already resolves null
+    // columns to Apex's own #1a1a1d / #C9A43A, but a value that is not a
+    // 6-digit hex is still dropped here rather than trusted.
+    function applyBranding(d) {
+      var hex = /^#[0-9a-fA-F]{6}$/;
+      var root = document.documentElement.style;
+      if (hex.test(d.referral_bg_color || "")) { root.setProperty("--brand-bg", d.referral_bg_color); }
+      if (hex.test(d.referral_text_color || "")) {
+        root.setProperty("--brand-accent", d.referral_text_color);
+        root.setProperty("--accent-on-dark", d.referral_text_color);
+      }
+      var name = d.business_name || "";
+      var mark = document.getElementById("bizMark");
+      var logo = document.getElementById("bizLogo");
+      if (mark) { mark.textContent = name; mark.className = "client-name-mark" + (name.length > 22 ? " is-long" : ""); mark.hidden = false; }
+      if (d.has_logo && d.logo_url && logo) {
+        logo.onload = function() { logo.hidden = false; if (mark) { mark.hidden = true; } };
+        logo.onerror = function() { logo.hidden = true; if (mark) { mark.hidden = false; } };
+        logo.src = d.logo_url;
+      }
+      var hero = document.getElementById("heroImg");
+      if (d.hero_url && hero) { hero.onload = function() { hero.hidden = false; }; hero.src = d.hero_url; }
+      if (typeof docHeroApply === "function") { docHeroApply(document.getElementById("hero"), hero, d.hero); }
+      var pill = document.getElementById("bizName");
+      if (pill) { pill.textContent = name; pill.hidden = !name; }
+    }
+
+    // Pills: only a non-null field gets a button. A business with neither a
+    // website nor an address on file shows no pills row at all. Worded
+    // "service area" rather than "visit us" — these are mobile businesses
+    // that go to the customer, not storefronts.
+    function renderPills(d) {
+      var box = document.getElementById("pills");
+      if (!box) { return; }
+      var html = "";
+      if (d.website) {
+        html += '<a class="pill" href="' + escHtml(d.website) + '" target="_blank" rel="noopener">' +
+          '<span class="show-pt">Site</span><span class="show-en">Website</span></a>';
+      }
+      if (d.maps_url) {
+        html += '<a class="pill" href="' + escHtml(d.maps_url) + '" target="_blank" rel="noopener">' +
+          '<span class="show-pt">Área de atendimento</span><span class="show-en">Service area</span></a>';
+      }
+      box.innerHTML = html;
+      box.hidden = !html;
+    }
+
+    function showCard(id) {
+      ["cardLoading", "cardNotFound", "cardForm", "cardDone"].forEach(function(c) {
+        document.getElementById(c).hidden = (c !== id);
+      });
+      var pillsBox = document.getElementById("pills");
+      if (pillsBox && id !== "cardForm" && id !== "cardDone") { pillsBox.hidden = true; }
+    }
+
+    function pickChip(btn) {
+      var opt = btn.textContent;
+      var pos = pickedServicos.indexOf(opt);
+      if (pos === -1) {
+        pickedServicos.push(opt);
+        btn.classList.add("sel");
+      } else {
+        pickedServicos.splice(pos, 1);
+        btn.classList.remove("sel");
+      }
+    }
+
+    function loadLink() {
+      if (!slug) { showCard("cardNotFound"); return; }
+      fetch(WORKER_URL + "/api/link/" + slug)
+        .then(function(res) {
+          if (!res.ok) { throw new Error("nf"); }
+          return res.json();
+        })
+        .then(function(d) {
+          applyLanguage(d.language);
+          applyBranding(d);
+          renderPills(d);
+          bizName = d.business_name || "";
+          document.getElementById("doneBiz").textContent = bizName;
+          document.getElementById("doneBizEn").textContent = bizName;
+          var chips = "";
+          (d.servicos || []).forEach(function(s) {
+            chips += '<button type="button" onclick="pickChip(this)">' + escHtml(s) + '</button>';
+          });
+          document.getElementById("chips").innerHTML = chips;
+          showCard("cardForm");
+          document.getElementById("pills").hidden = false;
+        })
+        .catch(function() { showCard("cardNotFound"); });
+    }
+
+    function submitLink() {
+      var err = document.getElementById("formErr");
+      err.textContent = "";
+      var nome = document.getElementById("fNome").value.trim();
+      if (!nome) {
+        err.textContent = document.body.classList.contains("lang-en")
+          ? "Please fill in your name." : "Preencha seu nome.";
+        return;
+      }
+      var btn = document.getElementById("btnSend");
+      btn.disabled = true;
+      fetch(WORKER_URL + "/api/link/" + slug, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: nome,
+          telefone: document.getElementById("fTel").value.trim() || null,
+          servico: pickedServicos.length ? pickedServicos.join(", ") : null,
+          website: document.getElementById("website").value || null,
+          elapsed_ms: Date.now() - loadedAt
+        })
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          btn.disabled = false;
+          if (!r.ok) { throw new Error(r.data.error || "Error"); }
+          showCard("cardDone");
+          window.scrollTo(0, 0);
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          err.textContent = e.message;
+        });
+    }
+
+    loadLink();
+  </script>
+</body>
+</html>

@@ -9468,6 +9468,14 @@ var gmDocHistory = null;       // GET gm/doc-settings/history payload
 var gmEstimatesSection = "list";   // "list" | "settings"
 var gmDocSaveMsg = null;       // last inline save/validation message
 
+// Serviços: lives on gm_config.servicos_json (same table/column/endpoint
+// portal.html's general Settings used to edit), but the editing UI is here
+// now — every business already has to complete this screen once, which
+// guarantees the list gets set instead of most owners never finding it in
+// general Settings. A separate draft array, not folded into gmDocDraft:
+// this list saves through PUT gm/config, not PUT gm/doc-settings.
+var gmDocServicosDraft = null;
+
 // Fixed statutory texts. Shown verbatim; not editable.
 var GM_DOC_LICENSE_HELP_PT = "A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.";
 var GM_DOC_LICENSE_HELP_EN = "Florida law (§489.119) requires your license number on every bid and contract.";
@@ -9501,7 +9509,10 @@ function gmLoadEstimates() {
     return;
   }
   gmMetaReturnRead();
-  Promise.all([gmApi("doc-settings"), gmLoadEstimatesList()])
+  // gm/config is loaded alongside doc-settings: the Serviços list lives on
+  // gm_config.servicos_json, not gm_doc_settings, but is edited from this
+  // same mandatory first-run screen (see gmDocSettingsFormHtml).
+  Promise.all([gmApi("doc-settings"), gmLoadEstimatesList(), gmLoadConfig()])
     .then(function(r) {
       gmDocSettings = r[0].settings || null;
       // First open with setup incomplete: land on Settings, not the list,
@@ -9658,6 +9669,46 @@ function gmDocDraftFromSettings() {
   gmDocLastSavedScalar.license_numbers = JSON.stringify((st.license_numbers || []).slice());
   gmDocLastSavedScalar.payment_methods = JSON.stringify(st.payment_methods || {});
   gmDocLastSavedScalar.schedule_presets = JSON.stringify(st.schedule_presets || []);
+  // Serviços draft, from gm_config (loaded alongside doc-settings in
+  // gmLoadEstimates). Rebuilt fresh each time the settings form loads, same
+  // as gmListDraft in portal.html — no seed list, empty is honest.
+  gmDocServicosDraft = ((gmConfig && gmConfig.config && gmConfig.config.servicos) || []).slice();
+}
+
+function gmDocServicosSet(idx, value) {
+  if (!gmDocServicosDraft) { return; }
+  gmDocServicosDraft[idx] = value;
+}
+function gmDocServicosAdd() {
+  if (!gmDocServicosDraft) { gmDocServicosDraft = []; }
+  gmDocServicosDraft.push("");
+  gmRenderEstimatesTab();
+}
+function gmDocServicosRemove(idx) {
+  if (!gmDocServicosDraft) { return; }
+  gmDocServicosDraft.splice(idx, 1);
+  gmRenderEstimatesTab();
+}
+
+function gmDocServicosHtml() {
+  var items = gmDocServicosDraft || [];
+  var html = '';
+  if (!items.length) {
+    html += '<p class="muted" style="font-size:12px;margin:0 0 8px;font-style:italic;">' +
+      gmT("Vazio — este campo fica desligado.", "Empty — this field is turned off.") + '</p>';
+  }
+  items.forEach(function(v, i) {
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">' +
+      '<input type="text" maxlength="80" value="' + escHtml(v) + '" ' +
+        'oninput="gmDocServicosSet(' + i + ', this.value)" style="flex:1;">' +
+      '<button type="button" class="gm-btn-secondary" style="min-height:44px;padding:4px 12px;" ' +
+        'aria-label="' + gmT("Remover", "Remove") + '" ' +
+        'onclick="gmDocServicosRemove(' + i + ')">&times;</button>' +
+      '</div>';
+  });
+  html += '<button type="button" class="gm-btn-secondary" style="width:100%;min-height:44px;" ' +
+    'onclick="gmDocServicosAdd()">' + gmT("+ Adicionar", "+ Add") + '</button>';
+  return html;
 }
 
 // ── What is left to finish setup ────────────────────────────────────────
@@ -9839,6 +9890,21 @@ function gmDocSettingsFormHtml() {
     '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
     gmDocLicenseNotRequiredHtml(d, st) +
     gmReviewSettingsFieldHtml(d) +
+    '</div>';
+
+  // ── Services ──
+  // Moved here from general Settings (click-through, Services relocation):
+  // every business already has to complete this screen once, which neither
+  // general Settings nor the old location guaranteed. Same gm_config.servicos_json
+  // column, same PUT /api/clients/:id/gm/config as before — only the editing
+  // UI moved. Feeds the chip picker on both referral.html and the public
+  // link-in-bio page.
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Serviços", "Services") + '</p>' +
+    '<p class="muted" style="font-size:12px;margin:0 0 8px;">' +
+    gmT("Aparecem como opções na sua página pública de indicação e na sua página de link na bio.",
+        "These appear as checkboxes on your public referral page and your link-in-bio page.") + '</p>' +
+    '<div id="gmDocServicos">' + gmDocServicosHtml() + '</div>' +
     '</div>';
 
   // ── Payment methods ──
@@ -10472,10 +10538,38 @@ function gmDocSettingsSave() {
                                                         "Every preset needs a name, with its steps totalling 100%: " + badPresetNames.join(", ")) });
   }
 
+  // Serviços: a separate table/endpoint (gm_config, not gm_doc_settings),
+  // saved alongside in the same user action. Blank slots dropped, same
+  // trim/80-char rule as portal.html's list editors. null (draft never
+  // built, e.g. this save fired before the settings screen ever loaded
+  // gm_config) means "don't touch it" -- an empty array still saves, since
+  // an intentionally emptied list is a real, saveable state.
+  var servicosPayload = null;
+  if (gmDocServicosDraft) {
+    var servicosOut = [];
+    gmDocServicosDraft.forEach(function(v) {
+      var s = String(v == null ? "" : v).trim();
+      if (s) { servicosOut.push(s.slice(0, 80)); }
+    });
+    servicosPayload = servicosOut;
+  }
+
   var btn = document.getElementById("gmDocSaveBtn");
   if (btn) { btn.disabled = true; }
-  gmApi("doc-settings", { method: "PUT", body: payload })
-    .then(function(r) {
+  var docSettingsSave = gmApi("doc-settings", { method: "PUT", body: payload });
+  var servicosSave = servicosPayload !== null
+    ? gmApi("config", { method: "PUT", body: { servicos: servicosPayload } }).then(function() {
+        gmConfig = null; gmConfigPromise = null;
+        return gmLoadConfig();
+      })
+    : Promise.resolve(null);
+
+  Promise.all([docSettingsSave, servicosSave.catch(function(e) {
+    skipped.push({ key: "servicos", text: gmT("Serviços não salvos: ", "Services not saved: ") + e.message });
+    return null;
+  })])
+    .then(function(results) {
+      var r = results[0];
       // The PUT answer has no has_logo / has_hero (GET-only flags): keep
       // them, or the saved logo and hero redraw as "Upload" (D1).
       var prev = gmDocSettings || {};

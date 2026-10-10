@@ -3079,21 +3079,20 @@
         '</div>';
     }
 
-    // ── The four client-editable lists ──────────────────────────────────────
-    // The services list is PUBLIC — it renders as the checkboxes on the
-    // referral page — so these live in the referral card: it is one concern,
-    // how the client's referral link looks and behaves.
+    // ── The client-editable lists on this card ──────────────────────────────
+    // Servicos used to live here too but moved to Estimates > Settings (see
+    // the comment on GM_LIST_DEFS above) — these three remain because they
+    // are not public-facing and have no other natural home.
     //
-    // servicos and cycle_months are seeded with generic starting values, since
-    // an empty app on first open reads as broken. Vendedores and partner types
-    // are NOT seeded and never should be: they used to inherit one real
-    // client's data, which put that company's actual employees on six other
-    // companies' screens. Both start empty. See gmGetConfig() in the Worker.
+    // None of these are seeded with generic starting values: vendedores and
+    // partner_types used to inherit one real client's data, which put that
+    // company's actual employees on six other companies' screens. All three
+    // start empty. See gmGetConfig() in the Worker.
     //
-    // Three of the four are optional. Empty is a real, saveable state, not a
+    // All three are optional. Empty is a real, saveable state, not a
     // validation error — see handlePutGmConfig, which stores [] rather than
     // ignoring an empty list.
-    var gmListDraft = null;   // { servicos: [], vendedores: [], ... } while editing
+    var gmListDraft = null;   // { vendedores: [], partner_types: [], cycle_months: [] } while editing
 
     // ── Salesperson login requests ──────────────────────────────────────────
     // Next to each SAVED name in the Vendedores list sits a button that asks us
@@ -3230,10 +3229,12 @@
         });
     }
 
+    // Serviços moved to Estimates > Settings (gmDocSettingsFormHtml in gm.js) —
+    // every business already has to complete that screen once, which neither
+    // general Settings nor this list used to guarantee. Same table/column
+    // (gm_config.servicos_json), same PUT /api/clients/:id/gm/config — only
+    // the editing UI moved.
     var GM_LIST_DEFS = [
-      { key: "servicos", pt: "Serviços", en: "Services",
-        notePt: "Aparecem como opções na sua página pública de indicação.",
-        noteEn: "These appear as checkboxes on your public referral page." },
       { key: "vendedores", pt: "Vendedores", en: "Salespeople",
         notePt: "Opcional. Se ficar vazio, a linha \"Vendedor\" não aparece nos leads.",
         noteEn: "Optional. If empty, the \"Salesperson\" row does not appear on leads." },
@@ -7452,7 +7453,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1791519634"></script>
+  <script src="gm.js?v=1791669871"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

@@ -19454,7 +19454,12 @@ function gmStageKey(v) {
     var s = String(v).trim();
     return GM_STAGE_KEY_BY_LABEL[s] || null;
 }
-var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Google", "Instagram", "Site", "Outro"];
+// "Link da bio" (2026-10-10): leads from the public link-in-bio page
+// (handlePostLinkPageLead). Distinct from "Parceiro" (handlePostReferralLead,
+// a referral attributed to a partner or customer) -- this page credits no
+// referring person at all, so it needs its own value an owner or Rafa can
+// tell apart in the pipeline.
+var GM_ORIGENS = ["Orgânico", "Tráfego pago", "Indicação", "Base de Clientes", "Parceiro", "Link da bio", "Google", "Instagram", "Site", "Outro"];
 var GM_ROADMAP_STATUSES = ["Realizado", "Em andamento", "Pendente", "Atrasado", "Cancelado"];
 var GM_FRENTES = ["Comercial", "Gestão", "Base de Ouro", "Financeiro", "Parcerias", "Marketing", "Operação"];
 var GM_BASE_OURO_STATUSES = ["Não contatado", "Contatado", "Interessado", "Reativado", "Sem interesse"];
@@ -20812,6 +20817,20 @@ function gmReferralSlug() {
     return out;
 }
 
+// Public link-in-bio page (2026-10-10): one PER-CLIENT slug, minted the
+// moment Estimates setup completes (handlePutGmDocSettings) -- nothing to
+// opt into. Also called lazily on a doc-settings read, so a business that
+// completed setup before this feature shipped gets backfilled on next load,
+// same pattern as the partner-slug backfill in handleGetGmPartners.
+async function gmEnsureClientLinkSlug(env, clientId) {
+    var row = await env.DB.prepare("SELECT link_slug FROM clients WHERE id = ?").bind(clientId).first();
+    if (!row) { return null; }
+    if (row.link_slug) { return row.link_slug; }
+    var slug = gmReferralSlug();
+    await env.DB.prepare("UPDATE clients SET link_slug = ? WHERE id = ?").bind(slug, clientId).run();
+    return slug;
+}
+
 async function handleGetGmPartners(id, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -22005,6 +22024,142 @@ async function handlePostReferralLead(slug, request, env) {
         return jsonOk({ created: true });
     } catch (e) {
         return jsonErr("Error submitting referral", 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PUBLIC link-in-bio page (2026-10-10): one per-client page
+// (link.html?p=<slug>, slug = clients.link_slug) combining a Linktree-style
+// pill stack with the same inline lead-capture form as referral.html.
+//
+// Deliberately separate from /api/referral/:slug above: that one is a
+// PARTNER's own link and attributes the lead to them (and, through a
+// customer sub-link, to a salesperson). This page represents the business
+// itself with no referring person at all -- origem = "Link da bio", no
+// parceiro_id, no vendedor, no customer_referral logic of any kind.
+// ---------------------------------------------------------------------------
+
+async function gmClientByLinkSlug(env, slug) {
+    if (!gmReferralSlugValid(slug)) { return null; }
+    return env.DB.prepare("SELECT * FROM clients WHERE link_slug = ?").bind(slug).first();
+}
+
+async function handleGetLinkPageInfo(slug, request, env) {
+    try {
+        var client = await gmClientByLinkSlug(env, slug);
+        if (!client) { return jsonErr("Not found", 404); }
+        var origin = new URL(request.url).origin;
+        var doc = await gmDocSettingsRow(env, client.id);
+        var config = await gmGetConfig(env, client.id);
+
+        var logoUrl = null;
+        if (client.logo_url) {
+            // Served through the EXISTING logo-image route; no raw R2 key is
+            // ever exposed to a public page -- same rule as referral.html.
+            logoUrl = origin + "/api/clients/" + client.id + "/logo-image" + logoVersionParam(client.logo_url);
+        }
+
+        // Same hero every customer document already shows (gmDocHero), not a
+        // second hero system -- confirmed with Nicole: this page reads the
+        // Estimates-setup hero, not apex_partners' or a new upload path.
+        var hero = gmDocHero(origin, client.id, doc);
+
+        var links = gmDigitalPresenceLinks(client.digital_presence);
+        var mapsUrl = doc.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(doc.address) : null;
+
+        return jsonOk({
+            business_name: doc.legal_name || client.name,
+            servicos: config.servicos,
+            language: client.language === "pt" ? "pt" : "en",
+            referral_bg_color:   referralHexOrNull(client.referral_bg_color)   || REFERRAL_DEFAULT_BG,
+            referral_text_color: referralHexOrNull(client.referral_text_color) || REFERRAL_DEFAULT_TEXT,
+            has_logo: !!logoUrl,
+            logo_url: logoUrl,
+            hero_url: hero.url,
+            hero: hero.hero,
+            website: links.website || null,
+            maps_url: mapsUrl
+        });
+    } catch (e) {
+        return jsonErr("Error loading link page", 500);
+    }
+}
+
+async function handlePostLinkPageLead(slug, request, env) {
+    try {
+        var client = await gmClientByLinkSlug(env, slug);
+        if (!client) { return jsonErr("Not found", 404); }
+
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+
+        // Same rate-limit ledger as the partner-referral intake (gm_referral_hits
+        // keys on a plain slug string -- no schema change needed to share it):
+        // 10/hour per link, 20/hour per IP, counted before the body is read.
+        await env.DB.prepare(
+            "DELETE FROM gm_referral_hits WHERE created_at < datetime('now', '-2 days')"
+        ).run();
+        var slugHits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE slug = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(slug).first();
+        var ipHits = ip ? await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM gm_referral_hits WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first() : { c: 0 };
+        if ((slugHits && slugHits.c >= 10) || (ipHits && ipHits.c >= 20)) {
+            return jsonErr("Muitas tentativas. Tente novamente mais tarde. / Too many attempts. Try again later.", 429);
+        }
+        await env.DB.prepare(
+            "INSERT INTO gm_referral_hits (id, slug, ip) VALUES (?, ?, ?)"
+        ).bind(crypto.randomUUID(), slug, ip || null).run();
+
+        var body = {};
+        try { body = await request.json(); } catch (e2) { body = {}; }
+
+        // Honeypot + impossibly-fast submit, same as referral.html's form.
+        var elapsed = gmNum(body.elapsed_ms);
+        if (gmStr(body.website, 200) !== null || (elapsed !== null && elapsed >= 0 && elapsed < 3000)) {
+            return jsonOk({ created: true });
+        }
+
+        var nome = gmStr(body.nome, 200);
+        if (!nome) { return jsonErr("Nome é obrigatório / Name is required", 400); }
+        var telefone = gmStr(body.telefone, 60);
+        if (telefone && !/^[0-9+()\-.\s]{7,60}$/.test(telefone)) {
+            return jsonErr("Telefone inválido / Invalid phone", 400);
+        }
+        var config = await gmGetConfig(env, client.id);
+        var servicoRaw = gmStr(body.servico, 400);
+        var servico = null;
+        if (servicoRaw) {
+            var servicoList = [];
+            servicoRaw.split(",").forEach(function(part) {
+                var t = part.trim();
+                if (t && config.servicos.indexOf(t) !== -1 && servicoList.indexOf(t) === -1) {
+                    servicoList.push(t);
+                }
+            });
+            servico = servicoList.length ? servicoList.join(", ") : null;
+        }
+
+        var now = gmNyNowParts();
+        var mesLead = GM_MONTH_NAMES_PT[Number(now.month) - 1];
+        if (config.cycle_months.indexOf(mesLead) === -1) { mesLead = null; }
+
+        // No partner, no customer, no salesperson -- this page is the
+        // business's own public link, credited to nobody.
+        await gmInsertLead(env, client.id, {
+            cliente: nome,
+            telefone: telefone,
+            servico: servico,
+            origem: "Link da bio",
+            estagio: "novo_lead",
+            data_lead: now.year + "-" + now.month + "-" + now.day + "T" + now.hour + ":" + now.minute,
+            mes_lead: mesLead,
+            observacao: "Recebido pela página pública (link na bio)."
+        });   // no actor: public form, no authenticated user
+        // Deliberately no lead id / no data in the public response.
+        return jsonOk({ created: true });
+    } catch (e) {
+        return jsonErr("Error submitting lead", 500);
     }
 }
 
@@ -25264,6 +25419,9 @@ async function handleGetGmDocSettings(id, request, env) {
         settings.hero_url = curHero.url; settings.hero = curHero.hero;
         settings.late_fee_max_pct = GM_DOC_LATE_FEE_MAX_PCT;
         settings.payment_method_keys = GM_DOC_PAYMENT_METHODS;
+        // Backfill: a business that completed setup before the link-in-bio
+        // page existed gets a slug lazily, on the next time this screen loads.
+        if (settings.setup_completed_at) { await gmEnsureClientLinkSlug(env, id); }
         return jsonOk({ settings: settings });
     } catch (e) {
         return jsonErr("Error fetching document settings: " + e.message, 500);
@@ -25491,6 +25649,9 @@ async function handlePutGmDocSettings(id, request, env) {
             cbinds.push(id);
             await gmRunUpdate(env, "UPDATE clients SET " + csets.join(", ") + " WHERE id = ?", cbinds);
         }
+        // Link-in-bio page (2026-10-10): every business gets one automatically
+        // the moment setup first completes. Not re-minted on a later save.
+        if (completing) { await gmEnsureClientLinkSlug(env, id); }
         if (changes.length) {
             await env.DB.batch(changes.map(function(c) {
                 return env.DB.prepare(
@@ -48444,6 +48605,15 @@ async function handleFetch(request, env, ctx) {
         if (refMatch) {
             if (method === "GET")  { return handleGetReferralInfo(refMatch[1], request, env); }
             if (method === "POST") { return handlePostReferralLead(refMatch[1], request, env); }
+        }
+        // PUBLIC link-in-bio page intake (no auth by design — see handlers).
+        // Separate path/slug space from /api/referral/ above: that one is a
+        // PARTNER's link; this one is the business's own public page, with
+        // no referring-person attribution at all.
+        var linkMatch = path.match(/^\/api\/link\/([a-z2-7]{10,40})$/);
+        if (linkMatch) {
+            if (method === "GET")  { return handleGetLinkPageInfo(linkMatch[1], request, env); }
+            if (method === "POST") { return handlePostLinkPageLead(linkMatch[1], request, env); }
         }
 
         // PUBLIC document hero gallery (hero build): the manifest and the

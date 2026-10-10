@@ -33542,6 +33542,28 @@ async function handleGetMetaDeletionStatus(code, request, env) {
     return new Response(html, { status: day ? 200 : 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }
 
+// ── Thumbtack Partner API (stub, 2026-10-10) ────────────────────────────
+// This address is for Thumbtack's Partner API "Request Access" form (the
+// Redirect URI field), filed before the real OAuth token exchange is built.
+// Thumbtack has not approved access and has issued no app credentials yet,
+// so this is not wired to anything: it exists so the URL is stable and live
+// today, and logs whatever arrives so nothing sent here is silently lost
+// while the real connection flow (mirroring handleGetMetaCallback above) is
+// written once Thumbtack approves and real payloads can be seen.
+var THUMBTACK = {
+    callback_path: "/api/thumbtack/callback"
+};
+async function handleGetThumbtackCallback(request, env) {
+    try {
+        var url = new URL(request.url);
+        console.log("thumbtack callback stub hit: " + url.search);
+    } catch (e) { console.error("thumbtack callback stub failed: " + (e && e.message)); }
+    return new Response(
+        "Apex Lead Sync. This address is reserved for Thumbtack's Partner API connection flow; it is not yet wired to a client account.",
+        { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } }
+    );
+}
+
 // ── Who gets a push inside a client's business ─────────────────────────
 // Google-linked accounts push under their e-mail (users.client_id); a
 // username/password login pushes under "login:<username>" once its device
@@ -48117,7 +48139,7 @@ async function docLinkReturnAddress(env, request, kind, token) {
 //   X-Robots-Tag: noindex, nofollow     on everything under those prefixes
 //   Cache-Control: private, no-store    on every answer that is not an image
 // Images (signatures, photos) keep whatever caching their handler chose.
-var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf|booking)|club\/pay)\//;
+var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf|booking)|club\/(pay|register|flyer|calendar-click))\//;
 function publicDocHeaders(response, request) {
     try {
         if (!PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return response; }
@@ -48342,6 +48364,11 @@ async function handleFetch(request, env, ctx) {
             return handleGetMetaDeletionStatus(path.slice(META.deletion_status_path.length), request, env);
         }
         if (path.indexOf("/api/meta/") === 0) { return jsonErr("Not found", 404); }
+
+        // PUBLIC Thumbtack Partner API stub (see note above its handler): a
+        // live, stable address for the Request Access form, not yet wired up.
+        if (path === THUMBTACK.callback_path && method === "GET") { return handleGetThumbtackCallback(request, env); }
+        if (path.indexOf("/api/thumbtack/") === 0) { return jsonErr("Not found", 404); }
 
         // PUBLIC online booking page of a client business (book.html). The 48-hex
         // token of a lead link, or the business's slug, is the only credential.

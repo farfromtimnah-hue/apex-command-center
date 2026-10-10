@@ -135,9 +135,14 @@
     .btn[disabled] { opacity: 0.6; }
     .err { color: var(--red); font-size: 14px; margin-top: 10px; min-height: 18px; }
     .lang-btn {
-      align-self: flex-end; margin: 10px 14px 0 0; min-height: 44px; padding: 8px 14px; font-size: 13px;
-      border: 1px solid var(--border); border-radius: 999px; background: #fff;
-      color: var(--muted); cursor: pointer;
+      position: absolute; top: 12px; right: 14px; z-index: 11;
+      min-height: 36px; padding: 6px 14px; font-size: 13px;
+      border: 1px solid rgba(255,255,255,0.35); border-radius: 999px;
+      background: rgba(0,0,0,0.35); backdrop-filter: blur(4px);
+      color: #fff; cursor: pointer;
+    }
+    .hero-band.tone-light .lang-btn {
+      background: rgba(255,255,255,0.55); border-color: rgba(0,0,0,0.12); color: #2b2621;
     }
     .done { text-align: center; padding: 10px 0; }
     .done .check { font-size: 44px; color: var(--green); }
@@ -148,12 +153,11 @@
   </style>
 </head>
 <body class="lang-en">
-  <button type="button" class="lang-btn" onclick="toggleLang()">
-    <span class="show-pt">English</span><span class="show-en">Português</span>
-  </button>
-
   <div class="hero-band" id="hero" role="banner">
     <img class="hero-img" id="heroImg" alt="" hidden>
+    <button type="button" class="lang-btn" onclick="toggleLang()">
+      <span class="show-pt">EN</span><span class="show-en">PT</span>
+    </button>
     <div class="header-tile-row">
       <div class="client-logo-tile"><img id="bizLogo" alt="" hidden><span class="client-name-mark" id="bizMark" hidden></span></div>
       <span class="brand-pill" id="bizName" hidden></span>

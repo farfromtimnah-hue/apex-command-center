@@ -6278,7 +6278,7 @@
         var regs = e.registrations || [];
         var r = e.rsvp || {};
         var guests = "";
-        var regUrl = PUBLIC_BASE + "/club.html?e=" + ev.id;
+        var regUrl = e.register_link || (PUBLIC_BASE + "/club.html?e=" + ev.id);
 
         var guestRows = regs.map(function (g) {
           var isNext = g.rsvp_state === "next_time";
@@ -6968,7 +6968,10 @@
 
     // ── Registration link ───────────────────────────────────────────────
 
-    function clubRegUrl(eventId) { return PUBLIC_BASE + "/club.html?e=" + eventId; }
+    function clubRegUrl(eventId) {
+      var match = CLUB_EVENTS.filter(function (e) { return e.event && e.event.id === eventId; })[0];
+      return (match && match.register_link) || (PUBLIC_BASE + "/club.html?e=" + eventId);
+    }
 
     function copyClubLink(eventId) {
       var url = clubRegUrl(eventId);

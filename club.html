@@ -402,6 +402,7 @@
   var EVENT_ID = new URLSearchParams(location.search).get("e") ||
       (window.DOC_PAGE_LINK && window.DOC_PAGE_LINK.kind === "club" ? window.DOC_PAGE_LINK.token : "") || "";
   console.log("[DIAG] EVENT_ID=" + JSON.stringify(EVENT_ID));
+  try { document.getElementById("diagBanner").textContent += " | EVENT_ID=" + JSON.stringify(EVENT_ID); } catch (e2) {}
   var EV = null;
 
   function $(id) { return document.getElementById(id); }

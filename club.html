@@ -385,24 +385,11 @@
   "use strict";
 
   var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
-  // TEMP DIAGNOSTIC 2026-10-10 - remove after the "Evento nao encontrado" bug is found.
-  console.log("[DIAG] typeof DOC_PAGE_LINK=" + (typeof window.DOC_PAGE_LINK) + " value=" + JSON.stringify(window.DOC_PAGE_LINK) + " search=" + JSON.stringify(location.search));
-  try {
-    var diagDiv = document.createElement("div");
-    diagDiv.id = "diagBanner";
-    diagDiv.style.cssText = "position:fixed;top:0;left:0;right:0;background:#f00;color:#fff;font-size:12px;padding:6px;z-index:99999;word-break:break-all;";
-    diagDiv.textContent = "DIAG typeof=" + (typeof window.DOC_PAGE_LINK) + " value=" + JSON.stringify(window.DOC_PAGE_LINK);
-    document.body.insertBefore(diagDiv, document.body.firstChild);
-  } catch (diagErr) {
-    document.title = "DIAGERR:" + diagErr.message;
-  }
   // The doc.resonateai.online/apex/<slug> link carries no ?e= in its own
   // address bar (that's the point); window.DOC_PAGE_LINK supplies the event
   // id instead. A direct club.html?e=... link still works unchanged.
   var EVENT_ID = new URLSearchParams(location.search).get("e") ||
       (window.DOC_PAGE_LINK && window.DOC_PAGE_LINK.kind === "club" ? window.DOC_PAGE_LINK.token : "") || "";
-  console.log("[DIAG] EVENT_ID=" + JSON.stringify(EVENT_ID));
-  try { document.getElementById("diagBanner").textContent += " | EVENT_ID=" + JSON.stringify(EVENT_ID); } catch (e2) {}
   var EV = null;
 
   function $(id) { return document.getElementById(id); }

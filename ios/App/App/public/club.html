@@ -27,6 +27,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
+  <!-- DOC_PAGE_LINK: served inline through doc.resonateai.online/apex/<slug>,
+       which injects window.DOC_PAGE_LINK = { kind: "club", token: <event id>,
+       url }. The marker string must appear literally in this file's source
+       for docLinkPageHtml() to serve it inline instead of forwarding. -->
   <title>Apex Club</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -381,7 +385,11 @@
   "use strict";
 
   var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
-  var EVENT_ID = new URLSearchParams(location.search).get("e") || "";
+  // The doc.resonateai.online/apex/<slug> link carries no ?e= in its own
+  // address bar (that's the point); window.DOC_PAGE_LINK supplies the event
+  // id instead. A direct club.html?e=... link still works unchanged.
+  var EVENT_ID = new URLSearchParams(location.search).get("e") ||
+      (window.DOC_PAGE_LINK && window.DOC_PAGE_LINK.kind === "club" ? window.DOC_PAGE_LINK.token : "") || "";
   var EV = null;
 
   function $(id) { return document.getElementById(id); }

@@ -23766,8 +23766,10 @@ async function gmClubInviteEvents(env, fromDate, toDate) {
         "ORDER BY event_date ASC"
     ).bind(fromDate, toDate).all();
 
-    return (rows.results || []).map(function (e) {
-        return {
+    var out = [];
+    for (var i = 0; i < (rows.results || []).length; i++) {
+        var e = rows.results[i];
+        out.push({
             kind: "club",
             id: "club:" + e.id,
             club_event_id: e.id,
@@ -23780,11 +23782,15 @@ async function gmClubInviteEvents(env, fromDate, toDate) {
             // auth-free public route, and the key is an internal path.
             has_flyer: !!e.flyer_r2_key,
             flyer_url: e.flyer_r2_key ? "/api/club/flyer/" + e.id : null,
-            register_url: "club.html?e=" + e.id,
+            // The pretty doc.resonateai.online/apex/<slug> link, with its own
+            // preview card (the flyer, the event name) -- not the bare
+            // club.html?e=<id> string this used to be.
+            register_url: await apxClubShareLink(env, e),
             all_day: !e.start_time,
             editable: false
-        };
-    });
+        });
+    }
+    return out;
 }
 
 // The client's meetings WITH APEX, for their own company calendar.
@@ -39756,6 +39762,32 @@ function apexClubMemoHit(text) {
     return false;
 }
 
+// The link that goes out for an event's own registration page: a
+// doc.resonateai.online/apex/<slug> short link whose preview card is the
+// event's flyer and name, instead of the bare club.html?e=<id> string (no
+// preview at all). Same pattern as apxShareLink/apxInvShareLink: made once
+// per event (doc_links is keyed on (kind, public_token), and the event id
+// IS the "token" here -- club events have no separate token), cached
+// thereafter, any failure falls back to the plain link so nothing breaks.
+async function apxClubShareLink(env, event) {
+    var direct = DEFAULT_ORIGIN + "/club.html?e=" + event.id;
+    try {
+        var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'club' AND public_token = ?").bind(event.id).first();
+        if (existing) { return DOC_LINK_ORIGIN + "/" + existing.slug; }
+        var desc = (event.venue ? event.venue + " · " : "") + (event.event_date || "");
+        for (var attempt = 0; attempt < 3; attempt++) {
+            var slug = "apex/" + [docLinkSlugPart(event.name, 40), docLinkSlugPart(event.event_date, 20)].filter(Boolean).join("-") + "-" + docLinkRandom(8);
+            // client_id NULL: Club events belong to no one client.
+            var ins = await env.DB.prepare("INSERT OR IGNORE INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES (?, 'club', ?, NULL, ?, ?)")
+                .bind(slug, event.id, event.name || "Apex Club", desc).run();
+            if (ins.meta && ins.meta.changes) { return DOC_LINK_ORIGIN + "/" + slug; }
+            var raced = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'club' AND public_token = ?").bind(event.id).first();
+            if (raced) { return DOC_LINK_ORIGIN + "/" + raced.slug; }
+        }
+    } catch (e) { console.error("[club] share link failed: " + (e && e.message)); }
+    return direct;
+}
+
 async function buildApexClubEventPL(env, event) {
     // Prices belong to the event, and only to the event. An event with no
     // price is not charged by Apex: nothing below looks for guest payments
@@ -39912,8 +39944,14 @@ async function buildApexClubEventPL(env, event) {
         else { projExpense += Math.abs(s.amount_cents); }
     });
 
+    // Made (or reused) on every load so the link exists the moment the event
+    // does, with zero manual step: Alice creates the event, this is already
+    // the link she copies and sends.
+    var registerLink = await apxClubShareLink(env, event);
+
     return {
         event: event,
+        register_link: registerLink,
         // false = Apex collects nothing for this event (no price).
         charged: charged,
         confirmed: {
@@ -47651,13 +47689,14 @@ function docPdfAfterFinal(request, env, kind, token) {
 // real page with the real token. The random tail keeps each link unguessable.
 // Any failure falls back to the long token link, so sending never breaks.
 var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
-var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html", booking: "book.html", "booking-site": "book.html" };
-var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document" };
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html", booking: "book.html", "booking-site": "book.html", club: "club.html" };
+var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document", club: "Apex Club" };
 
 // Where a link forwards to. A business's general booking link carries its
 // public slug as ?b=; every other kind carries its token as ?t=.
 function docLinkTarget(kind, token) {
-    return DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + (kind === "booking-site" ? "?b=" : "?t=") + token;
+    var param = kind === "booking-site" ? "?b=" : (kind === "club" ? "?e=" : "?t=");
+    return DEFAULT_ORIGIN + "/" + DOC_LINK_PAGES[kind] + param + token;
 }
 
 function docLinkSlugPart(v, max) {
@@ -47899,6 +47938,11 @@ function docLinkEsc(v) {
 }
 
 async function docLinkLogoResponse(env, row) {
+    // A Club event has no client logo at all: its preview picture is the
+    // event's own flyer, same R2 bucket/key as GET /api/club/flyer/:id.
+    if (row.kind === "club") {
+        return await handleGetClubFlyer(row.public_token, new Request(APEX_API_BASE + "/api/club/flyer/" + encodeURIComponent(row.public_token), { method: "GET" }), env);
+    }
     if (GM_DOC_LOOK_TABLES[row.kind]) {
         var lookRow = await env.DB.prepare("SELECT brand_override_json FROM " + GM_DOC_LOOK_TABLES[row.kind] + " WHERE public_token = ?").bind(row.public_token).first();
         var lookObj = lookRow ? gmDocParseJsonObject(lookRow.brand_override_json, null) : null;

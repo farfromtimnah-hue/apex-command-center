@@ -22065,7 +22065,6 @@ async function handleGetLinkPageInfo(slug, request, env) {
         var hero = gmDocHero(origin, client.id, doc);
 
         var links = gmDigitalPresenceLinks(client.digital_presence);
-        var mapsUrl = doc.address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(doc.address) : null;
 
         return jsonOk({
             business_name: doc.legal_name || client.name,
@@ -22077,8 +22076,7 @@ async function handleGetLinkPageInfo(slug, request, env) {
             logo_url: logoUrl,
             hero_url: hero.url,
             hero: hero.hero,
-            website: links.website || null,
-            maps_url: mapsUrl
+            website: links.website || null
         });
     } catch (e) {
         return jsonErr("Error loading link page", 500);

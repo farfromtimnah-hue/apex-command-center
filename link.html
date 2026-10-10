@@ -272,10 +272,12 @@
       if (pill) { pill.textContent = name; pill.hidden = !name; }
     }
 
-    // Pills: only a non-null field gets a button. A business with neither a
-    // website nor an address on file shows no pills row at all. Worded
-    // "service area" rather than "visit us" — these are mobile businesses
-    // that go to the customer, not storefronts.
+    // Pills: only a non-null field gets a button. A business with no
+    // website on file shows no pills row at all. The Maps/"service area"
+    // pill was removed (2026-10-10): a mailing address is one point, not a
+    // service radius, and most of these businesses cover more than one
+    // town — showing it as "Service area" implied a precision Apex doesn't
+    // actually have.
     function renderPills(d) {
       var box = document.getElementById("pills");
       if (!box) { return; }
@@ -283,10 +285,6 @@
       if (d.website) {
         html += '<a class="pill" href="' + escHtml(d.website) + '" target="_blank" rel="noopener">' +
           '<span class="show-pt">Site</span><span class="show-en">Website</span></a>';
-      }
-      if (d.maps_url) {
-        html += '<a class="pill" href="' + escHtml(d.maps_url) + '" target="_blank" rel="noopener">' +
-          '<span class="show-pt">Área de atendimento</span><span class="show-en">Service area</span></a>';
       }
       box.innerHTML = html;
       box.hidden = !html;

@@ -106,6 +106,12 @@
        flat --brand-bg with the logo tile on it, never a broken image. */
     .hero-band { width: 100%; height: 190px; background: var(--brand-bg); }
     @media (max-width: 480px) { .hero-band { height: 150px; } }
+    /* This page's header sits at the TOP, not doc-hero.css's bottom anchor:
+       there's no document content below for the logo to introduce, the hero
+       IS the page's identity, and most hero photography keeps its visual
+       weight low/center, so the top is where a badge fits without competing
+       with the image underneath it. */
+    .hero-band .header-tile-row { top: 12px; bottom: auto; left: 14px; }
     .eyebrow { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--brand-accent); font-weight: 700; text-align: center; margin-top: 16px; }
     /* Pills: Linktree-style stack. Only rendered when the page has JS data
        for them — see renderPills(); an empty .pills stays invisible. */

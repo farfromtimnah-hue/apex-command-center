@@ -290,13 +290,17 @@
 
         <div class="facts" id="doneFacts"></div>
 
-        <!-- ORDER MATTERS HERE. Confirmation -> invite -> calendar -> payment.
-             Payment used to sit directly under the tick, which read as
-             "you're in, now pay" -- a transaction. Leading with the invite
-             makes it "you're in, bring someone, and here's how to pay when
-             you're ready", and drops payment to reference material at the
-             bottom. Nobody pre-pays anyway: six of nine July payments landed
-             on the day of the dinner. Do not move payment back up. -->
+        <!-- ORDER MATTERS HERE. Confirmation -> invite -> calendar -> notes
+             -> payment. Payment used to sit directly under the tick, which
+             read as "you're in, now pay" -- a transaction. Leading with the
+             invite makes it "you're in, bring someone, and here's how to pay
+             when you're ready", and drops payment to reference material at
+             the bottom. Nobody pre-pays anyway: six of nine July payments
+             landed on the day of the dinner. Do not move payment back up.
+             Notes moved below the buttons 2026-10-10 (Nicole): a long
+             invitation paragraph in doneFacts pushed Share/Calendar past
+             where people actually scroll to, same failure the sign-up form
+             already avoids with notesBelow -- see factsHtml. -->
 
         <!-- The growth path, and the strongest argument for this page
              existing over a poll in the group: a poll cannot leave the group,
@@ -309,6 +313,8 @@
         </div>
 
         <button class="ghost" id="btnCal">📅 &nbsp;Adicionar ao calendário</button>
+
+        <div class="facts hidden" id="doneNotes"></div>
 
         <!-- Offered, not asked for. Nothing here says when payment is due --
              that is Apex's call to communicate, not this page's to assume. -->
@@ -584,7 +590,13 @@
       (plusOne
         ? "Anotamos você e mais uma pessoa na lista."
         : "Já anotamos você na lista.");
-    $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true });
+    $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true, notesBelow: true });
+    var doneNotesBox = $("doneNotes");
+    if (doneNotesBox) {
+      var dnh = notesHtml(EV);
+      doneNotesBox.innerHTML = dnh;
+      doneNotesBox.classList.toggle("hidden", !dnh);
+    }
 
     // No price on this event: the screen is the confirmation, the facts, the
     // invite and the calendar button. The payment box stays out entirely.

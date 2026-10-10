@@ -529,6 +529,35 @@
       notesBox.classList.toggle("hidden", !nh);
     }
     show("screenForm");
+    // On a phone the flyer alone fills the screen, so the form below it is
+    // invisible without a scroll most people will not think to make. The
+    // flyer gets a beat to register (the whole point of leading with it),
+    // then the page scrolls itself to the name field -- not the very top of
+    // the form, so the eye lands on something to DO, not more to read.
+    autoScrollTo("evName");
+  }
+
+  // Scrolls an element into view after a short pause, long enough to see
+  // the flyer but not long enough to feel like a delay. Skipped entirely if
+  // the user has already started scrolling or interacting on their own --
+  // never yank the page out from under someone already reading. Used twice
+  // (flyer -> form, flyer -> invite/calendar), so each call gets its own
+  // fresh listeners rather than sharing one that only ever fires once --
+  // the auto-scroll itself fires a "scroll" event, which would otherwise
+  // burn the one-shot listener and silently disable the second call.
+  function autoScrollTo(id) {
+    var moved = false;
+    var mark = function () { moved = true; };
+    var opts = { passive: true };
+    window.addEventListener("touchmove", mark, opts);
+    window.addEventListener("wheel", mark, opts);
+    setTimeout(function () {
+      window.removeEventListener("touchmove", mark, opts);
+      window.removeEventListener("wheel", mark, opts);
+      if (moved) { return; }
+      var el = $(id);
+      if (el && el.scrollIntoView) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    }, 1800);
   }
 
   // ── Submit ──────────────────────────────────────────────────────────
@@ -604,6 +633,7 @@
       hide("payBox");
       show("screenDone");
       window.scrollTo(0, 0);
+      autoScrollTo("btnShare");
       return;
     }
 
@@ -649,6 +679,10 @@
 
     show("screenDone");
     window.scrollTo(0, 0);
+    // Charged events have the Zelle/card box below the invite button too --
+    // same reasoning as the free-event path: land on the flyer first, then
+    // bounce to Share/Calendar, not past them to the payment box.
+    autoScrollTo("btnShare");
   }
 
   // ── Apex Club payments ──────────────────────────────────────────────

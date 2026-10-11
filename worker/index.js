@@ -36707,32 +36707,29 @@ async function voidRemovedTransaction(env, plaidTransactionId) {
         // stable. Requires a real prefix (8+ chars) so a short or empty key
         // cannot match half the feed.
         //
-        // D1 enforces SQLite's LIKE/GLOB pattern limit at 50 BYTES (far
-        // below desktop SQLite's 50,000 default), measured on the whole
-        // bound pattern string, not the column value. The other side of
-        // this OR puts merchant_normalized itself into a pattern
-        // (merchant_normalized || '%'), and real bank descriptions run
-        // past that on their own -- "TD AUTO FINANCE WEB PAY ... WE" alone
-        // is 61 bytes once the trailing '%' is added. Left uncapped this
-        // throws D1_ERROR: LIKE or GLOB pattern too complex and aborts
-        // the whole void/supersede pass for every transaction behind it
-        // in the same sync. Both sides of the match are leading-prefix
-        // comparisons anyway (the bank's stable part is the start of the
-        // description), so capping the full value the same way the short
-        // key already is loses nothing real.
+        // The real defect (my first fix at this spot only treated the
+        // symptom, not the cause -- see the D1_ERROR this threw twice in
+        // production): "? LIKE merchant_normalized || '%'" builds its
+        // PATTERN from a column, not a bound literal. SQLite refuses to
+        // compile that at all, independent of length -- it cannot be
+        // planned per-row the way a bound pattern can. This exact rule is
+        // already documented and worked around elsewhere in this file (see
+        // handleGetContractProgress's payer-alias match): substr(column, 1,
+        // length) = value is the correct, D1-safe way to express "is this
+        // value a prefix of that column," and it is also faster than LIKE
+        // since it is a plain compare, not a pattern match.
         var key = String(row.merchant_normalized).slice(0, 12);
-        var longKey = String(row.merchant_normalized).slice(0, 40);
         if (key.length >= 8) {
             succ = await env.DB.prepare(
                 "SELECT id FROM transactions WHERE account_id = ? AND amount_cents = ? " +
                 "AND id != ? AND voided_at IS NULL " +
                 "AND merchant_normalized IS NOT NULL " +
-                "AND (merchant_normalized LIKE ? OR ? LIKE merchant_normalized || '%') " +
+                "AND (merchant_normalized LIKE ? OR substr(merchant_normalized, 1, LENGTH(?)) = ?) " +
                 "AND date >= date(?, '-3 day') AND date <= date(?, '+3 day') " +
                 "ORDER BY pending ASC, date ASC LIMIT 1"
             ).bind(
                 row.account_id, row.amount_cents, row.id,
-                key + "%", longKey,
+                key + "%", row.merchant_normalized, row.merchant_normalized,
                 row.date, row.date
             ).first();
         }

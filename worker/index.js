@@ -20059,6 +20059,10 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         ["data_contato", 40],
         ["data_estimate", 40], ["proxima_acao", 500], ["mes_fechamento", 40],
         ["address", 200], ["city", 100],
+        // Structured address, going forward -- see migrations/2026-10-13_lead_structured_address.sql.
+        // address/city above stay as-is for old leads; new edits write these.
+        ["addr_street", 200], ["addr_city", 100], ["addr_state", 20], ["addr_zip", 20],
+        ["addr_access", 300],
         // G2f / G2h: kept with the address, answered once on a contract.
         ["property_county", 100], ["property_type", 30],
         // Part I5: the actual referrer, recorded by the salesperson.
@@ -20116,6 +20120,7 @@ var GM_LEAD_LOGGED_FIELDS = [
     "cliente", "telefone", "email", "origem", "parceiro_id", "servico",
     "observacao", "vendedor", "vendedor_secundario", "valor", "proxima_acao", "data_contato",
     "data_estimate", "mes_lead", "mes_fechamento", "address", "city",
+    "addr_street", "addr_city", "addr_state", "addr_zip", "addr_access",
     "servico_desc", "status_financiamento", "followups"
 ].concat(GM_LEAD_COST_FIELDS);
 
@@ -20169,8 +20174,8 @@ async function gmInsertLead(env, clientId, f, actor) {
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city, created_by, updated_by, " + costCols + ") " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
+        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, created_by, updated_by, " + costCols + ") " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -20192,6 +20197,11 @@ async function gmInsertLead(env, clientId, f, actor) {
         f.mes_fechamento !== undefined ? f.mes_fechamento : null,
         f.address !== undefined ? f.address : null,
         f.city !== undefined ? f.city : null,
+        f.addr_street !== undefined ? f.addr_street : null,
+        f.addr_city !== undefined ? f.addr_city : null,
+        f.addr_state !== undefined ? f.addr_state : null,
+        f.addr_zip !== undefined ? f.addr_zip : null,
+        f.addr_access !== undefined ? f.addr_access : null,
         actor || null,
         actor || null,
         ...costBinds

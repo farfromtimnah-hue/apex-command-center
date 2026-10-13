@@ -573,7 +573,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
     if (type === "date") { inputType = "date"; }               // native OS picker
     if (type === "datetime") { inputType = "datetime-local"; } // native OS picker
     if (type === "currency") { inputMode = ' inputmode="decimal"'; }   // NOT type=number: surfaces the locale decimal comma
-    if (type === "number") { inputMode = ' inputmode="numeric"'; }
+    if (type === "number" || type === "zip") { inputMode = ' inputmode="numeric"'; }
     var v = (value === null || value === undefined) ? "" : String(value);
     if (type === "datetime" && v) { v = v.replace(" ", "T").slice(0, 16); }
     if (type === "date" && v) { v = v.slice(0, 10); }
@@ -2781,6 +2781,17 @@ function gmLeadFieldDefs() {
     // record. Both are optional and blank on most leads early on.
     { key: "address",        type: "text",     pt: "Endereço",                en: "Address" },
     { key: "city",           type: "text",     pt: "Cidade",                  en: "City" },
+    // Structured address, going forward -- see migrations/2026-10-13_lead_structured_address.sql.
+    // address/city above are the legacy free-text fields and keep displaying
+    // for old leads; new edits write these five instead. addr_access is
+    // internal (gate codes, entrance notes) and never printed on a document
+    // — see gmLeadAddressLine.
+    { key: "addr_street",    type: "text",     pt: "Rua / Endereço",          en: "Street" },
+    { key: "addr_city",      type: "text",     pt: "Cidade",                  en: "City" },
+    { key: "addr_state",     type: "text",     pt: "Estado",                  en: "State" },
+    { key: "addr_zip",       type: "zip",      pt: "CEP / ZIP",               en: "ZIP" },
+    { key: "addr_access",    type: "text",     pt: "Instruções de acesso (portão, código)",
+                                                en: "Access notes (gate, code)" },
     // What the customer wants built, in their own words. Kept out of `servico`
     // on purpose: that is a per-client dropdown list, and this free text ("POOL,
     // SPA, CAGE", "Standard pool, maybe jacuzzi") does not match it. Optional.
@@ -3036,8 +3047,21 @@ function gmRenderLeadSheet() {
     // fields" because for a builder "where is it?" ranks with "who sent it?".
     // An empty value renders as an ordinary blank row that is still tappable
     // to fill in — never a warning, and never a reason to hide the lead.
-    gmSheetRowHtml("map-pin", gmT("Endereço", "Address"), val("address"), edit("address")) +
-    gmSheetRowHtml("building", gmT("Cidade", "City"), val("city"), edit("city")));
+    //
+    // Structured going forward: a lead with any addr_* field already filled
+    // shows/edits the five structured rows. A lead with only the legacy
+    // address/city (every lead before this feature) keeps showing that as a
+    // read-only line, with the structured fields offered empty below it so
+    // filling them in is one tap away — the legacy text is never silently
+    // replaced or dropped.
+    (gmLeadHasStructuredAddr(lead) ? "" :
+      (lead.address || lead.city ? gmSheetRowHtml("map-pin", gmT("Endereço (antigo)", "Address (legacy)"),
+        escHtml(gmLeadAddressLine(lead))) : "")) +
+    gmSheetRowHtml("map-pin", gmT("Rua / Endereço", "Street"), val("addr_street"), edit("addr_street")) +
+    gmSheetRowHtml("building", gmT("Cidade", "City"), val("addr_city"), edit("addr_city")) +
+    gmSheetRowHtml("compass", gmT("Estado", "State"), val("addr_state"), edit("addr_state")) +
+    gmSheetRowHtml("tag", gmT("CEP / ZIP", "ZIP"), val("addr_zip"), edit("addr_zip")) +
+    gmSheetRowHtml("key", gmT("Instruções de acesso", "Access notes"), val("addr_access"), edit("addr_access")));
 
   // Job 38: a lead from a Facebook or Instagram lead ad shows the ad and the
   // answers from its form.
@@ -3049,6 +3073,7 @@ function gmRenderLeadSheet() {
   var shown = { valor: 1, proxima_acao: 1,
                 servico: 1, vendedor: 1, origem: 1, parceiro_id: 1, telefone: 1, email: 1,
                 address: 1, city: 1,
+                addr_street: 1, addr_city: 1, addr_state: 1, addr_zip: 1, addr_access: 1,
                 // Rendered in the Valores section above, not in the flat list.
                 material: 1, mao_de_obra: 1, outros: 1,
                 custo_administrativo: 1, comissao: 1, imposto: 1 };
@@ -3700,7 +3725,14 @@ function gmEditLeadField(defIdx) {
     });
     return;
   }
-  gmOpenFieldEditor(gmT(def.pt, def.en), def.type, lead[def.key], def.options || [], function(value) {
+  // Every client is in Florida, so the State field opens pre-filled with
+  // "FL" when it has never been set, rather than blank — still fully
+  // editable, just a faster default for the overwhelmingly common case.
+  var editorValue = lead[def.key];
+  if (def.key === "addr_state" && (editorValue === null || editorValue === undefined || editorValue === "")) {
+    editorValue = "FL";
+  }
+  gmOpenFieldEditor(gmT(def.pt, def.en), def.type, editorValue, def.options || [], function(value) {
     if (def.key === "cliente" && (value === null || value === "")) {
       gmToast(gmT("O nome do cliente é obrigatório.", "Client name is required."));
       gmRenderLeadSheet();
@@ -4036,7 +4068,9 @@ var GM_ICONS = {
   // they drew an empty square. Same glyphs as nav.js's apexNavSvg.
   file:     '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
   edit:     '<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>',
-  user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
+  user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  // Access notes row (gate code / entrance) on the structured address block.
+  key:      '<circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5L19 11"/><path d="M17 5l3 3"/>'
 };
 
 function gmIcon(name) {
@@ -11604,9 +11638,30 @@ function gmDocMsgEditorOpen(key, onSaved) {
 
 // ── Wizard (2b) ─────────────────────────────────────────────────────────
 
-// The lead's address as one line; a lead whose address already ends with the
-// city (saved back from an estimate or contract) is not given it twice.
+// Whether a lead has any of the new structured address fields filled in —
+// the signal used to decide whether to show/edit the structured rows or the
+// read-only legacy address line. addr_access does NOT count: a lead with
+// only a gate code typed and no street/city is still a legacy-address lead.
+function gmLeadHasStructuredAddr(lead) {
+  return !!(lead && (lead.addr_street || lead.addr_city || lead.addr_state || lead.addr_zip));
+}
+
+// The lead's address as one line, for display and for documents.
+//
+// Structured fields win when any are set: "street, city, state zip". Falls
+// back to the legacy free-text address+city otherwise, so a lead from before
+// this feature keeps rendering exactly as it always did. Access notes
+// (addr_access) are never included here — they are internal, not something
+// that belongs on a customer-facing estimate or contract.
 function gmLeadAddressLine(lead) {
+  if (gmLeadHasStructuredAddr(lead)) {
+    var street = String((lead && lead.addr_street) || "").trim();
+    var city   = String((lead && lead.addr_city) || "").trim();
+    var stateZip = [String((lead && lead.addr_state) || "").trim(),
+                     String((lead && lead.addr_zip) || "").trim()]
+      .filter(function(x) { return !!x; }).join(" ");
+    return [street, city, stateZip].filter(function(x) { return !!x; }).join(", ");
+  }
   var a = String((lead && lead.address) || "").trim(), c = String((lead && lead.city) || "").trim();
   if (a && c && a.toLowerCase().indexOf(c.toLowerCase()) !== -1) { return a; }
   return [a, c].filter(function(x) { return !!x; }).join(", ");

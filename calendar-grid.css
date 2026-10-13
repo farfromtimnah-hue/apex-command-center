@@ -138,6 +138,21 @@
 }
 .cgrid-chip.is-dim:hover { opacity: 0.7; }
 
+/* A JOB IN PROGRESS, spanning every day from start to deadline — a BAND, not
+   a single-day marker. Green and solid so it reads as "active" at a glance,
+   distinct from every other chip kind on the grid. Square by default; the
+   start/end day of the span gets rounded OUTER corners only, so the run of
+   chips across the week reads as one continuous shape. */
+.cgrid-chip.job-band {
+  background: #2f7d4f;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+}
+.cgrid-chip.job-band.job-band-start { border-radius: 4px 0 0 4px; }
+.cgrid-chip.job-band.job-band-end   { border-radius: 0 4px 4px 0; }
+.cgrid-chip.job-band.job-band-start.job-band-end { border-radius: 4px; }
+
 /* APEX CLUB — another tier's event, read-only, and deliberately unlike
    anything the client owns so nobody mistakes it for theirs. */
 .cgrid-chip.club {

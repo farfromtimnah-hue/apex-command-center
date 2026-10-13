@@ -8859,7 +8859,12 @@ function gmCalChip(ev) {
   btn.type = "button";
   btn.className = "cgrid-chip " +
     (ev.kind === "club" ? "club" : ev.kind === "derived" ? "derived" :
+     ev.kind === "band" ? "job-band" :
      ev.kind === "apex" ? "apex" : ev.kind === "lead" ? "lead" : "own");
+  if (ev.kind === "band") {
+    if (ev.band_start) { btn.className += " job-band-start"; }
+    if (ev.band_end)   { btn.className += " job-band-end"; }
+  }
   // Closed and lost leads stay on the calendar as history but must not compete
   // with the live pipeline for attention on a busy month.
   if (ev.dim) { btn.className += " is-dim"; }
@@ -8891,6 +8896,11 @@ function gmCalChip(ev) {
     // Label the DATE, not just the project: three entries can share one
     // project name and "which date is this?" is the only question that matters.
     name.textContent = (isEn() ? ev.label_en : ev.label_pt) + ": " + (ev.title || "");
+  } else if (ev.kind === "band") {
+    // Just the job name — the band itself (continuous across the cells) is
+    // what says "active", so the label does not need to repeat that on every
+    // day the way the old separate Início/Prazo dots named their own kind.
+    name.textContent = ev.title || "";
   } else if (ev.kind === "club") {
     name.textContent = "★ " + (ev.title || "Apex Club");
   } else if (ev.kind === "lead") {
@@ -8917,7 +8927,7 @@ function gmCalChip(ev) {
 
   btn.onclick = function(e) {
     e.stopPropagation();
-    if (ev.kind === "derived") { gmCalOpenJob(ev); }
+    if (ev.kind === "derived" || ev.kind === "band") { gmCalOpenJob(ev); }
     else if (ev.kind === "lead") { gmCalOpenLead(ev); }
     else if (ev.kind === "club") { gmCalOpenClub(ev); }
     else if (ev.kind === "apex") { gmCalOpenApex(ev); }
@@ -8968,6 +8978,7 @@ function gmRenderCalendar() {
     '<div class="gm-cal-legend">' +
       '<span><i class="cgrid-chip own"></i>' + gmT("Meus eventos", "My events") + '</span>' +
       '<span><i class="cgrid-chip derived"></i>' + gmT("Projetos", "Projects") + '</span>' +
+      '<span><i class="cgrid-chip job-band"></i>' + gmT("Projeto em andamento", "Job in progress") + '</span>' +
       '<span><i class="cgrid-chip club"></i>Apex Club</span>' +
       '<span><i class="cgrid-chip lead"></i>' + gmT("Orçamentos", "Estimates") + '</span>' +
       '<span><i class="cgrid-chip apex"></i>' + gmT("Reunião com a Apex", "Meeting with Apex") + '</span>' +

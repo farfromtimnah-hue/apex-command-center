@@ -23610,23 +23610,32 @@ async function gmEventFields(env, clientId, body, partial) {
 // entrega_real (actual delivery) is included alongside the planned dates —
 // it is a real, dated, client-owned fact, and on a finished job it is the date
 // the owner actually cares about.
+//
+// A job IN PROGRESS with both inicio and prazo_previsto renders as a BAND:
+// one "band" entry per day from inicio through prazo_previsto inclusive, so
+// the owner can see at a glance which jobs are active on any given day. A
+// completed job ("Concluída") never gets a band — it is done. A job with
+// only inicio set (no prazo_previsto yet) keeps the single start marker
+// instead, since there is no end date to span to.
 async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
+    // Widened beyond [fromDate,toDate]: a band can start before or end after
+    // the visible range while still crossing through it, and the plain range
+    // filter below (used for entrega_real and the single-marker cases) would
+    // miss that job entirely.
     var rows = await env.DB.prepare(
         "SELECT id, obra, inicio, prazo_previsto, entrega_real, status FROM gm_jobs " +
         "WHERE client_id = ? AND (" +
-        "  (inicio         IS NOT NULL AND inicio         >= ? AND inicio         <= ?) OR " +
+        "  (inicio         IS NOT NULL AND inicio         <= ? AND (prazo_previsto IS NULL OR prazo_previsto >= ?)) OR " +
         "  (prazo_previsto IS NOT NULL AND prazo_previsto >= ? AND prazo_previsto <= ?) OR " +
         "  (entrega_real   IS NOT NULL AND entrega_real   >= ? AND entrega_real   <= ?))"
-    ).bind(clientId, fromDate, toDate, fromDate, toDate, fromDate, toDate).all();
+    ).bind(clientId, toDate, fromDate, fromDate, toDate, fromDate, toDate).all();
 
     var out = [];
     (rows.results || []).forEach(function (j) {
-        // Each date gets its OWN entry, labelled, so a glance at the day says
-        // which of the three it is rather than just naming the project twice.
-        function push(dateVal, labelPt, labelEn, slot) {
+        function push(dateVal, labelPt, labelEn, slot, kind) {
             if (!dateVal || dateVal < fromDate || dateVal > toDate) { return; }
             out.push({
-                kind: "derived",
+                kind: kind || "derived",
                 source: "job",
                 id: "job:" + j.id + ":" + slot,
                 job_id: j.id,
@@ -23639,9 +23648,42 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
                 editable: false
             });
         }
-        push(j.inicio,         "Início",  "Start",    "inicio");
-        push(j.prazo_previsto, "Prazo",   "Deadline", "prazo");
-        push(j.entrega_real,   "Entrega", "Delivered", "entrega");
+
+        var inProgress = j.status === "Em andamento";
+        if (inProgress && j.inicio && j.prazo_previsto && j.prazo_previsto >= j.inicio) {
+            // One entry per day in the span, each labelled band_start/band_mid/
+            // band_end so the frontend can round the band's outer corners and
+            // read as one continuous shape rather than a row of square chips.
+            var start = j.inicio.slice(0, 10), end = j.prazo_previsto.slice(0, 10);
+            var cur = start < fromDate ? fromDate : start;
+            var last = end > toDate ? toDate : end;
+            while (cur <= last) {
+                out.push({
+                    kind: "band",
+                    source: "job",
+                    id: "job:" + j.id + ":band:" + cur,
+                    job_id: j.id,
+                    date: cur,
+                    title: j.obra,
+                    status: j.status || null,
+                    all_day: true,
+                    editable: false,
+                    band_start: cur === start,
+                    band_end: cur === end
+                });
+                // +1 day via plain ISO string arithmetic through a Date — the
+                // range is small (one project's active window) so this is cheap.
+                var d = new Date(cur + "T00:00:00Z");
+                d.setUTCDate(d.getUTCDate() + 1);
+                cur = d.toISOString().slice(0, 10);
+            }
+        } else if (!inProgress || !j.prazo_previsto) {
+            // Not in progress (e.g. completed — no band per the rule above), or
+            // in progress with no deadline yet: fall back to single markers.
+            push(j.inicio,         "Início",  "Start",    "inicio");
+            if (!inProgress) { push(j.prazo_previsto, "Prazo", "Deadline", "prazo"); }
+        }
+        push(j.entrega_real, "Entrega", "Delivered", "entrega");
     });
     return out;
 }

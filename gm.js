@@ -3312,11 +3312,16 @@ function gmRenderLeadFiles(leadId, failed) {
       images.forEach(function(f) {
         inner += '<figure class="gm-photo">' +
           '<img id="gmPhotoImg_' + escHtml(f.id) + '" class="gm-photo-loading" ' +
-               'alt="' + escHtml(f.caption || f.file_name || gmT("Anexo", "Attachment")) + '">' +
+               'tabindex="0" role="button" style="cursor:pointer;" ' +
+               'aria-label="' + escHtml(gmT("Abrir imagem", "Open image")) + '" ' +
+               'alt="' + escHtml(f.caption || f.file_name || gmT("Anexo", "Attachment")) + '" ' +
+               'onclick="gmOpenAuthedFile(' + JSON.stringify(f.file_url).replace(/"/g, "&quot;") + ')" ' +
+               'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();gmOpenAuthedFile(' +
+                 JSON.stringify(f.file_url).replace(/"/g, "&quot;") + ');}">' +
           (f.caption ? '<figcaption>' + escHtml(f.caption) + '</figcaption>' : "") +
           '<button type="button" class="gm-photo-del" ' +
             'aria-label="' + escHtml(gmT("Remover arquivo", "Remove file")) + '" ' +
-            'onclick="gmDeleteLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ',' +
+            'onclick="event.stopPropagation();gmDeleteLeadFile(' + JSON.stringify(leadId).replace(/"/g, "&quot;") + ',' +
                       JSON.stringify(f.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
           '</figure>';
       });
@@ -7378,11 +7383,16 @@ function gmRenderJobPhotos(jobId, failed) {
     images.forEach(function(p) {
       inner += '<figure class="gm-photo">' +
         '<img id="gmPhotoImg_' + escHtml(p.id) + '" class="gm-photo-loading" ' +
-             'alt="' + escHtml(p.caption || gmT("Foto do projeto", "Project photo")) + '">' +
+             'tabindex="0" role="button" style="cursor:pointer;" ' +
+             'aria-label="' + escHtml(gmT("Abrir imagem", "Open image")) + '" ' +
+             'alt="' + escHtml(p.caption || gmT("Foto do projeto", "Project photo")) + '" ' +
+             'onclick="gmOpenAuthedFile(' + JSON.stringify(p.file_url).replace(/"/g, "&quot;") + ')" ' +
+             'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();gmOpenAuthedFile(' +
+               JSON.stringify(p.file_url).replace(/"/g, "&quot;") + ');}">' +
         (p.caption ? '<figcaption>' + escHtml(p.caption) + '</figcaption>' : "") +
         '<button type="button" class="gm-photo-del" ' +
           'aria-label="' + gmT("Remover foto", "Remove photo") + '" ' +
-          'onclick="gmDeleteJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' +
+          'onclick="event.stopPropagation();gmDeleteJobPhoto(' + JSON.stringify(jobId).replace(/"/g, "&quot;") + ',' +
                     JSON.stringify(p.id).replace(/"/g, "&quot;") + ')">&times;</button>' +
         '</figure>';
     });

@@ -92,6 +92,8 @@
   <script src="scheduling-queue.js?v=1787608441"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
+  <script src="data/us-br-states.js?v=1791950001"></script>
+  <script src="client-places.js?v=1791950001"></script>
   <title data-title-pt="Apex — Calendário" data-title-en="Apex — Calendar">Apex — Calendário</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1426,6 +1428,43 @@
       }
       .cal-agenda-list .cal-day-chip { margin: 0; }
     }
+
+    /* Owners + State/City controls (client-places.js), 2026-10-14. Matches
+       this page's own .field-group input sizing. */
+    .cp-owners-legacy { margin-bottom: 8px; }
+    .cp-owners-legacy-label { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+    .cp-owners-legacy-text { font-size: 13px; color: var(--text); }
+    .cp-owner-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; position: relative; }
+    .cp-owner-first, .cp-owner-last {
+      flex: 1 1 100px; min-width: 90px; border: 1px solid var(--border); border-radius: 7px;
+      padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); background: var(--surface);
+    }
+    .cp-owner-remove {
+      flex: 0 0 auto; border: none; background: transparent; color: var(--muted);
+      font-size: 14px; cursor: pointer; padding: 4px 6px;
+    }
+    .cp-owner-err { flex: 1 0 100%; font-size: 11px; color: #c0392b; }
+    .cp-owner-add {
+      border: 1px dashed var(--border); background: transparent; color: var(--gold);
+      font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    }
+    .cp-owner-add[disabled] { opacity: 0.5; cursor: default; }
+    .cp-owners-top-err { font-size: 11px; color: #c0392b; margin-top: 4px; }
+
+    .cp-state-wrap, .cp-city-wrap { position: relative; margin-bottom: 8px; }
+    .cp-state-input, .cp-city-input {
+      width: 100%; border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); background: var(--surface);
+    }
+    .cp-city-input[disabled] { background: var(--card); color: var(--muted); }
+    .cp-state-suggestions, .cp-city-suggestions {
+      position: absolute; z-index: 40; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto;
+      background: var(--card); border: 1px solid var(--border); border-radius: 7px; margin-top: 2px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+    .cp-suggest-group { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); padding: 6px 10px 2px; }
+    .cp-suggest-item { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+    .cp-suggest-item:hover, .cp-suggest-item.active { background: var(--border); }
   </style>
 </head>
 <body class="lang-pt">
@@ -2281,7 +2320,7 @@
               <span class="show-pt">Dono(s)</span>
               <span class="show-en">Owner(s)</span>
             </div>
-            <input type="text" id="qacOwners" placeholder="">
+            <div id="qacOwnersMount"></div>
           </div>
           <div class="field-group">
             <div class="field-label">
@@ -2292,10 +2331,10 @@
           </div>
           <div class="field-group">
             <div class="field-label">
-              <span class="show-pt">Cidade</span>
-              <span class="show-en">City</span>
+              <span class="show-pt">Estado e cidade</span>
+              <span class="show-en">State and city</span>
             </div>
-            <input type="text" id="qacLocation" placeholder="">
+            <div id="qacLocationMount"></div>
           </div>
           <div class="field-group">
             <div class="field-label">
@@ -3078,6 +3117,19 @@
         return fetch(WORKER_URL + path, fetchOpts);
       });
     }
+
+    // Wires client-places.js's City control to this page's own apiFetch (see
+    // client.html for the same wiring and why each page does its own).
+    var clientPlacesCityCache = {};
+    window.ClientPlacesCityLoader = function(code) {
+      if (clientPlacesCityCache[code]) { return Promise.resolve(clientPlacesCityCache[code]); }
+      return apiFetch("/api/places/cities/" + encodeURIComponent(code))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          clientPlacesCityCache[code] = data.cities || [];
+          return clientPlacesCityCache[code];
+        });
+    };
 
     // Multipart sibling of apiFetch. Separate rather than a branch inside
     // apiFetch, which JSON-stringifies its body and sets a JSON content type;
@@ -4430,6 +4482,30 @@
           : '<span class="show-pt">- Menos detalhes</span>' +
             '<span class="show-en">- Fewer details</span>';
       }
+      qacEnsureMounts();
+    }
+
+    // The owners editor and state/city control are built once, the first
+    // time "+ Mais detalhes" is opened (nothing to show before then).
+    function qacEnsureMounts() {
+      var ownersMount = document.getElementById("qacOwnersMount");
+      if (ownersMount && !ownersMount._cpInited) {
+        ClientPlaces.ownersEditor(ownersMount, [], { lang: function() { return isEn(); } });
+        ownersMount._cpInited = true;
+      }
+      var locMount = document.getElementById("qacLocationMount");
+      if (locMount && !locMount._cpInited) {
+        ClientPlaces.stateCityControl(locMount, null, "", { lang: function() { return isEn(); } });
+        locMount._cpInited = true;
+      }
+    }
+    // After a successful save, both controls are rebuilt empty so the next
+    // lead does not quietly inherit the last one's owners or location.
+    function qacResetMounts() {
+      var ownersMount = document.getElementById("qacOwnersMount");
+      if (ownersMount) { ClientPlaces.ownersEditor(ownersMount, [], { lang: function() { return isEn(); } }); }
+      var locMount = document.getElementById("qacLocationMount");
+      if (locMount) { ClientPlaces.stateCityControl(locMount, null, "", { lang: function() { return isEn(); } }); }
     }
 
     function handleQuickAddClient() {
@@ -4446,6 +4522,29 @@
       }
       var phone = phoneEl ? (phoneEl.value || "").trim() : "";
 
+      // Owners and State/City are read from the shared controls only if the
+      // "+ Mais detalhes" block was opened (and so the mounts exist); a save
+      // with neither touched posts no owners_json/location at all, same as
+      // before this editor existed.
+      var ownersMount = document.getElementById("qacOwnersMount");
+      var ownersJson = null;
+      if (ownersMount && ownersMount._cpInited) {
+        var hasAnyTyped = (ownersMount._cpOwnersRows || []).some(function(r) { return (r.first || "").trim() || (r.last || "").trim(); });
+        if (hasAnyTyped) {
+          var ownersRes = ClientPlaces.ownersRead(ownersMount);
+          if (ownersRes.blocked) { return; } // inline message already shown
+          ownersJson = ownersRes.ownersJson;
+        }
+      }
+      var locMount = document.getElementById("qacLocationMount");
+      var stateCode = null, cityTyped = null;
+      if (locMount && locMount._cpInited) {
+        var locRes = ClientPlaces.stateCityRead(locMount);
+        if (locRes.error) { return; } // inline message already shown
+        stateCode = locRes.stateCode;
+        cityTyped = locRes.city || null;
+      }
+
       statusEl.textContent = en ? "Saving..." : "Salvando...";
 
       apiFetch("/api/clients", {
@@ -4455,11 +4554,12 @@
           phone: phone || null,
           // Whatever he chose to expand and fill in. Every one of these is
           // optional and absent unless typed; the endpoint already accepts
-          // all four and stores null for anything missing.
-          owners:   qacVal("qacOwners"),
-          industry: qacVal("qacIndustry"),
-          location: qacVal("qacLocation"),
-          email:    qacVal("qacEmail"),
+          // all of them and stores null for anything missing.
+          owners_json:    ownersJson,
+          industry:       qacVal("qacIndustry"),
+          location_state: stateCode,
+          location_city:  cityTyped,
+          email:          qacVal("qacEmail"),
           // Somebody becomes ACTIVE when they have a contract, which means
           // they have a package. Created here, mid-booking, they have neither.
           status: "lead"
@@ -4481,10 +4581,11 @@
           if (phoneEl) { phoneEl.value = ""; }
           // Clear the optional block and recollapse it, or the next lead
           // quietly inherits the last one's owner, industry, city and email.
-          ["qacOwners","qacIndustry","qacLocation","qacEmail","qacNotes"].forEach(function(fid) {
+          ["qacIndustry","qacEmail","qacNotes"].forEach(function(fid) {
             var f = document.getElementById(fid);
             if (f) { f.value = ""; }
           });
+          qacResetMounts();
           var moreBox = document.getElementById("qacMore");
           if (moreBox && !moreBox.hidden) { toggleQuickAddMore(); }
           closeModal("modalQuickAddClient");

@@ -68,7 +68,9 @@
   <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
   <script src="datetime.js"></script>
   <link rel="stylesheet" href="gm.css?v=1791943582">
-  <script src="apex-contract.js?v=1791948386"></script>
+  <script src="data/us-br-states.js?v=1791950001"></script>
+  <script src="client-places.js?v=1791950001"></script>
+  <script src="apex-contract.js?v=1791994342"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -718,6 +720,29 @@
 
     function isEn() { return document.body.classList.contains("lang-en"); }
 
+    // Owners/location display (job 2026-10-14_client_owners_state_city, C7).
+    // "City, XX" when the structured fields exist, otherwise the legacy
+    // text exactly as today. owners_json displays "First Last, First Last",
+    // otherwise the legacy owners string, exactly as today.
+    function clientOwnersText(c) {
+      if (c.owners_json) {
+        try {
+          var list = JSON.parse(c.owners_json);
+          if (Array.isArray(list) && list.length) {
+            return list.map(function(o) { return (o.first + " " + o.last).trim(); }).join(", ");
+          }
+        } catch (e) { /* fall through to legacy */ }
+      }
+      return c.owners || "";
+    }
+    function clientLocationText(c) {
+      if (c.location_city || c.location_state) {
+        var two = c.location_state && c.location_state.indexOf("-") !== -1 ? c.location_state.split("-")[1] : "";
+        return [c.location_city || "", two].filter(Boolean).join(", ");
+      }
+      return c.location || "";
+    }
+
     function ptEn(pt, en) {
       return '<span class="show-pt">' + pt + '</span><span class="show-en">' + en + '</span>';
     }
@@ -857,8 +882,9 @@
     function renderHead(d) {
       var c = d.client || {};
       var bits = [];
-      if (c.owners)   { bits.push(escHtml(c.owners)); }
-      if (c.location) { bits.push(escHtml(c.location)); }
+      var ownersText = clientOwnersText(c), locationText = clientLocationText(c);
+      if (ownersText)  { bits.push(escHtml(ownersText)); }
+      if (locationText) { bits.push(escHtml(locationText)); }
       if (c.industry) { bits.push(escHtml(c.industry)); }
 
       var typeLabel = typeLabelHtml(d.meeting_type);
@@ -912,10 +938,11 @@
       }
 
       var side = [];
-      if (c.owners) {
+      var ownersTextB = clientOwnersText(c);
+      if (ownersTextB) {
         side.push('<div class="kv-item"><div class="kv-label">' +
           ptEn("Quem participa", "Attending") + '</div><div class="kv-value">' +
-          escHtml(c.owners) + '</div></div>');
+          escHtml(ownersTextB) + '</div></div>');
       }
       if (c.package) {
         side.push('<div class="kv-item"><div class="kv-label">' +
@@ -1316,8 +1343,9 @@
       if (c.package)            { kv(ptEn("Pacote", "Package"), escHtml(c.package)); }
       if (c.package_started_at) { kv(ptEn("In&#237;cio", "Started"), escHtml(c.package_started_at)); }
       if (c.industry)           { kv(ptEn("Setor", "Industry"), escHtml(c.industry)); }
-      if (c.location)           { kv(ptEn("Local", "Location"), escHtml(c.location)); }
-      if (c.owners)             { kv(ptEn("Donos", "Owners"), escHtml(c.owners)); }
+      var kickoffLocationText = clientLocationText(c), kickoffOwnersText = clientOwnersText(c);
+      if (kickoffLocationText) { kv(ptEn("Local", "Location"), escHtml(kickoffLocationText)); }
+      if (kickoffOwnersText)   { kv(ptEn("Donos", "Owners"), escHtml(kickoffOwnersText)); }
       kv(ptEn("Raio-X", "X-Ray"), k.has_xray
         ? ptEn("conclu&#237;do", "completed")
         : ptEn("sem Raio-X conclu&#237;do", "no completed X-Ray"));

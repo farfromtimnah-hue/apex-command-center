@@ -94,7 +94,9 @@
   <script src="doc-hero.js?v=1790547506"></script>
   <script src="gm-labels.js?v=1791231031"></script>
   <script src="gm.js?v=1791942973"></script>
-  <script src="apex-contract.js?v=1791948386"></script>
+  <script src="data/us-br-states.js?v=1791950001"></script>
+  <script src="client-places.js?v=1791950001"></script>
+  <script src="apex-contract.js?v=1791994342"></script>
   <title data-title-pt="Apex — Cliente" data-title-en="Apex — Client">Apex — Cliente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1938,6 +1940,43 @@
     .toggle-switch.on::after { left: 25px; }
     .toggle-switch[disabled] { opacity: 0.6; cursor: default; }
     .toggle-state { font-size: 14px; font-weight: 700; }
+
+    /* Owners + State/City controls (client-places.js), 2026-10-14. Matches
+       the Overview card's own gold-focus text input sizing. */
+    .cp-owners-legacy { margin-bottom: 8px; }
+    .cp-owners-legacy-label { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+    .cp-owners-legacy-text { font-size: 13px; color: var(--text); }
+    .cp-owner-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; position: relative; }
+    .cp-owner-first, .cp-owner-last {
+      flex: 1 1 100px; min-width: 90px; border: 1px solid var(--gold); border-radius: 5px;
+      padding: 5px 7px; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); background: #fff;
+    }
+    .cp-owner-remove {
+      flex: 0 0 auto; border: none; background: transparent; color: var(--muted);
+      font-size: 14px; cursor: pointer; padding: 4px 6px;
+    }
+    .cp-owner-err { flex: 1 0 100%; font-size: 11px; color: var(--red, #c0392b); }
+    .cp-owner-add {
+      border: 1px dashed var(--border); background: transparent; color: var(--gold);
+      font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    }
+    .cp-owner-add[disabled] { opacity: 0.5; cursor: default; }
+    .cp-owners-top-err { font-size: 11px; color: var(--red, #c0392b); margin-top: 4px; }
+
+    .cp-state-wrap, .cp-city-wrap { position: relative; margin-bottom: 8px; }
+    .cp-state-input, .cp-city-input {
+      width: 100%; border: 1px solid var(--gold); border-radius: 5px; padding: 5px 7px;
+      font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); background: #fff;
+    }
+    .cp-city-input[disabled] { background: var(--surface); color: var(--muted); }
+    .cp-state-suggestions, .cp-city-suggestions {
+      position: absolute; z-index: 40; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto;
+      background: #fff; border: 1px solid var(--border); border-radius: 7px; margin-top: 2px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+    .cp-suggest-group { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); padding: 6px 10px 2px; }
+    .cp-suggest-item { padding: 8px 10px; font-size: 13px; cursor: pointer; }
+    .cp-suggest-item:hover, .cp-suggest-item.active { background: var(--surface); }
 </style>
 </head>
 <body class="lang-pt">
@@ -4007,6 +4046,21 @@
         return fetch(WORKER_URL + path, fetchOpts);
       });
     }
+
+    // Wires client-places.js's City control to this page's own apiFetch
+    // (each page keeps its own copy of apiFetch; the shared widget does not
+    // depend on any one of them). Loads the state's city list once; the
+    // widget calls this again if the person picks a different state.
+    var clientPlacesCityCache = {};
+    window.ClientPlacesCityLoader = function(code) {
+      if (clientPlacesCityCache[code]) { return Promise.resolve(clientPlacesCityCache[code]); }
+      return apiFetch("/api/places/cities/" + encodeURIComponent(code))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          clientPlacesCityCache[code] = data.cities || [];
+          return clientPlacesCityCache[code];
+        });
+    };
 
     // BEGIN PAGE DIALOG
     // In-page replacement for the browser's confirm box, alert box and prompt box.
@@ -8259,9 +8313,13 @@
 
     var OVERVIEW_FIELDS = [
       { key: "name",      labelPt: "Empresa",      labelEn: "Business Name", editable: true  },
-      { key: "owners",    labelPt: "Sócios",        labelEn: "Owner(s)",      editable: true  },
+      // B1: owners_json replaces the single free-text row with a First/Last
+      // editor (own click target, own render function — see _owners below).
+      { key: "_owners",   labelPt: "Sócios",        labelEn: "Owner(s)",      editable: true  },
       { key: "industry",  labelPt: "Setor",         labelEn: "Sector",        editable: true  },
-      { key: "location",  labelPt: "Localização",   labelEn: "Location",      editable: true  },
+      // C6: Location split into a State row then a City row.
+      { key: "_locationState", labelPt: "Estado",      labelEn: "State",      editable: true  },
+      { key: "_locationCity",  labelPt: "Cidade",      labelEn: "City",       editable: true  },
       { key: "package",   labelPt: "Pacote",        labelEn: "Package",       editable: false },
       { key: "status",    labelPt: "Status",        labelEn: "Status",        editable: false },
       // Source travels with the record for its whole lifecycle, so it renders
@@ -8298,9 +8356,12 @@
           cell.appendChild(labelEl);
 
           var isSource = (field.key === "_sourceType" || field.key === "_sourceDetail");
+          var isOwners = (field.key === "_owners");
+          var isLocationState = (field.key === "_locationState");
+          var isLocationCity = (field.key === "_locationCity");
 
           var value = "";
-          if (field.key === "_nextMeeting" || isSource) {
+          if (field.key === "_nextMeeting" || isSource || isOwners || isLocationState || isLocationCity) {
             value = "";
           } else {
             value = client[field.key] || "";
@@ -8314,6 +8375,12 @@
             valEl.innerHTML = '<span class="show-pt">Sem reunião agendada</span><span class="show-en">No meeting scheduled</span>';
           } else if (isSource) {
             fillSourceValue(field.key, client, valEl);
+          } else if (isOwners) {
+            fillOwnersValue(client, valEl);
+          } else if (isLocationState) {
+            fillLocationStateValue(client, valEl);
+          } else if (isLocationCity) {
+            fillLocationCityValue(client, valEl);
           } else {
             valEl.textContent = value || "—";
           }
@@ -8324,6 +8391,10 @@
               valEl.onclick = function() { startSourceTypeEdit(client, valEl); };
             } else if (field.key === "_sourceDetail") {
               valEl.onclick = function() { startSourceDetailEdit(client, valEl); };
+            } else if (isOwners) {
+              valEl.onclick = function() { startOwnersEdit(client, valEl); };
+            } else if (isLocationState || isLocationCity) {
+              valEl.onclick = function() { startLocationEdit(client, valEl); };
             } else {
               valEl.onclick = function() { startOverviewEdit(field.key, client, valEl); };
             }
@@ -8665,6 +8736,202 @@
           input.replaceWith(revertEl);
         }
       });
+    }
+
+    // ── Owners (B) + State/City (C) rows: render and edit ──────────────────
+    //
+    // B4: when owners_json is empty and the legacy text is not, the legacy
+    // row shows read-only above the (always-present) editor; when owners_json
+    // exists the legacy line is never shown.
+    function fillOwnersValue(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      var list = parseOwnersJson(client.owners_json);
+      if (list && list.length) {
+        valEl.textContent = ClientPlaces.ownersDisplay(list);
+        valEl.classList.remove("is-empty");
+      } else if (client.owners) {
+        valEl.textContent = (en ? "(old) " : "(antigo) ") + client.owners;
+        valEl.classList.remove("is-empty");
+      } else {
+        valEl.textContent = "—";
+        valEl.classList.add("is-empty");
+      }
+    }
+    function parseOwnersJson(raw) {
+      if (!raw) { return null; }
+      try { var v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+    }
+
+    function startOwnersEdit(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      var list = parseOwnersJson(client.owners_json);
+      var wrap = document.createElement("div");
+      wrap.className = "overview-value-input";
+      wrap.style.padding = "6px";
+
+      var mount = document.createElement("div");
+      wrap.appendChild(mount);
+
+      var actions = document.createElement("div");
+      actions.style.marginTop = "6px";
+      actions.style.display = "flex";
+      actions.style.gap = "8px";
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.textContent = en ? "Save" : "Salvar";
+      saveBtn.className = "btn-cta";
+      saveBtn.style.padding = "6px 14px";
+      saveBtn.style.fontSize = "12px";
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.textContent = en ? "Cancel" : "Cancelar";
+      cancelBtn.className = "btn-cancel-link";
+      cancelBtn.style.padding = "6px 10px";
+      cancelBtn.style.fontSize = "12px";
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      wrap.appendChild(actions);
+
+      valEl.replaceWith(wrap);
+
+      ClientPlaces.ownersEditor(mount, list || [], {
+        lang: function() { return document.body.classList.contains("lang-en"); },
+        legacyText: (!list || !list.length) ? (client.owners || "") : ""
+      });
+
+      function revert() {
+        var revertEl = document.createElement("div");
+        revertEl.className = "overview-value";
+        revertEl.setAttribute("data-field", "_owners");
+        fillOwnersValue(client, revertEl);
+        revertEl.title = t("Clique para editar", "Click to edit");
+        revertEl.onclick = function() { startOwnersEdit(client, revertEl); };
+        wrap.replaceWith(revertEl);
+      }
+      cancelBtn.onclick = revert;
+
+      saveBtn.onclick = function() {
+        var res = ClientPlaces.ownersRead(mount);
+        if (res.blocked) { return; } // inline message already shown by the widget
+        apiFetch("/api/clients/" + CLIENT_ID, { method: "PATCH", body: { owners_json: res.ownersJson } })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            client.owners_json = JSON.stringify(res.ownersJson);
+            client.owners = res.legacyOwners;
+            revert();
+          })
+          .catch(function() { revert(); });
+      };
+    }
+
+    // C6/C7: State then City rows. Both share one editor (opening either row
+    // opens both boxes together, since they are saved as one PATCH).
+    function fillLocationStateValue(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      if (client.location_state || client.location_city) {
+        var code = client.location_state || "";
+        var two = code.indexOf("-") !== -1 ? code.split("-")[1] : "";
+        valEl.textContent = two || "—";
+        valEl.classList.toggle("is-empty", !two);
+      } else if (client.location) {
+        valEl.textContent = (en ? "(old) " : "(antigo) ") + client.location;
+        valEl.classList.remove("is-empty");
+      } else {
+        valEl.textContent = "—";
+        valEl.classList.add("is-empty");
+      }
+    }
+    function fillLocationCityValue(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      if (client.location_state || client.location_city) {
+        valEl.textContent = client.location_city || "—";
+        valEl.classList.toggle("is-empty", !client.location_city);
+      } else if (client.location) {
+        // Legacy shown once, on the State row; the City row stays blank so
+        // the old free text is not printed twice.
+        valEl.textContent = "—";
+        valEl.classList.add("is-empty");
+      } else {
+        valEl.textContent = "—";
+        valEl.classList.add("is-empty");
+      }
+    }
+
+    function startLocationEdit(client, valEl) {
+      var en = document.body.classList.contains("lang-en");
+      var grid = document.getElementById("overviewGrid");
+      var stateEl = grid.querySelector('[data-field="_locationState"]');
+      var cityEl = grid.querySelector('[data-field="_locationCity"]');
+      if (!stateEl || !cityEl) { return; }
+
+      var wrap = document.createElement("div");
+      wrap.className = "overview-value-input";
+      wrap.style.padding = "6px";
+      var mount = document.createElement("div");
+      wrap.appendChild(mount);
+      var actions = document.createElement("div");
+      actions.style.marginTop = "6px";
+      actions.style.display = "flex";
+      actions.style.gap = "8px";
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.textContent = en ? "Save" : "Salvar";
+      saveBtn.className = "btn-cta";
+      saveBtn.style.padding = "6px 14px";
+      saveBtn.style.fontSize = "12px";
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.textContent = en ? "Cancel" : "Cancelar";
+      cancelBtn.className = "btn-cancel-link";
+      cancelBtn.style.padding = "6px 10px";
+      cancelBtn.style.fontSize = "12px";
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      wrap.appendChild(actions);
+
+      stateEl.replaceWith(wrap);
+      cityEl.remove();
+
+      ClientPlaces.stateCityControl(mount, client.location_state || null, client.location_city || "", {
+        lang: function() { return document.body.classList.contains("lang-en"); }
+      });
+
+      function revert() {
+        var newStateEl = document.createElement("div");
+        newStateEl.className = "overview-value";
+        newStateEl.setAttribute("data-field", "_locationState");
+        fillLocationStateValue(client, newStateEl);
+        newStateEl.title = t("Clique para editar", "Click to edit");
+        newStateEl.onclick = function() { startLocationEdit(client, newStateEl); };
+
+        var newCityEl = document.createElement("div");
+        newCityEl.className = "overview-value";
+        newCityEl.setAttribute("data-field", "_locationCity");
+        fillLocationCityValue(client, newCityEl);
+        newCityEl.title = t("Clique para editar", "Click to edit");
+        newCityEl.onclick = function() { startLocationEdit(client, newCityEl); };
+
+        wrap.replaceWith(newStateEl);
+        // the City cell was removed entirely above; re-render the whole card
+        // is simplest and keeps both rows consistent.
+        renderOverviewCard(client);
+      }
+      cancelBtn.onclick = revert;
+
+      saveBtn.onclick = function() {
+        var res = ClientPlaces.stateCityRead(mount);
+        if (res.error) { return; } // inline message already shown by the widget
+        apiFetch("/api/clients/" + CLIENT_ID, { method: "PATCH", body: { location_state: res.stateCode, location_city: res.city } })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) { throw new Error(data.error); }
+            client.location_state = res.stateCode;
+            client.location_city = res.city;
+            revert();
+          })
+          .catch(function() { revert(); });
+      };
     }
 
     // ── Render: sessions section ───────────────────────────────────────────

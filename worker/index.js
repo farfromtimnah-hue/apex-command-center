@@ -2,6 +2,84 @@ import HERO_GALLERY_V1 from "../data/hero-gallery-v1.json";
 import HERO_GALLERY_PRIVATE_V1 from "../data/hero-gallery-private-v1.json";
 import CONTRACT_STATE_RIDERS_V1 from "../data/contract-state-riders-v1.json";
 import CONTRACT_STATE_CHECKLIST_V1 from "../data/contract-state-checklist-v1.json";
+import CITIES_BR_AC from "../data/places/cities/BR-AC.json";
+import CITIES_BR_AL from "../data/places/cities/BR-AL.json";
+import CITIES_BR_AM from "../data/places/cities/BR-AM.json";
+import CITIES_BR_AP from "../data/places/cities/BR-AP.json";
+import CITIES_BR_BA from "../data/places/cities/BR-BA.json";
+import CITIES_BR_CE from "../data/places/cities/BR-CE.json";
+import CITIES_BR_DF from "../data/places/cities/BR-DF.json";
+import CITIES_BR_ES from "../data/places/cities/BR-ES.json";
+import CITIES_BR_GO from "../data/places/cities/BR-GO.json";
+import CITIES_BR_MA from "../data/places/cities/BR-MA.json";
+import CITIES_BR_MG from "../data/places/cities/BR-MG.json";
+import CITIES_BR_MS from "../data/places/cities/BR-MS.json";
+import CITIES_BR_MT from "../data/places/cities/BR-MT.json";
+import CITIES_BR_PA from "../data/places/cities/BR-PA.json";
+import CITIES_BR_PB from "../data/places/cities/BR-PB.json";
+import CITIES_BR_PE from "../data/places/cities/BR-PE.json";
+import CITIES_BR_PI from "../data/places/cities/BR-PI.json";
+import CITIES_BR_PR from "../data/places/cities/BR-PR.json";
+import CITIES_BR_RJ from "../data/places/cities/BR-RJ.json";
+import CITIES_BR_RN from "../data/places/cities/BR-RN.json";
+import CITIES_BR_RO from "../data/places/cities/BR-RO.json";
+import CITIES_BR_RR from "../data/places/cities/BR-RR.json";
+import CITIES_BR_RS from "../data/places/cities/BR-RS.json";
+import CITIES_BR_SC from "../data/places/cities/BR-SC.json";
+import CITIES_BR_SE from "../data/places/cities/BR-SE.json";
+import CITIES_BR_SP from "../data/places/cities/BR-SP.json";
+import CITIES_BR_TO from "../data/places/cities/BR-TO.json";
+import CITIES_US_AK from "../data/places/cities/US-AK.json";
+import CITIES_US_AL from "../data/places/cities/US-AL.json";
+import CITIES_US_AR from "../data/places/cities/US-AR.json";
+import CITIES_US_AZ from "../data/places/cities/US-AZ.json";
+import CITIES_US_CA from "../data/places/cities/US-CA.json";
+import CITIES_US_CO from "../data/places/cities/US-CO.json";
+import CITIES_US_CT from "../data/places/cities/US-CT.json";
+import CITIES_US_DC from "../data/places/cities/US-DC.json";
+import CITIES_US_DE from "../data/places/cities/US-DE.json";
+import CITIES_US_FL from "../data/places/cities/US-FL.json";
+import CITIES_US_GA from "../data/places/cities/US-GA.json";
+import CITIES_US_HI from "../data/places/cities/US-HI.json";
+import CITIES_US_IA from "../data/places/cities/US-IA.json";
+import CITIES_US_ID from "../data/places/cities/US-ID.json";
+import CITIES_US_IL from "../data/places/cities/US-IL.json";
+import CITIES_US_IN from "../data/places/cities/US-IN.json";
+import CITIES_US_KS from "../data/places/cities/US-KS.json";
+import CITIES_US_KY from "../data/places/cities/US-KY.json";
+import CITIES_US_LA from "../data/places/cities/US-LA.json";
+import CITIES_US_MA from "../data/places/cities/US-MA.json";
+import CITIES_US_MD from "../data/places/cities/US-MD.json";
+import CITIES_US_ME from "../data/places/cities/US-ME.json";
+import CITIES_US_MI from "../data/places/cities/US-MI.json";
+import CITIES_US_MN from "../data/places/cities/US-MN.json";
+import CITIES_US_MO from "../data/places/cities/US-MO.json";
+import CITIES_US_MS from "../data/places/cities/US-MS.json";
+import CITIES_US_MT from "../data/places/cities/US-MT.json";
+import CITIES_US_NC from "../data/places/cities/US-NC.json";
+import CITIES_US_ND from "../data/places/cities/US-ND.json";
+import CITIES_US_NE from "../data/places/cities/US-NE.json";
+import CITIES_US_NH from "../data/places/cities/US-NH.json";
+import CITIES_US_NJ from "../data/places/cities/US-NJ.json";
+import CITIES_US_NM from "../data/places/cities/US-NM.json";
+import CITIES_US_NV from "../data/places/cities/US-NV.json";
+import CITIES_US_NY from "../data/places/cities/US-NY.json";
+import CITIES_US_OH from "../data/places/cities/US-OH.json";
+import CITIES_US_OK from "../data/places/cities/US-OK.json";
+import CITIES_US_OR from "../data/places/cities/US-OR.json";
+import CITIES_US_PA from "../data/places/cities/US-PA.json";
+import CITIES_US_RI from "../data/places/cities/US-RI.json";
+import CITIES_US_SC from "../data/places/cities/US-SC.json";
+import CITIES_US_SD from "../data/places/cities/US-SD.json";
+import CITIES_US_TN from "../data/places/cities/US-TN.json";
+import CITIES_US_TX from "../data/places/cities/US-TX.json";
+import CITIES_US_UT from "../data/places/cities/US-UT.json";
+import CITIES_US_VA from "../data/places/cities/US-VA.json";
+import CITIES_US_VT from "../data/places/cities/US-VT.json";
+import CITIES_US_WA from "../data/places/cities/US-WA.json";
+import CITIES_US_WI from "../data/places/cities/US-WI.json";
+import CITIES_US_WV from "../data/places/cities/US-WV.json";
+import CITIES_US_WY from "../data/places/cities/US-WY.json";
 // Apex Command Center — Cloudflare Worker
 
 var FIREBASE_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
@@ -2369,7 +2447,7 @@ async function handleGetClients(request, env) {
         var listUrl = new URL(request.url);
         var includeArchived = listUrl.searchParams.get("include_archived") === "1";
         var res = await env.DB.prepare(
-            "SELECT id, name, owners, industry, location, logo_url, profile_pt, profile_en, " +
+            "SELECT id, name, owners, owners_json, industry, location, location_state, location_city, logo_url, profile_pt, profile_en, " +
             "package, status, phone, email, whatsapp, payment_method, contacts, zoho_customer_id, consolidated, lead_stage, lead_temperature, created_at, " +
             "COALESCE(archived, 0) AS archived, archived_at, archived_by " +
             "FROM clients " +
@@ -2540,6 +2618,29 @@ async function handlePostClients(request, env) {
             ((body.status || "lead") === "lead") ? "Lead" : null
         ).run();
 
+        // B/C: structured owners and state/city, same validation as the PATCH
+        // route. Optional — a quick-add with neither posted is unaffected.
+        if (body.hasOwnProperty("owners_json") && (body.owners_json || []).length) {
+            var createOwnersClean = clientOwnersJsonClean(body.owners_json);
+            if (createOwnersClean.ok) {
+                await env.DB.prepare("UPDATE clients SET owners_json = ?, owners = ? WHERE id = ?")
+                    .bind(JSON.stringify(createOwnersClean.ownersJson), createOwnersClean.legacyOwners, clientId).run();
+            } else {
+                return jsonErr2(createOwnersClean.error.pt, createOwnersClean.error.en, 400);
+            }
+        }
+        if (body.hasOwnProperty("location_state") && body.location_state) {
+            if (!apxValidStateCode(body.location_state)) {
+                return jsonErr2("Escolha um estado da lista.", "Choose a state from the list.", 400);
+            }
+            await env.DB.prepare("UPDATE clients SET location_state = ? WHERE id = ?")
+                .bind(body.location_state, clientId).run();
+        }
+        if (body.hasOwnProperty("location_city") && body.location_city) {
+            await env.DB.prepare("UPDATE clients SET location_city = ? WHERE id = ?")
+                .bind(String(body.location_city).trim().slice(0, 100), clientId).run();
+        }
+
         var result = { client_id: clientId, name: body.name };
 
         // Auto-create a matching Zoho contact. A Zoho failure must never block
@@ -2585,7 +2686,7 @@ async function handleGetClient(id, request, env) {
         // record, so a renamed partner renames everywhere at once and a deleted
         // one leaves the name NULL instead of a stale string.
         var client = await env.DB.prepare(
-            "SELECT c.id, c.name, c.owners, c.industry, c.location, c.logo_url, c.profile_pt, c.profile_en, " +
+            "SELECT c.id, c.name, c.owners, c.owners_json, c.industry, c.location, c.location_state, c.location_city, c.logo_url, c.profile_pt, c.profile_en, " +
             "c.package, c.status, c.phone, c.email, c.whatsapp, c.payment_method, c.contacts, c.consolidated, c.lead_stage, " +
             "c.stage_changed_at, c.stage_changed_by, c.stage_change_source, " +
             "c.next_step, c.next_step_set_by, c.next_step_set_at, " +
@@ -3605,7 +3706,7 @@ async function handleGetVaultClients(request, env) {
         // the registered address and the officers. This is the paperwork any
         // carrier registration for CRM texting asks for character-for-character.
         var rows = await env.DB.prepare(
-            "SELECT id, name, status, owners, industry, location, " +
+            "SELECT id, name, status, owners, owners_json, industry, location, location_state, location_city, " +
             "legal_entity_name, sunbiz_doc_number, legal_entity_ein, " +
             "legal_entity_address, legal_entity_filed_at, legal_entity_status, " +
             "legal_entity_officers, legal_entity_dba, legal_entity_dba_number, " +
@@ -3863,7 +3964,7 @@ async function handleGetVaultApexLeads(request, env) {
         var stage = (url.searchParams.get("lead_stage") || "").trim();
 
         var sql =
-            "SELECT id, name, owners, industry, location, phone, email, whatsapp, " +
+            "SELECT id, name, owners, owners_json, industry, location, location_state, location_city, phone, email, whatsapp, " +
             "instagram_handle, status, lead_stage, stage_changed_at, next_step, " +
             "next_step_set_by, next_step_set_at, source_type, source_detail, " +
             "language, created_at " +
@@ -4561,6 +4662,38 @@ async function handlePatchClient(id, request, env) {
         if (body.hasOwnProperty("owners")) {
             await env.DB.prepare("UPDATE clients SET owners = ? WHERE id = ?")
                 .bind(body.owners || null, id).run();
+            updated = true;
+        }
+        // B: structured owners. An empty list ("no valid owner row") changes
+        // nothing at all — not owners_json, not the legacy owners string —
+        // per B2 ("A save with no valid owner row changes nothing").
+        if (body.hasOwnProperty("owners_json")) {
+            var ownersClean = clientOwnersJsonClean(body.owners_json);
+            if (ownersClean.ok) {
+                await env.DB.prepare("UPDATE clients SET owners_json = ?, owners = ? WHERE id = ?")
+                    .bind(JSON.stringify(ownersClean.ownersJson), ownersClean.legacyOwners, id).run();
+                updated = true;
+            } else if ((body.owners_json || []).length) {
+                // Only an actual attempt with no valid row is an error; a
+                // truly empty array ([]) is a legitimate no-op (nothing typed).
+                return jsonErr2(ownersClean.error.pt, ownersClean.error.en, 400);
+            }
+        }
+        // C: structured state + city. location_state must be a known code
+        // (C5); location_city is saved as typed, not matched against a list
+        // (C3). The legacy `location` column is never touched here.
+        if (body.hasOwnProperty("location_state")) {
+            var wantState = body.location_state;
+            if (wantState !== null && wantState !== "" && !apxValidStateCode(wantState)) {
+                return jsonErr2("Escolha um estado da lista.", "Choose a state from the list.", 400);
+            }
+            await env.DB.prepare("UPDATE clients SET location_state = ? WHERE id = ?")
+                .bind(wantState || null, id).run();
+            updated = true;
+        }
+        if (body.hasOwnProperty("location_city")) {
+            await env.DB.prepare("UPDATE clients SET location_city = ? WHERE id = ?")
+                .bind(String(body.location_city || "").trim().slice(0, 100) || null, id).run();
             updated = true;
         }
         // Pr. Rafa's switches (hero build, E): 1 = on, 0 = off, with who and
@@ -48988,6 +49121,13 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/hero-gallery" && method === "GET") { return handleGetHeroGallery(request); }
         var heroGalleryMatch = path.match(/^\/api\/hero-gallery\/([a-z_]+(?:-[a-z_]+)*-[0-9]+)\.jpg$/);
         if (heroGalleryMatch && method === "GET") { return handleGetHeroGalleryImage(heroGalleryMatch[1], request, env); }
+
+        // Client owners/state/city (job 2026-10-14): the city list for one
+        // state, bundled from data/places/cities/<code>.json (same pattern as
+        // the hero gallery manifest above). Staff-auth, not public — these
+        // pages are behind login already and the lists are only useful there.
+        var placesCityMatch = path.match(/^\/api\/places\/cities\/([A-Z]{2}-[A-Z]{2})$/);
+        if (placesCityMatch && method === "GET") { return handleGetPlacesCities(placesCityMatch[1], request, env); }
         // PUBLIC pitch material for Pr. Rafa (2026-09-27): screenshots and the
         // PDF of the resonateai.online pitch page. They carry JM's private
         // header photos, so they live in R2 (pitch/<name>), never in the
@@ -52201,7 +52341,7 @@ async function handleGetMeetingPrep(clientId, request, env) {
         if (!isMeetingTypeKey(type)) { type = ""; }
 
         var client = await env.DB.prepare(
-            "SELECT id, name, owners, industry, location, package, package_started_at, " +
+            "SELECT id, name, owners, owners_json, industry, location, location_state, location_city, package, package_started_at, " +
             "status, lead_stage, phone, email, whatsapp, instagram_handle, " +
             "digital_presence, language " +
             "FROM clients WHERE id = ?"
@@ -52552,6 +52692,165 @@ async function handleGetXrayCompletedClients(request, env) {
 // rolled into the total and never printed (Nicole, 2026-09-29).
 // ===========================================================================
 
+// ---------------------------------------------------------------------------
+// CLIENT OWNERS, STATE AND CITY (job 2026-10-14_client_owners_state_city).
+//
+// The Worker cannot import data/us-br-states.js (the pages' shared script),
+// so this is a second, independent copy of the state CODES. The two lists
+// must agree -- scripts/test-client-places.mjs reads both files and fails the
+// build if they disagree (same set of codes).
+// ---------------------------------------------------------------------------
+var APX_US_STATE_CODES = [
+    "US-AL","US-AK","US-AZ","US-AR","US-CA","US-CO","US-CT","US-DE","US-DC","US-FL",
+    "US-GA","US-HI","US-ID","US-IL","US-IN","US-IA","US-KS","US-KY","US-LA","US-ME",
+    "US-MD","US-MA","US-MI","US-MN","US-MS","US-MO","US-MT","US-NE","US-NV","US-NH",
+    "US-NJ","US-NM","US-NY","US-NC","US-ND","US-OH","US-OK","US-OR","US-PA","US-RI",
+    "US-SC","US-SD","US-TN","US-TX","US-UT","US-VT","US-VA","US-WA","US-WV","US-WI","US-WY"
+];
+var APX_BR_STATE_CODES = [
+    "BR-AC","BR-AL","BR-AP","BR-AM","BR-BA","BR-CE","BR-DF","BR-ES","BR-GO","BR-MA",
+    "BR-MT","BR-MS","BR-MG","BR-PA","BR-PB","BR-PR","BR-PE","BR-PI","BR-RJ","BR-RN",
+    "BR-RS","BR-RO","BR-RR","BR-SC","BR-SP","BR-SE","BR-TO"
+];
+var APX_ALL_STATE_CODES = APX_US_STATE_CODES.concat(APX_BR_STATE_CODES);
+function apxValidStateCode(code) { return APX_ALL_STATE_CODES.indexOf(code) !== -1; }
+
+// D3: the Portuguese state-phrase table for the Apex contract (clause 1.2 +
+// the "Local" summary row). DC is the one exception (see apxStatePhrase).
+// This table has NOT been proofread by a Portuguese speaker.
+var APX_US_STATE_PT = {
+    "US-AL": { name: "Alabama",            article: "do" },
+    "US-AK": { name: "Alasca",             article: "do" },
+    "US-AZ": { name: "Arizona",            article: "do" },
+    "US-AR": { name: "Arkansas",           article: "do" },
+    "US-CA": { name: "Califórnia",         article: "da" },
+    "US-CO": { name: "Colorado",           article: "do" },
+    "US-CT": { name: "Connecticut",        article: "de" },
+    "US-DE": { name: "Delaware",           article: "de" },
+    "US-FL": { name: "Flórida",            article: "da" },
+    "US-GA": { name: "Geórgia",            article: "da" },
+    "US-HI": { name: "Havaí",              article: "do" },
+    "US-ID": { name: "Idaho",              article: "de" },
+    "US-IL": { name: "Illinois",           article: "de" },
+    "US-IN": { name: "Indiana",            article: "de" },
+    "US-IA": { name: "Iowa",               article: "de" },
+    "US-KS": { name: "Kansas",             article: "do" },
+    "US-KY": { name: "Kentucky",           article: "do" },
+    "US-LA": { name: "Luisiana",           article: "da" },
+    "US-ME": { name: "Maine",              article: "do" },
+    "US-MD": { name: "Maryland",           article: "de" },
+    "US-MA": { name: "Massachusetts",      article: "de" },
+    "US-MI": { name: "Michigan",           article: "de" },
+    "US-MN": { name: "Minnesota",          article: "de" },
+    "US-MS": { name: "Mississippi",        article: "do" },
+    "US-MO": { name: "Missouri",           article: "do" },
+    "US-MT": { name: "Montana",            article: "de" },
+    "US-NE": { name: "Nebraska",           article: "de" },
+    "US-NV": { name: "Nevada",             article: "de" },
+    "US-NH": { name: "Nova Hampshire",     article: "de" },
+    "US-NJ": { name: "Nova Jersey",        article: "de" },
+    "US-NM": { name: "Novo México",        article: "do" },
+    "US-NY": { name: "Nova York",          article: "de" },
+    "US-NC": { name: "Carolina do Norte",  article: "da" },
+    "US-ND": { name: "Dakota do Norte",    article: "de" },
+    "US-OH": { name: "Ohio",               article: "de" },
+    "US-OK": { name: "Oklahoma",           article: "de" },
+    "US-OR": { name: "Oregon",             article: "de" },
+    "US-PA": { name: "Pensilvânia",        article: "da" },
+    "US-RI": { name: "Rhode Island",       article: "de" },
+    "US-SC": { name: "Carolina do Sul",    article: "da" },
+    "US-SD": { name: "Dakota do Sul",      article: "de" },
+    "US-TN": { name: "Tennessee",          article: "do" },
+    "US-TX": { name: "Texas",              article: "do" },
+    "US-UT": { name: "Utah",               article: "de" },
+    "US-VT": { name: "Vermont",            article: "de" },
+    "US-VA": { name: "Virgínia",           article: "da" },
+    "US-WA": { name: "Washington",         article: "de" },
+    "US-WV": { name: "Virgínia Ocidental", article: "da" },
+    "US-WI": { name: "Wisconsin",          article: "de" },
+    "US-WY": { name: "Wyoming",            article: "de" }
+    // US-DC is the exception, handled directly in apxStatePhrase.
+};
+// D3: company_state -> {phrase, name} for clause 1.2 and the "Local" row.
+// A known US code (incl. DC) gives the table row; anything else (an old
+// draft still holding the text "Flórida", or any other free text) is
+// treated as text already printed, EXACTLY as the contract prints today.
+function apxStatePhrase(code) {
+    if (code === "US-DC") { return { phrase: "do Distrito de Colúmbia", name: "Distrito de Colúmbia" }; }
+    var row = APX_US_STATE_PT[code];
+    if (row) { return { phrase: "do Estado " + row.article + " " + row.name, name: row.name }; }
+    var text = String(code || "").trim();
+    return { phrase: "do Estado da " + text, name: text };
+}
+
+// One city-list file per state code, bundled at build time (see the
+// CITIES_* imports at the top of this file; data/places/cities/<code>.json,
+// built by scripts/build-city-lists.mjs).
+var APX_CITY_LISTS = {
+    "BR-AC": CITIES_BR_AC, "BR-AL": CITIES_BR_AL, "BR-AM": CITIES_BR_AM, "BR-AP": CITIES_BR_AP,
+    "BR-BA": CITIES_BR_BA, "BR-CE": CITIES_BR_CE, "BR-DF": CITIES_BR_DF, "BR-ES": CITIES_BR_ES,
+    "BR-GO": CITIES_BR_GO, "BR-MA": CITIES_BR_MA, "BR-MG": CITIES_BR_MG, "BR-MS": CITIES_BR_MS,
+    "BR-MT": CITIES_BR_MT, "BR-PA": CITIES_BR_PA, "BR-PB": CITIES_BR_PB, "BR-PE": CITIES_BR_PE,
+    "BR-PI": CITIES_BR_PI, "BR-PR": CITIES_BR_PR, "BR-RJ": CITIES_BR_RJ, "BR-RN": CITIES_BR_RN,
+    "BR-RO": CITIES_BR_RO, "BR-RR": CITIES_BR_RR, "BR-RS": CITIES_BR_RS, "BR-SC": CITIES_BR_SC,
+    "BR-SE": CITIES_BR_SE, "BR-SP": CITIES_BR_SP, "BR-TO": CITIES_BR_TO,
+    "US-AK": CITIES_US_AK, "US-AL": CITIES_US_AL, "US-AR": CITIES_US_AR, "US-AZ": CITIES_US_AZ,
+    "US-CA": CITIES_US_CA, "US-CO": CITIES_US_CO, "US-CT": CITIES_US_CT, "US-DC": CITIES_US_DC,
+    "US-DE": CITIES_US_DE, "US-FL": CITIES_US_FL, "US-GA": CITIES_US_GA, "US-HI": CITIES_US_HI,
+    "US-IA": CITIES_US_IA, "US-ID": CITIES_US_ID, "US-IL": CITIES_US_IL, "US-IN": CITIES_US_IN,
+    "US-KS": CITIES_US_KS, "US-KY": CITIES_US_KY, "US-LA": CITIES_US_LA, "US-MA": CITIES_US_MA,
+    "US-MD": CITIES_US_MD, "US-ME": CITIES_US_ME, "US-MI": CITIES_US_MI, "US-MN": CITIES_US_MN,
+    "US-MO": CITIES_US_MO, "US-MS": CITIES_US_MS, "US-MT": CITIES_US_MT, "US-NC": CITIES_US_NC,
+    "US-ND": CITIES_US_ND, "US-NE": CITIES_US_NE, "US-NH": CITIES_US_NH, "US-NJ": CITIES_US_NJ,
+    "US-NM": CITIES_US_NM, "US-NV": CITIES_US_NV, "US-NY": CITIES_US_NY, "US-OH": CITIES_US_OH,
+    "US-OK": CITIES_US_OK, "US-OR": CITIES_US_OR, "US-PA": CITIES_US_PA, "US-RI": CITIES_US_RI,
+    "US-SC": CITIES_US_SC, "US-SD": CITIES_US_SD, "US-TN": CITIES_US_TN, "US-TX": CITIES_US_TX,
+    "US-UT": CITIES_US_UT, "US-VA": CITIES_US_VA, "US-VT": CITIES_US_VT, "US-WA": CITIES_US_WA,
+    "US-WI": CITIES_US_WI, "US-WV": CITIES_US_WV, "US-WY": CITIES_US_WY
+};
+// B2/B3: validates a posted owners_json array and derives the legacy
+// `owners` string. Mirrors client-places.js's ownersRead exactly.
+//   { ok: true, ownersJson: [...], legacyOwners: "..." }
+//   { ok: false, error: {pt, en} }                      -- no valid row at all
+//   { ok: "noop" }                                       -- nothing to change
+// A half-filled row is rejected with its own field message, which belongs to
+// the caller's UI, not the API contract — so a half-filled row here is
+// simply dropped from validity and, if nothing else is valid, falls into the
+// "no valid owner row" case.
+function clientOwnersJsonClean(list) {
+    if (!Array.isArray(list)) { return { ok: false, error: { pt: "Informe pelo menos um sócio", en: "Enter at least one owner" } }; }
+    var valid = [];
+    for (var i = 0; i < list.length && valid.length < 6; i++) {
+        var row = list[i] || {};
+        var first = String(row.first || "").trim().slice(0, 60);
+        var last = String(row.last || "").trim().slice(0, 60);
+        if (!first && !last) { continue; }
+        if (!first || !last) { continue; } // half-filled: not saved (B2)
+        valid.push({ first: first, last: last });
+    }
+    if (!valid.length) { return { ok: false, error: { pt: "Informe pelo menos um sócio", en: "Enter at least one owner" } }; }
+    var names = valid.map(function(o) { return (o.first + " " + o.last).trim(); });
+    var legacy = names.length === 1 ? names[0]
+        : names.length === 2 ? names[0] + " e " + names[1]
+        : names.slice(0, -1).join(", ") + " e " + names[names.length - 1];
+    return { ok: true, ownersJson: valid, legacyOwners: legacy };
+}
+
+// GET /api/places/cities/:code — staff-auth (these forms are only reachable
+// already logged in); { cities: [...] } or 400 for an unknown code, 401 with
+// no session. Never cached publicly (role-gated), but fine to cache per
+// browser session since the file is static for the life of a deploy.
+async function handleGetPlacesCities(code, request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    var list = APX_CITY_LISTS[code];
+    if (!list) { return jsonErr("Unknown state code", 400); }
+    return new Response(JSON.stringify({ cities: list }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=3600" }
+    });
+}
+
+
 var APX_ZELLE = "rafaelprata@apexbusiness.pro";
 var APX_ORIGIN_PAGE = "/apex-contract";
 var APX_PACKAGES = {
@@ -52713,7 +53012,7 @@ function apxClean(body) {
         pricing_option: b.pricing_option === "upfront" ? "upfront" : (b.pricing_option === "installment" ? "installment" : null),
         company_name: apxEsc(b.company_name).slice(0, 160),
         company_city: apxEsc(b.company_city).slice(0, 80),
-        company_state: apxEsc(b.company_state).slice(0, 40) || "Flórida",
+        company_state: apxEsc(b.company_state).slice(0, 40),
         segment: apxEsc(b.segment).slice(0, 80),
         representatives: reps,
         contract_date: apxIsDate(b.contract_date) ? b.contract_date : null,
@@ -52742,6 +53041,7 @@ function apxProblems(d) {
     if (!d.package_key) { p.push("Escolha o pacote."); }
     if (!d.company_name) { p.push("Informe o nome da empresa."); }
     if (!d.company_city) { p.push("Informe a cidade da empresa."); }
+    if (!d.company_state) { p.push("Informe o estado da empresa."); }
     if (!d.representatives.length) { p.push("Informe pelo menos um representante da empresa."); }
     if (!d.contract_date) { p.push("Informe a data do contrato."); }
     if (!d.start_date) { p.push("Informe a data de início."); }
@@ -52831,7 +53131,7 @@ function apxCompose(d) {
         }
         clause("DAS PARTES", [
             P("1.1. CONTRATADA: APEX BUSINESS & LEADERSHIP LLC, sociedade empresária constituída sob as leis do Estado da Flórida, Estados Unidos da América, com sede em Zephyrhills, Flórida, neste ato representada por seu fundador e CEO, Rafael Abner Prata Santos, doravante denominada APEX ou CONTRATADA."),
-            P("1.2. CONTRATANTE: " + company + ", sociedade empresária constituída sob as leis do Estado da " + d.company_state + ", com sede em " + d.company_city + ", " + d.company_state + (d.segment ? ", atuante no segmento de " + d.segment : "") + ", " + repSentence + ", doravante denominada CONTRATANTE."),
+            P("1.2. CONTRATANTE: " + company + ", sociedade empresária constituída sob as leis " + apxStatePhrase(d.company_state).phrase + ", com sede em " + d.company_city + ", " + apxStatePhrase(d.company_state).name + (d.segment ? ", atuante no segmento de " + d.segment : "") + ", " + repSentence + ", doravante denominada CONTRATANTE."),
             P("As partes acima identificadas têm entre si justo e acordado o presente Contrato de Prestação de Serviços de Consultoria Empresarial, que se regerá pelas cláusulas e condições a seguir.")
         ]);
         var startItems = [
@@ -53018,7 +53318,7 @@ function apxCompose(d) {
             ? "Todo dia " + day + " de cada mês subsequente" + (day > 28 ? " (ou no último dia do mês, quando este não tiver dia " + day + ")" : "")
             : "Conforme o cronograma da Cláusula 4"]);
     }
-    summary.push(["Local", isStart ? d.company_city + ", " + d.company_state + ", EUA" : "Zephyrhills, Florida, EUA"]);
+    summary.push(["Local", isStart ? d.company_city + ", " + apxStatePhrase(d.company_state).name + ", EUA" : "Zephyrhills, Florida, EUA"]);
 
     function monthsLabel(m) { return apxCount(m, false) + " meses"; }
 
@@ -53122,7 +53422,7 @@ async function apxAuthStaff(request, env, clientId) {
     var user = await authenticate(request, env);
     if (!user) { return { err: jsonErr("Unauthorized", 401) }; }
     if (!isAdminRole(user)) { return { err: jsonErr2("Somente a equipe Apex.", "Apex staff only.", 403) }; }
-    var client = await env.DB.prepare("SELECT id, name, status, owners, industry, location, legal_entity_name, legal_entity_officers, contacts, package, phone, whatsapp FROM clients WHERE id = ?").bind(clientId).first();
+    var client = await env.DB.prepare("SELECT id, name, status, owners, owners_json, industry, location, location_state, location_city, legal_entity_name, legal_entity_officers, contacts, package, phone, whatsapp FROM clients WHERE id = ?").bind(clientId).first();
     if (!client) { return { err: jsonErr("Client not found", 404) }; }
     return { user: user, client: client };
 }
@@ -53154,6 +53454,18 @@ async function handleGetApexContracts(clientId, request, env) {
         var reps = [];
         var officers = apxParse(c.legal_entity_officers, []);
         if (Array.isArray(officers)) { officers.forEach(function(o) { if (o && o.name) { reps.push({ name: o.name, title: "" }); } }); }
+        // B6: owners_json next, when the officers list is empty. When there
+        // is no owners_json, nothing here changes from before this job.
+        if (!reps.length && c.owners_json) {
+            try {
+                var ownersList = JSON.parse(c.owners_json);
+                if (Array.isArray(ownersList)) {
+                    ownersList.forEach(function(o) {
+                        if (o && (o.first || o.last)) { reps.push({ name: (o.first + " " + o.last).trim(), title: "" }); }
+                    });
+                }
+            } catch (e) { /* ignore malformed owners_json, fall through */ }
+        }
         if (!reps.length) {
             var contacts = apxParse(c.contacts, []);
             if (Array.isArray(contacts)) { contacts.forEach(function(o) { if (o && o.name) { reps.push({ name: o.name, title: "" }); } }); }
@@ -53176,7 +53488,12 @@ async function handleGetApexContracts(clientId, request, env) {
             phone: c.whatsapp || c.phone || (function() { var cs = apxParse(c.contacts, []); var hit = null; (Array.isArray(cs) ? cs : []).forEach(function(o) { if (!hit && o && (o.whatsapp || o.phone)) { hit = o.whatsapp || o.phone; } }); return hit; })(),
             prefill: {
                 company_name: c.legal_entity_name || c.name || "",
-                company_city: c.location || "",
+                // D1: location_city when set, otherwise the legacy location
+                // exactly as today.
+                company_city: c.location_city || c.location || "",
+                // D1: a Brazilian state code prefills NO state — the contract
+                // builder is US-only for now; "Falta completar" asks for it.
+                company_state: (c.location_state && c.location_state.indexOf("US-") === 0) ? c.location_state : "",
                 segment: c.industry || "",
                 representatives: reps.slice(0, 6),
                 package_key: APX_PACKAGES[guess] ? guess : null,

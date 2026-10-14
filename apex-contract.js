@@ -184,7 +184,7 @@
     if (!reps.length) { reps = [{ name: "", gender: "m", title: "" }]; }
     var f = {
       package_key: p.package_key || null, pricing_option: null,
-      company_name: p.company_name || "", company_city: p.company_city || "", company_state: "Flórida", segment: p.segment || "",
+      company_name: p.company_name || "", company_city: p.company_city || "", company_state: p.company_state || "", segment: p.segment || "",
       representatives: reps,
       contract_date: today, start_date: today, end_date: null,
       package_price_cents: 0, schedule: [], payment_method: "card_zelle",
@@ -247,6 +247,10 @@
     var q = function(id) { var el = byId(id); return el ? el.value : null; };
     if (!byId("apxCompany")) { return; }
     F.company_name = q("apxCompany").trim(); F.company_city = q("apxCity").trim(); F.segment = (q("apxSegment") || "").trim();
+    if (byId("apxStateMount") && window.ClientPlaces) {
+      var stateRes = ClientPlaces.stateOnlyRead(byId("apxStateMount"));
+      F.company_state = stateRes.stateCode || "";
+    }
     F.representatives.forEach(function(r, i) { r.name = (q("apxRepName" + i) || "").trim(); r.title = (q("apxRepTitle" + i) || "").trim(); });
     F.contract_date = q("apxDate") || F.contract_date; F.start_date = q("apxStart") || F.start_date;
     if (byId("apxEnd")) { F.end_date = q("apxEnd") || null; }
@@ -310,7 +314,8 @@
 
     // 2. Company, from the lead
     var co = field("Nome da empresa (como vai no contrato)", '<input class="gm-input" id="apxCompany" value="' + esc(f.company_name) + '">') +
-      field("Cidade", '<input class="gm-input" id="apxCity" value="' + esc(f.company_city) + '" placeholder="ex: Sarasota">');
+      field("Cidade", '<input class="gm-input" id="apxCity" value="' + esc(f.company_city) + '" placeholder="ex: Sarasota">') +
+      field("Estado", '<div id="apxStateMount"></div>');
     if (f.package_key === "start") { co += field("Segmento", '<input class="gm-input" id="apxSegment" value="' + esc(f.segment) + '" placeholder="ex: reforma">'); }
     co += '<div class="gm-field-label" style="margin:12px 0 4px;">Representantes (cada um assina)</div>';
     f.representatives.forEach(function(r, i) {
@@ -386,7 +391,16 @@
     var body = sheetEl.querySelector(".gm-sheet-body"), sheet = sheetEl.querySelector(".gm-sheet");
     var top = sheet ? sheet.scrollTop : 0;
     body.innerHTML = renderBuilder();
+    initStateMount();
     if (scrollKeep && sheet) { sheet.scrollTop = top; }
+  }
+  // D2: builds the State type-ahead into its mount every time the builder
+  // redraws (the mount element is new HTML each time, like every other
+  // field here — there is no persistent DOM to update in place).
+  function initStateMount() {
+    var mount = byId("apxStateMount");
+    if (!mount || !window.ClientPlaces) { return; }
+    ClientPlaces.stateOnlyControl(mount, F.company_state || null, { lang: function() { return document.body.classList.contains("lang-en"); } });
   }
   function openBuilder(existing) {
     editingId = existing ? existing.id : null;
@@ -405,6 +419,7 @@
       F = freshForm();
     }
     sheetOpen(editingId ? "Editar contrato " + esc(existing.number) : "Montar contrato", renderBuilder());
+    initStateMount();
   }
 
   function save() {

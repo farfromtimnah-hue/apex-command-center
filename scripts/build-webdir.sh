@@ -35,4 +35,14 @@ for d in assets icons; do
   cp -R "$ROOT/$d" "$OUT"/
 done
 
+# data/us-br-states.js (job 2026-10-14_client_owners_state_city): the shared
+# state list client.html/calendar.html/meeting-prep.html load as
+# data/us-br-states.js. Only this one file is needed client-side -- the city
+# lists (data/places/cities/*.json) are served by the Worker, never fetched
+# as static files, so they stay out of the app bundle.
+if [ -f "$ROOT/data/us-br-states.js" ]; then
+  mkdir -p "$OUT/data"
+  cp "$ROOT/data/us-br-states.js" "$OUT/data/"
+fi
+
 echo "staged $(find "$OUT" -type f | wc -l | tr -d ' ') files into www/"

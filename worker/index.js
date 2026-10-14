@@ -39214,6 +39214,17 @@ function currentPeriodKey() {
     return new Date().toISOString().slice(0, 7);   // 'YYYY-MM'
 }
 
+// A bill that repeats every N months (period_months > 1, e.g. the quarterly waste
+// bill) is only due in the months that line up with its anchor month. Monthly bills
+// (the default) are due every month.
+function billIsDueInPeriod(bill, periodKey) {
+    var every = Number(bill && bill.period_months) || 1;
+    var anchor = Number(bill && bill.period_anchor_month) || 0;
+    if (every <= 1 || !anchor) { return true; }
+    var month = Number(String(periodKey).slice(5, 7));
+    return (((month - anchor) % every) + every) % every === 0;
+}
+
 // Days overdue: today minus this period's due date, clamped to the month.
 function daysOverdueFor(dayOfMonth, todayIso) {
     var parts = todayIso.split("-");
@@ -39529,6 +39540,9 @@ async function billRunRemindersForBill(env, bill, today, periodKey) {
 
     var statement = await fixedBillStatementFor(env, bill.id, periodKey);
 
+    // A quarterly bill has no due date in the off months; a real statement always counts.
+    if (!statement && !billIsDueInPeriod(bill, periodKey)) { return; }
+
     if (bill.is_variable === 1 && !statement) {
         // No statement yet: the 'missing' reminder only, 5 days before due,
         // and the stored amount (an estimate) is NEVER shown.
@@ -39568,9 +39582,9 @@ async function billRunRemindersForBill(env, bill, today, periodKey) {
                 amount + " · esperado em " + dueFmt + ".");
         }
     } else {
-        if (daysUntilDue === 3) {
-            await billReminderSend(env, bill.id, periodKey, "d3",
-                bill.name + " vence em 3 dias",
+        if (daysUntilDue === 2) {
+            await billReminderSend(env, bill.id, periodKey, "d2",
+                bill.name + " vence em 2 dias",
                 amount + " · vence " + dueFmt + ".");
         }
         if (daysUntilDue === 0) {
@@ -39895,8 +39909,19 @@ async function handleGetFinanceNewBillsOverdue(request, env) {
         var overdue = [];
         var cardCharges = [];
         var clearingSoon = [];
+        // The due date printed on the bill itself beats the typed-in day of the month.
+        var stmtDueRes = await env.DB.prepare(
+            "SELECT bill_id, due_date FROM fixed_bill_statements WHERE period_key = ?"
+        ).bind(periodKey).all();
+        var stmtDue = {};
+        (stmtDueRes.results || []).forEach(function(r) { if (r.due_date) { stmtDue[r.bill_id] = r.due_date; } });
         bills.forEach(function(b) {
+            // Quarterly (or other every-N-months) bills are not due in the off months.
+            if (!stmtDue[b.id] && !billIsDueInPeriod(b, periodKey)) { return; }
             var od = daysOverdueFor(b.day_of_month, today);
+            if (stmtDue[b.id]) {
+                od = { due_at: stmtDue[b.id], days_overdue: Math.round((Date.parse(today + "T00:00:00Z") - Date.parse(stmtDue[b.id] + "T00:00:00Z")) / 86400000) };
+            }
             var row = {
                 id: b.id, name: b.name, amount_cents: b.amount_cents,
                 purpose: b.purpose, payment_method: b.payment_method,

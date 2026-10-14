@@ -12,7 +12,7 @@ const FNS = [
   "billEmailValidateExtraction", "billEmailAskClaude", "billEmailSaveStatement",
   "fixedBillStatementFor", "billReminderEasternHour", "billFmtMMDDYYYY", "billFmtDollars",
   "billReminderAlreadySent", "billReminderMarkSent", "billReminderSend",
-  "billRunRemindersForBill", "billRunAllReminders", "currentPeriodKey", "billDateFor",
+  "billRunRemindersForBill", "billRunAllReminders", "currentPeriodKey", "billDateFor", "billIsDueInPeriod",
   "pollForwardedBillEmailOne", "handlePostFinanceNewBillMarkPaid"
 ];
 const VARS = ["BILL_EMAIL_MODEL", "BILL_FORWARD_ADDRESS", "BILL_ALLOWED_SENDERS"];
@@ -106,10 +106,10 @@ const T = (ch) => ch.repeat(48);
   w.d.raw.prepare("INSERT INTO fixed_bills (id, name, amount_cents, day_of_month, active, payment_method, is_variable) VALUES ('fb_agua', 'Pasco County Water', 4000, 10, 1, 'manual', 1)").run();
   w.d.raw.prepare("INSERT INTO fixed_bill_statements (id, bill_id, period_key, amount_cents, due_date) VALUES ('s1', 'fb_agua', '2026-10', 4521, '2026-10-10')").run();
 
-  TODAY = "2026-10-07"; // 'arrived' fires when the statement is saved (any day it's read)
+  TODAY = "2026-10-08"; // 'arrived' fires when the statement is saved (any day it's read)
   await w.F.billRunAllReminders(w.env, {});
   let kinds = w.d.q("SELECT kind FROM bill_reminders_sent WHERE bill_id = 'fb_agua'").map(r => r.kind).sort();
-  ok(kinds.join(",") === "arrived,d3", "manual bill: 'arrived' (statement exists) and 'd3' (3 days out) fire together on day -3");
+  ok(kinds.join(",") === "arrived,d2", "manual bill: 'arrived' (statement exists) and 'd2' (2 days out) fire together on day -2");
   let arrivedMsg = w.pushCalls.find(c => c.payload.title.indexOf("Conta chegou") === 0);
   ok(arrivedMsg.payload.body === "$45.21 · vence 10/10/2026. Abra o app para ver.", "the 'arrived' body uses the real statement amount and MM/DD/YYYY");
 

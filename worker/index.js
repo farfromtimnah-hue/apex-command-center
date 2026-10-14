@@ -8732,7 +8732,7 @@ async function handleZohoMailOAuthStart(request, env) {
         ).bind(Math.floor(Date.now() / 1000)).run();
 
         var params = new URLSearchParams();
-        params.set("client_id",     env.ZOHO_MAIL_CLIENT_ID);
+        params.set("client_id",     env.ZOHO_BOOKS_CLIENT_ID);
         params.set("redirect_uri",  "https://apex-api.farfromtimnah.workers.dev/api/zoho/oauth/callback");
         params.set("response_type", "code");
         params.set("access_type",   "offline");
@@ -8761,8 +8761,8 @@ async function handleZohoMailOAuthCallback(code, env) {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body:    new URLSearchParams({
                 code:          code,
-                client_id:     env.ZOHO_MAIL_CLIENT_ID,
-                client_secret: env.ZOHO_MAIL_CLIENT_SECRET,
+                client_id:     env.ZOHO_BOOKS_CLIENT_ID,
+                client_secret: env.ZOHO_BOOKS_CLIENT_SECRET,
                 redirect_uri:  "https://apex-api.farfromtimnah.workers.dev/api/zoho/oauth/callback",
                 grant_type:    "authorization_code"
             }).toString(),
@@ -8825,8 +8825,8 @@ async function getZohoMailAccessToken(env) {
             method:  "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body:    new URLSearchParams({
-                client_id:     env.ZOHO_MAIL_CLIENT_ID,
-                client_secret: env.ZOHO_MAIL_CLIENT_SECRET,
+                client_id:     env.ZOHO_BOOKS_CLIENT_ID,
+                client_secret: env.ZOHO_BOOKS_CLIENT_SECRET,
                 refresh_token: row.refresh_token,
                 grant_type:    "refresh_token"
             }).toString(),
@@ -39610,6 +39610,13 @@ async function pollForwardedBillEmails(env) {
     }
 
     var accountId = env.ZOHO_MAIL_ACCOUNT_ID;
+    if (!accountId) {
+        var acctRes = await fetch("https://mail.zoho.com/api/accounts", { headers: { "Authorization": "Zoho-oauthtoken " + accessToken } });
+        if (!acctRes.ok) { throw new Error("Zoho Mail accounts failed: " + acctRes.status); }
+        var acctData = await acctRes.json();
+        var acctRow = (acctData.data || [])[0];
+        accountId = acctRow && acctRow.accountId ? String(acctRow.accountId) : "";
+    }
     if (!accountId) { return; }
 
     var sinceMs = tokenRow.last_read_at ? Date.parse(tokenRow.last_read_at) : (Date.now() - 45 * 86400000);
@@ -39621,7 +39628,7 @@ async function pollForwardedBillEmails(env) {
     if (!activeBills.length) { return; }
 
     var listRes = await fetch(
-        "https://mail.zoho.com/api/accounts/" + accountId + "/messages/view?limit=200&sortBy=date&sortorder=false&includearchive=true",
+        "https://mail.zoho.com/api/accounts/" + accountId + "/messages/search?limit=200&searchKey=" + encodeURIComponent("to:" + BILL_FORWARD_ADDRESS + "::inclspamtrash:true"),
         { headers: { "Authorization": "Zoho-oauthtoken " + accessToken } }
     );
     if (!listRes.ok) { throw new Error("Zoho Mail list failed: " + listRes.status); }
@@ -39754,6 +39761,24 @@ async function pollForwardedBillEmailOne(env, accountId, accessToken, msg, activ
 }
 
 // Developer-only, last 10 rows, for the Settings card.
+// Developer-only: run the mailbox read right now instead of waiting for the
+// 4-hour cron. Same function the cron runs; returns the newest log rows.
+async function handleZohoMailReadNow(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var readError = null;
+        try { await pollForwardedBillEmails(env); } catch (e) { readError = String((e && e.message) || e).slice(0, 300); }
+        var rows = await env.DB.prepare(
+            "SELECT received_at, from_address, subject, status, bill_id, note FROM bill_emails ORDER BY received_at DESC LIMIT 10"
+        ).all();
+        return jsonOk({ ok: !readError, error: readError, recent: rows.results || [] });
+    } catch (e2) {
+        return jsonErr("Error: " + e2.message, 500);
+    }
+}
+
 async function handleGetBillEmailsRecent(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -49916,6 +49941,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/zoho-mail/oauth/start"     && method === "GET")  { return handleZohoMailOAuthStart(request, env); }
         if (path === "/api/zoho-mail/oauth/status"    && method === "GET")  { return handleZohoMailOAuthStatus(request, env); }
         if (path === "/api/zoho-mail/bill-emails"     && method === "GET")  { return handleGetBillEmailsRecent(request, env); }
+        if (path === "/api/zoho-mail/read-now"        && method === "POST") { return handleZohoMailReadNow(request, env); }
         if (path === "/api/sessions"              && method === "GET")  { return handleGetSessions(request, env); }
         if (path === "/api/sessions/inbox"        && method === "GET")  { return handleGetSessionsInbox(request, env); }
         if (path === "/api/sessions/calendar"     && method === "GET")  { return handleGetSessionsCalendar(request, env); }

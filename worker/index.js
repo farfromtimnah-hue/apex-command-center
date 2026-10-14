@@ -15193,6 +15193,11 @@ function clientRequestAllowed(path, method, clientId) {
                 // customer. Handlers re-scope by client_id AND job_id.
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos\/[A-Za-z0-9-]+\/file$/.test(gmRest)) { return true; }
+                // Job 4: today's hourly rain outlook for an in-progress project.
+                // Same visibility as photos -- owner only, never on the seller
+                // list, the handler also never selects anything past the
+                // lead's coordinates.
+                if (/^jobs\/[A-Za-z0-9-]+\/weather$/.test(gmRest)) { return true; }
             }
             if (method === "POST") {
                 if (gmRest === "leads" || gmRest === "roadmap" || gmRest === "base-ouro" ||
@@ -23681,6 +23686,170 @@ async function gmEventFields(env, clientId, body, partial) {
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// Weather — hourly rain outlook per job site (Job 4).
+//
+// Rain is the enemy of construction, especially Florida afternoon storms:
+// what matters is whether THIS site gets rain TODAY and roughly when, not a
+// multi-day high/low strip. Behind ONE swappable function, getHourlyForecast,
+// so the provider can change later:
+//   - US now: free, no-key NWS/NOAA (api.weather.gov). Two-step: GET the grid
+//     point for the coordinate, read forecastHourly from it, GET that.
+//   - Brazil later: swap this function to Open-Meteo (free, no key,
+//     worldwide, has hourly precipitation) WITHOUT changing any caller. Do
+//     not wire Open-Meteo now.
+// Cached per coordinate (rounded to ~1km) for about an hour via Cloudflare's
+// edge cache, so a calendar day with several active sites does not hammer
+// NOAA on every load.
+// ---------------------------------------------------------------------------
+
+var GM_WEATHER_USER_AGENT = "Apex (apex.resonateai.online, contact@resonateai.online)";
+var GM_WEATHER_RAIN_PCT_THRESHOLD = 40;
+
+// Rounds to ~1km so nearby job sites share one cache entry.
+function gmWeatherCacheKey(lat, lon) {
+    return Math.round(lat * 100) / 100 + "," + Math.round(lon * 100) / 100;
+}
+
+async function gmWeatherFetch(url) {
+    var opts = {
+        headers: { "User-Agent": GM_WEATHER_USER_AGENT, "Accept": "application/geo+json" },
+        cf: { cacheTtl: 3600, cacheEverything: true }
+    };
+    var res = await fetch(url, opts);
+    if ((res.status === 500 || res.status === 503)) { res = await fetch(url, opts); }
+    return res;
+}
+
+// Collapses the hours where rain_pct crosses the threshold into one window
+// ("14:00"-"17:00"), so the UI can show a single line instead of a strip.
+function gmWeatherRainWindow(hours) {
+    var first = null, last = null;
+    hours.forEach(function(h) {
+        if (h.rain_pct >= GM_WEATHER_RAIN_PCT_THRESHOLD) {
+            if (first === null) { first = h.time; }
+            last = h.time;
+        }
+    });
+    if (first === null) { return null; }
+    return { from: first, to: last };
+}
+
+// Returns { today: [{time,temp_f,condition,rain_pct}, ...], today_rain_window,
+// tomorrow_summary } for the remaining hours of the LOCAL day, or null if the
+// forecast could not be fetched (never throws -- a weather card that cannot
+// load simply does not render).
+async function getHourlyForecast(lat, lon, env) {
+    try {
+        var pointsRes = await gmWeatherFetch("https://api.weather.gov/points/" + lat + "," + lon);
+        if (!pointsRes.ok) { return null; }
+        var points = await pointsRes.json();
+        var hourlyUrl = points && points.properties && points.properties.forecastHourly;
+        if (!hourlyUrl) { return null; }
+        var hourlyRes = await gmWeatherFetch(hourlyUrl);
+        if (!hourlyRes.ok) { return null; }
+        var hourly = await hourlyRes.json();
+        var periods = (hourly && hourly.properties && hourly.properties.periods) || [];
+        if (!periods.length) { return null; }
+
+        var todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE }).format(new Date());
+        var nowHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date()));
+
+        var today = [], tomorrowPeriods = [];
+        periods.forEach(function(p) {
+            var local = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
+            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date(p.startTime)));
+            var entry = {
+                time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
+                temp_f: typeof p.temperature === "number" ? p.temperature : null,
+                condition: p.shortForecast || null,
+                rain_pct: (p.probabilityOfPrecipitation && typeof p.probabilityOfPrecipitation.value === "number") ? p.probabilityOfPrecipitation.value : 0
+            };
+            if (local === todayStr && hourLocal >= nowHour) { today.push(entry); }
+            else if (local !== todayStr && tomorrowPeriods.length < 24 && today.length > 0) { tomorrowPeriods.push(entry); }
+        });
+
+        var rainWindow = gmWeatherRainWindow(today);
+        var tomorrowRainWindow = gmWeatherRainWindow(tomorrowPeriods);
+
+        return {
+            today: today,
+            today_rain_window: rainWindow,
+            tomorrow_rain_window: tomorrowRainWindow
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
+// One line, bilingual-ready (caller picks pt/en), summarizing today's rain.
+function gmWeatherVerdict(forecast) {
+    if (!forecast) { return null; }
+    if (!forecast.today_rain_window) { return { rain: false }; }
+    return { rain: true, from: forecast.today_rain_window.from, to: forecast.today_rain_window.to };
+}
+
+// Piece B (calendar Day view): the rain verdict for ONE arbitrary date within
+// the NWS hourly window (today through ~6 days out). Past a date the hourly
+// forecast does not reach, returns null -- the day simply shows no
+// indicator rather than a stale or made-up one.
+async function gmWeatherDayVerdict(lat, lon, dateStr) {
+    try {
+        var pointsRes = await gmWeatherFetch("https://api.weather.gov/points/" + lat + "," + lon);
+        if (!pointsRes.ok) { return null; }
+        var points = await pointsRes.json();
+        var hourlyUrl = points && points.properties && points.properties.forecastHourly;
+        if (!hourlyUrl) { return null; }
+        var hourlyRes = await gmWeatherFetch(hourlyUrl);
+        if (!hourlyRes.ok) { return null; }
+        var hourly = await hourlyRes.json();
+        var periods = (hourly && hourly.properties && hourly.properties.periods) || [];
+        if (!periods.length) { return null; }
+
+        var dayHours = [];
+        periods.forEach(function(p) {
+            var local = new Intl.DateTimeFormat("en-CA", { timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(p.startTime));
+            if (local !== dateStr) { return; }
+            var hourLocal = Number(new Intl.DateTimeFormat("en-US", { timeZone: APEX_TIMEZONE, hour: "numeric", hour12: false }).format(new Date(p.startTime)));
+            dayHours.push({
+                time: (hourLocal < 10 ? "0" + hourLocal : "" + hourLocal) + ":00",
+                rain_pct: (p.probabilityOfPrecipitation && typeof p.probabilityOfPrecipitation.value === "number") ? p.probabilityOfPrecipitation.value : 0
+            });
+        });
+        if (!dayHours.length) { return null; }
+        var window = gmWeatherRainWindow(dayHours);
+        return window ? { rain: true, from: window.from, to: window.to } : { rain: false };
+    } catch (e) {
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/clients/:id/gm/jobs/:jobId/weather — Piece A, the
+// per-project card. Read-only; no coordinates on the job's lead -> empty
+// response, and the card simply does not render.
+// ---------------------------------------------------------------------------
+async function handleGetGmJobWeather(id, jobId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!requireClientAccess(user, id)) { return jsonErr("Forbidden", 403); }
+        var job = await gmOwnedRow(env, "gm_jobs", jobId, id);
+        if (!job) { return jsonErr("Job not found", 404); }
+        if (!job.lead_id) { return jsonOk({ available: false }); }
+        var lead = await env.DB.prepare("SELECT addr_lat, addr_lon FROM gm_leads WHERE id = ? AND client_id = ?")
+            .bind(job.lead_id, id).first();
+        if (!lead || typeof lead.addr_lat !== "number" || typeof lead.addr_lon !== "number") {
+            return jsonOk({ available: false });
+        }
+        var forecast = await getHourlyForecast(lead.addr_lat, lead.addr_lon, env);
+        if (!forecast) { return jsonOk({ available: false }); }
+        return jsonOk({ available: true, forecast: forecast, verdict: gmWeatherVerdict(forecast) });
+    } catch (e) {
+        return jsonErr("Error fetching weather: " + e.message, 500);
+    }
+}
+
 // Projects rendered onto the calendar, DERIVED at read time from gm_jobs.
 //
 // Never written into gm_events: a mirrored row drifts from the job the moment
@@ -23702,12 +23871,17 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
     // the visible range while still crossing through it, and the plain range
     // filter below (used for entrega_real and the single-marker cases) would
     // miss that job entirely.
+    // addr_lat/addr_lon via a LEFT JOIN on the job's lead (Job 4, piece B):
+    // a hand-made job with no lead_id, or a lead not yet geocoded, still
+    // comes back -- just with null coordinates, same as before this join.
     var rows = await env.DB.prepare(
-        "SELECT id, obra, inicio, prazo_previsto, entrega_real, status FROM gm_jobs " +
-        "WHERE client_id = ? AND (" +
-        "  (inicio         IS NOT NULL AND inicio         <= ? AND (prazo_previsto IS NULL OR prazo_previsto >= ?)) OR " +
-        "  (prazo_previsto IS NOT NULL AND prazo_previsto >= ? AND prazo_previsto <= ?) OR " +
-        "  (entrega_real   IS NOT NULL AND entrega_real   >= ? AND entrega_real   <= ?))"
+        "SELECT j.id, j.obra, j.inicio, j.prazo_previsto, j.entrega_real, j.status, " +
+        "l.addr_lat, l.addr_lon FROM gm_jobs j " +
+        "LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+        "WHERE j.client_id = ? AND (" +
+        "  (j.inicio         IS NOT NULL AND j.inicio         <= ? AND (j.prazo_previsto IS NULL OR j.prazo_previsto >= ?)) OR " +
+        "  (j.prazo_previsto IS NOT NULL AND j.prazo_previsto >= ? AND j.prazo_previsto <= ?) OR " +
+        "  (j.entrega_real   IS NOT NULL AND j.entrega_real   >= ? AND j.entrega_real   <= ?))"
     ).bind(clientId, toDate, fromDate, fromDate, toDate, fromDate, toDate).all();
 
     var out = [];
@@ -23749,7 +23923,13 @@ async function gmDerivedJobEvents(env, clientId, fromDate, toDate) {
                     all_day: true,
                     editable: false,
                     band_start: cur === start,
-                    band_end: cur === end
+                    band_end: cur === end,
+                    // Job 4, piece B: the calendar Day view attaches a rain
+                    // verdict for these coordinates server-side, in parallel,
+                    // after this function returns. Null when the job has no
+                    // lead or the lead has no geocoded address yet.
+                    addr_lat: typeof j.addr_lat === "number" ? j.addr_lat : null,
+                    addr_lon: typeof j.addr_lon === "number" ? j.addr_lon : null
                 });
                 // +1 day via plain ISO string arithmetic through a Date — the
                 // range is small (one project's active window) so this is cheap.
@@ -24136,6 +24316,46 @@ async function handleGetGmEvents(id, request, env) {
         var leadEv = await gmDerivedLeadEvents(env, id, fromD, toD);
         var club = await gmClubInviteEvents(env, fromD, toD);
         var apex = await gmApexMeetingEvents(env, id, fromD, toD);
+
+        // Job 4, piece B: a rain verdict per (coordinate, date) pair actually
+        // present among this month's job bands, fetched in parallel and
+        // de-duplicated -- several active sites sharing a coordinate, or one
+        // site's multi-day band, never hit NOAA more than once per pair.
+        // gmWeatherDayVerdict/gmWeatherFetch already cache per URL for ~1h, so
+        // a repeat load of the same month is cheap too.
+        // NWS hourly only reaches about a week out -- skip the request
+        // entirely for a day past that instead of paying for a call that
+        // will just come back null.
+        var weatherHorizon = new Date(Date.UTC(
+            parseInt(localDateStrForTZ().slice(0, 4), 10),
+            parseInt(localDateStrForTZ().slice(5, 7), 10) - 1,
+            parseInt(localDateStrForTZ().slice(8, 10), 10) + 7
+        )).toISOString().slice(0, 10);
+        var weatherToday = localDateStrForTZ();
+        var weatherPairs = {};
+        derived.forEach(function (ev) {
+            if (ev.kind === "band" && typeof ev.addr_lat === "number" && typeof ev.addr_lon === "number" &&
+                ev.date >= weatherToday && ev.date <= weatherHorizon) {
+                weatherPairs[ev.addr_lat + "," + ev.addr_lon + "|" + ev.date] = { lat: ev.addr_lat, lon: ev.addr_lon, date: ev.date };
+            }
+        });
+        var weatherKeys = Object.keys(weatherPairs);
+        if (weatherKeys.length) {
+            var verdicts = await Promise.all(weatherKeys.map(function (k) {
+                var p = weatherPairs[k];
+                return gmWeatherDayVerdict(p.lat, p.lon, p.date).catch(function () { return null; });
+            }));
+            var verdictByKey = {};
+            weatherKeys.forEach(function (k, i) { verdictByKey[k] = verdicts[i]; });
+            derived.forEach(function (ev) {
+                if (ev.kind !== "band") { return; }
+                var k = ev.addr_lat + "," + ev.addr_lon + "|" + ev.date;
+                ev.rain_verdict = verdictByKey[k] || null;
+                delete ev.addr_lat; delete ev.addr_lon;   // coordinates are an internal lookup key, not for the client
+            });
+        } else {
+            derived.forEach(function (ev) { if (ev.kind === "band") { ev.rain_verdict = null; delete ev.addr_lat; delete ev.addr_lon; } });
+        }
 
         var all = own.concat(derived).concat(leadEv).concat(club).concat(apex);
 
@@ -49716,6 +49936,11 @@ async function handleFetch(request, env, ctx) {
                 if (segs.length === 9 && gmCol === "jobs" && segs[6] === "photos" &&
                     segs[8] === "file" && method === "GET") {
                     return handleGetGmJobPhotoFile(cid, segs[5], segs[7], request, env);
+                }
+                // /gm/jobs/:jobId/weather — today's hourly rain outlook (Job 4,
+                // piece A). Read-only; same visibility as the job itself.
+                if (segs.length === 7 && gmCol === "jobs" && segs[6] === "weather" && method === "GET") {
+                    return handleGetGmJobWeather(cid, segs[5], request, env);
                 }
                 if (segs.length === 6 && method === "PUT") {
                     if (gmCol === "leads")     { return handlePutGmLead(cid, segs[5], request, env); }

@@ -4571,6 +4571,7 @@ function gmOpenJob(idx) {
     gmLoadValueHistory("jobs", gmSheetRow.id, "gmJobValueHistory");
     gmLoadJobPhotos(gmSheetRow.id);
     gmLoadNotes("job", gmSheetRow.id);
+    if (gmSheetRow.status === "Em andamento") { gmLoadJobWeather(gmSheetRow.id); }
   }
 }
 
@@ -7385,6 +7386,62 @@ function gmConNoticesCardHtml() {
 // re-fetching every image row.
 var gmJobPhotos = {};
 
+// Today's hourly rain outlook (Job 4, piece A). Only renders for a job IN
+// PROGRESS with coordinates on its lead -- a job with neither simply shows
+// no card, and the GET route already answers { available: false } for both
+// cases so this never needs to ask the job's own status first.
+var gmJobWeather = {};
+
+function gmLoadJobWeather(jobId) {
+  gmApi("jobs/" + encodeURIComponent(jobId) + "/weather")
+    .then(function(d) {
+      gmJobWeather[jobId] = d;
+      gmRenderJobWeather(jobId);
+    })
+    .catch(function() { /* the card just does not render */ });
+}
+
+function gmWeatherHourStripHtml(hours) {
+  return '<div class="gm-weather-strip">' +
+    hours.slice(0, 12).map(function(h) {
+      return '<div class="gm-weather-hour">' +
+        '<span class="gm-weather-hour-time">' + escHtml(h.time) + '</span>' +
+        '<span class="gm-weather-hour-temp">' + (h.temp_f !== null ? Math.round(h.temp_f) + '°' : '—') + '</span>' +
+        '<span class="gm-weather-hour-rain' + (h.rain_pct >= GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD ? ' gm-weather-rain-on' : '') + '">' + h.rain_pct + '%</span>' +
+        '</div>';
+    }).join("") +
+    '</div>';
+}
+
+var GM_WEATHER_RAIN_PCT_FRONTEND_THRESHOLD = 40;
+
+function gmWeatherVerdictLineHtml(forecast) {
+  if (forecast.today_rain_window) {
+    var from = forecast.today_rain_window.from, to = forecast.today_rain_window.to;
+    return '<p class="gm-weather-verdict gm-warn">' +
+      gmT("Chuva provável " + from + "–" + to, "Rain likely " + from + "–" + to) + '</p>';
+  }
+  return '<p class="gm-weather-verdict gm-ok">' + gmT("Sem chuva hoje", "No rain today") + '</p>';
+}
+
+function gmRenderJobWeather(jobId) {
+  var box = document.getElementById("gmJobWeatherSection");
+  if (!box) { return; }
+  var d = gmJobWeather[jobId];
+  if (!d || !d.available || !d.forecast) { box.innerHTML = ""; return; }
+  var forecast = d.forecast;
+  var tomorrowLine = forecast.tomorrow_rain_window
+    ? gmT("Amanhã: chuva provável " + forecast.tomorrow_rain_window.from + "–" + forecast.tomorrow_rain_window.to,
+          "Tomorrow: rain likely " + forecast.tomorrow_rain_window.from + "–" + forecast.tomorrow_rain_window.to)
+    : gmT("Amanhã: sem chuva prevista", "Tomorrow: no rain expected");
+  box.innerHTML = '<div class="content-card">' +
+    '<div class="card-title">' + escHtml(gmT("Previsão do tempo", "Weather outlook")) + '</div>' +
+    gmWeatherVerdictLineHtml(forecast) +
+    (forecast.today.length ? gmWeatherHourStripHtml(forecast.today) : "") +
+    '<p class="muted" style="margin:8px 0 0;font-size:12px;">' + escHtml(tomorrowLine) + '</p>' +
+    '</div>';
+}
+
 function gmLoadJobPhotos(jobId) {
   gmApi("jobs/" + encodeURIComponent(jobId) + "/photos")
     .then(function(d) {
@@ -8109,6 +8166,12 @@ function gmRenderSimpleSheet(kind) {
     if (row.id) { body += '<div id="gmJobInvoicesSection"></div>'; }
     // Contract (contracts build): built from the accepted estimate; gated.
     if (row.id && gmContractsEnabled()) { body += '<div id="gmJobContractSection"></div><div id="gmJobCOSection"></div><div id="gmJobConditionSection"></div><div id="gmJobPunchSection"></div>' + (gmIsSeller() ? "" : '<div id="gmJobLienorSection"></div><div id="gmJobSubsSection"></div>'); }
+
+    // ── Weather (Job 4) ──────────────────────────────────────────────────
+    // Only worth asking for on an active site; the GET route itself answers
+    // "not available" for a job with no coordinates, so the card quietly
+    // does not render either way.
+    if (row.id && row.status === "Em andamento" && !gmIsSeller()) { body += '<div id="gmJobWeatherSection"></div>'; }
 
     // ── Progress photos ─────────────────────────────────────────────────
     // Rendered as a placeholder and filled in by gmLoadJobPhotos(), so the
@@ -9033,6 +9096,33 @@ function gmCalChip(ev) {
   return btn;
 }
 
+// Per-site rain overview (Job 4, piece B), Day view only -- Month and Week
+// never call this. One row per in-progress job banded on this day, each
+// with a clear/rain dot and the rain window text, so the overseer sees at
+// a glance which active sites get rain and when. Jobs with no rain_verdict
+// (no coordinates, or past the forecast horizon) show no dot.
+function gmCalRenderDayWeather(dateStr, events) {
+  var host = document.getElementById("gmCalDayWeather");
+  if (!host) { return; }
+  var sites = (events || []).filter(function(ev) { return ev.kind === "band" && ev.date === dateStr; });
+  if (!sites.length) { host.innerHTML = ""; return; }
+  host.innerHTML = '<div class="content-card gm-cal-day-weather">' +
+    '<div class="card-title">' + escHtml(gmT("Chuva por obra hoje", "Rain by site today")) + '</div>' +
+    sites.map(function(ev) {
+      var v = ev.rain_verdict;
+      var dotCls = v ? (v.rain ? "gm-cal-rain-dot-rain" : "gm-cal-rain-dot-clear") : "gm-cal-rain-dot-unknown";
+      var text = !v ? gmT("Sem previsão", "No forecast") :
+        v.rain ? gmT("Chuva " + v.from + "–" + v.to, "Rain " + v.from + "–" + v.to) :
+        gmT("Sem chuva", "No rain");
+      return '<div class="gm-cal-rain-row">' +
+        '<span class="gm-cal-rain-dot ' + dotCls + '"></span>' +
+        '<span class="gm-cal-rain-name">' + escHtml(ev.title || "") + '</span>' +
+        '<span class="gm-cal-rain-text">' + escHtml(text) + '</span>' +
+        '</div>';
+    }).join("") +
+    '</div>';
+}
+
 // A visit booked through the online booking page lands twice: as the calendar
 // event the booking creates (carries lead_id) AND as the lead's own visit date
 // (a derived "lead" entry). Show it once, as the visit: a lead-derived entry
@@ -9099,6 +9189,8 @@ function gmRenderCalendar() {
     '</div>' +
     gmCalViewToggleHtml() +
     '<div id="gmCalGrid"></div>' +
+    // Day view only (gmCalRenderDayWeather) -- empty on Month/Week.
+    '<div id="gmCalDayWeather"></div>' +
     // Legend: three visually distinct kinds need saying once, or the dashed
     // and dark chips read as styling rather than meaning.
     '<div class="gm-cal-legend">' +
@@ -9134,6 +9226,7 @@ function gmRenderCalendar() {
       emptyText: gmT("Nada agendado.", "Nothing scheduled."),
       onDayClick: function(d) { gmCalNew(d); }
     });
+    gmCalRenderDayWeather(CalendarGrid.dateKey(gmCalWeekDayAnchor), events);
   } else {
     CalendarGrid.renderCalendar(grid, {
       anchor: gmCalMonth,

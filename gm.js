@@ -950,6 +950,21 @@ function gmMetaCardHtml() {
     '<button type="button" class="gm-btn-secondary" onclick="gmMetaDisconnect()">' + escHtml(gmT("Desconectar", "Disconnect")) + '</button>';
   return h + '</div>';
 }
+
+// Sibling to the Meta card, same visual treatment. There is no Thumbtack
+// OAuth wired yet (dev login is pending Thumbtack's review) -- this is a
+// disabled "coming soon" placeholder only, no live connect action.
+function gmThumbtackCardHtml() {
+  if (gmIsSeller()) { return ""; }
+  return '<div class="content-card" id="gmThumbtackCard"><div class="card-title">' +
+    escHtml(gmT("Leads do Thumbtack", "Thumbtack leads")) + '</div>' +
+    '<p class="muted" style="margin-bottom:12px;">' + escHtml(gmT(
+      "Conecte o Thumbtack e os leads caem direto no seu funil, automaticamente.",
+      "Connect Thumbtack and its leads land in your pipeline automatically.")) + '</p>' +
+    '<button type="button" class="gm-btn-secondary" disabled>' + escHtml(gmT("Em breve", "Coming soon")) + '</button>' +
+    '</div>';
+}
+
 // Asks the Worker for Facebook's sign-in address and goes there in this tab.
 function gmMetaConnect(btn) {
   if (gmMetaBusy) { return; }
@@ -1069,7 +1084,7 @@ function gmReviewLinkOk(v) {
   return ok;
 }
 
-// The field in the owner's document settings (Business section). A
+// The field in the owner's document settings (Marketing section). A
 // salesperson never reaches that screen (gmEstimatesSections).
 function gmReviewSettingsFieldHtml(d) {
   return gmDocField("gmDocReviewLink", "Link de avalia\u00e7\u00e3o do Google", "Google review link",
@@ -1079,6 +1094,24 @@ function gmReviewSettingsFieldHtml(d) {
     '<p class="muted" style="margin:4px 0 2px;">' + escHtml(gmT("No seu Perfil da Empresa no Google, escolha Pedir avalia\u00e7\u00f5es, copie o link e cole aqui. O cliente que tocar nele vai direto para o formul\u00e1rio de avalia\u00e7\u00e3o.",
         "In your Google Business Profile, choose Ask for reviews, copy the link and paste it here. Customers who tap it go straight to your review form.")) + '</p>' +
     '<p style="margin:0 0 8px;"><a href="' + GM_REVIEW_HELP_URL + '" target="_blank" rel="noopener">' + escHtml(gmT("Como encontrar", "How to find it")) + '</a></p>';
+}
+
+// The read-only bio URL plus a copy button, in the Marketing section. The
+// slug (clients.link_slug) is minted server-side on the doc-settings GET
+// (gmEnsureClientLinkSlug) -- nothing to mint here, just display it.
+function gmBioLinkUrl() {
+  var slug = gmDocSettings && gmDocSettings.link_slug;
+  if (!slug) { return ""; }
+  return location.origin + "/link.html?p=" + encodeURIComponent(slug);
+}
+function gmBioLinkFieldHtml() {
+  var url = gmBioLinkUrl();
+  if (!url) { return ""; }
+  return '<div class="gm-field-label" style="margin-top:14px;">' + gmT("Link da sua p\u00e1gina (link na bio)", "Your page link (link-in-bio)") + '</div>' +
+    '<div class="gm-doc-image-row">' +
+      '<input type="text" class="gm-input" value="' + escHtml(url) + '" readonly onclick="this.select()">' +
+      '<button type="button" class="gm-btn-secondary" onclick="gmDCopyLink(gmBioLinkUrl())">' + gmT("Copiar link", "Copy link") + '</button>' +
+    '</div>';
 }
 
 var gmReviewData = {};         // job id -> last GET/POST gm/jobs/:id/review-request payload
@@ -9610,7 +9643,6 @@ function gmRenderEstimatesTab() {
   var html = gmEstimatesSubnavHtml();
   if (gmEstimatesSection === "settings") {
     html += gmDocSettingsFormHtml();
-    html += gmMetaCardHtml();
     html += gmConSettingsHtml();
     html += gmDSubsSettingsHtml();
   } else {
@@ -9909,8 +9941,9 @@ function gmDocSettingsFormHtml() {
         "What appears on your estimates, invoices and receipts to your customers.") + '</p>' +
     '<div id="gmDocSetupStatus">' + gmDocSetupStatusHtml() + '</div>';
 
-  // ── Images ──
+  // ── Brand ──
   html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Marca", "Brand") + '</p>' +
     '<div class="gm-field-label">' + gmT("Logo", "Logo") + '</div>' +
     '<div class="gm-doc-image-row">' +
       (st.has_logo ? '<img class="gm-doc-image-preview" alt="" src="' + escHtml(WORKER_URL + "/api/clients/" + clientId + "/logo-image?ts=" + Date.now()) + '">' : '') +
@@ -9919,32 +9952,44 @@ function gmDocSettingsFormHtml() {
         gmT(st.has_logo ? "Trocar logo" : "Enviar logo", st.has_logo ? "Replace logo" : "Upload logo") + '</button>' +
     '</div>' +
     gmHeroPickerHtml() +
-    '</div>';
-
-  // ── Brand colors ──
-  // The customer's documents carry the CLIENT's brand, never Apex's. A
-  // picker and a hex field kept in sync; blank = neutral default.
-  html += '<div class="gm-sheet-section">' +
-    '<p class="gm-sheet-section-title">' + gmT("Cores da marca", "Brand colors") +
+    '<p class="gm-field-label" style="margin-top:14px;">' + gmT("Cores da marca", "Brand colors") +
     ' <span class="gm-sheet-section-note">' + gmT("usadas nos documentos do seu cliente", "used on your customer's documents") + '</span></p>' +
     gmDocColorField("brand_primary", "Cor principal", "Primary color", d.brand_primary) +
     gmDocColorField("brand_accent", "Cor de destaque", "Accent color", d.brand_accent) +
     '</div>';
 
-  // ── Business ──
+  // ── Business identity ──
   html += '<div class="gm-sheet-section">' +
-    '<p class="gm-sheet-section-title">' + gmT("Empresa", "Business") + '</p>' +
+    '<p class="gm-sheet-section-title">' + gmT("Dados da empresa", "Business identity") + '</p>' +
     gmDocField("gmDocLegalName", "Razão social (nome legal)", "Legal business name", gmDocTextInput("gmDocLegalName", "legal_name", d.legal_name), "legal_name") +
     gmDocField("gmDocAddress", "Endereço", "Address",
       '<textarea id="gmDocAddress" class="gm-input" rows="2" oninput="gmDocDraftSet(\'address\', this.value)" onblur="gmDocFieldBlur(\'address\')">' + escHtml(d.address) + '</textarea>', "address") +
     gmDocField("gmDocPhone", "Telefone", "Phone", gmDocTextInput("gmDocPhone", "phone", d.phone, 'inputmode="tel"'), "phone") +
     gmDocField("gmDocEmail", "Email", "Email", gmDocTextInput("gmDocEmail", "email", d.email, 'inputmode="email"'), "email") +
+    '</div>';
+
+  // ── Licensing ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Licenciamento", "Licensing") + '</p>' +
     '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn" id="gmDocLicenseStar"' + (d.license_not_required ? ' hidden' : '') + '>*</span> <span id="gmDocMark_license_numbers">' + gmDocFieldMarkHtml("license_numbers") + '</span></div>' +
     '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
     '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
-    '<button type="button" class="gm-btn-secondary" onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
+    '<button type="button" class="gm-btn-secondary" id="gmDocAddLicenseBtn"' + (d.license_not_required ? ' disabled' : '') + ' onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
     gmDocLicenseNotRequiredHtml(d, st) +
+    '</div>';
+
+  // ── Marketing (outbound public links) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Marketing", "Marketing") + '</p>' +
     gmReviewSettingsFieldHtml(d) +
+    gmBioLinkFieldHtml() +
+    '</div>';
+
+  // ── Lead sources (inbound pipeline connections) ──
+  html += '<div class="gm-sheet-section">' +
+    '<p class="gm-sheet-section-title">' + gmT("Fontes de leads", "Lead sources") + '</p>' +
+    gmMetaCardHtml() +
+    gmThumbtackCardHtml() +
     '</div>';
 
   // ── Services ──
@@ -9961,6 +10006,10 @@ function gmDocSettingsFormHtml() {
         "These appear as checkboxes on your public referral page and your link-in-bio page.") + '</p>' +
     '<div id="gmDocServicos">' + gmDocServicosHtml() + '</div>' +
     '</div>';
+
+  // ── Payments & terms (band grouping the five money sections) ──
+  html += '<div class="gm-sheet-band">' +
+    '<p class="gm-sheet-band-title">' + gmT("Pagamentos e prazos", "Payments & terms") + '</p>';
 
   // ── Payment methods ──
   html += '<div class="gm-sheet-section">' +
@@ -10038,6 +10087,8 @@ function gmDocSettingsFormHtml() {
     '<p class="gm-sheet-section-title">' + gmT("Sales tax", "Sales tax") + '</p>' +
     '<p class="gm-derived-note">' + gmT(GM_DOC_TAX_NOTICE_PT, GM_DOC_TAX_NOTICE_EN) + '</p>' +
     '</div>';
+
+  html += '</div>'; // end gm-sheet-band (Payments & terms)
 
   // ── Message templates (edited from the Send button in phase 2) ──
   html += '<div class="gm-sheet-section">' +
@@ -10131,12 +10182,16 @@ function gmDocSaveMsgHtml() {
 function gmDocLicensesHtml() {
   var d = gmDocDraft;
   var h = "";
+  // Mutually exclusive with "no license required" (job 2): checking that
+  // box disables these inputs rather than just clearing them, so the two
+  // states can never both read as active at once.
+  var off = !!d.license_not_required;
   d.licenses.forEach(function(v, i) {
     h += '<div class="gm-cost-line">' +
-      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="CPC1234567" ' +
+      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="CPC1234567"' + (off ? ' disabled' : '') + ' ' +
         'aria-label="' + gmT("Número de licença", "License number") + '" oninput="gmDocLicenseSet(' + i + ', this.value)" onblur="gmDocLicensesBlur()">' +
       (d.licenses.length > 1
-        ? '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '" onclick="gmDocRemoveLicense(' + i + ')">&times;</button>'
+        ? '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '"' + (off ? ' disabled' : '') + ' onclick="gmDocRemoveLicense(' + i + ')">&times;</button>'
         : "") +
       '</div>';
   });
@@ -10163,14 +10218,19 @@ function gmDocLicenseNotRequiredHtml(d, st) {
 }
 // The red star goes while the box is ticked. The "Stated by" line belongs to
 // the saved tick: it hides on untick and comes back if the tick is restored
-// before saving.
+// before saving. Job 2: mutually exclusive with license numbers -- ticking
+// it clears the numbers (inputs disable via gmDocLicensesHtml's "off" flag).
 function gmDocLicenseNotRequiredSet(on) {
   if (!gmDocDraft) { return; }
   gmDocDraft.license_not_required = !!on;
+  if (on) { gmDocDraft.licenses = [""]; }
   var star = document.getElementById("gmDocLicenseStar");
   if (star) { star.hidden = !!on; }
   var stated = document.getElementById("gmDocLicenseNotRequiredStated");
   if (stated) { stated.hidden = !on || !gmDocLicenseNotRequiredStatedText(gmDocSettings); }
+  var addBtn = document.getElementById("gmDocAddLicenseBtn");
+  if (addBtn) { addBtn.disabled = !!on; }
+  gmDocRepaintLicenses();
   gmDocLicenseNotRequiredSave();
 }
 // A choice, not typing: saves the moment it is ticked or unticked. If the
@@ -10178,7 +10238,15 @@ function gmDocLicenseNotRequiredSet(on) {
 // has), the box visually reverts to what is actually saved and the message
 // shows beside the licenses, exactly as the Worker reported it.
 function gmDocLicenseNotRequiredSave() {
-  gmDocFieldSave("license_not_required", { license_not_required: !!gmDocDraft.license_not_required })
+  var on = !!gmDocDraft.license_not_required;
+  var payload = { license_not_required: on };
+  // Clearing the numbers rides along in the same save so the two fields
+  // never land on the server in a contradictory combination.
+  if (on) {
+    payload.license_numbers = [];
+    gmDocLastSavedScalar.license_numbers = JSON.stringify([]);
+  }
+  gmDocFieldSave("license_not_required", payload)
     .then(function(r) {
       var errs = (r && r.field_errors) || {};
       if (errs.license_not_required) {
@@ -10327,14 +10395,25 @@ function gmDocTermsMode(v) {
 function gmDocLicenseSet(i, v) { if (gmDocDraft && gmDocDraft.licenses[i] !== undefined) { gmDocDraft.licenses[i] = v; gmDocDraftSaveStored(); } }
 // Licenses save as a group right on blur (same "no license wall" rule the
 // Worker enforces): an empty row is simply dropped, never a reason to
-// refuse the others.
+// refuse the others. Job 2: a non-empty number is mutually exclusive with
+// "no license required" -- entering one unchecks that box.
 function gmDocLicensesBlur() {
   if (!gmDocDraft) { return; }
   var licenses = gmDocDraft.licenses.map(function(x) { return String(x || "").trim(); }).filter(function(x) { return !!x; });
+  var uncheckLnr = licenses.length > 0 && !!gmDocDraft.license_not_required;
+  if (uncheckLnr) {
+    gmDocDraft.license_not_required = false;
+    var box = document.getElementById("gmDocLicenseNotRequired");
+    if (box) { box.checked = false; }
+    var star = document.getElementById("gmDocLicenseStar");
+    if (star) { star.hidden = false; }
+  }
   var cur = JSON.stringify(licenses);
-  if (gmDocLastSavedScalar.license_numbers === cur) { return; }
+  var payload = { license_numbers: licenses };
+  if (uncheckLnr) { payload.license_not_required = false; }
+  if (!uncheckLnr && gmDocLastSavedScalar.license_numbers === cur) { return; }
   gmDocLastSavedScalar.license_numbers = cur;
-  gmDocFieldSave("license_numbers", { license_numbers: licenses })
+  gmDocFieldSave("license_numbers", payload)
     .catch(function(e) { console.error("doc-settings license save: " + e.message); });
 }
 function gmDocAddLicense() { if (gmDocDraft) { gmDocDraft.licenses.push(""); gmDocRepaintLicenses(); } }

@@ -25471,7 +25471,9 @@ async function handleGetGmDocSettings(id, request, env) {
         settings.payment_method_keys = GM_DOC_PAYMENT_METHODS;
         // Backfill: a business that completed setup before the link-in-bio
         // page existed gets a slug lazily, on the next time this screen loads.
-        if (settings.setup_completed_at) { await gmEnsureClientLinkSlug(env, id); }
+        // Settings' Marketing section shows the URL as soon as the sheet is
+        // open, so the slug is minted here regardless of setup completion.
+        settings.link_slug = await gmEnsureClientLinkSlug(env, id);
         return jsonOk({ settings: settings });
     } catch (e) {
         return jsonErr("Error fetching document settings: " + e.message, 500);
@@ -25620,6 +25622,19 @@ async function handlePutGmDocSettings(id, request, env) {
         var licensesBefore = gmDocParseLicenses(cur.license_numbers || "[]");
         var hadLicenseAnswer = licensesBefore.length > 0 || lnrBefore === 1;
         var licensesAfter = f.license_numbers !== undefined ? gmDocParseLicenses(f.license_numbers) : licensesBefore;
+
+        // Job 2: the two answers are mutually exclusive, defended here even
+        // if the UI is bypassed. A number wins over a stale "not required"
+        // tick from the same save; ticking "not required" clears numbers.
+        if (lnrAfter === 1 && licensesAfter.length > 0) {
+            if (has("license_not_required") && lnrWant === 1) {
+                licensesAfter = [];
+                f.license_numbers = JSON.stringify([]);
+            } else {
+                lnrAfter = 0;
+            }
+        }
+
         var licenseOkAfter = licensesAfter.length > 0 || lnrAfter === 1;
         var touchedLicenseFields = has("license_numbers") || has("license_not_required");
         if (touchedLicenseFields && hadLicenseAnswer && !licenseOkAfter) {

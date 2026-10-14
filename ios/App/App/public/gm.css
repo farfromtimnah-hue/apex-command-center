@@ -457,6 +457,16 @@
   background: var(--card, #fff); border: 1px solid var(--border);
   border-radius: 12px; overflow: hidden;
 }
+/* A band wraps several related gm-sheet-sections (e.g. the five money
+   sections under "Payments & terms") so they read as one group without
+   losing their own sub-headers. */
+.gm-sheet-band {
+  border-top: 1px solid var(--border); padding-top: 16px; margin-top: 4px; margin-bottom: 22px;
+}
+.gm-sheet-band-title {
+  font-size: 13px; font-weight: 800; color: var(--text);
+  margin: 0 0 14px 2px;
+}
 .gm-sheet-row, .gm-partner-row {
   display: flex; align-items: center; gap: 12px;
   width: 100%; min-height: 56px; padding: 11px 13px;

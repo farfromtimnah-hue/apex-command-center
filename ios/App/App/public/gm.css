@@ -443,10 +443,21 @@
    aliases so the two sheets are ONE system rather than two lookalikes — do
    not add a third family; extend this one. */
 .gm-sheet-section, .gm-partner-section { margin-bottom: 18px; }
-.gm-sheet-section-title, .gm-partner-section-title {
+.gm-partner-section-title {
   font-size: 11px; font-weight: 800; color: var(--muted);
   letter-spacing: 0.08em; text-transform: uppercase;
   margin: 0 0 8px 2px;
+}
+/* Settings-sheet section headers: strong enough to clearly outrank the field
+   labels under them. Was 11px muted uppercase (read as fine print, not a
+   header); now 18px near-black with an underline rule so each section owns the
+   fields beneath it. Kept separate from .gm-partner-section-title so only this
+   sheet changes. */
+.gm-sheet-section-title {
+  font-size: 18px; font-weight: 800; color: #1a1a1a;
+  letter-spacing: 0; text-transform: none;
+  margin: 30px 0 14px; padding-bottom: 8px;
+  border-bottom: 2px solid #e2ddd6;
 }
 /* A section label can carry a quiet "tracked automatically" note beside it. */
 .gm-sheet-section-note {

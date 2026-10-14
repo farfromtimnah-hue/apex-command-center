@@ -2828,6 +2828,25 @@
       </div>
     </div>
 
+    <!-- A variable bill with no statement yet has no default amount -- see
+         handlePostFinanceNewBillMarkPaid. The real amount must be typed. -->
+    <div id="billAmountOverlay" class="nc-overlay" hidden onclick="if(event.target===this)closeBillAmountPrompt()">
+      <div class="nc-box" role="dialog" aria-modal="true">
+        <button type="button" class="nc-close" onclick="closeBillAmountPrompt()" title="Fechar / Close" aria-label="Fechar / Close">&times;</button>
+        <h3 class="nc-title" id="billAmountPromptTitle"></h3>
+        <div class="net-note" style="margin-bottom:16px;">
+          <span class="show-pt">Esta conta ainda n&atilde;o tem valor real recebido por e-mail. Digite o valor pago.</span>
+          <span class="show-en">This bill has no real amount from an email yet. Enter the amount paid.</span>
+        </div>
+        <input type="number" step="0.01" min="0.01" id="billAmountPromptInput"
+               style="width:100%;margin-bottom:12px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:14px">
+        <button type="button" class="btn btn-gold" onclick="submitBillAmountPrompt()" style="width:100%;">
+          <span class="show-pt">Marcar pago</span>
+          <span class="show-en">Mark paid</span>
+        </button>
+      </div>
+    </div>
+
     <!-- ══ Prompt copied ════════════════════════════════════════════════
          Placed HERE, as a sibling of the other nc-overlay boxes and OUTSIDE
          every finPanel*, because display:none is inherited: a modal parked
@@ -4937,6 +4956,19 @@
       if (!b.is_variable) {
         return '<span class="' + cls + '">' + fmtCents(b.amount_cents) + "</span>";
       }
+      // A statement read off the bill's own forwarded email for this period:
+      // the REAL amount, never the stored estimate. See
+      // handleGetFinanceNewBills attaching b.statement.
+      if (b.statement) {
+        var dueFmt = fmtDate(b.statement.due_date);
+        var diffNote = b.statement.differs_from_last
+          ? '<span class="bill-est-note">' + t("Valor diferente do m&ecirc;s passado", "Different amount than last month") + "</span>"
+          : "";
+        return '<span class="' + cls + '">' + fmtCents(b.statement.amount_cents) + "</span>" +
+          '<span class="bill-est-note">' +
+            t("Conta recebida &middot; vence " + dueFmt, "Bill received &middot; due " + dueFmt) +
+          "</span>" + diffNote;
+      }
       // The NUMBER carries the uncertainty, not just a label beside it. Set in
       // the same size and position as a real amount, an estimate reads as
       // exactly as solid as the mortgage -- which is $2,560.10 to the cent
@@ -5805,15 +5837,52 @@
       if (isCollapsed("overdue")) { renderSectionSummary("overdue"); }
     }
 
-    function markBillPaid(billId) {
-      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/mark-paid", { method: "POST", body: {} })
+    var BILL_AMOUNT_PROMPT_ID = null;
+
+    function markBillPaid(billId, amountCents) {
+      var body = amountCents ? { amount_cents: amountCents } : {};
+      apiFetch("/api/finance-new/bills/" + encodeURIComponent(billId) + "/mark-paid", { method: "POST", body: body })
         .then(function(r) { return r.json(); })
         .then(function(d) {
-          if (d.error) { toast(d.error); return; }
+          if (d.error) {
+            // No statement yet for a variable bill: there is no default
+            // amount, so ask her to type the real one instead of failing silently.
+            if (!amountCents && /no statement yet/i.test(String(d.error))) {
+              openBillAmountPrompt(billId);
+              return;
+            }
+            toast(d.error);
+            return;
+          }
+          closeBillAmountPrompt();
           toast(t("Marcado como pago.", "Marked paid."));
           loadOverdue();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    function openBillAmountPrompt(billId) {
+      BILL_AMOUNT_PROMPT_ID = billId;
+      var titleEl = document.getElementById("billAmountPromptTitle");
+      if (titleEl) { titleEl.textContent = ""; }
+      var inputEl = document.getElementById("billAmountPromptInput");
+      if (inputEl) { inputEl.value = ""; }
+      var ov = document.getElementById("billAmountOverlay");
+      if (ov) { ov.hidden = false; }
+    }
+
+    function closeBillAmountPrompt() {
+      var ov = document.getElementById("billAmountOverlay");
+      if (ov) { ov.hidden = true; }
+      BILL_AMOUNT_PROMPT_ID = null;
+    }
+
+    function submitBillAmountPrompt() {
+      if (!BILL_AMOUNT_PROMPT_ID) { return; }
+      var inputEl = document.getElementById("billAmountPromptInput");
+      var dollars = inputEl ? Number(inputEl.value) : NaN;
+      if (!isFinite(dollars) || dollars <= 0) { toast(t("Digite um valor v&aacute;lido.", "Enter a valid amount.")); return; }
+      markBillPaid(BILL_AMOUNT_PROMPT_ID, Math.round(dollars * 100));
     }
 
     // "Paguei no cartão" — clears the bill for this month without claiming

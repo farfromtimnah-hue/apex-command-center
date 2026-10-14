@@ -394,6 +394,46 @@
           </div>
         </div>
 
+        <!-- Zoho Mail OAuth (forwarded bills: water and waste read themselves
+             into the bills -- see worker/index.js pollForwardedBillEmails) -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <h2 class="content-card-title">Zoho Mail</h2>
+          </div>
+          <div class="content-card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Status:</span>
+              <span id="zohoMailStatus" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">Checking...</span>
+            </div>
+            <div>
+              <span style="font-size:13px;color:var(--muted);">Last read:</span>
+              <span id="zohoMailLastRead" style="font-size:13px;font-weight:600;margin-left:6px;color:var(--muted);">--</span>
+            </div>
+            <button class="btn-submit" id="btnConnectZohoMail" onclick="handleConnectZohoMail()" style="flex-shrink:0;">
+              Connect Zoho Mail
+            </button>
+            <button class="btn-submit" id="btnCheckZohoMailStatus" onclick="checkZohoMailStatus()"
+              style="background:transparent;border:1.5px solid var(--gold);color:var(--gold);flex-shrink:0;">
+              Check Status
+            </button>
+          </div>
+          <div class="content-card-body" style="padding-top:0;">
+            <table style="width:100%;font-size:12px;border-collapse:collapse;">
+              <thead>
+                <tr style="text-align:left;color:var(--muted);">
+                  <th style="padding:4px 8px;">Date</th>
+                  <th style="padding:4px 8px;">Subject</th>
+                  <th style="padding:4px 8px;">Bill</th>
+                  <th style="padding:4px 8px;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="billEmailsRows">
+                <tr><td colspan="4" style="padding:4px 8px;color:var(--muted);">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Google Drive watch (spreadsheet drift detection) -->
         <div class="content-card">
           <div class="content-card-header">
@@ -731,6 +771,109 @@ function loadUsers() {
       });
     }
 
+    // -- Zoho Mail (forwarded bills: water and waste) -----------------------
+    // Subjects come from forwarded mail (attacker-influenced), so this card
+    // escapes them before writing to innerHTML.
+    function escHtml(s) {
+      var d = document.createElement("div");
+      d.textContent = String(s == null ? "" : s);
+      return d.innerHTML;
+    }
+
+    function fmtLastReadEastern(iso) {
+      if (!iso) { return "--"; }
+      var d = new Date(String(iso).indexOf("Z") >= 0 ? iso : iso.replace(" ", "T") + "Z");
+      if (isNaN(d.getTime())) { return "--"; }
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York", month: "2-digit", day: "2-digit", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true
+      }).format(d);
+    }
+
+    function checkZohoMailStatus() {
+      var statusEl = document.getElementById("zohoMailStatus");
+      var lastReadEl = document.getElementById("zohoMailLastRead");
+      if (!statusEl) { return; }
+      statusEl.textContent = "Checking...";
+      statusEl.style.color = "var(--muted)";
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho-mail/oauth/status", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        if (data.connected) {
+          statusEl.textContent = "Connected";
+          statusEl.style.color = "#1a6640";
+        } else {
+          statusEl.textContent = "Not connected";
+          statusEl.style.color = "var(--muted)";
+        }
+        if (lastReadEl) { lastReadEl.textContent = fmtLastReadEastern(data.last_read_at); }
+      }).catch(function(e) {
+        statusEl.textContent = "Error: " + e.message;
+        statusEl.style.color = "#b44040";
+      });
+      loadBillEmailsRecent();
+    }
+
+    function handleConnectZohoMail() {
+      var btn = document.getElementById("btnConnectZohoMail");
+      if (!btn) { return; }
+      btn.disabled = true;
+
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho-mail/oauth/start", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        btn.disabled = false;
+        if (data.auth_url) {
+          window.location.href = data.auth_url;
+        } else {
+          pageNotice("Error: no auth_url returned");
+        }
+      }).catch(function(e) {
+        btn.disabled = false;
+        pageNotice("Error starting OAuth: " + e.message);
+      });
+    }
+
+    function loadBillEmailsRecent() {
+      var rowsEl = document.getElementById("billEmailsRows");
+      if (!rowsEl) { return; }
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/zoho-mail/bill-emails", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+      }).then(function(res) {
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }).then(function(data) {
+        var rows = data.rows || [];
+        if (!rows.length) {
+          rowsEl.innerHTML = '<tr><td colspan="4" style="padding:4px 8px;color:var(--muted);">None yet.</td></tr>';
+          return;
+        }
+        rowsEl.innerHTML = rows.map(function(r) {
+          return "<tr>" +
+            '<td style="padding:4px 8px;">' + fmtLastReadEastern(r.received_at) + "</td>" +
+            '<td style="padding:4px 8px;">' + escHtml(r.subject) + "</td>" +
+            '<td style="padding:4px 8px;">' + escHtml(r.bill_id) + "</td>" +
+            '<td style="padding:4px 8px;">' + escHtml(r.status) + "</td>" +
+          "</tr>";
+        }).join("");
+      }).catch(function() {
+        rowsEl.innerHTML = '<tr><td colspan="4" style="padding:4px 8px;color:var(--muted);">Error loading.</td></tr>';
+      });
+    }
+
     // -- Google Drive watch --------------------------------------------------
     function checkDriveStatus() {
       var statusEl = document.getElementById("driveStatus");
@@ -814,6 +957,7 @@ function loadUsers() {
       loadUsers();
       checkGcalStatus();
       checkZohoStatus();
+      checkZohoMailStatus();
       checkDriveStatus();
     }
 

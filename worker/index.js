@@ -39408,15 +39408,25 @@ async function billEmailAskClaude(env, activeBills, emailText, pdfBase64) {
         },
         body: JSON.stringify({
             model:      BILL_EMAIL_MODEL,
-            max_tokens: 500,
+            max_tokens: 1500,
             system:     system,
             messages:   [{ role: "user", content: userContent }]
         })
     });
     if (!res.ok) { throw new Error("Claude API error " + res.status); }
     var data = await res.json();
-    var text = (data.content && data.content[0] && data.content[0].text) || "";
-    return JSON.parse(text);
+    // The answer is the text block(s); a reply can also carry other block types
+    // first, so never assume the first block is the text.
+    var blocks = Array.isArray(data.content) ? data.content : [];
+    var text = blocks.filter(function(b) { return b && b.type === "text" && b.text; }).map(function(b) { return b.text; }).join("");
+    if (!text) {
+        throw new Error("Claude returned no text (stop_reason " + data.stop_reason + ", blocks " + blocks.map(function(b) { return b && b.type; }).join(",") + ")");
+    }
+    // Tolerate a code fence or a stray word around the one JSON object.
+    var firstBrace = text.indexOf("{");
+    var lastBrace = text.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace < firstBrace) { throw new Error("Claude reply had no JSON object"); }
+    return JSON.parse(text.slice(firstBrace, lastBrace + 1));
 }
 
 // Saves a validated extraction into fixed_bill_statements. "The newer email

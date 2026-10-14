@@ -39627,18 +39627,34 @@ async function pollForwardedBillEmails(env) {
     var activeBills = billsRes.results || [];
     if (!activeBills.length) { return; }
 
-    var listRes = await fetch(
-        "https://mail.zoho.com/api/accounts/" + accountId + "/messages/search?limit=200&searchKey=" + encodeURIComponent("to:" + BILL_FORWARD_ADDRESS + "::inclspamtrash:true"),
-        { headers: { "Authorization": "Zoho-oauthtoken " + accessToken } }
-    );
-    if (!listRes.ok) { throw new Error("Zoho Mail list failed: " + listRes.status); }
-    var listData = await listRes.json();
-    var messages = (listData.data || []).filter(function(m) {
-        var toAddr = String(m.toAddress || "").toLowerCase();
-        if (toAddr.indexOf(BILL_FORWARD_ADDRESS) === -1) { return false; }
-        var ts = Number(m.receivedTime || 0);
-        return ts >= sinceMs;
-    });
+    // Gmail auto-forwards keep the ORIGINAL To address (Alice's Gmail), so a
+    // search on support@ alone would miss them. Look for mail to or from any of
+    // the addresses Alice can use; the sender check in pollForwardedBillEmailOne
+    // is still what decides whether a message is accepted.
+    var searchKeys = [
+        "to:" + BILL_FORWARD_ADDRESS,
+        "to:alicecorsino12@gmail.com",
+        "to:alicecorsinoprata@gmail.com",
+        "sender:alicecorsino12@gmail.com",
+        "sender:alicecorsinoprata@gmail.com"
+    ];
+    var seen = {};
+    var messages = [];
+    for (var k = 0; k < searchKeys.length; k++) {
+        var listRes = await fetch(
+            "https://mail.zoho.com/api/accounts/" + accountId + "/messages/search?limit=200&searchKey=" + encodeURIComponent(searchKeys[k] + "::inclspamtrash:true"),
+            { headers: { "Authorization": "Zoho-oauthtoken " + accessToken } }
+        );
+        if (!listRes.ok) { throw new Error("Zoho Mail list failed: " + listRes.status); }
+        var listData = await listRes.json();
+        (listData.data || []).forEach(function(m) {
+            var id = String(m.messageId);
+            if (seen[id]) { return; }
+            if (Number(m.receivedTime || 0) < sinceMs) { return; }
+            seen[id] = true;
+            messages.push(m);
+        });
+    }
 
     for (var i = 0; i < messages.length; i++) {
         await pollForwardedBillEmailOne(env, accountId, accessToken, messages[i], activeBills, gmEasternToday());

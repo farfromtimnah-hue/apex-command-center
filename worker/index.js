@@ -20008,6 +20008,69 @@ async function handleGetGmLeads(id, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Lead geocoding — addr_lat/addr_lon (migrations/2026-10-13_lead_geocode.sql).
+//
+// US-only, free, no API key: the Census Bureau's one-line geocoder. Kept
+// behind this one function so the provider can be swapped later — Apex will
+// need a GLOBAL geocoder once it serves Brazil, at which point swap this to
+// Open-Meteo's geocoding (free, no key, worldwide) WITHOUT changing any
+// caller. Do not wire a second provider now.
+//
+// Never throws: a failed or no-match geocode returns { lat: null, lon: null }
+// so the caller can always store it and move on — geocoding must never block
+// a lead save.
+// ---------------------------------------------------------------------------
+async function geocodeAddress(parts) {
+    var line = [parts.street, parts.city, parts.state, parts.zip].filter(function(s) { return s && String(s).trim(); }).join(", ");
+    if (!line) { return { lat: null, lon: null }; }
+    var url = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?" +
+        "address=" + encodeURIComponent(line) + "&benchmark=Public_AR_Current&format=json";
+    try {
+        var res = await fetch(url);
+        if (!res.ok) { return { lat: null, lon: null }; }
+        var data = await res.json();
+        var matches = data && data.result && data.result.addressMatches;
+        if (!matches || !matches.length) { return { lat: null, lon: null }; }
+        var coords = matches[0].coordinates;
+        if (!coords || typeof coords.y !== "number" || typeof coords.x !== "number") { return { lat: null, lon: null }; }
+        return { lat: coords.y, lon: coords.x };
+    } catch (e) {
+        return { lat: null, lon: null };
+    }
+}
+
+// True when any of the structured address fields present in `f` differ from
+// `existing` (or `existing` is null, i.e. a new lead) — the only case that
+// should pay for a geocode call.
+function gmLeadAddressChanged(f, existing) {
+    var keys = ["addr_street", "addr_city", "addr_state", "addr_zip"];
+    for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (f[k] === undefined) { continue; }
+        var before = existing ? (existing[k] === undefined ? null : existing[k]) : null;
+        if ((f[k] || null) !== (before || null)) { return true; }
+    }
+    return false;
+}
+
+// Geocodes in place on `f` (sets addr_lat/addr_lon) when the structured
+// address changed. `existing` is null for a new lead (always geocode if any
+// address field is present) or the current row for an update (only
+// re-geocode when it actually changed).
+async function gmLeadGeocodeIfNeeded(f, existing) {
+    if (!gmLeadAddressChanged(f, existing)) { return; }
+    var merged = {
+        street: f.addr_street !== undefined ? f.addr_street : (existing && existing.addr_street),
+        city:   f.addr_city   !== undefined ? f.addr_city   : (existing && existing.addr_city),
+        state:  f.addr_state  !== undefined ? f.addr_state  : (existing && existing.addr_state),
+        zip:    f.addr_zip    !== undefined ? f.addr_zip    : (existing && existing.addr_zip)
+    };
+    var geo = await geocodeAddress(merged);
+    f.addr_lat = geo.lat;
+    f.addr_lon = geo.lon;
+}
+
 // The cost columns a lead carries, in the order they render on the sheet.
 // Same five names as gm_jobs, deliberately — see
 // migrations/gm_leads_costs_commission.sql. Used by gmLeadFields (writes),
@@ -20163,6 +20226,7 @@ async function gmLogLeadEvents(env, clientId, leadId, actor, events) {
 // one.
 async function gmInsertLead(env, clientId, f, actor) {
     var leadId = crypto.randomUUID();
+    await gmLeadGeocodeIfNeeded(f, null);
     // The cost columns are appended from GM_LEAD_COST_FIELDS rather than
     // spelled out, so the column list and the bind list below are generated
     // from ONE source and cannot drift apart when a sixth cost is added.
@@ -20174,8 +20238,8 @@ async function gmInsertLead(env, clientId, f, actor) {
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, created_by, updated_by, " + costCols + ") " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
+        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, created_by, updated_by, " + costCols + ") " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -20202,6 +20266,8 @@ async function gmInsertLead(env, clientId, f, actor) {
         f.addr_state !== undefined ? f.addr_state : null,
         f.addr_zip !== undefined ? f.addr_zip : null,
         f.addr_access !== undefined ? f.addr_access : null,
+        f.addr_lat !== undefined ? f.addr_lat : null,
+        f.addr_lon !== undefined ? f.addr_lon : null,
         actor || null,
         actor || null,
         ...costBinds
@@ -20267,6 +20333,10 @@ async function handlePutGmLead(id, leadId, request, env) {
         // ...and they cannot hand the lead off to someone else on update
         // either, which would make it vanish from their own list.
         if (putSeller) { delete f.vendedor; }
+        // Geocode once, only when the structured address actually changed
+        // (migrations/2026-10-13_lead_geocode.sql) -- never on an unrelated
+        // field edit.
+        await gmLeadGeocodeIfNeeded(f, existing);
         var sets = [], binds = [];
         Object.keys(f).forEach(function(k) {
             sets.push(k + " = ?");

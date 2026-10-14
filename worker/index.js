@@ -39629,7 +39629,9 @@ async function pollForwardedBillEmails(env) {
     }
     if (!accountId) { return; }
 
-    var sinceMs = tokenRow.last_read_at ? Date.parse(tokenRow.last_read_at) : (Date.now() - 45 * 86400000);
+    // Start one day BEFORE the last read: a message that errored last time must get its retry
+    // (already-handled messages are skipped by message_id, so the overlap costs nothing).
+    var sinceMs = tokenRow.last_read_at ? (Date.parse(tokenRow.last_read_at.replace(" ", "T") + "Z") - 86400000) : (Date.now() - 45 * 86400000);
 
     var billsRes = await env.DB.prepare(
         "SELECT id, name, pay_url FROM fixed_bills WHERE active = 1 AND is_variable = 1"

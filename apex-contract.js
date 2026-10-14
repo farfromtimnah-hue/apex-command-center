@@ -252,6 +252,7 @@
       F.company_state = stateRes.stateCode || "";
     }
     F.representatives.forEach(function(r, i) { r.name = (q("apxRepName" + i) || "").trim(); r.title = (q("apxRepTitle" + i) || "").trim(); });
+    if (byId("apxAnyOne")) { F.any_one_signs = byId("apxAnyOne").checked; }
     F.contract_date = q("apxDate") || F.contract_date; F.start_date = q("apxStart") || F.start_date;
     if (byId("apxEnd")) { F.end_date = q("apxEnd") || null; }
     F.package_price_cents = toCents(q("apxPrice"));
@@ -326,6 +327,9 @@
         '<input class="gm-input" id="apxRepTitle' + i + '" value="' + esc(r.title) + '" placeholder="Cargo (vazio = ' + esc(defaultTitle(r)) + ')"></div>';
     });
     co += '<button type="button" class="gm-btn-secondary" style="margin-top:0;" onclick="ApexContract._repAdd()">+ Representante</button>';
+    if (f.representatives.length > 1) {
+      co += '<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:15px;line-height:1.35;"><input type="checkbox" id="apxAnyOne"' + (f.any_one_signs ? " checked" : "") + ' style="margin-top:4px;width:20px;height:20px;"><span><b>Basta uma assinatura</b><br>Qualquer um dos representantes pode assinar sozinho. O contrato diz isso.</span></label>';
+    }
     h += section("2. Empresa", co, S.prefill && S.prefill.is_lead ? "preenchido pelo lead" : "");
 
     // 3. Dates
@@ -486,7 +490,8 @@
     var sig = row("Apex", c.company_signature ? esc(c.company_signature.signer_name) : "", null, c.company_signature ? "Assinou " + esc(fmtWhen(c.company_signature.signed_at)) : "Aguardando");
     ((doc.signers && doc.signers.client) || []).forEach(function(s) {
       var done = null; (c.client_signatures || []).forEach(function(x) { if (x.index === s.index) { done = x; } });
-      sig += row(esc(s.org), esc(done ? done.signer_name : s.name), null, done ? "Assinou " + esc(fmtWhen(done.signed_at)) : "Aguardando");
+      var skip = !done && doc.any_one_signs && (c.client_signatures || []).length;
+      sig += row(esc(s.org), esc(done ? done.signer_name : s.name), null, done ? "Assinou " + esc(fmtWhen(done.signed_at)) : (skip ? "Não precisa assinar" : "Aguardando"));
     });
     h += section("Assinaturas", '<div class="gm-sheet-group">' + sig + '</div>');
 

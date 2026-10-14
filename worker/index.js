@@ -53015,6 +53015,7 @@ function apxClean(body) {
         company_state: apxEsc(b.company_state).slice(0, 40),
         segment: apxEsc(b.segment).slice(0, 80),
         representatives: reps,
+        any_one_signs: b.any_one_signs === true,
         contract_date: apxIsDate(b.contract_date) ? b.contract_date : null,
         start_date: apxIsDate(b.start_date) ? b.start_date : null,
         end_date: apxIsDate(b.end_date) ? b.end_date : null,
@@ -53080,6 +53081,9 @@ function apxCompose(d) {
     var company = d.company_name;
     var reps = d.representatives;
     var repNames = reps.map(function(r) { return r.name; });
+    // One signature is enough when the client asked for it (a couple who may each sign alone).
+    var anyOne = !!d.any_one_signs && reps.length > 1;
+    var anyOneSentence = anyOne ? " Qualquer um dos representantes acima poderá assinar este contrato isoladamente, vinculando a CONTRATANTE." : "";
     var contractDateLong = apxDateLong(d.contract_date);
     var signingCity = d.signing_city || (isStart ? (d.company_city + ", Flórida") : "Zephyrhills, Florida");
     var addonRows = (d.addons || []).map(function(a) { return [a.label, a.description || ""]; });
@@ -53131,7 +53135,7 @@ function apxCompose(d) {
         }
         clause("DAS PARTES", [
             P("1.1. CONTRATADA: APEX BUSINESS & LEADERSHIP LLC, sociedade empresária constituída sob as leis do Estado da Flórida, Estados Unidos da América, com sede em Zephyrhills, Flórida, neste ato representada por seu fundador e CEO, Rafael Abner Prata Santos, doravante denominada APEX ou CONTRATADA."),
-            P("1.2. CONTRATANTE: " + company + ", sociedade empresária constituída sob as leis " + apxStatePhrase(d.company_state).phrase + ", com sede em " + d.company_city + ", " + apxStatePhrase(d.company_state).name + (d.segment ? ", atuante no segmento de " + d.segment : "") + ", " + repSentence + ", doravante denominada CONTRATANTE."),
+            P("1.2. CONTRATANTE: " + company + ", sociedade empresária constituída sob as leis " + apxStatePhrase(d.company_state).phrase + ", com sede em " + d.company_city + ", " + apxStatePhrase(d.company_state).name + (d.segment ? ", atuante no segmento de " + d.segment : "") + ", " + repSentence + ", doravante denominada CONTRATANTE." + anyOneSentence),
             P("As partes acima identificadas têm entre si justo e acordado o presente Contrato de Prestação de Serviços de Consultoria Empresarial, que se regerá pelas cláusulas e condições a seguir.")
         ]);
         var startItems = [
@@ -53208,7 +53212,7 @@ function apxCompose(d) {
         var monthsTxt = apxCount(pk.months, false) + " meses";
         clause("DAS PARTES", [
             P("1.1 CONTRATADA: APEX Business & Leadership, representada por Rafael Prata, Founder & CEO, com atuação em Zephyrhills, Florida, EUA. E-mail: " + APX_ZELLE),
-            P("1.2 CONTRATANTE: " + company + ", com atuação em " + d.company_city + ", Florida, EUA, representada por " + apxJoinNames(repNames) + ", doravante denominada simplesmente CONTRATANTE.")
+            P("1.2 CONTRATANTE: " + company + ", com atuação em " + d.company_city + ", " + (function(n) { return n === "Flórida" ? "Florida" : n; })(apxStatePhrase(d.company_state).name) + ", EUA, representada por " + apxJoinNames(repNames) + ", doravante denominada simplesmente CONTRATANTE." + anyOneSentence)
         ]);
         clause("DO OBJETO", [growth
             ? P("O presente contrato tem por objeto a prestação de serviços de consultoria estratégica, gestão empresarial, marketing e tráfego pago pela CONTRATADA ao CONTRATANTE, por meio do programa APEX Growth™, com duração de " + monthsTxt + " a contar de " + apxDateLong(d.start_date) + ", voltado a empresas que precisam estruturar a gestão e gerar clientes ao mesmo tempo.")
@@ -53332,6 +53336,7 @@ function apxCompose(d) {
         clauses: clauses,
         total_cents: total,
         closing_line: signingCity + " — " + contractDateLong,
+        any_one_signs: anyOne,
         signers: {
             company: isStart
                 ? { name: "Rafael Abner Prata Santos", title: "Founder & CEO", org: "APEX BUSINESS & LEADERSHIP LLC" }
@@ -53827,7 +53832,7 @@ async function handlePostPublicApexContractSign(token, request, env) {
             key = st.key;
         }
         sigs.push({ index: idx, signer_name: name, kind: kind, r2_key: key, signed_at: new Date().toISOString().replace("T", " ").slice(0, 19), ip: request.headers.get("CF-Connecting-IP") || null, ua: (request.headers.get("User-Agent") || "").slice(0, 300) });
-        var allDone = (comp.signers.client || []).every(function(s) { return sigs.some(function(x) { return x.index === s.index; }); });
+        var allDone = comp.any_one_signs ? sigs.length > 0 : (comp.signers.client || []).every(function(s) { return sigs.some(function(x) { return x.index === s.index; }); });
         await env.DB.prepare("UPDATE apex_contracts SET client_signatures_json = ?, status = ?, signed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE signed_at END, updated_at = datetime('now') WHERE id = ?")
             .bind(JSON.stringify(sigs), allDone ? "signed" : (r.status === "ready" ? "viewed" : r.status), allDone ? 1 : 0, r.id).run();
         await apxEvent(env, r.id, "client_signed", name, { index: idx, kind: kind, complete: allDone });

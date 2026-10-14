@@ -193,7 +193,11 @@
     function clientSig(idx) { var out = null; (con.client_signatures || []).forEach(function(s) { if (s.index === idx) { out = s; } }); return out; }
     function renderSigs() {
       var h = '<h2>Assinaturas</h2><div class="sig-grid">' + sigCell(doc.signers.company, con.company_signature);
-      doc.signers.client.forEach(function(s) { h += sigCell(s, clientSig(s.index)); });
+      doc.signers.client.forEach(function(s) {
+        var sg = clientSig(s.index);
+        if (doc.any_one_signs && !sg && (con.client_signatures || []).length) { return; }
+        h += sigCell(s, sg);
+      });
       h += '</div>';
       if (con.content_hash) { h += '<p class="hash">C&oacute;digo de integridade do texto (SHA-256): ' + esc(con.content_hash) + '</p>'; }
       h += '<p class="foot-note">' + esc(doc.footer) + '</p>';
@@ -225,7 +229,7 @@
           left.map(function(s) { return '<button type="button" class="' + (signerIdx === s.index ? "sel" : "") + '" onclick="pickSigner(' + s.index + ')">' + esc(s.name) + '</button>'; }).join("") + '</div>';
       }
       var me = null; doc.signers.client.forEach(function(s) { if (s.index === signerIdx) { me = s; } });
-      h += '<label for="signer">Seu nome completo</label><input type="text" id="signer" autocomplete="name" value="' + esc(me ? me.name : "") + '">' +
+      h += '<label for="signer">Seu nome completo</label><input type="text" id="signer" autocomplete="name" value="" placeholder="Digite seu nome completo">' +
         '<label>Assinatura</label><div class="chips"><button type="button" id="chipTyped" class="' + (sigKind === "typed" ? "sel" : "") + '" onclick="setSig(\'typed\')">Digitar meu nome</button><button type="button" id="chipDrawn" class="' + (sigKind === "drawn" ? "sel" : "") + '" onclick="setSig(\'drawn\')">Desenhar</button></div>' +
         '<div id="sigTyped" class="' + (sigKind === "typed" ? "" : "hidden") + '" style="margin-top:8px;"><p class="muted small">O nome digitado acima ser&aacute; usado como sua assinatura.</p></div>' +
         '<div id="sigDrawn" class="' + (sigKind === "drawn" ? "" : "hidden") + '" style="margin-top:8px;"><canvas class="sig" id="sigCanvas"></canvas><button type="button" class="btn secondary" style="min-height:44px;margin-top:8px;" onclick="clearPad()">Limpar</button></div>' +

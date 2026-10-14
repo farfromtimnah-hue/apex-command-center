@@ -783,6 +783,17 @@
 .gm-cal-nav:hover { border-color: var(--gold); }
 .gm-cal-today { flex-shrink: 0; width: auto; margin: 0; padding: 0 14px; min-height: 44px; }
 
+/* Month/Week/Day, same toggle pattern as the admin calendar. */
+.gm-cal-view-toggle {
+  display: flex; gap: 6px; margin-bottom: 12px;
+}
+.gm-cal-view-btn {
+  flex: 1; min-height: 38px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.gm-cal-view-btn.active { border-color: var(--gold); background: var(--gold); color: #1a1a1a; }
+
 /* Three chip styles carry three different meanings; say so once. */
 .gm-cal-legend {
   display: flex; flex-wrap: wrap; gap: 14px;

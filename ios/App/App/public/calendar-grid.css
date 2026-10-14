@@ -246,3 +246,126 @@
   .cgrid-agenda-list .cgrid-chip-time { font-size: 12px; }
   .cgrid-empty { font-size: 13px; color: var(--muted); padding: 14px 2px; }
 }
+
+/* ── Week / Day: hour grid + timed-block overlay ─────────────────────────
+   Ported from calendar.html's own week/day styling (.cal-week-*/.cal-day-*),
+   renamed to the cgrid- prefix per the note at the top of this file. */
+
+.cgrid-week-wrap, .cgrid-day-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  overflow: auto;
+  position: relative;
+}
+
+.cgrid-week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  min-width: 600px;
+}
+.cgrid-day-grid {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+}
+
+.cgrid-week-time-gutter {
+  background: var(--surface, #fafaf9);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px 6px 0;
+  text-align: right;
+}
+
+.cgrid-week-day-head {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.cgrid-week-day-head.today { color: var(--gold); }
+.cgrid-week-day-head:last-child { border-right: none; }
+
+.cgrid-day-head-label {
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.cgrid-day-head-label.today { color: var(--gold); }
+
+.cgrid-week-time-label, .cgrid-day-time-label {
+  padding: 4px 6px 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: right;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface, #fafaf9);
+  min-height: 52px;
+}
+
+.cgrid-week-slot {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+  padding: 3px;
+  position: relative;
+  cursor: pointer;
+}
+.cgrid-week-slot:last-child { border-right: none; }
+.cgrid-week-slot:hover { background: var(--surface-2, #f6f4f0); }
+
+.cgrid-day-slot {
+  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+  padding: 4px 8px;
+}
+.cgrid-day-slot:hover { background: var(--surface-2, #f6f4f0); }
+
+/* Timed events are NOT children of the hour slots -- they are absolutely
+   positioned in a per-day overlay stacked on top of the hour grid, sized by
+   real start/end time (see buildTimedOverlay in calendar-grid.js). The hour
+   slots stay as the empty ruled background. */
+.cgrid-day-col-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+
+.cgrid-week-overlay-host {
+  position: absolute;
+  left: 0; right: 0;
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  pointer-events: none;
+}
+.cgrid-week-overlay-col { position: relative; pointer-events: none; }
+
+.cgrid-day-overlay-host {
+  position: absolute;
+  left: 0; right: 0;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  pointer-events: none;
+}
+.cgrid-day-overlay-col { position: relative; pointer-events: none; }
+
+/* A timed chip positioned by buildTimedOverlay; content/color come from the
+   caller's renderTimedChip, this just makes it behave inside the overlay. */
+.cgrid-week-overlay-col .cgrid-chip,
+.cgrid-day-overlay-col .cgrid-chip {
+  pointer-events: auto;
+  overflow: hidden;
+  box-sizing: border-box;
+  white-space: normal;
+}

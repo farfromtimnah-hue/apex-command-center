@@ -276,6 +276,299 @@
     host.appendChild(list);
   }
 
+  // ── Week / Day: hour grid + timed-block overlay ────────────────────────
+  //
+  // Ported from calendar.html's renderWeek/renderDay (the Apex-tier session
+  // calendar), which has been in daily production use — this keeps the same
+  // geometry (HOUR_PX, the dynamic hour window, the greedy column packer for
+  // overlapping timed events) rather than reinventing it. Generalized to the
+  // same renderChip contract as the month grid: a timed event (any `start_time`
+  // present) goes through the absolutely-positioned overlay; an all-day event
+  // (no `start_time`) goes in the "no time" row above the hour grid, through
+  // the SAME renderChip callback the month grid already uses (so job-band,
+  // derived, lead, club and apex chips keep their existing look).
+  //
+  // No multi-day spanning: a job band is already one chip per day server-side
+  // (gmDerivedJobEvents), so each day's "no time" row simply gets that day's
+  // chip, exactly as the month grid already does.
+
+  var HOUR_PX = 52;
+  var DEFAULT_HOUR_START = 7;
+  var DEFAULT_HOUR_END   = 21;
+
+  function hhmmToMinutes(hhmm) {
+    if (!hhmm) { return null; }
+    var parts = String(hhmm).split(":");
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) { return null; }
+    return h * 60 + m;
+  }
+
+  function endTimeHHMM(ev) {
+    var v = ev.end_time;
+    if (!v) { return null; }
+    if (String(v).indexOf("T") !== -1) { return String(v).slice(11, 16); }
+    return String(v).slice(0, 5);
+  }
+
+  function eventMinuteSpan(ev) {
+    var startMin = hhmmToMinutes(ev.start_time);
+    if (startMin === null) { return null; }
+    var endMin = hhmmToMinutes(endTimeHHMM(ev));
+    if (endMin === null) { endMin = startMin + 60; }
+    if (endMin <= startMin) { endMin = 24 * 60; }
+    return { start: startMin, end: endMin };
+  }
+
+  // The hour window stretches to cover every timed event being drawn, so an
+  // early or late outlier always has a row rather than being clipped away.
+  function hoursFor(events) {
+    var startH = DEFAULT_HOUR_START, endH = DEFAULT_HOUR_END;
+    (events || []).forEach(function (ev) {
+      var span = eventMinuteSpan(ev);
+      if (!span) { return; }
+      var sh = Math.floor(span.start / 60);
+      var eh = Math.ceil(span.end / 60) - 1;
+      if (sh < startH) { startH = Math.max(0, sh); }
+      if (eh > endH) { endH = Math.min(23, eh); }
+    });
+    var out = [];
+    for (var h = startH; h <= endH; h++) { out.push(h); }
+    return out;
+  }
+
+  // Greedy interval-graph column packer: two overlapping timed events sit
+  // side by side instead of one hiding the other.
+  function layoutTimedEvents(events) {
+    var items = [];
+    (events || []).forEach(function (ev) {
+      var span = eventMinuteSpan(ev);
+      if (!span) { return; }
+      items.push({ ev: ev, start: span.start, end: span.end, col: 0, cols: 1 });
+    });
+    items.sort(function (a, b) {
+      if (a.start !== b.start) { return a.start - b.start; }
+      return b.end - a.end;
+    });
+
+    var cluster = [], clusterEnd = -1, colEnds = [];
+    function closeCluster() {
+      for (var c = 0; c < cluster.length; c++) { cluster[c].cols = colEnds.length || 1; }
+      cluster = []; colEnds = []; clusterEnd = -1;
+    }
+    items.forEach(function (it) {
+      if (cluster.length && it.start >= clusterEnd) { closeCluster(); }
+      var placed = false;
+      for (var k = 0; k < colEnds.length; k++) {
+        if (it.start >= colEnds[k]) { it.col = k; colEnds[k] = it.end; placed = true; break; }
+      }
+      if (!placed) { it.col = colEnds.length; colEnds.push(it.end); }
+      cluster.push(it);
+      if (it.end > clusterEnd) { clusterEnd = it.end; }
+    });
+    closeCluster();
+    return items;
+  }
+
+  // Builds one day column's absolutely-positioned overlay of timed blocks.
+  // opts.renderTimedChip(ev, cols) -> Node, sized/positioned by the caller
+  // (the caller only supplies the chip's CONTENT; position/size are set here
+  // so every runtime's chip stays visually consistent).
+  function buildTimedOverlay(events, hours, renderTimedChip) {
+    var gridStartMin = hours[0] * 60;
+    var gridEndMin = (hours[hours.length - 1] + 1) * 60;
+    var overlay = document.createElement("div");
+    overlay.className = "cgrid-day-col-overlay";
+    layoutTimedEvents(events).forEach(function (it) {
+      if (it.end <= gridStartMin || it.start >= gridEndMin) { return; }
+      var top = Math.max(it.start, gridStartMin);
+      var bottom = Math.min(it.end, gridEndMin);
+      var topPx = ((top - gridStartMin) / 60) * HOUR_PX;
+      var heightPx = Math.max(((bottom - top) / 60) * HOUR_PX, 18);
+      var widthPct = 100 / it.cols;
+      var block = renderTimedChip(it.ev, it.cols);
+      if (!block) { return; }
+      block.style.position = "absolute";
+      block.style.top = topPx + "px";
+      block.style.height = (heightPx - 2) + "px";
+      block.style.left = (it.col * widthPct) + "%";
+      block.style.width = "calc(" + widthPct + "% - 3px)";
+      overlay.appendChild(block);
+    });
+    return overlay;
+  }
+
+  // Measures the real header height so overlay row 0 lines up with the first
+  // hour row — the header/no-time rows are content-sized (bilingual labels
+  // wrap differently), so this cannot be a hardcoded offset.
+  function alignOverlayHost(overlayHost, firstHourLabel) {
+    if (!overlayHost || !firstHourLabel) { return; }
+    overlayHost.style.top = firstHourLabel.offsetTop + "px";
+  }
+
+  // opts: { anchor: Date (any day in the week), events: [], en: bool,
+  //         renderChip: fn(ev) -> Node, renderTimedChip: fn(ev, cols) -> Node,
+  //         noTimeLabel: {pt, en}, emptyText, onDayClick: fn(dateStr) }
+  function renderWeekGrid(host, opts) {
+    var days = dayNames(opts.en);
+    var weekStart = new Date(opts.anchor);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    var weekDates = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(weekStart); d.setDate(d.getDate() + i);
+      weekDates.push(dateKey(d));
+    }
+    var map = buildDateMap(opts.events);
+    var todayStr = dateKey(new Date());
+
+    var weekTimed = [];
+    weekDates.forEach(function (k) { (map[k] || []).forEach(function (ev) { if (ev.start_time) { weekTimed.push(ev); } }); });
+    var hours = hoursFor(weekTimed);
+
+    var wrap = document.createElement("div");
+    wrap.className = "cgrid-week-wrap";
+    var grid = document.createElement("div");
+    grid.className = "cgrid-week-grid";
+
+    grid.appendChild(document.createElement("div")).className = "cgrid-week-time-gutter";
+    weekDates.forEach(function (k, i) {
+      var dayNum = parseInt(k.slice(8), 10);
+      var head = document.createElement("div");
+      head.className = "cgrid-week-day-head" + (k === todayStr ? " today" : "");
+      head.textContent = days[i] + " " + padZ(dayNum);
+      grid.appendChild(head);
+    });
+
+    var noTimeLabel = opts.noTimeLabel || { pt: "Sem horário", en: "No time" };
+    var untimedGutter = document.createElement("div");
+    untimedGutter.className = "cgrid-week-time-gutter";
+    untimedGutter.textContent = opts.en ? noTimeLabel.en : noTimeLabel.pt;
+    grid.appendChild(untimedGutter);
+    weekDates.forEach(function (k) {
+      var untimedSlot = document.createElement("div");
+      untimedSlot.className = "cgrid-week-slot";
+      sortDayEvents((map[k] || []).filter(function (ev) { return !ev.start_time; })).forEach(function (ev) {
+        var chip = opts.renderChip(ev);
+        if (chip) { untimedSlot.appendChild(chip); }
+      });
+      if (opts.onDayClick) { (function (dk) { untimedSlot.onclick = function () { opts.onDayClick(dk); }; })(k); }
+      grid.appendChild(untimedSlot);
+    });
+
+    var firstHourLabel = null;
+    hours.forEach(function (h, hi) {
+      var timeLabel = document.createElement("div");
+      timeLabel.className = "cgrid-week-time-label";
+      timeLabel.textContent = padZ(h) + ":00";
+      grid.appendChild(timeLabel);
+      if (hi === 0) { firstHourLabel = timeLabel; }
+      weekDates.forEach(function (k) {
+        var slot = document.createElement("div");
+        slot.className = "cgrid-week-slot";
+        if (opts.onDayClick) { (function (dk) { slot.onclick = function () { opts.onDayClick(dk); }; })(k); }
+        grid.appendChild(slot);
+      });
+    });
+
+    wrap.appendChild(grid);
+
+    var overlayHost = document.createElement("div");
+    overlayHost.className = "cgrid-week-overlay-host";
+    overlayHost.style.height = (hours.length * HOUR_PX) + "px";
+    overlayHost.appendChild(document.createElement("div"));
+    weekDates.forEach(function (k) {
+      var timed = (map[k] || []).filter(function (ev) { return !!ev.start_time; });
+      var col = document.createElement("div");
+      col.className = "cgrid-week-overlay-col";
+      col.appendChild(buildTimedOverlay(timed, hours, opts.renderTimedChip || opts.renderChip));
+      overlayHost.appendChild(col);
+    });
+    wrap.appendChild(overlayHost);
+
+    host.innerHTML = "";
+    host.appendChild(wrap);
+    alignOverlayHost(overlayHost, firstHourLabel);
+
+    var total = 0;
+    weekDates.forEach(function (k) { total += (map[k] || []).length; });
+    if (!total) {
+      var empty = document.createElement("div");
+      empty.className = "cgrid-empty";
+      empty.textContent = opts.emptyText || (opts.en ? "Nothing scheduled." : "Nada agendado.");
+      grid.appendChild(empty);
+    }
+  }
+
+  // opts: same shape as renderWeekGrid, anchor is the single day to show.
+  function renderDayGrid(host, opts) {
+    var days = dayNames(opts.en);
+    var months = monthNames(opts.en);
+    var key = dateKey(opts.anchor);
+    var todayStr = dateKey(new Date());
+    var map = buildDateMap(opts.events);
+    var dayEvents = map[key] || [];
+    var hours = hoursFor(dayEvents.filter(function (ev) { return !!ev.start_time; }));
+
+    var wrap = document.createElement("div");
+    wrap.className = "cgrid-day-wrap";
+    var grid = document.createElement("div");
+    grid.className = "cgrid-day-grid";
+
+    grid.appendChild(document.createElement("div")).className = "cgrid-week-time-gutter";
+    var headLabel = document.createElement("div");
+    headLabel.className = "cgrid-day-head-label" + (key === todayStr ? " today" : "");
+    headLabel.textContent = days[opts.anchor.getDay()] + ", " + padZ(opts.anchor.getDate()) + " " + months[opts.anchor.getMonth()];
+    grid.appendChild(headLabel);
+
+    var noTimeLabel = opts.noTimeLabel || { pt: "Sem horário", en: "No time" };
+    var untimedGutter = document.createElement("div");
+    untimedGutter.className = "cgrid-week-time-gutter";
+    untimedGutter.textContent = opts.en ? noTimeLabel.en : noTimeLabel.pt;
+    grid.appendChild(untimedGutter);
+    var untimedSlot = document.createElement("div");
+    untimedSlot.className = "cgrid-day-slot";
+    sortDayEvents(dayEvents.filter(function (ev) { return !ev.start_time; })).forEach(function (ev) {
+      var chip = opts.renderChip(ev);
+      if (chip) { untimedSlot.appendChild(chip); }
+    });
+    grid.appendChild(untimedSlot);
+
+    var firstHourLabel = null;
+    hours.forEach(function (h, hi) {
+      var timeLabel = document.createElement("div");
+      timeLabel.className = "cgrid-day-time-label";
+      timeLabel.textContent = padZ(h) + ":00";
+      grid.appendChild(timeLabel);
+      if (hi === 0) { firstHourLabel = timeLabel; }
+      var slot = document.createElement("div");
+      slot.className = "cgrid-day-slot";
+      grid.appendChild(slot);
+    });
+
+    wrap.appendChild(grid);
+
+    var overlayHost = document.createElement("div");
+    overlayHost.className = "cgrid-day-overlay-host";
+    overlayHost.style.height = (hours.length * HOUR_PX) + "px";
+    overlayHost.appendChild(document.createElement("div"));
+    var col = document.createElement("div");
+    col.className = "cgrid-day-overlay-col";
+    col.appendChild(buildTimedOverlay(dayEvents.filter(function (ev) { return !!ev.start_time; }), hours, opts.renderTimedChip || opts.renderChip));
+    overlayHost.appendChild(col);
+    wrap.appendChild(overlayHost);
+
+    host.innerHTML = "";
+    host.appendChild(wrap);
+    alignOverlayHost(overlayHost, firstHourLabel);
+
+    if (!dayEvents.length) {
+      var empty = document.createElement("div");
+      empty.className = "cgrid-empty";
+      empty.textContent = opts.emptyText || (opts.en ? "Nothing scheduled." : "Nada agendado.");
+      grid.appendChild(empty);
+    }
+  }
+
   // Picks the right renderer for the current width. Callers use this rather
   // than choosing themselves, so the breakpoint lives in exactly one place.
   function renderCalendar(host, opts) {
@@ -307,6 +600,8 @@
     sortDayEvents: sortDayEvents,
     renderMonthGrid: renderMonthGrid,
     renderMobileMonth: renderMobileMonth,
+    renderWeekGrid: renderWeekGrid,
+    renderDayGrid: renderDayGrid,
     renderCalendar: renderCalendar,
     onBreakpointCross: onBreakpointCross
   };

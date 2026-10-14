@@ -8866,6 +8866,20 @@ var gmCalData    = null;   // { events: [...] } for the displayed month
 var gmCalSelDate = null;   // mobile: the day whose agenda is open
 var gmCalDraft   = null;   // the composer's in-progress event
 
+// Month/Week/Day, same toggle and nav model as calendar.html's own
+// calView/setCalView. Month stays the data-fetch boundary -- gmCalMonth
+// anchors the fetched range exactly as before; Week/Day read a day from
+// gmCalWeekDayAnchor, which starts out tracking the same displayed month and
+// only moves separately once the owner steps within a week/day view.
+var gmCalView         = "month";    // "month" | "week" | "day"
+var gmCalWeekDayAnchor = null;      // Date -- the day Week/Day is centered on
+
+function gmSetCalView(v) {
+  gmCalView = v;
+  if (!gmCalWeekDayAnchor) { gmCalWeekDayAnchor = new Date(); }
+  gmRenderCalendar();
+}
+
 function gmCalMonthKey(d) {
   return d.getFullYear() + "-" + CalendarGrid.padZ(d.getMonth() + 1);
 }
@@ -8907,7 +8921,22 @@ function gmLoadCalendar() {
     });
 }
 
+// Same shape as calendar.html's navPrev/navNext: Week steps ±7 days, Day
+// steps ±1 day, and crossing a month boundary refetches (the fetch is
+// month-scoped) while staying inside the month just re-renders.
 function gmCalGo(delta) {
+  if (gmCalView === "week" || gmCalView === "day") {
+    var prevMonth = gmCalWeekDayAnchor.getMonth();
+    var days = gmCalView === "week" ? delta * 7 : delta;
+    gmCalWeekDayAnchor = new Date(gmCalWeekDayAnchor.getFullYear(), gmCalWeekDayAnchor.getMonth(), gmCalWeekDayAnchor.getDate() + days);
+    if (gmCalWeekDayAnchor.getMonth() !== prevMonth) {
+      gmCalMonth = new Date(gmCalWeekDayAnchor.getFullYear(), gmCalWeekDayAnchor.getMonth(), 1);
+      gmLoadCalendar();
+    } else {
+      gmRenderCalendar();
+    }
+    return;
+  }
   gmCalMonth = new Date(gmCalMonth.getFullYear(), gmCalMonth.getMonth() + delta, 1);
   gmCalSelDate = null;   // the old selection is not in this month
   gmLoadCalendar();
@@ -8917,6 +8946,7 @@ function gmCalToday() {
   var now = new Date();
   gmCalMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   gmCalSelDate = CalendarGrid.dateKey(now);
+  gmCalWeekDayAnchor = now;
   gmLoadCalendar();
 }
 
@@ -9024,21 +9054,50 @@ function gmCalDropLeadDupes(events) {
   });
 }
 
+// The header label matches whichever view is active, same three forms as
+// calendar.html's updateNavLabel: month name, a week's date span, or one day.
+function gmCalHeaderLabelHtml() {
+  var months = CalendarGrid.monthNames(isEn());
+  if (gmCalView === "month") {
+    return escHtml(months[gmCalMonth.getMonth()]) + ' ' + gmCalMonth.getFullYear();
+  }
+  var days = CalendarGrid.dayNames(isEn());
+  if (gmCalView === "week") {
+    var ws = new Date(gmCalWeekDayAnchor);
+    ws.setDate(ws.getDate() - ws.getDay());
+    var we = new Date(ws); we.setDate(we.getDate() + 6);
+    return CalendarGrid.padZ(ws.getDate()) + ' ' + escHtml(months[ws.getMonth()].slice(0, 3)) +
+      ' – ' + CalendarGrid.padZ(we.getDate()) + ' ' + escHtml(months[we.getMonth()].slice(0, 3)) + ' ' + we.getFullYear();
+  }
+  return days[gmCalWeekDayAnchor.getDay()] + ', ' + CalendarGrid.padZ(gmCalWeekDayAnchor.getDate()) + ' ' + escHtml(months[gmCalWeekDayAnchor.getMonth()]);
+}
+
+function gmCalViewToggleHtml() {
+  function btn(v, labelPt, labelEn) {
+    return '<button type="button" class="gm-cal-view-btn' + (gmCalView === v ? ' active' : '') +
+      '" onclick="gmSetCalView(\'' + v + '\')">' + gmT(labelPt, labelEn) + '</button>';
+  }
+  return '<div class="gm-cal-view-toggle">' +
+    btn("month", "Mês", "Month") + btn("week", "Semana", "Week") + btn("day", "Dia", "Day") +
+    '</div>';
+}
+
 function gmRenderCalendar() {
   var body = document.getElementById("gmCalendarBody");
   if (!gmConfig || !gmCalData) { return; }
-  var months = CalendarGrid.monthNames(isEn());
+  var prevLabel = gmCalView === "month" ? gmT("Mês anterior", "Previous month") :
+    gmCalView === "week" ? gmT("Semana anterior", "Previous week") : gmT("Dia anterior", "Previous day");
+  var nextLabel = gmCalView === "month" ? gmT("Próximo mês", "Next month") :
+    gmCalView === "week" ? gmT("Próxima semana", "Next week") : gmT("Próximo dia", "Next day");
 
   var html = '<div class="gm-cal-head">' +
-    '<button type="button" class="gm-cal-nav" aria-label="' +
-      escHtml(gmT("Mês anterior", "Previous month")) + '" onclick="gmCalGo(-1)">‹</button>' +
-    '<div class="gm-cal-title">' + escHtml(months[gmCalMonth.getMonth()]) + ' ' +
-      gmCalMonth.getFullYear() + '</div>' +
-    '<button type="button" class="gm-cal-nav" aria-label="' +
-      escHtml(gmT("Próximo mês", "Next month")) + '" onclick="gmCalGo(1)">›</button>' +
+    '<button type="button" class="gm-cal-nav" aria-label="' + escHtml(prevLabel) + '" onclick="gmCalGo(-1)">‹</button>' +
+    '<div class="gm-cal-title">' + gmCalHeaderLabelHtml() + '</div>' +
+    '<button type="button" class="gm-cal-nav" aria-label="' + escHtml(nextLabel) + '" onclick="gmCalGo(1)">›</button>' +
     '<button type="button" class="btn-outline gm-cal-today" onclick="gmCalToday()">' +
       gmT("Hoje", "Today") + '</button>' +
     '</div>' +
+    gmCalViewToggleHtml() +
     '<div id="gmCalGrid"></div>' +
     // Legend: three visually distinct kinds need saying once, or the dashed
     // and dark chips read as styling rather than meaning.
@@ -9055,18 +9114,40 @@ function gmRenderCalendar() {
 
   body.innerHTML = html;
 
-  CalendarGrid.renderCalendar(document.getElementById("gmCalGrid"), {
-    anchor: gmCalMonth,
-    events: gmCalDropLeadDupes(gmCalData.events),
-    en: isEn(),
-    selectedDate: gmCalSelDate,
-    renderChip: gmCalChip,
-    emptyText: gmT("Nada agendado.", "Nothing scheduled."),
-    onSelectDate: function(d) { gmCalSelDate = d; gmRenderCalendar(); },
-    // Tapping an empty day starts a new event ON that day — the single most
-    // common way anyone adds something to a calendar.
-    onDayClick: function(d) { gmCalNew(d); }
-  });
+  var events = gmCalDropLeadDupes(gmCalData.events);
+  var grid = document.getElementById("gmCalGrid");
+  if (gmCalView === "week") {
+    CalendarGrid.renderWeekGrid(grid, {
+      anchor: gmCalWeekDayAnchor,
+      events: events,
+      en: isEn(),
+      renderChip: gmCalChip,
+      emptyText: gmT("Nada agendado.", "Nothing scheduled."),
+      onDayClick: function(d) { gmCalNew(d); }
+    });
+  } else if (gmCalView === "day") {
+    CalendarGrid.renderDayGrid(grid, {
+      anchor: gmCalWeekDayAnchor,
+      events: events,
+      en: isEn(),
+      renderChip: gmCalChip,
+      emptyText: gmT("Nada agendado.", "Nothing scheduled."),
+      onDayClick: function(d) { gmCalNew(d); }
+    });
+  } else {
+    CalendarGrid.renderCalendar(grid, {
+      anchor: gmCalMonth,
+      events: events,
+      en: isEn(),
+      selectedDate: gmCalSelDate,
+      renderChip: gmCalChip,
+      emptyText: gmT("Nada agendado.", "Nothing scheduled."),
+      onSelectDate: function(d) { gmCalSelDate = d; gmRenderCalendar(); },
+      // Tapping an empty day starts a new event ON that day — the single most
+      // common way anyone adds something to a calendar.
+      onDayClick: function(d) { gmCalNew(d); }
+    });
+  }
 }
 
 // Re-render on a breakpoint crossing so a rotated phone gets the right

@@ -42,6 +42,11 @@
   // Per-package scope catalog, printed on the client-facing contract as
   // "O que est\u00e1 incluido" (deliverables only, never a price). START and
   // ADVANCED are left empty for now. Apex's own Growth scope document, 2026.
+  // Vendor services (tr\u00e1fego pago, redes sociais, v\u00eddeos, site, design) are
+  // deliberately NOT here: they live only in the add-ons dropdown, which
+  // records a vendor + a fillable price slot. A scope checkbox has neither,
+  // so double-listing would let someone add an untracked, unreconcilable
+  // add-on through the checkbox (Nicole, 2026-10-13).
   var PKG_SCOPE = {
     growth: [
       { key: "consultoria_semanal", label: "Consultoria semanal", desc: "Reuni\u00f5es de Dire\u00e7\u00e3o Estrat\u00e9gica toda semana durante tr\u00eas meses, com pauta, decis\u00e3o registrada e respons\u00e1vel definido." },
@@ -54,11 +59,6 @@
       { key: "gestao_leads", label: "Gest\u00e3o de Leads", desc: "Cada lead registrado da entrada ao fechamento: agendamento, visita, or\u00e7amento, follow-up." },
       { key: "financeiro", label: "Financeiro", desc: "Separa\u00e7\u00e3o de pessoa f\u00edsica e jur\u00eddica, fluxo de caixa, custos fixos e vari\u00e1veis e precifica\u00e7\u00e3o." },
       { key: "margem", label: "Margem", desc: "Custo real e margem de cada servi\u00e7o, identificado e corrigido com n\u00famero." },
-      { key: "trafego", label: "Gest\u00e3o de tr\u00e1fego pago", desc: "Cria\u00e7\u00e3o, gest\u00e3o e otimiza\u00e7\u00e3o das campanhas (meses 2 a 4), com leads direcionados ao funil." },
-      { key: "redes", label: "Gest\u00e3o de redes sociais", desc: "Planejamento, produ\u00e7\u00e3o e publica\u00e7\u00e3o de conte\u00fado com linha editorial definida." },
-      { key: "videos", label: "8 v\u00eddeos roteirizados e editados", desc: "Apresenta\u00e7\u00e3o da empresa, prova de trabalho, autoridade do dono e ofertas." },
-      { key: "site", label: "Site estrat\u00e9gico", desc: "At\u00e9 6 p\u00e1ginas, com texto de venda, SEO e vers\u00e3o para celular." },
-      { key: "design", label: "Design e identidade visual", desc: "Site, redes, an\u00fancios, or\u00e7amento e apresenta\u00e7\u00e3o com a mesma l\u00edngua visual." },
       { key: "sys_empresa", label: "Gest\u00e3o da empresa (Sistema APEX)", desc: "Metas, a\u00e7\u00f5es em andamento, respons\u00e1veis, prazos e hist\u00f3rico das reuni\u00f5es." },
       { key: "sys_leads", label: "Gest\u00e3o de leads / funil (Sistema APEX)", desc: "Funil completo: entrada, agendamento, visita, or\u00e7amento, follow-up e fechamento." },
       { key: "sys_financeiro", label: "M\u00f3dulo financeiro (Sistema APEX)", desc: "Receitas, despesas, fluxo de caixa, custos e margem por servi\u00e7o." },

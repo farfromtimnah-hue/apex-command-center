@@ -52564,6 +52564,13 @@ var APX_MONTHS_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
 // lets Rafa uncheck items per client; the client-facing contract prints only
 // the selected ones, label + description. Keys here are the source of truth
 // server-side — the client only sends back which keys are selected.
+// Vendor services (tráfego pago, redes sociais, vídeos, site, design) are
+// deliberately NOT here: they live only in the add-ons dropdown, which
+// records a vendor + a fillable price slot. A scope checkbox has neither,
+// so double-listing would let someone add an untracked, unreconcilable
+// add-on through the checkbox (Nicole, 2026-10-13). An old saved contract
+// that still has one of these keys in scope_items just filters out below
+// (apxCompose) — unknown keys are skipped, never an error.
 var APX_SCOPE = {
     growth: [
         { key: "consultoria_semanal", label: "Consultoria semanal", desc: "Reuniões de Direção Estratégica toda semana durante três meses, com pauta, decisão registrada e responsável definido." },
@@ -52576,11 +52583,6 @@ var APX_SCOPE = {
         { key: "gestao_leads", label: "Gestão de Leads", desc: "Cada lead registrado da entrada ao fechamento: agendamento, visita, orçamento, follow-up." },
         { key: "financeiro", label: "Financeiro", desc: "Separação de pessoa física e jurídica, fluxo de caixa, custos fixos e variáveis e precificação." },
         { key: "margem", label: "Margem", desc: "Custo real e margem de cada serviço, identificado e corrigido com número." },
-        { key: "trafego", label: "Gestão de tráfego pago", desc: "Criação, gestão e otimização das campanhas (meses 2 a 4), com leads direcionados ao funil." },
-        { key: "redes", label: "Gestão de redes sociais", desc: "Planejamento, produção e publicação de conteúdo com linha editorial definida." },
-        { key: "videos", label: "8 vídeos roteirizados e editados", desc: "Apresentação da empresa, prova de trabalho, autoridade do dono e ofertas." },
-        { key: "site", label: "Site estratégico", desc: "Até 6 páginas, com texto de venda, SEO e versão para celular." },
-        { key: "design", label: "Design e identidade visual", desc: "Site, redes, anúncios, orçamento e apresentação com a mesma língua visual." },
         { key: "sys_empresa", label: "Gestão da empresa (Sistema APEX)", desc: "Metas, ações em andamento, responsáveis, prazos e histórico das reuniões." },
         { key: "sys_leads", label: "Gestão de leads / funil (Sistema APEX)", desc: "Funil completo: entrada, agendamento, visita, orçamento, follow-up e fechamento." },
         { key: "sys_financeiro", label: "Módulo financeiro (Sistema APEX)", desc: "Receitas, despesas, fluxo de caixa, custos e margem por serviço." },

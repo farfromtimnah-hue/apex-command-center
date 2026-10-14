@@ -39,6 +39,36 @@
       { key: "site",   label: "Site estrat\u00e9gico",        recurrence: "once",    months: 1, vendor_cost_cents: 30000 }
     ]
   };
+  // Per-package scope catalog, printed on the client-facing contract as
+  // "O que est\u00e1 incluido" (deliverables only, never a price). START and
+  // ADVANCED are left empty for now. Apex's own Growth scope document, 2026.
+  var PKG_SCOPE = {
+    growth: [
+      { key: "consultoria_semanal", label: "Consultoria semanal", desc: "Reuni\u00f5es de Dire\u00e7\u00e3o Estrat\u00e9gica toda semana durante tr\u00eas meses, com pauta, decis\u00e3o registrada e respons\u00e1vel definido." },
+      { key: "disc", label: "Identidade do L\u00edder (DISC)", desc: "Perfil comportamental DISC com devolutiva individual." },
+      { key: "raiox", label: "Raio-X Estrat\u00e9gico 360\u00b0", desc: "Levantamento completo da empresa: financeiro, comercial, opera\u00e7\u00e3o, marketing e equipe." },
+      { key: "direcao", label: "Dire\u00e7\u00e3o Estrat\u00e9gica", desc: "Miss\u00e3o, vis\u00e3o, valores, persona do cliente ideal e organograma estrat\u00e9gico." },
+      { key: "bsc", label: "Metrifica\u00e7\u00e3o (Painel BSC APEX\u2122)", desc: "Painel de indicadores com leitura semanal; cada indicador com dono, meta e frequ\u00eancia." },
+      { key: "oferta", label: "Oferta e Posicionamento", desc: "O que a empresa vende, para quem, com qual mensagem e por qual pre\u00e7o." },
+      { key: "vendas", label: "Vendas", desc: "Processo comercial completo: script de atendimento, roteiro de follow-up, proposta padr\u00e3o e etapas do funil." },
+      { key: "gestao_leads", label: "Gest\u00e3o de Leads", desc: "Cada lead registrado da entrada ao fechamento: agendamento, visita, or\u00e7amento, follow-up." },
+      { key: "financeiro", label: "Financeiro", desc: "Separa\u00e7\u00e3o de pessoa f\u00edsica e jur\u00eddica, fluxo de caixa, custos fixos e vari\u00e1veis e precifica\u00e7\u00e3o." },
+      { key: "margem", label: "Margem", desc: "Custo real e margem de cada servi\u00e7o, identificado e corrigido com n\u00famero." },
+      { key: "trafego", label: "Gest\u00e3o de tr\u00e1fego pago", desc: "Cria\u00e7\u00e3o, gest\u00e3o e otimiza\u00e7\u00e3o das campanhas (meses 2 a 4), com leads direcionados ao funil." },
+      { key: "redes", label: "Gest\u00e3o de redes sociais", desc: "Planejamento, produ\u00e7\u00e3o e publica\u00e7\u00e3o de conte\u00fado com linha editorial definida." },
+      { key: "videos", label: "8 v\u00eddeos roteirizados e editados", desc: "Apresenta\u00e7\u00e3o da empresa, prova de trabalho, autoridade do dono e ofertas." },
+      { key: "site", label: "Site estrat\u00e9gico", desc: "At\u00e9 6 p\u00e1ginas, com texto de venda, SEO e vers\u00e3o para celular." },
+      { key: "design", label: "Design e identidade visual", desc: "Site, redes, an\u00fancios, or\u00e7amento e apresenta\u00e7\u00e3o com a mesma l\u00edngua visual." },
+      { key: "sys_empresa", label: "Gest\u00e3o da empresa (Sistema APEX)", desc: "Metas, a\u00e7\u00f5es em andamento, respons\u00e1veis, prazos e hist\u00f3rico das reuni\u00f5es." },
+      { key: "sys_leads", label: "Gest\u00e3o de leads / funil (Sistema APEX)", desc: "Funil completo: entrada, agendamento, visita, or\u00e7amento, follow-up e fechamento." },
+      { key: "sys_financeiro", label: "M\u00f3dulo financeiro (Sistema APEX)", desc: "Receitas, despesas, fluxo de caixa, custos e margem por servi\u00e7o." },
+      { key: "sys_estrategico", label: "M\u00f3dulo estrat\u00e9gico (Sistema APEX)", desc: "Miss\u00e3o, vis\u00e3o, valores, organograma, persona e plano de 90 dias." },
+      { key: "sys_bsc", label: "Painel BSC APEX\u2122 (Sistema APEX)", desc: "Os indicadores da empresa em uma tela, com leitura semanal." },
+      { key: "sys_ferramentas", label: "20+ ferramentas de gest\u00e3o implantadas", desc: "Templates, planilhas e scripts comerciais prontos para uso." }
+    ],
+    start: [],
+    advanced: []
+  };
   // Accounting is a referral: the client pays the accountant directly, so it
   // is never an add-on and never on the vendor tally.
   function sellableVendors() { return S.vendors.filter(function(v) { return !/contab/i.test(v.vendor_type || ""); }); }
@@ -158,7 +188,7 @@
       representatives: reps,
       contract_date: today, start_date: today, end_date: null,
       package_price_cents: 0, schedule: [], payment_method: "card_zelle",
-      addons: [], bonuses: [], notes: "", signing_city: "",
+      addons: [], bonuses: [], notes: "", signing_city: "", scope_items: null,
       _count: 1, _first: today, _freq: 1
     };
     if (f.package_key) { applyPackage(f, f.package_key, true); }
@@ -171,6 +201,11 @@
     f.package_key = key;
     var dv = defaultVendorId();
     f.included_services = (PKG_INCLUDED[key] || []).map(function(x) { return { key: x.key, label: x.label, recurrence: x.recurrence, months: x.months, vendor_cost_cents: x.vendor_cost_cents, vendor_id: dv }; });
+    // Scope defaults to everything checked whenever the package changes; an
+    // existing selection for THIS package (editing a saved contract) is kept.
+    var scopeKeys = (PKG_SCOPE[key] || []).map(function(x) { return x.key; });
+    if (!keepDates || f._scopePkg !== key) { f.scope_items = scopeKeys.slice(); }
+    f._scopePkg = key;
     if (key === "start") {
       f.package_price_cents = Math.round((P.start && P.start.price ? P.start.price : 997) * 100);
       f.pricing_option = "upfront"; f._count = 1; f.payment_method = "zelle";
@@ -259,6 +294,20 @@
     h += section("1. Pacote", pk);
     if (!f.package_key) { return h; }
 
+    // 1b. Scope (deliverables, no prices) — checked by default, uncheck what
+    // doesn't apply to this client. Prints on the client-facing contract.
+    var scopeCatalog = PKG_SCOPE[f.package_key] || [];
+    if (scopeCatalog.length) {
+      var sel = f.scope_items || [];
+      var sc = scopeCatalog.map(function(x, i) {
+        var checked = sel.indexOf(x.key) !== -1;
+        return '<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);">' +
+          '<input type="checkbox" id="apxScope' + i + '" data-key="' + esc(x.key) + '"' + (checked ? " checked" : "") + ' onchange="ApexContract._scopeToggle(\'' + esc(x.key) + '\', this.checked)" style="width:20px;height:20px;flex:0 0 auto;margin-top:2px;">' +
+          '<span><span style="font-weight:700;font-size:14px;display:block;">' + esc(x.label) + '</span><span class="gm-derived-note" style="margin:2px 0 0;">' + esc(x.desc) + '</span></span></label>';
+      }).join("");
+      h += section("Escopo", '<div class="gm-sheet-group" style="padding:0 2px;">' + sc + '</div>', "O que está incluído — aparece no contrato, sem valores");
+    }
+
     // 2. Company, from the lead
     var co = field("Nome da empresa (como vai no contrato)", '<input class="gm-input" id="apxCompany" value="' + esc(f.company_name) + '">') +
       field("Cidade", '<input class="gm-input" id="apxCity" value="' + esc(f.company_city) + '" placeholder="ex: Sarasota">');
@@ -345,6 +394,8 @@
       F = JSON.parse(JSON.stringify(existing.data || {}));
       F.representatives = F.representatives && F.representatives.length ? F.representatives : [{ name: "", gender: "m", title: "" }];
       F.addons = F.addons || []; F.bonuses = F.bonuses || []; F.schedule = F.schedule || []; F.included_services = F.included_services || [];
+      if (!F.scope_items) { F.scope_items = (PKG_SCOPE[F.package_key] || []).map(function(x) { return x.key; }); }
+      F._scopePkg = F.package_key;
       F._count = F.schedule.length || 1; F._first = (F.schedule[0] && F.schedule[0].due_date) || F.contract_date; F._freq = 1;
       if (F.schedule.length > 1) {
         var d0 = F.schedule[0].due_date, day = Number(d0.slice(8, 10));
@@ -360,7 +411,7 @@
     readForm();
     var err = byId("apxErr"); if (err) { err.textContent = ""; }
     var data = JSON.parse(JSON.stringify(F));
-    delete data._count; delete data._first; delete data._freq;
+    delete data._count; delete data._first; delete data._freq; delete data._scopePkg;
     data.representatives = data.representatives.filter(function(r) { return r.name; });
     var btn = byId("apxSave"); if (btn) { btn.disabled = true; btn.textContent = "Salvando..."; }
     var p = editingId ? call(base() + "/" + editingId, "PUT", { data: data }) : call(base(), "POST", data);
@@ -646,6 +697,13 @@
     _gender: function(i, g) { readForm(); F.representatives[i].gender = g; redrawBuilder(true); },
     _repAdd: function() { readForm(); F.representatives.push({ name: "", gender: "m", title: "" }); redrawBuilder(true); },
     _repDel: function(i) { readForm(); F.representatives.splice(i, 1); redrawBuilder(true); },
+    _scopeToggle: function(key, on) {
+      readForm();
+      F.scope_items = F.scope_items || [];
+      var i = F.scope_items.indexOf(key);
+      if (on && i === -1) { F.scope_items.push(key); }
+      else if (!on && i !== -1) { F.scope_items.splice(i, 1); }
+    },
     _addAdd: function() { readForm(); F.addons.push({ vendor_id: null, label: "", description: "", recurrence: "monthly", months: (PKG[F.package_key] || {}).months || 1, client_price_cents: 0, vendor_cost_cents: null }); redrawBuilder(true); },
     _addDel: function(i) { readForm(); F.addons.splice(i, 1); rebuildSchedule(F); redrawBuilder(true); },
     _addRec: function(i, r) { readForm(); F.addons[i].recurrence = r; rebuildSchedule(F); redrawBuilder(true); },

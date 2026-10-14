@@ -52560,6 +52560,37 @@ var APX_PACKAGES = {
     advanced: { key: "advanced", pkgId: "pkg_advanced", program: "APEX Advanced™", months: 6 }
 };
 var APX_MONTHS_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+// Per-package scope catalog (deliverables only, never a price): the builder
+// lets Rafa uncheck items per client; the client-facing contract prints only
+// the selected ones, label + description. Keys here are the source of truth
+// server-side — the client only sends back which keys are selected.
+var APX_SCOPE = {
+    growth: [
+        { key: "consultoria_semanal", label: "Consultoria semanal", desc: "Reuniões de Direção Estratégica toda semana durante três meses, com pauta, decisão registrada e responsável definido." },
+        { key: "disc", label: "Identidade do Líder (DISC)", desc: "Perfil comportamental DISC com devolutiva individual." },
+        { key: "raiox", label: "Raio-X Estratégico 360°", desc: "Levantamento completo da empresa: financeiro, comercial, operação, marketing e equipe." },
+        { key: "direcao", label: "Direção Estratégica", desc: "Missão, visão, valores, persona do cliente ideal e organograma estratégico." },
+        { key: "bsc", label: "Metrificação (Painel BSC APEX™)", desc: "Painel de indicadores com leitura semanal; cada indicador com dono, meta e frequência." },
+        { key: "oferta", label: "Oferta e Posicionamento", desc: "O que a empresa vende, para quem, com qual mensagem e por qual preço." },
+        { key: "vendas", label: "Vendas", desc: "Processo comercial completo: script de atendimento, roteiro de follow-up, proposta padrão e etapas do funil." },
+        { key: "gestao_leads", label: "Gestão de Leads", desc: "Cada lead registrado da entrada ao fechamento: agendamento, visita, orçamento, follow-up." },
+        { key: "financeiro", label: "Financeiro", desc: "Separação de pessoa física e jurídica, fluxo de caixa, custos fixos e variáveis e precificação." },
+        { key: "margem", label: "Margem", desc: "Custo real e margem de cada serviço, identificado e corrigido com número." },
+        { key: "trafego", label: "Gestão de tráfego pago", desc: "Criação, gestão e otimização das campanhas (meses 2 a 4), com leads direcionados ao funil." },
+        { key: "redes", label: "Gestão de redes sociais", desc: "Planejamento, produção e publicação de conteúdo com linha editorial definida." },
+        { key: "videos", label: "8 vídeos roteirizados e editados", desc: "Apresentação da empresa, prova de trabalho, autoridade do dono e ofertas." },
+        { key: "site", label: "Site estratégico", desc: "Até 6 páginas, com texto de venda, SEO e versão para celular." },
+        { key: "design", label: "Design e identidade visual", desc: "Site, redes, anúncios, orçamento e apresentação com a mesma língua visual." },
+        { key: "sys_empresa", label: "Gestão da empresa (Sistema APEX)", desc: "Metas, ações em andamento, responsáveis, prazos e histórico das reuniões." },
+        { key: "sys_leads", label: "Gestão de leads / funil (Sistema APEX)", desc: "Funil completo: entrada, agendamento, visita, orçamento, follow-up e fechamento." },
+        { key: "sys_financeiro", label: "Módulo financeiro (Sistema APEX)", desc: "Receitas, despesas, fluxo de caixa, custos e margem por serviço." },
+        { key: "sys_estrategico", label: "Módulo estratégico (Sistema APEX)", desc: "Missão, visão, valores, organograma, persona e plano de 90 dias." },
+        { key: "sys_bsc", label: "Painel BSC APEX™ (Sistema APEX)", desc: "Os indicadores da empresa em uma tela, com leitura semanal." },
+        { key: "sys_ferramentas", label: "20+ ferramentas de gestão implantadas", desc: "Templates, planilhas e scripts comerciais prontos para uso." }
+    ],
+    start: [],
+    advanced: []
+};
 
 // ── Portuguese number words ────────────────────────────────────────────────
 function apxWordsBelow1000(n, fem) {
@@ -52672,6 +52703,9 @@ function apxClean(body) {
             vendor_cost_cents: (a && a.vendor_cost_cents !== null && a.vendor_cost_cents !== undefined && a.vendor_cost_cents !== "") ? Math.max(0, Math.round(Number(a.vendor_cost_cents) || 0)) : null
         };
     }).filter(function(a) { return a.label; }).slice(0, 8);
+    // Selected scope items (deliverable keys) for the "O que está incluído"
+    // list on the client-facing contract. Never carries a price.
+    var scopeItems = (Array.isArray(b.scope_items) ? b.scope_items : []).map(function(k) { return apxEsc(k).slice(0, 40); }).filter(Boolean).slice(0, 40);
     return {
         package_key: pk,
         pricing_option: b.pricing_option === "upfront" ? "upfront" : (b.pricing_option === "installment" ? "installment" : null),
@@ -52689,6 +52723,7 @@ function apxClean(body) {
         addons: addons,
         bonuses: bonuses,
         included_services: included,
+        scope_items: scopeItems,
         notes: apxEsc(b.notes).slice(0, 3000),
         signing_city: apxEsc(b.signing_city).slice(0, 80)
     };
@@ -52877,21 +52912,16 @@ function apxCompose(d) {
             ? P("O presente contrato tem por objeto a prestação de serviços de consultoria estratégica, gestão empresarial, marketing e tráfego pago pela CONTRATADA ao CONTRATANTE, por meio do programa APEX Growth™, com duração de " + monthsTxt + " a contar de " + apxDateLong(d.start_date) + ", voltado a empresas que precisam estruturar a gestão e gerar clientes ao mesmo tempo.")
             : P("O presente contrato tem por objeto a prestação de serviços de consultoria estratégica, gestão empresarial e marketing pela CONTRATADA ao CONTRATANTE, por meio do programa APEX Advanced™, com duração de " + monthsTxt + " a contar de " + apxDateLong(d.start_date) + ", voltado a empresas que já possuem algum nível de estrutura e necessitam de um sistema completo de gestão e marketing consistente rodando ao longo do tempo.")
         ]);
-        var scopeRows = growth ? [
-            ["Consultoria Semanal (RDE)", "Reuniões de Direcionamento Estratégico toda semana durante os 3 (três) primeiros meses"],
-            ["Perfil Comportamental DISC", "Aplicação e devolutiva individual para alinhamento de funções e liderança"],
-            ["Raio-X Estratégico 360°", "Levantamento completo da empresa: financeiro, comercial, operação, marketing e equipe"],
-            ["Direção Estratégica", "Missão, visão, valores, persona do cliente ideal e organograma estratégico"],
-            ["APEX HUB™ + BSC APEX™", "Plataforma de gestão com dashboard estratégico e Balanced Scorecard com leitura semanal"],
-            ["Oferta e Posicionamento", "Definição do que a empresa vende, para quem, com qual mensagem e por qual preço"],
-            ["Processo Comercial", "Script de atendimento, roteiro de follow-up, proposta padrão e etapas do funil"],
-            ["Gestão de Leads", "Funil no Sistema APEX, da entrada do lead ao fechamento"],
-            ["Tráfego Pago", "Criação, gestão e otimização de campanhas do mês 2 ao mês 4, com leads direcionados para o funil"],
-            ["Financeiro e Margem", "Fluxo de caixa, custos fixos e variáveis, precificação e margem por serviço"],
-            ["Gestão de Redes Sociais", "Planejamento, produção e publicação de conteúdo com linha editorial definida"],
-            ["8 Vídeos Roteirizados e Editados", "Produção, roteiro e edição de 8 vídeos para posicionamento, autoridade e anúncios"],
-            ["Site Estratégico", "Até 6 páginas, com copywriting estratégico, SEO e design responsivo"]
-        ] : [
+        // GROWTH: scope printed is exactly what was selected in the builder
+        // (checkbox list, all checked by default). Falls back to the full
+        // catalog when no selection was saved (older contracts). Labels and
+        // descriptions always come from APX_SCOPE server-side, never from the
+        // client payload — the client only sends which keys are selected.
+        var scopeRows = growth ? (function() {
+            var catalog = APX_SCOPE.growth;
+            var sel = (d.scope_items && d.scope_items.length) ? d.scope_items : catalog.map(function(x) { return x.key; });
+            return catalog.filter(function(x) { return sel.indexOf(x.key) !== -1; }).map(function(x) { return [x.label, x.desc]; });
+        })() : [
             ["APEX Business Sprint™ Completo", "90 dias de estruturação intensa com consultoria estendida ao longo dos 6 meses de vigência"],
             ["Reuniões Estratégicas (RDE) Quinzenais", "Reuniões de Direcionamento Estratégico a cada 15 dias durante os 6 meses"],
             ["Marketing Completo Semanal", "Gestão de conteúdo, redes sociais e marca rodando toda semana durante os 6 meses — sem tráfego pago neste momento"],

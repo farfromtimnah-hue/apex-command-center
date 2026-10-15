@@ -576,6 +576,63 @@
       return h12 + ":" + m + " " + ap;
     }
 
+    // ── Add someone by hand (bottom of the page) ─────────────────────────
+    function agFillLabels() {
+      var set = function (id, ph) { var e = document.getElementById(id); if (e) { e.placeholder = ph; } };
+      set("agName", t("Nome", "Name"));
+      set("agPhone", t("WhatsApp (com DDD)", "WhatsApp number"));
+      set("agCompany", t("Empresa (opcional)", "Company (optional)"));
+      set("agPlusOneName", t("Nome do acompanhante", "Plus-one name"));
+      set("agPlusOnePhone", t("WhatsApp do acompanhante", "Plus-one WhatsApp"));
+    }
+    function agRenderEvents() {
+      var card = document.getElementById("clubAddGuestCard");
+      var sel = document.getElementById("agEvent");
+      if (!card || !sel) { return; }
+      if (!CLUB_EVENTS.length) { card.hidden = true; return; }
+      var keep = sel.value;
+      var html = "";
+      for (var i = 0; i < CLUB_EVENTS.length; i++) {
+        var ev = CLUB_EVENTS[i];
+        html += '<option value="' + ev.id + '">' + String(ev.name || "").replace(/</g, "&lt;") + (ev.event_date ? " - " + ev.event_date : "") + "</option>";
+      }
+      sel.innerHTML = html;
+      if (keep) { sel.value = keep; }
+      if (!sel.value && sel.options.length) { sel.selectedIndex = 0; }
+      agFillLabels();
+      card.hidden = false;
+    }
+    function agTogglePlusOne() {
+      var on = document.getElementById("agPlusOne").checked;
+      var box = document.getElementById("agPlusOneFields");
+      if (box) { box.hidden = !on; box.style.display = on ? "flex" : "none"; }
+    }
+    function saveAddGuest() {
+      var st = document.getElementById("agStatus");
+      var btn = document.getElementById("agSaveBtn");
+      var val = function (id) { var e = document.getElementById(id); return e ? e.value : ""; };
+      var plus = document.getElementById("agPlusOne").checked;
+      if (btn) { btn.disabled = true; }
+      if (st) { st.textContent = ""; }
+      apiFetch("/api/finance-new/club/registrations", { method: "POST", body: {
+        event_id: val("agEvent"), name: val("agName"), phone: val("agPhone"), company: val("agCompany"),
+        plus_one: plus, plus_one_name: val("agPlusOneName"), plus_one_phone: val("agPlusOnePhone")
+      } }).then(function (r) { return r.json(); }).then(function (d) {
+        if (btn) { btn.disabled = false; }
+        if (d.error) { if (st) { st.textContent = t(d.error_pt || d.error, d.error_en || d.error); } return; }
+        var nm = val("agName");
+        ["agName", "agPhone", "agCompany", "agPlusOneName", "agPlusOnePhone"].forEach(function (id) { var e = document.getElementById(id); if (e) { e.value = ""; } });
+        document.getElementById("agPlusOne").checked = false;
+        agTogglePlusOne();
+        if (st) { st.textContent = d.updated_existing ? t(nm + " j\u00e1 estava na lista; dados atualizados.", nm + " was already on the list; details updated.") : t(nm + " foi adicionado(a).", nm + " was added."); }
+        loadClub();
+      }).catch(function () {
+        if (btn) { btn.disabled = false; }
+        if (st) { st.textContent = t("N\u00e3o foi poss\u00edvel adicionar. Tente de novo.", "Could not add. Please try again."); }
+      });
+    }
+    document.addEventListener("apex:langchange", function () { agFillLabels(); });
+
     function loadClub() {
       loadBusinessSettings();
       loadClubUnlinked();
@@ -584,6 +641,7 @@
         .then(function(d) {
           CLUB_EVENTS = (d && d.events) || [];
           renderClub();
+          agRenderEvents();
         })
         .catch(function() {});
     }

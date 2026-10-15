@@ -42614,6 +42614,53 @@ async function handlePostClubRegistrationUpdate(regId, request, env) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// POST /api/finance-new/club/registrations -- add a guest by hand (Apex Club
+// page, bottom form). Same table and row shape as the public RSVP, with
+// source = 'manual'. Works even when registration is closed. Re-adding the
+// same phone to the same event updates that row (never a duplicate).
+// ---------------------------------------------------------------------------
+async function handlePostFinanceNewClubAddGuest(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.event_id) { return jsonErr2("Escolha o evento.", "Choose the event.", 400); }
+        var ev = await env.DB.prepare("SELECT id FROM apex_club_events WHERE id = ?").bind(String(body.event_id)).first();
+        if (!ev) { return jsonErr("Event not found", 404); }
+        var name = String(body.name || "").trim().slice(0, 120);
+        if (name.length < 2) { return jsonErr2("O nome \u00e9 obrigat\u00f3rio.", "Name is required.", 400); }
+        var phone = normalizeUsPhone(body.phone);
+        if (!phone) { return jsonErr2("N\u00famero de WhatsApp inv\u00e1lido.", "Invalid WhatsApp number.", 400); }
+        var company = String(body.company == null ? "" : body.company).trim().slice(0, 120) || null;
+        var plusOne = (body.plus_one === true || body.plus_one === 1) ? 1 : 0;
+        var plusOneName = null, plusOnePhone = null;
+        if (plusOne) {
+            plusOneName = String(body.plus_one_name == null ? "" : body.plus_one_name).trim().slice(0, 120) || null;
+            if (body.plus_one_phone !== undefined && body.plus_one_phone !== null && String(body.plus_one_phone).trim() !== "") {
+                plusOnePhone = normalizeUsPhone(body.plus_one_phone);
+                if (!plusOnePhone) { return jsonErr2("WhatsApp do acompanhante inv\u00e1lido.", "Invalid plus-one WhatsApp number.", 400); }
+                if (plusOnePhone === phone) { return jsonErr2("O acompanhante precisa de um n\u00famero diferente.", "The plus-one needs a different number.", 400); }
+            }
+        }
+        var existing = await env.DB.prepare("SELECT id FROM apex_club_registrations WHERE event_id = ? AND phone = ?").bind(String(body.event_id), phone).first();
+        await env.DB.prepare(
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company, pay_token, plus_one_name, plus_one_phone) " +
+            "VALUES (?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?) " +
+            "ON CONFLICT(event_id, phone) DO UPDATE SET " +
+            "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going', " +
+            "company = COALESCE(NULLIF(excluded.company, ''), company), " +
+            "pay_token = COALESCE(pay_token, excluded.pay_token), " +
+            "plus_one_name = CASE WHEN excluded.plus_one = 0 THEN NULL ELSE COALESCE(excluded.plus_one_name, plus_one_name) END, " +
+            "plus_one_phone = CASE WHEN excluded.plus_one = 0 THEN NULL ELSE COALESCE(excluded.plus_one_phone, plus_one_phone) END"
+        ).bind(crypto.randomUUID(), String(body.event_id), name, phone, plusOne, company, gmEstNewToken(), plusOneName, plusOnePhone).run();
+        return jsonOk({ added: true, updated_existing: !!existing });
+    } catch (e) {
+        return jsonErr("Error adding guest: " + e.message, 500);
+    }
+}
+
 async function handlePostFinanceNewClubConfirm(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -51088,6 +51135,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/club/events"       && method === "GET")  { return handleGetFinanceNewClubEvents(request, env); }
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
         if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }
+        if (path === "/api/finance-new/club/registrations" && method === "POST") { return handlePostFinanceNewClubAddGuest(request, env); }
 
         // Edit / delete one event, and upload its flyer.
         var clubEvMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)$/);

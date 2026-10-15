@@ -309,6 +309,38 @@
         <span class="show-en">No events set up yet.</span>
       </div>
 
+      <div class="card" id="clubAddGuestCard" style="margin-top:18px" hidden>
+        <div class="card-title">
+          <span class="show-pt">Adicionar pessoa</span>
+          <span class="show-en">Add someone</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+          <select id="agEvent" class="ag-input"></select>
+          <input id="agName" class="ag-input" type="text" autocomplete="off">
+          <input id="agPhone" class="ag-input" type="tel" inputmode="tel" autocomplete="off">
+          <input id="agCompany" class="ag-input" type="text" autocomplete="off">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;">
+            <input id="agPlusOne" type="checkbox" onchange="agTogglePlusOne()">
+            <span class="show-pt">Vem com acompanhante</span><span class="show-en">Bringing a plus-one</span>
+          </label>
+          <div id="agPlusOneFields" hidden style="display:none;flex-direction:column;gap:10px;">
+            <input id="agPlusOneName" class="ag-input" type="text" autocomplete="off">
+            <input id="agPlusOnePhone" class="ag-input" type="tel" inputmode="tel" autocomplete="off">
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-gold btn-sm" id="agSaveBtn" onclick="saveAddGuest()">
+              <span class="show-pt">Adicionar</span><span class="show-en">Add</span>
+            </button>
+            <span id="agStatus" style="font-size:13px;color:var(--muted);"></span>
+          </div>
+        </div>
+      </div>
+      <style>
+        #clubAddGuestCard .ag-input { box-sizing: border-box; width: 100%; border: 1px solid var(--border); border-radius: 8px;
+          padding: 10px 12px; font-family: 'Inter', sans-serif; font-size: 14px; background: var(--card); color: var(--text); }
+        #clubAddGuestCard .ag-input:focus { outline: none; border-color: var(--gold); }
+      </style>
+
       <div class="btn-row" id="clubNewEventRow" style="margin-top:14px">
         <button class="btn btn-sm" onclick="createClubEvent()">
           <span class="show-pt">Novo evento</span>
@@ -443,7 +475,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="nav.js"></script>
-  <script src="apex-club.js?v=2"></script>
+  <script src="apex-club.js?v=3"></script>
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var PUBLIC_BASE = (location.protocol === "http:" || location.protocol === "https:")

@@ -593,8 +593,10 @@
       var keep = sel.value;
       var html = "";
       for (var i = 0; i < CLUB_EVENTS.length; i++) {
-        var ev = CLUB_EVENTS[i];
-        html += '<option value="' + ev.id + '">' + String(ev.name || "").replace(/</g, "&lt;") + (ev.event_date ? " - " + ev.event_date : "") + "</option>";
+        var ev = CLUB_EVENTS[i].event || CLUB_EVENTS[i];
+        var dd = String(ev.event_date || "").split("-");
+        var shown = dd.length === 3 ? (dd[1] + "/" + dd[2] + "/" + dd[0]) : "";
+        html += '<option value="' + ev.id + '">' + String(ev.name || "").replace(/</g, "&lt;") + (shown ? " - " + shown : "") + "</option>";
       }
       sel.innerHTML = html;
       if (keep) { sel.value = keep; }

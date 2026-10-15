@@ -5312,6 +5312,19 @@
       return "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    var ctCurrentPos = null;
+    // Redraw the counter and question wording in the page's current language.
+    // Called on load and on every live language toggle; never touches the
+    // answer box, so a half-typed answer survives a toggle.
+    function ctRedrawQuestionText() {
+      var c = document.getElementById("ctCounter");
+      var q = document.getElementById("ctQText");
+      if (!c || !q || !ctCurrentQuestion || !ctCurrentPos) { return; }
+      c.textContent = ctCurrentPos.position + " " + t("de", "of") + " " + ctCurrentPos.total;
+      q.textContent = t(ctCurrentQuestion.text_pt, ctCurrentQuestion.text_en);
+    }
+    document.addEventListener("apex:langchange", function () { ctRedrawQuestionText(); });
+
     function loadCtNextQuestion() {
       apiFetch("/api/client-terms/next").then(function(r) { return r.json(); }).then(function(data) {
         var card = document.getElementById("ctQuestionCard");
@@ -5321,8 +5334,8 @@
         ctCurrentQuestion = data.question;
         card.hidden = false;
         document.getElementById("ctClientName").textContent = data.client.name;
-        document.getElementById("ctCounter").textContent = data.position + " " + t("de", "of") + " " + data.total;
-        document.getElementById("ctQText").textContent = t(data.question.text_pt, data.question.text_en);
+        ctCurrentPos = { position: data.position, total: data.total };
+        ctRedrawQuestionText();
         document.getElementById("ctAnswer").value = "";
         document.getElementById("ctStatus").textContent = "";
         document.getElementById("ctConfirmCard").hidden = true;

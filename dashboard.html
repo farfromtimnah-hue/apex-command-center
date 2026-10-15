@@ -765,6 +765,25 @@
     .mt-due.overdue { color: #b44040; border-color: rgba(180,64,64,0.3); background: #fff0f0; }
     .list-row.mt-fresh { animation: mtFresh 6s ease-out 1; }
     @keyframes mtFresh { 0%, 60% { background: #fbf1cf; } 100% { background: transparent; } }
+    /* Tell us box + Support panel: these classes are not defined elsewhere on
+       this page, so unstyled they fell back to plain browser buttons. Scoped. */
+    #tellUsSection .btn, #tellUsSection .btn-secondary, #supportPanelSection .btn, #supportPanelSection .btn-secondary,
+    #supportPanelSection .btn-gold, #tellUsSection .btn-gold {
+      display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
+      background: var(--card); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 16px; font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+    }
+    #tellUsSection .btn-sm, #supportPanelSection .btn-sm { padding: 7px 12px; font-size: 12.5px; }
+    #tellUsSection .btn-gold, #supportPanelSection .btn-gold { background: var(--gold); color: #fff; border-color: var(--gold); }
+    #tellUsSection .btn:hover, #tellUsSection .btn-secondary:hover, #supportPanelSection .btn:hover, #supportPanelSection .btn-secondary:hover { opacity: 0.88; }
+    #tellUsSection .field-input, #supportPanelSection .field-input {
+      box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+      font-family: 'Inter', sans-serif; font-size: 14px; background: var(--card); color: var(--text);
+    }
+    #tellUsPicker, #tellUsConvo { padding: 0 16px 16px; }
+    #tellUsPicker > div { display: flex; gap: 8px; flex-wrap: wrap; }
+    #supportPanelSection .tab-row .btn-secondary.is-active { background: var(--gold-dim); border-color: var(--gold); }
     .btn-cta-link {
       display: inline-flex;
       align-items: center;

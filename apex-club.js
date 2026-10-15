@@ -277,6 +277,9 @@
           if (g.plus_one) {
             plusOneLine = g.plus_one_name && g.plus_one_phone
               ? '<div class="guest-plusone">' + t("Acompanhante: ", "Plus one: ") + esc(g.plus_one_name) + " · " + esc(g.plus_one_phone) +
+                ' <a class="gbtn wa" href="https://wa.me/' + esc(g.plus_one_phone) + "?text=" +
+                encodeURIComponent(buildClubWhatsAppText(ev, Object.assign({}, g, { name: g.plus_one_name }))) +
+                '" target="_blank" rel="noopener">WhatsApp</a>' +
                 ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Editar", "Edit") + "</button></div>"
               : '<div class="guest-plusone"><span class="chip-missing">' + t("Acompanhante: faltando", "Plus one: missing") + '</span>' +
                 ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Adicionar", "Add") + "</button></div>";

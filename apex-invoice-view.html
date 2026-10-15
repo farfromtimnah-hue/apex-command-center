@@ -186,7 +186,7 @@
     // Finance page lists it (id, number, client WhatsApp). templates and
     // switchOn: what the send needs, loaded before any click.
     var REVIEW = { staff: false, row: null, templates: null, switchOn: false };
-    var SEND_JS = "apex-invoice-send.js?v=1791236689";
+    var SEND_JS = "apex-invoice-send.js?v=1792040236";
     var FIREBASE_JS = ["https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js", "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"];
     var FIREBASE_CONFIG = {
       apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
@@ -593,11 +593,23 @@
       document.head.appendChild(el);
     }
     // The staff pages' signed-in fetch (finance-new.html apiFetch).
+    //
+    // opts.body support added 2026-10-15: apex-invoice-send.js's runSend
+    // (shared with finance-new.html) now calls mark-draft with a {reason}
+    // body on this page too, and mark-draft requires it (400 without one).
+    // Every call site here predates that and passes no body, so this is a
+    // pure addition -- nothing existing changes shape.
     function apiFetch(path, opts) {
       if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
       return currentUser.getIdToken().then(function(idToken) {
-        var method = (opts && opts.method) || "GET";
-        return fetch(WORKER_URL + path, { method: method, headers: { "Authorization": "Bearer " + idToken } });
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + idToken };
+        var fOpts   = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fOpts);
       });
     }
     // Three staff-only answers. The first decides: anyone who is not staff

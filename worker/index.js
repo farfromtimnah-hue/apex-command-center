@@ -49593,7 +49593,7 @@ async function docLinkReturnAddress(env, request, kind, token) {
 //   X-Robots-Tag: noindex, nofollow     on everything under those prefixes
 //   Cache-Control: private, no-store    on every answer that is not an image
 // Images (signatures, photos) keep whatever caching their handler chose.
-var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|pdf|booking)|club\/(pay|register|flyer|calendar-click))\//;
+var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|apex-invoice-link|pdf|booking)|club\/(pay|register|flyer|calendar-click))\//;
 function publicDocHeaders(response, request) {
     try {
         if (!PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return response; }
@@ -49804,6 +49804,14 @@ async function handleFetch(request, env, ctx) {
         var clubPayZellePub = path.match(/^\/api\/club\/pay\/([a-f0-9]{48})\/zelle-conf$/);
         if (clubPayZellePub && method === "POST") { return handlePostClubPayZelleConf(clubPayZellePub[1], request, env); }
         if (path.indexOf("/api/club/pay/") === 0) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+
+        // PUBLIC: no-login redirect from an invoice id to its real client
+        // link (fixes the staff-era WhatsApp link, 2026-10-15). Its own
+        // anchored pattern and its own 404, ahead of the apex-invoices
+        // catch-all below (different prefix, so that catch-all cannot
+        // swallow it either way).
+        var pubApxInvLink = path.match(/^\/api\/public\/apex-invoice-link\/([0-9a-f-]+)$/);
+        if (pubApxInvLink && method === "GET") { return handleGetPublicApexInvoiceLink(pubApxInvLink[1], request, env); }
 
         // PUBLIC: Apex's OWN invoice, the client's link (the 48-hex token is
         // the credential). Each route has its own anchored pattern and its own
@@ -55147,6 +55155,54 @@ async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
         });
     } catch (e) {
         return jsonErr("Error creating the client link: " + e.message, 500);
+    }
+}
+
+// GET /api/public/apex-invoice-link/:invoice_id   NO LOGIN.
+//
+// Built 2026-10-15 after a client (JM Luxury Pools, INV-000048) opened a
+// staff-era WhatsApp link (templates/apex-invoice-template-DRAFT.html, which
+// signs in to the Command Center) and saw a login error with no price and no
+// logo. The owner's rule: no client should ever have to log in to see an
+// invoice. This route lets the DRAFT template redirect an unauthenticated
+// (or non-staff) visitor straight to the real, readable client link -- the
+// SAME link handlePostApexInvoiceClientLink mints for a fresh send -- so an
+// old message already sitting in someone's WhatsApp keeps working forever.
+//
+// Deliberately minimal: only {"link": ...} ever comes back. No name, amount,
+// token or id -- a visitor with no credential at all should learn nothing
+// about the invoice except where to go next. Every outcome that is not "a
+// real, open invoice" (bad id, missing invoice, voided) answers the exact
+// same 404, so probing a random uuid cannot distinguish "wrong shape" from
+// "not found" from "voided".
+var APX_INV_LINK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+async function handleGetPublicApexInvoiceLink(invoiceId, request, env) {
+    try {
+        if (!APX_INV_LINK_UUID_RE.test(invoiceId || "")) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        var limited = await gmEstPublicRateLimit(env, request, invoiceId, 20, 60);
+        if (limited) { return apxInvNoIndex(limited); }
+        var inv = await env.DB.prepare(
+            "SELECT i.id, i.status, i.public_token, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        if (!inv || inv.status === "void" || inv.status === "voided_mistake") {
+            return apxInvNoIndex(jsonErr("Not found", 404));
+        }
+        if (!inv.public_token) {
+            // Same guarded UPDATE as handlePostApexInvoiceClientLink: two
+            // visitors hitting this at once still end up with one token.
+            await env.DB.prepare("UPDATE invoices SET public_token = ? WHERE id = ? AND public_token IS NULL").bind(gmEstNewToken(), inv.id).run();
+            var again = await env.DB.prepare("SELECT public_token FROM invoices WHERE id = ?").bind(inv.id).first();
+            inv.public_token = again && again.public_token;
+            if (!inv.public_token) { return apxInvNoIndex(jsonErr("Not found", 404)); }
+        }
+        var link = await apxInvShareLink(env, inv, inv.client_name || "");
+        return apxInvNoIndex(jsonOk({ link: link }));
+    } catch (e) {
+        // No invoice id or link in the log -- this route exists specifically
+        // so an old, already-sent link keeps working with no credential, and
+        // nothing about which invoice someone just opened belongs in logs.
+        console.error("[apex-invoice-link] Error: " + (e && e.message));
+        return apxInvNoIndex(jsonErr("Error", 500));
     }
 }
 

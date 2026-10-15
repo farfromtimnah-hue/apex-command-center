@@ -144,10 +144,6 @@ const SEND = [
   ["switch OFF, no templates loaded (the built-in fallback text)", { templates: null }],
   ["switch OFF, templates loaded but no invoice_send key", { templates: { other: "x" } }],
   ["switch ON, the client's link comes back", { switchOn: true, clientLink: linkOk }],
-  ["switch ON, the Worker says the link is not enabled", { switchOn: true, clientLink: { link: CLIENT_LINK, link_enabled: false } }],
-  ["switch ON, the link request answers an error", { switchOn: true, clientLink: { error: "Invoice is voided" } }],
-  ["switch ON, the link request fails", { switchOn: true, clientLink: "reject" }],
-  ["switch ON, the link answer is not JSON", { switchOn: true, clientLink: "badjson" }],
   ["mark-sent answers an error", { markSent: { error: "Invoice is voided" } }],
   ["mark-sent answers an error, English", { markSent: { error: "Invoice is voided" }, en: true }],
   ["mark-sent fails on the network", { markSent: "reject" }],
@@ -174,6 +170,44 @@ for (const [name, raw] of SEND) {
   ok(same, "send: " + name + " (" + a.length + " steps, message " + (messageOf(a) === null ? "none" : messageOf(a).length + " characters") + ")");
   if (!same) { console.log("  before: " + JSON.stringify(a) + "\n  now:    " + JSON.stringify(b)); }
   if (!sampleShown && messageOf(a)) { sampleShown = true; console.log("      sample message, before: " + JSON.stringify(messageOf(a)) + "\n      sample message, now:    " + JSON.stringify(messageOf(b))); }
+}
+
+// THE CLIENT MUST NEVER RECEIVE THE STAFF LINK WHILE THE SWITCH IS ON.
+// 2026-10-15: these four scenarios used to fall through to staffLink() and
+// send anyway. Now: WhatsApp never opens, mark-draft is called, and the
+// person is told in-page. No OLD/NEW comparison here -- the whole point is
+// that behavior changed.
+const REVERT = [
+  ["the Worker says the link is not enabled", { switchOn: true, clientLink: { link: CLIENT_LINK, link_enabled: false } }],
+  ["the link request answers an error", { switchOn: true, clientLink: { error: "Invoice is voided" } }],
+  ["the link request fails", { switchOn: true, clientLink: "reject" }],
+  ["the link answer is not JSON", { switchOn: true, clientLink: "badjson" }],
+];
+for (const [name, raw] of REVERT) {
+  const sc = fill(raw);
+  const t = await run(NEW, "sendInvoiceWhatsApp(" + JSON.stringify(SAMPLE.id) + ");", sc);
+  const opened = t.some(x => x[0] === "open" && x[1] && x[1] !== "");
+  const navigated = t.some(x => x[0] === "navigate");
+  const closed = t.some(x => x[0] === "close");
+  const draftCall = t.find(x => x[0] === "apiFetch" && /\/mark-draft$/.test(x[1]));
+  const toasted = t.find(x => x[0] === "toast");
+  ok(!navigated && !opened, "revert to draft (" + name + "): WhatsApp never opens with a message");
+  ok(closed, "revert to draft (" + name + "): the blank WhatsApp window is closed");
+  ok(!!draftCall && draftCall[2] === "POST" && draftCall[3] && draftCall[3].reason, "revert to draft (" + name + "): mark-draft is called with a reason");
+  ok(!!toasted && toasted[1] === "Nao foi possivel criar o link do cliente. A fatura nao foi enviada. Tente de novo.",
+    "revert to draft (" + name + "): the Portuguese in-page message, no browser pop-up");
+  const en = await run(NEW, "sendInvoiceWhatsApp(" + JSON.stringify(SAMPLE.id) + ");", Object.assign({}, sc, { en: true }));
+  const toastedEn = en.find(x => x[0] === "toast");
+  ok(!!toastedEn && toastedEn[1] === "Could not create the client link. The invoice was not sent. Try again.",
+    "revert to draft (" + name + "), English: the English in-page message");
+}
+{
+  // Switch OFF: the old link (now fixed by the template redirect) still goes
+  // out exactly as before -- nothing about this path changes when OFF.
+  const sc = fill({});
+  const t = await run(NEW, "sendInvoiceWhatsApp(" + JSON.stringify(SAMPLE.id) + ");", sc);
+  ok(t.some(x => x[0] === "navigate") && !t.some(x => x[0] === "apiFetch" && /\/mark-draft$/.test(x[1])),
+    "switch OFF: WhatsApp still opens and mark-draft is never called");
 }
 
 const MARK = [
@@ -272,6 +306,33 @@ for (const en of [false, true]) {
   ok(r.trace.length === 0 && r.left === 0, "no page helper (" + label + "): Escape means Keep");
   r = await fallbackRun(call, (d) => { d.click(d.body.children[0]); }, { en });
   ok(r.trace.length === 0 && r.left === 0, "no page helper (" + label + "): a tap outside means Keep");
+}
+
+// SOURCE CHECK: no client-facing message can carry a templates/ or
+// finance-new.html address while the master switch is ON. Built 2026-10-15
+// alongside the revert-to-draft fix above -- this guards the SHAPE of the
+// code (the openWhatsApp call that sends the message must sit behind the
+// switch-ON-and-no-client-link return, never in front of it), not just one
+// run's behavior, so a later edit that reorders the function trips it too.
+{
+  const src = readFileSync(new URL("apex-invoice-send.js", root), "utf8");
+  const fn = cut(src, "runSend");
+  const iGuardReturn = fn.indexOf("clientLinkEnabled() === true && !clientLink)");
+  const iOpenWhatsApp = fn.indexOf("openWhatsApp();", fn.indexOf(".then(function(clientLink)"));
+  ok(iGuardReturn > 0 && iOpenWhatsApp > 0 && iGuardReturn < iOpenWhatsApp,
+    "runSend: the switch-ON-with-no-client-link guard (and its early return) sits BEFORE the openWhatsApp() call that actually sends the message");
+  const guardBlock = fn.slice(iGuardReturn, fn.indexOf("return;", iGuardReturn) + 10);
+  ok(/\breturn;/.test(guardBlock) && !/openWhatsApp\(\)/.test(guardBlock),
+    "the guard block returns without ever calling openWhatsApp() -- a client-link failure with the switch ON cannot fall through to a send");
+  ok(!/templates\/apex-invoice-template-DRAFT|finance-new\.html/.test(cut(src, "clientLinkForSend")) && !/templates\/apex-invoice-template-DRAFT|finance-new\.html/.test(cut(src, "buildMessage")),
+    "neither clientLinkForSend nor buildMessage ever names a templates/ or finance-new.html address directly");
+  // Dynamic companion to the static check: actually run the ON+no-link path
+  // and confirm the built message (if any ever reached a window) never
+  // carries the staff address.
+  const sc = fill({ switchOn: true, clientLink: "reject" });
+  const t = await run(NEW, "sendInvoiceWhatsApp(" + JSON.stringify(SAMPLE.id) + ");", sc);
+  const anyNav = t.find(x => x[0] === "navigate");
+  ok(!anyNav, "switch ON, client link fails: no navigate ever happens, so no message (staff or otherwise) reaches WhatsApp");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

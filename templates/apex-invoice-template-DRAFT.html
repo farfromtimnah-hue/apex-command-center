@@ -978,8 +978,17 @@
         var auth = firebase.auth();
 
         auth.onAuthStateChanged(function(user) {
+          // NO LOGIN SCREEN FOR A CLIENT. EVER. Built 2026-10-15 after a
+          // client (JM Luxury Pools, INV-000048) opened this page from an
+          // old WhatsApp message, saw no signed-in Firebase user, and got
+          // 'Nao autenticado. Faca login no Command Center primeiro.' --
+          // a login prompt no client has credentials for. Nobody signed in
+          // here is a client who followed a link that should have carried
+          // their own readable doc.resonateai.online address. Instead of
+          // the login error, redirect straight to that address via the new
+          // no-login GET /api/public/apex-invoice-link/:invoice_id route.
           if (!user) {
-            showLoadError('Nao autenticado. Faca login no Command Center primeiro.');
+            redirectToClientLink(invoiceId);
             return;
           }
           user.getIdToken().then(function(token) {
@@ -989,16 +998,22 @@
             );
           }).then(function(res) {
             if (!res.ok) {
+              // A signed-in person who is not staff (401/403) gets the same
+              // redirect as nobody signed in at all -- never the login text.
+              if (res.status === 401 || res.status === 403) {
+                redirectToClientLink(invoiceId);
+                return null;
+              }
               return res.json().then(function(e) {
                 throw new Error('API error ' + res.status + ': ' + (e.error || JSON.stringify(e)));
               });
             }
             return res.json();
           }).then(function(data) {
-            populateInvoice(data);
+            if (data) { populateInvoice(data); }
           }).catch(function(err) {
             console.error('[LIVE MODE] Erro ao carregar dados da fatura:', err);
-            showLoadError('Erro ao carregar fatura: ' + err.message);
+            redirectToClientLink(invoiceId);
           });
         });
       } else {
@@ -1017,11 +1032,59 @@
       }
     };
 
-    function showLoadError(msg) {
+    // Calls the no-login GET /api/public/apex-invoice-link/:invoice_id route
+    // and sends the browser straight to the real client link it returns.
+    // Nothing here ever mentions login -- a failure (network error, 404 for
+    // a voided/unknown invoice) shows the friendly message instead, with a
+    // Try again button that retries this same call once more.
+    var APX_INV_LINK_RETRIED = false;
+    function redirectToClientLink(invoiceId) {
+      if (!invoiceId) { showFriendlyError(); return; }
+      fetch(APEX_API_BASE + '/api/public/apex-invoice-link/' + encodeURIComponent(invoiceId))
+        .then(function(res) {
+          if (!res.ok) { throw new Error('HTTP ' + res.status); }
+          return res.json();
+        })
+        .then(function(data) {
+          if (data && data.link) { window.location.replace(data.link); return; }
+          throw new Error('no link in response');
+        })
+        .catch(function(err) {
+          console.error('[CLIENT LINK REDIRECT] Erro:', err);
+          showFriendlyError(invoiceId);
+        });
+    }
+
+    // Bilingual, no mention of login, with a retry button -- replaces the
+    // old showLoadError('Nao autenticado...') text a client should never see.
+    function showFriendlyError(invoiceId) {
       var el = document.getElementById('inv-numero');
-      if (el) { el.textContent = 'ERRO'; }
+      if (el) { el.textContent = ''; }
       var desc = document.getElementById('inv-descricao');
-      if (desc) { desc.textContent = msg; }
+      if (!desc) { return; }
+      desc.innerHTML = '';
+      var ptMsg = document.createElement('div');
+      ptMsg.textContent = 'Nao foi possivel abrir esta fatura agora. Tente novamente em instantes ou fale com a Apex.';
+      var enMsg = document.createElement('div');
+      enMsg.style.marginTop = '6px';
+      enMsg.textContent = 'We could not open this invoice right now. Please try again in a moment or contact Apex.';
+      desc.appendChild(ptMsg);
+      desc.appendChild(enMsg);
+      if (invoiceId) {
+        var retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.textContent = 'Tentar de novo / Try again';
+        retryBtn.style.marginTop = '12px';
+        retryBtn.style.padding = '8px 16px';
+        retryBtn.style.cursor = 'pointer';
+        retryBtn.addEventListener('click', function() {
+          if (APX_INV_LINK_RETRIED) { return; }
+          APX_INV_LINK_RETRIED = true;
+          retryBtn.disabled = true;
+          redirectToClientLink(invoiceId);
+        });
+        desc.appendChild(retryBtn);
+      }
     }
 
     /* Render the real Zelle QR code uploaded via Settings. The image is served by the

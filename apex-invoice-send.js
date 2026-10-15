@@ -208,6 +208,28 @@
         return clientLinkForSend(invoiceId, deps);
       })
       .then(function(clientLink) {
+        // THE STAFF LINK MUST NEVER REACH A CLIENT WHILE THE SWITCH IS ON.
+        // Built 2026-10-15 alongside the no-login redirect fix: before this,
+        // a failed/disabled client-link call silently fell through to
+        // staffLink() below and WhatsApp opened with the login-gated
+        // staff-era address anyway -- the exact link that put JM Luxury
+        // Pools in front of a Command Center sign-in screen. With the
+        // switch ON, no client link means no send: the blank WhatsApp
+        // window is closed, the invoice goes back to draft (so it is not
+        // stuck "sent" with nothing actually delivered), and the person is
+        // told in-page, with no browser pop-up, so they can try again.
+        if (deps.clientLinkEnabled() === true && !clientLink) {
+          if (waWindow && !waWindow.closed) { waWindow.close(); }
+          deps.apiFetch("/api/finance-new/invoices/" + invoiceId + "/mark-draft", {
+            method: "POST",
+            body: { reason: "client link could not be created; invoice was not sent" }
+          }).catch(function() {}).then(function() {
+            deps.toast(deps.isEn()
+              ? "Could not create the client link. The invoice was not sent. Try again."
+              : "Nao foi possivel criar o link do cliente. A fatura nao foi enviada. Tente de novo.");
+          });
+          return;
+        }
         if (clientLink) {
           message = buildMessage(tpl, clientLink);
           waUrl = waUrlFor(inv, message);

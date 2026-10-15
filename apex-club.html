@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a1d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=1">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
+  <link rel="stylesheet" href="mobile.css">
+  <script src="pwa.js" defer></script>
+  <title data-title-pt="Apex &#8212; Apex Club" data-title-en="Apex &#8212; Apex Club">Apex &#8212; Apex Club</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    :root {
+      --surface  : #f9f7f4;
+      --header   : #1a1a1d;
+      --gold     : #C9A43A;
+      --gold-dim : rgba(201,164,58,0.14);
+      --brown    : #7a5c2e;
+      --text     : #1a1a1d;
+      --muted    : #6b6660;
+      --border   : #e8e2d9;
+      --card     : #ffffff;
+      --radius   : 10px;
+      --shadow   : 0 2px 16px rgba(26,26,29,0.08);
+      --green    : #2e7d44;
+      --red      : #b3261e;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    body.lang-pt .show-en { display: none; }
+    body.lang-en .show-pt { display: none; }
+
+    #appHeader { background: var(--header); height: 64px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 16px; }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+    .user-pill { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; }
+    .role-badge { background: var(--gold-dim); border: 1px solid rgba(201,164,58,0.4); color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; }
+    .btn-header { background: transparent; border: 1.5px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.75); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+    .btn-header:hover { border-color: rgba(255,255,255,0.45); color: #fff; }
+    .lang-btn { background: transparent; border: 1.5px solid var(--gold); color: var(--gold); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s; }
+    .lang-btn:hover { background: var(--gold-dim); }
+
+    #pageWrapper { flex: 1; display: flex; overflow: hidden; }
+    #contentArea { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    #loadingScreen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--muted); font-size: 14px; }
+    #loadingScreen[hidden] { display: none !important; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #appMain { flex: 1; overflow-y: auto; padding: 24px 28px 60px; }
+    #appMain[hidden] { display: none !important; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 18px; }
+    .card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 14px; }
+    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .net-note { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.45; }
+    .empty { color: var(--muted); font-size: 13px; padding: 22px 0; text-align: center; }
+
+    .btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text); transition: background 0.15s, border-color 0.15s; }
+    .btn:hover { border-color: var(--gold); }
+    .btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .btn-gold:hover { background: #b7942f; border-color: #b7942f; }
+    .btn-sm { font-size: 12px; padding: 6px 11px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .club-event { padding: 14px 0; border-top: 1px solid var(--border); }
+    .club-event:first-child { border-top: 0; padding-top: 4px; }
+    .club-verdict { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+    .club-verdict.is-up { color: var(--green); }
+    .club-detail { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+    .club-suggest { margin-top: 12px; padding: 12px 14px; background: var(--gold-dim); border-radius: 8px; }
+    .club-suggest-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+    .club-sug-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 4px 0; flex-wrap: wrap; }
+    .club-sug-row .grow { flex: 1 1 auto; min-width: 140px; }
+
+    .ev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 14px; }
+    .ev-f { display: block; }
+    .ev-wide { grid-column: 1 / -1; }
+    .ev-lbl { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+    .ev-opt { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+    .ev-f input, .ev-f textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); }
+    .ev-f input:focus, .ev-f textarea:focus { outline: none; border-color: var(--gold); }
+    .ev-f textarea { resize: vertical; }
+    .ev-more { background: none; border: 0; padding: 2px 0; cursor: pointer; font-family: inherit; font-size: 12.5px; color: var(--muted); text-decoration: underline; }
+    .ev-more:hover { color: var(--text); }
+    .ev-window { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+    .ev-err { background: rgba(179,38,30,0.08); border: 1px solid rgba(179,38,30,0.4); color: var(--red); font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+    @media (max-width: 560px) { .ev-grid, .ev-window { grid-template-columns: 1fr; } }
+
+    .club-hero-wrap { position: relative; margin-bottom: 12px; }
+    .club-hero { display: block; width: 100%; aspect-ratio: 4.17 / 1; max-height: 190px; object-fit: cover; object-position: 50% 5.5%; border-radius: 8px; background: #111; }
+    .club-hero-wrap::after { content: ""; position: absolute; inset: 0; border-radius: 8px; pointer-events: none;
+      background: linear-gradient(to bottom, transparent 55%, var(--card) 100%), linear-gradient(to right, var(--card) 0%, transparent 6%, transparent 94%, var(--card) 100%); }
+    .club-head { display: flex; gap: 12px; align-items: flex-start; }
+    .club-thumb { flex: none; width: 54px; border-radius: 6px; cursor: zoom-in; border: 1px solid var(--border); background: #111; }
+    .club-headmain { flex: 1; min-width: 0; }
+    .club-meta { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.55; }
+
+    .club-guests { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .club-count { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+    .club-count .n { color: var(--gold); font-size: 19px; }
+    .club-count-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .club-guests-toggle { font-family: inherit; font-size: 12px; font-weight: 500; background: none; border: 0; padding: 0 0 0 8px; cursor: pointer; color: var(--muted); text-decoration: underline; }
+    .club-guests-toggle:hover { color: var(--text); }
+    .guest-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+    .guest-row.is-next { opacity: 0.6; }
+    .guest-name { flex: 1 1 auto; min-width: 120px; }
+    .guest-name .plus { color: var(--gold); font-weight: 600; font-size: 12px; margin-left: 5px; }
+    .guest-name .guest-company { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
+    .guest-name .guest-plusone { display: block; color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 2px; }
+    .chip-missing { background: #fbefd9; color: #8a5a00; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .guest-name .pay-badge { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eeece6; color: var(--muted); }
+    .guest-name .pay-badge.ok { background: #e3f1e6; color: #24693a; }
+    .guest-name .pay-badge.warn { background: #fbefd9; color: #8a5a00; }
+    .guest-tools { flex-wrap: wrap; justify-content: flex-end; display: flex; gap: 6px; flex: none; }
+    .guest-name .zelle-review { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.9; }
+    .guest-name .zelle-review .gbtn { margin-left: 4px; }
+    .gbtn[data-tip] { position: relative; }
+    .gbtn[data-tip]:hover::after, .gbtn[data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); right: 0;
+      width: max-content; max-width: 250px; white-space: normal; text-align: left; background: #1f1c18; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.35;
+      padding: 7px 10px; border-radius: 7px; z-index: 60; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+    .gbtn { font-family: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 9px; border-radius: 6px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text); }
+    .gbtn:hover { border-color: var(--gold); }
+    .gbtn.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .gbtn.wa { border-color: #25d366; color: #128c3e; }
+    .gbtn.wa:hover { background: rgba(37,211,102,0.1); }
+
+    .club-people-bar { display: flex; gap: 8px; margin-top: 10px; }
+    .club-people { margin-top: 8px; }
+
+    .club-link { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; background: var(--gold-dim); border: 1px solid var(--gold); border-radius: 8px; }
+    .club-link code { flex: 1 1 200px; min-width: 0; font-size: 11.5px; color: var(--brown); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .club-dismissed { margin-top: 10px; }
+    .club-dismissed-toggle { font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--muted); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; }
+    .club-dismissed-toggle:hover { color: var(--text); }
+    .club-dismissed .club-sug-row { opacity: 0.75; }
+
+    .club-unlinked-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .club-unlinked-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .grow { flex: 1 1 auto; }
+
+    .tag-meta { font-size: 11px; color: var(--muted); }
+
+    .overlay { position: fixed; inset: 0; background: rgba(26,26,29,0.55); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+    .overlay[hidden] { display: none !important; }
+    .modal { background: #fff; border-radius: 12px; max-width: 520px; width: 100%; padding: 24px; max-height: 86vh; overflow-y: auto; }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+    .field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 12px 0 5px; }
+    .field-input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13.5px; background: var(--card); color: var(--text); }
+
+    @media (max-width: 720px) { #appMain { padding: 16px 14px 60px; } #navSidebar { display: none; } }
+  </style>
+</head>
+<body class="lang-pt">
+
+  <header id="appHeader">
+    <div class="header-right">
+      <div class="user-pill">
+        <span id="headerEmail"></span>
+        <span class="role-badge" id="headerRole"></span>
+      </div>
+      <button class="lang-btn" onclick="apexNavToggleLang()">
+        <span class="show-pt">EN</span>
+        <span class="show-en">PT</span>
+      </button>
+      <button class="btn-header" onclick="handleSignOut()">
+        <span class="show-pt">Sair</span>
+        <span class="show-en">Sign out</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="pageWrapper">
+    <div id="navSidebar"></div>
+    <div id="contentArea">
+
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <span class="show-pt">Carregando...</span>
+    <span class="show-en">Loading...</span>
+  </div>
+
+  <main id="appMain" hidden>
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <span><span class="show-pt">Apex Club</span><span class="show-en">Apex Club</span></span>
+        <input type="month" id="eventMonth" onchange="renderClub()">
+      </div>
+      <div class="net-note" style="margin-bottom:14px">
+        <span class="show-pt">Jantar com palestrante, aproximadamente uma vez por mês.</span>
+        <span class="show-en">Dinner with a guest speaker, roughly once a month.</span>
+      </div>
+
+      <div id="clubBody"></div>
+      <div id="clubUnlinked" hidden></div>
+      <div id="clubEmpty" class="page-sub" hidden>
+        <span class="show-pt">Nenhum evento cadastrado ainda.</span>
+        <span class="show-en">No events set up yet.</span>
+      </div>
+
+      <div class="btn-row" id="clubNewEventRow" style="margin-top:14px">
+        <button class="btn btn-sm" onclick="createClubEvent()">
+          <span class="show-pt">Novo evento</span>
+          <span class="show-en">New event</span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+    </div>
+  </div>
+
+  <!-- Event create/edit modal -->
+  <div id="clubEvOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:520px">
+      <div class="modal-title" id="clubEvTitle"></div>
+      <div class="modal-sub">
+        <span class="show-pt">S&oacute; nome e data s&atilde;o obrigat&oacute;rios. O resto aparece na p&aacute;gina de inscri&ccedil;&atilde;o.</span>
+        <span class="show-en">Only name and date are required. Everything else shows on the registration page.</span>
+      </div>
+      <div class="ev-grid">
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Nome do evento</span><span class="show-en">Event name</span></span>
+          <input type="text" id="evName" placeholder="Jantar de agosto">
+        </label>
+        <label class="ev-f">
+          <span class="ev-lbl"><span class="show-pt">Data</span><span class="show-en">Date</span></span>
+          <input type="date" id="evDate">
+        </label>
+        <label class="ev-f">
+          <span class="ev-lbl"><span class="show-pt">Hor&aacute;rio</span><span class="show-en">Start time</span></span>
+          <input type="text" id="evTime" placeholder="7:30 PM">
+        </label>
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Local</span><span class="show-en">Venue</span></span>
+          <input type="text" id="evVenue" placeholder="10020 Carr Rd, Riverview, FL">
+        </label>
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl"><span class="show-pt">Convidados</span><span class="show-en">Speakers</span></span>
+          <input type="text" id="evSpeakers" placeholder="Rafael Prata, Irclebson Ramos">
+        </label>
+        <label class="ev-f">
+          <span class="ev-lbl" id="evLblSingle"><span class="show-pt">Valor por pessoa</span><span class="show-en">Price per person</span></span>
+          <input type="text" id="evPriceSingle" inputmode="decimal" oninput="evPriceApply(); evCardPrefill(false)">
+          <span style="font-size:12.5px;color:var(--muted);line-height:1.5;"><span class="show-pt">Deixe vazio quando a Apex n&atilde;o cobra por este evento.</span><span class="show-en">Leave empty when Apex is not charging for this event.</span></span>
+        </label>
+        <label class="ev-f">
+          <span class="ev-lbl">
+            <span id="evLblCouple"><span class="show-pt">Valor por casal</span><span class="show-en">Price per couple</span></span>
+            <span class="ev-opt"><span class="show-pt">opcional</span><span class="show-en">optional</span></span>
+          </span>
+          <input type="text" id="evPriceCouple" inputmode="decimal" oninput="evCardPrefill(false)">
+        </label>
+        <label class="ev-f ev-wide" style="flex-direction:row;align-items:center;gap:9px;cursor:pointer;">
+          <input type="checkbox" id="evCardOn" onchange="evCardToggle()" style="width:auto;">
+          <span><span class="show-pt">Aceitar cart&atilde;o neste evento</span><span class="show-en">Accept card at this event</span></span>
+        </label>
+        <div class="ev-f ev-wide" id="evNoPriceHelp" hidden style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+          <span class="show-pt">Valor por casal e cart&atilde;o s&oacute; valem quando o evento tem valor por pessoa.</span>
+          <span class="show-en">Price per couple and card only apply when the event has a price per person.</span>
+        </div>
+        <label class="ev-f" id="evCardSingleWrap" hidden>
+          <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (individual)</span><span class="show-en">Card price (single)</span></span>
+          <input type="text" id="evPriceCardSingle" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
+        </label>
+        <label class="ev-f" id="evCardCoupleWrap" hidden>
+          <span class="ev-lbl"><span class="show-pt">Pre&ccedil;o no cart&atilde;o (casal)</span><span class="show-en">Card price (couple)</span></span>
+          <input type="text" id="evPriceCardCouple" inputmode="decimal" oninput="this.setAttribute('data-touched','1')">
+        </label>
+        <div class="ev-f ev-wide" id="evCardHelp" hidden style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+          <span class="show-pt">O pre&ccedil;o do cart&atilde;o &eacute; o pre&ccedil;o divulgado. O flyer e todo an&uacute;ncio devem mostrar o pre&ccedil;o do cart&atilde;o, e o Zelle &eacute; um desconto. Nunca divulgue o pre&ccedil;o do Zelle como pre&ccedil;o normal.</span>
+          <span class="show-en">The card price is the posted price. The flyer and every announcement must show the card price, and Zelle is a discount. Never advertise the Zelle price as the regular price.</span>
+        </div>
+        <label class="ev-f ev-wide">
+          <span class="ev-lbl">
+            <span class="show-pt">Observa&ccedil;&otilde;es</span><span class="show-en">Notes</span>
+            <span class="ev-opt"><span class="show-pt">aparece para quem se inscreve</span><span class="show-en">shown to attendees</span></span>
+          </span>
+          <textarea id="evNotes" rows="2" placeholder="Estacionamento gratuito nos fundos."></textarea>
+        </label>
+        <div class="ev-f ev-wide">
+          <button type="button" class="ev-more" onclick="toggleEvWindow()" id="evMoreBtn"></button>
+          <div id="evWindowRow" class="ev-window" hidden>
+            <label class="ev-f">
+              <span class="ev-lbl"><span class="show-pt">Pagamentos a partir de</span><span class="show-en">Count payments from</span></span>
+              <input type="date" id="evWinStart">
+            </label>
+            <label class="ev-f">
+              <span class="ev-lbl"><span class="show-pt">at&eacute;</span><span class="show-en">until</span></span>
+              <input type="date" id="evWinEnd">
+            </label>
+          </div>
+        </div>
+      </div>
+      <div id="clubEvErr" class="ev-err" hidden></div>
+      <div class="modal-actions" style="justify-content:space-between">
+        <button class="btn btn-sm" id="evDeleteBtn" onclick="deleteClubEvent()" hidden style="color:var(--red);border-color:var(--red)">
+          <span class="show-pt">Excluir</span><span class="show-en">Delete</span>
+        </button>
+        <span style="flex:1"></span>
+        <button class="btn" onclick="closeClubEvModal()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" onclick="saveClubEvent()" id="evSaveBtn">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plus-one add/edit sheet (on-page, never a browser pop-up) -->
+  <div id="plusOneOverlay" class="overlay" hidden onclick="if(event.target===this)closePlusOneSheet()">
+    <div class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()" style="max-width:380px">
+      <div class="modal-title"><span class="show-pt">Acompanhante</span><span class="show-en">Plus one</span></div>
+      <label class="field-label"><span class="show-pt">Nome do acompanhante</span><span class="show-en">Plus one's name</span></label>
+      <input type="text" id="poName" class="field-input">
+      <label class="field-label"><span class="show-pt">WhatsApp do acompanhante</span><span class="show-en">Plus one's WhatsApp</span></label>
+      <input type="tel" id="poPhone" class="field-input" placeholder="(813) 555-0100">
+      <div class="ev-err" id="poErr" hidden style="margin-top:12px"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closePlusOneSheet()"><span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>
+        <button class="btn btn-gold" onclick="savePlusOneSheet()"><span class="show-pt">Salvar</span><span class="show-en">Save</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" hidden><span id="toastText"></span></div>
+  <div id="mobile-tab-bar"></div>
+  <div id="mobile-more-menu"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="nav.js"></script>
+  <script src="apex-club.js?v=1"></script>
+  <script>
+    var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
+    var PUBLIC_BASE = (location.protocol === "http:" || location.protocol === "https:")
+      ? location.origin + location.pathname.replace(/\/[^\/]*$/, "")
+      : "https://apex.resonateai.online";
+    var FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyB_OFg5ouKAu61vObNsHJaGQO0TikaIhy8",
+      authDomain:        "apex-command-center-4b038.firebaseapp.com",
+      projectId:         "apex-command-center-4b038",
+      storageBucket:     "apex-command-center-4b038.firebasestorage.app",
+      messagingSenderId: "894743550437",
+      appId:             "1:894743550437:web:45041f841f7e8196db770c"
+    };
+    var auth = null;
+    var currentUser = null;
+    var CLUB_EVENTS = [];
+    var CLUB_SHOW_DISMISSED = {};
+    var CLUB_SHOW_GUESTS = {};
+    var BUSINESS_SETTINGS = null;
+    var APX_SWITCHES = {};
+
+    function getToken() {
+      if (!currentUser) { return Promise.reject(new Error("Not authenticated")); }
+      return currentUser.getIdToken();
+    }
+    function apiFetch(path, opts) {
+      return getToken().then(function(token) {
+        var method  = (opts && opts.method) || "GET";
+        var headers = { "Authorization": "Bearer " + token };
+        var fOpts   = { method: method, headers: headers };
+        if (opts && opts.body) {
+          headers["Content-Type"] = "application/json";
+          fOpts.body = JSON.stringify(opts.body);
+        }
+        return fetch(WORKER_URL + path, fOpts);
+      });
+    }
+    function handleSignOut() { auth.signOut().then(function() { window.location.href = "index.html"; }); }
+    function populateHeaderUser(email, displayName) {
+      var el = document.getElementById("headerEmail");
+      if (el) { el.textContent = displayName || email || ""; }
+    }
+    function isEn() { return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en"); }
+    function t(pt, en) { return isEn() ? en : pt; }
+    function esc(s) {
+      return String(s === null || s === undefined ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function fmtCents(cents) {
+      var v = (Number(cents) || 0) / 100;
+      return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    }
+    function fmtDate(iso) {
+      if (!iso) { return ""; }
+      var p = String(iso).slice(0, 10).split("-");
+      if (p.length !== 3) { return iso; }
+      return p[1] + "/" + p[2] + "/" + p[0];
+    }
+    function applyFinBilingualAttrs() {
+      var en = isEn();
+      var phs = document.querySelectorAll("[data-ph-pt][data-ph-en]");
+      for (var i = 0; i < phs.length; i++) { phs[i].setAttribute("placeholder", phs[i].getAttribute(en ? "data-ph-en" : "data-ph-pt")); }
+    }
+    function toast(msg, actionLabel, actionFn, ms) {
+      var tEl = document.getElementById("toast");
+      var tx = document.getElementById("toastText");
+      tx.textContent = msg;
+      var old = tEl.querySelector("button");
+      if (old) { old.remove(); }
+      if (actionLabel) {
+        var b = document.createElement("button");
+        b.textContent = actionLabel;
+        b.onclick = function() { tEl.hidden = true; actionFn(); };
+        tEl.appendChild(b);
+      }
+      tEl.hidden = false;
+      clearTimeout(tEl._timer);
+      tEl._timer = setTimeout(function() { tEl.hidden = true; }, ms || 4000);
+    }
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(function() { return legacyCopy(text); });
+      }
+      return legacyCopy(text);
+    }
+    function legacyCopy(text) {
+      return new Promise(function(resolve) {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        resolve();
+      });
+    }
+    // BEGIN PAGE DIALOG (minimal copy for this page -- used by deleteClubEvent only)
+    function pageDialog(o) {
+      var ov = document.createElement("div");
+      ov.className = "overlay";
+      ov.addEventListener("click", function() { ov.remove(); if (o.onKeep) { o.onKeep(); } });
+      var box = document.createElement("div");
+      box.className = "modal";
+      box.addEventListener("click", function(e) { e.stopPropagation(); });
+      var p = document.createElement("div");
+      p.className = "modal-sub";
+      p.style.whiteSpace = "pre-line";
+      p.textContent = o.message || "";
+      box.appendChild(p);
+      var actions = document.createElement("div");
+      actions.className = "modal-actions";
+      var keepBtn = document.createElement("button");
+      keepBtn.className = "btn";
+      keepBtn.textContent = o.keep || t("Cancelar", "Cancel");
+      keepBtn.onclick = function() { ov.remove(); if (o.onKeep) { o.onKeep(); } };
+      actions.appendChild(keepBtn);
+      if (o.yes) {
+        var yesBtn = document.createElement("button");
+        yesBtn.className = "btn btn-gold";
+        yesBtn.textContent = o.yes;
+        yesBtn.onclick = function() { ov.remove(); o.onYes && o.onYes(); };
+        actions.appendChild(yesBtn);
+      }
+      box.appendChild(actions);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+    }
+
+    function fetchAndApplyRole() {
+      return apiFetch("/api/auth/role").then(function(r) { return r.json(); }).then(function(data) {
+        sessionStorage.setItem("apex_role", data.role);
+        sessionStorage.setItem("apex_email", data.email);
+        sessionStorage.setItem("apex_display_name", data.display_name || "");
+        var roleEl = document.getElementById("headerRole");
+        if (roleEl) { roleEl.textContent = data.role; }
+        populateHeaderUser(data.email, data.display_name || null);
+        return data;
+      });
+    }
+
+    // Role gates the page BY ROLE in the page itself, per spec -- the Worker
+    // routes are unchanged. alice/developer: full panel. rafa: events,
+    // guest list, Pessoas, Copiar lista, WhatsApp -- no P&L/payments/Zelle
+    // tools, no create/edit/delete.
+    function applyClubRoleGate(role) {
+      window.CLUB_ROLE = role;
+      var moneyRole = (role === "alice" || role === "developer");
+      var newEventRow = document.getElementById("clubNewEventRow");
+      if (newEventRow) { newEventRow.hidden = !moneyRole; }
+    }
+
+    function setupPage(role) {
+      var roleEl = document.getElementById("headerRole");
+      var email = sessionStorage.getItem("apex_email") || (currentUser ? currentUser.email : "");
+      var displayName = sessionStorage.getItem("apex_display_name") || null;
+      populateHeaderUser(email, displayName);
+      if (roleEl) { roleEl.textContent = role; }
+      document.getElementById("loadingScreen").hidden = true;
+      document.getElementById("appMain").hidden = false;
+      window.initNav && window.initNav();
+      applyClubRoleGate(role);
+      apiFetch("/api/finance-new/settings/switches").then(function(r) { return r.json(); }).then(function(d) {
+        APX_SWITCHES = d || {};
+      }).catch(function() { APX_SWITCHES = {}; }).then(function() {
+        loadClub().then(initEventMonth);
+      });
+    }
+
+    function init() {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(function(user) {
+        if (!user) { window.location.href = "index.html"; return; }
+        currentUser = user;
+        var cached = sessionStorage.getItem("apex_role");
+        if (cached) { setupPage(cached); }
+        fetchAndApplyRole().then(function(data) {
+          if (!cached) { setupPage(data.role); }
+        }).catch(function() { if (!cached) { window.location.href = "index.html"; } });
+      });
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -51174,8 +51174,6 @@ async function handleFetch(request, env, ctx) {
         if (ctAnswer && method === "POST") { return handlePostClientTermsAnswer(ctAnswer[1], request, env); }
         var ctApply = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply$/);
         if (ctApply && method === "POST") { return handlePostClientTermsApply(ctApply[1], request, env); }
-        var ctRecurring = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/create-recurring$/);
-        if (ctRecurring && method === "POST") { return handlePostClientTermsCreateRecurring(ctRecurring[1], request, env); }
         if (path === "/api/support/message" && method === "POST") { return handlePostSupportMessage(request, env); }
         if (path === "/api/support/tickets" && method === "GET") { return handleGetSupportTickets(request, env); }
         if (path === "/api/support/tickets/open-count" && method === "GET") { return handleGetSupportOpenCount(request, env); }
@@ -58228,63 +58226,6 @@ async function handleGetClientTermsForecast(request, env) {
         return jsonOk({ monthly_total_cents: monthlyTotalCents, clients: lines });
     } catch (e) {
         return jsonErr("Error building client terms forecast: " + e.message, 500);
-    }
-}
-
-// POST /api/client-terms/:clientId/create-recurring -- attempts to create
-// the Zoho recurring-invoice profile from this client's confirmed terms,
-// reusing handlePostInvoice's own validated path. Requires a one_time-free
-// frequency (Zoho has no "one time" recurrence) and a linked Zoho contact.
-// Does NOT send anything to the client beyond what POST /api/invoices
-// (recurring) already does on its own -- no extra notification is added
-// here.
-async function handlePostClientTermsCreateRecurring(clientId, request, env) {
-    try {
-        var a = await clientTermsAuth(request, env);
-        if (a.err) { return a.err; }
-        var row = await env.DB.prepare("SELECT answers_json, completed FROM client_terms WHERE client_id = ?").bind(clientId).first();
-        if (!row || !row.completed) { return jsonErr("Client terms not completed", 400); }
-        var answers = JSON.parse(row.answers_json || "{}");
-        var amount = answers.amount, freq = answers.frequency, startInfo = answers.start_and_first_invoice;
-        if (!amount || amount.skipped || !freq || freq.skipped || !startInfo || startInfo.skipped) {
-            return jsonErr2("Faltam respostas (valor, frequência ou data) para criar a fatura recorrente.", "Missing answers (amount, frequency, or date) to create the recurring invoice.", 400);
-        }
-        if (freq.frequency === "one_time") {
-            return jsonErr2("Pagamento único: não é uma fatura recorrente.", "One-time payment: not a recurring invoice.", 400);
-        }
-        var freqMap = { weekly: "weeks", biweekly: "weeks", monthly: "months", quarterly: "months" };
-        var repeatEveryMap = { weekly: 1, biweekly: 2, monthly: 1, quarterly: 3 };
-
-        var contractEnd = answers.contract_end;
-        var recurring = {
-            recurrence_frequency: freqMap[freq.frequency],
-            repeat_every: repeatEveryMap[freq.frequency],
-            start_date: startInfo.first_invoice_date,
-            never_ends: !contractEnd || contractEnd.skipped || contractEnd.open_ended
-        };
-        if (!recurring.never_ends) {
-            // computeRecurringEndDate needs an occurrence count; from the
-            // contract end date we only know a date, not a count, so pass
-            // the end date straight through by faking never_ends=true here
-            // and letting Zoho run open-ended -- the spec requires income to
-            // STOP in the forecast at contract end, which the forecast
-            // already does independent of Zoho's own schedule. Zoho itself
-            // is not given an end_date because there is no clean occurrence
-            // count to compute one from.
-            recurring.never_ends = true;
-        }
-
-        var invoiceBody = {
-            client_id: clientId,
-            line_items: [{ name: "Recurring", quantity: 1, rate: amount.amount_cents / 100 }],
-            recurring: recurring
-        };
-        var fakeRequest = new Request(request.url, {
-            method: "POST", headers: request.headers, body: JSON.stringify(invoiceBody)
-        });
-        return await handlePostInvoice(fakeRequest, env);
-    } catch (e) {
-        return jsonErr("Error creating recurring invoice: " + e.message, 500);
     }
 }
 

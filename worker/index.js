@@ -56529,7 +56529,8 @@ async function vendorApplyManualAllocations(env, vendorId, batchId, amountCents,
     var ids = allocations.map(function(a) { return a.payable_id; });
     if (!ids.length) { return { ok: false, error: "allocations required" }; }
     var placeholders = ids.map(function() { return "?"; }).join(",");
-    var rows = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id IN (" + placeholders + ")").bind.apply(null, ids).all();
+    var rowsStmt = env.DB.prepare("SELECT * FROM vendor_payables WHERE id IN (" + placeholders + ")");
+    var rows = await rowsStmt.bind.apply(rowsStmt, ids).all();
     var byId = {};
     (rows.results || []).forEach(function(r) { byId[r.id] = r; });
     var sum = 0;
@@ -56578,9 +56579,10 @@ async function vendorApplyCredit(env, vendorId) {
 async function vendorFinishServicesIfDone(env, payableIds) {
     if (!payableIds.length) { return; }
     var placeholders = payableIds.map(function() { return "?"; }).join(",");
-    var svcRows = await env.DB.prepare(
+    var svcStmt = env.DB.prepare(
         "SELECT DISTINCT service_id FROM vendor_payables WHERE id IN (" + placeholders + ")"
-    ).bind.apply(null, payableIds).all();
+    );
+    var svcRows = await svcStmt.bind.apply(svcStmt, payableIds).all();
     for (var i = 0; i < (svcRows.results || []).length; i++) {
         var svcId = svcRows.results[i].service_id;
         var open = await env.DB.prepare(
@@ -56618,12 +56620,13 @@ function vendorIsRmtlyText(text) { return /RMTLY/i.test(String(text || "")); }
 
 async function vendorUnmatchedRemitlyRaw(env, sinceDaysAgo) {
     var cutoff = sinceDaysAgo ? new Date(Date.now() - sinceDaysAgo * 86400000).toISOString().slice(0, 10) : null;
-    var res = await env.DB.prepare(
+    var rmtlyStmt = env.DB.prepare(
         "SELECT id, date, amount_cents, description FROM transactions " +
         "WHERE amount_cents < 0 AND voided_at IS NULL AND UPPER(description) LIKE '%RMTLY%' " +
         (cutoff ? "AND date >= ? " : "") +
         "ORDER BY date DESC"
-    ).bind.apply(null, cutoff ? [cutoff] : []).all();
+    );
+    var res = await rmtlyStmt.bind.apply(rmtlyStmt, cutoff ? [cutoff] : []).all();
     var negatives = res.results || [];
 
     var usedRes = await env.DB.prepare("SELECT transaction_id FROM vendor_payment_batches WHERE transaction_id IS NOT NULL").all();

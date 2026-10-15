@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { makeDb, build, baseStubs, req, hasFn, workerSrc } from "./fixtures/d1-shim.mjs";
 
 const root = new URL("../", import.meta.url);
-const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql"];
+const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql"];
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fail++; } };
 const stubs = Object.assign({}, baseStubs, { crypto: globalThis.crypto });

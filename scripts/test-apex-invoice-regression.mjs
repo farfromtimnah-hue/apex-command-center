@@ -10,7 +10,7 @@
 // later build introduces do not alter the output.
 import { makeDb, build, baseStubs, req, hasFn } from "./fixtures/d1-shim.mjs";
 
-const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql"];
+const MIGS = ["migrations/apex_club_company.sql", "migrations/apex_invoice_public.sql", "migrations/apex_club_pay.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql"];
 const out = (label, v) => console.log(label + " " + JSON.stringify(v));
 
 function seedClient(d, id, name) {

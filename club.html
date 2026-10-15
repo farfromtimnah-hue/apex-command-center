@@ -273,6 +273,18 @@
             </span>
           </label>
 
+          <div id="plusOneFields" class="hidden">
+            <label for="plusOneNome">Nome do acompanhante</label>
+            <input id="plusOneNome" name="plusOneNome" type="text"
+                   autocomplete="name" autocapitalize="words"
+                   placeholder="Nome do acompanhante">
+
+            <label for="plusOneTel">WhatsApp do acompanhante</label>
+            <input id="plusOneTel" name="plusOneTel" type="tel"
+                   autocomplete="tel" inputmode="tel"
+                   placeholder="(813) 555-0100">
+          </div>
+
           <button type="submit" class="cta" id="submitBtn">Eu vou</button>
         </form>
 
@@ -560,6 +572,13 @@
     }, 1800);
   }
 
+  // ── Plus-one fields: shown and required only while the switch is on ──
+  $("plusOne").addEventListener("change", function () {
+    var on = $("plusOne").checked;
+    $("plusOneFields").classList.toggle("hidden", !on);
+    if (!on) { $("plusOneNome").value = ""; $("plusOneTel").value = ""; }
+  });
+
   // ── Submit ──────────────────────────────────────────────────────────
   $("regForm").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -567,11 +586,16 @@
     var nome = $("nome").value.trim();
     var empresa = $("empresa").value.trim();
     var tel  = $("tel").value.trim();
+    var plusOneOn = $("plusOne").checked;
+    var plusOneNome = $("plusOneNome").value.trim();
+    var plusOneTel = $("plusOneTel").value.trim();
 
     hide("formErr");
     if (nome.length < 2) { return fail("Escreva seu nome."); }
     if (empresa.length < 2) { return fail("Escreva o nome da empresa."); }
     if (tel.replace(/\D/g, "").length < 10) { return fail("Escreva um número de WhatsApp válido."); }
+    if (plusOneOn && plusOneNome.length < 2) { return fail("Escreva o nome do acompanhante."); }
+    if (plusOneOn && plusOneTel.replace(/\D/g, "").length < 10) { return fail("Escreva um número de WhatsApp válido para o acompanhante."); }
 
     btn.disabled = true;
     btn.textContent = "Confirmando...";
@@ -579,7 +603,8 @@
     fetch(WORKER_URL + "/api/club/register/" + encodeURIComponent(EVENT_ID), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: nome, phone: tel, plus_one: $("plusOne").checked, company: empresa })
+      body: JSON.stringify({ name: nome, phone: tel, plus_one: plusOneOn, company: empresa,
+        plus_one_name: plusOneOn ? plusOneNome : undefined, plus_one_phone: plusOneOn ? plusOneTel : undefined })
     })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
@@ -587,7 +612,7 @@
           btn.disabled = false; btn.textContent = "Eu vou";
           return fail((res.d && res.d.error) || "Não deu certo. Tente de novo.");
         }
-        done(nome, $("plusOne").checked);
+        done(nome, plusOneOn, plusOneOn ? plusOneNome : null);
         // Payments on and a card price on this event: the Worker sends the
         // guest's pay token and prices, and the payment box changes. With
         // payments off res.d.pay is null and the screen is what done() built.
@@ -609,7 +634,7 @@
   });
 
   // ── Screen two ──────────────────────────────────────────────────────
-  function done(nome, plusOne) {
+  function done(nome, plusOne, plusOneNome) {
     hide("screenForm");
 
     // Say the plus one back to them. It is the one thing they could have got
@@ -617,7 +642,7 @@
     // it before Alice orders food for the wrong number.
     $("doneSub").innerHTML = "Obrigado, <b>" + esc(nome.split(" ")[0]) + "</b>! " +
       (plusOne
-        ? "Anotamos você e mais uma pessoa na lista."
+        ? "Anotamos você e " + (plusOneNome ? esc(plusOneNome) : "mais uma pessoa") + " na lista."
         : "Já anotamos você na lista.");
     $("doneFacts").innerHTML = factsHtml(EV, { withPrice: true, notesBelow: true });
     var doneNotesBox = $("doneNotes");

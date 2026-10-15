@@ -41335,7 +41335,7 @@ async function buildApexClubEventPL(env, event) {
     // before any money does, which is the whole point: of nine confirmed July
     // payments, six landed on the day of the dinner and one after it.
     var regsRes = await env.DB.prepare(
-        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company, " +
+        "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company, plus_one_name, plus_one_phone, " +
         // Payment state for the finance guest list only (never the calendar
         // view, never the client portal). No pay_token here.
         "paid_at, paid_cents, paid_method, zelle_conf, zelle_conf_at, zelle_state " +
@@ -41834,6 +41834,21 @@ async function handlePostClubRegister(eventId, request, env) {
         // blank keeps the company already on the row (the COALESCE below).
         var company = String(body.company == null ? "" : body.company).trim().slice(0, 120) || null;
 
+        // The plus-one's own name and WhatsApp. Also NEVER a reason to refuse
+        // the RSVP (an old cached page posts without these keys, and the new
+        // form already requires them client-side while the switch is on):
+        // the response flags plus_one_missing instead of failing.
+        var plusOneName = String(body.plus_one_name == null ? "" : body.plus_one_name).trim().slice(0, 120) || null;
+        var plusOnePhoneRaw = body.plus_one_phone;
+        var plusOnePhone = null;
+        if (plusOnePhoneRaw !== undefined && plusOnePhoneRaw !== null && String(plusOnePhoneRaw).trim() !== "") {
+            plusOnePhone = normalizeUsPhone(plusOnePhoneRaw);
+            if (!plusOnePhone) { return jsonErr("Número de WhatsApp do acompanhante inválido", 400); }
+            if (plusOnePhone === phone) { return jsonErr("O acompanhante precisa de um número diferente", 400); }
+        }
+        if (!plusOne) { plusOneName = null; plusOnePhone = null; }
+        var plusOneMissing = !!(plusOne && (!plusOneName || !plusOnePhone));
+
         // Re-registering is not an error. Someone tapping twice, or coming
         // back to add a plus one they forgot, must never see a failure -- the
         // UNIQUE constraint makes it idempotent and the page just says
@@ -41841,13 +41856,19 @@ async function handlePostClubRegister(eventId, request, env) {
         await env.DB.prepare(
             // pay_token: minted with the row; a re-registration KEEPS the
             // token it has (and only fills one that is still empty).
-            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company, pay_token) " +
-            "VALUES (?, ?, ?, ?, ?, 'public', ?, ?) " +
+            // A re-registration WITHOUT a plus one clears the stored
+            // plus-one name and phone (excluded.plus_one_name is NULL in that
+            // case); one WITH a plus one but blank new fields keeps whatever
+            // the row already had (the COALESCE below).
+            "INSERT INTO apex_club_registrations (id, event_id, name, phone, plus_one, source, company, pay_token, plus_one_name, plus_one_phone) " +
+            "VALUES (?, ?, ?, ?, ?, 'public', ?, ?, ?, ?) " +
             "ON CONFLICT(event_id, phone) DO UPDATE SET " +
             "name = excluded.name, plus_one = excluded.plus_one, rsvp_state = 'going', " +
             "company = COALESCE(NULLIF(excluded.company, ''), company), " +
-            "pay_token = COALESCE(pay_token, excluded.pay_token)"
-        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company, gmEstNewToken()).run();
+            "pay_token = COALESCE(pay_token, excluded.pay_token), " +
+            "plus_one_name = CASE WHEN excluded.plus_one = 0 THEN NULL ELSE COALESCE(excluded.plus_one_name, plus_one_name) END, " +
+            "plus_one_phone = CASE WHEN excluded.plus_one = 0 THEN NULL ELSE COALESCE(excluded.plus_one_phone, plus_one_phone) END"
+        ).bind(crypto.randomUUID(), eventId, name, phone, plusOne, company, gmEstNewToken(), plusOneName, plusOnePhone).run();
 
         // The payment offer on the thank-you screen: only for an event with a
         // price, with the Club
@@ -41866,7 +41887,7 @@ async function handlePostClubRegister(eventId, request, env) {
             }
         } catch (ePay) { payToken = null; pay = null; }
 
-        return jsonOk({ registered: true, plus_one: plusOne === 1, pay_token: payToken, pay: pay });
+        return jsonOk({ registered: true, plus_one: plusOne === 1, pay_token: payToken, pay: pay, plus_one_missing: plusOneMissing });
     } catch (e) {
         return jsonErr("Error registering: " + e.message, 500);
     }
@@ -41902,7 +41923,7 @@ async function handleGetClubBySession(sessionId, request, env) {
         var regsRes = await env.DB.prepare(
             // company is the guest's business name. Still no price, paid or
             // payment column here: this view is money-free.
-            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company " +
+            "SELECT id, name, phone, rsvp_state, confirmed_at, attended, plus_one, created_at, company, plus_one_name, plus_one_phone " +
             "FROM apex_club_registrations WHERE event_id = ? ORDER BY created_at"
         ).bind(ev.id).all();
         var regs = regsRes.results || [];
@@ -42530,11 +42551,31 @@ async function handlePostClubRegistrationUpdate(regId, request, env) {
         }
 
         // Alice can correct a plus one from the list -- someone forgets to
-        // tick it, or turns up with a spouse unannounced.
+        // tick it, or turns up with a spouse unannounced. Setting it false
+        // clears the plus-one's own name and number.
         if (body.plus_one === true || body.plus_one === false) {
             await env.DB.prepare(
-                "UPDATE apex_club_registrations SET plus_one = ? WHERE id = ?"
-            ).bind(body.plus_one ? 1 : 0, regId).run();
+                "UPDATE apex_club_registrations SET plus_one = ?, plus_one_name = CASE WHEN ? THEN plus_one_name ELSE NULL END, plus_one_phone = CASE WHEN ? THEN plus_one_phone ELSE NULL END WHERE id = ?"
+            ).bind(body.plus_one ? 1 : 0, body.plus_one ? 1 : 0, body.plus_one ? 1 : 0, regId).run();
+        }
+
+        // The plus-one's own name and WhatsApp, editable from the guest
+        // list's "Adicionar" sheet (apex-club.html). Same validation as the
+        // public form.
+        if (body.plus_one_name !== undefined) {
+            var paName = String(body.plus_one_name == null ? "" : body.plus_one_name).trim().slice(0, 120) || null;
+            await env.DB.prepare("UPDATE apex_club_registrations SET plus_one_name = ? WHERE id = ?").bind(paName, regId).run();
+        }
+        if (body.plus_one_phone !== undefined) {
+            var paPhoneRaw = body.plus_one_phone;
+            var paPhone = null;
+            if (paPhoneRaw !== null && String(paPhoneRaw || "").trim() !== "") {
+                paPhone = normalizeUsPhone(paPhoneRaw);
+                if (!paPhone) { return jsonErr("Número de WhatsApp do acompanhante inválido", 400); }
+                var current = await env.DB.prepare("SELECT phone FROM apex_club_registrations WHERE id = ?").bind(regId).first();
+                if (current && paPhone === current.phone) { return jsonErr("O acompanhante precisa de um número diferente", 400); }
+            }
+            await env.DB.prepare("UPDATE apex_club_registrations SET plus_one_phone = ? WHERE id = ?").bind(paPhone, regId).run();
         }
 
         if (body.rsvp_state === "going" || body.rsvp_state === "next_time") {
@@ -51090,6 +51131,27 @@ async function handleFetch(request, env, ctx) {
             return handlePutFinanceNewVendor(path.slice("/api/finance-new/vendors/".length), request, env);
         }
         if (path === "/api/finance-new/vendor-share"      && method === "GET")  { return handleGetFinanceNewVendorShare(request, env); }
+
+        // ── Fornecedores (vendor payable tracking) ─────────────────────────
+        if (path === "/api/vendors/overview" && method === "GET") { return handleGetVendorsOverview(request, env); }
+        if (path === "/api/vendors/forecast" && method === "GET") { return handleGetVendorsForecast(request, env); }
+        if (path === "/api/vendors/remitly-unmatched" && method === "GET") { return handleGetVendorsRemitlyUnmatched(request, env); }
+        if (path === "/api/vendors/remitly/ignore" && method === "POST") { return handlePostVendorsRemitlyIgnore(request, env); }
+        if (path === "/api/vendors/services" && method === "POST") { return handlePostVendorService(request, env); }
+        var vndSvcCancel = path.match(/^\/api\/vendors\/services\/([A-Za-z0-9_-]+)\/cancel$/);
+        if (vndSvcCancel && method === "POST") { return handlePostVendorServiceCancel(vndSvcCancel[1], request, env); }
+        var vndSvcComplete = path.match(/^\/api\/vendors\/services\/([A-Za-z0-9_-]+)\/complete$/);
+        if (vndSvcComplete && method === "POST") { return handlePostVendorServiceComplete(vndSvcComplete[1], request, env); }
+        var vndPayAction = path.match(/^\/api\/vendors\/payables\/([A-Za-z0-9_-]+)\/(pause|resume|delay|start)$/);
+        if (vndPayAction && method === "POST") { return handlePostVendorPayableAction(vndPayAction[1], vndPayAction[2], request, env); }
+        if (path === "/api/vendors/payments" && method === "POST") { return handlePostVendorPayment(request, env); }
+        if (path === "/api/vendors/payments/quick" && method === "POST") { return handlePostVendorPaymentQuick(request, env); }
+        var vndBatchAction = path.match(/^\/api\/vendors\/payments\/([A-Za-z0-9_-]+)\/(reallocate|undo|confirm)$/);
+        if (vndBatchAction && method === "POST") { return handlePostVendorBatchAction(vndBatchAction[1], vndBatchAction[2], request, env); }
+        var vndByClient = path.match(/^\/api\/vendors\/by-client\/([A-Za-z0-9_-]+)$/);
+        if (vndByClient && method === "GET") { return handleGetVendorByClient(vndByClient[1], request, env); }
+        var vndDetail = path.match(/^\/api\/vendors\/([A-Za-z0-9_-]+)$/);
+        if (vndDetail && method === "GET") { return handleGetVendorDetail(vndDetail[1], request, env); }
         if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "render-data" && method === "GET") {
             return handleGetFinanceNewInvoiceRenderData(segs[3], request, env);
         }
@@ -54606,6 +54668,7 @@ async function handlePostPublicApexContractSign(token, request, env) {
         await apxEvent(env, r.id, "client_signed", name, { index: idx, kind: kind, complete: allDone });
         if (allDone) {
             await apxWriteVendorLines(env, r);
+            try { await vendorCreateFromContract(env, r); } catch (eV) { console.error("[vendors] creation from contract failed: " + (eV && eV.message)); }
             if (!/^test-/.test(r.client_id)) {
                 try { await apxApplyTerms(env, r, "Contrato assinado"); } catch (eT) { console.error("[apex-contract] auto terms failed: " + (eT && eT.message)); }
             }
@@ -56206,5 +56269,894 @@ async function handlePostClubRegZelleDecision(regId, action, request, env) {
         return jsonOk(await buildApexClubEventPL(env, ev));
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Fornecedores (vendor payable tracking) ── what Apex owes Brazilian
+// vendors (Rais, Henrique and others) for services INCLUDED in a client's
+// package. The client is never charged anything extra here: this module
+// never touches an invoice, a payment plan, a contract amount or a client
+// price. See migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql.
+// ═══════════════════════════════════════════════════════════════════════
+
+function vendorAuthed(user) {
+    return !!(user && (user.role === "alice" || user.role === "developer"));
+}
+
+async function vendorAuth(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return { err: jsonErr("Unauthorized", 401) }; }
+    if (!vendorAuthed(user)) { return { err: jsonErr("Forbidden", 403) }; }
+    return { user: user };
+}
+
+// Month arithmetic on "YYYY-MM" strings, offset by whole months.
+function vendorAddMonths(ym, n) {
+    var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)) - 1;
+    m += n;
+    y += Math.floor(m / 12);
+    m = ((m % 12) + 12) % 12;
+    return y + "-" + String(m + 1).padStart(2, "0");
+}
+function vendorMonthOf(dateIso) { return String(dateIso || "").slice(0, 7); }
+function vendorMonthCompare(a, b) {
+    if (a === b) { return 0; }
+    if (a === null) { return 1; }
+    if (b === null) { return -1; }
+    return a < b ? -1 : 1;
+}
+
+// ── B. SCHEDULE BUILDER (pure, unit-tested) ─────────────────────────────
+// service: { id, kind, price_cents, first_month, months }. Returns payable
+// shapes WITHOUT ids (the caller assigns id/service_id/client_id/vendor_id).
+function vendorBuildPayables(service) {
+    var out = [];
+    if (service.kind === "monthly") {
+        var n = service.months || 1;
+        for (var i = 0; i < n; i++) {
+            out.push({
+                label: "Mês " + (i + 1),
+                period_month: vendorAddMonths(service.first_month, i),
+                planned_cents: service.price_cents,
+                trigger: "month",
+                status: "scheduled"
+            });
+        }
+    } else if (service.kind === "once") {
+        out.push({
+            label: service.label || "Pagamento único",
+            period_month: service.first_month,
+            planned_cents: service.price_cents,
+            trigger: "month",
+            status: "scheduled"
+        });
+    } else if (service.kind === "split") {
+        var half1 = Math.floor(service.price_cents / 2);
+        var half2 = service.price_cents - half1;
+        out.push({
+            label: "1ª metade",
+            period_month: service.first_month,
+            planned_cents: half1,
+            trigger: "start",
+            status: "scheduled"
+        });
+        out.push({
+            label: "2ª metade",
+            period_month: null,
+            planned_cents: half2,
+            trigger: "completion",
+            status: "waiting_completion"
+        });
+    }
+    return out;
+}
+
+// Is this payable due (this month or earlier) as of `today` (YYYY-MM-DD)?
+function vendorPayableIsDue(p, today) {
+    if (p.status !== "scheduled") { return false; }
+    if (!p.period_month) { return false; }
+    return p.period_month <= vendorMonthOf(today);
+}
+function vendorPayableIsLate(p, today) {
+    return vendorPayableIsDue(p, today) && p.period_month < vendorMonthOf(today);
+}
+function vendorPayableIsUpcoming(p, today) {
+    if (p.status === "waiting_completion") { return true; }
+    if (p.status === "paused" && p.paused_kind === "delay") { return true; }
+    if (p.status !== "scheduled") { return false; }
+    if (!p.period_month) { return false; }
+    return p.period_month > vendorMonthOf(today);
+}
+
+// ── C. PACKAGE PRESETS ──────────────────────────────────────────────────
+var VENDOR_PACKAGE_PRESETS = {
+    advanced: [
+        { vendor_id: "vnd-addon-site", label: "Site estratégico", kind: "split", price_cents: 30000, offset: 0, service_key: "pkg-site" },
+        { vendor_id: "vnd-rais", label: "Gestão de redes sociais", kind: "monthly", price_cents: 22000, months: 6, offset: 0, service_key: "pkg-social" }
+    ],
+    growth: [
+        { vendor_id: "vnd-addon-site", label: "Site estratégico", kind: "split", price_cents: 30000, offset: 0, service_key: "pkg-site" },
+        { vendor_id: "vnd-rais", label: "Gestão de tráfego pago", kind: "monthly", price_cents: 22000, months: 3, offset: 1, service_key: "pkg-traffic" },
+        { vendor_id: "vnd-rais", label: "Gestão de redes sociais", kind: "monthly", price_cents: 22000, months: 3, offset: 1, service_key: "pkg-social" }
+    ]
+};
+
+// ── D. AUTOMATIC CREATION on contract sign ──────────────────────────────
+// Reads data_json.package_key and applies the preset, plus one service per
+// contract add-on that has a vendor_id AND a vendor cost. Idempotent (the
+// unique index on (contract_id, service_key)); never throws into signing.
+async function vendorCreateFromContract(env, contract) {
+    try {
+        // A narrow read of data_json, independent of apxClean: this only
+        // ever reads package_key and addon vendor/cost fields, never writes
+        // anything back, so it cannot affect the contract's own price data.
+        var raw = apxParse(contract.data_json, {}) || {};
+        var d = { package_key: raw.package_key || null, addons: Array.isArray(raw.addons) ? raw.addons : [] };
+        var signMonth = vendorMonthOf(contract.signed_at || gmEasternToday());
+        var preset = VENDOR_PACKAGE_PRESETS[d.package_key] || [];
+        var stmts = [];
+        var toInsert = [];
+
+        preset.forEach(function(p) {
+            toInsert.push({
+                client_id: contract.client_id, vendor_id: p.vendor_id, service_key: p.service_key,
+                label: p.label, kind: p.kind, price_cents: p.price_cents,
+                first_month: vendorAddMonths(signMonth, p.offset || 0), months: p.months || null,
+                source: "contract", contract_id: contract.id, note: null
+            });
+        });
+
+        (d.addons || []).forEach(function(a, i) {
+            var key = "addon-" + (a.key || i);
+            if (!a.vendor_id || a.vendor_cost_cents === null || a.vendor_cost_cents === undefined) {
+                console.log("[vendors] add-on skipped (no vendor or no vendor cost): " + (a.label || key));
+                return;
+            }
+            var kind = a.recurrence === "once" ? "once" : "monthly";
+            toInsert.push({
+                client_id: contract.client_id, vendor_id: a.vendor_id, service_key: key,
+                label: a.label || "Add-on", kind: kind, price_cents: a.vendor_cost_cents,
+                first_month: signMonth, months: kind === "monthly" ? (a.months || 1) : null,
+                source: "contract", contract_id: contract.id, note: null
+            });
+        });
+
+        var created = 0;
+        for (var i = 0; i < toInsert.length; i++) {
+            var s = toInsert[i];
+            var existing = await env.DB.prepare(
+                "SELECT id FROM vendor_services WHERE contract_id = ? AND service_key = ?"
+            ).bind(s.contract_id, s.service_key).first();
+            if (existing) { continue; }
+
+            var svcId = crypto.randomUUID();
+            stmts.push(env.DB.prepare(
+                "INSERT INTO vendor_services (id, client_id, vendor_id, service_key, label, kind, price_cents, first_month, months, status, source, contract_id, note) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)"
+            ).bind(svcId, s.client_id, s.vendor_id, s.service_key, s.label, s.kind, s.price_cents, s.first_month, s.months, s.source, s.contract_id, s.note));
+
+            var payables = vendorBuildPayables(s);
+            payables.forEach(function(p) {
+                stmts.push(env.DB.prepare(
+                    "INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                ).bind(crypto.randomUUID(), svcId, s.client_id, s.vendor_id, p.label, p.period_month, p.planned_cents, p.trigger, p.status));
+            });
+            created++;
+        }
+
+        if (stmts.length) { await env.DB.batch(stmts); }
+        return created;
+    } catch (e) {
+        console.error("[vendors] creation from contract failed: " + (e && e.message));
+        return 0;
+    }
+}
+
+// ── E. MONEY RULES ───────────────────────────────────────────────────────
+
+// REMAINING of a payable.
+function vendorRemaining(p) { return p.planned_cents - p.applied_cents; }
+
+// Apply `amountCents` to a vendor's DUE+LATE payables, oldest first. Returns
+// { allocations: [{payable_id, applied_cents}], leftover_cents, updates: [{id, applied_cents, status, paid_at}] }.
+// Pure function over an array of payable rows (planned_cents, applied_cents,
+// period_month, id, status) already filtered to DUE+LATE and sorted oldest
+// first -- the caller does the SQL and the actual writes.
+function vendorApplyToPayables(payables, amountCents, nowIso) {
+    var left = amountCents;
+    var allocations = [];
+    var updates = [];
+    for (var i = 0; i < payables.length && left > 0; i++) {
+        var p = payables[i];
+        var remaining = vendorRemaining(p);
+        if (remaining <= 0) { continue; }
+        // Tolerance: a payment within 8% above or below what remains settles
+        // it fully; the small difference (shortfall OR excess) is absorbed
+        // right here and never carries to the next payable or to credit.
+        if (left >= Math.ceil(remaining * 0.92)) {
+            var withinToleranceAbove = left <= Math.floor(remaining * 1.08);
+            var take = withinToleranceAbove ? left : remaining;
+            allocations.push({ payable_id: p.id, applied_cents: Math.min(take, remaining) });
+            updates.push({ id: p.id, applied_cents: p.planned_cents, status: "paid", paid_at: nowIso });
+            left -= take;
+        } else {
+            allocations.push({ payable_id: p.id, applied_cents: left });
+            updates.push({ id: p.id, applied_cents: p.applied_cents + left, status: p.status, paid_at: null });
+            left = 0;
+        }
+    }
+    return { allocations: allocations, leftover_cents: left, updates: updates };
+}
+
+async function vendorDuePayablesForVendor(env, vendorId, today) {
+    var res = await env.DB.prepare(
+        "SELECT * FROM vendor_payables WHERE vendor_id = ? AND status = 'scheduled' AND period_month IS NOT NULL AND period_month <= ? " +
+        "ORDER BY period_month ASC, created_at ASC"
+    ).bind(vendorId, vendorMonthOf(today)).all();
+    return res.results || [];
+}
+
+// Apply a payment (real dollars, already determined) to a vendor's due
+// payables, oldest first, writing allocations and payable updates. Returns
+// the batch's unallocated_cents (credit).
+async function vendorApplyPayment(env, vendorId, batchId, amountCents, nowIso) {
+    var today = gmEasternToday();
+    var due = await vendorDuePayablesForVendor(env, vendorId, today);
+    var result = vendorApplyToPayables(due, amountCents, nowIso);
+    var stmts = [];
+    result.allocations.forEach(function(a) {
+        stmts.push(env.DB.prepare(
+            "INSERT INTO vendor_payment_allocations (id, batch_id, payable_id, applied_cents) VALUES (?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), batchId, a.payable_id, a.applied_cents));
+    });
+    result.updates.forEach(function(u) {
+        stmts.push(env.DB.prepare(
+            "UPDATE vendor_payables SET applied_cents = ?, status = ?, paid_at = ? WHERE id = ?"
+        ).bind(u.applied_cents, u.status, u.paid_at, u.id));
+    });
+    stmts.push(env.DB.prepare("UPDATE vendor_payment_batches SET unallocated_cents = ? WHERE id = ?").bind(result.leftover_cents, batchId));
+    if (stmts.length) { await env.DB.batch(stmts); }
+    await vendorFinishServicesIfDone(env, result.updates.map(function(u) { return u.id; }));
+    return result.leftover_cents;
+}
+
+// Apply a SPECIFIC allocation list (Alice's own {payable_id, applied_cents}),
+// all against the same vendor, sum <= amount. Used by the payment route when
+// `allocations` is supplied, and never falls back to automatic spread.
+async function vendorApplyManualAllocations(env, vendorId, batchId, amountCents, allocations, nowIso) {
+    var ids = allocations.map(function(a) { return a.payable_id; });
+    if (!ids.length) { return { ok: false, error: "allocations required" }; }
+    var placeholders = ids.map(function() { return "?"; }).join(",");
+    var rows = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id IN (" + placeholders + ")").bind.apply(null, ids).all();
+    var byId = {};
+    (rows.results || []).forEach(function(r) { byId[r.id] = r; });
+    var sum = 0;
+    var stmts = [];
+    for (var i = 0; i < allocations.length; i++) {
+        var a = allocations[i];
+        var p = byId[a.payable_id];
+        if (!p || p.vendor_id !== vendorId) { return { ok: false, error: "allocation belongs to a different vendor" }; }
+        sum += a.applied_cents;
+    }
+    if (sum > amountCents) { return { ok: false, error: "allocations exceed the amount" }; }
+    for (var j = 0; j < allocations.length; j++) {
+        var al = allocations[j];
+        var pay = byId[al.payable_id];
+        var newApplied = pay.applied_cents + al.applied_cents;
+        var full = newApplied >= pay.planned_cents;
+        stmts.push(env.DB.prepare(
+            "INSERT INTO vendor_payment_allocations (id, batch_id, payable_id, applied_cents) VALUES (?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), batchId, al.payable_id, al.applied_cents));
+        stmts.push(env.DB.prepare(
+            "UPDATE vendor_payables SET applied_cents = ?, status = ?, paid_at = ? WHERE id = ?"
+        ).bind(full ? pay.planned_cents : newApplied, full ? "paid" : pay.status, full ? nowIso : null, al.payable_id));
+    }
+    stmts.push(env.DB.prepare("UPDATE vendor_payment_batches SET unallocated_cents = ? WHERE id = ?").bind(amountCents - sum, batchId));
+    if (stmts.length) { await env.DB.batch(stmts); }
+    await vendorFinishServicesIfDone(env, ids);
+    return { ok: true };
+}
+
+// Apply a vendor's outstanding CREDIT (unallocated_cents of its batches) to
+// payables that are now due. Safe to run repeatedly.
+async function vendorApplyCredit(env, vendorId) {
+    var credits = await env.DB.prepare(
+        "SELECT id, unallocated_cents FROM vendor_payment_batches WHERE vendor_id = ? AND unallocated_cents > 0 ORDER BY created_at ASC"
+    ).bind(vendorId).all();
+    var rows = credits.results || [];
+    for (var i = 0; i < rows.length; i++) {
+        var b = rows[i];
+        var left = await vendorApplyPayment(env, vendorId, b.id, b.unallocated_cents, new Date().toISOString().replace("T", " ").slice(0, 19));
+        if (left !== b.unallocated_cents) {
+            await env.DB.prepare("UPDATE vendor_payment_batches SET unallocated_cents = ? WHERE id = ?").bind(left, b.id).run();
+        }
+    }
+}
+
+async function vendorFinishServicesIfDone(env, payableIds) {
+    if (!payableIds.length) { return; }
+    var placeholders = payableIds.map(function() { return "?"; }).join(",");
+    var svcRows = await env.DB.prepare(
+        "SELECT DISTINCT service_id FROM vendor_payables WHERE id IN (" + placeholders + ")"
+    ).bind.apply(null, payableIds).all();
+    for (var i = 0; i < (svcRows.results || []).length; i++) {
+        var svcId = svcRows.results[i].service_id;
+        var open = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM vendor_payables WHERE service_id = ? AND status NOT IN ('paid','cancelled')"
+        ).bind(svcId).first();
+        if (open.n === 0) {
+            await env.DB.prepare("UPDATE vendor_services SET status = 'finished' WHERE id = ? AND status = 'active'").bind(svcId).run();
+        }
+    }
+}
+
+// OWED NOW / UPCOMING for one vendor, as of `today`.
+async function vendorOwedNow(env, vendorId, today) {
+    var due = await vendorDuePayablesForVendor(env, vendorId, today);
+    var remaining = due.reduce(function(sum, p) { return sum + vendorRemaining(p); }, 0);
+    var credit = await env.DB.prepare(
+        "SELECT COALESCE(SUM(unallocated_cents), 0) AS c FROM vendor_payment_batches WHERE vendor_id = ?"
+    ).bind(vendorId).first();
+    return Math.max(0, remaining - (credit.c || 0));
+}
+async function vendorUpcoming(env, vendorId, today) {
+    var res = await env.DB.prepare(
+        "SELECT * FROM vendor_payables WHERE vendor_id = ? AND (" +
+        "(status = 'scheduled' AND period_month > ?) OR " +
+        "(status = 'paused' AND paused_kind = 'delay') OR " +
+        "status = 'waiting_completion')"
+    ).bind(vendorId, vendorMonthOf(today)).all();
+    var rows = res.results || [];
+    var sum = rows.reduce(function(s, p) { return s + vendorRemaining(p); }, 0);
+    return { cents: sum, rows: rows };
+}
+
+// ── Remitly matching ─────────────────────────────────────────────────────
+function vendorIsRmtlyText(text) { return /RMTLY/i.test(String(text || "")); }
+
+async function vendorUnmatchedRemitlyRaw(env, sinceDaysAgo) {
+    var cutoff = sinceDaysAgo ? new Date(Date.now() - sinceDaysAgo * 86400000).toISOString().slice(0, 10) : null;
+    var res = await env.DB.prepare(
+        "SELECT id, date, amount_cents, description FROM transactions " +
+        "WHERE amount_cents < 0 AND voided_at IS NULL AND UPPER(description) LIKE '%RMTLY%' " +
+        (cutoff ? "AND date >= ? " : "") +
+        "ORDER BY date DESC"
+    ).bind.apply(null, cutoff ? [cutoff] : []).all();
+    var negatives = res.results || [];
+
+    var usedRes = await env.DB.prepare("SELECT transaction_id FROM vendor_payment_batches WHERE transaction_id IS NOT NULL").all();
+    var used = {}; (usedRes.results || []).forEach(function(r) { used[r.transaction_id] = true; });
+    var ignoredRes = await env.DB.prepare("SELECT transaction_id FROM vendor_ignored_transactions").all();
+    var ignored = {}; (ignoredRes.results || []).forEach(function(r) { ignored[r.transaction_id] = true; });
+
+    // Refund pairing: a positive RMTLY transaction cancels the oldest earlier
+    // negative one of the same absolute amount within 10 days, one to one.
+    var posRes = await env.DB.prepare(
+        "SELECT id, date, amount_cents FROM transactions WHERE amount_cents > 0 AND voided_at IS NULL AND UPPER(description) LIKE '%RMTLY%' ORDER BY date ASC"
+    ).all();
+    var positives = (posRes.results || []).slice();
+    var paired = {};
+    negatives.slice().sort(function(a, b) { return a.date < b.date ? -1 : 1; }).forEach(function(neg) {
+        for (var i = 0; i < positives.length; i++) {
+            var pos = positives[i];
+            if (paired[pos.id]) { continue; }
+            if (pos.amount_cents !== -neg.amount_cents) { continue; }
+            var days = (new Date(pos.date) - new Date(neg.date)) / 86400000;
+            if (days < 0 || days > 10) { continue; }
+            paired[pos.id] = true; paired[neg.id] = true;
+            break;
+        }
+    });
+
+    return negatives.filter(function(n) { return !used[n.id] && !ignored[n.id] && !paired[n.id]; });
+}
+
+// A vendor is a candidate for `amountCents` when its owed-now total is
+// within 8% of it, or any single due payable's remaining is within 8%.
+async function vendorCandidatesFor(env, amountCents, today) {
+    var vendors = (await env.DB.prepare("SELECT id FROM vendors WHERE active = 1").all()).results || [];
+    var candidates = [];
+    for (var i = 0; i < vendors.length; i++) {
+        var vid = vendors[i].id;
+        var owed = await vendorOwedNow(env, vid, today);
+        var within = function(a, b) { return b === 0 ? a === 0 : Math.abs(a - b) <= b * 0.08; };
+        var hit = within(amountCents, owed);
+        if (!hit) {
+            var due = await vendorDuePayablesForVendor(env, vid, today);
+            hit = due.some(function(p) { return within(amountCents, vendorRemaining(p)); });
+        }
+        if (hit) { candidates.push(vid); }
+    }
+    return candidates;
+}
+
+// Automatic match: negative RMTLY transactions from the last 14 days only.
+// Exactly one candidate vendor creates an unconfirmed auto batch. Safe to
+// run twice (an already-used transaction is excluded by vendorUnmatchedRemitlyRaw).
+async function vendorAutoMatch(env) {
+    try {
+        var today = gmEasternToday();
+        var candidates = await vendorUnmatchedRemitlyRaw(env, 14);
+        for (var i = 0; i < candidates.length; i++) {
+            var t = candidates[i];
+            var vendorIds = await vendorCandidatesFor(env, Math.abs(t.amount_cents), today);
+            if (vendorIds.length !== 1) { continue; }
+            var batchId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO vendor_payment_batches (id, vendor_id, amount_cents, unallocated_cents, paid_on, transaction_id, auto) " +
+                "VALUES (?, ?, ?, 0, ?, ?, 1)"
+            ).bind(batchId, vendorIds[0], Math.abs(t.amount_cents), t.date, t.id).run();
+            await vendorApplyPayment(env, vendorIds[0], batchId, Math.abs(t.amount_cents), new Date().toISOString().replace("T", " ").slice(0, 19));
+        }
+    } catch (e) {
+        console.error("[vendors] auto match failed: " + (e && e.message));
+    }
+}
+
+// ── F. ROUTES ────────────────────────────────────────────────────────────
+
+async function handleGetVendorsOverview(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var url = new URL(request.url);
+        var month = url.searchParams.get("month") || vendorMonthOf(gmEasternToday());
+        var today = month === vendorMonthOf(gmEasternToday()) ? gmEasternToday() : (month + "-28");
+
+        await vendorAutoMatch(env);
+        var vendors = (await env.DB.prepare("SELECT id FROM vendors WHERE active = 1").all()).results || [];
+        for (var i = 0; i < vendors.length; i++) { await vendorApplyCredit(env, vendors[i].id); }
+
+        var vendorRows = (await env.DB.prepare(
+            "SELECT id, name, vendor_type FROM vendors WHERE active = 1 ORDER BY name"
+        ).all()).results || [];
+
+        var tiles = { total_due_cents: 0, unassigned_remitly_cents: 0, vendors: [] };
+        var out = [];
+        for (var v = 0; v < vendorRows.length; v++) {
+            var vd = vendorRows[v];
+            var due = await vendorDuePayablesForVendor(env, vd.id, today);
+            var creditRow = await env.DB.prepare("SELECT COALESCE(SUM(unallocated_cents), 0) AS c FROM vendor_payment_batches WHERE vendor_id = ?").bind(vd.id).first();
+            var credit = creditRow.c || 0;
+            var rawDue = due.reduce(function(s, p) { return s + vendorRemaining(p); }, 0);
+            var dueTotal = Math.max(0, rawDue - credit);
+            var up = await vendorUpcoming(env, vd.id, today);
+
+            var dueOut = [];
+            for (var di = 0; di < due.length; di++) {
+                var p = due[di];
+                var cl = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(p.client_id).first();
+                var svc = await env.DB.prepare("SELECT label FROM vendor_services WHERE id = ?").bind(p.service_id).first();
+                dueOut.push({
+                    id: p.id, client_id: p.client_id, client_name: cl ? cl.name : null,
+                    service_label: svc ? svc.label : null, label: p.label,
+                    planned_cents: p.planned_cents, remaining_cents: vendorRemaining(p),
+                    status: vendorPayableIsLate(p, today) ? "late" : "due", service_id: p.service_id
+                });
+            }
+            var upOut = [];
+            for (var ui = 0; ui < up.rows.length; ui++) {
+                var up1 = up.rows[ui];
+                var cl2 = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(up1.client_id).first();
+                var svc2 = await env.DB.prepare("SELECT label FROM vendor_services WHERE id = ?").bind(up1.service_id).first();
+                upOut.push({
+                    id: up1.id, client_id: up1.client_id, client_name: cl2 ? cl2.name : null,
+                    service_label: svc2 ? svc2.label : null, label: up1.label,
+                    remaining_cents: vendorRemaining(up1),
+                    period_month: up1.period_month,
+                    status: up1.status === "waiting_completion" ? "waiting_completion" : (up1.paused_kind === "delay" ? "delayed" : "scheduled")
+                });
+            }
+            var paidThisMonth = await env.DB.prepare(
+                "SELECT COALESCE(SUM(amount_cents), 0) AS s FROM vendor_payment_batches WHERE vendor_id = ? AND substr(paid_on,1,7) = ?"
+            ).bind(vd.id, vendorMonthOf(today)).first();
+            var paidToDate = await env.DB.prepare(
+                "SELECT COALESCE(SUM(amount_cents), 0) AS s FROM vendor_payment_batches WHERE vendor_id = ?"
+            ).bind(vd.id).first();
+
+            out.push({
+                id: vd.id, name: vd.name, vendor_type: vd.vendor_type,
+                due: dueOut, due_total_cents: dueTotal, credit_cents: credit,
+                upcoming: upOut, upcoming_cents: up.cents,
+                paid_this_month_actual_cents: paidThisMonth.s || 0, paid_to_date_cents: paidToDate.s || 0
+            });
+            tiles.total_due_cents += dueTotal;
+            tiles.vendors.push({ id: vd.id, name: vd.name, due_cents: dueTotal, upcoming_cents: up.cents });
+        }
+
+        var unmatched = await vendorUnmatchedRemitlyRaw(env, 60);
+        tiles.unassigned_remitly_cents = unmatched.reduce(function(s, t) { return s + Math.abs(t.amount_cents); }, 0);
+        var unconfirmedAuto = (await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM vendor_payment_batches WHERE auto = 1 AND confirmed_at IS NULL"
+        ).first()).n;
+
+        return jsonOk({ tiles: tiles, vendors: out, unassigned_remitly_count: unmatched.length, unconfirmed_auto_count: unconfirmedAuto });
+    } catch (e) {
+        return jsonErr("Error loading vendors overview: " + e.message, 500);
+    }
+}
+
+async function handleGetVendorsForecast(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var url = new URL(request.url);
+        var months = Math.min(12, Math.max(1, parseInt(url.searchParams.get("months") || "6", 10)));
+        var startMonth = vendorMonthOf(gmEasternToday());
+        var vendorRows = (await env.DB.prepare("SELECT id, name FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
+
+        var allPayables = (await env.DB.prepare(
+            "SELECT * FROM vendor_payables WHERE status NOT IN ('paid','cancelled')"
+        ).all()).results || [];
+
+        var months_out = [];
+        for (var i = 0; i < months; i++) {
+            var m = vendorAddMonths(startMonth, i);
+            var row = { month: m, vendors: {}, total_cents: 0 };
+            vendorRows.forEach(function(v) {
+                var sum = allPayables.filter(function(p) {
+                    if (p.vendor_id !== v.id) { return false; }
+                    if (p.status === "waiting_completion" || (p.status === "paused" && p.paused_kind === "delay")) { return false; }
+                    if (!p.period_month) { return false; }
+                    if (i === 0) { return p.period_month <= m; }
+                    return p.period_month === m;
+                }).reduce(function(s, p) { return s + vendorRemaining(p); }, 0);
+                row.vendors[v.id] = sum;
+                row.total_cents += sum;
+            });
+            months_out.push(row);
+        }
+
+        var waiting = {};
+        vendorRows.forEach(function(v) {
+            waiting[v.id] = allPayables.filter(function(p) { return p.vendor_id === v.id && p.status === "waiting_completion"; })
+                .reduce(function(s, p) { return s + vendorRemaining(p); }, 0);
+        });
+
+        return jsonOk({ months: months_out, vendors: vendorRows, waiting_completion: waiting });
+    } catch (e) {
+        return jsonErr("Error loading vendor forecast: " + e.message, 500);
+    }
+}
+
+async function handleGetVendorDetail(vendorId, request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var v = await env.DB.prepare("SELECT * FROM vendors WHERE id = ?").bind(vendorId).first();
+        if (!v) { return jsonErr("Vendor not found", 404); }
+
+        var services = (await env.DB.prepare(
+            "SELECT s.*, c.name AS client_name FROM vendor_services s JOIN clients c ON c.id = s.client_id WHERE s.vendor_id = ? ORDER BY s.created_at DESC"
+        ).bind(vendorId).all()).results || [];
+        for (var i = 0; i < services.length; i++) {
+            services[i].payables = (await env.DB.prepare(
+                "SELECT id, label, period_month, planned_cents, applied_cents, status, paid_at FROM vendor_payables WHERE service_id = ? ORDER BY created_at"
+            ).bind(services[i].id).all()).results || [];
+        }
+
+        var batches = (await env.DB.prepare(
+            "SELECT b.*, (SELECT COUNT(*) FROM vendor_payment_allocations WHERE batch_id = b.id) AS item_count " +
+            "FROM vendor_payment_batches b WHERE b.vendor_id = ? ORDER BY b.paid_on DESC"
+        ).bind(vendorId).all()).results || [];
+
+        return jsonOk({ vendor: v, services: services, batches: batches });
+    } catch (e) {
+        return jsonErr("Error loading vendor: " + e.message, 500);
+    }
+}
+
+async function handleGetVendorByClient(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var services = (await env.DB.prepare(
+            "SELECT s.*, v.name AS vendor_name FROM vendor_services s JOIN vendors v ON v.id = s.vendor_id WHERE s.client_id = ? ORDER BY s.created_at DESC"
+        ).bind(clientId).all()).results || [];
+        var out = [];
+        for (var i = 0; i < services.length; i++) {
+            var s = services[i];
+            var counts = await env.DB.prepare(
+                "SELECT COUNT(*) AS total, SUM(CASE WHEN status IN ('paid','cancelled') THEN 1 ELSE 0 END) AS done FROM vendor_payables WHERE service_id = ?"
+            ).bind(s.id).first();
+            out.push({
+                id: s.id, vendor_name: s.vendor_name, label: s.label, status: s.status,
+                paid_of_total: (counts.done || 0) + " de " + (counts.total || 0)
+            });
+        }
+        return jsonOk({ services: out });
+    } catch (e) {
+        return jsonErr("Error loading client vendors: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorService(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.client_id || !body.vendor_id || !body.label || !body.kind || !body.price_cents || !body.first_month) {
+            return jsonErr2("Preencha todos os campos.", "Fill in every field.", 400);
+        }
+        if (["monthly", "once", "split"].indexOf(body.kind) === -1) { return jsonErr("invalid kind", 400); }
+        if (body.kind === "monthly" && !body.months) { return jsonErr2("Informe o número de meses.", "Enter the number of months.", 400); }
+
+        var svcId = crypto.randomUUID();
+        var service = {
+            kind: body.kind, price_cents: body.price_cents, first_month: body.first_month,
+            months: body.months || null, label: body.label
+        };
+        var stmts = [env.DB.prepare(
+            "INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, months, status, source, note) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 'manual', ?)"
+        ).bind(svcId, body.client_id, body.vendor_id, body.label, body.kind, body.price_cents, body.first_month, body.months || null, body.note || null)];
+
+        vendorBuildPayables(service).forEach(function(p) {
+            stmts.push(env.DB.prepare(
+                "INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(crypto.randomUUID(), svcId, body.client_id, body.vendor_id, p.label, p.period_month, p.planned_cents, p.trigger, p.status));
+        });
+        await env.DB.batch(stmts);
+        return jsonOk({ id: svcId });
+    } catch (e) {
+        return jsonErr("Error creating vendor service: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorServiceCancel(serviceId, request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var svc = await env.DB.prepare("SELECT id FROM vendor_services WHERE id = ?").bind(serviceId).first();
+        if (!svc) { return jsonErr("Service not found", 404); }
+        await env.DB.batch([
+            env.DB.prepare("UPDATE vendor_services SET status = 'cancelled' WHERE id = ?").bind(serviceId),
+            env.DB.prepare("UPDATE vendor_payables SET status = 'cancelled' WHERE service_id = ? AND status NOT IN ('paid','cancelled')").bind(serviceId)
+        ]);
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error cancelling service: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorServiceComplete(serviceId, request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var svc = await env.DB.prepare("SELECT id, kind FROM vendor_services WHERE id = ?").bind(serviceId).first();
+        if (!svc) { return jsonErr("Service not found", 404); }
+        if (svc.kind !== "split") { return jsonErr2("Este serviço não tem uma segunda metade.", "This service has no second half.", 409); }
+        var p = await env.DB.prepare("SELECT id FROM vendor_payables WHERE service_id = ? AND status = 'waiting_completion'").bind(serviceId).first();
+        if (!p) { return jsonErr2("Nada aguardando conclusão.", "Nothing is waiting for completion.", 409); }
+        await env.DB.prepare("UPDATE vendor_payables SET status = 'scheduled', period_month = ? WHERE id = ?").bind(vendorMonthOf(gmEasternToday()), p.id).run();
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error completing service: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorPayableAction(payableId, action, request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        var p = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id = ?").bind(payableId).first();
+        if (!p) { return jsonErr("Payable not found", 404); }
+
+        if (action === "pause") {
+            var reason = String(body.reason || "").trim();
+            if (reason.length < 3 || reason.length > 200) { return jsonErr2("Informe um motivo (3 a 200 caracteres).", "Enter a reason (3 to 200 characters).", 400); }
+            if (p.status !== "scheduled" || p.applied_cents > 0) { return jsonErr2("Este pagamento não pode ser pulado.", "This payable cannot be skipped.", 409); }
+            await env.DB.prepare("UPDATE vendor_payables SET status = 'paused', paused_kind = 'skip', pause_reason = ? WHERE id = ?").bind(reason, payableId).run();
+            return jsonOk({ ok: true });
+        }
+        if (action === "resume") {
+            if (p.status !== "paused" || p.paused_kind !== "skip") { return jsonErr2("Este pagamento não está pulado.", "This payable is not skipped.", 409); }
+            await env.DB.prepare("UPDATE vendor_payables SET status = 'scheduled', paused_kind = NULL, pause_reason = NULL WHERE id = ?").bind(payableId).run();
+            return jsonOk({ ok: true });
+        }
+        if (action === "delay") {
+            if (p.trigger !== "start" || p.status !== "scheduled" || p.applied_cents > 0) { return jsonErr2("Este pagamento não pode ser adiado.", "This payable cannot be delayed.", 409); }
+            var note = String(body.note || "").trim().slice(0, 200) || "Adiado";
+            await env.DB.prepare("UPDATE vendor_payables SET status = 'paused', paused_kind = 'delay', pause_reason = ? WHERE id = ?").bind(note, payableId).run();
+            return jsonOk({ ok: true });
+        }
+        if (action === "start") {
+            if (p.status !== "paused" || p.paused_kind !== "delay") { return jsonErr2("Este pagamento não está adiado.", "This payable is not delayed.", 409); }
+            await env.DB.prepare("UPDATE vendor_payables SET status = 'scheduled', paused_kind = NULL, pause_reason = NULL, period_month = ? WHERE id = ?")
+                .bind(vendorMonthOf(gmEasternToday()), payableId).run();
+            return jsonOk({ ok: true });
+        }
+        return jsonErr("Unknown action", 400);
+    } catch (e) {
+        return jsonErr("Error updating payable: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorPayment(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.vendor_id || !body.paid_on) { return jsonErr2("Preencha o fornecedor e a data.", "Fill in the vendor and the date.", 400); }
+
+        var amountCents, txnId = null;
+        if (body.transaction_id) {
+            var txn = await env.DB.prepare("SELECT id, amount_cents FROM transactions WHERE id = ?").bind(body.transaction_id).first();
+            if (!txn || txn.amount_cents >= 0 || !vendorIsRmtlyText((await env.DB.prepare("SELECT description FROM transactions WHERE id = ?").bind(body.transaction_id).first()).description)) {
+                return jsonErr2("Transação inválida.", "Invalid transaction.", 400);
+            }
+            var usedCheck = await env.DB.prepare("SELECT id FROM vendor_payment_batches WHERE transaction_id = ?").bind(body.transaction_id).first();
+            if (usedCheck) { return jsonErr2("Esta transação já foi usada.", "This transaction was already used.", 409); }
+            var ignoredCheck = await env.DB.prepare("SELECT 1 FROM vendor_ignored_transactions WHERE transaction_id = ?").bind(body.transaction_id).first();
+            if (ignoredCheck) { return jsonErr2("Esta transação foi ignorada.", "This transaction was ignored.", 409); }
+            amountCents = Math.abs(txn.amount_cents);
+            txnId = body.transaction_id;
+        } else {
+            if (!body.amount_cents) { return jsonErr2("Informe o valor.", "Enter the amount.", 400); }
+            amountCents = body.amount_cents;
+        }
+
+        var batchId = crypto.randomUUID();
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        await env.DB.prepare(
+            "INSERT INTO vendor_payment_batches (id, vendor_id, amount_cents, unallocated_cents, paid_on, transaction_id, note, created_by, auto, confirmed_at, confirmed_by) " +
+            "VALUES (?, ?, ?, 0, ?, ?, ?, ?, 0, ?, ?)"
+        ).bind(batchId, body.vendor_id, amountCents, body.paid_on, txnId, body.note || null, actorName(a.user), nowIso, actorName(a.user)).run();
+
+        if (body.allocations && body.allocations.length) {
+            var out = await vendorApplyManualAllocations(env, body.vendor_id, batchId, amountCents, body.allocations, nowIso);
+            if (!out.ok) {
+                await env.DB.prepare("DELETE FROM vendor_payment_batches WHERE id = ?").bind(batchId).run();
+                return jsonErr2(out.error, out.error, 400);
+            }
+        } else {
+            await vendorApplyPayment(env, body.vendor_id, batchId, amountCents, nowIso);
+        }
+        return jsonOk({ id: batchId });
+    } catch (e) {
+        return jsonErr("Error recording payment: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorPaymentQuick(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.transaction_id || !body.vendor_id) { return jsonErr("transaction_id and vendor_id required", 400); }
+        var txn = await env.DB.prepare("SELECT id, amount_cents, date, description FROM transactions WHERE id = ?").bind(body.transaction_id).first();
+        if (!txn || txn.amount_cents >= 0 || !vendorIsRmtlyText(txn.description)) { return jsonErr2("Transação inválida.", "Invalid transaction.", 400); }
+        var usedCheck = await env.DB.prepare("SELECT id FROM vendor_payment_batches WHERE transaction_id = ?").bind(body.transaction_id).first();
+        if (usedCheck) { return jsonErr2("Esta transação já foi usada.", "This transaction was already used.", 409); }
+
+        var batchId = crypto.randomUUID();
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        await env.DB.prepare(
+            "INSERT INTO vendor_payment_batches (id, vendor_id, amount_cents, unallocated_cents, paid_on, transaction_id, created_by, auto, confirmed_at, confirmed_by) " +
+            "VALUES (?, ?, ?, 0, ?, ?, ?, 0, ?, ?)"
+        ).bind(batchId, body.vendor_id, Math.abs(txn.amount_cents), txn.date, body.transaction_id, actorName(a.user), nowIso, actorName(a.user)).run();
+        await vendorApplyPayment(env, body.vendor_id, batchId, Math.abs(txn.amount_cents), nowIso);
+        return jsonOk({ id: batchId });
+    } catch (e) {
+        return jsonErr("Error recording payment: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorBatchAction(batchId, action, request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var batch = await env.DB.prepare("SELECT * FROM vendor_payment_batches WHERE id = ?").bind(batchId).first();
+        if (!batch) { return jsonErr("Batch not found", 404); }
+
+        if (action === "confirm") {
+            await env.DB.prepare("UPDATE vendor_payment_batches SET confirmed_at = ?, confirmed_by = ? WHERE id = ?")
+                .bind(new Date().toISOString().replace("T", " ").slice(0, 19), actorName(a.user), batchId).run();
+            return jsonOk({ ok: true });
+        }
+
+        if (action === "undo") {
+            var allocs = (await env.DB.prepare("SELECT * FROM vendor_payment_allocations WHERE batch_id = ?").bind(batchId).all()).results || [];
+            var stmts = [];
+            for (var i = 0; i < allocs.length; i++) {
+                var al = allocs[i];
+                var p = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id = ?").bind(al.payable_id).first();
+                if (!p) { continue; }
+                var newApplied = Math.max(0, p.applied_cents - al.applied_cents);
+                var status = newApplied <= 0 ? "scheduled" : p.status;
+                if (p.status === "paid") { status = newApplied >= p.planned_cents ? "paid" : "scheduled"; }
+                stmts.push(env.DB.prepare("UPDATE vendor_payables SET applied_cents = ?, status = ?, paid_at = NULL WHERE id = ?")
+                    .bind(newApplied, status, al.payable_id));
+            }
+            stmts.push(env.DB.prepare("DELETE FROM vendor_payment_allocations WHERE batch_id = ?").bind(batchId));
+            stmts.push(env.DB.prepare("DELETE FROM vendor_payment_batches WHERE id = ?").bind(batchId));
+            await env.DB.batch(stmts);
+            return jsonOk({ ok: true });
+        }
+
+        if (action === "reallocate") {
+            var body = await request.json().catch(function() { return {}; });
+            var newAllocs = body.allocations || [];
+            var sum = newAllocs.reduce(function(s, x) { return s + x.applied_cents; }, 0);
+            if (sum > batch.amount_cents) { return jsonErr2("A soma excede o valor do pagamento.", "The sum exceeds the payment amount.", 400); }
+
+            var oldAllocs = (await env.DB.prepare("SELECT * FROM vendor_payment_allocations WHERE batch_id = ?").bind(batchId).all()).results || [];
+            var before = 0, after = 0;
+            var stmts2 = [];
+            for (var j = 0; j < oldAllocs.length; j++) {
+                var oa = oldAllocs[j];
+                var op = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id = ?").bind(oa.payable_id).first();
+                if (!op) { continue; }
+                if (op.status === "paid") { before += op.planned_cents; }
+                var restored = Math.max(0, op.applied_cents - oa.applied_cents);
+                stmts2.push(env.DB.prepare("UPDATE vendor_payables SET applied_cents = ?, status = CASE WHEN ? >= planned_cents THEN 'paid' ELSE 'scheduled' END, paid_at = NULL WHERE id = ?")
+                    .bind(restored, restored, oa.payable_id));
+            }
+            stmts2.push(env.DB.prepare("DELETE FROM vendor_payment_allocations WHERE batch_id = ?").bind(batchId));
+
+            var nowIso2 = new Date().toISOString().replace("T", " ").slice(0, 19);
+            for (var k = 0; k < newAllocs.length; k++) {
+                var na = newAllocs[k];
+                var np = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id = ?").bind(na.payable_id).first();
+                if (!np || np.vendor_id !== batch.vendor_id) { return jsonErr2("Item de outro fornecedor.", "Item belongs to a different vendor.", 400); }
+                var fresh = oldAllocs.some(function(o) { return o.payable_id === na.payable_id; }) ?
+                    Math.max(0, np.applied_cents - (oldAllocs.find(function(o) { return o.payable_id === na.payable_id; }).applied_cents)) : np.applied_cents;
+                var newApplied2 = fresh + na.applied_cents;
+                var full2 = newApplied2 >= np.planned_cents;
+                if (full2) { after += np.planned_cents; }
+                stmts2.push(env.DB.prepare("INSERT INTO vendor_payment_allocations (id, batch_id, payable_id, applied_cents) VALUES (?, ?, ?, ?)")
+                    .bind(crypto.randomUUID(), batchId, na.payable_id, na.applied_cents));
+                stmts2.push(env.DB.prepare("UPDATE vendor_payables SET applied_cents = ?, status = ?, paid_at = ? WHERE id = ?")
+                    .bind(full2 ? np.planned_cents : newApplied2, full2 ? "paid" : "scheduled", full2 ? nowIso2 : null, na.payable_id));
+            }
+            stmts2.push(env.DB.prepare("UPDATE vendor_payment_batches SET unallocated_cents = ? WHERE id = ?").bind(batch.amount_cents - sum, batchId));
+            await env.DB.batch(stmts2);
+            return jsonOk({ ok: true, owed_change_cents: after - before });
+        }
+        return jsonErr("Unknown action", 400);
+    } catch (e) {
+        return jsonErr("Error on batch action: " + e.message, 500);
+    }
+}
+
+async function handleGetVendorsRemitlyUnmatched(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        await vendorAutoMatch(env);
+        var today = gmEasternToday();
+        var rows = await vendorUnmatchedRemitlyRaw(env, 60);
+        var out = [];
+        for (var i = 0; i < rows.length; i++) {
+            var t = rows[i];
+            var cands = await vendorCandidatesFor(env, Math.abs(t.amount_cents), today);
+            var hint = (cands.length === 1 && (new Date(today) - new Date(t.date)) / 86400000 <= 14) ? cands[0] : null;
+            out.push({
+                id: t.id, date: t.date, amount_cents: Math.abs(t.amount_cents),
+                description: String(t.description || "").replace(/X{4,}/g, ""),
+                hint_vendor_id: hint
+            });
+        }
+        return jsonOk({ transactions: out });
+    } catch (e) {
+        return jsonErr("Error loading Remitly transactions: " + e.message, 500);
+    }
+}
+
+async function handlePostVendorsRemitlyIgnore(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body.transaction_id) { return jsonErr("transaction_id required", 400); }
+        await env.DB.prepare("INSERT OR REPLACE INTO vendor_ignored_transactions (transaction_id, reason) VALUES (?, ?)")
+            .bind(body.transaction_id, body.reason || null).run();
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error ignoring transaction: " + e.message, 500);
     }
 }

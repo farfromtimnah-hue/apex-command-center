@@ -42205,7 +42205,7 @@ async function sendApns(env, row, payloadObj) {
             : "https://api.push.apple.com";
         var topic = row.bundle_id || String(env.APNS_BUNDLE_ID || "");
 
-        var body = JSON.stringify({
+        var apnsPayload = {
             aps: {
                 alert: {
                     title: payloadObj.title || "Apex",
@@ -42223,7 +42223,11 @@ async function sendApns(env, row, payloadObj) {
             // The web-push payload already carries a url for the click handler;
             // pass it through unchanged so both transports deep-link the same.
             url: payloadObj.url || null
-        });
+        };
+        // time-sensitive pierces Focus (the entitlement is granted in the app);
+        // only set when the caller asks for it (appointment reminders).
+        if (payloadObj.interruptionLevel) { apnsPayload.aps["interruption-level"] = payloadObj.interruptionLevel; }
+        var body = JSON.stringify(apnsPayload);
 
         var res = await fetch(host + "/3/device/" + row.token, {
             method: "POST",
@@ -42343,6 +42347,217 @@ async function pushToUsers(env, emails, payloadObj) {
     }
     return { sent: sent, removed: removed, failed: failed, skipped_duplicates: skipped,
              total: subs.length + toks.length };
+}
+
+// ---------------------------------------------------------------------------
+// APPOINTMENT REMINDERS. Pr. Rafa asked (2026-10-15) for a push one hour
+// before every appointment, for staff and for clients' own calendars. Nicole
+// had designed a time-sensitive meeting push at iOS-build time (prompt written
+// 2026-09-06, never run); this is that job. The delivery pipe (pushToUsers /
+// sendApns / sendWebPush) already existed and is untouched except for the
+// optional time-sensitive flag.
+//
+// Runs on every 5-minute cron tick. A tick that has nothing due costs two
+// indexed SELECTs (sessions, gm_events). Times in both tables are the
+// business's LOCAL wall clock (APEX_TIMEZONE), so the window is computed as
+// local wall-clock strings and compared as strings: no offset arithmetic, and
+// DST needs no special case.
+//
+// Add a lead time (for example 15) by adding it to the list below.
+// ---------------------------------------------------------------------------
+var APPT_REMINDER_LEADS_MIN = [60];
+var APPT_REMINDER_WINDOW_MIN = 10;
+// sessions.created_by is a display label, not an email. This maps it to the
+// staff role that gets the push. 'Agendamento pelo cliente' (booked through the
+// scheduling link) and 'google_calendar' (synced from the connected Google
+// calendar) are Pr. Rafa's; anything else (for example 'fireflies') has no
+// owner and is skipped and counted, never guessed.
+var APPT_REMINDER_OWNER_ROLE = { "Rafa": "rafa", "Alice": "alice", "Nicole": "developer", "Agendamento pelo cliente": "rafa", "google_calendar": "rafa" };
+
+function apptRemWall(ms, tz) {
+    var fmt;
+    try {
+        fmt = new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz || APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+        });
+    } catch (e) {
+        // An unrecognised zone name on a client row: fall back to the business zone.
+        fmt = new Intl.DateTimeFormat("en-CA", {
+            timeZone: APEX_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+        });
+    }
+    var parts = fmt.formatToParts(new Date(ms));
+    var o = {};
+    parts.forEach(function(p) { o[p.type] = p.value; });
+    return o.year + "-" + o.month + "-" + o.day + " " + o.hour + ":" + o.minute;
+}
+
+// "9:30", "09:30", "09:30:00" -> "09:30". Anything else -> null.
+function apptRemTime(t) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(t == null ? "" : t).trim());
+    if (!m) { return null; }
+    var h = Number(m[1]);
+    if (h > 23 || Number(m[2]) > 59) { return null; }
+    return (h < 10 ? "0" : "") + h + ":" + m[2];
+}
+
+function apptRemFmt12(hhmm) {
+    var h = Number(hhmm.slice(0, 2));
+    var ap = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ":" + hhmm.slice(3, 5) + " " + ap;
+}
+
+function apptRemLead(min, pt) {
+    if (min === 60) { return pt ? "1 hora" : "1 hour"; }
+    if (min % 60 === 0) { return (min / 60) + (pt ? " horas" : " hours"); }
+    return min + (pt ? " minutos" : " minutes");
+}
+
+async function apptRemFindSessions(env, lo, hi) {
+    var res = await env.DB.prepare(
+        "SELECT id, client_name, date, time, session_type, location, created_by FROM sessions " +
+        "WHERE date >= ? AND date <= ? AND time IS NOT NULL AND time != '' " +
+        "AND status NOT IN ('discarded', 'cancelled', 'inbox', 'archived')"
+    ).bind(lo.slice(0, 10), hi.slice(0, 10)).all();
+    var rows = [], badTime = 0;
+    (res.results || []).forEach(function(r) {
+        var t = apptRemTime(r.time);
+        if (!t) { badTime++; return; }
+        var wall = r.date + " " + t;
+        if (wall > lo && wall <= hi) { rows.push({ id: r.id, client_name: r.client_name, date: r.date, time: t, session_type: r.session_type, location: r.location, created_by: r.created_by }); }
+    });
+    return { rows: rows, bad_time: badTime };
+}
+
+// A client's own calendar is in THAT client's zone (clients.timezone, falling
+// back to the business zone): a customer's time follows their device, so the
+// window is computed per row's zone, never converted.
+async function apptRemFindClientEvents(env, loMs, hiMs) {
+    var res = await env.DB.prepare(
+        "SELECT e.id, e.client_id, e.title, e.event_date, e.start_time, e.location, c.language AS language, c.timezone AS timezone " +
+        "FROM gm_events e JOIN clients c ON c.id = e.client_id " +
+        "WHERE e.event_date >= ? AND e.event_date <= ? AND COALESCE(e.all_day, 0) = 0 " +
+        "AND e.start_time IS NOT NULL AND e.start_time != '' " +
+        "AND c.status IN ('active', 'paused') AND COALESCE(c.archived, 0) = 0"
+    ).bind(apptRemWall(loMs - 86400000).slice(0, 10), apptRemWall(hiMs + 86400000).slice(0, 10)).all();
+    var rows = [], badTime = 0, zoneWalls = {};
+    (res.results || []).forEach(function(r) {
+        var t = apptRemTime(r.start_time);
+        if (!t) { badTime++; return; }
+        var zone = r.timezone || APEX_TIMEZONE;
+        if (!zoneWalls[zone]) { zoneWalls[zone] = { lo: apptRemWall(loMs, zone), hi: apptRemWall(hiMs, zone) }; }
+        var wall = r.event_date + " " + t;
+        if (wall > zoneWalls[zone].lo && wall <= zoneWalls[zone].hi) { rows.push({ id: r.id, client_id: r.client_id, title: r.title, date: r.event_date, time: t, location: r.location, language: r.language }); }
+    });
+    return { rows: rows, bad_time: badTime };
+}
+
+async function apptRemRoleEmails(env, cache, role) {
+    if (cache[role]) { return cache[role]; }
+    var r = await env.DB.prepare("SELECT email FROM users WHERE role = ?").bind(role).all();
+    cache[role] = (r.results || []).map(function(x) { return x.email; }).filter(function(e) { return !!e; });
+    return cache[role];
+}
+
+async function apptRemSend(env, key, emails, payload, out) {
+    var seen = await env.DB.prepare("SELECT 1 AS x FROM push_sent_log WHERE dedupe_key = ?").bind(key).first();
+    if (seen) { out.already_sent++; return; }
+    var r = await pushToUsers(env, emails, payload);
+    if (r && r.sent > 0) {
+        out.sent++;
+        await env.DB.prepare("INSERT OR IGNORE INTO push_sent_log (dedupe_key) VALUES (?)").bind(key).run();
+    } else if (r && r.total === 0) {
+        // Nobody has a registered device: nothing to retry.
+        out.no_devices++;
+        await env.DB.prepare("INSERT OR IGNORE INTO push_sent_log (dedupe_key) VALUES (?)").bind(key).run();
+    } else {
+        // A failed send is NOT marked as sent: the next tick inside the window retries.
+        out.failed++;
+    }
+}
+
+// opts: { dry: true } lists what would be sent without sending or recording;
+//       { horizonHours: N } (dry only) lists everything eligible in the next N hours;
+//       { nowMs: epoch } overrides the clock (tests).
+async function runAppointmentReminders(env, opts) {
+    opts = opts || {};
+    var dry = !!opts.dry;
+    var nowMs = opts.nowMs || Date.now();
+    var out = { dry: dry, staff: [], clients: [], skipped_no_owner: 0, skipped_bad_time: 0, already_sent: 0, sent: 0, failed: 0, no_devices: 0 };
+    var roleCache = {};
+    try {
+        var windows = [];
+        if (opts.horizonHours) {
+            windows.push({ lead: null, loMs: nowMs, hiMs: nowMs + opts.horizonHours * 3600000 });
+        } else {
+            APPT_REMINDER_LEADS_MIN.forEach(function(L) {
+                windows.push({ lead: L, loMs: nowMs + (L - APPT_REMINDER_WINDOW_MIN) * 60000, hiMs: nowMs + L * 60000 });
+            });
+        }
+        for (var wi = 0; wi < windows.length; wi++) {
+            var W = windows[wi];
+            var leadMin = W.lead || 60;
+            var loMs = W.loMs, hiMs = W.hiMs;
+
+            var sf = await apptRemFindSessions(env, apptRemWall(loMs), apptRemWall(hiMs));
+            out.skipped_bad_time += sf.bad_time;
+            for (var si = 0; si < sf.rows.length; si++) {
+                var s = sf.rows[si];
+                var role = APPT_REMINDER_OWNER_ROLE[String(s.created_by || "")];
+                var emails = role ? await apptRemRoleEmails(env, roleCache, role) : [];
+                if (!emails.length) { out.skipped_no_owner++; continue; }
+                var place = s.session_type === "online_meet" ? "online" : (s.location ? String(s.location) : "");
+                var payload = {
+                    title: ("Em " + apptRemLead(leadMin, true) + ": " + String(s.client_name || "Compromisso")).slice(0, 80),
+                    body: (apptRemFmt12(s.time) + (place ? " · " + place : "")).slice(0, 160),
+                    url: "/calendar.html", tag: "appt-s-" + s.id, interruptionLevel: "time-sensitive"
+                };
+                if (dry) { out.staff.push({ id: s.id, name: s.client_name, when: s.date + " " + s.time, owner: s.created_by, role: role, recipients: emails.length }); continue; }
+                await apptRemSend(env, "apptrem:s:" + s.id + ":" + leadMin, emails, payload, out);
+            }
+
+            var ce = await apptRemFindClientEvents(env, loMs, hiMs);
+            out.skipped_bad_time += ce.bad_time;
+            for (var ci = 0; ci < ce.rows.length; ci++) {
+                var e = ce.rows[ci];
+                var targets = await gmClientPushTargets(env, e.client_id, { owner: true });
+                if (!targets.length) { out.skipped_no_owner++; continue; }
+                var pt = e.language !== "en";
+                var cplace = e.location ? String(e.location) : "";
+                var cpayload = {
+                    title: ((pt ? "Em " : "In ") + apptRemLead(leadMin, pt) + ": " + String(e.title || (pt ? "Compromisso" : "Appointment"))).slice(0, 80),
+                    body: (apptRemFmt12(e.time) + (cplace ? " · " + cplace : "")).slice(0, 160),
+                    url: "/portal.html?tab=gmcalendar", tag: "appt-g-" + e.id, interruptionLevel: "time-sensitive"
+                };
+                if (dry) { out.clients.push({ id: e.id, client_id: e.client_id, title: e.title, when: e.date + " " + e.time, recipients: targets.length }); continue; }
+                await apptRemSend(env, "apptrem:g:" + e.id + ":" + leadMin, targets, cpayload, out);
+            }
+        }
+    } catch (err) {
+        out.error = String(err && err.message ? err.message : err);
+        console.log("runAppointmentReminders failed: " + out.error);
+    }
+    return out;
+}
+
+// GET /api/appointment-reminders/dry-run?horizon_hours=24  (developer only)
+async function handleGetApptReminderDryRun(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var h = Number(new URL(request.url).searchParams.get("horizon_hours"));
+        if (!isFinite(h) || h <= 0) { h = 24; }
+        if (h > 72) { h = 72; }
+        var out = await runAppointmentReminders(env, { dry: true, horizonHours: h });
+        return jsonOk({ horizon_hours: h, staff_count: out.staff.length, client_count: out.clients.length,
+            skipped_no_owner: out.skipped_no_owner, skipped_bad_time: out.skipped_bad_time, staff: out.staff, clients: out.clients });
+    } catch (e) {
+        return jsonErr("Error: " + e.message, 500);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -49712,6 +49927,14 @@ export default {
     // API on any failure. Successes are silent (no daily "all good" noise).
     // -------------------------------------------------------------------
     scheduled: async function(event, env, ctx) {
+        // The cron now ticks every 5 minutes (appointment reminders need it). The
+        // reminder job runs on EVERY tick; everything else below keeps its old
+        // 4-hourly cadence (the tick at UTC 00:00, 04:00, 08:00 ...).
+        ctx.waitUntil(runAppointmentReminders(env).catch(function(e) {
+            console.log("appointment reminders failed: " + (e && e.message));
+        }));
+        var tickAt = new Date(event && event.scheduledTime ? event.scheduledTime : Date.now());
+        if (!(tickAt.getUTCHours() % 4 === 0 && tickAt.getUTCMinutes() < 5)) { return; }
         // Three INDEPENDENT waitUntil calls, deliberately not chained. A Zoho
         // refresh failure inside checkIntegrationHealth must not stop the Plaid
         // sync, and neither may stop recurring invoice generation -- a missed
@@ -51138,6 +51361,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/finance-new/club/events"       && method === "POST") { return handlePostFinanceNewClubEvent(request, env); }
         if (path === "/api/finance-new/club/confirm"      && method === "POST") { return handlePostFinanceNewClubConfirm(request, env); }
         if (path === "/api/finance-new/club/registrations" && method === "POST") { return handlePostFinanceNewClubAddGuest(request, env); }
+        if (path === "/api/appointment-reminders/dry-run" && method === "GET") { return handleGetApptReminderDryRun(request, env); }
 
         // Edit / delete one event, and upload its flyer.
         var clubEvMatch = path.match(/^\/api\/finance-new\/club\/events\/([A-Za-z0-9-]+)$/);

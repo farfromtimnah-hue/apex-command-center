@@ -32,7 +32,7 @@ bucket_name = "apex-command-center"
 # Telegram DM on failure, instead of finding out when a client hits a broken
 # button. See worker/index.js checkIntegrationHealth().
 [triggers]
-crons = ["0 */4 * * *"]
+crons = ["*/5 * * * *"]
 
 # These vars are placeholders only.
 # Required Worker Secrets (set via `wrangler secret put <NAME>`, never commit real keys here):

@@ -8,26 +8,35 @@ let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail++; };
 
 const FNS = [
-  "vendorBuildPayables", "vendorAddMonths", "vendorMonthOf", "vendorRemaining",
-  "vendorPayableIsDue", "vendorPayableIsLate", "vendorPayableIsUpcoming",
-  "vendorApplyToPayables", "vendorDuePayablesForVendor", "vendorApplyPayment",
-  "vendorApplyManualAllocations", "vendorApplyCredit", "vendorOwedNow", "vendorUpcoming",
+  "vendorBuildPayables", "vendorAddMonths", "vendorMonthOf", "vendorMonthCompare", "vendorRemaining",
+  "vendorPayableIsDue", "vendorPayableIsLate", "vendorPayableIsUpcoming", "vendorPayableDatePasses",
+  "vendorApplyToPayables", "vendorAutoApplyToPayables", "vendorDuePayablesForVendor", "vendorDuePayablesForVendorOnDate", "vendorApplyPayment",
+  "vendorApplyPaymentOnDate", "vendorApplyManualAllocations", "vendorApplyCredit", "vendorOwedNow", "vendorUpcoming",
   "vendorIsRmtlyText", "vendorUnmatchedRemitlyRaw", "vendorCandidatesFor", "vendorAutoMatch",
+  "vendorLinkSentBatches", "vendorClawBackShortfall", "vendorMarkReviewed",
   "vendorCreateFromContract", "vendorFinishServicesIfDone",
+  "vendorQuestionValidateReply", "vendorQuestionAskClaude", "vendorQuestionRateLimited",
+  "vendorApplyDiproFirstMonth", "vendorApplyGoldenSiteHalves",
   "handleGetVendorsOverview", "handleGetVendorsForecast", "handleGetVendorDetail", "handleGetVendorByClient",
+  "handleGetVendorChangeOptions", "handleGetVendorsAutoBatches", "handleGetVendorQuestions",
   "handlePostVendorService", "handlePostVendorServiceCancel", "handlePostVendorServiceComplete",
-  "handlePostVendorPayableAction", "handlePostVendorPayment", "handlePostVendorPaymentQuick",
+  "handlePostVendorPayableAction", "handlePostVendorPayment", "handlePostVendorPaymentQuick", "handlePostVendorPaymentSent",
   "handlePostVendorBatchAction", "handleGetVendorsRemitlyUnmatched", "handlePostVendorsRemitlyIgnore",
+  "handlePostVendorQuestionAnswer", "handlePostVendorQuestionApply",
   "apxParse", "vendorAuth", "vendorAuthed"
 ];
-const VARS = ["VENDOR_PACKAGE_PRESETS"];
+const VARS = ["VENDOR_PACKAGE_PRESETS", "VENDOR_QUESTION_SCHEMAS", "BILL_EMAIL_MODEL"];
+
+const MIGRATIONS = ["migrations/vendors.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql", "migrations/2026-10-15_vendor_matching_round2.sql"];
 
 function world(stubOverrides) {
-  const d = makeDb(["migrations/vendors.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql"]);
+  const d = makeDb(MIGRATIONS);
   const stubs = Object.assign({}, baseStubs, {
     gmEasternToday: () => TODAY,
     authenticate: async () => ({ role: "alice", display_name: "Alice" }),
-    jsonErr2: function (pt, en, status) { return { status: status || 400, error: en, error_pt: pt, error_en: en }; }
+    jsonErr2: function (pt, en, status) { return { status: status || 400, error: en, error_pt: pt, error_en: en }; },
+    CLAUDE_API_URL: "https://x.test/claude",
+    fetch: async function () { throw new Error("fetch should be stubbed per-test"); }
   }, stubOverrides || {});
   const F = build(FNS, VARS, stubs);
   return { d, env: { DB: d.DB }, F };
@@ -418,7 +427,7 @@ function seedVendor(d, id, name, type) {
 
 // ── Role gates ────────────────────────────────────────────────────────────
 {
-  const d = makeDb(["migrations/vendors.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql"]);
+  const d = makeDb(MIGRATIONS);
   const F = build(FNS, VARS, Object.assign({}, baseStubs, { jsonErr2: function (pt, en, status) { return { status: status || 400, error: en }; }, gmEasternToday: () => TODAY, authenticate: async () => ({ role: "rafa", display_name: "Rafa" }) }));
   const env = { DB: d.DB };
   let r = await F.handleGetVendorsOverview(req({}, "https://x/?month=2026-10"), env);
@@ -435,6 +444,226 @@ function seedVendor(d, id, name, type) {
   const F4 = build(FNS, VARS, Object.assign({}, baseStubs, { jsonErr2: function (pt, en, status) { return { status: status || 400, error: en }; }, gmEasternToday: () => TODAY, authenticate: async () => ({ role: "developer", display_name: "Dev" }) }));
   r = await F4.handleGetVendorsOverview(req({}, "https://x/?month=2026-10"), env);
   ok(r.status === 200, "developer passes");
+}
+
+// ═══════════════ ROUND 2 ═══════════════════════════════════════════════════
+
+// ── The date rule: a service's starts_on excludes earlier transactions ────
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd1", "V1");
+  // starts_on 2026-10-14 (contract signed that day) -- a payment dated
+  // 2026-10-08 (before signing) must never be matched to it.
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source, starts_on) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 15571, '2026-10', 'active', 'manual', '2026-10-14')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 15571, 'month', 'scheduled')").run();
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tearly', 'a1', -15571, '2026-10-08', 'PMNT SENT RMTLY* X')").run();
+  await w.F.vendorAutoMatch(w.env);
+  ok(w.d.q("SELECT COUNT(*) AS n FROM vendor_payment_batches")[0].n === 0, "a transaction dated before starts_on is never matched to that service");
+
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tlate', 'a1', -15571, '2026-10-20', 'PMNT SENT RMTLY* X')").run();
+  await w.F.vendorAutoMatch(w.env);
+  ok(w.d.q("SELECT COUNT(*) AS n FROM vendor_payment_batches")[0].n === 1, "a transaction dated on/after starts_on matches normally");
+
+  // starts_on NULL -> the date rule does not apply.
+  const w2 = world();
+  seedClient(w2.d, "c1"); seedVendor(w2.d, "vnd1", "V1");
+  w2.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source, starts_on) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 10000, '2026-10', 'active', 'manual', NULL)").run();
+  w2.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 10000, 'month', 'scheduled')").run();
+  w2.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tnull', 'a1', -10000, ?, 'PMNT SENT RMTLY* X')").run(TODAY);
+  await w2.F.vendorAutoMatch(w2.env);
+  ok(w2.d.q("SELECT COUNT(*) AS n FROM vendor_payment_batches")[0].n === 1, "starts_on NULL: the date rule does not apply, matches normally");
+}
+
+// ── A transaction in vendor_match_reviews is never auto-matched again ────
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd1", "V1");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 25000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 25000, 'month', 'scheduled')").run();
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('trev', 'a1', -25000, ?, 'PMNT SENT RMTLY* X')").run(TODAY);
+  await w.F.vendorAutoMatch(w.env);
+  const batch = w.d.q("SELECT * FROM vendor_payment_batches WHERE transaction_id = 'trev'")[0];
+  ok(!!batch, "auto match creates a batch");
+  await w.F.handlePostVendorBatchAction(batch.id, "undo", req({}), w.env);
+  ok(w.d.q("SELECT * FROM vendor_match_reviews WHERE transaction_id = 'trev'").length === 1, "undo puts the transaction into vendor_match_reviews");
+  await w.F.vendorAutoMatch(w.env);
+  ok(w.d.q("SELECT COUNT(*) AS n FROM vendor_payment_batches")[0].n === 0, "a reviewed (undone) transaction is never auto-matched again");
+  ok(w.d.q("SELECT * FROM vendor_ignored_transactions WHERE transaction_id = 'trev'").length === 0, "undo does not touch vendor_ignored_transactions");
+}
+
+// ── Single fitting payable settles alone; others untouched ────────────────
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd1", "V1");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 15000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s2', 'c1', 'vnd1', 'B', 'once', 22000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status, created_at) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 15000, 'month', 'scheduled', '2026-01-01')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status, created_at) VALUES ('p2', 's2', 'c1', 'vnd1', 'B', '2026-10', 22000, 'month', 'scheduled', '2026-01-02')").run();
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tfit', 'a1', -22000, ?, 'PMNT SENT RMTLY* X')").run(TODAY);
+  await w.F.vendorAutoMatch(w.env);
+  const p1 = w.d.q("SELECT * FROM vendor_payables WHERE id = 'p1'")[0];
+  const p2 = w.d.q("SELECT * FROM vendor_payables WHERE id = 'p2'")[0];
+  ok(p1.status === "scheduled" && p1.applied_cents === 0, "the non-fitting older payable is untouched");
+  ok(p2.status === "paid", "the single fitting payable (not the oldest) is settled alone");
+}
+
+// ── Reallocate moves a payment across clients of the same vendor ──────────
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedClient(w.d, "c2"); seedVendor(w.d, "vnd1", "V1");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 10000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s2', 'c2', 'vnd1', 'B', 'once', 10000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 10000, 'month', 'scheduled')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p2', 's2', 'c2', 'vnd1', 'B', '2026-10', 10000, 'month', 'scheduled')").run();
+  const r = await w.F.handlePostVendorPayment(req({ vendor_id: "vnd1", amount_cents: 10000, paid_on: "2026-10-14" }), w.env);
+  const batchId = r.data.id;
+  const re = await w.F.handlePostVendorBatchAction(batchId, "reallocate", req({ allocations: [{ payable_id: "p2", applied_cents: 10000 }] }), w.env);
+  ok(re.status === 200, "reallocate to a different client's payable (same vendor) is accepted");
+  ok(w.d.q("SELECT status FROM vendor_payables WHERE id = 'p2'")[0].status === "paid", "the other client's payable is now paid");
+  ok(w.d.q("SELECT status FROM vendor_payables WHERE id = 'p1'")[0].status === "scheduled", "the original client's payable reverted");
+}
+
+// ── Part E: Henrique $150 + Rais $440 declared same day, two bank lines ──
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd-henrique", "Henrique"); seedVendor(w.d, "vnd-rais", "Rais");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('sh', 'c1', 'vnd-henrique', 'Site', 'once', 15000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('ph', 'sh', 'c1', 'vnd-henrique', 'Site', '2026-10', 15000, 'month', 'scheduled')").run();
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('sr', 'c1', 'vnd-rais', 'Social', 'once', 44000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('pr', 'sr', 'c1', 'vnd-rais', 'Social', '2026-10', 44000, 'month', 'scheduled')").run();
+
+  const sentH = await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd-henrique", amount_cents: 15000, sent_on: "2026-10-14" }), w.env);
+  const sentR = await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd-rais", amount_cents: 44000, sent_on: "2026-10-14" }), w.env);
+  ok(sentH.status === 200 && sentR.status === 200, "both sent declarations accepted");
+  ok((await w.F.vendorOwedNow(w.env, "vnd-henrique", TODAY)) === 0, "Henrique owed drops to 0 immediately on 'sent'");
+  ok((await w.F.vendorOwedNow(w.env, "vnd-rais", TODAY)) === 0, "Rais owed drops to 0 immediately on 'sent'");
+
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tbh', 'a1', -15000, '2026-10-15', 'PMNT SENT RMTLY* H')").run();
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tbr', 'a1', -44000, '2026-10-15', 'PMNT SENT RMTLY* R')").run();
+  await w.F.vendorLinkSentBatches(w.env);
+  const bh = w.d.q("SELECT * FROM vendor_payment_batches WHERE vendor_id = 'vnd-henrique'")[0];
+  const br = w.d.q("SELECT * FROM vendor_payment_batches WHERE vendor_id = 'vnd-rais'")[0];
+  ok(bh.transaction_id === "tbh" && !!bh.confirmed_at, "Henrique's bank line links to Henrique's declaration");
+  ok(br.transaction_id === "tbr" && !!br.confirmed_at, "Rais's bank line links to Rais's declaration, each to the right vendor");
+}
+
+// ── A bank line dated more than 1 day before sent_on is not linked ───────
+{
+  const w = world();
+  seedVendor(w.d, "vnd1", "V1");
+  const sent = await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd1", amount_cents: 10000, sent_on: "2026-10-14" }), w.env);
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('ttooearly', 'a1', -10000, '2026-10-12', 'PMNT SENT RMTLY* X')").run();
+  await w.F.vendorLinkSentBatches(w.env);
+  const b = w.d.q("SELECT * FROM vendor_payment_batches WHERE id = ?", sent.data.id)[0];
+  ok(!b.transaction_id, "a bank line more than 1 day before sent_on is not linked");
+}
+
+// ── Excess bank amount becomes credit; shortfall comes back onto the last item ──
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd1", "V1");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 10000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 10000, 'month', 'scheduled')").run();
+  const sent = await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd1", amount_cents: 10000, sent_on: "2026-10-14" }), w.env);
+  // 3% higher than expected.
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('thigher', 'a1', -10300, '2026-10-15', 'PMNT SENT RMTLY* X')").run();
+  await w.F.vendorLinkSentBatches(w.env);
+  const credit = w.d.q("SELECT COALESCE(SUM(unallocated_cents),0) AS c FROM vendor_payment_batches WHERE vendor_id = 'vnd1'")[0].c;
+  ok(credit === 300, "the extra (real $103 vs expected $100) becomes credit, waiting for the next due payable");
+  const batchHigh = w.d.q("SELECT * FROM vendor_payment_batches WHERE transaction_id = 'thigher'")[0];
+  ok(batchHigh.amount_cents === 10300, "the real (higher) bank amount is recorded on the batch");
+
+  const w2 = world();
+  seedClient(w2.d, "c1"); seedVendor(w2.d, "vnd1", "V1");
+  w2.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 10000, '2026-10', 'active', 'manual')").run();
+  w2.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 10000, 'month', 'scheduled')").run();
+  const sent2 = await w2.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd1", amount_cents: 10000, sent_on: "2026-10-14" }), w2.env);
+  // 3% lower than expected.
+  w2.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tlower', 'a1', -9700, '2026-10-15', 'PMNT SENT RMTLY* X')").run();
+  await w2.F.vendorLinkSentBatches(w2.env);
+  const p1after = w2.d.q("SELECT * FROM vendor_payables WHERE id = 'p1'")[0];
+  ok(p1after.status === "scheduled" && p1after.applied_cents === 9700, "the shortfall came back onto the last item the batch paid");
+}
+
+// ── A tie links neither; a bank line is never linked twice ───────────────
+{
+  const w = world();
+  seedVendor(w.d, "vnd1", "V1");
+  const sent = await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd1", amount_cents: 10000, sent_on: "2026-10-14" }), w.env);
+  // Two candidates, equally close (one 2% above, one 2% below).
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('ttieA', 'a1', -10200, '2026-10-15', 'PMNT SENT RMTLY* A')").run();
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('ttieB', 'a1', -9800, '2026-10-15', 'PMNT SENT RMTLY* B')").run();
+  await w.F.vendorLinkSentBatches(w.env);
+  const b = w.d.q("SELECT * FROM vendor_payment_batches WHERE id = ?", sent.data.id)[0];
+  ok(!b.transaction_id, "a tie links neither candidate");
+  const unmatched = await w.F.vendorUnmatchedRemitlyRaw(w.env, 60);
+  ok(unmatched.some(x => x.id === "ttieA") && unmatched.some(x => x.id === "ttieB"), "both tied transactions stay visible for a person");
+
+  // Never linked twice: run again, still nothing changes (idempotent).
+  await w.F.vendorLinkSentBatches(w.env);
+  ok(!w.d.q("SELECT * FROM vendor_payment_batches WHERE id = ?", sent.data.id)[0].transaction_id, "running the linker again still links nothing (still tied)");
+}
+
+// ── A 'sent' batch is never matched by the generic matcher ───────────────
+{
+  const w = world();
+  seedClient(w.d, "c1"); seedVendor(w.d, "vnd1", "V1");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('s1', 'c1', 'vnd1', 'A', 'once', 10000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('p1', 's1', 'c1', 'vnd1', 'A', '2026-10', 10000, 'month', 'scheduled')").run();
+  await w.F.handlePostVendorPaymentSent(req({ vendor_id: "vnd1", amount_cents: 10000, sent_on: "2026-10-14" }), w.env);
+  // Nothing linked yet. A completely unrelated RMTLY transaction, no sent
+  // batch nearby in amount, should never touch the 'sent' batch itself.
+  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES ('tunrel', 'a1', -99999, ?, 'PMNT SENT RMTLY* Z')").run(TODAY);
+  await w.F.vendorAutoMatch(w.env);
+  const sentBatch = w.d.q("SELECT * FROM vendor_payment_batches WHERE kind = 'sent'")[0];
+  ok(!sentBatch.transaction_id, "the generic matcher never touches an existing 'sent' batch");
+}
+
+// ── Question box: schema validation ───────────────────────────────────────
+{
+  const w = world();
+  ok(w.F.vendorQuestionValidateReply("dipro_first_month", { month: "2026-11" }).ok, "dipro_first_month accepts a valid month");
+  ok(!w.F.vendorQuestionValidateReply("dipro_first_month", { month: "2025-11" }).ok, "dipro_first_month rejects a month outside 2026-2027");
+  ok(!w.F.vendorQuestionValidateReply("dipro_first_month", { month: "2026-11", extra: 1 }).ok, "dipro_first_month rejects extra fields");
+  ok(!w.F.vendorQuestionValidateReply("dipro_first_month", { month: "not-a-month" }).ok, "dipro_first_month rejects a malformed month");
+  ok(w.F.vendorQuestionValidateReply("dipro_first_month", { unclear: true }).value.unclear === true, "dipro_first_month accepts {unclear:true}");
+
+  ok(w.F.vendorQuestionValidateReply("golden_site_halves", { second_half_owed: true }).ok, "golden_site_halves accepts a valid boolean");
+  ok(!w.F.vendorQuestionValidateReply("golden_site_halves", { second_half_owed: "true" }).ok, "golden_site_halves rejects a non-boolean");
+  ok(!w.F.vendorQuestionValidateReply("golden_site_halves", { second_half_owed: true, extra: 1 }).ok, "golden_site_halves rejects extra fields");
+
+  ok(w.F.vendorQuestionValidateReply("older_clients_no_vendors", { confirmed: false }).ok, "older_clients_no_vendors accepts a valid boolean");
+  ok(!w.F.vendorQuestionValidateReply("older_clients_no_vendors", { confirmed: false, extra: 1 }).ok, "older_clients_no_vendors rejects extra fields");
+  ok(!w.F.vendorQuestionValidateReply("not_a_real_key", { confirmed: true }).ok, "an unknown question key is rejected");
+}
+
+// ── Question box: an unclear reply changes nothing ────────────────────────
+{
+  const w = world({ fetch: async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: '{"unclear": true}' }] }) }) });
+  const q = w.d.q("SELECT * FROM vendor_questions WHERE key = 'golden_site_halves'")[0];
+  const r = await w.F.handlePostVendorQuestionAnswer(q.id, req({ answer_raw: "não sei dizer" }), w.env);
+  ok(r.status === 200 && r.data.understood === false, "an unclear Claude reply reports understood:false");
+  const qAfter = w.d.q("SELECT * FROM vendor_questions WHERE id = ?", q.id)[0];
+  ok(qAfter.status === "open" && qAfter.answer_raw === "não sei dizer", "her words are saved but nothing else changes; the question stays open");
+}
+
+// ── Question box: a valid reply applies the effect and answers the question ──
+{
+  const w = world({ fetch: async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: '{"second_half_owed": false}' }] }) }) });
+  seedClient(w.d, "c-golden", "Golden Home Improvement");
+  w.d.raw.prepare("INSERT INTO vendor_services (id, client_id, vendor_id, label, kind, price_cents, first_month, status, source) VALUES ('sg', 'c-golden', 'vnd-addon-site', 'Site', 'split', 30000, '2026-10', 'active', 'manual')").run();
+  w.d.raw.prepare("INSERT INTO vendor_payables (id, service_id, client_id, vendor_id, label, period_month, planned_cents, trigger, status) VALUES ('pg', 'sg', 'c-golden', 'vnd-addon-site', '2ª metade', NULL, 15000, 'completion', 'waiting_completion')").run();
+
+  const q = w.d.q("SELECT * FROM vendor_questions WHERE key = 'golden_site_halves'")[0];
+  const ans = await w.F.handlePostVendorQuestionAnswer(q.id, req({ answer_raw: "já está tudo pago" }), w.env);
+  ok(ans.status === 200 && ans.data.understood === true && ans.data.interpreted.second_half_owed === false, "a clear reply is interpreted and returned for confirmation, nothing applied yet");
+  ok(w.d.q("SELECT status FROM vendor_payables WHERE id = 'pg'")[0].status === "waiting_completion", "nothing is applied before the confirmation step");
+
+  const apply = await w.F.handlePostVendorQuestionApply(q.id, req({ interpreted: ans.data.interpreted }), w.env);
+  ok(apply.status === 200, "apply accepted after confirmation");
+  const pgAfter = w.d.q("SELECT * FROM vendor_payables WHERE id = 'pg'")[0];
+  ok(pgAfter.status === "paid" && pgAfter.note === "historical, per Alice", "the second half is now paid historical");
+  ok(w.d.q("SELECT status FROM vendor_questions WHERE id = ?", q.id)[0].status === "answered", "the question is now answered");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

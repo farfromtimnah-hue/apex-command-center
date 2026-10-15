@@ -42,6 +42,24 @@
       renderClub();
     }
 
+    // Hero tiles: confirmed guests (seats) and registrations, summed across
+    // the event(s) shown for the selected month -- the same rsvp.going and
+    // rsvp.going_rows figures already rendered on each event card, never a
+    // new computation.
+    function updateClubHeroTiles(shown) {
+      var guestsEl = document.getElementById("clubHeroGuests");
+      var regsEl = document.getElementById("clubHeroRegs");
+      if (!guestsEl || !regsEl) { return; }
+      var going = 0, goingRows = 0;
+      (shown || []).forEach(function(e) {
+        var r = e.rsvp || {};
+        going += r.going || 0;
+        goingRows += r.going_rows || 0;
+      });
+      guestsEl.textContent = going;
+      regsEl.textContent = goingRows;
+    }
+
     function renderClub() {
       var body = document.getElementById("clubBody");
       if (!body) { return; }
@@ -50,6 +68,7 @@
       if (!CLUB_EVENTS.length) {
         body.innerHTML = "";
         empty.hidden = false;
+        updateClubHeroTiles([]);
         return;
       }
       empty.hidden = true;
@@ -69,6 +88,8 @@
       shown = shown.slice().sort(function(a, b) {
         return String(a.event.event_date) < String(b.event.event_date) ? 1 : -1;
       });
+
+      updateClubHeroTiles(shown);
 
       // A gap month is a normal state, not an error -- Apex Club is roughly
       // monthly, not strictly. Say so plainly and leave the picker available

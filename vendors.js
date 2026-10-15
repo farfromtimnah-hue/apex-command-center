@@ -75,20 +75,20 @@
   function renderTiles() {
     var wrap = el("vndTiles");
     if (!wrap || !OVERVIEW) { return; }
-    var html = '<div class="tile is-total">' +
-      '<div class="tile-label">' + t("Total a pagar agora", "Total to pay now") + '</div>' +
-      '<div class="tile-amt' + (OVERVIEW.tiles.total_due_cents ? "" : " is-zero") + '">' + fmtCents(OVERVIEW.tiles.total_due_cents) + '</div>' +
+    var html = '<div class="glass-tile is-total">' +
+      '<div class="glass-tile-label">' + t("Total a pagar agora", "Total to pay now") + '</div>' +
+      '<div class="glass-tile-value is-gold' + (OVERVIEW.tiles.total_due_cents ? "" : " is-zero") + '">' + fmtCents(OVERVIEW.tiles.total_due_cents) + '</div>' +
     '</div>';
     (OVERVIEW.tiles.vendors || []).forEach(function (v) {
-      html += '<div class="tile" onclick="document.getElementById(\'vcard-' + v.id + '\') && document.getElementById(\'vcard-' + v.id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
-        '<div class="tile-label">' + esc(v.name) + '</div>' +
-        '<div class="tile-amt' + (v.due_cents ? "" : " is-zero") + '">' + fmtCents(v.due_cents) + '</div>';
+      html += '<button type="button" class="glass-tile glass-tile-btn" onclick="document.getElementById(\'vcard-' + v.id + '\') && document.getElementById(\'vcard-' + v.id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
+        '<div class="glass-tile-label">' + esc(v.name) + '</div>' +
+        '<div class="glass-tile-value' + (v.due_cents ? "" : " is-zero") + '">' + fmtCents(v.due_cents) + '</div>';
       var subParts = [];
       if (v.upcoming_cents) { subParts.push(t("próximos ", "upcoming ") + fmtCents(v.upcoming_cents)); }
       var full = (OVERVIEW.vendors || []).filter(function (x) { return x.id === v.id; })[0];
       if (full && full.credit_cents) { subParts.push(t("crédito ", "credit ") + fmtCents(full.credit_cents)); }
-      if (subParts.length) { html += '<div class="tile-sub">' + subParts.join(" · ") + '</div>'; }
-      html += '</div>';
+      if (subParts.length) { html += '<div class="glass-tile-sub">' + subParts.join(" · ") + '</div>'; }
+      html += '</button>';
     });
     wrap.innerHTML = html;
   }
@@ -357,13 +357,13 @@
       });
       el("vdHistory").innerHTML = histHtml || '<div class="empty">' + t("Nenhum pagamento ainda.", "No payments yet.") + "</div>";
 
-      document.querySelectorAll("#appMain > *").forEach(function (child) { if (child.id !== "vndDetail") { child.style.display = "none"; } });
+      document.querySelectorAll("#appBelowHero > *").forEach(function (child) { if (child.id !== "vndDetail") { child.style.display = "none"; } });
       el("vndDetail").hidden = false;
     });
   }
   function closeVendorDetail() {
     el("vndDetail").hidden = true;
-    document.querySelectorAll("#appMain > *").forEach(function (child) { child.style.display = ""; });
+    document.querySelectorAll("#appBelowHero > *").forEach(function (child) { child.style.display = ""; });
   }
 
   function openNewVendorModal() {

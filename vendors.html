@@ -52,13 +52,85 @@
     #loadingScreen[hidden] { display: none !important; }
     .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #appMain { flex: 1; overflow-y: auto; padding: 24px 28px 60px; }
+    #appMain { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
     #appMain[hidden] { display: none !important; }
 
-    .page-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
-    .page-title { font-size: 22px; font-weight: 700; }
-    .page-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .month-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-family: inherit; font-size: 13px; background: var(--card); color: var(--text); }
+    /* ─── Hero (same shape as tasks.html / finance-new.html) ──────────────── */
+    .vendors-hero-section {
+      position: relative;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    #vndHeroBg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transform-origin: center center;
+    }
+    @keyframes kenburns {
+      from { transform: scale(1.0) translate(0, 0); }
+      to   { transform: scale(1.06) translate(1.5%, 0.8%); }
+    }
+    #vndHeroBg.is-loaded { animation: kenburns 28s ease-in-out infinite alternate; }
+    #vndHeroScrim {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      background: rgba(20, 18, 16, 0.62);
+    }
+    .vendors-hero-content { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 16px; }
+
+    .glass-tile-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .glass-tile {
+      background: rgba(26, 22, 18, 0.52);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 16px 20px;
+      flex: 1;
+      min-width: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+    .glass-tile.is-total { cursor: default; }
+    .glass-tile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+    .glass-tile-value { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; white-space: nowrap; }
+    .glass-tile-value.is-gold  { color: var(--gold); }
+    .glass-tile-value.is-green { color: #4ade80; }
+    .glass-tile-value.is-red   { color: #f87171; }
+    .glass-tile-value.is-zero { color: rgba(255,255,255,0.4); font-weight: 400; }
+    .glass-tile-sub { font-size: 11px; color: rgba(255,255,255,0.6); }
+    .glass-tile-btn { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+    .glass-tile-btn:hover, .glass-tile-btn:focus-visible { border-color: rgba(212,175,110,0.55); }
+    .glass-tile-btn:active { transform: scale(0.985); }
+
+    .page-heading-hero { font-size: 22px; font-weight: 700; color: #fff; }
+    .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-new-session {
+      background: rgba(201,164,58,0.9); color: #000; border: none; border-radius: 8px;
+      padding: 9px 20px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-new-session:hover { opacity: 0.88; }
+    .hero-month-input {
+      background: rgba(26,22,18,0.52); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 7px; padding: 7px 10px; font-family: inherit; font-size: 13px;
+      color: #fff; color-scheme: dark;
+    }
+
+    #appBelowHero { flex: 1; overflow-y: auto; padding: 24px 28px 60px; }
 
     .btn { font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; transition: border-color 0.15s; }
     .btn:hover { border-color: var(--gold); }
@@ -69,16 +141,6 @@
     .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 18px; }
     .card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 14px; }
     .empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
-
-    .tile-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
-    .tile { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 18px; min-width: 160px; flex: 1 1 160px; cursor: pointer; transition: border-color 0.15s; }
-    .tile:hover { border-color: var(--gold); }
-    .tile.is-total { cursor: default; }
-    .tile.is-total:hover { border-color: var(--border); }
-    .tile-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
-    .tile-amt { font-size: 20px; font-weight: 700; }
-    .tile-amt.is-zero { color: var(--muted); font-weight: 400; }
-    .tile-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
     .unassigned-line { font-size: 13px; color: var(--muted); margin: 4px 0 16px; cursor: pointer; text-decoration: underline; }
 
@@ -119,8 +181,16 @@
     .fc-table th:first-child, .fc-table td:first-child { text-align: left; }
 
     @media (max-width: 720px) {
-      #appMain { padding: 16px 14px 60px; }
+      #appBelowHero { padding: 16px 14px 60px; }
       #navSidebar { display: none; }
+    }
+    @media (max-width: 600px) {
+      .vendors-hero-section { padding: 16px; }
+      .glass-tile { min-width: 100px; padding: 12px 14px; }
+      .glass-tile-value { font-size: 22px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #vndHeroBg.is-loaded { animation: none; }
     }
   </style>
 </head>
@@ -154,25 +224,40 @@
   </div>
 
   <main id="appMain" hidden>
-    <div class="page-head">
-      <div class="page-title">
-        <span class="show-pt">Fornecedores</span>
-        <span class="show-en">Vendors</span>
-      </div>
-      <div class="page-head-right">
-        <input type="month" id="vndMonth" class="month-input" onchange="loadOverview()">
-        <button class="btn" onclick="openForecast()">
-          <span class="show-pt">Previs&atilde;o</span>
-          <span class="show-en">Forecast</span>
-        </button>
-        <button class="btn btn-gold" onclick="openNewVendorModal()">
-          <span class="show-pt">+ Adicionar fornecedor</span>
-          <span class="show-en">+ Add vendor</span>
-        </button>
-      </div>
-    </div>
 
-    <div class="tile-row" id="vndTiles"></div>
+    <!-- Hero section -->
+    <div class="vendors-hero-section">
+      <div id="vndHeroBg" aria-hidden="true"></div>
+      <div id="vndHeroScrim" aria-hidden="true"></div>
+      <div class="vendors-hero-content">
+
+        <!-- Glass stat tiles: filled by vendors.js renderTiles(), same ids -->
+        <div class="glass-tile-row" id="vndTiles"></div>
+
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Fornecedores</span>
+            <span class="show-en">Vendors</span>
+          </h1>
+          <div class="header-actions">
+            <input type="month" id="vndMonth" class="hero-month-input" onchange="loadOverview()">
+            <button class="btn-sync-now" onclick="openForecast()">
+              <span class="show-pt">Previs&atilde;o</span>
+              <span class="show-en">Forecast</span>
+            </button>
+            <button class="btn-new-session" onclick="openNewVendorModal()">
+              + <span class="show-pt">Adicionar fornecedor</span>
+              <span class="show-en">Add vendor</span>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /vendors-hero-content -->
+    </div><!-- /vendors-hero-section -->
+
+    <!-- Below hero -->
+    <div id="appBelowHero">
+
     <div class="unassigned-line hidden" id="vndUnassignedLine" hidden onclick="toggleFold('vndUnassignedFold')"></div>
 
     <div class="card hidden" id="vndAutoCard" hidden>
@@ -220,6 +305,8 @@
         <div id="vdHistory"></div>
       </div>
     </div>
+
+    </div><!-- /appBelowHero -->
   </main>
 
     </div>
@@ -396,7 +483,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="nav.js"></script>
-  <script src="vendors.js?v=1"></script>
+  <script src="vendors.js?v=2"></script>
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var FIREBASE_CONFIG = {
@@ -437,7 +524,7 @@
     function t(pt, en) { return isEn() ? en : pt; }
 
     function fetchAndApplyRole() {
-      return apiFetch("/api/auth/role").then(function(r) { return r.json(); }).then(function(data) {
+      return apiFetch("/api/role").then(function(r) { return r.json(); }).then(function(data) {
         sessionStorage.setItem("apex_role", data.role);
         sessionStorage.setItem("apex_email", data.email);
         sessionStorage.setItem("apex_display_name", data.display_name || "");
@@ -446,6 +533,33 @@
         populateHeaderUser(data.email, data.display_name || null);
         return data;
       });
+    }
+
+    // Same rotating hero background + slow zoom as the rest of the app
+    // (tasks.html, finance-new.html).
+    function initHeroBg(imgElId, scrimElId) {
+      var imgs = ['picture1.jpg','picture2.jpg','Picture3.jpg','Picture4.jpg','Picture5.jpg'];
+      var idx = Math.floor(Math.random() * imgs.length);
+      var bgEl = document.getElementById(imgElId);
+      if (!bgEl) { return; }
+      tryLoadImage(idx);
+
+      function tryLoadImage(i) {
+        if (i >= imgs.length) { return; }
+        var url = 'assets/login/' + imgs[i];
+        var img = new Image();
+        img.onload = function() {
+          bgEl.style.backgroundImage    = 'url(' + url + ')';
+          bgEl.style.backgroundSize     = 'cover';
+          bgEl.style.backgroundPosition = 'center';
+          bgEl.style.backgroundRepeat   = 'no-repeat';
+          bgEl.classList.add('is-loaded');
+        };
+        img.onerror = function() {
+          tryLoadImage((i + 1) % imgs.length === idx ? imgs.length : i + 1);
+        };
+        img.src = url;
+      }
     }
 
     function setupPage(role) {
@@ -457,6 +571,7 @@
       document.getElementById("loadingScreen").hidden = true;
       document.getElementById("appMain").hidden = false;
       window.initNav && window.initNav();
+      initHeroBg("vndHeroBg", "vndHeroScrim");
       window.ApexVendors && window.ApexVendors.init();
     }
 

@@ -20536,7 +20536,7 @@ async function gmInsertLead(env, clientId, f, actor) {
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
         "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, created_by, updated_by, " + costCols + ") " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,

@@ -45,24 +45,32 @@ async function main() {
   const fin = { receita: 8997494, saida: 91571.62, vendas_fechadas: 2, pipeline_ativo: 235768.688 };
   const client = { role: "client", client_id: "c1", display_name: "Owner" };
 
-  // The client's own first save: creates the entry, records nothing.
+  // The client's own first save: creates the entry. No prior submitted
+  // section to compare against, so nothing to record either way.
   let r = await put(client, "2026-09-30", "financeiro", fin);
   ok(r.status === 200 && r.data.saved === true, "client save answers 200 saved");
-  ok(edits().length === 0, "client's own save writes no edit row");
+  ok(edits().length === 0, "client's first-time fill writes no edit row (nothing to compare against)");
   ok(stored("2026-09-30").financeiro.values.lucro_liquido === 8905922.38, "derived lucro_liquido computed on save");
 
-  // The client changing their own value: still nothing recorded.
+  // The client correcting their own already-submitted value (N10 Entry
+  // history edit): now audited the same as a staff correction, actor is the
+  // client's own display_name, actor_role "client".
   r = await put(client, "2026-09-30", "financeiro", Object.assign({}, fin, { saida: 100 }));
-  ok(r.status === 200 && edits().length === 0, "client re-save with a changed value records no edit row");
+  ok(r.status === 200, "client self-edit of an already-submitted section answers 200");
+  let ce = edits();
+  ok(ce.length === 1 && ce[0].field_key === "saida" && ce[0].old_value === 91571.62 && ce[0].new_value === 100, "client self-edit records one row for the changed field");
+  ok(ce[0].actor === "Owner" && ce[0].actor_role === "client", "client self-edit row carries the client's own display_name and role");
   await put(client, "2026-09-30", "financeiro", fin);
+  ok(edits().length === 2, "reverting back to the original value is itself a change and is also recorded");
 
   // Staff: one changed field.
   r = await put(staff("rafa", "Rafa Test"), "2026-09-30", "financeiro", Object.assign({}, fin, { receita: 89974.94 }));
   ok(r.status === 200, "staff save answers 200");
   let e = edits();
-  ok(e.length === 1, "one changed field -> exactly one edit row (got " + e.length + ")");
-  ok(e[0] && e[0].field_key === "receita" && e[0].old_value === 8997494 && e[0].new_value === 89974.94, "row has the right field, old and new value");
-  ok(e[0] && e[0].actor === "Rafa Test" && e[0].actor_role === "rafa" && e[0].client_id === "c1" && e[0].entry_date === "2026-09-30" && e[0].section_key === "financeiro", "row has actor, role, client, date, section");
+  ok(e.length === 3, "one more changed field on top of the 2 client self-edit rows (got " + e.length + ")");
+  const rafaRow = e[e.length - 1];
+  ok(rafaRow && rafaRow.field_key === "receita" && rafaRow.old_value === 8997494 && rafaRow.new_value === 89974.94, "row has the right field, old and new value");
+  ok(rafaRow && rafaRow.actor === "Rafa Test" && rafaRow.actor_role === "rafa" && rafaRow.client_id === "c1" && rafaRow.entry_date === "2026-09-30" && rafaRow.section_key === "financeiro", "row has actor, role, client, date, section");
   ok(!e.some((x) => x.field_key === "lucro_liquido" || x.field_key === "margem_lucro"), "derived fields are not recorded as edits");
   const s = stored("2026-09-30").financeiro.values;
   ok(s.receita === 89974.94 && s.lucro_liquido === Math.round((89974.94 - 91571.62) * 100) / 100, "saved value and recomputed lucro_liquido agree with the edit row");
@@ -70,12 +78,12 @@ async function main() {
 
   // Staff: nothing changed -> nothing recorded.
   r = await put(staff("rafa", "Rafa Test"), "2026-09-30", "financeiro", Object.assign({}, fin, { receita: 89974.94 }));
-  ok(r.status === 200 && edits().length === 1, "unchanged fields record nothing");
+  ok(r.status === 200 && edits().length === 3, "unchanged fields record nothing");
 
   // Staff: two fields changed -> two rows, developer role recorded.
   r = await put(staff("developer", "Dev Person"), "2026-09-30", "financeiro", Object.assign({}, fin, { receita: 90000, vendas_fechadas: 3 }));
   e = edits();
-  ok(e.length === 3 && e.filter((x) => x.actor_role === "developer").length === 2, "two changed fields -> two more rows, role developer");
+  ok(e.length === 5 && e.filter((x) => x.actor_role === "developer").length === 2, "two changed fields -> two more rows, role developer");
 
   // Same batch: a failing edit insert must roll the entry update back.
   const before = JSON.stringify(stored("2026-09-30"));
@@ -86,14 +94,15 @@ async function main() {
 
   // Staff save of a section the client never submitted: nothing to compare.
   r = await put(staff("rafa", "Rafa Test"), "2026-09-30", "clientes_mercado", { leads_gerados: 4, visitas_estrategicas: 1, contatos_estrategicos: 1, retomadas_cliente: 1, interacoes_estrategicas: 1, google_review: 0, post_publicado: 0, story: 0, video_curto: 0, novos_clientes: 0 });
-  ok(r.status === 200 && edits().length === 3, "staff first-time fill of a section records no correction");
+  ok(r.status === 200 && edits().length === 5, "staff first-time fill of a section records no correction");
 
   // entry-edits route
   const get = (user) => { const q = req({}, "https://x.test/api/clients/c1/entry-edits?month=2026-09"); q.user = user; return F.handleGetEntryEdits("c1", q, env); };
   r = await get(client);
   ok(r.status === 403, "entry-edits refuses a client session (handler)");
   r = await get(staff("rafa", "Rafa Test"));
-  ok(r.status === 200 && r.data.edits.length === 3, "entry-edits answers rafa with the month's rows");
+  ok(r.status === 200 && r.data.edits.length === 5, "entry-edits answers rafa with the month's rows");
+  ok(r.data.edits.filter((x) => x.actor_role === "client").length === 2 && r.data.edits.filter((x) => x.actor_role === "client").every((x) => x.actor === "Owner"), "client self-edit rows surface to staff with the client's real name, not anonymized");
   ok(r.data.edits.filter((x) => x.actor_role === "rafa")[0].actor === "Rafa Test", "rafa's edit carries the name");
   ok(r.data.edits.filter((x) => x.actor_role === "developer").every((x) => x.actor === null), "developer's edit comes back without a name");
   ok(!JSON.stringify(r.data).includes("Dev Person"), "developer's name appears nowhere in the answer");

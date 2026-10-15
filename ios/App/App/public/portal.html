@@ -1247,6 +1247,7 @@
 
     <!-- ══ Multi-step daily-entry form ══ -->
     <section id="viewEntryForm" hidden>
+      <div class="err-msg" id="entryEditBanner" hidden style="margin-bottom:10px;"></div>
       <div class="progress-wrap">
         <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
         <div class="progress-label" id="progressLabel"></div>
@@ -1271,11 +1272,18 @@
       </div>
       <!-- Way out of the multi-step form. On its own row, below the nav and
            full width, so it never reads as the primary Continue action. The
-           section stays a draft — this does not submit anything. -->
-      <div style="margin-top:12px;">
+           section stays a draft — this does not submit anything. Hidden in
+           edit mode, which has its own Cancel button below (N10). -->
+      <div id="saveAndExitRow" style="margin-top:12px;">
         <button class="btn-outline" style="width:100%;" onclick="saveAndExitEntry()">
           <span class="show-pt">Salvar e sair</span>
           <span class="show-en">Save and exit</span>
+        </button>
+      </div>
+      <div id="cancelEditRow" style="margin-top:12px;" hidden>
+        <button class="btn-outline" style="width:100%;" onclick="cancelEntryEdit()">
+          <span class="show-pt">Cancelar edição</span>
+          <span class="show-en">Cancel editing</span>
         </button>
       </div>
       <div class="autosave-note" id="autosaveNote"></div>
@@ -1989,6 +1997,29 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modalDiscardEdit" hidden>
+    <div class="modal-box">
+      <div class="modal-title">
+        <span class="show-pt">Descartar alterações?</span>
+        <span class="show-en">Discard changes?</span>
+      </div>
+      <p class="muted" style="margin-bottom:12px;">
+        <span class="show-pt">Você alterou valores deste registro e ainda não salvou esta seção.</span>
+        <span class="show-en">You changed values on this entry and have not saved this section yet.</span>
+      </p>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeDiscardEditModal()">
+          <span class="show-pt">Continuar editando</span>
+          <span class="show-en">Keep editing</span>
+        </button>
+        <button class="btn-gold" onclick="confirmDiscardEdit()">
+          <span class="show-pt">Descartar alterações</span>
+          <span class="show-en">Discard changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modalDayOff" hidden>
     <div class="modal-box">
       <div class="modal-title">
@@ -2090,6 +2121,12 @@
     var currentSectionIdx = 0;
     var formSections = [];        // applicable sections for this client
     var savedSections = {};       // sections state for currentEntryDate
+    // Client correcting an already-submitted past day (N10). Same form, same
+    // PUT route (handlePutEntrySection already replaces a submitted section
+    // when draft:false is sent) -- editMode only changes navigation/labels.
+    var entryEditMode = false;
+    var entryEditHistIdx = null;      // historyEntries[] row index being edited
+    var entryEditValuesAtOpen = null; // JSON snapshot per section, for the discard check
     // Month shown on the Analytics tab. Seeded from todayStr() (LOCAL date),
     // never toISOString() (UTC) — see the note on goalsMonth. This one has no
     // server-side month to disagree with, so it fails quietly rather than
@@ -2194,6 +2231,13 @@
         document.getElementById("scheduleSetupChips").innerHTML = scheduleChipsHtml("schedday_");
       }
       if (!document.getElementById("viewGoals").hidden) { renderGoalsSection(); }
+      if (!document.getElementById("viewEntryForm").hidden) {
+        // Only the static text, not renderFormSection() -- that rebuilds the
+        // tiles from savedSections and would drop anything typed but not yet
+        // autosaved. Covers the N10 edit banner's language without refetching
+        // or clearing in-progress input.
+        relabelEntryFormStatic();
+      }
       if (window.gmOnLangChange) { gmOnLangChange(); }
     }
 
@@ -2466,6 +2510,89 @@
       loadEntrySuggestions(p.date);
     }
 
+    // Correct an already-submitted past day (N10), from the Entry history
+    // row's "edit"/"editar" button. Reuses the same multi-step form and the
+    // same PUT route as startEntry() -- handlePutEntrySection already
+    // replaces a submitted section whenever draft:false is sent, recomputes
+    // the derived fields, and (since this change) audits client edits too.
+    // Status wording and missed-day records are untouched: this never calls
+    // the day-off or missed-day endpoints, only the per-section PUT.
+    function startEntryEdit(histIdx) {
+      if (PREVIEW_AS && !PREVIEW_MANAGE) { return; }
+      var e = historyEntries[histIdx];
+      if (!e) { return; }
+      entryEditMode = true;
+      entryEditHistIdx = histIdx;
+      currentEntryDate = e.date;
+      savedSections = e.sections || {};
+      // Only the sections this day actually has, in the fixed display order --
+      // not entryState.required_sections, which reflects TODAY's requirements
+      // and may differ from what applied on a past day.
+      formSections = SECTION_ORDER.filter(function(s) { return !!savedSections[s]; });
+      if (formSections.length === 0) { entryEditMode = false; return; }
+      currentSectionIdx = 0;
+      entryEditValuesAtOpen = JSON.stringify(formSections.map(function(s) { return sectionValues(s); }));
+      entrySuggestions = {};
+      renderFormSection();
+      showView("viewEntryForm");
+    }
+
+    // True if any field on the section currently on screen was typed over
+    // since startEntryEdit() opened the form -- used only to decide whether
+    // Cancel needs the discard-changes card or can leave silently.
+    function entryEditHasUnsavedChanges() {
+      if (!entryEditMode || !entryEditValuesAtOpen) { return false; }
+      var atOpen = JSON.parse(entryEditValuesAtOpen);
+      for (var i = 0; i < formSections.length; i++) {
+        var sec = formSections[i];
+        var cur = sectionValues(sec);
+        var orig = atOpen[i] || {};
+        var inds = indicatorsForSection(sec);
+        for (var k = 0; k < inds.length; k++) {
+          var key = inds[k].key;
+          var el = document.getElementById("field_" + key);
+          var liveVal = el ? (el.value === "" ? "" : Number(el.value)) : cur[key];
+          var origVal = orig[key];
+          if (String(liveVal) !== String(origVal === undefined || origVal === null ? "" : origVal)) { return true; }
+        }
+      }
+      return false;
+    }
+
+    function cancelEntryEdit() {
+      if (entryEditHasUnsavedChanges()) {
+        document.getElementById("modalDiscardEdit").hidden = false;
+        return;
+      }
+      exitEntryEdit();
+    }
+
+    function closeDiscardEditModal() {
+      document.getElementById("modalDiscardEdit").hidden = true;
+    }
+
+    function confirmDiscardEdit() {
+      document.getElementById("modalDiscardEdit").hidden = true;
+      exitEntryEdit();
+    }
+
+    function exitEntryEdit() {
+      entryEditMode = false;
+      entryEditHistIdx = null;
+      entryEditValuesAtOpen = null;
+      showPortal();
+    }
+
+    function finishEntryEdit() {
+      entryEditMode = false;
+      entryEditHistIdx = null;
+      entryEditValuesAtOpen = null;
+      loadPace();
+      loadAnalytics();
+      loadHistory();
+      showPortal();
+    }
+
     // What the pipeline already knows about this day. Fetched AFTER the form is
     // on screen so a slow or failing request never delays or blocks data entry:
     // no suggestions simply means the fields behave exactly as they always have.
@@ -2511,6 +2638,41 @@
       return block.values || block.draft_values || {};
     }
 
+    // The handful of bits of viewEntryForm built with isEn() (not .show-pt/
+    // .show-en spans) that are safe to redraw from cache on a language
+    // toggle: plain labels with no bearing on the input tiles or button
+    // state, so no in-progress typing or edit-mode flag is touched.
+    function relabelEntryFormStatic() {
+      var sec = formSections[currentSectionIdx];
+      if (!sec) { return; }
+      var label = SECTION_LABELS[sec];
+      document.getElementById("formSectionTitle").textContent =
+        (currentSectionIdx + 1) + ". " + (isEn() ? label.en : label.pt);
+      document.getElementById("formSectionDate").textContent =
+        weekdayName(currentEntryDate) + ", " + formatDate(currentEntryDate);
+      var banner = document.getElementById("entryEditBanner");
+      if (entryEditMode) {
+        banner.textContent = (isEn()
+          ? "Editing a past day: " + formatDate(currentEntryDate)
+          : "Editando um dia já registrado: " + formatDate(currentEntryDate));
+      }
+      var submittedCount = 0;
+      formSections.forEach(function(s) {
+        if (savedSections[s] && savedSections[s].submitted_at) { submittedCount++; }
+      });
+      var pct = Math.round((submittedCount / formSections.length) * 100);
+      document.getElementById("progressLabel").textContent = (isEn()
+        ? "Section " + (currentSectionIdx + 1) + " of " + formSections.length + " • " + pct + "% complete"
+        : "Seção " + (currentSectionIdx + 1) + " de " + formSections.length + " • " + pct + "% concluído");
+      var nextBtn = document.getElementById("btnNextSection");
+      var isLastSection = currentSectionIdx === formSections.length - 1;
+      nextBtn.innerHTML = isLastSection
+        ? (entryEditMode
+            ? '<span class="show-pt">Salvar ✔</span><span class="show-en">Save ✔</span>'
+            : '<span class="show-pt">Concluir dia ✔</span><span class="show-en">Finish day ✔</span>')
+        : '<span class="show-pt">Continuar →</span><span class="show-en">Continue →</span>';
+    }
+
     function renderFormSection() {
       var sec = formSections[currentSectionIdx];
       var label = SECTION_LABELS[sec];
@@ -2520,6 +2682,18 @@
         weekdayName(currentEntryDate) + ", " + formatDate(currentEntryDate);
       document.getElementById("formErr").textContent = "";
       document.getElementById("autosaveNote").textContent = "";
+
+      var banner = document.getElementById("entryEditBanner");
+      banner.hidden = !entryEditMode;
+      if (entryEditMode) {
+        banner.textContent = (isEn()
+          ? "Editing a past day: " + formatDate(currentEntryDate)
+          : "Editando um dia já registrado: " + formatDate(currentEntryDate));
+      }
+      var saveExitRow = document.getElementById("saveAndExitRow");
+      var cancelRow = document.getElementById("cancelEditRow");
+      if (saveExitRow) { saveExitRow.hidden = entryEditMode; }
+      if (cancelRow) { cancelRow.hidden = !entryEditMode; }
 
       var submittedCount = 0;
       formSections.forEach(function(s) {
@@ -2582,8 +2756,11 @@
 
       document.getElementById("btnPrevSection").style.visibility = currentSectionIdx === 0 ? "hidden" : "visible";
       var nextBtn = document.getElementById("btnNextSection");
-      nextBtn.innerHTML = currentSectionIdx === formSections.length - 1
-        ? '<span class="show-pt">Concluir dia ✔</span><span class="show-en">Finish day ✔</span>'
+      var isLastSection = currentSectionIdx === formSections.length - 1;
+      nextBtn.innerHTML = isLastSection
+        ? (entryEditMode
+            ? '<span class="show-pt">Salvar ✔</span><span class="show-en">Save ✔</span>'
+            : '<span class="show-pt">Concluir dia ✔</span><span class="show-en">Finish day ✔</span>')
         : '<span class="show-pt">Continuar →</span><span class="show-en">Continue →</span>';
     }
 
@@ -2723,6 +2900,19 @@
           btn.disabled = false;
           if (!r.ok) { throw new Error(r.data.error || "Error"); }
           savedSections = r.data.sections || savedSections;
+          if (entryEditMode) {
+            // The day was already complete before editing, so r.data.completed
+            // is always true here -- that signal means nothing in edit mode.
+            // Advance through the sections being edited instead; finish once
+            // the last one is saved.
+            if (currentSectionIdx < formSections.length - 1) {
+              currentSectionIdx++;
+              renderFormSection();
+            } else {
+              finishEntryEdit();
+            }
+            return;
+          }
           if (r.data.completed) {
             // Day complete → straight into the Client Portal.
             return loadEntryState().then(function() { showPortal(); });
@@ -6949,10 +7139,14 @@
             var stLabel = st === "completed" ? (isEn() ? "Completed" : "Completo")
               : st === "filled_late" ? (isEn() ? "Filled late" : "Preenchido depois")
               : (isEn() ? "Partial" : "Parcial");
+            var canEdit = !(PREVIEW_AS && !PREVIEW_MANAGE);
             rows += '<tr><td>' + formatDate(e.date) + '</td>' +
               '<td><span class="hist-status ' + (st === "filled_late" ? "completed" : st) + '">' + stLabel + '</span></td>' +
               '<td style="text-align:right;"><button class="btn-expand" onclick="toggleHistDetail(' + i + ')">' +
-              (isEn() ? "details" : "detalhes") + '</button></td></tr>' +
+              (isEn() ? "details" : "detalhes") + '</button>' +
+              (canEdit ? ' <button class="btn-expand" onclick="startEntryEdit(' + i + ')">' +
+                (isEn() ? "edit" : "editar") + '</button>' : "") +
+              '</td></tr>' +
               '<tr class="hist-detail" id="histDetail' + i + '" hidden><td colspan="3">' + histDetailHtml(e) + '</td></tr>';
           });
           (d.missed_days || []).forEach(function(m) {

@@ -16679,11 +16679,13 @@ async function handlePutEntrySection(id, dateStr, sectionKey, request, env) {
         var wasCompleted = !!(row && row.completed);
         var sectionsStr = JSON.stringify(sections);
 
-        // A staff correction of an already-submitted section: one row per
-        // changed ENTERED field (derived fields are recomputed, never recorded),
-        // written in the same batch as the entry update.
+        // A correction of an already-submitted section -- by staff OR by the
+        // client themselves (N10, Entry history "edit"/"editar" button): one
+        // row per changed ENTERED field (derived fields are recomputed, never
+        // recorded), written in the same batch as the entry update. actor is
+        // the client's display_name when user.role is "client".
         var editStmts = [];
-        if (row && !isDraft && user.role !== "client") {
+        if (row && !isDraft) {
             var beforeSec = parseSectionsJson(row.sections_json)[sectionKey];
             var beforeVals = (beforeSec && beforeSec.submitted_at && beforeSec.values) ? beforeSec.values : null;
             if (beforeVals) {

@@ -94,14 +94,14 @@
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
       padding: 16px 20px;
-      flex: 1;
-      min-width: 120px;
+      flex: 1 1 auto;
+      min-width: 150px;
       display: flex;
       flex-direction: column;
       gap: 5px;
     }
     .glass-tile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.55); }
-    .glass-tile-value { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; }
+    .glass-tile-value { font-size: 32px; font-weight: 700; color: #fff; line-height: 1; white-space: nowrap; }
 
     .page-heading-hero { font-size: 22px; font-weight: 700; color: #fff; }
     .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -263,6 +263,14 @@
       <div id="clubHeroScrim" aria-hidden="true"></div>
       <div class="club-hero-content">
 
+        <div class="page-header-row">
+          <h1 class="page-heading-hero">
+            <span class="show-pt">Apex Club</span>
+            <span class="show-en">Apex Club</span>
+          </h1>
+          <input type="month" id="eventMonth" class="hero-month-input" onchange="renderClub()">
+        </div>
+
         <!-- Glass stat tiles: confirmed guests (seats) and registrations for
              the month shown, summed from the same rsvp figures each event
              card already displays. Filled by apex-club.js updateClubHeroTiles(). -->
@@ -281,14 +289,6 @@
             </div>
             <div class="glass-tile-value" id="clubHeroRegs">--</div>
           </div>
-        </div>
-
-        <div class="page-header-row">
-          <h1 class="page-heading-hero">
-            <span class="show-pt">Apex Club</span>
-            <span class="show-en">Apex Club</span>
-          </h1>
-          <input type="month" id="eventMonth" class="hero-month-input" onchange="renderClub()">
         </div>
 
       </div><!-- /club-hero-content -->

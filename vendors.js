@@ -31,6 +31,36 @@
   function el(id) { return document.getElementById(id); }
   function t(pt, en) { return (window.apexIsEn && window.apexIsEn()) ? en : pt; }
 
+  // Data-driven Portuguese (vendor names, service labels, payable labels)
+  // translated to English when the page language is English. A string not
+  // in the table passes through unchanged -- this never touches client or
+  // vendor proper names.
+  var VND_LABEL_EN = {
+    "Edição de vídeos": "Video editing",
+    "Gestão de tráfego": "Paid traffic management",
+    "Gestão de tráfego pago": "Paid traffic management",
+    "Sistema - Aplicativo": "System / app",
+    "Gestão de redes sociais": "Social media management",
+    "Site estratégico": "Strategic website",
+    "Identidade visual": "Visual identity",
+    "Contabilidade": "Accounting",
+    "Back office Brasil": "Back office Brazil",
+    "Marketing": "Marketing",
+    "Site": "Website",
+    "1ª metade": "1st half",
+    "2ª metade": "2nd half"
+  };
+  function trLabel(s) {
+    if (!window.apexIsEn || !window.apexIsEn()) { return s; }
+    if (s === null || s === undefined) { return s; }
+    var str = String(s);
+    if (VND_LABEL_EN.hasOwnProperty(str)) { return VND_LABEL_EN[str]; }
+    // "Mês N" -> "Month N" for any N.
+    var m = str.match(/^Mês (\d+)$/);
+    if (m) { return "Month " + m[1]; }
+    return str;
+  }
+
   function openSheet(id) { var s = el(id); if (s) { s.hidden = false; } }
   window.closeSheet = function (id) { var s = el(id); if (s) { s.hidden = true; } };
   window.toggleFold = function (id) {
@@ -50,6 +80,7 @@
     var input = el("vndMonth");
     if (input && !input.value) { input.value = currentMonth(); }
     loadOverview();
+    loadNextQuestion();
   }
 
   function loadOverview() {
@@ -93,16 +124,139 @@
     wrap.innerHTML = html;
   }
 
+  var AUTO_BATCHES = [];
+  var AUTO_VENDORS = [];
+
   function renderAutoBatches() {
     var card = el("vndAutoCard"), list = el("vndAutoList");
     if (!card || !list) { return; }
     if (!OVERVIEW || !OVERVIEW.unconfirmed_auto_count) { card.hidden = true; return; }
-    // The overview route doesn't carry the auto batch rows themselves (only
-    // the count) -- fetch each vendor's detail lazily is overkill here, so
-    // this tray reads from each vendor's history once the vendor card is
-    // visible. Simpler: list vendors with an unconfirmed count hint.
     card.hidden = false;
-    list.innerHTML = '<div class="empty">' + t("Veja o histórico de cada fornecedor para confirmar.", "See each vendor's history to confirm.") + '</div>';
+    apiFetch("/api/vendors/auto-batches").then(function (r) { return r.json(); }).then(function (data) {
+      if (data.error) { throw new Error(data.error); }
+      AUTO_BATCHES = data.batches || [];
+      AUTO_VENDORS = data.vendors || [];
+      if (!AUTO_BATCHES.length) { list.innerHTML = '<div class="empty">' + t("Nada pendente.", "Nothing pending.") + '</div>'; return; }
+      var html = "";
+      AUTO_BATCHES.forEach(function (b) {
+        var itemsText = b.items.map(function (it) { return esc(it.client_name) + " · " + esc(trLabel(it.service_label || "")) + " · " + esc(trLabel(it.label)); }).join("; ");
+        html += '<div class="pay-row">' +
+          '<div class="pay-row-main"><span class="pay-row-label">' + esc(b.date) + ' · ' + esc(b.vendor_name) + ' · ' + itemsText + '</span></div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<span class="pay-row-amt">' + fmtCents(b.amount_cents) + '</span>' +
+            '<div class="pay-row-actions">' +
+              '<button class="btn btn-sm btn-gold" onclick="window.ApexVendors.confirmAutoBatch(\'' + b.id + '\')">' + t("Está certo", "Confirm") + '</button>' +
+              '<button class="btn btn-sm" onclick="window.ApexVendors.openChangeAuto(\'' + b.id + '\')">' + t("Mudar", "Change") + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      list.innerHTML = html;
+    }).catch(function () {});
+  }
+
+  function confirmAutoBatch(batchId) {
+    apiFetch("/api/vendors/payments/" + encodeURIComponent(batchId) + "/confirm", { method: "POST", body: {} })
+      .then(function (r) { return r.json(); })
+      .then(function () { loadOverview(); })
+      .catch(function () {});
+  }
+
+  function confirmAllAuto() {
+    var ids = AUTO_BATCHES.map(function (b) { return b.id; });
+    Promise.all(ids.map(function (id) {
+      return apiFetch("/api/vendors/payments/" + encodeURIComponent(id) + "/confirm", { method: "POST", body: {} });
+    })).then(function () { loadOverview(); }).catch(function () {});
+  }
+
+  var CURRENT_CHANGE_BATCH = null;
+  function openChangeAuto(batchId) {
+    var b = AUTO_BATCHES.filter(function (x) { return x.id === batchId; })[0];
+    if (!b) { return; }
+    CURRENT_CHANGE_BATCH = b;
+    el("reallocateStatus").textContent = "";
+
+    apiFetch("/api/vendors/" + encodeURIComponent(b.vendor_id) + "/change-options").then(function (r) { return r.json(); }).then(function (data) {
+      var items = data.items || [];
+      var html = '<div class="field-label">' + t("Itens disponíveis", "Available items") + '</div>';
+      var byClient = {};
+      items.forEach(function (it) { (byClient[it.client_name] = byClient[it.client_name] || []).push(it); });
+      Object.keys(byClient).forEach(function (clientName) {
+        html += '<div style="font-size:12px;font-weight:700;margin-top:8px;">' + esc(clientName) + '</div>';
+        byClient[clientName].forEach(function (it) {
+          html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;">' +
+            '<input type="checkbox" class="reallocate-item" data-payable-id="' + it.id + '" data-remaining="' + it.remaining_cents + '">' +
+            esc(trLabel(it.service_label || "")) + " · " + esc(trLabel(it.label)) + " — " + fmtCents(it.remaining_cents) +
+          '</label>';
+        });
+      });
+      el("reallocateFields").innerHTML = html || '<div class="empty">' + t("Nenhum item disponível.", "No items available.") + '</div>';
+
+      var otherSel = el("reallocateOtherVendor");
+      var otherOpts = '<option value="">' + t("Outro fornecedor...", "Another vendor...") + '</option>';
+      AUTO_VENDORS.filter(function (v) { return v.id !== b.vendor_id; }).forEach(function (v) {
+        otherOpts += '<option value="' + v.id + '">' + esc(v.name) + '</option>';
+      });
+      otherSel.innerHTML = otherOpts;
+      otherSel.hidden = false;
+      el("reallocateOtherVendorLabel").hidden = false;
+      el("reallocateNotVendorBtn").hidden = false;
+      openSheet("sheetReallocate");
+    }).catch(function () { el("reallocateStatus").textContent = t("Erro ao carregar itens.", "Error loading items."); });
+  }
+
+  function submitReallocate() {
+    if (!CURRENT_CHANGE_BATCH) { return; }
+    var checked = Array.prototype.slice.call(document.querySelectorAll(".reallocate-item:checked"));
+    if (!checked.length) { el("reallocateStatus").textContent = t("Marque pelo menos um item.", "Check at least one item."); return; }
+    var remaining = CURRENT_CHANGE_BATCH.amount_cents;
+    var allocations = checked.map(function (chk) {
+      var take = Math.min(remaining, parseInt(chk.getAttribute("data-remaining"), 10));
+      remaining -= take;
+      return { payable_id: chk.getAttribute("data-payable-id"), applied_cents: take };
+    });
+    apiFetch("/api/vendors/payments/" + encodeURIComponent(CURRENT_CHANGE_BATCH.id) + "/reallocate", { method: "POST", body: { allocations: allocations } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        window.closeSheet("sheetReallocate");
+        loadOverview();
+      })
+      .catch(function (e) { el("reallocateStatus").textContent = t("Erro: ", "Error: ") + e.message; });
+  }
+
+  function submitMoveVendor() {
+    if (!CURRENT_CHANGE_BATCH) { return; }
+    var vendorId = el("reallocateOtherVendor").value;
+    if (!vendorId) { return; }
+    apiFetch("/api/vendors/payments/" + encodeURIComponent(CURRENT_CHANGE_BATCH.id) + "/move_vendor", { method: "POST", body: { vendor_id: vendorId } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        window.closeSheet("sheetReallocate");
+        loadOverview();
+      })
+      .catch(function (e) { el("reallocateStatus").textContent = t("Erro: ", "Error: ") + e.message; });
+  }
+
+  function markReallocateNotVendor() {
+    if (!CURRENT_CHANGE_BATCH || !CURRENT_CHANGE_BATCH.transaction_id) {
+      // The tray's batches are automatic bank matches and always carry a
+      // transaction_id in practice; guard anyway rather than guess.
+      el("reallocateStatus").textContent = t("Esta transação não foi encontrada.", "This transaction was not found.");
+      return;
+    }
+    apiFetch("/api/vendors/payments/" + encodeURIComponent(CURRENT_CHANGE_BATCH.id) + "/undo", { method: "POST", body: {} })
+      .then(function () {
+        return apiFetch("/api/vendors/remitly/ignore", { method: "POST", body: { transaction_id: CURRENT_CHANGE_BATCH.transaction_id, reason: null } });
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        window.closeSheet("sheetReallocate");
+        loadOverview();
+      })
+      .catch(function (e) { el("reallocateStatus").textContent = t("Erro: ", "Error: ") + e.message; });
   }
 
   function payableStatusChip(p) {
@@ -124,18 +278,21 @@
         '<div class="vendor-card-head">' +
           '<div><span class="vendor-card-name" style="cursor:pointer;" onclick="window.ApexVendors.openDetail(\'' + v.id + '\')">' + esc(v.name) + '</span>' +
             (v.vendor_type ? ' <span class="vendor-card-type">&mdash; ' + esc(v.vendor_type) + '</span>' : '') + '</div>' +
-          '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
             '<div class="vendor-card-owed">' + fmtCents(v.due_total_cents) + '</div>' +
-            '<button class="btn btn-sm btn-gold" onclick="window.ApexVendors.openPayment(\'' + v.id + '\')">' + t("Registrar pagamento", "Record payment") + '</button>' +
+            (v.due_total_cents > 0 ? '<button class="btn btn-sm btn-gold" onclick="window.ApexVendors.openSentPayment(\'' + v.id + '\')">' + t("Enviei o pagamento", "I sent the payment") + '</button>' : '') +
+            '<button class="btn btn-sm" onclick="window.ApexVendors.openPayment(\'' + v.id + '\')">' + t("Registrar pagamento", "Record payment") + '</button>' +
           '</div>' +
-        '</div>';
+        '</div>' +
+        (v.sent_chip === "SENT_WAITING" ? '<div class="chip chip-partial" style="margin-bottom:8px;">' + t("Enviado, aguardando o banco", "Sent, waiting for the bank") + '</div>' : '') +
+        (v.sent_chip === "NOT_SEEN" ? '<div class="chip chip-late" style="margin-bottom:8px;">' + t("Ainda não apareceu no banco", "Not seen in the bank yet") + '</div>' : '');
 
       if (!v.due.length) {
         html += '<div class="empty">' + t("Nada a pagar agora.", "Nothing to pay now.") + '</div>';
       } else {
         v.due.forEach(function (p) {
           html += '<div class="pay-row">' +
-            '<div class="pay-row-main"><span class="pay-row-label">' + esc(p.client_name) + ' · ' + esc(p.service_label || "") + ' · ' + esc(p.label) + '</span></div>' +
+            '<div class="pay-row-main"><span class="pay-row-label">' + esc(p.client_name) + ' · ' + esc(trLabel(p.service_label || "")) + ' · ' + esc(trLabel(p.label)) + '</span></div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
               '<span class="pay-row-amt">' + fmtCents(p.remaining_cents) + '</span>' + payableStatusChip(p) +
               '<div class="pay-row-actions">' + payableRowActions(p) + '</div>' +
@@ -155,7 +312,7 @@
           var pill = p.status === "waiting_completion" ? t("Quando o site terminar", "When the site is done")
             : (p.status === "delayed" ? t("Adiado", "Delayed") : fmtMonthPill(p.period_month));
           html += '<div class="pay-row">' +
-            '<div class="pay-row-main"><span class="pay-row-label">' + esc(p.client_name) + ' · ' + esc(p.service_label || "") + ' · ' + esc(p.label) + '</span></div>' +
+            '<div class="pay-row-main"><span class="pay-row-label">' + esc(p.client_name) + ' · ' + esc(trLabel(p.service_label || "")) + ' · ' + esc(trLabel(p.label)) + '</span></div>' +
             '<div style="display:flex;align-items:center;gap:8px;"><span class="pay-row-amt">' + fmtCents(p.remaining_cents) + '</span><span class="chip chip-partial">' + esc(pill) + '</span></div>' +
           '</div>';
         });
@@ -226,6 +383,192 @@
       .then(function (r) { return r.json(); })
       .then(function () { window.closeSheet("sheetIgnore"); loadUnassigned(); })
       .catch(function () {});
+  }
+
+  // ── Question box (Part D) ──────────────────────────────────────────────
+  var CURRENT_QUESTION = null;
+  var CURRENT_Q_INTERPRETED = null;
+
+  function loadNextQuestion() {
+    apiFetch("/api/vendors/questions").then(function (r) { return r.json(); }).then(function (data) {
+      var card = el("vndQuestionCard");
+      if (!card) { return; }
+      if (!data.question) { card.hidden = true; CURRENT_QUESTION = null; return; }
+      CURRENT_QUESTION = data.question;
+      card.hidden = false;
+      el("vndQCounter").textContent = data.position + " " + t("de", "of") + " " + data.total;
+      el("vndQText").textContent = t(data.question.text_pt, data.question.text_en);
+      el("vndQAnswer").value = "";
+      el("vndQStatus").textContent = "";
+      el("vndQConfirmCard").hidden = true;
+      el("vndQMicStatus").textContent = "";
+    }).catch(function () {});
+  }
+
+  function sendQuestionAnswer() {
+    if (!CURRENT_QUESTION) { return; }
+    var text = el("vndQAnswer").value.trim();
+    var statusEl = el("vndQStatus");
+    if (!text) { statusEl.textContent = t("Escreva ou grave uma resposta.", "Write or record an answer."); return; }
+    statusEl.textContent = t("Enviando...", "Sending...");
+    apiFetch("/api/vendors/questions/" + encodeURIComponent(CURRENT_QUESTION.id) + "/answer", { method: "POST", body: { answer_raw: text } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        if (!data.understood) {
+          statusEl.textContent = t("Não entendi bem. Pode responder de outro jeito?", "I did not understand. Can you answer another way?");
+          return;
+        }
+        statusEl.textContent = "";
+        CURRENT_Q_INTERPRETED = data.interpreted;
+        el("vndQConfirmText").textContent = questionConfirmText(CURRENT_QUESTION.key, data.interpreted);
+        el("vndQConfirmCard").hidden = false;
+      })
+      .catch(function (e) { statusEl.textContent = t("Erro: ", "Error: ") + e.message; });
+  }
+
+  function questionConfirmText(key, interpreted) {
+    if (key === "dipro_first_month") {
+      return t("Entendi: o primeiro mês pago do Dipro foi " + fmtMonthPill(interpreted.month) + ". Está certo?",
+                "I understood: Dipro's first paid month was " + fmtMonthPill(interpreted.month) + ". Is that right?");
+    }
+    if (key === "golden_site_halves") {
+      return interpreted.second_half_owed
+        ? t("Entendi: a segunda metade do site da Golden ainda está pendente. Está certo?", "I understood: Golden's second half is still owed. Is that right?")
+        : t("Entendi: as duas metades do site da Golden já foram pagas. Está certo?", "I understood: both halves of Golden's site are paid. Is that right?");
+    }
+    if (key === "older_clients_no_vendors") {
+      return interpreted.confirmed
+        ? t("Entendi: confirmado, nenhum deles tem fornecedor. Está certo?", "I understood: confirmed, none of them has a vendor. Is that right?")
+        : t("Entendi: não confirmado. Está certo?", "I understood: not confirmed. Is that right?");
+    }
+    return "";
+  }
+
+  function confirmQuestionAnswer() {
+    if (!CURRENT_QUESTION || !CURRENT_Q_INTERPRETED) { return; }
+    apiFetch("/api/vendors/questions/" + encodeURIComponent(CURRENT_QUESTION.id) + "/apply", { method: "POST", body: { interpreted: CURRENT_Q_INTERPRETED } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        loadNextQuestion();
+        loadOverview();
+      })
+      .catch(function (e) { el("vndQStatus").textContent = t("Erro: ", "Error: ") + e.message; });
+  }
+
+  function correctQuestionAnswer() {
+    el("vndQConfirmCard").hidden = true;
+    el("vndQAnswer").focus();
+  }
+
+  // Dictation: same mechanism as contract-review.html (MediaRecorder ->
+  // /api/contracts/transcribe). The transcript lands in the text area for
+  // her to correct before sending -- typing and speaking fill the same box.
+  var vndQRec = null, vndQRecChunks = [], vndQRecStartedAt = 0;
+  var VND_Q_REC_MAX_MS = 120000, VND_Q_REC_MIN_MS = 1500;
+  function toggleQuestionMic() {
+    if (vndQRec && vndQRec.state === "recording") { stopQuestionMic(); return; }
+    startQuestionMic();
+  }
+  function startQuestionMic() {
+    var st = el("vndQMicStatus");
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      if (st) { st.textContent = t("Este navegador não consegue gravar áudio.", "This browser cannot record audio."); }
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      vndQRecChunks = [];
+      vndQRec = new MediaRecorder(stream);
+      vndQRec.ondataavailable = function (e) { if (e.data && e.data.size) { vndQRecChunks.push(e.data); } };
+      vndQRec.onstop = function () {
+        for (var i = 0; i < stream.getTracks().length; i++) { stream.getTracks()[i].stop(); }
+        sendQuestionMic();
+      };
+      vndQRec.start();
+      vndQRecStartedAt = Date.now();
+      var btn = el("vndQMicBtn");
+      if (btn) { btn.innerHTML = "&#9632; " + t("Parar", "Stop"); }
+      if (st) { st.textContent = t("Gravando... fale a resposta.", "Recording... say the answer."); }
+      setTimeout(function () { if (vndQRec && vndQRec.state === "recording") { stopQuestionMic(); } }, VND_Q_REC_MAX_MS);
+    }).catch(function () {
+      if (st) { st.textContent = t("Permissão do microfone negada.", "Microphone permission denied."); }
+    });
+  }
+  function stopQuestionMic() {
+    if (vndQRec && vndQRec.state === "recording") { vndQRec.stop(); }
+    var btn = el("vndQMicBtn");
+    if (btn) { btn.innerHTML = "&#127908; " + t("Ditar", "Dictate"); }
+  }
+  function sendQuestionMic() {
+    var st = el("vndQMicStatus");
+    if (!vndQRecChunks.length || (Date.now() - vndQRecStartedAt) < VND_Q_REC_MIN_MS) {
+      if (st) { st.textContent = t("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
+      return;
+    }
+    var blob = new Blob(vndQRecChunks, { type: "audio/webm" });
+    var fd = new FormData();
+    fd.append("audio", blob, "note.webm");
+    if (st) { st.textContent = t("Transcrevendo...", "Transcribing..."); }
+    apiFetch("/api/contracts/transcribe", { method: "POST", body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var ta = el("vndQAnswer");
+        if (ta) { ta.value = (ta.value ? ta.value.trim() + " " : "") + (d.transcript || ""); ta.focus(); }
+        if (st) { st.textContent = t("Transcrito. Corrija se precisar e envie.", "Transcribed. Correct it if needed and send."); }
+      })
+      .catch(function (e) { if (st) { st.textContent = t("Erro: ", "Error: ") + e.message; } });
+  }
+
+  // ── "Enviei o pagamento" / "I sent the payment" (Part E) ──────────────────
+  var CURRENT_SENT_VENDOR = null;
+  function openSentPayment(vendorId) {
+    CURRENT_SENT_VENDOR = vendorId;
+    var v = VENDORS_BY_ID[vendorId];
+    el("sentVendorName").textContent = v ? v.name : "";
+    el("sentAmount").value = v ? (v.due_total_cents / 100).toFixed(2) : "";
+    el("sentDate").value = new Date().toISOString().slice(0, 10);
+    el("sentStatus").textContent = "";
+    var body = el("sentItemsBody");
+    var html = "";
+    (v ? v.due : []).forEach(function (p) {
+      html += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;">' +
+        '<input type="checkbox" class="sent-item" data-payable-id="' + p.id + '" data-remaining="' + p.remaining_cents + '" checked>' +
+        esc(p.client_name) + " · " + esc(trLabel(p.service_label || "")) + " · " + esc(trLabel(p.label)) + " — " + fmtCents(p.remaining_cents) +
+      '</label>';
+    });
+    body.innerHTML = html || '<div class="empty">' + t("Nenhum item.", "No items.") + '</div>';
+    body.hidden = true;
+    openSheet("sheetSent");
+  }
+  function toggleSentItems() {
+    var body = el("sentItemsBody");
+    if (body) { body.hidden = !body.hidden; }
+  }
+  function submitSentPayment() {
+    var statusEl = el("sentStatus");
+    var amount = el("sentAmount").value;
+    var sentOn = el("sentDate").value;
+    if (!amount || !sentOn) { statusEl.textContent = t("Informe o valor e a data.", "Enter the amount and the date."); return; }
+    var amountCents = Math.round(parseFloat(amount) * 100);
+    var checked = Array.prototype.slice.call(document.querySelectorAll(".sent-item:checked"));
+    var body = { vendor_id: CURRENT_SENT_VENDOR, amount_cents: amountCents, sent_on: sentOn };
+    if (checked.length) {
+      var remaining = amountCents;
+      body.allocations = checked.map(function (chk) {
+        var take = Math.min(remaining, parseInt(chk.getAttribute("data-remaining"), 10));
+        remaining -= take;
+        return { payable_id: chk.getAttribute("data-payable-id"), applied_cents: take };
+      });
+    }
+    apiFetch("/api/vendors/payments/sent", { method: "POST", body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        window.closeSheet("sheetSent");
+        loadOverview();
+      })
+      .catch(function (e) { statusEl.textContent = t("Erro: ", "Error: ") + e.message; });
   }
 
   function openPayment(vendorId) {
@@ -345,7 +688,7 @@
       var svcHtml = "";
       (data.services || []).forEach(function (s) {
         var done = s.payables.filter(function (p) { return p.status === "paid" || p.status === "cancelled"; }).length;
-        svcHtml += '<div class="pay-row"><div class="pay-row-main"><span class="pay-row-label">' + esc(s.client_name) + " · " + esc(s.label) + "</span></div>" +
+        svcHtml += '<div class="pay-row"><div class="pay-row-main"><span class="pay-row-label">' + esc(s.client_name) + " · " + esc(trLabel(s.label)) + "</span></div>" +
           '<div><span class="pay-row-amt">' + done + " / " + s.payables.length + "</span></div></div>";
       });
       el("vdServices").innerHTML = svcHtml || '<div class="empty">' + t("Nenhum serviço.", "No services.") + "</div>";
@@ -425,6 +768,7 @@
     el("asLabel").value = "";
     el("asPrice").value = "";
     el("asFirstMonth").value = "";
+    el("asStartsOn").value = new Date().toISOString().slice(0, 10);
     el("asMonths").value = "";
     el("asNote").value = "";
     el("asKind").value = "monthly";
@@ -454,6 +798,7 @@
     var price = el("asPrice").value;
     var firstMonth = el("asFirstMonth").value;
     var months = el("asMonths").value;
+    var startsOn = el("asStartsOn").value;
     if (!clientId || !label || !price || !firstMonth) { statusEl.textContent = t("Preencha todos os campos.", "Fill in every field."); return; }
     if (kind === "monthly" && !months) { statusEl.textContent = t("Informe o número de meses.", "Enter the number of months."); return; }
     apiFetch("/api/vendors/services", {
@@ -462,7 +807,8 @@
         client_id: clientId, vendor_id: vendorId, label: label, kind: kind,
         price_cents: Math.round(parseFloat(price) * 100), first_month: firstMonth,
         months: kind === "monthly" ? parseInt(months, 10) : null,
-        note: el("asNote").value.trim() || null
+        note: el("asNote").value.trim() || null,
+        starts_on: startsOn || null
       }
     }).then(function (r) { return r.json(); })
       .then(function (data) {
@@ -481,7 +827,19 @@
     openDelay: openDelay,
     openDetail: openDetail,
     quickAssign: quickAssign,
-    openIgnore: openIgnore
+    openIgnore: openIgnore,
+    confirmAutoBatch: confirmAutoBatch,
+    confirmAllAuto: confirmAllAuto,
+    openChangeAuto: openChangeAuto,
+    submitMoveVendor: submitMoveVendor,
+    markReallocateNotVendor: markReallocateNotVendor,
+    openSentPayment: openSentPayment,
+    toggleSentItems: toggleSentItems,
+    submitSentPayment: submitSentPayment,
+    toggleQuestionMic: toggleQuestionMic,
+    sendQuestionAnswer: sendQuestionAnswer,
+    confirmQuestionAnswer: confirmQuestionAnswer,
+    correctQuestionAnswer: correctQuestionAnswer
   };
   window.loadOverview = loadOverview;
   window.openForecast = openForecast;
@@ -498,6 +856,6 @@
   window.submitSkip = submitSkip;
   window.submitDelay = submitDelay;
   window.submitIgnore = submitIgnore;
-  window.submitReallocate = function () {};
+  window.submitReallocate = submitReallocate;
 
 })();

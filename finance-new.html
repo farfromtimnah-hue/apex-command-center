@@ -3584,6 +3584,70 @@
     </div>
   </div>
 
+  <div id="recordPaymentOverlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">
+        <span class="show-pt">Registrar pagamento</span>
+        <span class="show-en">Record payment</span>
+      </div>
+      <div class="modal-sub">
+        <span class="show-pt">Isto registra um pagamento de verdade na fatura e emite um recibo numerado. Diferente da etiqueta acima.</span>
+        <span class="show-en">This records a real payment on the invoice and issues a numbered receipt. Different from the tag above.</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Valor recebido</span><span class="show-en">Amount received</span>
+          <span id="recordPaymentBalance" style="display:block;font-weight:400;color:var(--muted);margin-top:2px;"></span>
+          <input type="text" inputmode="decimal" id="recordPaymentAmount"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Forma de pagamento</span><span class="show-en">Payment method</span>
+          <select id="recordPaymentMethod" onchange="onRecordPaymentMethodChange()"
+                  style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+            <option value="cash"><!-- label set in JS, bilingual --></option>
+            <option value="zelle">Zelle</option>
+            <option value="check"></option>
+            <option value="money_order"></option>
+            <option value="bank_transfer"></option>
+            <option value="card"></option>
+            <option value="other"></option>
+          </select>
+        </label>
+        <div id="recordPaymentCashNote" class="small" style="color:var(--muted);display:none;">
+          <span class="show-pt">Dinheiro entra como receita nos seus livros.</span>
+          <span class="show-en">Cash counts as income in your books.</span>
+        </div>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Data do recebimento</span><span class="show-en">Date received</span>
+          <input type="date" id="recordPaymentDate"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Referência (opcional)</span><span class="show-en">Reference (optional)</span>
+          <input type="text" id="recordPaymentReference"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <label style="font-size:12px;color:var(--muted)">
+          <span class="show-pt">Observação (opcional)</span><span class="show-en">Note (optional)</span>
+          <input type="text" id="recordPaymentNote"
+                 style="width:100%;margin-top:4px;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+        </label>
+        <div id="recordPaymentErr" class="small" style="color:#a63d3d;min-height:16px;"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeRecordPayment()">
+          <span class="show-pt">Cancelar</span><span class="show-en">Cancel</span>
+        </button>
+        <button class="btn btn-gold" id="recordPaymentSaveBtn" onclick="submitRecordPayment()">
+          <span class="show-pt">Salvar</span><span class="show-en">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════ CHANGE DUE DATE ═══════════════════════════════════════
        Clients ask for more time after the invoice already went out. There was
        no edit path before this -- due_at was writable only at creation. -->
@@ -8309,6 +8373,12 @@
                 '<span class="show-pt">Remover etiqueta</span><span class="show-en">Remove tag</span></button> '
             : '<button class="btn btn-sm" onclick="openMarkPaid(\'' + inv.id + '\')">' +
                 '<span class="show-pt">Marcar como pago</span><span class="show-en">Mark as paid</span></button> ';
+          // A real accounting event, next to (never instead of) the sticky
+          // note above: records who paid how, closes the invoice when it's
+          // covered, and issues a numbered receipt in the same step.
+          actions +=
+            '<button class="btn btn-sm btn-gold" onclick="openRecordPayment(\'' + inv.id + '\')">' +
+              '<span class="show-pt">Registrar pagamento</span><span class="show-en">Record payment</span></button> ';
           actions +=
             '<button class="btn btn-sm" onclick="openDueDate(\'' + inv.id + '\', \'' + (inv.due_at || '') + '\')">' +
               '<span class="show-pt">Mudar vencimento</span><span class="show-en">Change due date</span></button> ';
@@ -8356,9 +8426,11 @@
           '<td><span class="pill"><span class="show-pt">' + esc(statusLabel(inv, false)) + '</span><span class="show-en">' + esc(statusLabel(inv, true)) + '</span></span>' + claimTag + "</td>" +
           '<td class="num">' + amountCell + "</td>" +
         "</tr>" +
-        '<tr class="inv-btns"><td colspan="5" class="inv-actions"><div class="inv-actions-line">' + actions + "</div></td></tr>";
+        '<tr class="inv-btns"><td colspan="5" class="inv-actions"><div class="inv-actions-line">' + actions + "</div></td></tr>" +
+        '<tr class="inv-payments" id="invPayRow' + inv.id + '"><td colspan="5"><div id="invPayList' + inv.id + '"></div></td></tr>';
       }).join("");
       wireInvoiceTemplateEditing();
+      rows.forEach(function(inv) { if (inv.status === "sent" || inv.status === "paid") { loadInvoicePayments(inv.id); } });
     }
 
     function renderDrafts() {
@@ -8596,6 +8668,186 @@
           loadInvoices();
         })
         .catch(function() { toast(t("Erro", "Error")); });
+    }
+
+    // ── Record payment (cash first) + receipts ──────────────────────────────
+    var RECORD_PAYMENT_INVOICE_ID = null;
+    var RECORD_PAYMENT_METHOD_LABELS = {
+      cash: ["Dinheiro", "Cash"], zelle: ["Zelle", "Zelle"], check: ["Cheque", "Check"],
+      money_order: ["Ordem de pagamento", "Money order"], bank_transfer: ["Transferência bancária", "Bank transfer"],
+      card: ["Cartão", "Card"], other: ["Outro", "Other"]
+    };
+
+    function easternTodayStr() {
+      try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      } catch (e) { return new Date().toISOString().slice(0, 10); }
+    }
+
+    function onRecordPaymentMethodChange() {
+      var m = document.getElementById("recordPaymentMethod").value;
+      document.getElementById("recordPaymentCashNote").style.display = (m === "cash") ? "block" : "none";
+    }
+
+    function openRecordPayment(invoiceId) {
+      var inv = null;
+      for (var i = 0; i < INVOICES.length; i++) { if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; } }
+      RECORD_PAYMENT_INVOICE_ID = invoiceId;
+      document.getElementById("recordPaymentAmount").value = "";
+      document.getElementById("recordPaymentReference").value = "";
+      document.getElementById("recordPaymentNote").value = "";
+      document.getElementById("recordPaymentDate").value = easternTodayStr();
+      document.getElementById("recordPaymentErr").textContent = "";
+      var sel = document.getElementById("recordPaymentMethod");
+      Object.keys(RECORD_PAYMENT_METHOD_LABELS).forEach(function(key, idx) {
+        var opt = sel.options[idx];
+        if (opt) { opt.value = key; opt.textContent = isEn() ? RECORD_PAYMENT_METHOD_LABELS[key][1] : RECORD_PAYMENT_METHOD_LABELS[key][0]; }
+      });
+      sel.value = "cash";
+      onRecordPaymentMethodChange();
+      var balEl = document.getElementById("recordPaymentBalance");
+      if (inv) {
+        var remaining = (inv.remaining_cents != null) ? inv.remaining_cents : inv.amount_cents;
+        balEl.textContent = t("Saldo restante: ", "Remaining balance: ") + fmtCents(remaining);
+      } else {
+        balEl.textContent = "";
+      }
+      document.getElementById("recordPaymentOverlay").hidden = false;
+    }
+
+    function closeRecordPayment() {
+      document.getElementById("recordPaymentOverlay").hidden = true;
+      RECORD_PAYMENT_INVOICE_ID = null;
+    }
+
+    function submitRecordPayment() {
+      var errEl = document.getElementById("recordPaymentErr");
+      errEl.textContent = "";
+      var amountStr = document.getElementById("recordPaymentAmount").value.trim().replace(",", ".");
+      var amount = parseFloat(amountStr);
+      if (!amountStr || !isFinite(amount) || amount <= 0) {
+        errEl.textContent = t("Digite um valor maior que zero.", "Enter an amount above zero.");
+        return;
+      }
+      var method = document.getElementById("recordPaymentMethod").value;
+      var paidDate = document.getElementById("recordPaymentDate").value;
+      if (!paidDate) {
+        errEl.textContent = t("Escolha a data do recebimento.", "Choose the date received.");
+        return;
+      }
+      var reference = document.getElementById("recordPaymentReference").value.trim();
+      var note = document.getElementById("recordPaymentNote").value.trim();
+      var saveBtn = document.getElementById("recordPaymentSaveBtn");
+      saveBtn.disabled = true;
+
+      apiFetch("/api/finance-new/invoices/" + RECORD_PAYMENT_INVOICE_ID + "/record-payment", {
+        method: "POST",
+        body: {
+          amount_cents: Math.round(amount * 100),
+          method: method,
+          paid_date: paidDate,
+          reference: reference || undefined,
+          note: note || undefined
+        }
+      })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          saveBtn.disabled = false;
+          if (d && d.error) { throw new Error(d.error); }
+          closeRecordPayment();
+          toast(t("Pagamento registrado. Recibo ", "Payment recorded. Receipt ") + d.receipt_number + ".");
+          loadInvoices();
+        })
+        .catch(function(e) {
+          saveBtn.disabled = false;
+          errEl.textContent = (e && e.message) || t("Erro", "Error");
+        });
+    }
+
+    var INVOICE_PAYMENTS_CACHE = {};
+
+    function loadInvoicePayments(invoiceId) {
+      return apiFetch("/api/finance-new/invoices/" + invoiceId + "/payments")
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          INVOICE_PAYMENTS_CACHE[invoiceId] = (d && d.payments) || [];
+          renderInvoicePayments(invoiceId);
+        })
+        .catch(function() {});
+    }
+
+    function renderInvoicePayments(invoiceId) {
+      var el = document.getElementById("invPayList" + invoiceId);
+      if (!el) { return; }
+      var payments = INVOICE_PAYMENTS_CACHE[invoiceId] || [];
+      if (!payments.length) { el.innerHTML = ""; return; }
+      var inv = null;
+      for (var i = 0; i < INVOICES.length; i++) { if (INVOICES[i].id === invoiceId) { inv = INVOICES[i]; } }
+      var hasPhone = !!(inv && inv.client_whatsapp);
+      el.innerHTML = '<div class="small" style="margin:4px 0 2px;color:var(--muted);">' +
+        t("Pagamentos", "Payments") + '</div>' +
+        payments.map(function(p) {
+          var methodLabel = (RECORD_PAYMENT_METHOD_LABELS[p.method] || [p.method, p.method])[isEn() ? 1 : 0];
+          var line = fmtDate(p.date) + " &middot; " + fmtCents(p.amount_cents) + " &middot; " + esc(methodLabel || "");
+          var btns = "";
+          if (p.receipt_number) {
+            line += " &middot; " + esc(p.receipt_number);
+            btns += '<button class="btn btn-sm" onclick="window.open(\'' + p.receipt_link + '\', \'_blank\')">' +
+              '<span class="show-pt">Ver recibo</span><span class="show-en">View receipt</span></button> ';
+            btns += '<button class="btn btn-sm" onclick="copyReceiptLink(\'' + p.receipt_link + '\')">' +
+              '<span class="show-pt">Copiar link</span><span class="show-en">Copy link</span></button> ';
+            btns += '<button class="btn btn-sm" onclick="window.open(\'' + p.pdf_link + '\', \'_blank\')">' +
+              '<span class="show-pt">Baixar PDF</span><span class="show-en">Download PDF</span></button> ';
+            if (hasPhone) {
+              btns += '<button class="btn btn-sm btn-gold" onclick="sendReceiptWhatsApp(\'' + invoiceId + '\', \'' + p.id + '\')">' +
+                '<span class="show-pt">Enviar por WhatsApp</span><span class="show-en">Send on WhatsApp</span></button> ';
+            }
+          } else if (p.needs_receipt) {
+            btns += '<button class="btn btn-sm" onclick="issueOldReceipt(\'' + invoiceId + '\', \'' + p.id + '\')">' +
+              '<span class="show-pt">Emitir recibo</span><span class="show-en">Issue receipt</span></button> ';
+          }
+          btns += '<button class="btn btn-sm" onclick="undoPayment(\'' + p.id + '\')">' +
+            '<span class="show-pt">Desfazer</span><span class="show-en">Undo</span></button>';
+          return '<div class="small" style="padding:4px 0;border-top:1px solid var(--border);">' + line + ' &nbsp; ' + btns + '</div>';
+        }).join("");
+    }
+
+    function copyReceiptLink(link) {
+      (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(link) : Promise.reject())
+        .then(function() { toast(t("Link copiado.", "Link copied.")); })
+        .catch(function() { toast(t("Não foi possível copiar.", "Could not copy.")); });
+    }
+
+    function sendReceiptWhatsApp(invoiceId, paymentId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/payments/" + paymentId + "/receipt-link", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error || !d.wa_url) { throw new Error((d && d.error) || "erro"); }
+          window.open(d.wa_url, "_blank");
+        })
+        .catch(function(e) { toast(t("Não foi possível enviar: ", "Could not send: ") + ((e && e.message) || "")); });
+    }
+
+    function issueOldReceipt(invoiceId, paymentId) {
+      apiFetch("/api/finance-new/invoices/" + invoiceId + "/payments/" + paymentId + "/issue-receipt", { method: "POST" })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (!d || d.error) { throw new Error((d && d.error) || "erro"); }
+          toast(t("Recibo emitido: ", "Receipt issued: ") + d.receipt_number);
+          loadInvoicePayments(invoiceId);
+        })
+        .catch(function(e) { toast(t("Erro: ", "Error: ") + ((e && e.message) || "")); });
+    }
+
+    function undoPayment(paymentId) {
+      apiFetch("/api/finance-new/matches/undo", { method: "POST", body: { payment_id: paymentId } })
+        .then(function(r) { return r.json().catch(function() { return {}; }); })
+        .then(function(d) {
+          if (d && d.error) { throw new Error(d.error); }
+          toast(t("Pagamento desfeito.", "Payment undone."));
+          loadInvoices();
+        })
+        .catch(function(e) { toast(t("Erro: ", "Error: ") + ((e && e.message) || "")); });
     }
 
     // ── Change due date ─────────────────────────────────────────────────────

@@ -1619,6 +1619,18 @@
             <span class="show-pt">Hist&oacute;rico de registros</span>
             <span class="show-en">Entry history</span>
           </div>
+          <div class="month-nav">
+            <button type="button" onclick="changeHistMonth(-1)" aria-label="Previous month">&lsaquo;</button>
+            <div class="month-label" id="histMonthLabel"></div>
+            <button type="button" onclick="changeHistMonth(1)" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <select class="chart-b-picker" id="histStatusFilter" onchange="setHistStatus(this.value)" style="margin-bottom:10px;">
+            <option value="all" data-pt="Todos os status" data-en="All statuses"></option>
+            <option value="completed" data-pt="Completo" data-en="Completed"></option>
+            <option value="partial" data-pt="Parcial" data-en="Partial"></option>
+            <option value="filled_late" data-pt="Preenchido depois" data-en="Filled late"></option>
+            <option value="day_off" data-pt="Folga" data-en="Day off"></option>
+          </select>
           <div id="historyBody"></div>
         </div>
       </div>
@@ -7121,7 +7133,29 @@
 
     // Entry history — the retired grid's historical past-entries view.
     var historyEntries = [];
+    var histStatus = "all";
+    function changeHistMonth(delta) {
+      var p = analyticsMonth.split("-");
+      var d = new Date(Number(p[0]), Number(p[1]) - 1 + delta, 1);
+      analyticsMonth = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      // Keep the Analytics card above on the same month as this list.
+      if (analyticsView) { analyticsView.setMonth(analyticsMonth); }
+      loadHistory();
+    }
+    function setHistStatus(v) { histStatus = v; loadHistory(); }
+    function syncHistFilterUi() {
+      var ml = document.getElementById("histMonthLabel");
+      if (ml) { ml.textContent = monthLabelText(analyticsMonth); }
+      var sel = document.getElementById("histStatusFilter");
+      if (sel) {
+        for (var i = 0; i < sel.options.length; i++) {
+          sel.options[i].textContent = sel.options[i].getAttribute(isEn() ? "data-en" : "data-pt");
+        }
+        sel.value = histStatus;
+      }
+    }
     function loadHistory() {
+      syncHistFilterUi();
       apiFetch("/api/clients/" + clientId + "/entries?month=" + analyticsMonth)
         .then(function(res) { return res.json(); })
         .then(function(d) {
@@ -7143,6 +7177,7 @@
               : st === "filled_late" ? (isEn() ? "Filled late" : "Preenchido depois")
               : (isEn() ? "Partial" : "Parcial");
             var canEdit = !(PREVIEW_AS && !PREVIEW_MANAGE);
+            if (histStatus !== "all" && histStatus !== st) { return; }
             rows += '<tr><td>' + formatDate(e.date) + '</td>' +
               '<td><span class="hist-status ' + (st === "filled_late" ? "completed" : st) + '">' + stLabel + '</span></td>' +
               '<td style="text-align:right;"><button class="btn-expand" onclick="toggleHistDetail(' + i + ')">' +
@@ -7154,10 +7189,16 @@
           });
           (d.missed_days || []).forEach(function(m) {
             if (covered[m.missed_date] || m.status !== "day_off") { return; }
+            if (histStatus !== "all" && histStatus !== "day_off") { return; }
             rows += '<tr><td>' + formatDate(m.missed_date) + '</td>' +
               '<td><span class="hist-status day_off">' + (isEn() ? "Day off" : "Folga") +
               (m.reason ? " · " + escHtml(m.reason) : "") + '</span></td><td></td></tr>';
           });
+          if (!rows) {
+            document.getElementById("historyBody").innerHTML =
+              '<p class="muted">' + (isEn() ? "No entries match this filter." : "Nenhum registro com este filtro.") + '</p>';
+            return;
+          }
           document.getElementById("historyBody").innerHTML =
             '<div style="overflow-x:auto;"><table class="hist"><thead><tr>' +
             '<th>' + (isEn() ? "Date" : "Data") + '</th><th>Status</th><th></th>' +

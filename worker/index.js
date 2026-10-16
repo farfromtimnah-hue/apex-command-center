@@ -57251,7 +57251,7 @@ async function handlePostClubRegZelleDecision(regId, action, request, env) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function vendorAuthed(user) {
-    return !!(user && (user.role === "alice" || user.role === "developer"));
+    return !!(user && (user.role === "alice" || user.role === "developer" || user.role === "rafa"));
 }
 
 async function vendorAuth(request, env) {

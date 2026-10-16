@@ -428,10 +428,13 @@ function seedVendor(d, id, name, type) {
 // ── Role gates ────────────────────────────────────────────────────────────
 {
   const d = makeDb(MIGRATIONS);
+  // Rafa is a co-owner: he can reach vendor tracking the same as Alice, even
+  // though he doesn't use it day to day (see nav.js -- Fornecedores sits last
+  // in his menu/dock, not blocked from him).
   const F = build(FNS, VARS, Object.assign({}, baseStubs, { jsonErr2: function (pt, en, status) { return { status: status || 400, error: en }; }, gmEasternToday: () => TODAY, authenticate: async () => ({ role: "rafa", display_name: "Rafa" }) }));
   const env = { DB: d.DB };
   let r = await F.handleGetVendorsOverview(req({}, "https://x/?month=2026-10"), env);
-  ok(r.status === 403, "rafa is refused");
+  ok(r.status === 200, "rafa passes (co-owner access, added in this job)");
 
   const F2 = build(FNS, VARS, Object.assign({}, baseStubs, { jsonErr2: function (pt, en, status) { return { status: status || 400, error: en }; }, gmEasternToday: () => TODAY, authenticate: async () => ({ role: "client", display_name: "C" }) }));
   r = await F2.handleGetVendorsOverview(req({}, "https://x/?month=2026-10"), env);

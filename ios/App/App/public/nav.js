@@ -102,6 +102,11 @@
     { key: "apexclub",  href: "apex-club.html", icon: "star",
       labelPt: "Apex Club",                    labelEn: "Apex Club",
       tipPt: "Apex Club",                      tipEn: "Apex Club" },
+    // Rafa is a co-owner and needs Vendors, but doesn't use it day to day:
+    // placed after the tools he does use, never ahead of them.
+    { key: "vendors",   href: "vendors.html",   icon: "briefcase",
+      labelPt: "Fornecedores",                 labelEn: "Vendors",
+      tipPt: "Fornecedores",                   tipEn: "Vendors" },
     { key: "settings",  href: "settings.html",  icon: "settings",
       labelPt: "Configura&ccedil;&otilde;es",  labelEn: "Settings",
       tipPt: "Configuracoes",                  tipEn: "Settings" }
@@ -705,8 +710,10 @@
     if (navRole === "rafa") {
       agenda   = [MTAB_SESSOES, MTAB_CALENDARIO];
       fifth    = MTAB_TAREFAS;
-      // Rafa does not get Vendors, matching his desktop menu (NAV_ITEMS_RAFA).
-      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS, MTAB_APEXCLUB];
+      // Rafa is a co-owner and needs Vendors, but doesn't use it day to day:
+      // Fornecedores goes last, after the tools he does use, matching the
+      // same placement in his desktop menu (NAV_ITEMS_RAFA).
+      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS, MTAB_APEXCLUB, MTAB_VENDORS];
     } else {
       // alice (default) and developer
       agenda   = [MTAB_CALENDARIO, MTAB_SESSOES, MTAB_TAREFAS];

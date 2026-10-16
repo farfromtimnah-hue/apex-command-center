@@ -108,7 +108,7 @@ const WANT = {
     ["clients", ["clients.html", "client-analytics.html", "contract-review.html"]],
     ["agenda", ["sessions.html", "calendar.html"]],
     "tasks.html",
-    ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html"]]
+    ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html", "vendors.html"]]
   ],
   developer: [
     "dashboard.html",
@@ -146,11 +146,54 @@ eq(groupsOf(cfgFor("alice", true)),
    "group labels and icons: Clientes/Clients, Agenda/Agenda, Financeiro/Financial, Negocio/Business");
 eq(shape(cfgFor("alice", true))[3], ["finance", ["finance-new.html", "vendors.html", "apex-club.html"]],
    "Financeiro group: Financeiro first, then Fornecedores, then Apex Club");
-eq(shape(cfgFor("rafa", true))[4], ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html"]],
-   "Rafa's Business group: Apex Club added after Financeiro, no Vendors");
+eq(shape(cfgFor("rafa", true))[4], ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html", "vendors.html"]],
+   "Rafa's Business group: Apex Club after Financeiro, Fornecedores last (co-owner access, out of his daily way)");
 eq(shape(cfgFor("alice", false))[1], ["clients", ["clients.html", "client-analytics.html"]],
    "contract review switched off: the Clients group simply has no such item");
 eq(shape(cfgFor("something-else", true)), WANT.alice, "an unknown role falls back to the alice layout, as before");
+
+// ---- desktop side menu: Rafa gets Vendors, placed after Apex Club ----
+signIn("rafa", null, true);
+freshPage("dashboard.html");
+window.initNav();
+const sideHrefsInOrder = () => (els.navSidebar.innerHTML.match(/href="([a-z0-9.-]+\.html)"/g) || []).map(h => h.slice(6, -1));
+const rafaSideHrefs = sideHrefsInOrder();
+ok(rafaSideHrefs.includes("vendors.html"), "Rafa's desktop side menu includes Vendors");
+ok(rafaSideHrefs.indexOf("vendors.html") === rafaSideHrefs.indexOf("apex-club.html") + 1,
+   "Vendors sits directly after Apex Club in Rafa's desktop menu");
+ok(rafaSideHrefs.indexOf("vendors.html") < rafaSideHrefs.indexOf("settings.html"),
+   "Vendors sits before Settings (near the bottom, not replacing a tool Rafa uses)");
+
+// ---- desktop menu and phone dock agree on which pages each role can reach ----
+// The desktop never shows a page the phone hides, and the phone never offers
+// a page the desktop hides -- both are UI surfaces over the same role, so
+// they must list exactly the same destinations (order aside).
+const PAGE_RE = /href="([a-z0-9.-]+\.html)"/g;
+function desktopPages(role, view, released) {
+  signIn(role, view, released);
+  freshPage("dashboard.html");
+  window.initNav();
+  var hrefs = new Set();
+  var m;
+  PAGE_RE.lastIndex = 0;
+  while ((m = PAGE_RE.exec(els.navSidebar.innerHTML))) { hrefs.add(m[1]); }
+  hrefs.delete("settings.html"); // desktop menu includes Settings; the dock keeps it behind the gear
+  return hrefs;
+}
+function dockPages(role, view, released) {
+  var navRole = (role === "developer" && (view === "alice" || view === "rafa")) ? view : role;
+  var showContractReview = (navRole === "developer") || (navRole === "rafa" && released);
+  var cfg = cfgFor(navRole, showContractReview);
+  return new Set(pages(cfg).map(p => p.href));
+}
+for (const [role, view, released] of [["alice", null, true], ["rafa", null, true], ["developer", null, true]]) {
+  const d = desktopPages(role, view, released);
+  const k = dockPages(role, view, released);
+  const onlyDesktop = [...d].filter(h => !k.has(h));
+  const onlyDock = [...k].filter(h => !d.has(h));
+  eq(onlyDesktop, [], role + ": every desktop page is reachable on the phone dock");
+  eq(onlyDock, [], role + ": the phone dock never offers a page the desktop hides");
+}
 
 // ---- what nav.js really puts on the page ----
 const dock = () => els["mobile-tab-bar"].innerHTML;
@@ -246,7 +289,7 @@ location.href = "";
 window.apexDockGroupToggle("business");
 ok(menu !== els["mobile-more-menu"] && els["mobile-more-menu"].classList.contains("mg-open") && location.href === "",
    "with a tool remembered, tapping the group still pops the menu and does not navigate (as the portal does)");
-eq((els.panel.innerHTML.match(/href="[^"]+"/g) || []), ['href="sales.html"', 'href="finance-new.html"', 'href="documents.html"', 'href="apex-club.html"'],
+eq((els.panel.innerHTML.match(/href="[^"]+"/g) || []), ['href="sales.html"', 'href="finance-new.html"', 'href="documents.html"', 'href="apex-club.html"', 'href="vendors.html"'],
    "…and the menu order does not move");
 eq(tapWithoutPopup("business"), "finance-new.html", "…and the tool used last is where the group lands when it opens on its own");
 eq(tapWithoutPopup("agenda"), "sessions.html", "one group's memory does not touch another group");

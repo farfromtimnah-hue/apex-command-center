@@ -54159,6 +54159,7 @@ function apxClean(body) {
         return {
             vendor_id: apxEsc(a && a.vendor_id).slice(0, 80) || null,
             vendor_name: apxEsc(a && a.vendor_name).slice(0, 120) || null,
+            key: apxEsc(a && a.key).replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || null,
             label: apxEsc(a && a.label).slice(0, 120),
             description: apxEsc(a && a.description).slice(0, 400),
             recurrence: (a && a.recurrence === "once") ? "once" : "monthly",

@@ -39,6 +39,24 @@
       { key: "site",   label: "Site estrat\u00e9gico",        recurrence: "once",    months: 1, vendor_cost_cents: 30000 }
     ]
   };
+  // The services Apex can add on top of a package. Picked as a MULTI-select (a
+  // client often takes several: site, social media, video...). Each picked
+  // service becomes one add-on line. The vendor is an internal field only: it
+  // feeds the Fornecedores page and is never printed; the contract shows just
+  // the service name and description. Services a package already includes in its
+  // price (PKG_INCLUDED) are not offered again, so nothing is double-listed.
+  var ADDON_SERVICES = [
+    { key: "trafego", label: "Gest\u00e3o de tr\u00e1fego pago",  recurrence: "monthly" },
+    { key: "social",  label: "Gest\u00e3o de redes sociais",       recurrence: "monthly" },
+    { key: "videos",  label: "Edi\u00e7\u00e3o de v\u00eddeos",  recurrence: "monthly" },
+    { key: "site",    label: "Site estrat\u00e9gico",              recurrence: "once" },
+    { key: "design",  label: "Design",                              recurrence: "once" }
+  ];
+  function offeredAddonServices(pkgKey) {
+    var taken = {};
+    (PKG_INCLUDED[pkgKey] || []).forEach(function(x) { taken[x.key] = true; });
+    return ADDON_SERVICES.filter(function(sv) { return !taken[sv.key]; });
+  }
   // Per-package scope catalog, printed on the client-facing contract as
   // "O que est\u00e1 incluido" (deliverables only, never a price). START and
   // ADVANCED are left empty for now. Apex's own Growth scope document, 2026.
@@ -341,9 +359,13 @@
 
     // 4. Add-ons (vendor services). The client sees the service, never its cost.
     var ad = "";
+    var picked = {};
+    f.addons.forEach(function(a) { if (a.key) { picked[a.key] = true; } });
+    ad += field("Servi\u00e7os (marque quantos o cliente levar)", '<div class="gm-chip-set" style="margin:4px 0 10px;">' +
+      offeredAddonServices(f.package_key).map(function(sv) { return chip(sv.label, !!picked[sv.key], "ApexContract._svcToggle('" + sv.key + "')"); }).join("") + '</div>');
     f.addons.forEach(function(a, i) {
       ad += '<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px 2px;margin-bottom:8px;">' +
-        field("Fornecedor (vai para a p\u00e1gina de Fornecedores)", '<select class="gm-input" id="apxAddVendor' + i + '">' + vendorOptions(a.vendor_id) + '</select>') +
+        field("Fornecedor (interno: nunca aparece no contrato; vai para a p\u00e1gina de Fornecedores)", '<select class="gm-input" id="apxAddVendor' + i + '">' + vendorOptions(a.vendor_id) + '</select>') +
         field("Serviço (aparece no contrato)", '<input class="gm-input" id="apxAddLabel' + i + '" value="' + esc(a.label) + '" placeholder="ex: Gestão de tráfego pago">') +
         field("Descrição (aparece no contrato)", '<input class="gm-input" id="apxAddDesc' + i + '" value="' + esc(a.description) + '">') +
         '<div class="gm-chip-set" style="margin:4px 0 6px;">' + chip("Mensal", a.recurrence !== "once", "ApexContract._addRec(" + i + ",'monthly')") + chip("Uma vez", a.recurrence === "once", "ApexContract._addRec(" + i + ",'once')") + '</div>' +
@@ -352,7 +374,7 @@
         field("Custo do fornecedor (interno, não aparece)", '<input class="gm-input" id="apxAddCost' + i + '" inputmode="decimal" value="' + centsInput(a.vendor_cost_cents) + '">') +
         '<button type="button" class="gm-choice-chip" style="margin-bottom:10px;" onclick="ApexContract._addDel(' + i + ')">Remover</button></div>';
     });
-    ad += '<button type="button" class="gm-btn-secondary" style="margin-top:0;" onclick="ApexContract._addAdd()">+ Serviço adicional</button>';
+    ad += '<button type="button" class="gm-btn-secondary" style="margin-top:0;" onclick="ApexContract._addAdd()">+ Outro serviço</button>';
     h += section("4. Adicionais", ad, "somam ao total; o custo não aparece");
 
     // 5. Payment: always asked
@@ -725,6 +747,19 @@
       else if (!on && i !== -1) { F.scope_items.splice(i, 1); }
     },
     _addAdd: function() { readForm(); F.addons.push({ vendor_id: null, label: "", description: "", recurrence: "monthly", months: (PKG[F.package_key] || {}).months || 1, client_price_cents: 0, vendor_cost_cents: null }); redrawBuilder(true); },
+    _svcToggle: function(key) {
+      readForm();
+      var at = -1;
+      F.addons.forEach(function(a, i) { if (a.key === key) { at = i; } });
+      if (at !== -1) { F.addons.splice(at, 1); }
+      else {
+        var sv = null; ADDON_SERVICES.forEach(function(x) { if (x.key === key) { sv = x; } });
+        if (!sv) { return; }
+        F.addons.push({ key: sv.key, vendor_id: defaultVendorId(), label: sv.label, description: "", recurrence: sv.recurrence,
+          months: sv.recurrence === "once" ? 1 : ((PKG[F.package_key] || {}).months || 1), client_price_cents: 0, vendor_cost_cents: null });
+      }
+      rebuildSchedule(F); redrawBuilder(true);
+    },
     _addDel: function(i) { readForm(); F.addons.splice(i, 1); rebuildSchedule(F); redrawBuilder(true); },
     _addRec: function(i, r) { readForm(); F.addons[i].recurrence = r; rebuildSchedule(F); redrawBuilder(true); },
     _bonusAdd: function() { readForm(); F.bonuses.push(""); redrawBuilder(true); },

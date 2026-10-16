@@ -1887,32 +1887,62 @@
       </div>
       <div class="card-body-collapsible">
         <div class="card-title" id="ctCounter"></div>
-        <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
-        <textarea id="ctAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-          <button class="btn btn-sm" id="ctMicBtn" onclick="toggleCtMic()">
-            &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
-          </button>
-          <span id="ctMicStatus" style="font-size:12px;color:var(--muted);"></span>
-          <button class="btn-secondary btn-sm" onclick="skipCtQuestion()">
-            <span class="show-pt">Pular</span><span class="show-en">Skip</span>
-          </button>
-          <button class="btn btn-gold btn-sm" style="margin-left:auto;" onclick="sendCtAnswer()">
-            <span class="show-pt">Enviar</span><span class="show-en">Send</span>
-          </button>
+        <div id="ctNotEnoughHistory" hidden style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          <span class="show-pt">Ainda n&atilde;o h&aacute; hist&oacute;rico de pagamentos suficiente</span>
+          <span class="show-en">Not enough payment history yet</span>
         </div>
-        <div class="sheet-status" id="ctStatus"></div>
 
-        <!-- Inline confirmation card (never a browser dialog). -->
-        <div id="ctConfirmCard" hidden style="margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
-          <div id="ctConfirmText" style="font-size:13.5px;margin-bottom:10px;"></div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-gold btn-sm" onclick="confirmCtAnswer()">
+        <!-- History confirmation card: shown INSTEAD of the typed question
+             whenever Apex can already prove amount/frequency/due day from
+             Plaid + invoices. Nothing here saves without a click. -->
+        <div id="ctHistoryCard" hidden>
+          <div id="ctHistoryText" style="font-size:14px;margin-bottom:10px;line-height:1.5;"></div>
+          <div id="ctHistoryOutliers" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;"></div>
+          <div id="ctDueDayRow" style="margin-bottom:12px;">
+            <label for="ctDueDayInput" style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;" id="ctDueDayLabel"></label>
+            <input type="number" min="1" max="31" id="ctDueDayInput" class="field-input" style="width:100px;">
+            <div style="font-size:11.5px;color:var(--muted);margin-top:4px;" id="ctDueDayNote"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-gold btn-sm" onclick="confirmCtHistoryCard()">
               <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
             </button>
-            <button class="btn btn-sm" onclick="correctCtAnswer()">
+            <button class="btn-secondary btn-sm" onclick="correctCtHistoryCard()">
               <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
             </button>
+          </div>
+          <div class="sheet-status" id="ctHistoryStatus"></div>
+        </div>
+
+        <!-- Typed question (hidden while ctHistoryCard is shown). -->
+        <div id="ctTypedQuestion">
+          <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
+          <textarea id="ctAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn btn-sm" id="ctMicBtn" onclick="toggleCtMic()">
+              &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
+            </button>
+            <span id="ctMicStatus" style="font-size:12px;color:var(--muted);"></span>
+            <button class="btn-secondary btn-sm" onclick="skipCtQuestion()">
+              <span class="show-pt">Pular</span><span class="show-en">Skip</span>
+            </button>
+            <button class="btn btn-gold btn-sm" style="margin-left:auto;" onclick="sendCtAnswer()">
+              <span class="show-pt">Enviar</span><span class="show-en">Send</span>
+            </button>
+          </div>
+          <div class="sheet-status" id="ctStatus"></div>
+
+          <!-- Inline confirmation card (never a browser dialog). -->
+          <div id="ctConfirmCard" hidden style="margin-top:14px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
+            <div id="ctConfirmText" style="font-size:13.5px;margin-bottom:10px;"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-gold btn-sm" onclick="confirmCtAnswer()">
+                <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
+              </button>
+              <button class="btn btn-sm" onclick="correctCtAnswer()">
+                <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -10146,22 +10176,164 @@ names,
     }
     document.addEventListener("apex:langchange", function () { ctRedrawQuestionText(); });
 
+    // History card state: fields_to_save/fallback_questions from the last
+    // /next response, and which fallback question (if "Corrigir" was
+    // clicked) we are currently walking through.
+    var ctHistoryCard = null;
+    var ctFallbackQueue = [];
+
+    function ctShowEl(id, show) { var el = document.getElementById(id); if (el) { el.hidden = !show; } }
+
     function loadCtNextQuestion() {
       apiFetch("/api/client-terms/next").then(function(r) { return r.json(); }).then(function(data) {
         var card = document.getElementById("ctQuestionCard");
         if (!card) { return; }
-        if (!data.client) { card.hidden = true; ctCurrentClient = null; ctCurrentQuestion = null; return; }
+        if (!data.client) { card.hidden = true; ctCurrentClient = null; ctCurrentQuestion = null; ctHistoryCard = null; return; }
         ctCurrentClient = data.client;
-        ctCurrentQuestion = data.question;
         card.hidden = false;
         document.getElementById("ctClientName").textContent = data.client.name;
         ctCurrentPos = { position: data.position, total: data.total };
+        ctShowEl("ctNotEnoughHistory", !!data.not_enough_history);
+
+        if (data.history_card) {
+          ctCurrentQuestion = null;
+          ctHistoryCard = data.history_card;
+          ctFallbackQueue = [];
+          ctShowEl("ctHistoryCard", true);
+          ctShowEl("ctTypedQuestion", false);
+          ctRedrawHistoryCard();
+          return;
+        }
+
+        ctHistoryCard = null;
+        ctCurrentQuestion = data.question;
+        ctShowEl("ctHistoryCard", false);
+        ctShowEl("ctTypedQuestion", true);
         ctRedrawQuestionText();
         document.getElementById("ctAnswer").value = "";
         document.getElementById("ctStatus").textContent = "";
         document.getElementById("ctConfirmCard").hidden = true;
         document.getElementById("ctMicStatus").textContent = "";
       }).catch(function() {});
+    }
+
+    // Builds the one-sentence history summary and fills the due-day field.
+    // Redrawn (not refetched) on a live language toggle, same cache-first
+    // pattern as ctRedrawQuestionText.
+    function ctRedrawHistoryCard() {
+      var h = ctHistoryCard;
+      var textEl = document.getElementById("ctHistoryText");
+      var outEl = document.getElementById("ctHistoryOutliers");
+      if (!h || !textEl) { return; }
+
+      var freqLabels = { weekly: t("semanal", "weekly"), biweekly: t("a cada duas semanas", "every two weeks"), monthly: t("mensal", "monthly"), quarterly: t("a cada 3 meses", "every 3 months"), one_time: t("uma única vez", "one time") };
+      var parts = [];
+
+      var amt = h.amount || h.amount_already_saved;
+      var freq = h.frequency || h.frequency_already_saved;
+      if (amt && freq) {
+        var amtPart = amt.varies
+          ? t("valor varia (mais recente " + fmtUsdCents(amt.most_recent_cents) + ", de " + fmtUsdCents(amt.min_cents) + " a " + fmtUsdCents(amt.max_cents) + ")", "amount varies (most recent " + fmtUsdCents(amt.most_recent_cents) + ", from " + fmtUsdCents(amt.min_cents) + " to " + fmtUsdCents(amt.max_cents) + ")")
+          : fmtUsdCents(amt.amount_cents);
+        parts.push(t(amtPart + " " + freqLabels[freq.frequency], amtPart + " " + freqLabels[freq.frequency]));
+      } else if (amt) {
+        var amtOnly = amt.varies ? t("valor varia, mais recente " + fmtUsdCents(amt.most_recent_cents), "amount varies, most recent " + fmtUsdCents(amt.most_recent_cents)) : fmtUsdCents(amt.amount_cents);
+        parts.push(amtOnly);
+      } else if (freq) {
+        parts.push(freqLabels[freq.frequency]);
+      }
+
+      if (h.payment_count > 0 && h.payment_dates && h.payment_dates.length) {
+        var datesStr = h.payment_dates.map(fmtDate).join(", ");
+        parts.push(t("pago em " + datesStr, "paid on " + datesStr));
+      }
+      if (h.first_invoice_date) { parts.push(t("primeira fatura em " + fmtDate(h.first_invoice_date), "first invoice on " + fmtDate(h.first_invoice_date))); }
+      if (h.last_paid_date) { parts.push(t("último pagamento em " + fmtDate(h.last_paid_date), "last paid on " + fmtDate(h.last_paid_date))); }
+      if (h.next_expected_date) { parts.push(t("próximo esperado em " + fmtDate(h.next_expected_date), "next expected on " + fmtDate(h.next_expected_date))); }
+
+      textEl.textContent = parts.length
+        ? (t("O histórico mostra: ", "History shows: ") + parts.join(", ") + ".")
+        : t("Confirme o dia de vencimento abaixo.", "Confirm the due day below.");
+
+      if (outEl) {
+        if (h.outlier_payments && h.outlier_payments.length) {
+          outEl.textContent = h.outlier_payments.map(function(o) {
+            return t("Pagamento maior em " + fmtDate(o.date) + ": " + fmtUsdCents(o.amount_cents), "Larger payment on " + fmtDate(o.date) + ": " + fmtUsdCents(o.amount_cents));
+          }).join(" ");
+        } else {
+          outEl.textContent = "";
+        }
+      }
+
+      var dueDayRow = document.getElementById("ctDueDayRow");
+      var dueDayInput = document.getElementById("ctDueDayInput");
+      var dueDayLabel = document.getElementById("ctDueDayLabel");
+      var dueDayNote = document.getElementById("ctDueDayNote");
+      var showDueDay = h.fields_to_save && h.fields_to_save.indexOf("due_day") !== -1;
+      if (dueDayRow) { dueDayRow.hidden = !showDueDay; }
+      if (showDueDay && dueDayInput && dueDayLabel && dueDayNote) {
+        dueDayLabel.textContent = t("Dia de vencimento", "Due day");
+        if (!dueDayInput.dataset.ctFilled) {
+          dueDayInput.value = (h.due_day_suggestion && h.due_day_suggestion.due_day) ? h.due_day_suggestion.due_day : "";
+          dueDayInput.dataset.ctFilled = "1";
+        }
+        dueDayNote.textContent = t(
+          "Bancos podem mudar a data do pagamento por fins de semana e feriados; confirme o dia em que a fatura realmente vence.",
+          "Banks can shift payment dates around weekends and holidays; confirm the day the invoice is actually due."
+        );
+      }
+      var statusEl = document.getElementById("ctHistoryStatus");
+      if (statusEl) { statusEl.textContent = ""; }
+    }
+    document.addEventListener("apex:langchange", function () { if (ctHistoryCard) { ctRedrawHistoryCard(); } });
+
+    function confirmCtHistoryCard() {
+      if (!ctCurrentClient || !ctHistoryCard) { return; }
+      var statusEl = document.getElementById("ctHistoryStatus");
+      var fieldsToSave = ctHistoryCard.fields_to_save || [];
+      var body = { fields_to_save: fieldsToSave };
+      if (fieldsToSave.indexOf("due_day") !== -1) {
+        var dueDayInput = document.getElementById("ctDueDayInput");
+        var day = dueDayInput ? parseInt(dueDayInput.value, 10) : NaN;
+        if (!day || day < 1 || day > 31) {
+          if (statusEl) { statusEl.textContent = t("Preencha o dia de vencimento.", "Fill in the due day."); }
+          return;
+        }
+        body.due_day = day;
+      }
+      if (statusEl) { statusEl.textContent = t("Enviando...", "Sending..."); }
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply-history", {
+        method: "POST", body: body
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) { throw new Error(data.error); }
+        var dueDayInput2 = document.getElementById("ctDueDayInput");
+        if (dueDayInput2) { delete dueDayInput2.dataset.ctFilled; }
+        loadCtNextQuestion();
+        loadCtForecast();
+      }).catch(function(e) { if (statusEl) { statusEl.textContent = t("Erro: ", "Error: ") + e.message; } });
+    }
+
+    // "Corrigir": falls back to the normal typed questions, one at a time,
+    // for exactly the fields the card was about to save.
+    function correctCtHistoryCard() {
+      if (!ctHistoryCard) { return; }
+      ctFallbackQueue = (ctHistoryCard.fallback_questions || []).slice();
+      var dueDayInput = document.getElementById("ctDueDayInput");
+      if (dueDayInput) { delete dueDayInput.dataset.ctFilled; }
+      ctAdvanceFallbackQueue();
+    }
+
+    function ctAdvanceFallbackQueue() {
+      if (!ctFallbackQueue.length) { loadCtNextQuestion(); return; }
+      ctCurrentQuestion = ctFallbackQueue.shift();
+      ctHistoryCard = null;
+      ctShowEl("ctHistoryCard", false);
+      ctShowEl("ctTypedQuestion", true);
+      ctRedrawQuestionText();
+      document.getElementById("ctAnswer").value = "";
+      document.getElementById("ctStatus").textContent = "";
+      document.getElementById("ctConfirmCard").hidden = true;
+      document.getElementById("ctMicStatus").textContent = "";
     }
 
     function sendCtAnswer() {
@@ -10197,6 +10369,11 @@ names,
         var endPart = v.open_ended ? t("sem data definida", "open-ended") : t("termina em " + v.end_date, "ends on " + v.end_date);
         var renewPart = v.auto_renews ? t("renova automaticamente", "renews automatically") : t("não renova automaticamente", "does not renew automatically");
         return t("Entendi: " + endPart + ", " + renewPart + ". Está certo?", "I understood: " + endPart + ", " + renewPart + ". Is that right?");
+      }
+      if (key === "balloon_payment") {
+        return v.has_balloon
+          ? t("Entendi: pagamento balão de " + fmtUsdCents(v.balloon_cents) + " em " + fmtDate(v.balloon_date) + ". Está certo?", "I understood: a balloon payment of " + fmtUsdCents(v.balloon_cents) + " on " + fmtDate(v.balloon_date) + ". Is that right?")
+          : t("Entendi: nenhum pagamento balão. Está certo?", "I understood: no balloon payment. Is that right?");
       }
       if (key === "payment_method") {
         var methodLabels = { zelle: "Zelle", check: t("cheque", "check"), ach: "ACH", card: t("cartão", "card"), cash: t("dinheiro", "cash"), other: t("outro", "other") };
@@ -10248,8 +10425,8 @@ names,
         method: "POST", body: { question_key: ctCurrentQuestion.key, interpreted: ctCurrentInterpreted }
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.error) { throw new Error(data.error); }
-        loadCtNextQuestion();
         loadCtForecast();
+        if (ctFallbackQueue.length) { ctAdvanceFallbackQueue(); } else { loadCtNextQuestion(); }
       }).catch(function(e) { document.getElementById("ctStatus").textContent = t("Erro: ", "Error: ") + e.message; });
     }
 
@@ -10264,7 +10441,7 @@ names,
         method: "POST", body: { question_key: ctCurrentQuestion.key, skip: true }
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.error) { throw new Error(data.error); }
-        loadCtNextQuestion();
+        if (ctFallbackQueue.length) { ctAdvanceFallbackQueue(); } else { loadCtNextQuestion(); }
       }).catch(function(e) { document.getElementById("ctStatus").textContent = t("Erro: ", "Error: ") + e.message; });
     }
 

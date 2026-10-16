@@ -22556,26 +22556,45 @@ async function handleGetGmFinance(id, request, env) {
             "LEFT JOIN gm_jobs j ON j.id = f.obra_id " +
             "WHERE f.client_id = ? ORDER BY COALESCE(f.data, f.created_at) DESC"
         ).bind(id).all();
-        var sums = await env.DB.prepare(
-            "SELECT mes, " +
-            "SUM(CASE WHEN tipo = 'Entrada' THEN valor ELSE 0 END) AS entradas, " +
-            "SUM(CASE WHEN tipo = 'Saída' THEN valor ELSE 0 END) AS saidas " +
-            "FROM gm_finance WHERE client_id = ? GROUP BY mes"
-        ).bind(id).all();
-        var monthly = [];
-        (sums.results || []).forEach(function(m) {
-            var entradas = m.entradas || 0;
-            var saidas = m.saidas || 0;
-            var resultado = entradas - saidas;
-            monthly.push({
-                mes: m.mes,
-                entradas: entradas,
-                saidas: saidas,
-                resultado: resultado,
-                margem_pct: entradas > 0 ? Math.round((resultado / entradas) * 1000) / 10 : null
-            });
+        var allRows = rows.results || [];
+        // Monthly summary groups by the month of the entry date (gm_finance.data
+        // when valid, else created_at), not the legacy stored mes column: for
+        // many clients mes is empty and every entry collapsed into one lump.
+        var groups = {};
+        var order = [];
+        allRows.forEach(function(r) {
+            var m = /^(\d{4}-\d{2})/.exec(String(r.data || ""));
+            var key = m ? m[1] : null;
+            if (!key) {
+                var created = String(r.created_at || "");
+                key = /^\d{4}-\d{2}/.test(created) ? created.slice(0, 7) : null;
+            }
+            if (!Object.prototype.hasOwnProperty.call(groups, key)) {
+                groups[key] = { entradas: 0, saidas: 0, mes: r.mes || null };
+                order.push(key);
+            }
+            var valor = r.valor || 0;
+            if (r.tipo === "Entrada") { groups[key].entradas += valor; }
+            else if (r.tipo === "Saída" || r.tipo === "Saida") { groups[key].saidas += valor; }
         });
-        return jsonOk({ entries: rows.results || [], monthly: monthly });
+        order.sort(function(a, b) {
+            if (a === null) { return 1; }
+            if (b === null) { return -1; }
+            return a < b ? 1 : (a > b ? -1 : 0);
+        });
+        var monthly = order.map(function(key) {
+            var g = groups[key];
+            var resultado = g.entradas - g.saidas;
+            return {
+                month_key: key,
+                mes: g.mes,
+                entradas: g.entradas,
+                saidas: g.saidas,
+                resultado: resultado,
+                margem_pct: g.entradas > 0 ? Math.round((resultado / g.entradas) * 1000) / 10 : null
+            };
+        });
+        return jsonOk({ entries: allRows, monthly: monthly });
     } catch (e) {
         return jsonErr("Error fetching finance entries: " + e.message, 500);
     }

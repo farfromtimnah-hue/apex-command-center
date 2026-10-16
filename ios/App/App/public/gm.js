@@ -19,6 +19,9 @@ var gmPartnersData = null;  // { partners }
 var gmRoadmapData = null;
 var gmBaseData    = null;
 var gmFinanceData = null;
+var gmFinFrom = "";   // Finance tab date filter -- "" only before first render
+var gmFinTo   = "";
+var gmFinQuick = "";  // which quick choice is active, "" when a custom range
 var gmJobsData    = null;
 var gmActiveStage = null;   // chip-rail filter (null = first stage)
 var gmCurrentTab  = null;   // which gm tab is on screen (lang re-render)
@@ -4186,6 +4189,7 @@ function gmLoadFinance() {
     .then(function(results) {
       gmFinanceData = results[1];
       gmJobsData = results[2];
+      gmFinInitRange();
       gmRenderFinance();
     })
     .catch(function(e) {
@@ -4193,17 +4197,257 @@ function gmLoadFinance() {
     });
 }
 
+// Reload after saving/editing an entry: refetches but keeps gmFinFrom/gmFinTo
+// as the user left them (unlike gmLoadFinance, which sets the opening default).
+function gmReloadFinance() {
+  return Promise.all([gmApi("finance"), gmApi("jobs")])
+    .then(function(results) {
+      gmFinanceData = results[0];
+      gmJobsData = results[1];
+      gmRenderFinance();
+    })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+// ── Finance date-filter helpers (named + exported for scripts/test-gm-finance-monthly.mjs) ──
+
+var GM_FIN_MONTH_NAMES_PT = ["janeiro","fevereiro","março","abril","maio","junho",
+                             "julho","agosto","setembro","outubro","novembro","dezembro"];
+var GM_FIN_MONTH_NAMES_EN = ["January","February","March","April","May","June",
+                             "July","August","September","October","November","December"];
+
+// "2026-09" -> "Setembro de 2026" / "September 2026"; null -> "Sem data" / "No date".
+function gmFinMonthLabel(key, en) {
+  if (!key) { return en ? "No date" : "Sem data"; }
+  var parts = String(key).split("-");
+  if (parts.length < 2) { return key; }
+  var idx = parseInt(parts[1], 10) - 1;
+  if (!(idx >= 0 && idx < 12)) { return key; }
+  var name = en ? GM_FIN_MONTH_NAMES_EN[idx] : GM_FIN_MONTH_NAMES_PT[idx];
+  if (!en) { name = name.charAt(0).toUpperCase() + name.slice(1); }
+  return en ? (name + " " + parts[0]) : (name + " de " + parts[0]);
+}
+
+// The entry's calendar date: gm_finance.data when it is a valid YYYY-MM-DD,
+// else the date part of created_at, else null.
+function gmFinEntryDateKey(e) {
+  var m = /^(\d{4}-\d{2}-\d{2})/.exec(String((e && e.data) || ""));
+  if (m) { return m[1]; }
+  var c = String((e && e.created_at) || "");
+  return /^\d{4}-\d{2}-\d{2}/.test(c) ? c.slice(0, 10) : null;
+}
+
+function gmFinEntryMonthKey(e) {
+  var d = gmFinEntryDateKey(e);
+  return d ? d.slice(0, 7) : null;
+}
+
+// Distinct months present in the entries, newest first, each with its count.
+function gmFinMonthList(entries) {
+  var seen = {}, out = [];
+  (entries || []).forEach(function(e) {
+    var k = gmFinEntryMonthKey(e);
+    if (!k) { return; }
+    if (!seen[k]) { seen[k] = { key: k, count: 0 }; out.push(seen[k]); }
+    seen[k].count++;
+  });
+  out.sort(function(a, b) { return a.key < b.key ? 1 : (a.key > b.key ? -1 : 0); });
+  return out;
+}
+
+function gmFinMonthFirstLastDay(key) {
+  var parts = key.split("-");
+  var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: key + "-01", to: key + "-" + (last < 10 ? "0" + last : String(last)) };
+}
+
+// Default range on opening the tab: the current calendar month if it has
+// entries, else the newest month that has entries, else "" (no entries at all).
+function gmFinDefaultRange(entries, todayIso) {
+  var months = gmFinMonthList(entries);
+  if (!months.length) { return { from: "", to: "", quick: "" }; }
+  var curKey = String(todayIso).slice(0, 7);
+  var has = months.some(function(m) { return m.key === curKey; });
+  var key = has ? curKey : months[0].key;
+  var range = gmFinMonthFirstLastDay(key);
+  return { from: range.from, to: range.to, quick: "" };
+}
+
+function gmFinPad2(n) { return n < 10 ? "0" + n : String(n); }
+
+// Quick-choice ranges, computed off a real Date so January edges (last month
+// of December, last year wrapping) fall out correctly.
+function gmFinQuickRange(choice, todayIso, entries) {
+  var today = new Date(todayIso + "T00:00:00Z");
+  var y = today.getUTCFullYear(), m = today.getUTCMonth(); // 0-based
+  if (choice === "this_month") {
+    return gmFinMonthFirstLastDay(y + "-" + gmFinPad2(m + 1));
+  }
+  if (choice === "last_month") {
+    var ly = m === 0 ? y - 1 : y, lm = m === 0 ? 12 : m;
+    return gmFinMonthFirstLastDay(ly + "-" + gmFinPad2(lm));
+  }
+  if (choice === "this_year") {
+    return { from: y + "-01-01", to: y + "-12-31" };
+  }
+  if (choice === "last_year") {
+    return { from: (y - 1) + "-01-01", to: (y - 1) + "-12-31" };
+  }
+  if (choice === "all_time") {
+    var first = "";
+    (entries || []).forEach(function(e) {
+      var d = gmFinEntryDateKey(e);
+      if (d && (!first || d < first)) { first = d; }
+    });
+    return { from: first || todayIso, to: todayIso };
+  }
+  return null;
+}
+
+// Inclusive range filter. An entry with no date at all is included only when
+// includeNoDate is true (set by the caller for the "Tudo" / All-time case).
+function gmFinFilterEntries(entries, from, to, includeNoDate) {
+  return (entries || []).filter(function(e) {
+    var d = gmFinEntryDateKey(e);
+    if (!d) { return !!includeNoDate; }
+    if (from && d < from) { return false; }
+    if (to && d > to) { return false; }
+    return true;
+  });
+}
+
+// Sum of one entry set in integer cents.
+function gmFinTotals(entries) {
+  var entradas = 0, saidas = 0;
+  (entries || []).forEach(function(e) {
+    var cents = Math.round((Number(e.valor) || 0) * 100);
+    if (e.tipo === "Entrada") { entradas += cents; }
+    else if (e.tipo === "Saída" || e.tipo === "Saida") { saidas += cents; }
+  });
+  var resultado = entradas - saidas;
+  return {
+    entradas: entradas, saidas: saidas, resultado: resultado,
+    margem_pct: entradas > 0 ? Math.round((resultado / entradas) * 1000) / 10 : null,
+    count: (entries || []).length
+  };
+}
+
+// One totals row per month present in the (already range-filtered) entries,
+// newest first, no-date group last.
+function gmFinMonthlyFromEntries(entries) {
+  var groups = {}, order = [];
+  (entries || []).forEach(function(e) {
+    var k = gmFinEntryMonthKey(e);
+    if (!Object.prototype.hasOwnProperty.call(groups, k)) { groups[k] = []; order.push(k); }
+    groups[k].push(e);
+  });
+  order.sort(function(a, b) {
+    if (a === null) { return 1; }
+    if (b === null) { return -1; }
+    return a < b ? 1 : (a > b ? -1 : 0);
+  });
+  return order.map(function(k) {
+    var t = gmFinTotals(groups[k]);
+    t.month_key = k;
+    return t;
+  });
+}
+
+// Sets gmFinFrom/gmFinTo/gmFinQuick to the opening default. Called once per
+// tab load, before the first render; never on a language toggle re-render,
+// so the chosen dates survive a language switch.
+function gmFinInitRange() {
+  var entries = (gmFinanceData && gmFinanceData.entries) || [];
+  var def = gmFinDefaultRange(entries, gmTodayLocal());
+  gmFinFrom = def.from;
+  gmFinTo = def.to;
+  gmFinQuick = def.quick;
+}
+
+function gmFinQuickClick(choice) {
+  var entries = (gmFinanceData && gmFinanceData.entries) || [];
+  var r = gmFinQuickRange(choice, gmTodayLocal(), entries);
+  if (!r) { return; }
+  gmFinFrom = r.from;
+  gmFinTo = r.to;
+  gmFinQuick = choice;
+  gmRenderFinance();
+}
+
+function gmFinMonthPick(key) {
+  if (!key) { return; }
+  var r = gmFinMonthFirstLastDay(key);
+  gmFinFrom = r.from;
+  gmFinTo = r.to;
+  gmFinQuick = "";
+  gmRenderFinance();
+}
+
+function gmFinDateInputChange() {
+  var fromEl = document.getElementById("gmFinFrom");
+  var toEl = document.getElementById("gmFinTo");
+  if (!fromEl || !toEl) { return; }
+  gmFinFrom = fromEl.value || "";
+  gmFinTo = toEl.value || "";
+  gmFinQuick = "";
+  gmRenderFinance();
+}
+
+function gmFinFilterCardHtml() {
+  var entries = (gmFinanceData && gmFinanceData.entries) || [];
+  var months = gmFinMonthList(entries);
+  var invalid = gmFinFrom && gmFinTo && gmFinFrom > gmFinTo;
+
+  var quicks = [
+    ["this_month", gmT("Este mês", "This month")],
+    ["last_month", gmT("Mês passado", "Last month")],
+    ["this_year",  gmT("Este ano", "This year")],
+    ["all_time",   gmT("Tudo", "All time")]
+  ];
+  var chipsHtml = '<div class="gm-chip-set">';
+  quicks.forEach(function(q) {
+    var sel = gmFinQuick === q[0];
+    chipsHtml += '<button type="button" class="gm-choice-chip' + (sel ? " gm-chip-sel" : "") +
+      '" onclick="gmFinQuickClick(\'' + q[0] + '\')">' + escHtml(q[1]) + '</button>';
+  });
+  chipsHtml += '</div>';
+
+  var monthOpts = '<option value="">' + escHtml(gmT("Escolher mês…", "Pick a month…")) + '</option>';
+  months.forEach(function(m) {
+    monthOpts += '<option value="' + escHtml(m.key) + '">' +
+      escHtml(gmFinMonthLabel(m.key, isEn())) + ' (' + m.count + ')</option>';
+  });
+
+  var html = '<div class="content-card" data-tour="finance-filter">' +
+    '<div class="card-title">' + gmT("Período", "Period") + '</div>' +
+    chipsHtml;
+  if (months.length) {
+    html += '<select id="gmFinMonthPick" class="gm-input" style="margin-top:8px;" onchange="gmFinMonthPick(this.value)">' +
+      monthOpts + '</select>';
+  }
+  html += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;">' +
+    '<div style="flex:1 1 130px;min-width:130px;"><label class="gm-field-label" for="gmFinFrom">' + gmT("De", "From") + '</label>' +
+    '<input type="date" id="gmFinFrom" class="gm-input" value="' + escHtml(gmFinFrom) + '" onchange="gmFinDateInputChange()"></div>' +
+    '<div style="flex:1 1 130px;min-width:130px;"><label class="gm-field-label" for="gmFinTo">' + gmT("Até", "To") + '</label>' +
+    '<input type="date" id="gmFinTo" class="gm-input" value="' + escHtml(gmFinTo) + '" onchange="gmFinDateInputChange()"></div>' +
+    '</div>';
+  if (invalid) {
+    html += '<p class="muted" style="color:var(--danger,#c0392b);font-size:12px;margin:6px 0 0;">' +
+      gmT("A data inicial deve ser antes da final. Mostrando o período anterior.",
+          "The start date must be before the end date. Showing the previous period.") + '</p>';
+  }
+  html += '<button type="button" class="btn-outline gm-add-btn" onclick="gmOpenFinanceReport()">' +
+    gmT("Relatório", "Report") + '</button>' +
+    '</div>';
+  return html;
+}
+
 // Hand-rolled horizontal bar chart (inline SVG — no library, no CDN).
 // Horizontal bars with the values printed on the marks: touch has no hover.
 function gmFinanceChartSvg(monthly) {
-  var months = gmConfig.config.cycle_months;
-  var rows = [];
-  months.forEach(function(m) {
-    monthly.forEach(function(x) { if (x.mes === m) { rows.push(x); } });
-  });
-  monthly.forEach(function(x) {
-    if (!x.mes || months.indexOf(x.mes) === -1) { rows.push(x); }
-  });
+  var rows = monthly.filter(function(x) { return !!x.month_key; });
+  monthly.forEach(function(x) { if (!x.month_key) { rows.push(x); } });
   if (!rows.length) { return ""; }
   var maxV = 1;
   rows.forEach(function(r) { maxV = Math.max(maxV, r.entradas, r.saidas); });
@@ -4216,47 +4460,70 @@ function gmFinanceChartSvg(monthly) {
     var wIn = Math.max(2, Math.round((r.entradas / maxV) * (W - 110)));
     var wOut = Math.max(2, Math.round((r.saidas / maxV) * (W - 110)));
     svg += '<text x="' + padL + '" y="' + (y + 10) + '" font-size="11" font-weight="700" fill="#1a1a1d" font-family="Inter,sans-serif">' +
-      escHtml(r.mes ? gmStatusLabel(r.mes) : "—") + '</text>';
+      escHtml(gmFinMonthLabel(r.month_key, isEn())) + '</text>';
     svg += '<rect x="' + padL + '" y="' + (y + labelH) + '" width="' + wIn + '" height="' + barH + '" rx="3" fill="#3f7d4e"/>';
     svg += '<text x="' + (padL + wIn + 5) + '" y="' + (y + labelH + 9) + '" font-size="10" fill="#2f6b3e" font-family="Inter,sans-serif">▲ ' +
-      escHtml(fmtNum(r.entradas, "currency")) + '</text>';
+      escHtml(fmtNum(r.entradas / 100, "currency")) + '</text>';
     svg += '<rect x="' + padL + '" y="' + (y + labelH + barH + 3) + '" width="' + wOut + '" height="' + barH + '" rx="3" fill="#b44040"/>';
     svg += '<text x="' + (padL + wOut + 5) + '" y="' + (y + labelH + barH + 12) + '" font-size="10" fill="#a03636" font-family="Inter,sans-serif">▼ ' +
-      escHtml(fmtNum(r.saidas, "currency")) + '</text>';
+      escHtml(fmtNum(r.saidas / 100, "currency")) + '</text>';
   });
   svg += '</svg>';
   return svg;
 }
 
+function gmFinMonthCardHtml(title, t) {
+  var band = t.resultado >= 0 ? "gm-ok" : "gm-warn";
+  var glyph = t.resultado >= 0 ? "▲" : "▼";
+  return '<div class="gm-month-card"><div class="gm-month-title">' + escHtml(title) + '</div>' +
+    '<div class="gm-month-line"><span>' + gmT("Entradas", "In") + '</span><span>' + fmtNum(t.entradas / 100, "currency") + '</span></div>' +
+    '<div class="gm-month-line"><span>' + gmT("Saídas", "Out") + '</span><span>' + fmtNum(t.saidas / 100, "currency") + '</span></div>' +
+    '<div class="gm-month-line"><span>' + gmT("Resultado", "Net") + '</span><span class="' + band + '">' + glyph + ' ' + fmtNum(t.resultado / 100, "currency") + '</span></div>' +
+    '<div class="gm-month-line"><span>' + gmT("Margem líquida", "Net margin") + '</span><span class="' + band + '">' +
+    (t.margem_pct === null ? "--" : glyph + ' ' + fmtNum(t.margem_pct, "percent")) + '</span></div></div>';
+}
+
 function gmRenderFinance() {
   var body = document.getElementById("gmFinanceBody");
-  var monthly = gmFinanceData.monthly;
-  var entries = gmFinanceData.entries;
-  var html = '<div class="content-card">' +
+  var allEntries = gmFinanceData.entries;
+  var invalid = gmFinFrom && gmFinTo && gmFinFrom > gmFinTo;
+  var from = invalid ? gmFinTo : gmFinFrom;
+  var to = invalid ? gmFinFrom : gmFinTo;
+  var includeNoDate = gmFinQuick === "all_time" || (!gmFinFrom && !gmFinTo);
+  var filtered = gmFinFilterEntries(allEntries, from, to, includeNoDate);
+
+  var monthly = gmFinMonthlyFromEntries(filtered);
+  var period = gmFinTotals(filtered);
+  var singleMonth = false;
+  if (monthly.length === 1 && monthly[0].month_key && from && to) {
+    var mrange = gmFinMonthFirstLastDay(monthly[0].month_key);
+    singleMonth = mrange.from === from && mrange.to === to;
+  }
+
+  var html = gmFinFilterCardHtml();
+
+  html += '<div class="content-card">' +
     '<div class="card-title">' + gmT("Resumo mensal", "Monthly summary") + '</div>' +
     '<div data-tour="finance-chart">' + (monthly.length ? gmFinanceChartSvg(monthly) : "") + '</div>' +
     '<div data-tour="finance-summary">';
   if (!monthly.length) {
-    html += '<p class="muted">' + gmT("Nenhum lançamento ainda.", "No entries yet.") + '</p>';
+    html += '<p class="muted">' + gmT("Nenhum lançamento neste período", "No entries in this period") + '</p>';
   } else {
     monthly.forEach(function(m) {
-      var band = m.resultado >= 0 ? "gm-ok" : "gm-warn";
-      var glyph = m.resultado >= 0 ? "▲" : "▼";
-      html += '<div class="gm-month-card"><div class="gm-month-title">' + escHtml(m.mes ? gmStatusLabel(m.mes) : "—") + '</div>' +
-        '<div class="gm-month-line"><span>' + gmT("Entradas", "In") + '</span><span>' + fmtNum(m.entradas, "currency") + '</span></div>' +
-        '<div class="gm-month-line"><span>' + gmT("Saídas", "Out") + '</span><span>' + fmtNum(m.saidas, "currency") + '</span></div>' +
-        '<div class="gm-month-line"><span>' + gmT("Resultado", "Net") + '</span><span class="' + band + '">' + glyph + ' ' + fmtNum(m.resultado, "currency") + '</span></div>' +
-        '<div class="gm-month-line"><span>' + gmT("Margem líquida", "Net margin") + '</span><span class="' + band + '">' +
-        (m.margem_pct === null ? "--" : glyph + ' ' + fmtNum(m.margem_pct, "percent")) + '</span></div></div>';
+      html += gmFinMonthCardHtml(gmFinMonthLabel(m.month_key, isEn()), m);
     });
+    if (!singleMonth) {
+      html += gmFinMonthCardHtml(gmT("Total do período", "Period total"), period);
+    }
   }
   html += '</div></div>';
 
   html += '<div class="content-card"><div class="card-title">' + gmT("Lançamentos", "Entries") + '</div>';
-  if (!entries.length) {
-    html += '<p class="muted">' + gmT("Nenhum lançamento ainda.", "No entries yet.") + '</p>';
+  if (!filtered.length) {
+    html += '<p class="muted">' + gmT("Nenhum lançamento neste período", "No entries in this period") + '</p>';
   } else {
-    entries.forEach(function(e, i) {
+    filtered.forEach(function(e) {
+      var i = allEntries.indexOf(e);
       var isIn = e.tipo === "Entrada";
       html += '<button type="button" class="gm-row" data-tour="finance-row" onclick="gmOpenFinance(' + i + ')">' +
         '<span class="gm-lead-main">' +
@@ -4269,11 +4536,15 @@ function gmRenderFinance() {
         '<div class="gm-lead-sub">' + escHtml(e.tipo) + '</div></span>' +
         '</button>';
     });
+    html += '<p class="muted" style="margin-top:8px;">' +
+      (filtered.length === 1
+        ? gmT("1 lançamento", "1 entry")
+        : gmT(filtered.length + " lançamentos", filtered.length + " entries")) + '</p>';
   }
   html += '<button type="button" class="btn-gold gm-add-btn" data-tour="finance-add-entry" onclick="gmOpenFinance(-1)">' +
     gmT("+ Novo lançamento", "+ New entry") + '</button>' +
     '<button type="button" class="btn-outline gm-add-btn" onclick="gmOpenFinanceReport()">' +
-    gmT("Relat\u00f3rio", "Report") + '</button></div>';
+    gmT("Relatório", "Report") + '</button></div>';
   body.innerHTML = html;
 }
 
@@ -4284,33 +4555,52 @@ function gmOpenFinance(idx) {
 
 // The printable financial report (finance-report-view.html). This sheet only
 // collects the choices; the page reads the entries itself, with the same
-// signed-in session, and does every sum in cents.
+// signed-in session, and does every sum in cents. Pre-filled from the screen's
+// current filter -- for "Tudo" that means the first entry date through today.
 function gmFinanceFirstDate() {
   var first = "";
   ((gmFinanceData && gmFinanceData.entries) || []).forEach(function(e) {
-    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(e.data || e.created_at || ""));
-    if (m && (!first || m[1] < first)) { first = m[1]; }
+    var d = gmFinEntryDateKey(e);
+    if (d && (!first || d < first)) { first = d; }
   });
   return first || gmTodayLocal();
 }
 
 function gmOpenFinanceReport() {
+  var from = gmFinFrom || gmFinanceFirstDate();
+  var to = gmFinTo || gmTodayLocal();
   var body =
+    '<div class="gm-chip-set" style="margin-bottom:10px;">' +
+    '<button type="button" class="gm-choice-chip" onclick="gmFinRepQuick(\'this_month\')">' + gmT("Este mês", "This month") + '</button>' +
+    '<button type="button" class="gm-choice-chip" onclick="gmFinRepQuick(\'last_month\')">' + gmT("Mês passado", "Last month") + '</button>' +
+    '<button type="button" class="gm-choice-chip" onclick="gmFinRepQuick(\'this_year\')">' + gmT("Este ano", "This year") + '</button>' +
+    '<button type="button" class="gm-choice-chip" onclick="gmFinRepQuick(\'last_year\')">' + gmT("Ano passado", "Last year") + '</button>' +
+    '</div>' +
     '<label class="gm-field-label" for="gmFinRepFrom">' + gmT("De", "From") + '</label>' +
-    '<input type="date" id="gmFinRepFrom" class="gm-input" value="' + escHtml(gmFinanceFirstDate()) + '">' +
-    '<label class="gm-field-label" for="gmFinRepTo">' + gmT("At\u00e9", "To") + '</label>' +
-    '<input type="date" id="gmFinRepTo" class="gm-input" value="' + escHtml(gmTodayLocal()) + '">' +
+    '<input type="date" id="gmFinRepFrom" class="gm-input" value="' + escHtml(from) + '">' +
+    '<label class="gm-field-label" for="gmFinRepTo">' + gmT("Até", "To") + '</label>' +
+    '<input type="date" id="gmFinRepTo" class="gm-input" value="' + escHtml(to) + '">' +
     '<label class="gm-field-label" for="gmFinRepFor">' + gmT("Preparado para", "Prepared for") + '</label>' +
     '<input type="text" id="gmFinRepFor" class="gm-input" maxlength="120">' +
-    '<label class="gm-field-label" for="gmFinRepTitle">' + gmT("T\u00edtulo", "Title") + '</label>' +
+    '<label class="gm-field-label" for="gmFinRepTitle">' + gmT("Título", "Title") + '</label>' +
     '<input type="text" id="gmFinRepTitle" class="gm-input" maxlength="120" placeholder="' +
-      escHtml(gmT("Relat\u00f3rio financeiro", "Financial report")) + '">' +
+      escHtml(gmT("Relatório financeiro", "Financial report")) + '">' +
     '<label class="gm-field-label" for="gmFinRepOpen">' + gmT("Saldo inicial", "Opening balance") + '</label>' +
     '<input type="text" inputmode="decimal" id="gmFinRepOpen" class="gm-input" placeholder="0.00">' +
     '<div class="gm-editor-actions">' +
     '<button type="button" class="btn-outline" onclick="gmSheetClose()">' + gmT("Cancelar", "Cancel") + '</button>' +
-    '<button type="button" class="btn-gold" onclick="gmFinanceReportOpen()">' + gmT("Abrir relat\u00f3rio", "Open report") + '</button></div>';
-  gmSheetOpen(gmT("Relat\u00f3rio", "Report"), body);
+    '<button type="button" class="btn-gold" onclick="gmFinanceReportOpen()">' + gmT("Abrir relatório", "Open report") + '</button></div>';
+  gmSheetOpen(gmT("Relatório", "Report"), body);
+}
+
+function gmFinRepQuick(choice) {
+  var entries = (gmFinanceData && gmFinanceData.entries) || [];
+  var r = gmFinQuickRange(choice, gmTodayLocal(), entries);
+  if (!r) { return; }
+  var fromEl = document.getElementById("gmFinRepFrom");
+  var toEl = document.getElementById("gmFinRepTo");
+  if (fromEl) { fromEl.value = r.from; }
+  if (toEl) { toEl.value = r.to; }
 }
 
 function gmFinanceReportOpen() {
@@ -4322,7 +4612,7 @@ function gmFinanceReportOpen() {
   var openRaw = val("gmFinRepOpen");
   if (openRaw) {
     var open = gmParseMoney(openRaw);
-    if (open === null) { gmToast(gmT("Saldo inicial inv\u00e1lido.", "The opening balance is not valid.")); return; }
+    if (open === null) { gmToast(gmT("Saldo inicial inválido.", "The opening balance is not valid.")); return; }
     openCents = Math.round(open * 100);
   }
   var href = "finance-report-view.html?client=" + encodeURIComponent(clientId) +
@@ -7766,7 +8056,7 @@ function gmSimpleSpec(kind) {
     ((gmJobsData && gmJobsData.jobs) || []).forEach(function(j) { jobNames.push(j.obra); });
     return {
       collection: "finance", data: function() { return gmFinanceData.entries; },
-      reload: gmLoadFinance, itemKey: "entry",
+      reload: gmReloadFinance, itemKey: "entry",
       titleNew: gmT("Novo lançamento", "New entry"), nameKey: "descricao",
       fields: [
         { key: "descricao", type: "text",     pt: "Descrição",       en: "Description", required: true },

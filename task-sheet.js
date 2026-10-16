@@ -1052,13 +1052,19 @@ function taskAddSave() {
     box.focus();
     return;
   }
-  if (words.length > TASK_SHEET_WORDS_MAX) {
+  // A pasted list (several lines, or two or more box signs) is sent with its
+  // line breaks: the Worker makes one task per item and checks each one's
+  // length. Anything else is one task, limited as before.
+  var rawText = String(box.value === null || box.value === undefined ? "" : box.value).trim();
+  var listLines = rawText.split(/\n/).filter(function(l) { return /^\s*([\u2610\u2611\u2705\u2714\u25A1\u2022\u25AA\u2023\u25CF]|\[[ xX]?\]|[-*\u00B7]\s|\d{1,2}[.)]\s)/.test(l); }).length;
+  var looksList = listLines >= 2 || (rawText.match(/[\u2610\u2611\u2705\u2714\u25A1]/g) || []).length >= 2;
+  if (!looksList && words.length > TASK_SHEET_WORDS_MAX) {
     taskAddMsg(taskSheetBoth(
       "Tarefa longa demais. O limite &eacute; de " + TASK_SHEET_WORDS_MAX + " caracteres.",
       "That task is too long. The limit is " + TASK_SHEET_WORDS_MAX + " characters."));
     return;
   }
-  var body = { description: words, "for": s.forWho };
+  var body = { description: looksList ? rawText : words, "for": s.forWho };
   if (sel && sel.value) { body.client_id = sel.value; }
   if (due && due.value) { body.due_date = due.value; }
   s.saving = true;
@@ -1069,7 +1075,7 @@ function taskAddSave() {
       if (taskAddNow !== s) { return; }
       if (!r.ok || !r.data.task) { throw r.data; }
       taskAddClose();
-      if (s.onAdded) { s.onAdded(r.data.task); }
+      if (s.onAdded) { s.onAdded(r.data.task, r.data.tasks); }
     })
     .catch(function(data) {
       if (taskAddNow !== s) { return; }
@@ -1115,7 +1121,9 @@ function taskAddOpen(o) {
   f1.appendChild(l1);
   var words = document.createElement("textarea");
   words.id = "taskAddWords";
-  words.maxLength = TASK_SHEET_WORDS_MAX;
+  // The box takes a whole pasted list; each task in it is still limited to
+  // TASK_SHEET_WORDS_MAX (checked above and again by the Worker).
+  words.maxLength = TASK_SHEET_WORDS_MAX * 12;
   words.required = true;
   f1.appendChild(words);
   box.appendChild(f1);

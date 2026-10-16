@@ -66,11 +66,11 @@ function as(d, who) {
     pushToUsers: async (env, emails, payload) => { if (pushFail) { throw new Error("push down"); } pushes.push({ emails, payload }); }
   });
   const F = build(
-    ["taskDescriptionClean", "handlePatchTask", "handlePostTaskTyped", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
+    ["taskDescriptionClean", "taskBoxMatch", "taskTypedSplit", "handlePatchTask", "handlePostTaskTyped", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskAssigneeAliceName", "taskAssigneeRafaName",
      "taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
      "sessionSellerName", "clientRequestAllowed", "sellerRequestAllowed", "enforceClientRoleGate"],
-    ["TASK_DESC_MAX", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
+    ["TASK_DESC_MAX", "TASK_VOICE_MAX_TASKS", "TASK_BOX_GLYPH_RE", "TASK_BOX_ASCII_RE", "TASK_PUSH_BODY_MAX", "TASK_TRANSLATE_TIMEOUT_MS", "TASK_TRANSLATION_MAX"], stubs);
   const env = { DB: d.DB };
   const req = (body) => ({ url: "https://x.test/", headers: { get: (k) => (k === "Authorization" ? "Bearer tok" : null) },
     json: async () => { if (body === "not json") { throw new Error("bad json"); } return body; } });
@@ -332,8 +332,8 @@ const sheet = read("task-sheet.js");
   }
   const dash = read("dashboard.html");
   const tasksPage = read("tasks.html");
-  ok(/function mtTaskAdded\(task\) \{[\s\S]*?mtRefreshLists\(\);/.test(dash), "dashboard.html: after a typed task the lists are refreshed by mtRefreshLists, as after a dictation");
-  ok(/function taskAdded\(\) \{[\s\S]*?loadTasks\(\);/.test(tasksPage), "tasks.html: after a typed task the list is loaded again by loadTasks, as after a dictation");
+  ok(/function mtTaskAdded\(task(, all)?\) \{[\s\S]*?mtRefreshLists\(\);/.test(dash), "dashboard.html: after a typed task the lists are refreshed by mtRefreshLists, as after a dictation");
+  ok(/function taskAdded\((task, all)?\) \{[\s\S]*?loadTasks\(\);/.test(tasksPage), "tasks.html: after a typed task the list is loaded again by loadTasks, as after a dictation");
   ok(/if \(c\.description\) \{\s+t\.description = c\.description;/.test(dash) && /if \(c\.description\) \{\s+tk\.text = c\.description;/.test(tasksPage), "both pages put edited words onto the task they hold, so the row is right with no reload");
   ok(/id="mtVoiceBlock">\s*<div class="mt-speak">[\s\S]*?id="mtAddBtn"/.test(dash), "dashboard.html: the button is inside mtVoiceBlock, the one block moved between the consultant's card and Alice's card");
   ok(/if \(dashClients\.length\) \{ return Promise\.resolve\(dashClients\); \}/.test(dash) && dash.split('"/api/clients"').length >= 2 && /WORKER_URL \+ "\/api\/clients"/.test(tasksPage), "the form's clients are the dashboard's own list; tasks.html reads the same existing route");
@@ -481,7 +481,7 @@ const sheet = read("task-sheet.js");
   ok(openAdd() === false && open() === false && doc.body.all().filter((e) => e.id === "taskAdd").length === 1, "a second form, or a task sheet, does not open on top of it");
   await settle();
   const wordsBox = $("taskAddWords");
-  ok(/O que precisa ser feito\?/.test($("taskAdd").words) && /What needs to be done\?/.test($("taskAdd").words) && wordsBox.tagName === "textarea" && wordsBox.maxLength === 500 && wordsBox.required === true && doc.activeElement === wordsBox, "1. the words: a required text box, 500 at most, with focus in it");
+  ok(/O que precisa ser feito\?/.test($("taskAdd").words) && /What needs to be done\?/.test($("taskAdd").words) && wordsBox.tagName === "textarea" && wordsBox.maxLength === 6000 && wordsBox.required === true && doc.activeElement === wordsBox, "1. the words: a required text box, 500 at most, with focus in it");
   const pill = (k) => $("taskAddFor_" + k);
   ok(/Para quem/.test($("taskAdd").words) && !!pill("self") && !!pill("alice") && !!pill("system") && !pill("rafa"), "2. For whom: the consultant sees For me, Alice and System, and no pill for himself");
   ok(/Para mim<\/span><span class="show-en">For me/.test(pill("self").innerHTML) && pill("alice").innerHTML === "Pra. &lt;Alice&gt;" && /Sistema<\/span><span class="show-en">System/.test(pill("system").innerHTML), "the pills read Para mim / For me, her name as the page gave it (escaped), and Sistema / System");
@@ -567,6 +567,27 @@ const sheet = read("task-sheet.js");
   answer = () => notesAnswer();
   ok(open() === true && S.taskAddOpen({ getToken: async () => "t" }) === false, "the form does not open on top of an opened task");
   S.taskSheetClose();
+}
+
+// ── 6b. A pasted LIST becomes one task per item (2026-10-16) ────────────────
+{
+  const d = world();
+  pushes.length = 0;
+  const before = count(d);
+  const paste = "1. Gestão Financeira\n☐ Conferir quanto entrou de receita neste mês\n✅ Pagar a parcela do carro\n☐ Pagar a parcela do sofá\n2. Conecta Business\n☐ Reforçar data, horário e local do encontro";
+  const r = await as(d, "alice").add({ description: paste, for: "self" });
+  ok(r.status === 200 && r.data.tasks.length === 4 && r.data.task.id === r.data.tasks[0].id, "a pasted list answers one task per item, and 'task' is still the first");
+  ok(count(d) === before + 4, "four tasks saved, not one block");
+  const rows = r.data.tasks.map((t) => task(d, t.id));
+  ok(rows[0].description === "Gestão Financeira: Conferir quanto entrou de receita neste mês" && rows[3].description === "Conecta Business: Reforçar data, horário e local do encontro", "each task keeps its heading and its own words");
+  ok(rows[1].status === "done" && rows[1].completed_by && rows[1].completed_at && rows[0].status === "pending" && rows[0].completed_at === null, "a ✅ item is saved done (with who and when), a ☐ item open");
+  ok(rows.every((x) => x.source === "manual" && x.created_by_role === "alice" && x.assigned_to === "alice"), "every item belongs to the person who pasted it");
+  const tooMany = await as(d, "alice").add({ description: Array.from({ length: 31 }, (_, i) => "☐ item " + i).join("\n"), for: "self" });
+  ok(tooMany.status === 400 && count(d) === before + 4, "more items than the limit is refused and saves nothing");
+  const longItem = await as(d, "alice").add({ description: "☐ curta\n☐ " + "x".repeat(501), for: "self" });
+  ok(longItem.status === 400 && count(d) === before + 4, "one item over 500 characters refuses the whole paste and saves nothing");
+  const single = await as(d, "alice").add({ description: "Ligar para o Allan amanhã", for: "self" });
+  ok(single.status === 200 && single.data.tasks.length === 1 && count(d) === before + 5, "a plain sentence is still exactly one task");
 }
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nALL PASS");

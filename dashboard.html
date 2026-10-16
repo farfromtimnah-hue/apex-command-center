@@ -87,7 +87,7 @@
   <link rel="stylesheet" href="scheduling-queue.css?v=1792117317">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
-  <script src="task-sheet.js?v=1791493710"></script>
+  <script src="task-sheet.js?v=1792176424"></script>
   <script src="scheduling-queue.js?v=1792117317"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
@@ -4194,16 +4194,29 @@
 
     // A typed task was saved: it goes into the lists the same way a spoken
     // one does, and the lists are drawn again. No Undo for a typed task.
-    function mtTaskAdded(task) {
+    function mtTaskAdded(task, all) {
       if (!task || !task.id) { return; }
+      // A pasted list comes back as several tasks. Ones already ticked off
+      // (done) are history: they are saved but not put in the open lists.
+      var list = (all && all.length) ? all : [task];
       mtFresh = {};
       mtLastAdded = [];
-      if (task.assigned_to) { mtGiven.push(task); }
-      else { mtTasks.push(task); }
-      mtFresh[task.id] = true;
+      var added = 0;
+      for (var ai = 0; ai < list.length; ai++) {
+        var one = list[ai];
+        if (!one || !one.id || one.status === "done") { continue; }
+        if (one.assigned_to) { mtGiven.push(one); }
+        else { mtTasks.push(one); }
+        mtFresh[one.id] = true;
+        added++;
+      }
       mtRefreshLists();
       mtShowHeard("");
-      mtSetStatus(mtBoth("Tarefa adicionada.", "Task added."), "ok");
+      if (list.length > 1) {
+        mtSetStatus(mtBoth(list.length + " tarefas adicionadas.", list.length + " tasks added."), "ok");
+      } else {
+        mtSetStatus(mtBoth("Tarefa adicionada.", "Task added."), "ok");
+      }
     }
 
     function mtBoth(pt, en) {

@@ -10181,6 +10181,66 @@ async function handlePostTasksVoice(request, env, now) {
 // YYYY-MM-DD or nothing. Whoever was handed the task gets the same push a
 // spoken task sends; a push that fails never fails the request.
 // ---------------------------------------------------------------------------
+// A typed or pasted LIST becomes one task per item (2026-10-16). Alice pasted a
+// checklist and Rafa pasted weekly plans into "Add task", and each came out as
+// one flat block nobody could open, comment on or tick off one at a time.
+// Returns null when the text is not a list (it then saves as ONE task, exactly
+// as before), or [{ text, done }]. An item is a line that starts with a box
+// or bullet (check box, bullet, dash or star followed by a space); only when
+// there are none, lines that start with a number. A heading line (a plain or
+// numbered line followed by an item) is put in front of its items, so
+// "Gestão Financeira" stays on every task under it. A line that is neither is
+// glued to the item before it. ✅ ☑ ✔ [x] mean the item was already done.
+var TASK_BOX_GLYPH_RE = /^(☐|☑|✅|✔️?|□|•|▪|‣|●)\s*(.+)$/;
+var TASK_BOX_ASCII_RE = /^(\[[ xX]?\]|[-*·])\s+(.+)$/;
+function taskBoxMatch(l) { return TASK_BOX_GLYPH_RE.exec(l) || TASK_BOX_ASCII_RE.exec(l); }
+function taskTypedSplit(raw) {
+    var text = (typeof raw === "string") ? raw.replace(/\r/g, "") : "";
+    if (!text.trim()) { return null; }
+    // A list pasted on one line: every box glyph starts a new line.
+    var glyphs = text.match(/[☐☑✅✔□]/g);
+    if (glyphs && glyphs.length >= 2) { text = text.replace(/\s*([☐☑✅✔□])\s*/g, "\n$1 "); }
+    var lines = text.split("\n").map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+    var NUM_RE = /^(\d{1,2})[.)]\s+(.*)$/;
+    function isBox(l) { return !!taskBoxMatch(l); }
+    var boxCount = 0, numCount = 0;
+    lines.forEach(function(l) { if (isBox(l)) { boxCount++; } else if (NUM_RE.test(l)) { numCount++; } });
+    var mode = boxCount >= 2 ? "box" : (numCount >= 2 ? "num" : null);
+    if (!mode) { return null; }
+    function itemOf(l) {
+        if (mode === "box") {
+            if (!isBox(l)) { return null; }
+            var m = taskBoxMatch(l);
+            return { text: (m[2] || "").trim(), done: /^(☑|✅|✔|\[[xX]\])/.test(l) };
+        }
+        var n = NUM_RE.exec(l);
+        return n ? { text: n[2].trim(), done: false } : null;
+    }
+    var items = [], heading = "";
+    for (var i = 0; i < lines.length; i++) {
+        var it = itemOf(lines[i]);
+        if (it) {
+            if (it.text) { items.push({ text: (heading ? heading + ": " : "") + it.text, done: it.done }); }
+            continue;
+        }
+        var next = null;
+        for (var j = i + 1; j < lines.length; j++) { next = lines[j]; break; }
+        // A heading is a numbered line, one ending in a colon, or a short
+        // line that starts with a capital and does not end a sentence; a
+        // lower-case or long line is the rest of the item before it.
+        var l0 = lines[i];
+        var looksHeading = !items.length || NUM_RE.test(l0) || /[:：]\s*$/.test(l0) ||
+            (/^[A-ZÀ-Ú0-9]/.test(l0) && l0.length <= 60 && !/[.!?]$/.test(l0));
+        if (next !== null && itemOf(next) && looksHeading) {
+            var h = l0.replace(/^\d{1,2}[.)]\s+/, "").replace(/[:：]\s*$/, "").trim();
+            heading = h;
+        } else if (items.length) {
+            items[items.length - 1].text += " " + lines[i];
+        }
+    }
+    return items.length >= 2 ? items : null;
+}
+
 async function handlePostTaskTyped(request, env) {
     try {
         var user = await authenticate(request, env);
@@ -10192,8 +10252,24 @@ async function handlePostTaskTyped(request, env) {
         try { body = await request.json(); } catch (e) { body = null; }
         if (!body || typeof body !== "object") { return jsonErr("Invalid body", 400); }
 
-        var cleaned = taskDescriptionClean(body.description);
-        if (cleaned.error) { return cleaned.error; }
+        // One task, or one per item when a list was pasted.
+        var entries = [];
+        var listItems = taskTypedSplit(body.description);
+        if (listItems) {
+            if (listItems.length > TASK_VOICE_MAX_TASKS) {
+                return jsonErr2("Itens demais de uma vez. O limite \u00e9 de " + TASK_VOICE_MAX_TASKS + " tarefas.",
+                    "Too many items at once. The limit is " + TASK_VOICE_MAX_TASKS + " tasks.", 400);
+            }
+            for (var li = 0; li < listItems.length; li++) {
+                var one = taskDescriptionClean(listItems[li].text);
+                if (one.error) { return one.error; }
+                entries.push({ description: one.description, done: listItems[li].done });
+            }
+        } else {
+            var cleaned = taskDescriptionClean(body.description);
+            if (cleaned.error) { return cleaned.error; }
+            entries.push({ description: cleaned.description, done: false });
+        }
 
         var forWho = body.hasOwnProperty("for") ? body["for"] : "self";
         if (forWho !== "self" && forWho !== "rafa" && forWho !== "alice" && forWho !== "system") {
@@ -10235,39 +10311,47 @@ async function handlePostTaskTyped(request, env) {
         else if (assignedTo === null && given) { assigneeName = await taskAssigneeRafaName(env); }
 
         var now = new Date().toISOString();
-        var row = {
-            id: crypto.randomUUID(), client_id: clientId, client_name: clientName, type: "consultant",
-            description: cleaned.description, description_en: null, description_pt: null,
-            due_date: due, due_date_source: due ? "stated" : null,
-            status: "pending", source: "manual", created_by: who, created_at: now,
-            assigned_to: assignedTo, assignee_name: assigneeName,
-            created_by_role: user.role, given: given
-        };
-        await env.DB.prepare(
-            "INSERT INTO tasks (id, client_id, type, description, due_date, due_date_source, status, source, created_by, updated_at, assigned_to, created_by_role) " +
-            "VALUES (?, ?, 'consultant', ?, ?, ?, 'pending', 'manual', ?, ?, ?, ?)"
-        ).bind(row.id, row.client_id, row.description, row.due_date, row.due_date_source, who, now, assignedTo, user.role).run();
+        var rows = [];
+        for (var ei = 0; ei < entries.length; ei++) {
+            var entry = entries[ei];
+            var row = {
+                id: crypto.randomUUID(), client_id: clientId, client_name: clientName, type: "consultant",
+                description: entry.description, description_en: null, description_pt: null,
+                due_date: due, due_date_source: due ? "stated" : null,
+                status: entry.done ? "done" : "pending", source: "manual", created_by: who, created_at: now,
+                assigned_to: assignedTo, assignee_name: assigneeName,
+                created_by_role: user.role, given: given
+            };
+            await env.DB.prepare(
+                "INSERT INTO tasks (id, client_id, type, description, due_date, due_date_source, status, source, created_by, updated_at, assigned_to, created_by_role, completed_by, completed_at) " +
+                "VALUES (?, ?, 'consultant', ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?)"
+            ).bind(row.id, row.client_id, row.description, row.due_date, row.due_date_source, row.status, who, now, assignedTo, user.role,
+                entry.done ? who : null, entry.done ? now : null).run();
 
-        // The task is saved. When it involves the developer its
-        // other-language version is asked for now and written only if it
-        // arrives: taskTranslate never throws and gives up after a few seconds.
-        if (taskInvolvesDeveloper(assignedTo, user.role)) {
-            var tr = await taskTranslate(env, row.description, user.role);
-            if (tr) {
-                try {
-                    await env.DB.prepare("UPDATE tasks SET " + tr.column + " = ? WHERE id = ?").bind(tr.text, row.id).run();
-                    row[tr.column] = tr.text;
-                } catch (e) {
-                    console.error("task translation not saved", e && e.message);
+            // The task is saved. When it involves the developer its
+            // other-language version is asked for now and written only if it
+            // arrives: taskTranslate never throws and gives up after a few seconds.
+            if (taskInvolvesDeveloper(assignedTo, user.role)) {
+                var tr = await taskTranslate(env, row.description, user.role);
+                if (tr) {
+                    try {
+                        await env.DB.prepare("UPDATE tasks SET " + tr.column + " = ? WHERE id = ?").bind(tr.text, row.id).run();
+                        row[tr.column] = tr.text;
+                    } catch (e) {
+                        console.error("task translation not saved", e && e.message);
+                    }
                 }
             }
+            rows.push(row);
         }
 
-        // Only now, with the row saved. taskVoiceNotify never throws, and
-        // sends nothing for a task the person kept (given false).
-        await taskVoiceNotify(env, [row]);
+        // Only now, with the rows saved. taskVoiceNotify never throws, and
+        // sends nothing for a task the person kept (given false). Done items
+        // are history, not news: they are left out of the push.
+        await taskVoiceNotify(env, rows.filter(function(r) { return r.status !== "done"; }));
 
-        return jsonOk({ ok: true, task: row });
+        // "task" stays the first one for any caller that reads a single task.
+        return jsonOk({ ok: true, task: rows[0], tasks: rows });
     } catch (e) {
         return jsonErr2("Algo deu errado. Nada foi adicionado.", "Something went wrong. Nothing was added.", 500);
     }

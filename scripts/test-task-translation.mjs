@@ -81,11 +81,11 @@ function harness(d, who, model, opts) {
   });
   const F = build(
     ["taskInvolvesDeveloper", "taskTranslationColumn", "taskWordsForRole", "taskVoiceTranslationRule", "taskTranslatePrompt", "taskTranslate", "taskVoiceAskClaude",
-     "taskDescriptionClean", "handlePatchTask", "handlePostTaskTyped", "handleGetAllTasks",
+     "taskDescriptionClean", "taskBoxMatch", "taskTypedSplit", "handlePatchTask", "handlePostTaskTyped", "handleGetAllTasks",
      "taskGivenByRole", "taskAssigneeAliceName", "taskAssigneeRafaName", "taskVoiceOwnerRole", "taskVoicePushText", "taskVoiceNotify",
      "taskNoteRecipients", "taskNotePushText", "taskNoteNotify", "taskNoteView", "taskNotesTask", "handleGetTaskNotes", "handlePostTaskNote",
      "taskVoiceParseTasks", "taskVoiceMatchClient", "taskVoiceToday", "taskVoicePrompt", "taskVoiceTranscribe", "taskVoiceDumpOpen", "taskVoiceDumpSet", "handlePostTasksVoice"],
-    ["TASK_DESC_MAX", "TASK_PUSH_BODY_MAX", "TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL", "TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_TRANSLATION_MAX"], stubs);
+    ["TASK_DESC_MAX", "TASK_BOX_GLYPH_RE", "TASK_BOX_ASCII_RE", "TASK_PUSH_BODY_MAX", "TASK_NOTE_MAX", "TASK_NOT_UNDONE_SQL", "TASK_VOICE_MAX_TASKS", "TASK_VOICE_MAX_PER_DAY", "TASK_TRANSLATION_MAX"], stubs);
   const env = {
     DB: d.DB, CLAUDE_API_KEY: "test-key",
     AI: { run: async () => { calls.asr++; return { results: { channels: [{ alternatives: [{ transcript: o.transcript || TRANSCRIPT, languages: ["pt"] }] }] } }; } }

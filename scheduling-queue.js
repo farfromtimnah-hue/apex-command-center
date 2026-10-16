@@ -45,6 +45,7 @@
   // and refetching here would also throw away her scroll position and any
   // row state mid-action.
   var LAST = null;   // { ctx, rows, neverScheduled } from the most recent render
+  var DONE_OPEN = false;   // dashboard only: is the 'scheduled' group expanded? survives re-renders
 
   document.addEventListener("apex:langchange", function () {
     // A modal left open would keep the language it was built in -- the same
@@ -480,7 +481,38 @@
 
     var sorted = sortQueue(rows);
     var html = [];
-    for (var i = 0; i < sorted.length; i++) { html.push(rowHtml(sorted[i], isEn)); }
+
+    // Dashboard mode (ctx.collapseDone): only what still needs doing sits in
+    // front of her. Rows already booked fold into one collapsed group she can
+    // open, and the heading carries "waiting of total". With nothing waiting
+    // the card is just the header and that collapsed group.
+    var waitingRows = [], doneRows = [];
+    for (var w = 0; w < sorted.length; w++) {
+      if (sorted[w].status === "booked") { doneRows.push(sorted[w]); } else { waitingRows.push(sorted[w]); }
+    }
+    var countEl = ctx.countId ? document.getElementById(ctx.countId) : null;
+    if (countEl) {
+      countEl.textContent = ctx.collapseDone
+        ? (isEn ? waitingRows.length + " of " + sorted.length : waitingRows.length + " de " + sorted.length)
+        : "";
+    }
+    if (ctx.collapseDone) {
+      for (var wi = 0; wi < waitingRows.length; wi++) { html.push(rowHtml(waitingRows[wi], isEn)); }
+      if (!waitingRows.length) {
+        html.push('<div class="sq-empty" style="padding-bottom:4px;">' +
+          (isEn ? "Nothing is waiting." : "Nada aguardando.") + "</div>");
+      }
+      if (doneRows.length) {
+        html.push('<button type="button" class="sq-btn sq-toggle" data-act="toggle-done" aria-expanded="' + (DONE_OPEN ? "true" : "false") + '">' +
+          '<span class="sq-chev">' + (DONE_OPEN ? "&#9662;" : "&#9656;") + "</span> " +
+          esc(isEn ? "Scheduled (" + doneRows.length + ")" : "Agendados (" + doneRows.length + ")") + "</button>");
+        html.push('<div class="sq-done-group"' + (DONE_OPEN ? "" : " hidden") + ">");
+        for (var di = 0; di < doneRows.length; di++) { html.push(rowHtml(doneRows[di], isEn)); }
+        html.push("</div>");
+      }
+    } else {
+      for (var i = 0; i < sorted.length; i++) { html.push(rowHtml(sorted[i], isEn)); }
+    }
 
     if (neverScheduled && neverScheduled.length) {
       html.push('<div class="sq-never">' +
@@ -514,6 +546,12 @@
 
     host.onclick = function (ev) {
       var btn = ev.target;
+      var tg = btn.closest ? btn.closest('[data-act="toggle-done"]') : null;
+      if (tg) {
+        DONE_OPEN = !DONE_OPEN;
+        render(ctx, rows, neverScheduled);
+        return;
+      }
       var act = btn.getAttribute && btn.getAttribute("data-act");
       if (!act) { return; }
       var rowEl = btn.closest ? btn.closest(".sq-row") : null;
@@ -564,7 +602,7 @@
   }
 
   global.SchedulingQueue = {
-    // ctx: { containerId, apiFetch, isEn, onEdit }
+    // ctx: { containerId, apiFetch, isEn, onEdit, blockId?, countId?, collapseDone? }
     init: function (ctx) { return load(ctx); },
     reload: function (ctx) { return load(ctx); }
   };

@@ -176,3 +176,9 @@
 @media (max-width: 768px) {
   .sq-actions .sq-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
 }
+
+/* Dashboard: booked rows fold into one collapsed group. */
+.sq-toggle { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 6px; text-align: left; }
+.sq-chev { font-size: 12px; color: var(--gold, #C9A43A); }
+.sq-done-group[hidden] { display: none; }
+.sq-count { font-size: 13px; font-weight: 700; color: var(--gold, #C9A43A); margin-left: 8px; }

@@ -84,11 +84,11 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=1">
   <link rel="stylesheet" href="mobile.css">
   <!-- Shared scheduling queue — the SAME module calendar.html renders. -->
-  <link rel="stylesheet" href="scheduling-queue.css?v=1786590383">
+  <link rel="stylesheet" href="scheduling-queue.css?v=1792117317">
   <script src="pwa.js" defer></script>
   <script src="datetime.js"></script>
   <script src="task-sheet.js?v=1791493710"></script>
-  <script src="scheduling-queue.js?v=1787608441"></script>
+  <script src="scheduling-queue.js?v=1792117317"></script>
   <link rel="stylesheet" href="template-edit.css?v=1786595619">
   <script src="template-edit.js?v=1790693582"></script>
   <title>Apex Command Center</title>
@@ -783,6 +783,10 @@
     }
     #tellUsPicker, #tellUsConvo { padding: 0 16px 16px; }
     #tellUsPicker > div { display: flex; gap: 8px; flex-wrap: wrap; }
+    #tellUsPicker .tu-lead { font-size: 13.5px; color: var(--muted); margin: 0 0 10px; }
+    #tellUsPicker .tu-opt { flex: 1 1 220px; justify-content: center; padding: 12px 16px; font-size: 14px; border: 1.5px solid var(--gold); background: transparent; color: var(--text); }
+    #tellUsPicker .tu-opt.is-active { background: var(--gold); color: #fff; }
+    #tellUsConvo { padding-top: 4px; }
     #supportPanelSection .tab-row .btn-secondary.is-active { background: var(--gold-dim); border-color: var(--gold); }
     .btn-cta-link {
       display: inline-flex;
@@ -1055,6 +1059,7 @@
             <h2 class="content-card-title">
               <span class="show-pt">Aguardando horário</span>
               <span class="show-en">Waiting on a time</span>
+              <span class="sq-count" id="schedQueueCount"></span>
             </h2>
             <a href="calendar.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
               <span class="show-pt">Calendário &rarr;</span>
@@ -1312,12 +1317,16 @@
           </h2>
         </div>
         <div id="tellUsPicker">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn-secondary btn-sm" onclick="tellUsStart('broken')">
+          <p class="tu-lead">
+            <span class="show-pt">Como podemos ajudar?</span>
+            <span class="show-en">How can we help?</span>
+          </p>
+          <div>
+            <button type="button" class="btn-secondary tu-opt" data-kind="broken" aria-pressed="false" onclick="tellUsStart('broken')">
               <span class="show-pt">Algo n&atilde;o est&aacute; funcionando</span>
               <span class="show-en">Something is not working</span>
             </button>
-            <button class="btn-secondary btn-sm" onclick="tellUsStart('need')">
+            <button type="button" class="btn-secondary tu-opt" data-kind="need" aria-pressed="false" onclick="tellUsStart('need')">
               <span class="show-pt">Eu preciso de algo</span>
               <span class="show-en">I need something</span>
             </button>
@@ -5183,6 +5192,8 @@
       window.SchedulingQueue.init({
         containerId: "schedQueue",
         blockId: "schedQueueBlock",
+        countId: "schedQueueCount",
+        collapseDone: true,
         apiFetch: apiFetch,
         isEn: function() {
           return window.apexIsEn ? window.apexIsEn() : document.body.classList.contains("lang-en");
@@ -5201,18 +5212,32 @@
     var TELL_US_TRANSCRIPT = [];
     var TELL_US_DONE = false;
 
+    // The two options are a toggle: the picker stays on screen, the chosen one
+    // is gold, and tapping the other switches kind. Switching starts a fresh
+    // conversation (the follow-up questions belong to the old kind) but keeps
+    // whatever she had already typed. Tapping the active one again is a no-op
+    // until a report has been sent, after which it starts a new report.
     function tellUsStart(kind) {
+      if (kind === TELL_US_KIND && !TELL_US_DONE) { return; }
+      var keepText = TELL_US_KIND && !TELL_US_DONE;
       TELL_US_KIND = kind;
       TELL_US_TRANSCRIPT = [];
       TELL_US_DONE = false;
       var picker = document.getElementById("tellUsPicker");
       var convo = document.getElementById("tellUsConvo");
-      if (picker) { picker.hidden = true; }
       if (convo) { convo.hidden = false; }
+      if (picker) {
+        var opts = picker.querySelectorAll(".tu-opt");
+        for (var o = 0; o < opts.length; o++) {
+          var on = opts[o].getAttribute("data-kind") === kind;
+          opts[o].classList.toggle("is-active", on);
+          opts[o].setAttribute("aria-pressed", on ? "true" : "false");
+        }
+      }
       var msgs = document.getElementById("tellUsMessages");
       if (msgs) { msgs.innerHTML = ""; }
       var input = document.getElementById("tellUsInput");
-      if (input) { input.value = ""; input.focus(); }
+      if (input) { if (!keepText) { input.value = ""; } input.focus(); }
       var status = document.getElementById("tellUsStatus");
       if (status) { status.textContent = ""; }
     }

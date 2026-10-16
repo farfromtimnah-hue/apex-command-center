@@ -113,6 +113,16 @@ function seedGatorPayments(d, clientId, dates, cents) {
   ok(!!r.data.intake_card && r.data.intake_card.open.length === 6, "a client with nothing to read gets ONE box listing the 6 items");
 }
 
+// ── A joint venture, pro bono or paid-in-full client is never asked about ───
+{
+  const w = world();
+  seedClient(w.d, "j1", "Joint Venture Co", "active");
+  w.d.raw.prepare("UPDATE clients SET billing_type = 'joint_venture' WHERE id = 'j1'").run();
+  seedClient(w.d, "b2", "Billable Co", "active");
+  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(r.data.client && r.data.client.id === "b2", "a non-billable client is skipped: nobody owes money, so nothing is forecast");
+}
+
 // ── Gator-style: one card, one Yes, then one end-date tap ───────────────────
 {
   const w = world();

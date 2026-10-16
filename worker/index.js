@@ -58722,6 +58722,9 @@ async function handleGetClientTermsNext(request, env) {
             "SELECT c.id, c.name, c.status, c.package FROM clients c " +
             "LEFT JOIN client_terms t ON t.client_id = c.id " +
             "WHERE COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused') " +
+            // A joint venture, a pro-bono client or one who paid in full before this
+            // system existed has no money coming in: never asked about.
+            "AND COALESCE(c.billing_type, 'billable') = 'billable' " +
             "AND (t.client_id IS NULL OR t.completed = 0) " +
             "ORDER BY c.created_at ASC"
         ).all()).results || [];

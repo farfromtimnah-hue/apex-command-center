@@ -10238,6 +10238,7 @@ names,
     // /next response, and which fallback question (if "Corrigir" was
     // clicked) we are currently walking through.
     var ctHistoryCard = null;
+    var ctPlanCard = null;         // one-line plan to confirm: how much is owed, how often, when it ends
     var ctExtraValues = null;      // read-back extras on the history card (confirmed by her Yes)
     var ctIntake = null;           // { open: [...] } for the no-history box
     var ctIntakeValues = null;     // what the intake note was read as, waiting for her Yes
@@ -10259,6 +10260,16 @@ names,
         document.getElementById("ctClientName").textContent = data.client.name;
         ctCurrentPos = { position: data.position, total: data.total };
         ctShowEl("ctNotEnoughHistory", !!data.not_enough_history);
+
+        if (data.plan_card) {
+          ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; ctFallbackQueue = []; ctIntake = null;
+          ctPlanCard = data.plan_card;
+          ctShowEl("ctIntakeCard", false); ctShowEl("ctEndSuggestCard", false); ctShowEl("ctTypedQuestion", false);
+          ctShowEl("ctHistoryCard", true);
+          ctRedrawPlanCard();
+          return;
+        }
+        ctPlanCard = null;
 
         if (data.intake_card) {
           ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; ctFallbackQueue = [];
@@ -10348,6 +10359,9 @@ names,
 
     function confirmCtEndSuggestion() {
       if (!ctEndSuggestion) { return; }
+      // Consulting contracts do not auto-renew: save the end date directly.
+      ctPickAutoRenews(false);
+      return;
       // auto_renews is still needed before this can be saved as a real
       // contract_end answer -- ask it inline, then save.
       ctShowEl("ctEndSuggestButtons", false);
@@ -10446,6 +10460,7 @@ names,
         var ml = { zelle: "Zelle", check: t("cheque", "check"), ach: "ACH", card: t("cartão", "card"), cash: t("dinheiro", "cash"), other: t("outro", "other") };
         parts.push(t("paga via " + ml[h.payment_method.method], "pays via " + ml[h.payment_method.method]));
       }
+      if (h.balloon_payment) { parts.push(t("pagamento final de " + fmtUsdCents(h.balloon_payment.balloon_cents) + " em " + fmtDate(h.balloon_payment.balloon_date), "final payment of " + fmtUsdCents(h.balloon_payment.balloon_cents) + " on " + fmtDate(h.balloon_payment.balloon_date))); }
       if (h.amount_varies) { parts.push(h.amount_varies.varies ? t("o valor varia", "the amount varies") : t("o valor é sempre o mesmo", "the amount is always the same")); }
       if (h.start_date) { parts.push(t("início em " + fmtDate(h.start_date.start_date) + " (primeira fatura)", "start " + fmtDate(h.start_date.start_date) + " (first invoice)")); }
 
@@ -10484,6 +10499,35 @@ names,
       var statusEl0 = document.getElementById("ctHistoryStatus");
       if (statusEl0) { statusEl0.textContent = ""; }
     }
+    function ctRedrawPlanCard() {
+      var p = ctPlanCard, textEl = document.getElementById("ctHistoryText");
+      if (!p || !textEl) { return; }
+      var fl = { weekly: t("por semana", "per week"), monthly: t("por mês", "per month") };
+      textEl.textContent = t(
+        fmtUsdCents(p.amount_cents) + " " + fl[p.frequency] + ". Já pago " + fmtUsdCents(p.paid_cents) + " de " + fmtUsdCents(p.total_cents) + ". Faltam " + fmtUsdCents(p.remaining_cents) + " (" + p.installments_left + " pagamentos). Último pagamento por volta de " + fmtDate(p.end_date) + ".",
+        fmtUsdCents(p.amount_cents) + " " + fl[p.frequency] + ". Paid " + fmtUsdCents(p.paid_cents) + " of " + fmtUsdCents(p.total_cents) + ". " + fmtUsdCents(p.remaining_cents) + " left (" + p.installments_left + " payments). Last payment around " + fmtDate(p.end_date) + "."
+      );
+      ctShowEl("ctDueDayRow", false); ctShowEl("ctNothingElse", false); ctShowEl("ctExtraWrap", false);
+      var oe = document.getElementById("ctHistoryOutliers"); if (oe) { oe.textContent = ""; }
+      var st = document.getElementById("ctHistoryStatus"); if (st) { st.textContent = ""; }
+    }
+    function confirmCtPlanCard() {
+      if (!ctCurrentClient || !ctPlanCard) { return; }
+      var st = document.getElementById("ctHistoryStatus");
+      if (st) { st.textContent = t("Enviando...", "Sending..."); }
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply-plan", { method: "POST", body: {} })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          ctPlanCard = null; loadCtNextQuestion(); loadCtForecast();
+        }).catch(function(e) { if (st) { st.textContent = t("Erro: ", "Error: ") + e.message; } });
+    }
+    function correctCtPlanCard() {
+      if (!ctPlanCard) { return; }
+      ctIntake = { open: ctPlanCard.open }; ctIntakeValues = null; ctPlanCard = null;
+      ctShowEl("ctHistoryCard", false); ctShowEl("ctIntakeCard", true); ctShowEl("ctIntakeConfirm", false);
+      var itx = document.getElementById("ctIntakeText"); if (itx) { itx.value = ""; }
+      ctRedrawIntake();
+    }
     function ctRedrawComing(h) {
       // What the past cannot show: stated as "nothing else on record"; her Yes
       // confirms it, or she says what is coming in the one box below.
@@ -10491,15 +10535,15 @@ names,
       var ne = document.getElementById("ctNothingElse"), xw = document.getElementById("ctExtraWrap"), xl = document.getElementById("ctExtraLabel");
       if (ne) {
         ne.hidden = !comingOpen.length;
-        ne.textContent = t("Nada mais registrado: sem pagamento balão, mudança de preço, taxa de instalação, meses gratuitos ou aviso de cancelamento.",
-          "Nothing else on record: no balloon payment, price change, setup fee, free months or cancel notice.");
+        ne.textContent = t("Nenhum pagamento final maior (balão) registrado. Se houver, diga abaixo.",
+          "No larger final payment (balloon) on record. If there is one, say so below.");
       }
       if (xw) { xw.hidden = !comingOpen.length; }
-      if (xl) { xl.textContent = t("Tem algo a acrescentar? Fale ou escreva (balão, mudança de preço, taxa, meses gratuitos, aviso).", "Anything to add? Say or type it (balloon, price change, fee, free months, notice)."); }
+      if (xl) { xl.textContent = t("Vem um pagamento final maior (balão)? Fale ou escreva o valor e a data.", "Is a larger final payment (balloon) coming? Say or type the amount and date."); }
       var statusEl = document.getElementById("ctHistoryStatus");
       if (statusEl) { statusEl.textContent = ""; }
     }
-    document.addEventListener("apex:langchange", function () { if (ctHistoryCard) { ctRedrawHistoryCard(); } if (ctIntake) { ctRedrawIntake(); } });
+    document.addEventListener("apex:langchange", function () { if (ctPlanCard) { ctRedrawPlanCard(); } if (ctHistoryCard) { ctRedrawHistoryCard(); } if (ctIntake) { ctRedrawIntake(); } });
 
     // Plain-language read-back of several fields at once.
     function ctExtrasText(values) {
@@ -10573,6 +10617,7 @@ names,
     }
 
     function confirmCtHistoryCard() {
+      if (ctPlanCard) { confirmCtPlanCard(); return; }
       if (!ctCurrentClient || !ctHistoryCard) { return; }
       var statusEl = document.getElementById("ctHistoryStatus");
       var fieldsToSave = ctHistoryCard.fields_to_save || [];
@@ -10601,6 +10646,7 @@ names,
     // "Corrigir": falls back to the normal typed questions, one at a time,
     // for exactly the fields the card was about to save.
     function correctCtHistoryCard() {
+      if (ctPlanCard) { correctCtPlanCard(); return; }
       if (!ctHistoryCard) { return; }
       ctFallbackQueue = (ctHistoryCard.fallback_questions || []).slice();
       var dueDayInput = document.getElementById("ctDueDayInput");

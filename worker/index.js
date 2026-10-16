@@ -51488,6 +51488,8 @@ async function handleFetch(request, env, ctx) {
         if (ctAnswer && method === "POST") { return handlePostClientTermsAnswer(ctAnswer[1], request, env); }
         var ctApply = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply$/);
         if (ctApply && method === "POST") { return handlePostClientTermsApply(ctApply[1], request, env); }
+        var ctApplyPlan = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply-plan$/);
+        if (ctApplyPlan && method === "POST") { return handlePostClientTermsApplyPlan(ctApplyPlan[1], request, env); }
         var ctInterpret = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/interpret$/);
         if (ctInterpret && method === "POST") { return handlePostClientTermsInterpret(ctInterpret[1], request, env); }
         var ctApplyExtras = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply-extras$/);
@@ -58155,18 +58157,16 @@ async function vendorApplyGoldenSiteHalves(env, secondHalfOwed) {
 // Base questions, in the fixed order from the spec. Pause questions are
 // asked FIRST, only for a paused client, then these eleven.
 var CLIENT_TERMS_BASE_QUESTIONS = [
-    { key: "amount", text_pt: "Qual o valor de cada pagamento?", text_en: "What is the amount of each payment?" },
+    // What the forecast (money coming in each month), invoice creation and the
+    // payment matcher use. Price changes, setup fees, free months, cancel notice
+    // and renewals were never needed: fixed-price consulting contracts that do
+    // not auto-renew, and a paid-off client has nothing left to forecast.
+    { key: "amount", text_pt: "Qual o valor de cada pagamento que ainda falta?", text_en: "What is the amount of each payment still to come?" },
     { key: "frequency", text_pt: "Com que frequência? (semanal, a cada duas semanas, mensal, a cada 3 meses, uma única vez)", text_en: "How often? (weekly, every two weeks, monthly, every 3 months, one time)" },
     { key: "due_day", text_pt: "Qual o dia de vencimento de cada fatura? (por exemplo, o dia 1 do mês)", text_en: "What is the due day of each invoice? (for example the 1st of the month)" },
-    { key: "start_date", text_pt: "Qual a data de início do contrato?", text_en: "What date did the contract start?" },
-    { key: "contract_end", text_pt: "Qual a data de término do contrato, ou é sem data definida? E ele renova automaticamente?", text_en: "What is the contract end date, or is it open-ended? And does it renew automatically?" },
-    { key: "balloon_payment", text_pt: "Ainda vem algum pagamento balão, ou um pagamento final de valor diferente? Qual o valor e a data? Se não, diga que não há.", text_en: "Is a balloon payment, or a final payment of a different amount, still coming? How much and on what date? If not, say none." },
     { key: "payment_method", text_pt: "Como o cliente paga? (Zelle, cheque, ACH, cartão, dinheiro, outro)", text_en: "How does the client pay? (Zelle, check, ACH, card, cash, other)" },
-    { key: "price_change", text_pt: "Há alguma mudança de preço chegando? Se sim, qual a data e o novo valor. Se não, diga que não há.", text_en: "Is there a price change coming? If so, the date and the new amount. If not, say none." },
-    { key: "setup_fee", text_pt: "Há alguma taxa de instalação ou taxa única ainda devida, e qual o valor? Se não, diga que não há.", text_en: "Is there a setup or one-time fee still owed, and its amount? If not, say none." },
-    { key: "free_months", text_pt: "Há algum mês gratuito ou com desconto? Se não, diga que não há.", text_en: "Are there any free or discounted months? If not, say none." },
-    { key: "cancel_notice", text_pt: "Qual o aviso prévio necessário para cancelar ou pausar? Se não há, diga que não há.", text_en: "What notice is needed to cancel or pause? If none, say none." },
-    { key: "amount_varies", text_pt: "O valor é igual em todos os pagamentos, ou varia?", text_en: "Is the amount the same every time, or does it vary?" }
+    { key: "balloon_payment", text_pt: "Ainda vem algum pagamento balão, ou um pagamento final de valor diferente? Qual o valor e a data? Se não, diga que não há.", text_en: "Is a balloon payment, or a final payment of a different amount, still coming? How much and on what date? If not, say none." },
+    { key: "contract_end", text_pt: "Qual a data do último pagamento, ou seja, o fim do contrato?", text_en: "What is the date of the last payment, that is, the end of the contract?" }
 ];
 
 // Extra questions asked FIRST for a paused client only.
@@ -58521,6 +58521,12 @@ function clientTermsPlanAdjust(derived, progress) {
         delete derived.amount_varies;
         return derived;
     }
+    if (progress.installment_amount_cents > 0 && progress.installment_count > 1) {
+        var lastPart = progress.total_cents - progress.installment_amount_cents * (progress.installment_count - 1);
+        if (lastPart >= progress.installment_amount_cents * 1.5) {
+            derived.balloon_payment = { has_balloon: true, balloon_cents: lastPart, basis: "package_plan" };
+        }
+    }
     if (progress.installment_amount_cents > 0) {
         derived.amount = { amount_cents: progress.installment_amount_cents, basis: "package_plan", payment_count: derived.payment_count || 0 };
         if (freq === "weekly" || freq === "monthly") { derived.frequency = { frequency: freq, basis: "package_plan" }; }
@@ -58612,23 +58618,94 @@ async function clientTermsContractEndSuggestion(env, client, answers) {
 // history" (the old silent-save behavior) is treated as NOT yet confirmed --
 // stripped back out of answers so the card (or the typed question) asks for
 // it again, exactly once, the next time this client is loaded.
-var CLIENT_TERMS_CARD_KEYS = ["amount", "frequency", "due_day", "start_date", "payment_method", "amount_varies"];
+var CLIENT_TERMS_CARD_KEYS = ["amount", "frequency", "due_day", "payment_method"];
 // Things the past cannot show. The card states "nothing else on record" for
 // these; Alice's Yes confirms it, or she says what is coming in the one box.
-var CLIENT_TERMS_COMING_KEYS = ["balloon_payment", "price_change", "setup_fee", "free_months", "cancel_notice"];
-var CLIENT_TERMS_NONE_VALUES = {
-    balloon_payment: { has_balloon: false },
-    price_change: { has_change: false },
-    setup_fee: { has_fee: false },
-    free_months: { has_free_months: false, detail: null },
-    cancel_notice: { has_notice: false, detail: null }
-};
+var CLIENT_TERMS_COMING_KEYS = ["balloon_payment"];
+var CLIENT_TERMS_NONE_VALUES = { balloon_payment: { has_balloon: false } };
 
 function clientTermsStripUnconfirmedHistory(answers, confirmedBy) {
     if (confirmedBy !== "payment history") { return answers; }
     var cleaned = Object.assign({}, answers);
     CLIENT_TERMS_CARD_KEYS.forEach(function(k) { delete cleaned[k]; });
     return cleaned;
+}
+
+// What is still owed, how often, and when it ends -- worked out from the
+// package plan (total, installment amount, weekly or monthly) and what has been
+// paid. null when any of it is missing: the caller then uses the one box.
+function clientTermsPlanSummary(derived, progress) {
+    if (!progress || progress.total_missing || progress.custom_pricing || !(progress.total_cents > 0)) { return null; }
+    var remaining = progress.total_cents - progress.paid_cents;
+    if (remaining <= 0) { return null; }
+    var amount = derived.amount && !derived.amount.varies ? derived.amount.amount_cents : null;
+    var freq = derived.frequency ? derived.frequency.frequency : null;
+    var last = derived.last_paid_date || null;
+    if (!amount || !last || (freq !== "monthly" && freq !== "weekly")) { return null; }
+    var left = Math.ceil(remaining / amount);
+    if (derived.balloon_payment && derived.plan && derived.plan.installment_count) {
+        // The last payment is the balloon: it falls one period after the last regular instalment.
+        left = Math.max(1, derived.plan.installment_count - (derived.payment_count || 0));
+    }
+    var endDate = freq === "monthly"
+        ? clientTermsAddMonths(last, left)
+        : new Date(Date.parse(last + "T00:00:00Z") + left * 7 * 86400000).toISOString().slice(0, 10);
+    return {
+        amount_cents: amount, frequency: freq, remaining_cents: remaining, installments_left: left,
+        end_date: endDate, total_cents: progress.total_cents, paid_cents: progress.paid_cents, last_paid_date: last
+    };
+}
+
+// A balloon found in the plan needs its date: the end of the plan. Without a
+// date it cannot be saved, so it is dropped and the box asks instead.
+function clientTermsBalloonDate(derived, progress) {
+    if (!derived.balloon_payment) { return; }
+    var sum = clientTermsPlanSummary(derived, progress);
+    if (sum && sum.end_date) { derived.balloon_payment.balloon_date = sum.end_date; } else { delete derived.balloon_payment; }
+}
+
+// A paid-off package has no future money, so it is filed as done without a word.
+async function clientTermsAutoCompletePaid(env, client, derived) {
+    var answers = {
+        amount: { amount_cents: derived.paid_in_full.total_cents, basis: "package_total" },
+        frequency: { frequency: "one_time" },
+        contract_end: { open_ended: false, end_date: derived.last_paid_date || gmEasternToday(), auto_renews: false }
+    };
+    var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+    await env.DB.prepare(
+        "INSERT INTO client_terms (client_id, answers_json, completed, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, 1, ?, ?, ?) " +
+        "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, completed = 1, confirmed_by = ?, confirmed_at = ?, updated_at = ?"
+    ).bind(client.id, JSON.stringify(answers), "system: package paid in full", nowIso, nowIso, JSON.stringify(answers), "system: package paid in full", nowIso, nowIso).run();
+}
+
+// POST /api/client-terms/:clientId/apply-plan -- her Yes on the one-line plan.
+// The figures are recomputed here; nothing is taken from the page.
+async function handlePostClientTermsApplyPlan(clientId, request, env) {
+    try {
+        var a = await clientTermsAuth(request, env);
+        if (a.err) { return a.err; }
+        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ? AND COALESCE(archived,0) = 0 AND status IN ('active','paused')").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found or not eligible", 404); }
+        var derived = await deriveTermsFromHistory(env, clientId);
+        var planRow = (await clientTermsContractProgressRows(env, clientId))[0];
+        derived = clientTermsPlanAdjust(derived, planRow);
+        var summary = clientTermsPlanSummary(derived, planRow);
+        if (!summary) { return jsonErr("The plan cannot be worked out from the data", 400); }
+        var row = await env.DB.prepare("SELECT answers_json FROM client_terms WHERE client_id = ?").bind(clientId).first();
+        var answers = row ? JSON.parse(row.answers_json || "{}") : {};
+        answers.amount = { amount_cents: summary.amount_cents, basis: "package_plan" };
+        answers.frequency = { frequency: summary.frequency };
+        answers.contract_end = { open_ended: false, end_date: summary.end_date, auto_renews: false };
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        var who = actorName(a.user) + " (package plan, confirmed)";
+        await env.DB.prepare(
+            "INSERT INTO client_terms (client_id, answers_json, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+            "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, confirmed_by = ?, confirmed_at = ?, updated_at = ?"
+        ).bind(clientId, JSON.stringify(answers), who, nowIso, nowIso, JSON.stringify(answers), who, nowIso, nowIso).run();
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error applying the plan: " + e.message, 500);
+    }
 }
 
 // GET /api/client-terms/next -- the next client with open questions (oldest
@@ -58654,12 +58731,9 @@ async function handleGetClientTermsNext(request, env) {
         var existing = await env.DB.prepare("SELECT answers_json, confirmed_by FROM client_terms WHERE client_id = ?").bind(client.id).first();
         var answers = existing ? clientTermsStripUnconfirmedHistory(JSON.parse(existing.answers_json || "{}"), existing.confirmed_by) : {};
         var questions = clientTermsQuestionsFor(client);
+        var openQs = questions.filter(function(q) { return !(q.key in answers); });
 
-        var nextQ = null, position = 0;
-        for (var i = 0; i < questions.length; i++) {
-            if (!(questions[i].key in answers)) { nextQ = questions[i]; position = i + 1; break; }
-        }
-        if (!nextQ) {
+        if (!openQs.length) {
             // Every question has an answer (possibly skipped) -- mark completed.
             var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
             await env.DB.prepare(
@@ -58669,20 +58743,27 @@ async function handleGetClientTermsNext(request, env) {
             return handleGetClientTermsNext(request, env);
         }
 
-        // History card: ONE screen per client that states everything the bank and
-        // invoices already prove, asks only for the due day, and says "nothing
-        // else on record" for what the past cannot show (balloon payment, price
-        // change, setup fee, free months, cancel notice). A single box lets her
-        // say what is coming instead; Yes confirms the card as written.
-        var cardFields = CLIENT_TERMS_CARD_KEYS;
         var derived = await deriveTermsFromHistory(env, client.id);
         var planRow = (await clientTermsContractProgressRows(env, client.id))[0];
         derived = clientTermsPlanAdjust(derived, planRow);
-        function cardCovered(k) { return k === "due_day" ? (!!derived.due_day_suggestion || !!derived.paid_in_full) : !!derived[k]; }
-        var openCard = cardFields.filter(function(k) { return !(k in answers); });
-        var coveredOpen = openCard.filter(cardCovered);
-        var comingOpen = CLIENT_TERMS_COMING_KEYS.filter(function(k) { return !(k in answers); });
-        if (cardFields.indexOf(nextQ.key) !== -1 && coveredOpen.length) {
+        clientTermsBalloonDate(derived, planRow);
+
+        // Paid in full: nothing is coming in, so nothing is asked and nothing is
+        // shown. The client is filed as done and the next one is loaded.
+        if (derived.paid_in_full) {
+            await clientTermsAutoCompletePaid(env, client, derived);
+            return handleGetClientTermsNext(request, env);
+        }
+
+        var openOut = openQs.map(function(q) { return { key: q.key, text_pt: q.text_pt, text_en: q.text_en }; });
+        var cardFields = CLIENT_TERMS_CARD_KEYS;
+        function cardCovered(k) { return k === "due_day" ? !!derived.due_day_suggestion : !!derived[k]; }
+        var coveredOpen = cardFields.filter(function(k) { return !(k in answers) && cardCovered(k); });
+        var balloonOpen = !("balloon_payment" in answers);
+
+        // ONE card per client: what the bank, invoices and package plan already
+        // show, the due day to confirm, and a line about a final lump sum.
+        if (coveredOpen.length) {
             var fallbackQuestions = questions.filter(function(q) { return coveredOpen.indexOf(q.key) !== -1; })
                 .map(function(q) { return { key: q.key, text_pt: q.text_pt, text_en: q.text_en }; });
             return jsonOk({
@@ -58694,67 +58775,43 @@ async function handleGetClientTermsNext(request, env) {
                     frequency_already_saved: ("frequency" in answers && !answers.frequency.skipped) ? answers.frequency : null,
                     due_day_needed: !("due_day" in answers),
                     due_day_suggestion: derived.due_day_suggestion || null,
-                    first_invoice_date: derived.first_invoice_date || null,
-                    start_date: (!("start_date" in answers) && derived.start_date) ? derived.start_date : null,
                     payment_method: (!("payment_method" in answers) && derived.payment_method) ? derived.payment_method : null,
-                    amount_varies: (!("amount_varies" in answers) && derived.amount_varies) ? derived.amount_varies : null,
+                    balloon_payment: (balloonOpen && derived.balloon_payment) ? derived.balloon_payment : null,
+                    first_invoice_date: derived.first_invoice_date || null,
                     last_paid_date: derived.last_paid_date || null,
                     payment_count: derived.payment_count || 0,
                     payment_dates: derived.payment_dates || [],
                     next_expected_date: derived.next_expected_date || null,
                     outlier_payments: derived.outlier_payments || [],
-                    paid_in_full: derived.paid_in_full || null,
                     plan: derived.plan || null,
-                    coming_open: comingOpen,
-                    fields_to_save: coveredOpen,
+                    coming_open: (balloonOpen && !derived.balloon_payment) ? ["balloon_payment"] : [],
+                    fields_to_save: coveredOpen.concat(balloonOpen && derived.balloon_payment ? ["balloon_payment"] : []),
                     fallback_questions: fallbackQuestions
                 },
-                position: position, total: questions.length
+                position: 1, total: questions.length
             });
         }
 
-        // No history to confirm: ONE box to say everything instead of a list of
-        // typed questions. What she says is filed under each field and read back.
-        var noCoverage = !coveredOpen.length && !derived.due_day_suggestion;
-        if (nextQ.key !== "contract_end" && noCoverage && !(derived.payment_count > 0)) {
-            var openQs = questions.filter(function(q) { return !(q.key in answers); })
-                .map(function(q) { return { key: q.key, text_pt: q.text_pt, text_en: q.text_en }; });
-            return jsonOk({
-                client: { id: client.id, name: client.name, status: client.status },
-                intake_card: { open: openQs },
-                position: position, total: questions.length
-            });
-        }
-
-        // Before contract_end, offer a suggested end date (computed from
-        // package total minus matched payments, or from start_date + package
-        // length) for confirmation -- never saved without a click.
-        if (nextQ.key === "contract_end") {
+        // Only the end of the contract is left: suggest it from the plan and what
+        // has been paid, one tap. Contracts never auto-renew, so nothing else is asked.
+        var onlyEnd = openQs.length === 1 && openQs[0].key === "contract_end";
+        if (onlyEnd) {
             var endSuggestion = await clientTermsContractEndSuggestion(env, client, answers);
             if (endSuggestion) {
                 return jsonOk({
                     client: { id: client.id, name: client.name, status: client.status },
                     contract_end_suggestion: endSuggestion,
-                    fallback_question: { key: nextQ.key, text_pt: nextQ.text_pt, text_en: nextQ.text_en },
-                    position: position, total: questions.length
+                    fallback_question: openOut[0],
+                    position: 1, total: questions.length
                 });
             }
         }
 
-        // "Not enough payment history yet" banner: only on the very first
-        // question (amount), and only when the card above had no coverage at
-        // all to offer (fewer than 2 matched payments and no usable invoice).
-        var notEnoughHistory = false;
-        if (nextQ.key === "amount") {
-            var derivedForBanner = (typeof derived !== "undefined") ? derived : await deriveTermsFromHistory(env, client.id);
-            notEnoughHistory = !derivedForBanner.amount && !derivedForBanner.frequency && !derivedForBanner.due_day_suggestion;
-        }
-
+        // The rest cannot be worked out: ONE box for what is still open.
         return jsonOk({
             client: { id: client.id, name: client.name, status: client.status },
-            question: { key: nextQ.key, text_pt: nextQ.text_pt, text_en: nextQ.text_en },
-            not_enough_history: notEnoughHistory,
-            position: position, total: questions.length
+            intake_card: { open: openOut },
+            position: 1, total: questions.length
         });
     } catch (e) {
         return jsonErr("Error loading client terms questions: " + e.message, 500);
@@ -58873,6 +58930,7 @@ function clientTermsMergeExtras(answers, extras, nothingElse, questions) {
             if (validKeys.indexOf(k) === -1 || k in answers) { continue; }
             var v = clientTermsValidateReply(k, extras[k]);
             if (!v.ok || v.value.unclear) { return { error: "Invalid value for " + k }; }
+            if (k === "contract_end") { v.value.auto_renews = false; }
             answers[k] = v.value;
         }
     }
@@ -58889,7 +58947,7 @@ function clientTermsMergeExtras(answers, extras, nothingElse, questions) {
 var CLIENT_TERMS_KEY_DOCS = {
     amount: "{amount_cents: whole cents}", frequency: "{frequency: weekly|biweekly|monthly|quarterly|one_time}",
     due_day: "{due_day: 1-31}", start_date: "{start_date: YYYY-MM-DD}",
-    contract_end: "{open_ended: bool, end_date: YYYY-MM-DD or omit when open ended, auto_renews: bool}",
+    contract_end: "{open_ended: bool, end_date: YYYY-MM-DD (the date of the last payment), auto_renews: false}",
     balloon_payment: "{has_balloon: bool, balloon_cents, balloon_date: YYYY-MM-DD when true}",
     payment_method: "{method: zelle|check|ach|card|cash|other}",
     price_change: "{has_change: bool, change_date: YYYY-MM-DD, new_amount_cents when true}",
@@ -58989,7 +59047,7 @@ async function handlePostClientTermsApplyHistory(clientId, request, env) {
         if (a.err) { return a.err; }
         var body = await request.json().catch(function() { return {}; });
         var fieldsToSave = Array.isArray(body.fields_to_save) ? body.fields_to_save : [];
-        fieldsToSave = fieldsToSave.filter(function(k) { return CLIENT_TERMS_CARD_KEYS.indexOf(k) !== -1; });
+        fieldsToSave = fieldsToSave.filter(function(k) { return CLIENT_TERMS_CARD_KEYS.indexOf(k) !== -1 || k === "balloon_payment"; });
         if (!fieldsToSave.length) { return jsonErr("Nothing to save", 400); }
 
         var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ? AND COALESCE(archived,0) = 0 AND status IN ('active','paused')").bind(clientId).first();
@@ -58999,7 +59057,9 @@ async function handlePostClientTermsApplyHistory(clientId, request, env) {
         var answers = row ? clientTermsStripUnconfirmedHistory(JSON.parse(row.answers_json || "{}"), row.confirmed_by) : {};
 
         var derived = await deriveTermsFromHistory(env, clientId);
-        derived = clientTermsPlanAdjust(derived, (await clientTermsContractProgressRows(env, clientId))[0]);
+        var planRow2 = (await clientTermsContractProgressRows(env, clientId))[0];
+        derived = clientTermsPlanAdjust(derived, planRow2);
+        clientTermsBalloonDate(derived, planRow2);
 
         if (fieldsToSave.indexOf("amount") !== -1) {
             if (!("amount" in answers) && derived.amount) { answers.amount = derived.amount; }
@@ -59018,6 +59078,9 @@ async function handlePostClientTermsApplyHistory(clientId, request, env) {
             answers.due_day = { due_day: day, basis: (derived.due_day_suggestion && derived.due_day_suggestion.due_day === day) ? derived.due_day_suggestion.basis : "entered_on_card" };
         }
 
+        if (fieldsToSave.indexOf("balloon_payment") !== -1 && derived.balloon_payment && !("balloon_payment" in answers)) {
+            answers.balloon_payment = { has_balloon: true, balloon_cents: derived.balloon_payment.balloon_cents, balloon_date: derived.balloon_payment.balloon_date };
+        }
         ["start_date", "payment_method", "amount_varies"].forEach(function(k) {
             if (fieldsToSave.indexOf(k) === -1) { return; }
             if (!(k in answers) && derived[k]) {

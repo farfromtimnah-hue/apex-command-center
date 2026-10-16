@@ -15,7 +15,7 @@ const FNS = [
   "clientTermsContractProgressRows", "clientTermsContractEndSuggestion",
   "handleGetClientTermsNext", "handlePostClientTermsAnswer", "handlePostClientTermsApply",
   "handlePostClientTermsApplyHistory", "handleGetClientTermsForecast",
-  "clientTermsPlanAdjust", "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
+  "clientTermsPlanAdjust", "clientTermsPlanSummary", "clientTermsBalloonDate", "clientTermsAutoCompletePaid", "handlePostClientTermsApplyPlan", "clientTermsContractEndSuggestion", "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
 ];
 const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "CLIENT_TERMS_CARD_KEYS", "CLIENT_TERMS_COMING_KEYS", "CLIENT_TERMS_NONE_VALUES", "CLIENT_TERMS_KEY_DOCS", "SUPPORT_AI_MODEL", "BANK_PAID_WHERE"];
 const MIGRATIONS = ["migrations/finance_plaid.sql", "migrations/client_terms.sql"];
@@ -42,20 +42,19 @@ function seedClient(d, id, name, status, pkg) {
 function seedGatorPayments(d, clientId, dates, cents) {
   const raw = d.raw;
   dates.forEach(function (dt, n) {
-    raw.prepare("INSERT INTO invoices (id, client_id, number, status, issued_at) VALUES (?, ?, ?, 'paid', ?)").run("i" + clientId + n, clientId, "N" + clientId + n, dt);
-    raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date) VALUES (?, 'a1', ?, ?)").run("t" + clientId + n, cents, dt);
+    raw.prepare("INSERT INTO invoices (id, client_id, number, status, issued_at, due_at, amount_cents) VALUES (?, ?, ?, 'paid', ?, ?, ?)").run("i" + clientId + n, clientId, "N" + clientId + n, dt, dt, cents);
+    raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES (?, 'a1', ?, ?, 'Zelle payment from CLIENT')").run("t" + clientId + n, cents, dt);
     raw.prepare("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents) VALUES (?, ?, ?, ?)").run("p" + clientId + n, "i" + clientId + n, "t" + clientId + n, cents);
   });
 }
 
-// ── Question ordering ──────────────────────────────────────────────────────
+// ── Question ordering: what the forecast, invoicing and the matcher use ─────
 {
   const w = world();
   let qs = w.F.clientTermsQuestionsFor({ status: "active" });
-  ok(qs.length === 12 && qs[0].key === "amount" && qs[1].key === "frequency" && qs[2].key === "due_day" && qs[3].key === "start_date" && qs[4].key === "contract_end" && qs[5].key === "balloon_payment", "active client: 12 base questions, order amount/frequency/due_day/start_date/contract_end/balloon_payment/...");
-
+  ok(qs.length === 6 && qs.map(function (q) { return q.key; }).join() === "amount,frequency,due_day,payment_method,balloon_payment,contract_end", "active client: 6 questions: amount, frequency, due day, payment method, balloon, contract end (no price change, setup fee, free months, cancel notice, renewals)");
   qs = w.F.clientTermsQuestionsFor({ status: "paused" });
-  ok(qs.length === 15 && qs[0].key === "pause_started" && qs[3].key === "amount", "paused client: 3 pause questions first, then the 12 base");
+  ok(qs.length === 9 && qs[0].key === "pause_started" && qs[3].key === "amount", "paused client: 3 pause questions first, then the 6");
 }
 
 // ── Validation ─────────────────────────────────────────────────────────────
@@ -103,7 +102,7 @@ function seedGatorPayments(d, clientId, dates, cents) {
   ok(w.F.clientTermsAddMonths("2026-01-31", 1) === "2026-02-28", "addMonths: Jan 31 + 1 month clamps to Feb 28");
 }
 
-// ── handleGetClientTermsNext: eligibility and ordering ──────────────────────
+// ── No history and no plan: ONE box with the six open items ────────────────
 {
   const w = world();
   seedClient(w.d, "c1", "Active Co", "active");
@@ -111,181 +110,49 @@ function seedGatorPayments(d, clientId, dates, cents) {
   seedClient(w.d, "c3", "Lead Co", "lead");
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
   ok(r.status === 200 && r.data.client.id === "c1", "only the active client is offered; closed and lead are skipped");
-  ok(!!r.data.intake_card && !r.data.question && r.data.intake_card.open.length === 12 && r.data.intake_card.open[0].key === "amount", "a client with no history at all gets ONE intake box listing the 12 open items, not a typed question");
+  ok(!!r.data.intake_card && r.data.intake_card.open.length === 6, "a client with nothing to read gets ONE box listing the 6 items");
 }
 
-// ── History card replaces the typed amount/frequency/due_day questions ─────
+// ── Gator-style: one card, one Yes, then one end-date tap ───────────────────
 {
   const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
+  seedClient(w.d, "g1", "Gator Co", "active", "growth");
   seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
+  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total, recurrence_unit) VALUES ('g1', 8788, 'months')").run();
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(r.status === 200 && !!r.data.history_card, "three matched monthly payments: the history card is offered instead of a typed question");
   const h = r.data.history_card;
-  ok(h.amount && h.amount.amount_cents === 150000 && h.amount.payment_count === 3, "card: amount derived from 3 matched payments");
-  ok(h.frequency && h.frequency.frequency === "monthly", "card: frequency derived as monthly");
-  ok(h.due_day_needed === true && h.fields_to_save.indexOf("due_day") !== -1, "card: due_day still needs a click even with a suggestion");
-  ok(h.payment_count === 3 && h.payment_dates.length === 3, "card: payment dates and count are included for information");
-
-  const row = w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0];
-  ok(!row, "nothing is saved just from loading the card -- no silent save happens when the box loads");
-}
-
-// ── Yes on the history card saves exactly the open fields, with the edited due day ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  const card = (await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env)).data.history_card;
-  const applyResp = await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: card.fields_to_save, due_day: 1, nothing_else: true }) }, w.env);
-  ok(applyResp.status === 200 && applyResp.data.ok === true, "apply-history: Yes succeeds");
-  const row = w.d.q("SELECT answers_json, confirmed_by FROM client_terms WHERE client_id = 'g1'")[0];
-  const saved = JSON.parse(row.answers_json);
-  ok(saved.amount.amount_cents === 150000 && saved.frequency.frequency === "monthly" && saved.due_day.due_day === 1, "apply-history: amount, frequency and the (possibly edited) due day are all saved");
-  ok(row.confirmed_by && row.confirmed_by.indexOf("payment history") !== -1, "apply-history: confirmed_by records that this came from history, confirmed by a click");
-
-  ok(saved.start_date && saved.start_date.start_date, "apply-history: start date is filed from the first invoice");
-  ok(saved.amount_varies && saved.amount_varies.varies === false, "apply-history: 'amount varies' is read from the payments (same every time)");
-  ok(saved.balloon_payment.has_balloon === false && saved.price_change.has_change === false && saved.setup_fee.has_fee === false && saved.free_months.has_free_months === false && saved.cancel_notice.has_notice === false, "apply-history: Yes on 'nothing else on record' files balloon, price change, setup fee, free months and cancel notice as none");
-
-  // The box moves on: only the contract end is left for a client like this.
+  ok(r.status === 200 && !!h, "Gator: one card");
+  ok(h.amount.amount_cents === 150000 && h.frequency.frequency === "monthly" && h.payment_method.method === "zelle", "Gator: $1,500 monthly, paid by Zelle (for the invoice matcher)");
+  ok(h.due_day_suggestion && h.due_day_suggestion.due_day === 1 && h.fields_to_save.indexOf("due_day") !== -1, "Gator: due day suggested for invoices, still to confirm");
+  ok(h.coming_open.length === 1 && h.coming_open[0] === "balloon_payment", "Gator: the only 'anything else' line is about a larger final payment");
+  ok(!w.d.q("SELECT * FROM client_terms WHERE client_id = 'g1'").length, "loading the card saves nothing");
+  await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: h.fields_to_save, due_day: 1, nothing_else: true }) }, w.env);
+  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0].answers_json);
+  ok(saved.amount.amount_cents === 150000 && saved.frequency.frequency === "monthly" && saved.due_day.due_day === 1 && saved.payment_method.method === "zelle" && saved.balloon_payment.has_balloon === false, "Yes saves amount, frequency, due day, payment method and no balloon");
   const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok((next.data.question && next.data.question.key === "contract_end") || !!next.data.contract_end_suggestion, "after the card is confirmed, the next thing is the contract end (suggested or typed), nothing else");
+  const e = next.data.contract_end_suggestion;
+  ok(!!e && e.end_date === "2027-01-01", "then ONE tap for the end: last payment around 01/01/2027");
+  await w.F.handlePostClientTermsApply("g1", { json: async () => ({ question_key: "contract_end", interpreted: { open_ended: false, end_date: e.end_date, auto_renews: false } }) }, w.env);
+  const done = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(done.data.client === null, "that is the whole client: nothing else is asked");
 }
 
-// ── Yes is refused with an empty due day ────────────────────────────────────
+// ── A balloon already in the plan is stated, not asked: $700 a month then $4,000 ──
 {
   const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  const applyResp = await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"] }) }, w.env);
-  ok(applyResp.status === 400, "apply-history: Yes is refused when due_day is missing from the body");
-  const row = w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0];
-  ok(!row, "apply-history: a refused Yes writes nothing at all, not even the fields that were valid");
-}
-
-// ── Correct falls back: the normal typed question flow still works per field ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  // Simulate "Correct it": apply the typed amount question directly, bypassing the card.
-  const applyResp = await w.F.handlePostClientTermsApply("g1", { json: async () => ({ question_key: "amount", interpreted: { amount_cents: 999999 } }) }, w.env);
-  ok(applyResp.status === 200, "Correct it: the normal typed /apply route still accepts a hand-entered answer for a card field");
-  const row = w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0];
-  ok(JSON.parse(row.answers_json).amount.amount_cents === 999999, "Correct it: her typed answer wins over what the card would have saved");
-}
-
-// ── A client already answered (Gator-style: amount + frequency confirmed by Nicole) never gets re-asked, and the card still has due_day to confirm ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_terms (client_id, answers_json, confirmed_by) VALUES ('g1', ?, 'Nicole')")
-    .run(JSON.stringify({ amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } }));
+  seedClient(w.d, "b1", "Balloon Co", "active");
+  seedGatorPayments(w.d, "b1", ["2026-08-01", "2026-09-01"], 70000);
+  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total, installment_count, installment_amount, recurrence_unit) VALUES ('b1', 7500, 6, 700, 'months')").run();
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(r.status === 200 && !!r.data.history_card, "Gator: amount+frequency already confirmed, due_day still open -- the card still appears for due_day");
-  ok(r.data.history_card.amount_already_saved && r.data.history_card.amount_already_saved.amount_cents === 150000, "Gator: the card shows the already-saved amount as a fact");
-  ok(!r.data.history_card.amount, "Gator: amount is not offered again as something to save -- it is already confirmed");
-  ok(r.data.history_card.fields_to_save.indexOf("due_day") !== -1 && r.data.history_card.fields_to_save.indexOf("amount") === -1 && r.data.history_card.fields_to_save.indexOf("frequency") === -1, "Gator: amount and frequency are not left to save, the due day is");
+  const h = r.data.history_card;
+  ok(!!h && h.balloon_payment && h.balloon_payment.balloon_cents === 400000 && h.balloon_payment.balloon_date === "2027-01-01", "plan of 6 payments: $700 x 5 then a $4,000 final payment on 01/01/2027, stated on the card");
+  ok(h.coming_open.length === 0 && h.fields_to_save.indexOf("balloon_payment") !== -1, "so the balloon is not asked about, it is confirmed");
+  await w.F.handlePostClientTermsApplyHistory("b1", { json: async () => ({ fields_to_save: h.fields_to_save, due_day: 1 }) }, w.env);
+  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'b1'")[0].answers_json);
+  ok(saved.balloon_payment.has_balloon === true && saved.balloon_payment.balloon_cents === 400000, "Yes saves the balloon for the forecast");
 }
 
-// ── Silent saving from a previous build is un-done: confirmed_by 'payment history' answers are treated as unconfirmed and re-asked ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_terms (client_id, answers_json, confirmed_by) VALUES ('g1', ?, 'payment history')")
-    .run(JSON.stringify({ amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } }));
-  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(r.status === 200 && !!r.data.history_card, "an old silent save (confirmed_by = payment history) is stripped back out and the card is offered again");
-  ok(r.data.history_card.amount && r.data.history_card.amount.amount_cents === 150000, "the stripped amount is offered again for a real click, not treated as already confirmed");
-}
-
-// ── Gator specifically: the first typed question after the card is contract_end's suggestion, not a typed start_and_first_invoice question ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active", "growth");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('g1', 8788)").run();
-  w.d.raw.prepare("INSERT INTO client_terms (client_id, answers_json, confirmed_by) VALUES ('g1', ?, 'Nicole')").run(
-    JSON.stringify({ amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" }, due_day: { due_day: 1 }, start_date: { start_date: "2026-08-01" } })
-  );
-  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(r.status === 200 && !!r.data.contract_end_suggestion, "Gator: with amount/frequency/due_day/start_date answered, the next thing offered is the contract-end suggestion");
-}
-
-// ── Contract-end suggestion: payment-based (the Gator-style case from the prompt) ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('g1', 8788)").run();
-  const answers = { amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } };
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
-  ok(s && s.basis === "payments" && !s.paid_in_full, "Gator-style: a payment-based suggestion is produced");
-  ok(s.total_cents === 878800 && s.paid_cents === 450000, "Gator-style: total is $8,788.00 and matched paid is $4,500.00 (3 x $1,500), never the raw bank total");
-  // remaining = 878800 - 450000 = 428800; /150000 = 2.86 -> 3 payments left; last paid 2026-10-01 + 3 months = 2027-01-01
-  ok(s.payments_left === 3 && s.end_date === "2027-01-01", "Gator-style: suggested end date is the last matched payment date plus the remaining whole payments");
-}
-
-// ── Contract-end suggestion: overpaid / paid in full ────────────────────────
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('g1', 4000)").run();
-  const answers = { amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } };
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
-  ok(s && s.paid_in_full === true && s.last_paid_date === "2026-10-01", "overpaid: the suggestion says paid in full as of the last matched payment date");
-}
-
-// ── Contract-end suggestion: missing package total skips the suggestion entirely ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  // No client_package_terms row at all -- total is unknown.
-  const answers = { amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } };
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
-  ok(s === null, "missing package total: no suggestion is produced, contract_end is asked plainly");
-}
-
-// ── Contract-end suggestion never uses the raw bank total, only matched invoice_payments ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  // An extra, unmatched bank transaction -- not tied to any invoice_payments row (e.g. the My Pure Filter JV cut).
-  w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date) VALUES ('t_extra', 'a1', 672770, '2026-10-05')").run();
-  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('g1', 8788)").run();
-  const answers = { amount: { amount_cents: 150000 }, frequency: { frequency: "monthly" } };
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
-  ok(s.paid_cents === 450000, "the unmatched extra transaction is never counted -- only the 3 matched $1,500 payments ($4,500.00) feed the suggestion");
-}
-
-// ── Contract-end suggestion: start_date + package length fallback ──────────
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active", "growth");
-  w.d.raw.prepare("INSERT INTO packages (id, name, short_name, duration_days) VALUES ('pkg_growth', 'Growth', 'growth', 120)").run();
-  const answers = { start_date: { start_date: "2026-08-01" } }; // no amount/frequency -> payment-based path unavailable
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: "growth" }, answers);
-  ok(s && s.basis === "start_date_and_package" && s.end_date === "2026-12-01", "no payment-based data: falls back to start date + package length (120 days ~ 4 months)");
-}
-
-// ── Contract-end suggestion: missing monthly amount skips straight to the typed question ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('g1', 8788)").run();
-  const answers = {}; // amount/frequency not yet confirmed
-  const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
-  ok(s === null, "no confirmed monthly amount: the payment-based suggestion is skipped, and there is no start_date for the fallback either");
-}
-
-// ── Delicie-style: a START package paid in two Zelles is PAID IN FULL, not a biweekly schedule ──
+// ── Paid in full (Delicie-style): filed as done, never shown ────────────────
 {
   const w = world();
   seedClient(w.d, "d1", "Delicie Co", "active", "start");
@@ -295,59 +162,38 @@ function seedGatorPayments(d, clientId, dates, cents) {
     w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES (?, 'a1', ?, ?, 'Zelle payment from X')").run("dt" + n, p[1], p[0]);
     w.d.raw.prepare("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents) VALUES (?, ?, ?, ?)").run("dp" + n, "di" + n, "dt" + n, p[1]);
   });
+  seedClient(w.d, "n1", "Next Co", "active");
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  const h = r.data.history_card;
-  ok(!!h && !!h.paid_in_full && h.paid_in_full.total_cents === 99700, "Delicie: the card says the package is paid in full ($997.00)");
-  ok(h.frequency && h.frequency.frequency === "one_time", "Delicie: no biweekly schedule, it is a one-time package");
-  ok(!h.next_expected_date && !h.due_day_suggestion, "Delicie: no 'next expected' payment and no due day to confirm");
-  await w.F.handlePostClientTermsApplyHistory("d1", { json: async () => ({ fields_to_save: h.fields_to_save, nothing_else: true }) }, w.env);
-  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'd1'")[0].answers_json);
-  ok(saved.frequency.frequency === "one_time" && saved.due_day.skipped === true, "Delicie: Yes saves one-time and skips the due day");
-  const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(!!next.data.contract_end_suggestion && next.data.contract_end_suggestion.paid_in_full === true, "Delicie: the contract end suggestion is 'paid in full'");
+  ok(r.data.client && r.data.client.id === "n1", "a paid-off package is skipped: the next client is the one she sees");
+  const row = w.d.q("SELECT answers_json, completed FROM client_terms WHERE client_id = 'd1'")[0];
+  const saved = JSON.parse(row.answers_json);
+  ok(row.completed === 1 && saved.frequency.frequency === "one_time" && saved.contract_end.auto_renews === false, "the paid-off client is filed as done, one-time, no renewal");
 }
 
-// ── What she says in the one box is filed under each field; "nothing else" is never saved unless she said Yes ──
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  const card = (await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env)).data.history_card;
-  ok(card.coming_open.length === 5, "card: the five things the past cannot show are listed as open");
-  // Yes WITHOUT the nothing_else statement saves no 'none' answers.
-  await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"], due_day: 1 }) }, w.env);
-  let saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0].answers_json);
-  ok(!("balloon_payment" in saved) && !("setup_fee" in saved), "without the 'nothing else' statement nothing is filed as none");
-}
-{
-  const w = world();
-  seedClient(w.d, "g1", "Gator Co", "active");
-  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  const extras = { balloon_payment: { has_balloon: true, balloon_cents: 400000, balloon_date: "2027-01-15" }, setup_fee: { has_fee: false } };
-  await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"], due_day: 1, nothing_else: true, extras: extras }) }, w.env);
-  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0].answers_json);
-  ok(saved.balloon_payment.has_balloon === true && saved.balloon_payment.balloon_cents === 400000, "what she said (a balloon) wins over the 'none' default");
-  ok(saved.price_change.has_change === false, "everything she did not mention is still filed as none");
-}
-
-// ── Reading the note: filed per field, junk keys ignored, nothing invented ──
+// ── The one box: what she says is filed, read back, and only then saved ─────
 {
   const w = world({
     fetch: async function () {
-      return { ok: true, json: async () => ({ content: [{ type: "text", text: JSON.stringify({ answers: { amount: { amount_cents: 220000 }, frequency: { frequency: "monthly" }, not_a_field: { x: 1 }, balloon_payment: { has_balloon: false } } }) }] }) };
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: JSON.stringify({ answers: { amount: { amount_cents: 220000 }, frequency: { frequency: "monthly" }, due_day: { due_day: 5 }, payment_method: { method: "zelle" }, balloon_payment: { has_balloon: false }, contract_end: { open_ended: false, end_date: "2027-03-01", auto_renews: true }, not_a_field: { x: 1 } } }) }] }) };
     }
   });
   seedClient(w.d, "n1", "No History Co", "active");
-  const r = await w.F.handlePostClientTermsInterpret("n1", { json: async () => ({ text: "2200 por mes, sem balao" }) }, w.env);
-  ok(r.status === 200 && r.data.understood === true && r.data.values.amount.amount_cents === 220000 && r.data.values.frequency.frequency === "monthly" && r.data.values.balloon_payment.has_balloon === false, "interpret: one note is filed into amount, frequency and balloon");
+  const r = await w.F.handlePostClientTermsInterpret("n1", { json: async () => ({ text: "2200 por mes, dia 5, zelle, sem balao, ate marco" }) }, w.env);
+  ok(r.status === 200 && r.data.understood === true && r.data.values.amount.amount_cents === 220000 && r.data.values.payment_method.method === "zelle" && r.data.values.due_day.due_day === 5, "interpret: one note is filed into every field it covers");
   ok(!("not_a_field" in r.data.values), "interpret: a field that is not on the list is dropped");
   ok(!w.d.q("SELECT * FROM client_terms WHERE client_id = 'n1'").length, "interpret: nothing is saved until she says Yes");
-  const ap = await w.F.handlePostClientTermsApplyExtras("n1", { json: async () => ({ values: r.data.values }) }, w.env);
+  await w.F.handlePostClientTermsApplyExtras("n1", { json: async () => ({ values: r.data.values }) }, w.env);
   const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'n1'")[0].answers_json);
-  ok(ap.status === 200 && saved.amount.amount_cents === 220000, "apply-extras: her confirmed note is saved");
+  ok(saved.amount.amount_cents === 220000 && saved.contract_end.auto_renews === false, "apply-extras: saved, and a consulting contract never auto-renews");
   const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(!!next.data.intake_card && next.data.intake_card.open.every(function (q) { return ["amount", "frequency", "balloon_payment"].indexOf(q.key) === -1; }), "the box asks only for what is still open");
-  await w.F.handlePostClientTermsApplyExtras("n1", { json: async () => ({ values: {}, skip_keys: next.data.intake_card.open.map(function (q) { return q.key; }) }) }, w.env);
+  ok(next.data.client === null, "all six answered: the client is done");
+}
+{
+  const w = world();
+  seedClient(w.d, "p1", "Paused Co", "paused");
+  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(!!r.data.intake_card && r.data.intake_card.open.length === 9 && r.data.intake_card.open[0].key === "pause_started", "a paused client's box also covers the three pause questions");
+  await w.F.handlePostClientTermsApplyExtras("p1", { json: async () => ({ values: {}, skip_keys: r.data.intake_card.open.map(function (q) { return q.key; }) }) }, w.env);
   const after = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
   ok(after.data.client === null, "'I don't know' marks the rest as skipped and the client is done");
 }

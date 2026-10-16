@@ -15,7 +15,7 @@ const FNS = [
   "clientTermsContractProgressRows", "clientTermsContractEndSuggestion",
   "handleGetClientTermsNext", "handlePostClientTermsAnswer", "handlePostClientTermsApply",
   "handlePostClientTermsApplyHistory", "handleGetClientTermsForecast",
-  "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
+  "clientTermsPlanAdjust", "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
 ];
 const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "CLIENT_TERMS_CARD_KEYS", "CLIENT_TERMS_COMING_KEYS", "CLIENT_TERMS_NONE_VALUES", "CLIENT_TERMS_KEY_DOCS", "SUPPORT_AI_MODEL", "BANK_PAID_WHERE"];
 const MIGRATIONS = ["migrations/finance_plaid.sql", "migrations/client_terms.sql"];
@@ -283,6 +283,28 @@ function seedGatorPayments(d, clientId, dates, cents) {
   const answers = {}; // amount/frequency not yet confirmed
   const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
   ok(s === null, "no confirmed monthly amount: the payment-based suggestion is skipped, and there is no start_date for the fallback either");
+}
+
+// ── Delicie-style: a START package paid in two Zelles is PAID IN FULL, not a biweekly schedule ──
+{
+  const w = world();
+  seedClient(w.d, "d1", "Delicie Co", "active", "start");
+  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, adjusted_total) VALUES ('d1', 997)").run();
+  [["2026-08-07", 50000], ["2026-08-21", 49700]].forEach(function (p, n) {
+    w.d.raw.prepare("INSERT INTO invoices (id, client_id, number, status, issued_at, due_at, amount_cents) VALUES (?, 'd1', ?, 'paid', ?, ?, ?)").run("di" + n, "DN" + n, p[0], p[0], p[1]);
+    w.d.raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date, description) VALUES (?, 'a1', ?, ?, 'Zelle payment from X')").run("dt" + n, p[1], p[0]);
+    w.d.raw.prepare("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents) VALUES (?, ?, ?, ?)").run("dp" + n, "di" + n, "dt" + n, p[1]);
+  });
+  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  const h = r.data.history_card;
+  ok(!!h && !!h.paid_in_full && h.paid_in_full.total_cents === 99700, "Delicie: the card says the package is paid in full ($997.00)");
+  ok(h.frequency && h.frequency.frequency === "one_time", "Delicie: no biweekly schedule, it is a one-time package");
+  ok(!h.next_expected_date && !h.due_day_suggestion, "Delicie: no 'next expected' payment and no due day to confirm");
+  await w.F.handlePostClientTermsApplyHistory("d1", { json: async () => ({ fields_to_save: h.fields_to_save, nothing_else: true }) }, w.env);
+  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'd1'")[0].answers_json);
+  ok(saved.frequency.frequency === "one_time" && saved.due_day.skipped === true, "Delicie: Yes saves one-time and skips the due day");
+  const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(!!next.data.contract_end_suggestion && next.data.contract_end_suggestion.paid_in_full === true, "Delicie: the contract end suggestion is 'paid in full'");
 }
 
 // ── What she says in the one box is filed under each field; "nothing else" is never saved unless she said Yes ──

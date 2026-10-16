@@ -10401,6 +10401,26 @@ names,
       var freqLabels = { weekly: t("semanal", "weekly"), biweekly: t("a cada duas semanas", "every two weeks"), monthly: t("mensal", "monthly"), quarterly: t("a cada 3 meses", "every 3 months"), one_time: t("uma única vez", "one time") };
       var parts = [];
 
+      if (h.paid_in_full) {
+        // A paid-off package: no schedule, no next payment, no due day.
+        var pf = h.paid_in_full;
+        var when = (h.payment_dates && h.payment_dates.length) ? h.payment_dates.map(fmtDate).join(", ") : "";
+        textEl.textContent = t("Pacote pago por completo: " + fmtUsdCents(pf.total_cents) + (pf.payment_count ? " em " + pf.payment_count + " pagamentos" : "") + (when ? " (" + when + ")" : "") + ". Nada mais a receber.",
+          "Package paid in full: " + fmtUsdCents(pf.total_cents) + (pf.payment_count ? " in " + pf.payment_count + " payments" : "") + (when ? " (" + when + ")" : "") + ". Nothing more to collect.");
+        if (h.payment_method) {
+          var ml0 = { zelle: "Zelle", check: t("cheque", "check"), ach: "ACH", card: t("cartão", "card"), cash: t("dinheiro", "cash"), other: t("outro", "other") };
+          textEl.textContent += " " + t("Pago via " + ml0[h.payment_method.method] + ".", "Paid via " + ml0[h.payment_method.method] + ".");
+        }
+        var dr0 = document.getElementById("ctDueDayRow"); if (dr0) { dr0.hidden = true; }
+        var oe0 = document.getElementById("ctHistoryOutliers"); if (oe0) { oe0.textContent = ""; }
+        ctRedrawComing(h);
+        return;
+      }
+      if (h.plan && h.plan.installment_amount_cents) {
+        parts.push(t("plano do pacote: " + (h.plan.installment_count ? h.plan.installment_count + " parcelas de " : "parcelas de ") + fmtUsdCents(h.plan.installment_amount_cents) + ", total " + fmtUsdCents(h.plan.total_cents) + ", pago " + fmtUsdCents(h.plan.paid_cents),
+          "package plan: " + (h.plan.installment_count ? h.plan.installment_count + " installments of " : "installments of ") + fmtUsdCents(h.plan.installment_amount_cents) + ", total " + fmtUsdCents(h.plan.total_cents) + ", paid " + fmtUsdCents(h.plan.paid_cents)));
+      }
+
       var amt = h.amount || h.amount_already_saved;
       var freq = h.frequency || h.frequency_already_saved;
       if (amt && freq) {
@@ -10460,6 +10480,11 @@ names,
           "Banks can shift payment dates around weekends and holidays; confirm the day the invoice is actually due."
         );
       }
+      ctRedrawComing(h);
+      var statusEl0 = document.getElementById("ctHistoryStatus");
+      if (statusEl0) { statusEl0.textContent = ""; }
+    }
+    function ctRedrawComing(h) {
       // What the past cannot show: stated as "nothing else on record"; her Yes
       // confirms it, or she says what is coming in the one box below.
       var comingOpen = h.coming_open || [];
@@ -10552,7 +10577,7 @@ names,
       var statusEl = document.getElementById("ctHistoryStatus");
       var fieldsToSave = ctHistoryCard.fields_to_save || [];
       var body = { fields_to_save: fieldsToSave, nothing_else: !!(ctHistoryCard.coming_open && ctHistoryCard.coming_open.length), extras: ctExtraValues || {} };
-      if (fieldsToSave.indexOf("due_day") !== -1) {
+      if (fieldsToSave.indexOf("due_day") !== -1 && !ctHistoryCard.paid_in_full) {
         var dueDayInput = document.getElementById("ctDueDayInput");
         var day = dueDayInput ? parseInt(dueDayInput.value, 10) : NaN;
         if (!day || day < 1 || day > 31) {

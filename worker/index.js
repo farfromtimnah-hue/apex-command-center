@@ -58495,6 +58495,41 @@ async function deriveTermsFromHistory(env, clientId) {
     return clientTermsDeriveFromHistory(payments, invoices);
 }
 
+// The package PLAN is the first source for amount, frequency and the end of the
+// contract; the payment history only confirms it. progress is the same row the
+// client page's "Status do contrato" card uses (total, paid, installment plan).
+//   - paid in full (paid >= total): the contract is done. Says so, shows no
+//     recurring schedule and no next payment, and the due day is not asked.
+//   - an installment amount on the plan beats an amount inferred from deposits.
+// Never invents: with no total or a negotiated one, nothing changes.
+function clientTermsPlanAdjust(derived, progress) {
+    if (!progress || progress.total_missing || progress.custom_pricing || !(progress.total_cents > 0)) { return derived; }
+    var unitMap = { day: "daily", days: "daily", week: "weekly", weeks: "weekly", month: "monthly", months: "monthly", year: "yearly", years: "yearly" };
+    var freq = unitMap[String(progress.recurrence_unit || "").toLowerCase()] || null;
+    derived.plan = {
+        total_cents: progress.total_cents, paid_cents: progress.paid_cents,
+        installment_count: progress.installment_count || null,
+        installment_amount_cents: progress.installment_amount_cents || null,
+        installments_left: progress.installments_left, unit: freq
+    };
+    if (progress.paid_cents >= progress.total_cents) {
+        derived.paid_in_full = { total_cents: progress.total_cents, paid_cents: progress.paid_cents, payment_count: derived.payment_count || progress.paid_invoice_count || 0 };
+        derived.amount = { amount_cents: progress.total_cents, basis: "package_total", payment_count: derived.payment_count || 0 };
+        derived.frequency = { frequency: "one_time", basis: "paid_in_full" };
+        delete derived.next_expected_date;
+        delete derived.due_day_suggestion;
+        delete derived.amount_varies;
+        return derived;
+    }
+    if (progress.installment_amount_cents > 0) {
+        derived.amount = { amount_cents: progress.installment_amount_cents, basis: "package_plan", payment_count: derived.payment_count || 0 };
+        if (freq === "weekly" || freq === "monthly") { derived.frequency = { frequency: freq, basis: "package_plan" }; }
+    } else if (!derived.frequency && (freq === "weekly" || freq === "monthly")) {
+        derived.frequency = { frequency: freq, basis: "package_plan" };
+    }
+    return derived;
+}
+
 // Adds whole calendar months to an ISO date, keeping the same day of month
 // (clamped to the shorter month, e.g. Jan 31 + 1 month = Feb 28/29).
 function clientTermsAddMonths(isoDate, n) {
@@ -58522,12 +58557,18 @@ async function clientTermsContractEndSuggestion(env, client, answers) {
     var monthly = answers.amount && !answers.amount.skipped && !answers.amount.varies ? answers.amount.amount_cents : null;
     var freq = answers.frequency && !answers.frequency.skipped ? answers.frequency.frequency : null;
 
+    // Paid in full: the contract is over whatever the payment rhythm was.
+    var pr0 = (await clientTermsContractProgressRows(env, client.id))[0];
+    if (pr0 && !pr0.total_missing && !pr0.custom_pricing && pr0.total_cents > 0 && pr0.paid_cents >= pr0.total_cents) {
+        var dd0 = await deriveTermsFromHistory(env, client.id);
+        return { basis: "payments", paid_in_full: true, last_paid_date: dd0.last_paid_date || null, total_cents: pr0.total_cents, paid_cents: pr0.paid_cents, payment_count: dd0.payment_count || pr0.paid_invoice_count || 0 };
+    }
     if (monthly && freq === "monthly") {
         var progressRows = await clientTermsContractProgressRows(env, client.id);
         var progress = progressRows[0];
         if (progress && !progress.total_missing && !progress.custom_pricing) {
             var totalCents = progress.total_cents;
-            var paidCents = progress.paid_matched_cents;
+            var paidCents = progress.paid_cents;
             var derivedForEnd = await deriveTermsFromHistory(env, client.id);
             var paymentCount = derivedForEnd.payment_count || 0;
             if (paymentCount > 0) {
@@ -58635,7 +58676,9 @@ async function handleGetClientTermsNext(request, env) {
         // say what is coming instead; Yes confirms the card as written.
         var cardFields = CLIENT_TERMS_CARD_KEYS;
         var derived = await deriveTermsFromHistory(env, client.id);
-        function cardCovered(k) { return k === "due_day" ? !!derived.due_day_suggestion : !!derived[k]; }
+        var planRow = (await clientTermsContractProgressRows(env, client.id))[0];
+        derived = clientTermsPlanAdjust(derived, planRow);
+        function cardCovered(k) { return k === "due_day" ? (!!derived.due_day_suggestion || !!derived.paid_in_full) : !!derived[k]; }
         var openCard = cardFields.filter(function(k) { return !(k in answers); });
         var coveredOpen = openCard.filter(cardCovered);
         var comingOpen = CLIENT_TERMS_COMING_KEYS.filter(function(k) { return !(k in answers); });
@@ -58660,6 +58703,8 @@ async function handleGetClientTermsNext(request, env) {
                     payment_dates: derived.payment_dates || [],
                     next_expected_date: derived.next_expected_date || null,
                     outlier_payments: derived.outlier_payments || [],
+                    paid_in_full: derived.paid_in_full || null,
+                    plan: derived.plan || null,
                     coming_open: comingOpen,
                     fields_to_save: coveredOpen,
                     fallback_questions: fallbackQuestions
@@ -58954,6 +58999,7 @@ async function handlePostClientTermsApplyHistory(clientId, request, env) {
         var answers = row ? clientTermsStripUnconfirmedHistory(JSON.parse(row.answers_json || "{}"), row.confirmed_by) : {};
 
         var derived = await deriveTermsFromHistory(env, clientId);
+        derived = clientTermsPlanAdjust(derived, (await clientTermsContractProgressRows(env, clientId))[0]);
 
         if (fieldsToSave.indexOf("amount") !== -1) {
             if (!("amount" in answers) && derived.amount) { answers.amount = derived.amount; }
@@ -58963,7 +59009,10 @@ async function handlePostClientTermsApplyHistory(clientId, request, env) {
             if (!("frequency" in answers) && derived.frequency) { answers.frequency = derived.frequency; }
             else { return jsonErr("Frequency is not derivable from history", 400); }
         }
-        if (fieldsToSave.indexOf("due_day") !== -1) {
+        if (fieldsToSave.indexOf("due_day") !== -1 && derived.paid_in_full) {
+            // Paid in full: there is no next invoice, so there is no due day to confirm.
+            if (!("due_day" in answers)) { answers.due_day = { skipped: true, reason: "paid_in_full" }; }
+        } else if (fieldsToSave.indexOf("due_day") !== -1) {
             var day = parseInt(body.due_day, 10);
             if (!day || day < 1 || day > 31) { return jsonErr2("Preencha o dia de vencimento.", "Fill in the due day.", 400); }
             answers.due_day = { due_day: day, basis: (derived.due_day_suggestion && derived.due_day_suggestion.due_day === day) ? derived.due_day_suggestion.basis : "entered_on_card" };

@@ -122,7 +122,7 @@ for (const c of cases) {
 
 // Every other customer page carries the mark and is served the same way.
 site = realSite;
-for (const [kind, file] of [["receipt", "receipt-view.html"], ["contract", "contract-view.html"], ["change-order", "change-order-view.html"], ["ack", "ack-view.html"], ["apex-contract", "apex-contract.html"], ["apex-invoice", "apex-invoice-view.html"]]) {
+for (const [kind, file] of [["receipt", "receipt-view.html"], ["contract", "contract-view.html"], ["change-order", "change-order-view.html"], ["ack", "ack-view.html"], ["apex-contract", "apex-contract.html"], ["apex-invoice", "apex-invoice-view.html"], ["apex-receipt", "apex-receipt-view.html"]]) {
   asked.length = 0;
   const html = await F.docLinkPageHtml({ kind: kind, public_token: T("e"), title: "Biz", description: "Doc" }, "biz/doc-x", "<meta property=\"og:title\" content=\"Biz\">");
   const got = html ? pageReads(html, "biz/doc-x", "var docLink =", "var token =", "docToken") : null;

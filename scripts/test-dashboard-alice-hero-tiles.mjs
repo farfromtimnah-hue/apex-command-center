@@ -33,8 +33,7 @@ for (const f of FILES) {
   }
   ok(count(src, 'id="aliceStatResourcePending"') === 1, f + ": Pending Sends tile kept");
   ok(count(src, 'id="aliceResourceProgressFill"') === 1, f + ": resources bar kept");
-  ok(count(src, "function renderAliceRecentSessions(") === 1, f + ": recent sessions renderer kept");
-  ok(/renderAliceRecentSessions\(sessions\);/.test(src), f + ": recent sessions still drawn");
+  ok(count(src, "renderAliceRecentSessions") === 0 && count(src, 'id="aliceRecentSessions"') === 0, f + ": Alice's Recent Sessions card is gone");
   ok(count(src, "finance-new.html?highlight=invoice") === 1, f + ": unsent tile opens the Faturas tab");
   const hero = src.slice(src.indexOf('<div id="aliceDash"'), src.indexOf("<!-- Resource sends status bar"));
   ok(hero.indexOf("+ New Session") > 0 && hero.indexOf("Speak a meeting") > 0, f + ": hero buttons kept");

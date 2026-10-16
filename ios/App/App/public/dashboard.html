@@ -1064,24 +1064,6 @@
           <div id="schedQueue"></div>
         </div>
 
-        <div class="content-card">
-          <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Sessões Recentes</span>
-              <span class="show-en">Recent Sessions</span>
-            </h2>
-            <a href="sessions.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
-              <span class="show-pt">Ver todas &rarr;</span>
-              <span class="show-en">View all &rarr;</span>
-            </a>
-          </div>
-          <div id="aliceRecentSessions">
-            <div class="table-empty">
-              <div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div><!-- /aliceDash -->
 
@@ -1314,23 +1296,6 @@
       </div>
       <!-- Below photo section -->
       <div class="below-section" id="devBelowSection">
-        <div class="content-card">
-          <div class="content-card-header">
-            <h2 class="content-card-title">
-              <span class="show-pt">Sessões Recentes</span>
-              <span class="show-en">Recent Sessions</span>
-            </h2>
-            <a href="sessions.html" style="font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;">
-              <span class="show-pt">Ver todas &rarr;</span>
-              <span class="show-en">View all &rarr;</span>
-            </a>
-          </div>
-          <div id="devRecentSessions">
-            <div class="table-empty">
-              <div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div>
-            </div>
-          </div>
-        </div>
       </div>
     </div><!-- /devDash -->
 
@@ -3712,98 +3677,8 @@
     function renderAliceDashboard() {
       renderAliceResourceProgress();
       loadAliceInvoiceTiles();
-      apiFetch("/api/sessions")
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          var sessions = (data.sessions || []).filter(function(s) { return s.status !== "discarded"; });
-          // Recent sessions table
-          renderAliceRecentSessions(sessions);
-        })
-        .catch(function(e) {
-          var el = document.getElementById("aliceRecentSessions");
-          if (el) { el.innerHTML = '<div class="table-empty" style="color:#b44040;">Erro ao carregar sessoes.</div>'; }
-        });
     }
 
-    function renderAliceRecentSessions(sessions) {
-      var container = document.getElementById("aliceRecentSessions");
-      if (!container) { return; }
-      var recent = sessions.slice(0, 10);
-
-      if (recent.length === 0) {
-        container.innerHTML =
-          '<div class="table-empty">' +
-          '<span class="show-pt">Nenhuma sessao ainda. <a href="sessions.html" style="color:var(--gold);">Criar primeira sessao &rarr;</a></span>' +
-          '<span class="show-en">No sessions yet. <a href="sessions.html" style="color:var(--gold);">Create first session &rarr;</a></span>' +
-          '</div>';
-        return;
-      }
-
-      var table = document.createElement("table");
-      table.className = "sessions-table mc-table";
-
-      var thead = document.createElement("thead");
-      thead.innerHTML =
-        "<tr>" +
-          '<th><span class="show-pt">Cliente</span><span class="show-en">Client</span></th>' +
-          '<th><span class="show-pt">Data</span><span class="show-en">Date</span></th>' +
-          '<th><span class="show-pt">Status</span><span class="show-en">Status</span></th>' +
-          '<th></th>' +
-        "</tr>";
-      table.appendChild(thead);
-
-      var tbody = document.createElement("tbody");
-      for (var i = 0; i < recent.length; i++) {
-        (function(s) {
-          var tr = document.createElement("tr");
-
-          var tdClient = document.createElement("td");
-          tdClient.className = "mc-head";
-          if (s.client_id) {
-            var link = document.createElement("a");
-            link.href = "client.html?id=" + s.client_id;
-            link.className = "client-link";
-            link.textContent = s.client_name || "--";
-            tdClient.appendChild(link);
-          } else {
-            tdClient.textContent = s.client_name || "--";
-            tdClient.style.color = "var(--muted)";
-          }
-          tr.appendChild(tdClient);
-
-          var tdDate = document.createElement("td");
-          tdDate.className = "mc-field";
-          tdDate.setAttribute("data-label-pt", "Data");
-          tdDate.setAttribute("data-label-en", "Date");
-          tdDate.textContent = formatDate(s.date);
-          tdDate.style.color = "var(--muted)";
-          tr.appendChild(tdDate);
-
-          var tdStatus = document.createElement("td");
-          tdStatus.className = "mc-action";
-          var badge = document.createElement("span");
-          badge.className = "status-badge";
-          badge.setAttribute("data-status", s.status || "pending");
-          tdStatus.appendChild(badge);
-          tr.appendChild(tdStatus);
-
-          var tdAction = document.createElement("td");
-          tdAction.className = "mc-action";
-          tdAction.style.textAlign = "right";
-          var actionLink = document.createElement("a");
-          actionLink.href = "sessions.html";
-          actionLink.style.cssText = "font-size:12px;color:var(--gold);text-decoration:none;font-weight:600;";
-          actionLink.innerHTML = '<span class="show-pt">Abrir &rarr;</span><span class="show-en">Open &rarr;</span>' + (window.apexMcIcon ? window.apexMcIcon("view") : "");
-          tdAction.appendChild(actionLink);
-          tr.appendChild(tdAction);
-
-          tbody.appendChild(tr);
-        })(recent[i]);
-      }
-      table.appendChild(tbody);
-      container.innerHTML = "";
-      container.appendChild(table);
-    }
 
     // ══════════════════════════════════════════════════════════════════════
     // RAFA DASHBOARD

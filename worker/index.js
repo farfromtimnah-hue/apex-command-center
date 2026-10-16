@@ -58315,6 +58315,27 @@ async function clientTermsAuth(request, env) {
     return { user: user };
 }
 
+// What the payment history already says about this client, so the question box
+// never asks what Apex can see. Pure: rows are { date: "YYYY-MM-DD", amount_cents }
+// for matched, not-undone payments. Needs 3 or more payments. Monthly when every
+// gap between consecutive payment dates is 25 to 36 days; the amount is known
+// only when every payment is the same figure.
+function clientTermsFromHistory(rows) {
+    var out = {};
+    var list = (rows || []).filter(function(r) { return r && /^\d{4}-\d{2}-\d{2}/.test(String(r.date || "")) && r.amount_cents > 0; });
+    list.sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); });
+    if (list.length < 3) { return out; }
+    var same = list.every(function(r) { return r.amount_cents === list[0].amount_cents; });
+    if (same) { out.amount = { amount_cents: list[0].amount_cents }; }
+    var monthly = true;
+    for (var i = 1; i < list.length; i++) {
+        var days = (Date.parse(String(list[i].date).slice(0, 10) + "T00:00:00Z") - Date.parse(String(list[i - 1].date).slice(0, 10) + "T00:00:00Z")) / 86400000;
+        if (!(days >= 25 && days <= 36)) { monthly = false; break; }
+    }
+    if (monthly) { out.frequency = { frequency: "monthly" }; }
+    return out;
+}
+
 // GET /api/client-terms/next -- the next client with open questions (oldest
 // created first among eligible clients), the next unanswered question for
 // that client, and a "1 de N" counter within that client's own question
@@ -58337,6 +58358,25 @@ async function handleGetClientTermsNext(request, env) {
         var existing = await env.DB.prepare("SELECT answers_json FROM client_terms WHERE client_id = ?").bind(client.id).first();
         var answers = existing ? JSON.parse(existing.answers_json || "{}") : {};
         var questions = clientTermsQuestionsFor(client);
+        // Answer from the payment history whatever it already proves, then skip
+        // those questions. Never overwrites an answer she gave or skipped.
+        var seen = (await env.DB.prepare(
+            "SELECT t.date AS date, p.amount_cents AS amount_cents FROM invoice_payments p " +
+            "JOIN invoices i ON i.id = p.invoice_id JOIN transactions t ON t.id = p.transaction_id " +
+            "WHERE i.client_id = ? AND p.undone_at IS NULL ORDER BY t.date ASC"
+        ).bind(client.id).all()).results || [];
+        var fromHistory = clientTermsFromHistory(seen);
+        var learned = false;
+        Object.keys(fromHistory).forEach(function(k) {
+            if (!(k in answers) && questions.some(function(q) { return q.key === k; })) { answers[k] = fromHistory[k]; learned = true; }
+        });
+        if (learned) {
+            var learnedAt = new Date().toISOString().replace("T", " ").slice(0, 19);
+            await env.DB.prepare(
+                "INSERT INTO client_terms (client_id, answers_json, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+                "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, updated_at = ?"
+            ).bind(client.id, JSON.stringify(answers), "payment history", learnedAt, learnedAt, JSON.stringify(answers), learnedAt).run();
+        }
         var nextQ = null, position = 0;
         for (var i = 0; i < questions.length; i++) {
             if (!(questions[i].key in answers)) { nextQ = questions[i]; position = i + 1; break; }

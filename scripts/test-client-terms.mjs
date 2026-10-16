@@ -8,13 +8,13 @@ let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail++; };
 
 const FNS = [
-  "clientTermsQuestionsFor", "clientTermsValidateReply", "clientTermsAskClaude", "clientTermsRateLimited",
+  "clientTermsQuestionsFor", "clientTermsFromHistory", "clientTermsValidateReply", "clientTermsAskClaude", "clientTermsRateLimited",
   "clientTermsAuthed", "clientTermsAuth", "clientTermsMonthlyEquivalentCents",
   "handleGetClientTermsNext", "handlePostClientTermsAnswer", "handlePostClientTermsApply",
   "handleGetClientTermsForecast"
 ];
 const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "SUPPORT_AI_MODEL"];
-const MIGRATIONS = ["migrations/client_terms.sql"];
+const MIGRATIONS = ["migrations/finance_plaid.sql", "migrations/client_terms.sql"];
 
 function world(stubOverrides) {
   const d = makeDb(MIGRATIONS);
@@ -85,6 +85,24 @@ function seedClient(d, id, name, status) {
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
   ok(r.status === 200 && r.data.client.id === "c1", "only the active client is offered; closed and lead are skipped");
   ok(r.data.question.key === "amount" && r.data.position === 1 && r.data.total === 11, "first question is 'amount', 1 of 11");
+}
+
+// ── The box never asks what the payment history already proves ───────────────
+{
+  const w = world();
+  seedClient(w.d, "g1", "Gator Co", "active");
+  const raw = w.d.raw;
+  raw.prepare("INSERT INTO invoices (id, client_id, number, status) VALUES ('i1','g1','N1','paid'),('i2','g1','N2','paid'),('i3','g1','N3','paid')").run();
+  const dates = ["2026-08-03", "2026-09-01", "2026-10-01"];
+  dates.forEach(function (dt, n) {
+    raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date) VALUES (?, 'a1', 150000, ?)").run("t" + n, dt);
+    raw.prepare("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents) VALUES (?, ?, ?, 150000)").run("p" + n, "i" + (n + 1), "t" + n);
+  });
+  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(r.status === 200 && r.data.question.key === "start_and_first_invoice", "history proves amount and monthly: the box jumps to the third question");
+  const row = raw.prepare("SELECT answers_json FROM client_terms WHERE client_id = 'g1'").get();
+  const saved = JSON.parse(row.answers_json);
+  ok(saved.frequency && saved.frequency.frequency === "monthly" && saved.amount.amount_cents === 150000, "the two answers were saved from the history");
 }
 
 // ── Answer -> apply round trip never writes before confirmation ────────────

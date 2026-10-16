@@ -12,6 +12,7 @@ function extract(name) {
 }
 
 const ctx = vm.createContext({});
+vm.runInContext(extract("clientTermsAddMonths"), ctx);
 vm.runInContext(extract("clientTermsDeriveFromHistory"), ctx);
 const f = ctx.clientTermsDeriveFromHistory;
 

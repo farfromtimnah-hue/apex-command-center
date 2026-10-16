@@ -26,7 +26,7 @@ function inv(issued_at, due_at, total_cents, status) { return { issued_at, due_a
   ok(r.amount && r.amount.amount_cents === 150000 && !r.amount.varies, "Gator: same amount every time -> amount known");
   ok(r.payment_count === 3, "Gator: payment_count is 3");
   ok(r.last_paid_date === "2026-10-01", "Gator: last_paid_date is the most recent payment");
-  ok(r.next_expected_date === "2026-10-31", "Gator: next_expected_date is last paid + ~1 month");
+  ok(r.next_expected_date === "2026-11-01", "Gator: next_expected_date is last paid + 1 calendar month (10/01 -> 11/01)");
 }
 
 // ── Varying amounts: amount reports 'varies' with min/max/most recent ──────

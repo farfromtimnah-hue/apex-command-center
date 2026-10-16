@@ -58410,9 +58410,13 @@ function clientTermsDeriveFromHistory(payments, invoices) {
 
     // next expected date: last paid plus the derived frequency, info only.
     if (out.frequency && out.last_paid_date) {
-        var addDays = { weekly: 7, biweekly: 14, monthly: 30, quarterly: 91 }[out.frequency.frequency];
+        var addDays = { weekly: 7, biweekly: 14 }[out.frequency.frequency];
+        var addMonths = { monthly: 1, quarterly: 3 }[out.frequency.frequency];
         if (addDays) {
             out.next_expected_date = new Date(Date.parse(out.last_paid_date + "T00:00:00Z") + addDays * 86400000).toISOString().slice(0, 10);
+        } else if (addMonths) {
+            // Calendar months, not 30 or 91 days: 10/01 + monthly is 11/01, not 10/31.
+            out.next_expected_date = clientTermsAddMonths(out.last_paid_date, addMonths);
         }
     }
 

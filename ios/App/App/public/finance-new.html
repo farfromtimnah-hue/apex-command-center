@@ -1903,6 +1903,17 @@
             <input type="number" min="1" max="31" id="ctDueDayInput" class="field-input" style="width:100px;">
             <div style="font-size:11.5px;color:var(--muted);margin-top:4px;" id="ctDueDayNote"></div>
           </div>
+          <div id="ctNothingElse" hidden style="font-size:13px;margin-bottom:10px;line-height:1.5;"></div>
+          <div id="ctExtraWrap" hidden style="margin-bottom:12px;">
+            <label for="ctExtraText" style="display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;" id="ctExtraLabel"></label>
+            <textarea id="ctExtraText" class="field-input" rows="2" style="width:100%;resize:vertical;"></textarea>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="toggleCtMic('ctExtraText')" id="ctExtraMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
+              <button class="btn-secondary btn-sm" onclick="ctReadExtra()"><span class="show-pt">Entender</span><span class="show-en">Read it</span></button>
+              <span id="ctExtraStatus" style="font-size:12px;color:var(--muted);"></span>
+            </div>
+            <div id="ctExtraConfirm" hidden style="font-size:13px;margin-top:8px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;"></div>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-gold btn-sm" onclick="confirmCtHistoryCard()">
               <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
@@ -1940,6 +1951,28 @@
         </div>
 
         <!-- Typed question (hidden while ctHistoryCard is shown). -->
+        <!-- No-history client: one box to say everything at once. What she says
+             is filed under each field and read back before anything is saved. -->
+        <div id="ctIntakeCard" hidden>
+          <div id="ctIntakeIntro" style="font-size:14px;margin-bottom:8px;line-height:1.5;"></div>
+          <ul id="ctIntakeList" style="margin:0 0 10px 18px;padding:0;font-size:13px;color:var(--muted);"></ul>
+          <textarea id="ctIntakeText" class="field-input" rows="4" style="width:100%;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm" onclick="toggleCtMic('ctIntakeText')" id="ctIntakeMicBtn">&#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span></button>
+            <span id="ctIntakeMicStatus" style="font-size:12px;color:var(--muted);"></span>
+            <button class="btn-secondary btn-sm" onclick="ctSkipIntake()" style="margin-left:auto;"><span class="show-pt">N&atilde;o sei</span><span class="show-en">I don't know</span></button>
+            <button class="btn btn-gold btn-sm" onclick="ctReadIntake()"><span class="show-pt">Enviar</span><span class="show-en">Send</span></button>
+          </div>
+          <div id="ctIntakeConfirm" hidden style="margin-top:10px;padding:10px 12px;border:1px solid var(--gold);border-radius:8px;">
+            <div id="ctIntakeConfirmText" style="font-size:13.5px;line-height:1.5;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-gold btn-sm" onclick="ctSaveIntake()"><span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span></button>
+              <button class="btn-secondary btn-sm" onclick="ctFixIntake()"><span class="show-pt">Corrigir</span><span class="show-en">Correct it</span></button>
+            </div>
+          </div>
+          <div class="sheet-status" id="ctIntakeStatus"></div>
+        </div>
+
         <div id="ctTypedQuestion">
           <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
           <textarea id="ctAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
@@ -10205,6 +10238,9 @@ names,
     // /next response, and which fallback question (if "Corrigir" was
     // clicked) we are currently walking through.
     var ctHistoryCard = null;
+    var ctExtraValues = null;      // read-back extras on the history card (confirmed by her Yes)
+    var ctIntake = null;           // { open: [...] } for the no-history box
+    var ctIntakeValues = null;     // what the intake note was read as, waiting for her Yes
     var ctFallbackQueue = [];
     // Contract-end suggestion card state.
     var ctEndSuggestion = null;
@@ -10224,7 +10260,23 @@ names,
         ctCurrentPos = { position: data.position, total: data.total };
         ctShowEl("ctNotEnoughHistory", !!data.not_enough_history);
 
+        if (data.intake_card) {
+          ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; ctFallbackQueue = [];
+          ctIntake = data.intake_card; ctIntakeValues = null;
+          ctShowEl("ctHistoryCard", false); ctShowEl("ctEndSuggestCard", false); ctShowEl("ctTypedQuestion", false);
+          ctShowEl("ctIntakeCard", true);
+          ctShowEl("ctIntakeConfirm", false);
+          var itx = document.getElementById("ctIntakeText"); if (itx) { itx.value = ""; }
+          ctRedrawIntake();
+          return;
+        }
+        ctIntake = null;
+        ctShowEl("ctIntakeCard", false);
+
         if (data.history_card) {
+          ctExtraValues = null;
+          ctShowEl("ctExtraConfirm", false);
+          var xt = document.getElementById("ctExtraText"); if (xt) { xt.value = ""; }
           ctCurrentQuestion = null;
           ctHistoryCard = data.history_card;
           ctEndSuggestion = null;
@@ -10370,6 +10422,12 @@ names,
       if (h.first_invoice_date) { parts.push(t("primeira fatura em " + fmtDate(h.first_invoice_date), "first invoice on " + fmtDate(h.first_invoice_date))); }
       if (h.last_paid_date) { parts.push(t("último pagamento em " + fmtDate(h.last_paid_date), "last paid on " + fmtDate(h.last_paid_date))); }
       if (h.next_expected_date) { parts.push(t("próximo esperado em " + fmtDate(h.next_expected_date), "next expected on " + fmtDate(h.next_expected_date))); }
+      if (h.payment_method) {
+        var ml = { zelle: "Zelle", check: t("cheque", "check"), ach: "ACH", card: t("cartão", "card"), cash: t("dinheiro", "cash"), other: t("outro", "other") };
+        parts.push(t("paga via " + ml[h.payment_method.method], "pays via " + ml[h.payment_method.method]));
+      }
+      if (h.amount_varies) { parts.push(h.amount_varies.varies ? t("o valor varia", "the amount varies") : t("o valor é sempre o mesmo", "the amount is always the same")); }
+      if (h.start_date) { parts.push(t("início em " + fmtDate(h.start_date.start_date) + " (primeira fatura)", "start " + fmtDate(h.start_date.start_date) + " (first invoice)")); }
 
       textEl.textContent = parts.length
         ? (t("O histórico mostra: ", "History shows: ") + parts.join(", ") + ".")
@@ -10402,16 +10460,98 @@ names,
           "Banks can shift payment dates around weekends and holidays; confirm the day the invoice is actually due."
         );
       }
+      // What the past cannot show: stated as "nothing else on record"; her Yes
+      // confirms it, or she says what is coming in the one box below.
+      var comingOpen = h.coming_open || [];
+      var ne = document.getElementById("ctNothingElse"), xw = document.getElementById("ctExtraWrap"), xl = document.getElementById("ctExtraLabel");
+      if (ne) {
+        ne.hidden = !comingOpen.length;
+        ne.textContent = t("Nada mais registrado: sem pagamento balão, mudança de preço, taxa de instalação, meses gratuitos ou aviso de cancelamento.",
+          "Nothing else on record: no balloon payment, price change, setup fee, free months or cancel notice.");
+      }
+      if (xw) { xw.hidden = !comingOpen.length; }
+      if (xl) { xl.textContent = t("Tem algo a acrescentar? Fale ou escreva (balão, mudança de preço, taxa, meses gratuitos, aviso).", "Anything to add? Say or type it (balloon, price change, fee, free months, notice)."); }
       var statusEl = document.getElementById("ctHistoryStatus");
       if (statusEl) { statusEl.textContent = ""; }
     }
-    document.addEventListener("apex:langchange", function () { if (ctHistoryCard) { ctRedrawHistoryCard(); } });
+    document.addEventListener("apex:langchange", function () { if (ctHistoryCard) { ctRedrawHistoryCard(); } if (ctIntake) { ctRedrawIntake(); } });
+
+    // Plain-language read-back of several fields at once.
+    function ctExtrasText(values) {
+      var lines = [];
+      Object.keys(values || {}).forEach(function(k) {
+        var line = ctConfirmText(k, values[k]);
+        if (line) { lines.push(line.replace(/ ?Está certo\?$/, "").replace(/ ?Is that right\?$/, "")); }
+      });
+      return lines.join(" ");
+    }
+    function ctReadNote(text, statusEl, done) {
+      if (!ctCurrentClient) { return; }
+      if (!text.trim()) { statusEl.textContent = t("Escreva ou grave uma resposta.", "Write or record an answer."); return; }
+      statusEl.textContent = t("Lendo...", "Reading...");
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/interpret", { method: "POST", body: { text: text } })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          if (!d.understood) { statusEl.textContent = t("Não entendi bem. Pode dizer de outro jeito?", "I did not understand. Can you say it another way?"); return; }
+          statusEl.textContent = "";
+          done(d.values);
+        }).catch(function(e) { statusEl.textContent = t("Erro: ", "Error: ") + e.message; });
+    }
+    function ctReadExtra() {
+      var ta = document.getElementById("ctExtraText"), st = document.getElementById("ctExtraStatus");
+      ctReadNote(ta ? ta.value : "", st, function(values) {
+        ctExtraValues = values;
+        var box = document.getElementById("ctExtraConfirm");
+        if (box) { box.textContent = t("Entendi: ", "I understood: ") + ctExtrasText(values) + " " + t("Toque em Sim, está certo para salvar tudo.", "Tap Yes, that's right to save everything."); box.hidden = false; }
+      });
+    }
+
+    function ctRedrawIntake() {
+      if (!ctIntake) { return; }
+      var intro = document.getElementById("ctIntakeIntro"), list = document.getElementById("ctIntakeList");
+      if (intro) { intro.textContent = t("Ainda não temos histórico de pagamentos deste cliente. Conte o que você sabe, em uma vez só. Eu organizo.", "We have no payment history for this client yet. Tell us what you know, all at once. I will sort it out."); }
+      if (list) {
+        list.innerHTML = "";
+        ctIntake.open.forEach(function(q) {
+          var li = document.createElement("li");
+          li.textContent = t(q.text_pt, q.text_en);
+          list.appendChild(li);
+        });
+      }
+    }
+    function ctReadIntake() {
+      var ta = document.getElementById("ctIntakeText"), st = document.getElementById("ctIntakeStatus");
+      ctReadNote(ta ? ta.value : "", st, function(values) {
+        ctIntakeValues = values;
+        document.getElementById("ctIntakeConfirmText").textContent = t("Entendi: ", "I understood: ") + ctExtrasText(values);
+        ctShowEl("ctIntakeConfirm", true);
+      });
+    }
+    function ctFixIntake() { ctShowEl("ctIntakeConfirm", false); var ta = document.getElementById("ctIntakeText"); if (ta) { ta.focus(); } }
+    function ctSaveIntake() {
+      if (!ctCurrentClient || !ctIntakeValues) { return; }
+      var st = document.getElementById("ctIntakeStatus");
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply-extras", { method: "POST", body: { values: ctIntakeValues } })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          ctIntakeValues = null; loadCtNextQuestion(); loadCtForecast();
+        }).catch(function(e) { st.textContent = t("Erro: ", "Error: ") + e.message; });
+    }
+    function ctSkipIntake() {
+      if (!ctCurrentClient || !ctIntake) { return; }
+      var st = document.getElementById("ctIntakeStatus");
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply-extras", { method: "POST", body: { values: {}, skip_keys: ctIntake.open.map(function(q) { return q.key; }) } })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          loadCtNextQuestion(); loadCtForecast();
+        }).catch(function(e) { st.textContent = t("Erro: ", "Error: ") + e.message; });
+    }
 
     function confirmCtHistoryCard() {
       if (!ctCurrentClient || !ctHistoryCard) { return; }
       var statusEl = document.getElementById("ctHistoryStatus");
       var fieldsToSave = ctHistoryCard.fields_to_save || [];
-      var body = { fields_to_save: fieldsToSave };
+      var body = { fields_to_save: fieldsToSave, nothing_else: !!(ctHistoryCard.coming_open && ctHistoryCard.coming_open.length), extras: ctExtraValues || {} };
       if (fieldsToSave.indexOf("due_day") !== -1) {
         var dueDayInput = document.getElementById("ctDueDayInput");
         var day = dueDayInput ? parseInt(dueDayInput.value, 10) : NaN;
@@ -10569,12 +10709,15 @@ names,
     // /api/contracts/transcribe).
     var ctRec = null, ctRecChunks = [], ctRecStartedAt = 0;
     var CT_REC_MAX_MS = 120000, CT_REC_MIN_MS = 1500;
-    function toggleCtMic() {
+    var ctMicTarget = "ctAnswer";
+    function ctMicStatusEl() { return document.getElementById(ctMicTarget === "ctExtraText" ? "ctExtraStatus" : (ctMicTarget === "ctIntakeText" ? "ctIntakeMicStatus" : "ctMicStatus")); }
+    function toggleCtMic(targetId) {
       if (ctRec && ctRec.state === "recording") { stopCtMic(); return; }
+      ctMicTarget = (typeof targetId === "string" && targetId) ? targetId : "ctAnswer";
       startCtMic();
     }
     function startCtMic() {
-      var st = document.getElementById("ctMicStatus");
+      var st = ctMicStatusEl();
       if (!navigator.mediaDevices || !window.MediaRecorder) {
         if (st) { st.textContent = t("Este navegador não consegue gravar áudio.", "This browser cannot record audio."); }
         return;
@@ -10603,7 +10746,7 @@ names,
       if (btn) { btn.innerHTML = "&#127908; " + t("Ditar", "Dictate"); }
     }
     function sendCtMic() {
-      var st = document.getElementById("ctMicStatus");
+      var st = ctMicStatusEl();
       if (!ctRecChunks.length || (Date.now() - ctRecStartedAt) < CT_REC_MIN_MS) {
         if (st) { st.textContent = t("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
         return;
@@ -10615,7 +10758,7 @@ names,
         if (st) { st.textContent = t("Transcrevendo...", "Transcribing..."); }
         return fetch(WORKER_URL + "/api/contracts/transcribe", { method: "POST", headers: { "Authorization": "Bearer " + token }, body: fd });
       }).then(function(r) { return r.json(); }).then(function(d) {
-        var ta = document.getElementById("ctAnswer");
+        var ta = document.getElementById(ctMicTarget || "ctAnswer");
         if (ta) { ta.value = (ta.value ? ta.value.trim() + " " : "") + (d.transcript || ""); ta.focus(); }
         if (st) { st.textContent = t("Transcrito. Corrija se precisar e envie.", "Transcribed. Correct it if needed and send."); }
       }).catch(function(e) { if (st) { st.textContent = t("Erro: ", "Error: ") + e.message; } });

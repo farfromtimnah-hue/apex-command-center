@@ -14,9 +14,10 @@ const FNS = [
   "clientTermsStripUnconfirmedHistory", "clientTermsAddMonths",
   "clientTermsContractProgressRows", "clientTermsContractEndSuggestion",
   "handleGetClientTermsNext", "handlePostClientTermsAnswer", "handlePostClientTermsApply",
-  "handlePostClientTermsApplyHistory", "handleGetClientTermsForecast"
+  "handlePostClientTermsApplyHistory", "handleGetClientTermsForecast",
+  "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
 ];
-const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "CLIENT_TERMS_CARD_KEYS", "SUPPORT_AI_MODEL", "BANK_PAID_WHERE"];
+const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "CLIENT_TERMS_CARD_KEYS", "CLIENT_TERMS_COMING_KEYS", "CLIENT_TERMS_NONE_VALUES", "CLIENT_TERMS_KEY_DOCS", "SUPPORT_AI_MODEL", "BANK_PAID_WHERE"];
 const MIGRATIONS = ["migrations/finance_plaid.sql", "migrations/client_terms.sql"];
 
 function world(stubOverrides) {
@@ -41,7 +42,7 @@ function seedClient(d, id, name, status, pkg) {
 function seedGatorPayments(d, clientId, dates, cents) {
   const raw = d.raw;
   dates.forEach(function (dt, n) {
-    raw.prepare("INSERT INTO invoices (id, client_id, number, status) VALUES (?, ?, ?, 'paid')").run("i" + clientId + n, clientId, "N" + clientId + n);
+    raw.prepare("INSERT INTO invoices (id, client_id, number, status, issued_at) VALUES (?, ?, ?, 'paid', ?)").run("i" + clientId + n, clientId, "N" + clientId + n, dt);
     raw.prepare("INSERT INTO transactions (id, account_id, amount_cents, date) VALUES (?, 'a1', ?, ?)").run("t" + clientId + n, cents, dt);
     raw.prepare("INSERT INTO invoice_payments (id, invoice_id, transaction_id, amount_cents) VALUES (?, ?, ?, ?)").run("p" + clientId + n, "i" + clientId + n, "t" + clientId + n, cents);
   });
@@ -110,8 +111,7 @@ function seedGatorPayments(d, clientId, dates, cents) {
   seedClient(w.d, "c3", "Lead Co", "lead");
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
   ok(r.status === 200 && r.data.client.id === "c1", "only the active client is offered; closed and lead are skipped");
-  ok(r.data.question.key === "amount" && r.data.position === 1 && r.data.total === 12, "first question is 'amount', 1 of 12");
-  ok(r.data.not_enough_history === true, "a client with no history at all gets the 'not enough history' flag on the first question");
+  ok(!!r.data.intake_card && !r.data.question && r.data.intake_card.open.length === 12 && r.data.intake_card.open[0].key === "amount", "a client with no history at all gets ONE intake box listing the 12 open items, not a typed question");
 }
 
 // ── History card replaces the typed amount/frequency/due_day questions ─────
@@ -136,16 +136,21 @@ function seedGatorPayments(d, clientId, dates, cents) {
   const w = world();
   seedClient(w.d, "g1", "Gator Co", "active");
   seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
-  const applyResp = await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"], due_day: 1 }) }, w.env);
+  const card = (await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env)).data.history_card;
+  const applyResp = await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: card.fields_to_save, due_day: 1, nothing_else: true }) }, w.env);
   ok(applyResp.status === 200 && applyResp.data.ok === true, "apply-history: Yes succeeds");
   const row = w.d.q("SELECT answers_json, confirmed_by FROM client_terms WHERE client_id = 'g1'")[0];
   const saved = JSON.parse(row.answers_json);
   ok(saved.amount.amount_cents === 150000 && saved.frequency.frequency === "monthly" && saved.due_day.due_day === 1, "apply-history: amount, frequency and the (possibly edited) due day are all saved");
   ok(row.confirmed_by && row.confirmed_by.indexOf("payment history") !== -1, "apply-history: confirmed_by records that this came from history, confirmed by a click");
 
-  // The box moves on: due_day is answered, so the next question is start_date.
+  ok(saved.start_date && saved.start_date.start_date, "apply-history: start date is filed from the first invoice");
+  ok(saved.amount_varies && saved.amount_varies.varies === false, "apply-history: 'amount varies' is read from the payments (same every time)");
+  ok(saved.balloon_payment.has_balloon === false && saved.price_change.has_change === false && saved.setup_fee.has_fee === false && saved.free_months.has_free_months === false && saved.cancel_notice.has_notice === false, "apply-history: Yes on 'nothing else on record' files balloon, price change, setup fee, free months and cancel notice as none");
+
+  // The box moves on: only the contract end is left for a client like this.
   const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
-  ok(next.data.question && next.data.question.key === "start_date", "after the card is confirmed, the next question is start_date");
+  ok((next.data.question && next.data.question.key === "contract_end") || !!next.data.contract_end_suggestion, "after the card is confirmed, the next thing is the contract end (suggested or typed), nothing else");
 }
 
 // ── Yes is refused with an empty due day ────────────────────────────────────
@@ -182,7 +187,7 @@ function seedGatorPayments(d, clientId, dates, cents) {
   ok(r.status === 200 && !!r.data.history_card, "Gator: amount+frequency already confirmed, due_day still open -- the card still appears for due_day");
   ok(r.data.history_card.amount_already_saved && r.data.history_card.amount_already_saved.amount_cents === 150000, "Gator: the card shows the already-saved amount as a fact");
   ok(!r.data.history_card.amount, "Gator: amount is not offered again as something to save -- it is already confirmed");
-  ok(r.data.history_card.fields_to_save.length === 1 && r.data.history_card.fields_to_save[0] === "due_day", "Gator: only due_day is left to save from the card");
+  ok(r.data.history_card.fields_to_save.indexOf("due_day") !== -1 && r.data.history_card.fields_to_save.indexOf("amount") === -1 && r.data.history_card.fields_to_save.indexOf("frequency") === -1, "Gator: amount and frequency are not left to save, the due day is");
 }
 
 // ── Silent saving from a previous build is un-done: confirmed_by 'payment history' answers are treated as unconfirmed and re-asked ──
@@ -278,6 +283,51 @@ function seedGatorPayments(d, clientId, dates, cents) {
   const answers = {}; // amount/frequency not yet confirmed
   const s = await w.F.clientTermsContractEndSuggestion(w.env, { id: "g1", package: null }, answers);
   ok(s === null, "no confirmed monthly amount: the payment-based suggestion is skipped, and there is no start_date for the fallback either");
+}
+
+// ── What she says in the one box is filed under each field; "nothing else" is never saved unless she said Yes ──
+{
+  const w = world();
+  seedClient(w.d, "g1", "Gator Co", "active");
+  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
+  const card = (await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env)).data.history_card;
+  ok(card.coming_open.length === 5, "card: the five things the past cannot show are listed as open");
+  // Yes WITHOUT the nothing_else statement saves no 'none' answers.
+  await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"], due_day: 1 }) }, w.env);
+  let saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0].answers_json);
+  ok(!("balloon_payment" in saved) && !("setup_fee" in saved), "without the 'nothing else' statement nothing is filed as none");
+}
+{
+  const w = world();
+  seedClient(w.d, "g1", "Gator Co", "active");
+  seedGatorPayments(w.d, "g1", ["2026-08-03", "2026-09-01", "2026-10-01"], 150000);
+  const extras = { balloon_payment: { has_balloon: true, balloon_cents: 400000, balloon_date: "2027-01-15" }, setup_fee: { has_fee: false } };
+  await w.F.handlePostClientTermsApplyHistory("g1", { json: async () => ({ fields_to_save: ["amount", "frequency", "due_day"], due_day: 1, nothing_else: true, extras: extras }) }, w.env);
+  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'g1'")[0].answers_json);
+  ok(saved.balloon_payment.has_balloon === true && saved.balloon_payment.balloon_cents === 400000, "what she said (a balloon) wins over the 'none' default");
+  ok(saved.price_change.has_change === false, "everything she did not mention is still filed as none");
+}
+
+// ── Reading the note: filed per field, junk keys ignored, nothing invented ──
+{
+  const w = world({
+    fetch: async function () {
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: JSON.stringify({ answers: { amount: { amount_cents: 220000 }, frequency: { frequency: "monthly" }, not_a_field: { x: 1 }, balloon_payment: { has_balloon: false } } }) }] }) };
+    }
+  });
+  seedClient(w.d, "n1", "No History Co", "active");
+  const r = await w.F.handlePostClientTermsInterpret("n1", { json: async () => ({ text: "2200 por mes, sem balao" }) }, w.env);
+  ok(r.status === 200 && r.data.understood === true && r.data.values.amount.amount_cents === 220000 && r.data.values.frequency.frequency === "monthly" && r.data.values.balloon_payment.has_balloon === false, "interpret: one note is filed into amount, frequency and balloon");
+  ok(!("not_a_field" in r.data.values), "interpret: a field that is not on the list is dropped");
+  ok(!w.d.q("SELECT * FROM client_terms WHERE client_id = 'n1'").length, "interpret: nothing is saved until she says Yes");
+  const ap = await w.F.handlePostClientTermsApplyExtras("n1", { json: async () => ({ values: r.data.values }) }, w.env);
+  const saved = JSON.parse(w.d.q("SELECT answers_json FROM client_terms WHERE client_id = 'n1'")[0].answers_json);
+  ok(ap.status === 200 && saved.amount.amount_cents === 220000, "apply-extras: her confirmed note is saved");
+  const next = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(!!next.data.intake_card && next.data.intake_card.open.every(function (q) { return ["amount", "frequency", "balloon_payment"].indexOf(q.key) === -1; }), "the box asks only for what is still open");
+  await w.F.handlePostClientTermsApplyExtras("n1", { json: async () => ({ values: {}, skip_keys: next.data.intake_card.open.map(function (q) { return q.key; }) }) }, w.env);
+  const after = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(after.data.client === null, "'I don't know' marks the rest as skipped and the client is done");
 }
 
 // ── Answer -> apply round trip never writes before confirmation ────────────

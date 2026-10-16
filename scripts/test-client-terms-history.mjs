@@ -102,4 +102,17 @@ function inv(issued_at, due_at, total_cents, status) { return { issued_at, due_a
   ok(r.due_day_suggestion && r.due_day_suggestion.due_day === 5 && r.due_day_suggestion.basis === "payment_dates", "no invoice due dates: due day falls back to the payment dates, marked as such");
 }
 
+
+// ── payment method, "amount varies", start date, read from the data ──
+{
+  const z = (d) => ({ date: d, amount_cents: 150000, description: "Zelle payment from GATOR OUTDOOR LIVING" });
+  const r = f([z("2026-08-03"), z("2026-09-01"), z("2026-10-01")], [{ issued_at: "2026-07-31", due_at: "2026-08-01", total_cents: 150000, status: "paid" }]);
+  ok(r.payment_method && r.payment_method.method === "zelle", "payment method: Zelle read from the deposit descriptions");
+  ok(r.amount_varies && r.amount_varies.varies === false, "amount varies: same every time reads as no");
+  ok(r.start_date && r.start_date.start_date === "2026-07-31", "start date: the first invoice date");
+  const mixed = f([{ date: "2026-08-03", amount_cents: 100, description: "Zelle from X" }, { date: "2026-09-01", amount_cents: 100, description: "ACH credit from X" }, { date: "2026-10-01", amount_cents: 100, description: "Zelle from X" }], []);
+  ok(!mixed.payment_method, "payment method: mixed or unknown descriptions are not guessed");
+  const varying = f([{ date: "2026-08-03", amount_cents: 100 }, { date: "2026-09-01", amount_cents: 300 }], []);
+  ok(varying.amount_varies && varying.amount_varies.varies === true, "amount varies: different amounts read as yes");
+}
 console.log(bad ? bad + " FAILED" : "ALL PASSED"); process.exit(bad ? 1 : 0);

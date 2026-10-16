@@ -284,6 +284,8 @@
 
     window.onload = function() {
       var lt = byId("loadingText"); if (lt) { lt.textContent = T("loading"); }
+      var hi = byId("heroImg");
+      if (hi) { hi.style.objectPosition = "50% 38%"; hi.addEventListener("load", function() { hi.hidden = false; }); hi.src = "assets/login/Picture4.jpg"; }
       load();
     };
   </script>

@@ -5,7 +5,7 @@
 //   node scripts/test-apex-receipts.mjs
 import { makeDb, build, baseStubs, req, hasFn } from "./fixtures/d1-shim.mjs";
 
-const MIGS = ["migrations/apex_invoice_receipts.sql", "migrations/apex_invoice_receipts_cash.sql"];
+const MIGS = ["migrations/doc_links.sql", "migrations/apex_invoice_receipts.sql", "migrations/apex_invoice_receipts_cash.sql"];
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { fail++; } };
 
@@ -20,7 +20,7 @@ function seedInvoice(d, id, status, cents) {
 }
 
 const stubs = Object.assign({}, baseStubs, {
-  easternDateStr: () => "2026-10-16", APEX_API_BASE: "https://api.test", DEFAULT_ORIGIN: "https://apex.test",
+  easternDateStr: () => "2026-10-16", DOC_LINK_ORIGIN: "https://doc.test", APEX_API_BASE: "https://api.test", DEFAULT_ORIGIN: "https://apex.test",
   gmEstPublicRateLimit: async () => null, crypto: globalThis.crypto, REQUEST_CTX: new WeakMap(),
   gmEstNewToken: function () { let bytes = globalThis.crypto.getRandomValues(new Uint8Array(24)); let out = ""; for (let i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).padStart(2, "0"); } return out; },
   docPdfSha256: async () => "a".repeat(64), docPdfRender: async () => ({ notFound: true }), docPdfResponse: () => ({}),
@@ -30,7 +30,7 @@ const stubs = Object.assign({}, baseStubs, {
 });
 
 const fns = [
-  "apxInvMoney", "apxRctAllocateNumber", "apxRctDerivedMethod", "apxRctNoIndex", "apxRctPayload", "apxRctLoad",
+  "apxInvMoney", "apxRctShareLink", "docLinkSlugPart", "docLinkRandom", "apxRctAllocateNumber", "apxRctDerivedMethod", "apxRctNoIndex", "apxRctPayload", "apxRctLoad",
   "handlePostApexInvoiceRecordPayment", "handleGetPublicApexReceipt", "handleGetApexInvoicePayments",
   "handlePostApexInvoicePaymentReceiptLink", "handlePostApexInvoicePaymentIssueReceipt", "docPdfAfterFinalApexReceipt",
   "handlePostFinanceNewMatchUndo", "invoicePaidCents"
@@ -121,7 +121,7 @@ const vars = ["APX_RCT_PAGE", "APX_RECEIPT_METHODS"];
   const F = build(fns, vars, stubs);
   seedInvoice(d, "009", "sent", 100000);
   const r1 = await F.handlePostApexInvoiceRecordPayment("009", req({ amount_cents: 30000, method: "cash", paid_date: "2026-10-16", reference: "ref1" }), env);
-  const token = r1.data.receipt_link.split("t=")[1];
+  const token = d.q("SELECT receipt_token FROM invoice_payments WHERE id = ?", r1.data.payment_id)[0].receipt_token;
   let pub = await F.handleGetPublicApexReceipt(token, req(), env);
   ok(pub.status === 200 && pub.data.receipt.amount_cents === 30000 && pub.data.receipt.balance_before_cents === 100000 && pub.data.receipt.balance_after_cents === 70000 && pub.data.receipt.voided === false, "the public receipt shows the frozen before/after balance");
 
@@ -157,3 +157,19 @@ const vars = ["APX_RCT_PAGE", "APX_RECEIPT_METHODS"];
 
 console.log(fail ? "\n" + fail + " FAILED" : "\nAll passed.");
 process.exit(fail ? 1 : 0);
+// The receipt link is the readable doc address, made once per receipt, with a
+// safe fallback to the direct page address.
+{
+  const d = world(); const env = { DB: d.DB };
+  const F = build(fns, vars, stubs);
+  seedInvoice(d, "777", "sent", 5000);
+  const r = await F.handlePostApexInvoiceRecordPayment("777", req({ amount_cents: 5000, method: "cash", paid_date: "2026-10-16" }), env);
+  ok(/^https:\/\/doc\.test\/apex\/rct-000001-alpha-builders-[a-z0-9]+$/.test(r.data.receipt_link), "the receipt link is the readable doc address with the apex/ slug");
+  const tok = d.q("SELECT receipt_token FROM invoice_payments WHERE id = ?", r.data.payment_id)[0].receipt_token;
+  const again = await F.apxRctShareLink(env, tok, "RCT-000001", "c1", "ALPHA BUILDERS");
+  ok(again === r.data.receipt_link && d.q("SELECT COUNT(*) AS n FROM doc_links WHERE kind = 'apex-receipt'")[0].n === 1, "asking again returns the same slug, one doc_links row");
+  const broken = await F.apxRctShareLink({ DB: { prepare() { throw new Error("db down"); } } }, "ab".repeat(24), "RCT-000002", "c1", "X");
+  ok(broken === "https://apex.test/apex-receipt-view.html?t=" + "ab".repeat(24), "a failure falls back to the direct link");
+  ok((await F.handleGetPublicApexReceipt(tok, req({}), env)).status === 200, "the old raw token address still resolves");
+}
+

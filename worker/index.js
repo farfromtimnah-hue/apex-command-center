@@ -49770,7 +49770,7 @@ async function docLinkServe(request, env) {
     // upload, via ?v=) when it has one, else the business's current logo.
     // Apex's own contract previews with Apex's card (navy, gold logo), never
     // the client's logo: the sender is Apex.
-    var logoRes = (row.kind === "apex-contract" || row.kind === "apex-invoice")
+    var logoRes = (row.kind === "apex-contract" || row.kind === "apex-invoice" || row.kind === "apex-receipt")
         ? await fetch(DEFAULT_ORIGIN + "/assets/apex-og.jpg", { method: "GET" })
         : await docLinkLogoResponse(env, row);
     var logoType = (logoRes && logoRes.ok && logoRes.headers.get("Content-Type")) || "image/jpeg";
@@ -55562,7 +55562,7 @@ async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
 var APX_RCT_PAGE = "/apex-receipt-view.html";
 // Same bump discipline as APX_INV_PDF_REV: bump whenever apex-receipt-view.html
 // changes what prints.
-var APX_RCT_PDF_REV = "1";
+var APX_RCT_PDF_REV = "2";
 var APX_RECEIPT_METHODS = ["cash", "zelle", "check", "money_order", "bank_transfer", "card", "other"];
 
 function apxRctNoIndex(res) {
@@ -55602,6 +55602,28 @@ function apxRctDerivedMethod(p) {
     if (/^Stripe card/.test(note)) { return "card"; }
     if (/^Stripe ACH/.test(note)) { return "bank_transfer"; }
     return "other";
+}
+
+// The readable doc.resonateai.online address for a receipt, with the Apex logo
+// preview card, made once per receipt (same pattern as apxInvShareLink). Any
+// failure falls back to the direct page address so sending never breaks.
+async function apxRctShareLink(env, receiptToken, receiptNumber, clientId, clientName) {
+    var direct = DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + receiptToken;
+    try {
+        if (!receiptToken) { return direct; }
+        var existing = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'apex-receipt' AND public_token = ?").bind(receiptToken).first();
+        if (existing) { return DOC_LINK_ORIGIN + "/" + existing.slug; }
+        var desc = "Recibo " + receiptNumber + (clientName ? " para " + clientName : "") + ". Toque para ver.";
+        for (var attempt = 0; attempt < 3; attempt++) {
+            var slug = "apex/" + [docLinkSlugPart(receiptNumber, 20), docLinkSlugPart(clientName, 30)].filter(Boolean).join("-") + "-" + docLinkRandom(8);
+            var ins = await env.DB.prepare("INSERT OR IGNORE INTO doc_links (slug, kind, public_token, client_id, title, description) VALUES (?, 'apex-receipt', ?, ?, ?, ?)")
+                .bind(slug, receiptToken, clientId || "apex", "APEX Business & Leadership", desc).run();
+            if (ins.meta && ins.meta.changes) { return DOC_LINK_ORIGIN + "/" + slug; }
+            var raced = await env.DB.prepare("SELECT slug FROM doc_links WHERE kind = 'apex-receipt' AND public_token = ?").bind(receiptToken).first();
+            if (raced) { return DOC_LINK_ORIGIN + "/" + raced.slug; }
+        }
+    } catch (e) { console.error("[apex-receipt] share link failed: " + (e && e.message)); }
+    return direct;
 }
 
 // POST /api/finance-new/invoices/:id/record-payment   alice / rafa / developer
@@ -55716,7 +55738,7 @@ async function handlePostApexInvoiceRecordPayment(invoiceId, request, env) {
             return jsonOk({
                 payment_id: winner && winner.id,
                 receipt_number: winner && winner.receipt_number,
-                receipt_link: winner && winner.receipt_token ? (DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + winner.receipt_token) : null,
+                receipt_link: winner && winner.receipt_token ? (await apxRctShareLink(env, winner.receipt_token, winner.receipt_number, inv.client_id, inv.client_name)) : null,
                 invoice_status: freshInv && freshInv.status
             });
         }
@@ -55735,7 +55757,7 @@ async function handlePostApexInvoiceRecordPayment(invoiceId, request, env) {
         return jsonOk({
             payment_id: paymentId,
             receipt_number: receiptNumber,
-            receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + receiptToken,
+            receipt_link: await apxRctShareLink(env, receiptToken, receiptNumber, inv.client_id, inv.client_name),
             invoice_status: invoiceStatus
         });
     } catch (e) {
@@ -55857,19 +55879,24 @@ async function handleGetApexInvoicePayments(invoiceId, request, env) {
         var rows = (await env.DB.prepare(
             "SELECT * FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL ORDER BY matched_at"
         ).bind(invoiceId).all()).results || [];
-        var payments = rows.map(function(p) {
-            return {
+        var listInv = await env.DB.prepare(
+            "SELECT i.client_id, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        var payments = [];
+        for (var pi = 0; pi < rows.length; pi++) {
+            var p = rows[pi];
+            payments.push({
                 id: p.id,
                 amount_cents: p.amount_cents || 0,
                 date: p.paid_date || apxInvEasternDate(p.matched_at),
                 method: p.receipt_number ? apxRctDerivedMethod(p) : (p.method || null),
                 reference: p.reference || null,
                 receipt_number: p.receipt_number || null,
-                receipt_link: p.receipt_number ? (DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token) : null,
+                receipt_link: p.receipt_number ? (await apxRctShareLink(env, p.receipt_token, p.receipt_number, listInv && listInv.client_id, listInv && listInv.client_name)) : null,
                 pdf_link: p.receipt_number ? (APEX_API_BASE + "/api/public/pdf/apex-receipt/" + p.receipt_token) : null,
                 needs_receipt: !p.receipt_number
-            };
-        });
+            });
+        }
         return jsonOk({ payments: payments });
     } catch (e) {
         return jsonErr("Error loading payments: " + e.message, 500);
@@ -55889,7 +55916,7 @@ async function handlePostApexInvoicePaymentReceiptLink(invoiceId, paymentId, req
         var inv = await env.DB.prepare(
             "SELECT i.*, c.name AS client_name, c.whatsapp AS client_whatsapp FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
         ).bind(invoiceId).first();
-        var link = DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token;
+        var link = await apxRctShareLink(env, p.receipt_token, p.receipt_number, inv && inv.client_id, inv && inv.client_name);
         var who = (inv && inv.client_name) || "";
         var amount = apxUsd(p.amount_cents || 0);
         var message = "Aqui está o recibo do seu pagamento (" + amount + "), " + who + ": " + link;
@@ -55918,11 +55945,11 @@ async function handlePostApexInvoicePaymentIssueReceipt(invoiceId, paymentId, re
         if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
         var p = await env.DB.prepare("SELECT * FROM invoice_payments WHERE id = ? AND invoice_id = ? AND undone_at IS NULL").bind(paymentId, invoiceId).first();
         if (!p) { return jsonErr("Payment not found.", 404); }
-        if (p.receipt_number) {
-            return jsonOk({ receipt_number: p.receipt_number, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token });
-        }
-        var inv = await env.DB.prepare("SELECT * FROM invoices WHERE id = ?").bind(invoiceId).first();
+        var inv = await env.DB.prepare("SELECT i.*, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?").bind(invoiceId).first();
         if (!inv) { return jsonErr("Invoice not found.", 404); }
+        if (p.receipt_number) {
+            return jsonOk({ receipt_number: p.receipt_number, receipt_link: await apxRctShareLink(env, p.receipt_token, p.receipt_number, inv.client_id, inv.client_name) });
+        }
 
         var rows = (await env.DB.prepare(
             "SELECT id, amount_cents, matched_at FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL ORDER BY matched_at"
@@ -55943,10 +55970,10 @@ async function handlePostApexInvoicePaymentIssueReceipt(invoiceId, paymentId, re
         ).bind(receiptNumber, receiptToken, actorName(user) || user.role, derivedMethod, paidDate, beforeCents, afterCents, paymentId).run();
         if (!upd.meta || !upd.meta.changes) {
             var already = await env.DB.prepare("SELECT receipt_number, receipt_token FROM invoice_payments WHERE id = ?").bind(paymentId).first();
-            return jsonOk({ receipt_number: already.receipt_number, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + already.receipt_token });
+            return jsonOk({ receipt_number: already.receipt_number, receipt_link: await apxRctShareLink(env, already.receipt_token, already.receipt_number, inv.client_id, inv.client_name) });
         }
         docPdfAfterFinalApexReceipt(request, env, receiptToken);
-        return jsonOk({ receipt_number: receiptNumber, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + receiptToken });
+        return jsonOk({ receipt_number: receiptNumber, receipt_link: await apxRctShareLink(env, receiptToken, receiptNumber, inv.client_id, inv.client_name) });
     } catch (e) {
         return jsonErr("Error issuing the receipt: " + e.message, 500);
     }

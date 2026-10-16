@@ -689,6 +689,9 @@
   var MTAB_CLIENTANALYTICS = mobileTabDef("clientanalytics", "client-analytics.html", "target", "An&aacute;lise de Clientes", "Client Analytics");
   // Same label and icon as the desktop side menu's CONTRACT_REVIEW_ITEM.
   var MTAB_CONTRATO   = mobileTabDef("contractreview", "contract-review.html", "file", "Revis&atilde;o do contrato", "Contract review");
+  // Same label and icon as the desktop side menu's Vendors / Apex Club entries.
+  var MTAB_VENDORS    = mobileTabDef("vendors",   "vendors.html",   "briefcase",    "Fornecedores",                 "Vendors");
+  var MTAB_APEXCLUB   = mobileTabDef("apexclub",  "apex-club.html", "star",         "Apex Club",                    "Apex Club");
 
   // opts.contractReview: whether this person gets the contract review tool.
   // initNav() passes the same answer it uses for the desktop side menu, so the
@@ -702,11 +705,13 @@
     if (navRole === "rafa") {
       agenda   = [MTAB_SESSOES, MTAB_CALENDARIO];
       fifth    = MTAB_TAREFAS;
-      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS];
+      // Rafa does not get Vendors, matching his desktop menu (NAV_ITEMS_RAFA).
+      business = [MTAB_VENDAS, MTAB_FINANCENOVO, MTAB_DOCUMENTOS, MTAB_APEXCLUB];
     } else {
       // alice (default) and developer
       agenda   = [MTAB_CALENDARIO, MTAB_SESSOES, MTAB_TAREFAS];
-      fifth    = MTAB_FINANCENOVO;
+      fifth    = mobileGroupDef("finance", "finance", "Financeiro", "Financial",
+        [MTAB_FINANCENOVO, MTAB_VENDORS, MTAB_APEXCLUB]);
       business = [MTAB_VENDAS, MTAB_DOCUMENTOS];
     }
 

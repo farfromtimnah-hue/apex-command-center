@@ -100,7 +100,7 @@ const WANT = {
     "dashboard.html",
     ["clients", ["clients.html", "client-analytics.html", "contract-review.html"]],
     ["agenda", ["calendar.html", "sessions.html", "tasks.html"]],
-    "finance-new.html",
+    ["finance", ["finance-new.html", "vendors.html", "apex-club.html"]],
     ["business", ["sales.html", "documents.html"]]
   ],
   rafa: [
@@ -108,22 +108,27 @@ const WANT = {
     ["clients", ["clients.html", "client-analytics.html", "contract-review.html"]],
     ["agenda", ["sessions.html", "calendar.html"]],
     "tasks.html",
-    ["business", ["sales.html", "finance-new.html", "documents.html"]]
+    ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html"]]
   ],
   developer: [
     "dashboard.html",
     ["clients", ["clients.html", "client-analytics.html", "contract-review.html", "add-user.html"]],
     ["agenda", ["calendar.html", "sessions.html", "tasks.html"]],
-    "finance-new.html",
+    ["finance", ["finance-new.html", "vendors.html", "apex-club.html"]],
     ["business", ["sales.html", "documents.html"]]
   ]
+};
+const GROUP_SHAPE = {
+  alice: [false, true, true, true, true],
+  rafa: [false, true, true, false, true],
+  developer: [false, true, true, true, true]
 };
 
 for (const role of ["alice", "rafa", "developer"]) {
   const cfg = cfgFor(role, true);
   eq(cfg.spots.length, 5, role + ": exactly five spots");
   eq(shape(cfg), WANT[role], role + ": Home, Clients, Agenda, the fifth spot, Business, each group in its fixed order");
-  eq(cfg.spots.map(s => !!s.group), [false, true, true, false, true], role + ": spots 2, 3 and 5 are groups, 1 and 4 are direct links");
+  eq(cfg.spots.map(s => !!s.group), GROUP_SHAPE[role], role + ": which spots are groups");
   const hrefs = pages(cfg).map(p => p.href);
   eq(hrefs.length, new Set(hrefs).size, role + ": no destination appears twice");
   ok(!("more" in cfg) && !cfg.spots.some(s => s.key === "more" || s.icon === "more" || /Mais|More/.test(s.labelPt + s.labelEn)),
@@ -137,8 +142,12 @@ for (const role of ["alice", "rafa", "developer"]) {
 }
 const groupsOf = cfg => cfg.spots.filter(s => s.group).map(s => [s.labelPt, s.labelEn, s.icon]);
 eq(groupsOf(cfgFor("alice", true)),
-   [["Clientes", "Clients", "users"], ["Agenda", "Agenda", "calendar"], ["Neg&oacute;cio", "Business", "briefcase"]],
-   "group labels and icons: Clientes/Clients, Agenda/Agenda, Negocio/Business");
+   [["Clientes", "Clients", "users"], ["Agenda", "Agenda", "calendar"], ["Financeiro", "Financial", "finance"], ["Neg&oacute;cio", "Business", "briefcase"]],
+   "group labels and icons: Clientes/Clients, Agenda/Agenda, Financeiro/Financial, Negocio/Business");
+eq(shape(cfgFor("alice", true))[3], ["finance", ["finance-new.html", "vendors.html", "apex-club.html"]],
+   "Financeiro group: Financeiro first, then Fornecedores, then Apex Club");
+eq(shape(cfgFor("rafa", true))[4], ["business", ["sales.html", "finance-new.html", "documents.html", "apex-club.html"]],
+   "Rafa's Business group: Apex Club added after Financeiro, no Vendors");
 eq(shape(cfgFor("alice", false))[1], ["clients", ["clients.html", "client-analytics.html"]],
    "contract review switched off: the Clients group simply has no such item");
 eq(shape(cfgFor("something-else", true)), WANT.alice, "an unknown role falls back to the alice layout, as before");
@@ -154,7 +163,11 @@ for (const [role, view] of [["alice"], ["rafa"], ["developer"], ["developer", "a
   eq(tabs().length, 5, who + ": the rendered dock has five tabs");
   ok(!/Mais|More|mTabMais|apexMoreToggle/.test(dock() + els["mobile-more-menu"].innerHTML), who + ": no More button or More menu rendered");
   ok(!/settings\.html/.test(dock()), who + ": no Settings tab rendered");
-  eq((dock().match(/data-dock-group="[a-z]+"/g) || []), ['data-dock-group="clients"', 'data-dock-group="agenda"', 'data-dock-group="business"'], who + ": three group buttons, in order");
+  const effectiveRole = (role === "developer" && (view === "alice" || view === "rafa")) ? view : role;
+  const wantGroups = (effectiveRole === "rafa")
+    ? ['data-dock-group="clients"', 'data-dock-group="agenda"', 'data-dock-group="business"']
+    : ['data-dock-group="clients"', 'data-dock-group="agenda"', 'data-dock-group="finance"', 'data-dock-group="business"'];
+  eq((dock().match(/data-dock-group="[a-z]+"/g) || []), wantGroups, who + ": group buttons, in order");
   const gear = document.getElementById("apexNavGear");
   ok(!!gear && gear.href === "settings.html" && gear.parentNode === els.headerRight && els.headerRight.children.indexOf(gear) === 0,
      who + ": the gear to settings.html is inside the header, before the language button");
@@ -233,14 +246,15 @@ location.href = "";
 window.apexDockGroupToggle("business");
 ok(menu !== els["mobile-more-menu"] && els["mobile-more-menu"].classList.contains("mg-open") && location.href === "",
    "with a tool remembered, tapping the group still pops the menu and does not navigate (as the portal does)");
-eq((els.panel.innerHTML.match(/href="[^"]+"/g) || []), ['href="sales.html"', 'href="finance-new.html"', 'href="documents.html"'],
+eq((els.panel.innerHTML.match(/href="[^"]+"/g) || []), ['href="sales.html"', 'href="finance-new.html"', 'href="documents.html"', 'href="apex-club.html"'],
    "…and the menu order does not move");
 eq(tapWithoutPopup("business"), "finance-new.html", "…and the tool used last is where the group lands when it opens on its own");
 eq(tapWithoutPopup("agenda"), "sessions.html", "one group's memory does not touch another group");
 visit("alice", "tasks.html");
 eq(store, { apex_staff_nav_last_rafa_business: "financenew", apex_staff_nav_last_alice_agenda: "tasks" }, "each role keeps its own memory");
 visit("alice", "finance-new.html");
-eq(Object.keys(store).length, 2, "a direct spot (alice's Financial) is not a group and remembers nothing");
+eq(store.apex_staff_nav_last_alice_finance, "financenew", "alice's Financeiro group remembers the tool used last, like any group");
+eq(Object.keys(store).length, 3, "visiting finance-new.html as alice adds exactly one new memory entry");
 visit("developer", "calendar.html", "rafa");
 eq(store.apex_staff_nav_last_rafa_agenda, "calendar", "a developer previewing rafa writes to rafa's memory, not the developer's");
 store.apex_staff_nav_last_alice_agenda = "financenew";

@@ -58664,6 +58664,20 @@ function clientTermsBalloonDate(derived, progress) {
     if (sum && sum.end_date) { derived.balloon_payment.balloon_date = sum.end_date; } else { delete derived.balloon_payment; }
 }
 
+// A package discounted to $0 owes nothing: filed as done.
+async function clientTermsAutoCompleteComped(env, client) {
+    var answers = {
+        amount: { skipped: true, reason: "package discounted to $0" },
+        frequency: { frequency: "one_time" },
+        contract_end: { open_ended: false, end_date: gmEasternToday(), auto_renews: false }
+    };
+    var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+    await env.DB.prepare(
+        "INSERT INTO client_terms (client_id, answers_json, completed, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, 1, ?, ?, ?) " +
+        "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, completed = 1, confirmed_by = ?, confirmed_at = ?, updated_at = ?"
+    ).bind(client.id, JSON.stringify(answers), "system: package discounted to $0", nowIso, nowIso, JSON.stringify(answers), "system: package discounted to $0", nowIso, nowIso).run();
+}
+
 // A paid-off package has no future money, so it is filed as done without a word.
 async function clientTermsAutoCompletePaid(env, client, derived) {
     var answers = {
@@ -58743,6 +58757,16 @@ async function handleGetClientTermsNext(request, env) {
                 "INSERT INTO client_terms (client_id, completed, updated_at) VALUES (?, 1, ?) " +
                 "ON CONFLICT(client_id) DO UPDATE SET completed = 1, updated_at = ?"
             ).bind(client.id, nowIso, nowIso).run();
+            return handleGetClientTermsNext(request, env);
+        }
+
+        // A package discounted to $0 (a comped START, for example) owes nothing, so
+        // there is nothing to forecast: filed silently, never asked about. The
+        // progress card falls back to the list price when the adjusted total is 0,
+        // so this is read straight from the package terms.
+        var termsRow = await env.DB.prepare("SELECT base_total, adjusted_total FROM client_package_terms WHERE client_id = ?").bind(client.id).first();
+        if (termsRow && termsRow.base_total > 0 && Number(termsRow.adjusted_total) === 0) {
+            await clientTermsAutoCompleteComped(env, client);
             return handleGetClientTermsNext(request, env);
         }
 

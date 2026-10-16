@@ -15,7 +15,7 @@ const FNS = [
   "clientTermsContractProgressRows", "clientTermsContractEndSuggestion",
   "handleGetClientTermsNext", "handlePostClientTermsAnswer", "handlePostClientTermsApply",
   "handlePostClientTermsApplyHistory", "handleGetClientTermsForecast",
-  "clientTermsPlanAdjust", "clientTermsPlanSummary", "clientTermsBalloonDate", "clientTermsAutoCompletePaid", "handlePostClientTermsApplyPlan", "clientTermsContractEndSuggestion", "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
+  "clientTermsPlanAdjust", "clientTermsPlanSummary", "clientTermsBalloonDate", "clientTermsAutoCompletePaid", "clientTermsAutoCompleteComped", "handlePostClientTermsApplyPlan", "clientTermsContractEndSuggestion", "clientTermsMergeExtras", "clientTermsInterpretNote", "handlePostClientTermsInterpret", "handlePostClientTermsApplyExtras", "gmEasternToday"
 ];
 const VARS = ["CLIENT_TERMS_BASE_QUESTIONS", "CLIENT_TERMS_PAUSE_QUESTIONS", "CLIENT_TERMS_SCHEMAS", "CLIENT_TERMS_CARD_KEYS", "CLIENT_TERMS_COMING_KEYS", "CLIENT_TERMS_NONE_VALUES", "CLIENT_TERMS_KEY_DOCS", "SUPPORT_AI_MODEL", "BANK_PAID_WHERE"];
 const MIGRATIONS = ["migrations/finance_plaid.sql", "migrations/client_terms.sql"];
@@ -121,6 +121,18 @@ function seedGatorPayments(d, clientId, dates, cents) {
   seedClient(w.d, "b2", "Billable Co", "active");
   const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
   ok(r.data.client && r.data.client.id === "b2", "a non-billable client is skipped: nobody owes money, so nothing is forecast");
+}
+
+// ── Rani-style: a START package discounted 100 percent owes $0 and is never asked about ──
+{
+  const w = world();
+  seedClient(w.d, "r1", "Comped Co", "active", "start");
+  w.d.raw.prepare("INSERT INTO client_package_terms (client_id, base_total, adjusted_total) VALUES ('r1', 997, 0)").run();
+  seedClient(w.d, "b3", "Billable Co", "active");
+  const r = await w.F.handleGetClientTermsNext({ url: "https://x/" }, w.env);
+  ok(r.data.client && r.data.client.id === "b3", "a package discounted to $0 is skipped: nothing is owed, nothing is asked");
+  const row = w.d.q("SELECT completed FROM client_terms WHERE client_id = 'r1'")[0];
+  ok(row && row.completed === 1, "and it is filed as done");
 }
 
 // ── Gator-style: one card, one Yes, then one end-date tap ───────────────────

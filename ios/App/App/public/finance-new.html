@@ -1914,6 +1914,31 @@
           <div class="sheet-status" id="ctHistoryStatus"></div>
         </div>
 
+        <!-- Contract-end suggestion card: shown INSTEAD of the typed
+             contract_end question whenever a suggested end date can be
+             computed from the package total and matched payments (or from
+             start date + package length). Nothing saves without a click;
+             auto-renew is still asked right after Yes. -->
+        <div id="ctEndSuggestCard" hidden>
+          <div id="ctEndSuggestText" style="font-size:14px;margin-bottom:12px;line-height:1.5;"></div>
+          <div id="ctEndSuggestAutoRenew" hidden style="margin-bottom:12px;">
+            <div style="font-size:13px;margin-bottom:8px;" id="ctEndSuggestAutoRenewQ"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-secondary btn-sm" onclick="ctPickAutoRenews(true)" id="ctAutoRenewYesBtn"></button>
+              <button class="btn-secondary btn-sm" onclick="ctPickAutoRenews(false)" id="ctAutoRenewNoBtn"></button>
+            </div>
+          </div>
+          <div id="ctEndSuggestButtons" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-gold btn-sm" onclick="confirmCtEndSuggestion()">
+              <span class="show-pt">Sim, est&aacute; certo</span><span class="show-en">Yes, that's right</span>
+            </button>
+            <button class="btn-secondary btn-sm" onclick="correctCtEndSuggestion()">
+              <span class="show-pt">Corrigir</span><span class="show-en">Correct it</span>
+            </button>
+          </div>
+          <div class="sheet-status" id="ctEndSuggestStatus"></div>
+        </div>
+
         <!-- Typed question (hidden while ctHistoryCard is shown). -->
         <div id="ctTypedQuestion">
           <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
@@ -10181,6 +10206,10 @@ names,
     // clicked) we are currently walking through.
     var ctHistoryCard = null;
     var ctFallbackQueue = [];
+    // Contract-end suggestion card state.
+    var ctEndSuggestion = null;
+    var ctEndSuggestFallbackQ = null;
+    var ctEndSuggestAutoRenews = null;
 
     function ctShowEl(id, show) { var el = document.getElementById(id); if (el) { el.hidden = !show; } }
 
@@ -10188,7 +10217,7 @@ names,
       apiFetch("/api/client-terms/next").then(function(r) { return r.json(); }).then(function(data) {
         var card = document.getElementById("ctQuestionCard");
         if (!card) { return; }
-        if (!data.client) { card.hidden = true; ctCurrentClient = null; ctCurrentQuestion = null; ctHistoryCard = null; return; }
+        if (!data.client) { card.hidden = true; ctCurrentClient = null; ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; return; }
         ctCurrentClient = data.client;
         card.hidden = false;
         document.getElementById("ctClientName").textContent = data.client.name;
@@ -10198,16 +10227,33 @@ names,
         if (data.history_card) {
           ctCurrentQuestion = null;
           ctHistoryCard = data.history_card;
+          ctEndSuggestion = null;
           ctFallbackQueue = [];
           ctShowEl("ctHistoryCard", true);
+          ctShowEl("ctEndSuggestCard", false);
           ctShowEl("ctTypedQuestion", false);
           ctRedrawHistoryCard();
           return;
         }
 
+        if (data.contract_end_suggestion) {
+          ctCurrentQuestion = null;
+          ctHistoryCard = null;
+          ctEndSuggestion = data.contract_end_suggestion;
+          ctEndSuggestFallbackQ = data.fallback_question;
+          ctEndSuggestAutoRenews = null;
+          ctShowEl("ctHistoryCard", false);
+          ctShowEl("ctEndSuggestCard", true);
+          ctShowEl("ctTypedQuestion", false);
+          ctRedrawEndSuggestion();
+          return;
+        }
+
         ctHistoryCard = null;
+        ctEndSuggestion = null;
         ctCurrentQuestion = data.question;
         ctShowEl("ctHistoryCard", false);
+        ctShowEl("ctEndSuggestCard", false);
         ctShowEl("ctTypedQuestion", true);
         ctRedrawQuestionText();
         document.getElementById("ctAnswer").value = "";
@@ -10215,6 +10261,80 @@ names,
         document.getElementById("ctConfirmCard").hidden = true;
         document.getElementById("ctMicStatus").textContent = "";
       }).catch(function() {});
+    }
+
+    function ctRedrawEndSuggestion() {
+      var s = ctEndSuggestion;
+      var textEl = document.getElementById("ctEndSuggestText");
+      if (!s || !textEl) { return; }
+      if (s.paid_in_full) {
+        textEl.textContent = t(
+          "Com base em " + s.payment_count + " pagamentos, o contrato parece totalmente pago desde " + fmtDate(s.last_paid_date) + ".",
+          "Based on " + s.payment_count + " payments, the contract looks paid in full as of " + fmtDate(s.last_paid_date) + "."
+        );
+      } else if (s.basis === "payments") {
+        textEl.textContent = t(
+          "Com base em " + s.payment_count + " pagamentos de " + fmtUsdCents(s.monthly_amount_cents) + " e um total de pacote de " + fmtUsdCents(s.total_cents) + ", o contrato deve terminar por volta de " + fmtDate(s.end_date) + ".",
+          "Based on " + s.payment_count + " payments of " + fmtUsdCents(s.monthly_amount_cents) + " and a package total of " + fmtUsdCents(s.total_cents) + ", the contract should end around " + fmtDate(s.end_date) + "."
+        );
+      } else {
+        textEl.textContent = t(
+          "Com base na data de início e na duração do pacote (" + s.package + "), o contrato deve terminar em " + fmtDate(s.end_date) + ".",
+          "Based on the start date and the package length (" + s.package + "), the contract should end on " + fmtDate(s.end_date) + "."
+        );
+      }
+      ctShowEl("ctEndSuggestAutoRenew", false);
+      ctShowEl("ctEndSuggestButtons", true);
+      ctEndSuggestAutoRenews = null;
+      var statusEl = document.getElementById("ctEndSuggestStatus");
+      if (statusEl) { statusEl.textContent = ""; }
+    }
+    document.addEventListener("apex:langchange", function () {
+      if (ctHistoryCard) { ctRedrawHistoryCard(); }
+      if (ctEndSuggestion) { ctRedrawEndSuggestion(); }
+    });
+
+    function confirmCtEndSuggestion() {
+      if (!ctEndSuggestion) { return; }
+      // auto_renews is still needed before this can be saved as a real
+      // contract_end answer -- ask it inline, then save.
+      ctShowEl("ctEndSuggestButtons", false);
+      ctShowEl("ctEndSuggestAutoRenew", true);
+      document.getElementById("ctEndSuggestAutoRenewQ").textContent = t("Este contrato renova automaticamente?", "Does this contract renew automatically?");
+      document.getElementById("ctAutoRenewYesBtn").textContent = t("Sim", "Yes");
+      document.getElementById("ctAutoRenewNoBtn").textContent = t("Não", "No");
+    }
+
+    function ctPickAutoRenews(val) {
+      if (!ctCurrentClient || !ctEndSuggestion || ctEndSuggestion.paid_in_full) {
+        // "Paid in full" has no end date to save as contract_end here --
+        // treat auto_renews alone as not applicable; fall back to typed.
+        correctCtEndSuggestion();
+        return;
+      }
+      var statusEl = document.getElementById("ctEndSuggestStatus");
+      if (statusEl) { statusEl.textContent = t("Enviando...", "Sending..."); }
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply", {
+        method: "POST",
+        body: { question_key: "contract_end", interpreted: { open_ended: false, end_date: ctEndSuggestion.end_date, auto_renews: val } }
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) { throw new Error(data.error); }
+        loadCtForecast();
+        loadCtNextQuestion();
+      }).catch(function(e) { if (statusEl) { statusEl.textContent = t("Erro: ", "Error: ") + e.message; } });
+    }
+
+    function correctCtEndSuggestion() {
+      if (!ctEndSuggestFallbackQ) { loadCtNextQuestion(); return; }
+      ctEndSuggestion = null;
+      ctCurrentQuestion = ctEndSuggestFallbackQ;
+      ctShowEl("ctEndSuggestCard", false);
+      ctShowEl("ctTypedQuestion", true);
+      ctRedrawQuestionText();
+      document.getElementById("ctAnswer").value = "";
+      document.getElementById("ctStatus").textContent = "";
+      document.getElementById("ctConfirmCard").hidden = true;
+      document.getElementById("ctMicStatus").textContent = "";
     }
 
     // Builds the one-sentence history summary and fills the due-day field.
@@ -10363,7 +10483,7 @@ names,
         var freqLabels = { weekly: t("semanal", "weekly"), biweekly: t("a cada duas semanas", "every two weeks"), monthly: t("mensal", "monthly"), quarterly: t("a cada 3 meses", "every 3 months"), one_time: t("uma única vez", "one time") };
         return t("Entendi: " + freqLabels[v.frequency] + ". Está certo?", "I understood: " + freqLabels[v.frequency] + ". Is that right?");
       }
-      if (key === "start_and_first_invoice") { return t("Entendi: início em " + v.start_date + ", primeira fatura em " + v.first_invoice_date + ". Está certo?", "I understood: start " + v.start_date + ", first invoice " + v.first_invoice_date + ". Is that right?"); }
+      if (key === "start_date") { return t("Entendi: início em " + fmtDate(v.start_date) + ". Está certo?", "I understood: start " + fmtDate(v.start_date) + ". Is that right?"); }
       if (key === "due_day") { return t("Entendi: vencimento no dia " + v.due_day + ". Está certo?", "I understood: due on day " + v.due_day + ". Is that right?"); }
       if (key === "contract_end") {
         var endPart = v.open_ended ? t("sem data definida", "open-ended") : t("termina em " + v.end_date, "ends on " + v.end_date);

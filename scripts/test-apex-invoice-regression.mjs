@@ -117,7 +117,7 @@ const paySum = (d, id) => d.q("SELECT COALESCE(SUM(amount_cents),0) AS s, COUNT(
 // ── 4. Contract progress and installment plan progress ─────────────────────
 {
   const d = makeDb(MIGS); const env = { DB: d.DB };
-  const F = build(["handleGetContractProgress", "computePlanProgress"], ["BANK_PAID_WHERE"], baseStubs);
+  const F = build(["clientTermsContractProgressRows", "handleGetContractProgress", "computePlanProgress"], ["BANK_PAID_WHERE"], baseStubs);
   seedAccounts(d);
   seedClient(d, "c1", "ALPHA BUILDERS"); seedClient(d, "c2", "BRAVO TILE"); seedClient(d, "c3", "CHARLIE CAKES");
   d.raw.prepare("INSERT INTO client_package_terms (client_id, base_total, adjusted_total, installment_count, installment_amount, recurrence_unit, recurrence_never_ends, payments_made_before) VALUES ('c1', 6000, 5400, 6, 900, 'month', 0, 1), ('c2', 8382, NULL, 6, 1397, 'month', 0, 0), ('c3', 997, NULL, 2, 498.5, 'week', 0, 0)").run();

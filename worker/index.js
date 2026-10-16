@@ -44088,13 +44088,12 @@ var BANK_PAID_WHERE =
     "              WHERE p2.transaction_id = tx.id AND p2.undone_at IS NULL AND i2.client_id != c.id " +
     "                AND i2.status NOT IN ('void','voided_mistake')) ) ) ";
 
-async function handleGetContractProgress(request, env) {
-    try {
-        var user = await authenticate(request, env);
-        if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
-
-        var rows = await env.DB.prepare(
+// Shared by handleGetContractProgress (the client profile's "Status do
+// contrato" card) and the Client Terms contract-end suggestion -- ONE
+// formula for total/paid/remaining, never two. onlyClientId narrows the
+// query itself (not a post-filter) when given.
+async function clientTermsContractProgressRows(env, onlyClientId) {
+        var sql =
             "SELECT c.id, c.name, " +
             "t.adjusted_total, t.base_total, t.installment_count, t.installment_amount, " +
             "t.recurrence_unit, t.payments_made_before, " +
@@ -44173,8 +44172,10 @@ async function handleGetContractProgress(request, env) {
             // through. Showing them at 0% owing the full package would be a
             // fabricated debt on the screen Alice uses to chase money.
             "AND COALESCE(c.billing_type,'billable') = 'billable' " +
-            "ORDER BY c.name"
-        ).all();
+            (onlyClientId ? "AND c.id = ? " : "") +
+            "ORDER BY c.name";
+        var stmt = env.DB.prepare(sql);
+        var rows = await stmt.bind.apply(stmt, onlyClientId ? [onlyClientId] : []).all();
 
         var out = (rows.results || []).map(function(r) {
             var totalCents = Math.round((r.adjusted_total || r.base_total || 0) * 100);
@@ -44288,12 +44289,19 @@ async function handleGetContractProgress(request, env) {
             };
         });
 
+        return out;
+}
+
+async function handleGetContractProgress(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
         // Optional ?client_id= narrows the answer to one client (the client
         // profile card). No filter, same answer as before.
         var onlyClient = new URL(request.url).searchParams.get("client_id");
-        if (onlyClient) {
-            out = out.filter(function(c) { return c.client_id === onlyClient; });
-        }
+        var out = await clientTermsContractProgressRows(env, onlyClient || null);
 
         return jsonOk({ clients: out });
     } catch (e) {
@@ -58145,8 +58153,8 @@ async function vendorApplyGoldenSiteHalves(env, secondHalfOwed) {
 var CLIENT_TERMS_BASE_QUESTIONS = [
     { key: "amount", text_pt: "Qual o valor de cada pagamento?", text_en: "What is the amount of each payment?" },
     { key: "frequency", text_pt: "Com que frequência? (semanal, a cada duas semanas, mensal, a cada 3 meses, uma única vez)", text_en: "How often? (weekly, every two weeks, monthly, every 3 months, one time)" },
-    { key: "start_and_first_invoice", text_pt: "Qual a data de início e a data da primeira fatura?", text_en: "What is the start date and the date of the first invoice?" },
     { key: "due_day", text_pt: "Qual o dia de vencimento de cada fatura? (por exemplo, o dia 1 do mês)", text_en: "What is the due day of each invoice? (for example the 1st of the month)" },
+    { key: "start_date", text_pt: "Qual a data de início do contrato?", text_en: "What date did the contract start?" },
     { key: "contract_end", text_pt: "Qual a data de término do contrato, ou é sem data definida? E ele renova automaticamente?", text_en: "What is the contract end date, or is it open-ended? And does it renew automatically?" },
     { key: "balloon_payment", text_pt: "Ainda vem algum pagamento balão, ou um pagamento final de valor diferente? Qual o valor e a data? Se não, diga que não há.", text_en: "Is a balloon payment, or a final payment of a different amount, still coming? How much and on what date? If not, say none." },
     { key: "payment_method", text_pt: "Como o cliente paga? (Zelle, cheque, ACH, cartão, dinheiro, outro)", text_en: "How does the client pay? (Zelle, check, ACH, card, cash, other)" },
@@ -58170,13 +58178,14 @@ function clientTermsQuestionsFor(client) {
     return list;
 }
 
+
 // Small static JSON schemas, one per key -- never dynamic. unclear is always
 // allowed; everything else is validated in code below, never trusted from
 // the model's own claim of having matched the schema.
 var CLIENT_TERMS_SCHEMAS = {
     amount: { allowedKeys: ["amount_cents", "unclear"] },
     frequency: { allowedKeys: ["frequency", "unclear"] },
-    start_and_first_invoice: { allowedKeys: ["start_date", "first_invoice_date", "unclear"] },
+    start_date: { allowedKeys: ["start_date", "unclear"] },
     due_day: { allowedKeys: ["due_day", "unclear"] },
     contract_end: { allowedKeys: ["open_ended", "end_date", "auto_renews", "unclear"] },
     balloon_payment: { allowedKeys: ["has_balloon", "balloon_cents", "balloon_date", "unclear"] },
@@ -58212,10 +58221,9 @@ function clientTermsValidateReply(key, parsed) {
         if (validFreq.indexOf(parsed.frequency) === -1) { return { ok: false }; }
         return { ok: true, value: { frequency: parsed.frequency } };
     }
-    if (key === "start_and_first_invoice") {
+    if (key === "start_date") {
         if (typeof parsed.start_date !== "string" || !dateRe.test(parsed.start_date)) { return { ok: false }; }
-        if (typeof parsed.first_invoice_date !== "string" || !dateRe.test(parsed.first_invoice_date)) { return { ok: false }; }
-        return { ok: true, value: { start_date: parsed.start_date, first_invoice_date: parsed.first_invoice_date } };
+        return { ok: true, value: { start_date: parsed.start_date } };
     }
     if (key === "due_day") {
         var day = parseInt(parsed.due_day, 10);
@@ -58460,6 +58468,77 @@ async function deriveTermsFromHistory(env, clientId) {
     return clientTermsDeriveFromHistory(payments, invoices);
 }
 
+// Adds whole calendar months to an ISO date, keeping the same day of month
+// (clamped to the shorter month, e.g. Jan 31 + 1 month = Feb 28/29).
+function clientTermsAddMonths(isoDate, n) {
+    var p = String(isoDate).slice(0, 10).split("-").map(function(s) { return parseInt(s, 10); });
+    var d = new Date(Date.UTC(p[0], p[1] - 1 + n, 1));
+    var lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(p[2], lastDay));
+    return d.toISOString().slice(0, 10);
+}
+
+// A suggested contract-end date, shown on a confirmation step before the
+// typed contract_end question -- never saved without a click (see
+// handlePostClientTermsApplyContractEnd). Two sources, tried in order:
+//   1. payment-based: package total (clientTermsContractProgressRows, the
+//      SAME figures "Status do contrato" uses) minus money matched to this
+//      client's own invoices (paid_matched_cents -- never the blended bank
+//      total, which can include money that belongs to someone else's
+//      invoice or Apex Club). Needs a known confirmed monthly amount.
+//   2. start-date-based: the confirmed start_date plus the client's package
+//      length (Start 30 days, Growth 4 months, Advanced 6 months), used only
+//      when (1) is unavailable.
+// Returns null when neither source applies -- the caller then asks
+// contract_end plainly, exactly as before this feature existed.
+async function clientTermsContractEndSuggestion(env, client, answers) {
+    var monthly = answers.amount && !answers.amount.skipped && !answers.amount.varies ? answers.amount.amount_cents : null;
+    var freq = answers.frequency && !answers.frequency.skipped ? answers.frequency.frequency : null;
+
+    if (monthly && freq === "monthly") {
+        var progressRows = await clientTermsContractProgressRows(env, client.id);
+        var progress = progressRows[0];
+        if (progress && !progress.total_missing && !progress.custom_pricing) {
+            var totalCents = progress.total_cents;
+            var paidCents = progress.paid_matched_cents;
+            var derivedForEnd = await deriveTermsFromHistory(env, client.id);
+            var paymentCount = derivedForEnd.payment_count || 0;
+            if (paymentCount > 0) {
+                var remaining = totalCents - paidCents;
+                var lastPaidDate = derivedForEnd.last_paid_date;
+                if (remaining <= 0) {
+                    return {
+                        basis: "payments", paid_in_full: true, last_paid_date: lastPaidDate || null,
+                        total_cents: totalCents, paid_cents: paidCents, payment_count: paymentCount
+                    };
+                }
+                if (lastPaidDate) {
+                    var paymentsLeft = Math.ceil(remaining / monthly);
+                    var endDate = clientTermsAddMonths(lastPaidDate, paymentsLeft);
+                    return {
+                        basis: "payments", paid_in_full: false, end_date: endDate,
+                        total_cents: totalCents, paid_cents: paidCents, payment_count: paymentCount,
+                        payments_left: paymentsLeft, monthly_amount_cents: monthly
+                    };
+                }
+            }
+        }
+    }
+
+    // Fallback: start_date + package length, only when the payment-based
+    // suggestion above found nothing to work with.
+    var startAnswer = answers.start_date;
+    if (startAnswer && !startAnswer.skipped && startAnswer.start_date && client.package) {
+        var pkg = await env.DB.prepare("SELECT short_name, duration_days FROM packages WHERE short_name = ?").bind(client.package).first();
+        var months = pkg && pkg.duration_days ? Math.round(pkg.duration_days / 30) : null;
+        if (months) {
+            return { basis: "start_date_and_package", end_date: clientTermsAddMonths(startAnswer.start_date, months), package: client.package, months: months };
+        }
+    }
+
+    return null;
+}
+
 // The three fields the history confirmation card can save by itself:
 // amount, frequency, due_day. Anything saved with confirmed_by "payment
 // history" (the old silent-save behavior) is treated as NOT yet confirmed --
@@ -58485,7 +58564,7 @@ async function handleGetClientTermsNext(request, env) {
         if (a.err) { return a.err; }
 
         var clients = (await env.DB.prepare(
-            "SELECT c.id, c.name, c.status FROM clients c " +
+            "SELECT c.id, c.name, c.status, c.package FROM clients c " +
             "LEFT JOIN client_terms t ON t.client_id = c.id " +
             "WHERE COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused') " +
             "AND (t.client_id IS NULL OR t.completed = 0) " +
@@ -58541,6 +58620,21 @@ async function handleGetClientTermsNext(request, env) {
                         fields_to_save: stillOpen,
                         fallback_questions: fallbackQuestions
                     },
+                    position: position, total: questions.length
+                });
+            }
+        }
+
+        // Before contract_end, offer a suggested end date (computed from
+        // package total minus matched payments, or from start_date + package
+        // length) for confirmation -- never saved without a click.
+        if (nextQ.key === "contract_end") {
+            var endSuggestion = await clientTermsContractEndSuggestion(env, client, answers);
+            if (endSuggestion) {
+                return jsonOk({
+                    client: { id: client.id, name: client.name, status: client.status },
+                    contract_end_suggestion: endSuggestion,
+                    fallback_question: { key: nextQ.key, text_pt: nextQ.text_pt, text_en: nextQ.text_en },
                     position: position, total: questions.length
                 });
             }

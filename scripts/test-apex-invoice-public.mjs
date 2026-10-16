@@ -258,7 +258,7 @@ function seedCharge(d, id, cents, extra) {
 // ── Phase 3 step 6: one Stripe payment counts ONCE ─────────────────────────
 {
   const d = world(); const env = { DB: d.DB }; const st = fakeStripe();
-  const F = build(fns.concat(["handleGetContractProgress", "computePlanProgress"]), ["APX_INV_PAGE", "BANK_PAID_WHERE"], stubsFor(st));
+  const F = build(fns.concat(["clientTermsContractProgressRows", "handleGetContractProgress", "computePlanProgress"]), ["APX_INV_PAGE", "BANK_PAID_WHERE"], stubsFor(st));
   d.raw.exec("INSERT INTO client_package_terms (client_id, base_total, installment_count, installment_amount, recurrence_unit, recurrence_never_ends) VALUES ('c1', 5400, 6, 900, 'month', 0)");
   // History: one installment paid by bank and matched, one alias deposit with no invoice, one older card charge.
   d.raw.exec("INSERT INTO invoices (id, client_id, number, amount_cents, issued_at, due_at, status, is_installment) VALUES ('h1','c1','INV-9301',90000,'2026-07-01','2026-07-01','paid',1)");

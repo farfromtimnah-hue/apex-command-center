@@ -51488,6 +51488,8 @@ async function handleFetch(request, env, ctx) {
         if (ctAnswer && method === "POST") { return handlePostClientTermsAnswer(ctAnswer[1], request, env); }
         var ctApply = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply$/);
         if (ctApply && method === "POST") { return handlePostClientTermsApply(ctApply[1], request, env); }
+        var ctApplyDiscount = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply-discount$/);
+        if (ctApplyDiscount && method === "POST") { return handlePostClientTermsApplyDiscount(ctApplyDiscount[1], request, env); }
         var ctApplyPlan = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply-plan$/);
         if (ctApplyPlan && method === "POST") { return handlePostClientTermsApplyPlan(ctApplyPlan[1], request, env); }
         var ctInterpret = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/interpret$/);
@@ -58664,6 +58666,42 @@ function clientTermsBalloonDate(derived, progress) {
     if (sum && sum.end_date) { derived.balloon_payment.balloon_date = sum.end_date; } else { delete derived.balloon_payment; }
 }
 
+// POST /api/client-terms/:clientId/apply-discount { free: bool } -- her answer to
+// "this package shows a 100% discount, is that right?". Yes: she owes nothing.
+// No: the discount was a slip, so the package total is put back to the list price
+// (a data fix, written down in confirmed_by) and the box carries on as normal.
+async function handlePostClientTermsApplyDiscount(clientId, request, env) {
+    try {
+        var a = await clientTermsAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        if (typeof body.free !== "boolean") { return jsonErr("free must be true or false", 400); }
+        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ? AND COALESCE(archived,0) = 0 AND status IN ('active','paused')").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found or not eligible", 404); }
+        var terms = await env.DB.prepare("SELECT base_total, adjusted_total FROM client_package_terms WHERE client_id = ?").bind(clientId).first();
+        if (!terms || !(terms.base_total > 0) || Number(terms.adjusted_total) !== 0) { return jsonErr("This package has no $0 total to confirm", 400); }
+        var row = await env.DB.prepare("SELECT answers_json FROM client_terms WHERE client_id = ?").bind(clientId).first();
+        var answers = row ? JSON.parse(row.answers_json || "{}") : {};
+        var who = actorName(a.user);
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        if (body.free) {
+            answers.package_discount = { free: true };
+        } else {
+            await env.DB.prepare(
+                "UPDATE client_package_terms SET adjusted_total = base_total, discount_type = NULL, discount_value = NULL, updated_at = ? WHERE client_id = ?"
+            ).bind(nowIso, clientId).run();
+            answers.package_discount = { free: false, fixed_by: who, fixed_at: nowIso };
+        }
+        await env.DB.prepare(
+            "INSERT INTO client_terms (client_id, answers_json, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+            "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, confirmed_by = ?, confirmed_at = ?, updated_at = ?"
+        ).bind(clientId, JSON.stringify(answers), who, nowIso, nowIso, JSON.stringify(answers), who, nowIso, nowIso).run();
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error applying the discount answer: " + e.message, 500);
+    }
+}
+
 // A package discounted to $0 owes nothing: filed as done.
 async function clientTermsAutoCompleteComped(env, client) {
     var answers = {
@@ -58764,10 +58802,26 @@ async function handleGetClientTermsNext(request, env) {
         // there is nothing to forecast: filed silently, never asked about. The
         // progress card falls back to the list price when the adjusted total is 0,
         // so this is read straight from the package terms.
-        var termsRow = await env.DB.prepare("SELECT base_total, adjusted_total FROM client_package_terms WHERE client_id = ?").bind(client.id).first();
+        var termsRow = await env.DB.prepare("SELECT base_total, adjusted_total, discount_type, discount_value FROM client_package_terms WHERE client_id = ?").bind(client.id).first();
         if (termsRow && termsRow.base_total > 0 && Number(termsRow.adjusted_total) === 0) {
-            await clientTermsAutoCompleteComped(env, client);
-            return handleGetClientTermsNext(request, env);
+            // A $0 total can be a real 100% discount or a slip (someone clicking through
+            // the terms box meaning "no discount"). It is never trusted silently: Alice
+            // is asked once, and only a Yes files the client as owing nothing.
+            var pd = answers.package_discount;
+            if (!pd) {
+                return jsonOk({
+                    client: { id: client.id, name: client.name, status: client.status },
+                    discount_card: {
+                        base_total_cents: Math.round(termsRow.base_total * 100),
+                        discount_type: termsRow.discount_type || null, discount_value: termsRow.discount_value || null
+                    },
+                    position: 1, total: questions.length
+                });
+            }
+            if (pd.free === true) {
+                await clientTermsAutoCompleteComped(env, client);
+                return handleGetClientTermsNext(request, env);
+            }
         }
 
         var derived = await deriveTermsFromHistory(env, client.id);

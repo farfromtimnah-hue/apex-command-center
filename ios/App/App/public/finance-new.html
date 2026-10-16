@@ -1973,6 +1973,16 @@
           <div class="sheet-status" id="ctIntakeStatus"></div>
         </div>
 
+        <!-- A package that shows a 100% discount (total $0): asked once, never filed silently. -->
+        <div id="ctDiscountCard" hidden>
+          <div id="ctDiscountText" style="font-size:14px;margin-bottom:12px;line-height:1.5;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-gold btn-sm" onclick="ctAnswerDiscount(true)"><span class="show-pt">Sim, &eacute; gr&aacute;tis</span><span class="show-en">Yes, it is free</span></button>
+            <button class="btn-secondary btn-sm" onclick="ctAnswerDiscount(false)"><span class="show-pt">N&atilde;o, foi um erro</span><span class="show-en">No, that was a mistake</span></button>
+          </div>
+          <div class="sheet-status" id="ctDiscountStatus"></div>
+        </div>
+
         <div id="ctTypedQuestion">
           <div id="ctQText" style="font-size:14px;margin-bottom:12px;"></div>
           <textarea id="ctAnswer" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
@@ -10238,6 +10248,7 @@ names,
     // /next response, and which fallback question (if "Corrigir" was
     // clicked) we are currently walking through.
     var ctHistoryCard = null;
+    var ctDiscount = null;         // a package showing a 100% discount, waiting for her answer
     var ctPlanCard = null;         // one-line plan to confirm: how much is owed, how often, when it ends
     var ctExtraValues = null;      // read-back extras on the history card (confirmed by her Yes)
     var ctIntake = null;           // { open: [...] } for the no-history box
@@ -10260,6 +10271,17 @@ names,
         document.getElementById("ctClientName").textContent = data.client.name;
         ctCurrentPos = { position: data.position, total: data.total };
         ctShowEl("ctNotEnoughHistory", !!data.not_enough_history);
+
+        if (data.discount_card) {
+          ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; ctFallbackQueue = []; ctIntake = null; ctPlanCard = null;
+          ctDiscount = data.discount_card;
+          ctShowEl("ctHistoryCard", false); ctShowEl("ctIntakeCard", false); ctShowEl("ctEndSuggestCard", false); ctShowEl("ctTypedQuestion", false);
+          ctShowEl("ctDiscountCard", true);
+          ctRedrawDiscount();
+          return;
+        }
+        ctDiscount = null;
+        ctShowEl("ctDiscountCard", false);
 
         if (data.plan_card) {
           ctCurrentQuestion = null; ctHistoryCard = null; ctEndSuggestion = null; ctFallbackQueue = []; ctIntake = null;
@@ -10499,6 +10521,24 @@ names,
       var statusEl0 = document.getElementById("ctHistoryStatus");
       if (statusEl0) { statusEl0.textContent = ""; }
     }
+    function ctRedrawDiscount() {
+      var d = ctDiscount, el = document.getElementById("ctDiscountText");
+      if (!d || !el) { return; }
+      el.textContent = t(
+        "O pacote deste cliente (" + fmtUsdCents(d.base_total_cents) + ") está com desconto de 100%, então o total é $0.00. Ele realmente não paga nada? Pode ter sido um erro ao criar o contato.",
+        "This client's package (" + fmtUsdCents(d.base_total_cents) + ") shows a 100% discount, so the total is $0.00. Do they really pay nothing? It may have been a slip when the contact was created."
+      );
+    }
+    function ctAnswerDiscount(free) {
+      if (!ctCurrentClient || !ctDiscount) { return; }
+      var st = document.getElementById("ctDiscountStatus");
+      if (st) { st.textContent = t("Enviando...", "Sending..."); }
+      apiFetch("/api/client-terms/" + encodeURIComponent(ctCurrentClient.id) + "/apply-discount", { method: "POST", body: { free: free } })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.error) { throw new Error(d.error); }
+          ctDiscount = null; loadCtNextQuestion(); loadCtForecast();
+        }).catch(function(e) { if (st) { st.textContent = t("Erro: ", "Error: ") + e.message; } });
+    }
     function ctRedrawPlanCard() {
       var p = ctPlanCard, textEl = document.getElementById("ctHistoryText");
       if (!p || !textEl) { return; }
@@ -10543,7 +10583,7 @@ names,
       var statusEl = document.getElementById("ctHistoryStatus");
       if (statusEl) { statusEl.textContent = ""; }
     }
-    document.addEventListener("apex:langchange", function () { if (ctPlanCard) { ctRedrawPlanCard(); } if (ctHistoryCard) { ctRedrawHistoryCard(); } if (ctIntake) { ctRedrawIntake(); } });
+    document.addEventListener("apex:langchange", function () { if (ctDiscount) { ctRedrawDiscount(); } if (ctPlanCard) { ctRedrawPlanCard(); } if (ctHistoryCard) { ctRedrawHistoryCard(); } if (ctIntake) { ctRedrawIntake(); } });
 
     // Plain-language read-back of several fields at once.
     function ctExtrasText(values) {

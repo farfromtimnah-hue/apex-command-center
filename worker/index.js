@@ -58507,13 +58507,13 @@ function clientTermsPlanAdjust(derived, progress) {
     var unitMap = { day: "daily", days: "daily", week: "weekly", weeks: "weekly", month: "monthly", months: "monthly", year: "yearly", years: "yearly" };
     var freq = unitMap[String(progress.recurrence_unit || "").toLowerCase()] || null;
     derived.plan = {
-        total_cents: progress.total_cents, paid_cents: progress.paid_cents,
+        total_cents: progress.total_cents, paid_cents: progress.paid_by_invoice_cents,
         installment_count: progress.installment_count || null,
         installment_amount_cents: progress.installment_amount_cents || null,
         installments_left: progress.installments_left, unit: freq
     };
-    if (progress.paid_cents >= progress.total_cents) {
-        derived.paid_in_full = { total_cents: progress.total_cents, paid_cents: progress.paid_cents, payment_count: derived.payment_count || progress.paid_invoice_count || 0 };
+    if (progress.paid_by_invoice_cents >= progress.total_cents) {
+        derived.paid_in_full = { total_cents: progress.total_cents, paid_cents: progress.paid_by_invoice_cents, payment_count: derived.payment_count || progress.paid_invoice_count || 0 };
         derived.amount = { amount_cents: progress.total_cents, basis: "package_total", payment_count: derived.payment_count || 0 };
         derived.frequency = { frequency: "one_time", basis: "paid_in_full" };
         delete derived.next_expected_date;
@@ -58565,16 +58565,16 @@ async function clientTermsContractEndSuggestion(env, client, answers) {
 
     // Paid in full: the contract is over whatever the payment rhythm was.
     var pr0 = (await clientTermsContractProgressRows(env, client.id))[0];
-    if (pr0 && !pr0.total_missing && !pr0.custom_pricing && pr0.total_cents > 0 && pr0.paid_cents >= pr0.total_cents) {
+    if (pr0 && !pr0.total_missing && !pr0.custom_pricing && pr0.total_cents > 0 && pr0.paid_by_invoice_cents >= pr0.total_cents) {
         var dd0 = await deriveTermsFromHistory(env, client.id);
-        return { basis: "payments", paid_in_full: true, last_paid_date: dd0.last_paid_date || null, total_cents: pr0.total_cents, paid_cents: pr0.paid_cents, payment_count: dd0.payment_count || pr0.paid_invoice_count || 0 };
+        return { basis: "payments", paid_in_full: true, last_paid_date: dd0.last_paid_date || null, total_cents: pr0.total_cents, paid_cents: pr0.paid_by_invoice_cents, payment_count: dd0.payment_count || pr0.paid_invoice_count || 0 };
     }
     if (monthly && freq === "monthly") {
         var progressRows = await clientTermsContractProgressRows(env, client.id);
         var progress = progressRows[0];
         if (progress && !progress.total_missing && !progress.custom_pricing) {
             var totalCents = progress.total_cents;
-            var paidCents = progress.paid_cents;
+            var paidCents = progress.paid_by_invoice_cents;
             var derivedForEnd = await deriveTermsFromHistory(env, client.id);
             var paymentCount = derivedForEnd.payment_count || 0;
             if (paymentCount > 0) {
@@ -58636,7 +58636,7 @@ function clientTermsStripUnconfirmedHistory(answers, confirmedBy) {
 // paid. null when any of it is missing: the caller then uses the one box.
 function clientTermsPlanSummary(derived, progress) {
     if (!progress || progress.total_missing || progress.custom_pricing || !(progress.total_cents > 0)) { return null; }
-    var remaining = progress.total_cents - progress.paid_cents;
+    var remaining = progress.total_cents - progress.paid_by_invoice_cents;
     if (remaining <= 0) { return null; }
     var amount = derived.amount && !derived.amount.varies ? derived.amount.amount_cents : null;
     var freq = derived.frequency ? derived.frequency.frequency : null;
@@ -58652,7 +58652,7 @@ function clientTermsPlanSummary(derived, progress) {
         : new Date(Date.parse(last + "T00:00:00Z") + left * 7 * 86400000).toISOString().slice(0, 10);
     return {
         amount_cents: amount, frequency: freq, remaining_cents: remaining, installments_left: left,
-        end_date: endDate, total_cents: progress.total_cents, paid_cents: progress.paid_cents, last_paid_date: last
+        end_date: endDate, total_cents: progress.total_cents, paid_cents: progress.paid_by_invoice_cents, last_paid_date: last
     };
 }
 

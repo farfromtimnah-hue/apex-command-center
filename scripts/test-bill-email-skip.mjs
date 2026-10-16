@@ -1,0 +1,15 @@
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+let bad = 0;
+const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) { bad++; } };
+const src = readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
+const i = src.indexOf("function billEmailIsRemitlyOrNamify(");
+const ctx = vm.createContext({});
+vm.runInContext(src.slice(i, src.indexOf("\n}\n", i) + 3), ctx);
+const f = ctx.billEmailIsRemitlyOrNamify;
+ok(f("Fwd: Your transfer to Brazil was sent", "From: Remitly <noreply@remitly.com> You sent $156.14"), "a forwarded Remitly receipt is skipped");
+ok(f("Fwd: Reset your password", "get.online account reset link"), "a Namify/get.online email is skipped");
+ok(f("Fwd: Seu pagamento", "Namify Domain Registration"), "Namify in the body is skipped");
+ok(!f("Fwd: Pasco County Water bill", "Amount due $64.20, due 10/28"), "a water bill is NOT skipped");
+ok(!f("Fwd: Waste Connections invoice", "Amount due $41.00"), "a waste bill is NOT skipped");
+console.log(bad ? bad + " FAILED" : "ALL PASSED"); process.exit(bad ? 1 : 0);

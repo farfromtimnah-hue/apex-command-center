@@ -39353,6 +39353,14 @@ function billEmailStripHtml(html) {
 // Gmail's own confirmation mail, once per forwarding address turned on --
 // recognized by subject so it never reaches Claude and never counts as
 // unmatched/rejected noise.
+// Remitly receipts and Namify (registrar) emails are forwarded from Alice's Gmail
+// on purpose, to be read as payment evidence and registrar replies, not as bills.
+// Skip them before spending a Claude call or pinging the developer for review.
+function billEmailIsRemitlyOrNamify(subject, plainText) {
+    var hay = String(subject || "") + " " + String(plainText || "").slice(0, 3000);
+    return /\bremitly\b|\bnamify\b|get\.online/i.test(hay);
+}
+
 function billEmailIsGmailForwardConfirmation(subject) {
     return /confirma[cç][aã]o de encaminhamento|forwarding confirmation/i.test(String(subject || ""));
 }
@@ -39773,6 +39781,11 @@ async function pollForwardedBillEmailOne(env, accountId, accessToken, msg, activ
         var contentData = await contentRes.json();
         var rawContent = (contentData.data && contentData.data.content) || "";
         var plainText = billEmailStripHtml(rawContent).slice(0, 12000);
+
+        if (billEmailIsRemitlyOrNamify(subject, plainText)) {
+            await logStatus("ignored", null, "Remitly or Namify email, not a bill");
+            return;
+        }
 
         var pdfBase64 = null;
         if (!plainText) {
@@ -51467,6 +51480,8 @@ async function handleFetch(request, env, ctx) {
         if (ctAnswer && method === "POST") { return handlePostClientTermsAnswer(ctAnswer[1], request, env); }
         var ctApply = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply$/);
         if (ctApply && method === "POST") { return handlePostClientTermsApply(ctApply[1], request, env); }
+        var ctApplyHistory = path.match(/^\/api\/client-terms\/([A-Za-z0-9_-]+)\/apply-history$/);
+        if (ctApplyHistory && method === "POST") { return handlePostClientTermsApplyHistory(ctApplyHistory[1], request, env); }
         if (path === "/api/support/message" && method === "POST") { return handlePostSupportMessage(request, env); }
         if (path === "/api/support/tickets" && method === "GET") { return handleGetSupportTickets(request, env); }
         if (path === "/api/support/tickets/open-count" && method === "GET") { return handleGetSupportOpenCount(request, env); }
@@ -58132,6 +58147,7 @@ var CLIENT_TERMS_BASE_QUESTIONS = [
     { key: "start_and_first_invoice", text_pt: "Qual a data de início e a data da primeira fatura?", text_en: "What is the start date and the date of the first invoice?" },
     { key: "due_day", text_pt: "Qual o dia de vencimento de cada fatura? (por exemplo, o dia 1 do mês)", text_en: "What is the due day of each invoice? (for example the 1st of the month)" },
     { key: "contract_end", text_pt: "Qual a data de término do contrato, ou é sem data definida? E ele renova automaticamente?", text_en: "What is the contract end date, or is it open-ended? And does it renew automatically?" },
+    { key: "balloon_payment", text_pt: "Ainda vem algum pagamento balão, ou um pagamento final de valor diferente? Qual o valor e a data? Se não, diga que não há.", text_en: "Is a balloon payment, or a final payment of a different amount, still coming? How much and on what date? If not, say none." },
     { key: "payment_method", text_pt: "Como o cliente paga? (Zelle, cheque, ACH, cartão, dinheiro, outro)", text_en: "How does the client pay? (Zelle, check, ACH, card, cash, other)" },
     { key: "price_change", text_pt: "Há alguma mudança de preço chegando? Se sim, qual a data e o novo valor. Se não, diga que não há.", text_en: "Is there a price change coming? If so, the date and the new amount. If not, say none." },
     { key: "setup_fee", text_pt: "Há alguma taxa de instalação ou taxa única ainda devida, e qual o valor? Se não, diga que não há.", text_en: "Is there a setup or one-time fee still owed, and its amount? If not, say none." },
@@ -58162,6 +58178,7 @@ var CLIENT_TERMS_SCHEMAS = {
     start_and_first_invoice: { allowedKeys: ["start_date", "first_invoice_date", "unclear"] },
     due_day: { allowedKeys: ["due_day", "unclear"] },
     contract_end: { allowedKeys: ["open_ended", "end_date", "auto_renews", "unclear"] },
+    balloon_payment: { allowedKeys: ["has_balloon", "balloon_cents", "balloon_date", "unclear"] },
     payment_method: { allowedKeys: ["method", "unclear"] },
     price_change: { allowedKeys: ["has_change", "change_date", "new_amount_cents", "unclear"] },
     setup_fee: { allowedKeys: ["has_fee", "fee_cents", "unclear"] },
@@ -58208,6 +58225,15 @@ function clientTermsValidateReply(key, parsed) {
         if (typeof parsed.open_ended !== "boolean" || typeof parsed.auto_renews !== "boolean") { return { ok: false }; }
         if (!parsed.open_ended && (typeof parsed.end_date !== "string" || !dateRe.test(parsed.end_date))) { return { ok: false }; }
         return { ok: true, value: { open_ended: parsed.open_ended, end_date: parsed.open_ended ? null : parsed.end_date, auto_renews: parsed.auto_renews } };
+    }
+    if (key === "balloon_payment") {
+        if (typeof parsed.has_balloon !== "boolean") { return { ok: false }; }
+        if (parsed.has_balloon) {
+            if (typeof parsed.balloon_cents !== "number" || parsed.balloon_cents <= 0) { return { ok: false }; }
+            if (typeof parsed.balloon_date !== "string" || !dateRe.test(parsed.balloon_date)) { return { ok: false }; }
+            return { ok: true, value: { has_balloon: true, balloon_cents: Math.round(parsed.balloon_cents), balloon_date: parsed.balloon_date } };
+        }
+        return { ok: true, value: { has_balloon: false } };
     }
     if (key === "payment_method") {
         var validMethod = ["zelle", "check", "ach", "card", "cash", "other"];
@@ -58315,31 +58341,143 @@ async function clientTermsAuth(request, env) {
     return { user: user };
 }
 
-// What the payment history already says about this client, so the question box
-// never asks what Apex can see. Pure: rows are { date: "YYYY-MM-DD", amount_cents }
-// for matched, not-undone payments. Needs 3 or more payments. Monthly when every
-// gap between consecutive payment dates is 25 to 36 days; the amount is known
-// only when every payment is the same figure.
-function clientTermsFromHistory(rows) {
+// What the payment history (and invoices) already say about this client, so
+// the confirmation card never asks what Apex can see. Pure function, called
+// with the rows deriveTermsFromHistory already read:
+//   payments: [{ date: "YYYY-MM-DD", amount_cents }] for matched, not-undone
+//             payments, any order.
+//   invoices: [{ issued_at, due_at, total_cents, status }] for the client's
+//             own non-void, non-voided_mistake invoices, any order.
+// Returns {} fields only where the data actually supports them -- see the
+// per-field rules inline. Nothing here guesses.
+function clientTermsDeriveFromHistory(payments, invoices) {
     var out = {};
-    var list = (rows || []).filter(function(r) { return r && /^\d{4}-\d{2}-\d{2}/.test(String(r.date || "")) && r.amount_cents > 0; });
-    list.sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); });
-    if (list.length < 3) { return out; }
-    var same = list.every(function(r) { return r.amount_cents === list[0].amount_cents; });
-    if (same) { out.amount = { amount_cents: list[0].amount_cents }; }
-    var monthly = true;
-    for (var i = 1; i < list.length; i++) {
-        var days = (Date.parse(String(list[i].date).slice(0, 10) + "T00:00:00Z") - Date.parse(String(list[i - 1].date).slice(0, 10) + "T00:00:00Z")) / 86400000;
-        if (!(days >= 25 && days <= 36)) { monthly = false; break; }
+    var pays = (payments || []).filter(function(r) { return r && /^\d{4}-\d{2}-\d{2}/.test(String(r.date || "")) && r.amount_cents > 0; });
+    pays.sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); });
+    var invs = (invoices || []).filter(function(r) { return r && r.status !== "void" && r.status !== "voided_mistake"; });
+
+    out.payment_count = pays.length;
+    out.payment_dates = pays.map(function(r) { return r.date; });
+    if (pays.length) { out.last_paid_date = pays[pays.length - 1].date; }
+
+    // amount: same figure across at least 2 matched payments; otherwise
+    // "varies" with the most recent amount and the range; otherwise, with
+    // fewer than 2 payments, a single non-void invoice's total (not yet paid
+    // twice) is the only other source allowed.
+    if (pays.length >= 2) {
+        var same = pays.every(function(r) { return r.amount_cents === pays[0].amount_cents; });
+        if (same) {
+            out.amount = { amount_cents: pays[0].amount_cents, basis: "payments", payment_count: pays.length };
+        } else {
+            var amounts = pays.map(function(r) { return r.amount_cents; });
+            out.amount = {
+                varies: true, basis: "payments", payment_count: pays.length,
+                most_recent_cents: pays[pays.length - 1].amount_cents,
+                min_cents: Math.min.apply(null, amounts), max_cents: Math.max.apply(null, amounts)
+            };
+        }
+    } else if (pays.length < 2 && invs.length === 1 && invs[0].total_cents > 0) {
+        out.amount = { amount_cents: invs[0].total_cents, basis: "invoice_unpaid_twice", payment_count: pays.length };
     }
-    if (monthly) { out.frequency = { frequency: "monthly" }; }
+
+    // frequency: median gap in days between consecutive matched payment
+    // dates. Needs at least 2 payments; anything outside the named bands
+    // returns nothing rather than a guessed label.
+    if (pays.length >= 2) {
+        var gaps = [];
+        for (var i = 1; i < pays.length; i++) {
+            gaps.push((Date.parse(pays[i].date + "T00:00:00Z") - Date.parse(pays[i - 1].date + "T00:00:00Z")) / 86400000);
+        }
+        gaps.sort(function(a, b) { return a - b; });
+        var mid = Math.floor(gaps.length / 2);
+        var medianGap = gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
+        var freq = null;
+        if (medianGap >= 5 && medianGap <= 9) { freq = "weekly"; }
+        else if (medianGap >= 12 && medianGap <= 16) { freq = "biweekly"; }
+        else if (medianGap >= 26 && medianGap <= 35) { freq = "monthly"; }
+        else if (medianGap >= 80 && medianGap <= 100) { freq = "quarterly"; }
+        if (freq) { out.frequency = { frequency: freq, payment_count: pays.length }; }
+    }
+
+    // next expected date: last paid plus the derived frequency, info only.
+    if (out.frequency && out.last_paid_date) {
+        var addDays = { weekly: 7, biweekly: 14, monthly: 30, quarterly: 91 }[out.frequency.frequency];
+        if (addDays) {
+            out.next_expected_date = new Date(Date.parse(out.last_paid_date + "T00:00:00Z") + addDays * 86400000).toISOString().slice(0, 10);
+        }
+    }
+
+    // first invoice date: earliest non-void invoice issue date.
+    var issueDates = invs.map(function(r) { return r.issued_at; }).filter(function(d) { return d && /^\d{4}-\d{2}-\d{2}/.test(String(d)); }).sort();
+    if (issueDates.length) { out.first_invoice_date = issueDates[0].slice(0, 10); }
+
+    // due day suggestion: most common day-of-month across the client's own
+    // invoice due dates; if there are none, the most common day-of-month of
+    // the payment dates, marked as possibly shifted.
+    function mostCommonDay(dates) {
+        var counts = {};
+        dates.forEach(function(d) {
+            var day = parseInt(String(d).slice(8, 10), 10);
+            if (day >= 1 && day <= 31) { counts[day] = (counts[day] || 0) + 1; }
+        });
+        var best = null, bestN = 0;
+        Object.keys(counts).forEach(function(k) { if (counts[k] > bestN) { bestN = counts[k]; best = parseInt(k, 10); } });
+        return best;
+    }
+    var dueDates = invs.map(function(r) { return r.due_at; }).filter(function(d) { return d && /^\d{4}-\d{2}-\d{2}/.test(String(d)); });
+    if (dueDates.length) {
+        out.due_day_suggestion = { due_day: mostCommonDay(dueDates), basis: "invoice_due_dates" };
+    } else if (pays.length) {
+        out.due_day_suggestion = { due_day: mostCommonDay(out.payment_dates), basis: "payment_dates" };
+    }
+
+    // outlier payments: any past matched payment at least 50% larger than
+    // the median payment amount.
+    if (pays.length >= 2) {
+        var amts = pays.map(function(r) { return r.amount_cents; }).slice().sort(function(a, b) { return a - b; });
+        var amid = Math.floor(amts.length / 2);
+        var medianAmt = amts.length % 2 ? amts[amid] : (amts[amid - 1] + amts[amid]) / 2;
+        var outliers = pays.filter(function(r) { return medianAmt > 0 && r.amount_cents >= medianAmt * 1.5; })
+            .map(function(r) { return { date: r.date, amount_cents: r.amount_cents }; });
+        if (outliers.length) { out.outlier_payments = outliers; }
+    }
+
     return out;
 }
 
+// Reads payments and invoices for one client and derives what history
+// already proves. See clientTermsDeriveFromHistory for the field rules.
+async function deriveTermsFromHistory(env, clientId) {
+    var payments = (await env.DB.prepare(
+        "SELECT t.date AS date, p.amount_cents AS amount_cents FROM invoice_payments p " +
+        "JOIN invoices i ON i.id = p.invoice_id JOIN transactions t ON t.id = p.transaction_id " +
+        "WHERE i.client_id = ? AND p.undone_at IS NULL ORDER BY t.date ASC"
+    ).bind(clientId).all()).results || [];
+    var invoices = (await env.DB.prepare(
+        "SELECT issued_at, due_at, amount_cents AS total_cents, status FROM invoices WHERE client_id = ?"
+    ).bind(clientId).all()).results || [];
+    return clientTermsDeriveFromHistory(payments, invoices);
+}
+
+// The three fields the history confirmation card can save by itself:
+// amount, frequency, due_day. Anything saved with confirmed_by "payment
+// history" (the old silent-save behavior) is treated as NOT yet confirmed --
+// stripped back out of answers so the card (or the typed question) asks for
+// it again, exactly once, the next time this client is loaded.
+var CLIENT_TERMS_CARD_KEYS = ["amount", "frequency", "due_day"];
+
+function clientTermsStripUnconfirmedHistory(answers, confirmedBy) {
+    if (confirmedBy !== "payment history") { return answers; }
+    var cleaned = Object.assign({}, answers);
+    CLIENT_TERMS_CARD_KEYS.forEach(function(k) { delete cleaned[k]; });
+    return cleaned;
+}
+
 // GET /api/client-terms/next -- the next client with open questions (oldest
-// created first among eligible clients), the next unanswered question for
-// that client, and a "1 de N" counter within that client's own question
-// list. Returns { client: null } when every eligible client is done.
+// created first among eligible clients), either a history confirmation card
+// (when derived data covers something still unanswered) or the next
+// unanswered typed question, and a "1 de N" counter within that client's own
+// question list. Returns { client: null } when every eligible client is done.
 async function handleGetClientTermsNext(request, env) {
     try {
         var a = await clientTermsAuth(request, env);
@@ -58355,28 +58493,10 @@ async function handleGetClientTermsNext(request, env) {
         if (!clients.length) { return jsonOk({ client: null }); }
 
         var client = clients[0];
-        var existing = await env.DB.prepare("SELECT answers_json FROM client_terms WHERE client_id = ?").bind(client.id).first();
-        var answers = existing ? JSON.parse(existing.answers_json || "{}") : {};
+        var existing = await env.DB.prepare("SELECT answers_json, confirmed_by FROM client_terms WHERE client_id = ?").bind(client.id).first();
+        var answers = existing ? clientTermsStripUnconfirmedHistory(JSON.parse(existing.answers_json || "{}"), existing.confirmed_by) : {};
         var questions = clientTermsQuestionsFor(client);
-        // Answer from the payment history whatever it already proves, then skip
-        // those questions. Never overwrites an answer she gave or skipped.
-        var seen = (await env.DB.prepare(
-            "SELECT t.date AS date, p.amount_cents AS amount_cents FROM invoice_payments p " +
-            "JOIN invoices i ON i.id = p.invoice_id JOIN transactions t ON t.id = p.transaction_id " +
-            "WHERE i.client_id = ? AND p.undone_at IS NULL ORDER BY t.date ASC"
-        ).bind(client.id).all()).results || [];
-        var fromHistory = clientTermsFromHistory(seen);
-        var learned = false;
-        Object.keys(fromHistory).forEach(function(k) {
-            if (!(k in answers) && questions.some(function(q) { return q.key === k; })) { answers[k] = fromHistory[k]; learned = true; }
-        });
-        if (learned) {
-            var learnedAt = new Date().toISOString().replace("T", " ").slice(0, 19);
-            await env.DB.prepare(
-                "INSERT INTO client_terms (client_id, answers_json, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
-                "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, updated_at = ?"
-            ).bind(client.id, JSON.stringify(answers), "payment history", learnedAt, learnedAt, JSON.stringify(answers), learnedAt).run();
-        }
+
         var nextQ = null, position = 0;
         for (var i = 0; i < questions.length; i++) {
             if (!(questions[i].key in answers)) { nextQ = questions[i]; position = i + 1; break; }
@@ -58390,9 +58510,54 @@ async function handleGetClientTermsNext(request, env) {
             ).bind(client.id, nowIso, nowIso).run();
             return handleGetClientTermsNext(request, env);
         }
+
+        // Before amount / frequency / due_day, offer the history card instead
+        // of the typed question, when any of those three is still unanswered
+        // AND derived data covers at least one of them.
+        var cardFields = ["amount", "frequency", "due_day"];
+        if (cardFields.indexOf(nextQ.key) !== -1) {
+            var derived = await deriveTermsFromHistory(env, client.id);
+            var stillOpen = cardFields.filter(function(k) { return !(k in answers); });
+            var hasAnyCoverage = stillOpen.some(function(k) { return k === "due_day" ? !!derived.due_day_suggestion : (k in derived); });
+            if (hasAnyCoverage) {
+                var fallbackQuestions = questions.filter(function(q) { return stillOpen.indexOf(q.key) !== -1; })
+                    .map(function(q) { return { key: q.key, text_pt: q.text_pt, text_en: q.text_en }; });
+                return jsonOk({
+                    client: { id: client.id, name: client.name, status: client.status },
+                    history_card: {
+                        amount: (!("amount" in answers) && derived.amount) ? derived.amount : null,
+                        amount_already_saved: ("amount" in answers && !answers.amount.skipped) ? answers.amount : null,
+                        frequency: (!("frequency" in answers) && derived.frequency) ? derived.frequency : null,
+                        frequency_already_saved: ("frequency" in answers && !answers.frequency.skipped) ? answers.frequency : null,
+                        due_day_needed: !("due_day" in answers),
+                        due_day_suggestion: derived.due_day_suggestion || null,
+                        first_invoice_date: derived.first_invoice_date || null,
+                        last_paid_date: derived.last_paid_date || null,
+                        payment_count: derived.payment_count || 0,
+                        payment_dates: derived.payment_dates || [],
+                        next_expected_date: derived.next_expected_date || null,
+                        outlier_payments: derived.outlier_payments || [],
+                        fields_to_save: stillOpen,
+                        fallback_questions: fallbackQuestions
+                    },
+                    position: position, total: questions.length
+                });
+            }
+        }
+
+        // "Not enough payment history yet" banner: only on the very first
+        // question (amount), and only when the card above had no coverage at
+        // all to offer (fewer than 2 matched payments and no usable invoice).
+        var notEnoughHistory = false;
+        if (nextQ.key === "amount") {
+            var derivedForBanner = (typeof derived !== "undefined") ? derived : await deriveTermsFromHistory(env, client.id);
+            notEnoughHistory = !derivedForBanner.amount && !derivedForBanner.frequency && !derivedForBanner.due_day_suggestion;
+        }
+
         return jsonOk({
             client: { id: client.id, name: client.name, status: client.status },
             question: { key: nextQ.key, text_pt: nextQ.text_pt, text_en: nextQ.text_en },
+            not_enough_history: notEnoughHistory,
             position: position, total: questions.length
         });
     } catch (e) {
@@ -58491,6 +58656,60 @@ async function handlePostClientTermsApply(clientId, request, env) {
     }
 }
 
+// POST /api/client-terms/:clientId/apply-history
+// { fields_to_save: [...], due_day } -- the history confirmation card's
+// "Yes, that's right" button. Re-derives from history itself (never trusts
+// the client's copy of amount/frequency), saves only the fields that were
+// still open, with confirmed_by "Alice" (or developer) like any other
+// confirmed answer -- this is a click, not a silent save. due_day is
+// required whenever it is among fields_to_save, exactly as shown or edited.
+async function handlePostClientTermsApplyHistory(clientId, request, env) {
+    try {
+        var a = await clientTermsAuth(request, env);
+        if (a.err) { return a.err; }
+        var body = await request.json().catch(function() { return {}; });
+        var fieldsToSave = Array.isArray(body.fields_to_save) ? body.fields_to_save : [];
+        fieldsToSave = fieldsToSave.filter(function(k) { return CLIENT_TERMS_CARD_KEYS.indexOf(k) !== -1; });
+        if (!fieldsToSave.length) { return jsonErr("Nothing to save", 400); }
+
+        var client = await env.DB.prepare("SELECT id, status FROM clients WHERE id = ? AND COALESCE(archived,0) = 0 AND status IN ('active','paused')").bind(clientId).first();
+        if (!client) { return jsonErr("Client not found or not eligible", 404); }
+
+        var row = await env.DB.prepare("SELECT answers_json, confirmed_by FROM client_terms WHERE client_id = ?").bind(clientId).first();
+        var answers = row ? clientTermsStripUnconfirmedHistory(JSON.parse(row.answers_json || "{}"), row.confirmed_by) : {};
+
+        var derived = await deriveTermsFromHistory(env, clientId);
+
+        if (fieldsToSave.indexOf("amount") !== -1) {
+            if (!("amount" in answers) && derived.amount) { answers.amount = derived.amount; }
+            else { return jsonErr("Amount is not derivable from history", 400); }
+        }
+        if (fieldsToSave.indexOf("frequency") !== -1) {
+            if (!("frequency" in answers) && derived.frequency) { answers.frequency = derived.frequency; }
+            else { return jsonErr("Frequency is not derivable from history", 400); }
+        }
+        if (fieldsToSave.indexOf("due_day") !== -1) {
+            var day = parseInt(body.due_day, 10);
+            if (!day || day < 1 || day > 31) { return jsonErr2("Preencha o dia de vencimento.", "Fill in the due day.", 400); }
+            answers.due_day = { due_day: day, basis: (derived.due_day_suggestion && derived.due_day_suggestion.due_day === day) ? derived.due_day_suggestion.basis : "entered_on_card" };
+        }
+
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        var confirmedBy = actorName(a.user) + " (payment history, confirmed)";
+        await env.DB.prepare(
+            "INSERT INTO client_terms (client_id, answers_json, confirmed_by, confirmed_at, updated_at) VALUES (?, ?, ?, ?, ?) " +
+            "ON CONFLICT(client_id) DO UPDATE SET answers_json = ?, confirmed_by = ?, confirmed_at = ?, updated_at = ?"
+        ).bind(
+            clientId, JSON.stringify(answers), confirmedBy, nowIso, nowIso,
+            JSON.stringify(answers), confirmedBy, nowIso, nowIso
+        ).run();
+
+        return jsonOk({ ok: true });
+    } catch (e) {
+        return jsonErr("Error applying client terms history: " + e.message, 500);
+    }
+}
+
 // Converts a monthly-equivalent amount from the stored frequency, for the
 // forecast's "expected monthly income" line. one_time contributes 0 to the
 // monthly figure (it is not recurring) but counts once in the total.
@@ -58522,6 +58741,7 @@ async function handleGetClientTermsForecast(request, env) {
         var today = gmEasternToday();
         var lines = [];
         var monthlyTotalCents = 0;
+        var oneTimeByMonth = [];
 
         rows.forEach(function(row) {
             var answers = JSON.parse(row.answers_json || "{}");
@@ -58554,9 +58774,20 @@ async function handleGetClientTermsForecast(request, env) {
                 amount_cents: amount.amount_cents, frequency: freq.frequency, monthly_cents: monthlyCents,
                 contract_end: (contractEnd && !contractEnd.skipped) ? contractEnd.end_date : null
             });
+
+            // One-time amounts (setup fee, balloon payment) count once, in
+            // the month of their own date -- never folded into monthly_cents.
+            var fee = answers.setup_fee;
+            if (fee && !fee.skipped && fee.has_fee && fee.fee_cents > 0) {
+                oneTimeByMonth.push({ client_id: row.client_id, client_name: row.name, kind: "setup_fee", amount_cents: fee.fee_cents, month: null });
+            }
+            var balloon = answers.balloon_payment;
+            if (balloon && !balloon.skipped && balloon.has_balloon && balloon.balloon_cents > 0 && balloon.balloon_date) {
+                oneTimeByMonth.push({ client_id: row.client_id, client_name: row.name, kind: "balloon_payment", amount_cents: balloon.balloon_cents, month: balloon.balloon_date.slice(0, 7) });
+            }
         });
 
-        return jsonOk({ monthly_total_cents: monthlyTotalCents, clients: lines });
+        return jsonOk({ monthly_total_cents: monthlyTotalCents, clients: lines, one_time: oneTimeByMonth });
     } catch (e) {
         return jsonErr("Error building client terms forecast: " + e.message, 500);
     }

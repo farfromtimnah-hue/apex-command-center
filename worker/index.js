@@ -45306,7 +45306,7 @@ async function handlePostFinanceNewMatchUndo(request, env) {
         if (!body.payment_id) { return jsonErr("payment_id required", 400); }
 
         var pay = await env.DB.prepare(
-            "SELECT id, invoice_id, matched_at, undone_at FROM invoice_payments WHERE id = ?"
+            "SELECT id, invoice_id, matched_at, undone_at, method, transaction_id FROM invoice_payments WHERE id = ?"
         ).bind(body.payment_id).first();
         if (!pay) { return jsonErr("Payment not found", 404); }
         if (pay.undone_at) { return jsonErr("Already undone", 400); }
@@ -45319,6 +45319,15 @@ async function handlePostFinanceNewMatchUndo(request, env) {
         await env.DB.prepare(
             "UPDATE invoice_payments SET undone_at = datetime('now'), undone_by = ? WHERE id = ?"
         ).bind(actorName(user), body.payment_id).run();
+
+        // A cash payment posted its own transactions row (record-payment,
+        // 2026-10-16): void it too, same as any other reversal -- never
+        // deleted, so the cash row's own audit trail survives.
+        if (pay.method === "cash" && pay.transaction_id) {
+            await env.DB.prepare(
+                "UPDATE transactions SET voided_at = datetime('now'), voided_reason = 'payment_undone' WHERE id = ? AND voided_at IS NULL"
+            ).bind(pay.transaction_id).run();
+        }
 
         // Back to open unless the REMAINING live payments still cover it.
         //
@@ -49474,8 +49483,8 @@ function docPdfAfterFinal(request, env, kind, token) {
 // real page with the real token. The random tail keeps each link unguessable.
 // Any failure falls back to the long token link, so sending never breaks.
 var DOC_LINK_ORIGIN = "https://doc.resonateai.online";
-var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html", booking: "book.html", "booking-site": "book.html", club: "club.html" };
-var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document", club: "Apex Club" };
+var DOC_LINK_PAGES = { estimate: "estimate-view", invoice: "invoice-view", receipt: "receipt-view", contract: "contract-view", "change-order": "change-order-view", ack: "ack-view", "apex-contract": "apex-contract", "apex-invoice": "apex-invoice-view.html", "apex-receipt": "apex-receipt-view.html", booking: "book.html", "booking-site": "book.html", club: "club.html" };
+var DOC_LINK_LABELS = { estimate: "Estimate", invoice: "Invoice", receipt: "Receipt", contract: "Contract", "change-order": "Change order", ack: "Document", "apex-receipt": "Receipt", club: "Apex Club" };
 
 // Where a link forwards to. A business's general booking link carries its
 // public slug as ?b=; every other kind carries its token as ?t=.
@@ -49902,7 +49911,7 @@ async function docLinkReturnAddress(env, request, kind, token) {
 //   X-Robots-Tag: noindex, nofollow     on everything under those prefixes
 //   Cache-Control: private, no-store    on every answer that is not an image
 // Images (signatures, photos) keep whatever caching their handler chose.
-var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|apex-invoice-link|pdf|booking)|club\/(pay|register|flyer|calendar-click))\//;
+var PUBLIC_DOC_PATH_RE = /^\/api\/(public\/(estimates|invoices|receipts|contracts|apex-contracts|change-orders|acks|apex-invoices|apex-invoice-link|apex-receipts|pdf|booking)|club\/(pay|register|flyer|calendar-click))\//;
 function publicDocHeaders(response, request) {
     try {
         if (!PUBLIC_DOC_PATH_RE.test(new URL(request.url).pathname)) { return response; }
@@ -50141,6 +50150,18 @@ async function handleFetch(request, env, ctx) {
         var pubApxInvPdf = path.match(/^\/api\/public\/pdf\/apex-invoice\/([a-f0-9]{48})$/);
         if (pubApxInvPdf && method === "GET") { return handleGetPublicApexInvoicePdf(pubApxInvPdf[1], request, env); }
         if (path.indexOf("/api/public/apex-invoices/") === 0 || path.indexOf("/api/public/pdf/apex-invoice/") === 0) {
+            return apxInvNoIndex(jsonErr("Not found", 404));
+        }
+
+        // PUBLIC: the receipt for a payment on one of Apex's OWN invoices
+        // (cash first, but any recorded method). Same token credential, same
+        // no-index/no-store treatment, same closed-prefix 404 as the sibling
+        // apex-invoices block just above.
+        var pubApxRct = path.match(/^\/api\/public\/apex-receipts\/([a-f0-9]{48})$/);
+        if (pubApxRct && method === "GET") { return handleGetPublicApexReceipt(pubApxRct[1], request, env); }
+        var pubApxRctPdf = path.match(/^\/api\/public\/pdf\/apex-receipt\/([a-f0-9]{48})$/);
+        if (pubApxRctPdf && method === "GET") { return handleGetPublicApexReceiptPdf(pubApxRctPdf[1], request, env); }
+        if (path.indexOf("/api/public/apex-receipts/") === 0 || path.indexOf("/api/public/pdf/apex-receipt/") === 0) {
             return apxInvNoIndex(jsonErr("Not found", 404));
         }
 
@@ -51556,6 +51577,22 @@ async function handleFetch(request, env, ctx) {
         }
         if (path === "/api/finance-new/due-date-changes" && method === "GET") {
             return handleGetFinanceNewDueDateChanges(request, env);
+        }
+
+        // Apex invoice receipts: record a payment with a method, issue the
+        // receipt in the same step, list what's on an invoice, and get a
+        // sendable link for one already issued.
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "record-payment" && !segs[5] && method === "POST") {
+            return handlePostApexInvoiceRecordPayment(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "payments" && !segs[5] && method === "GET") {
+            return handleGetApexInvoicePayments(segs[3], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "payments" && segs[5] && segs[6] === "receipt-link" && !segs[7] && method === "POST") {
+            return handlePostApexInvoicePaymentReceiptLink(segs[3], segs[5], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "finance-new" && segs[2] === "invoices" && segs[3] && segs[4] === "payments" && segs[5] && segs[6] === "issue-receipt" && !segs[7] && method === "POST") {
+            return handlePostApexInvoicePaymentIssueReceipt(segs[3], segs[5], request, env);
         }
 
         if (path === "/api/google-drive/oauth/start" && method === "GET") {
@@ -55501,6 +55538,417 @@ async function handlePostApexInvoiceClientLink(invoiceId, request, env) {
         });
     } catch (e) {
         return jsonErr("Error creating the client link: " + e.message, 500);
+    }
+}
+
+// ===========================================================================
+// APEX INVOICE RECEIPTS (2026-10-16): a payment recorded against one of
+// Apex's OWN invoices (table `invoices`), with a method, gets a numbered
+// receipt in the same design family as the client-portal one
+// (gm_invoice_payments / receipt-view.html), but branded like
+// apex-invoice-view.html (Apex's own hero, never the client's).
+//
+// Numbers: RCT-NNNNNN (6 digits), global, from apex_receipt_counter -- NOT
+// gmDocAllocateNumber's per-client RCT kind, which is 4 digits and scoped to
+// growth-management clients, a different system entirely.
+//
+// Cash clears the books: a cash payment also posts one real row to
+// `transactions` against the synthetic `apex-cash` account (no Plaid ids),
+// so it counts as income everywhere a bank deposit would. Every other
+// method posts nothing to `transactions` -- that money arrives later as a
+// real bank deposit, and posting it twice would double it.
+// ===========================================================================
+
+var APX_RCT_PAGE = "/apex-receipt-view.html";
+// Same bump discipline as APX_INV_PDF_REV: bump whenever apex-receipt-view.html
+// changes what prints.
+var APX_RCT_PDF_REV = "1";
+var APX_RECEIPT_METHODS = ["cash", "zelle", "check", "money_order", "bank_transfer", "card", "other"];
+
+function apxRctNoIndex(res) {
+    try { res.headers.set("X-Robots-Tag", "noindex, nofollow"); } catch (e) {}
+    return res;
+}
+
+async function apxRctAllocateNumber(env) {
+    for (var attempt = 0; attempt < 8; attempt++) {
+        var row = await env.DB.prepare("SELECT next_number FROM apex_receipt_counter WHERE id = 1").first();
+        if (!row) {
+            await env.DB.prepare("INSERT INTO apex_receipt_counter (id, next_number) VALUES (1, 1) ON CONFLICT (id) DO NOTHING").run();
+            continue;
+        }
+        var n = row.next_number;
+        var upd = await env.DB.prepare(
+            "UPDATE apex_receipt_counter SET next_number = ? WHERE id = 1 AND next_number = ?"
+        ).bind(n + 1, n).run();
+        if (upd.meta && upd.meta.changes === 1) {
+            var s = String(n);
+            while (s.length < 6) { s = "0" + s; }
+            return "RCT-" + s;
+        }
+    }
+    throw new Error("Could not allocate a receipt number");
+}
+
+// The method an OLD payment row (bank match or Stripe) gets when it never
+// went through record-payment and so has no `method` of its own. Derived
+// from the data already on the row, never guessed: a transaction_id means a
+// bank deposit, a Stripe note says which kind of card/ACH it was, and
+// anything else (a plain manual match with a human note, or none) is 'other'.
+function apxRctDerivedMethod(p) {
+    if (p.method) { return p.method; }
+    if (p.transaction_id) { return "bank_transfer"; }
+    var note = String(p.note || "");
+    if (/^Stripe card/.test(note)) { return "card"; }
+    if (/^Stripe ACH/.test(note)) { return "bank_transfer"; }
+    return "other";
+}
+
+// POST /api/finance-new/invoices/:id/record-payment   alice / rafa / developer
+// Body: { amount_cents, method, paid_date, reference?, note? }. Records one
+// payment, issues its receipt in the same step, and closes the invoice when
+// it's covered -- the exact paid rule applyStripeChargesToApexInvoices uses
+// (full, or short by at most min($2, 0.5%)).
+async function handlePostApexInvoiceRecordPayment(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+        var body = await request.json().catch(function() { return {}; });
+        var amountCents = Number(body.amount_cents);
+        if (!amountCents || !isFinite(amountCents) || amountCents <= 0) {
+            return jsonErr("Enter an amount above zero.", 400);
+        }
+        amountCents = Math.round(amountCents);
+        var method = String(body.method || "");
+        if (APX_RECEIPT_METHODS.indexOf(method) === -1) {
+            return jsonErr("Choose a valid payment method.", 400);
+        }
+        var paidDate = String(body.paid_date || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) {
+            return jsonErr("Enter the date received (YYYY-MM-DD).", 400);
+        }
+        var reference = body.reference ? String(body.reference).slice(0, 500) : null;
+        var note = body.note ? String(body.note).slice(0, 2000) : null;
+
+        var inv = await env.DB.prepare(
+            "SELECT i.*, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found.", 404); }
+        if (inv.status !== "sent") {
+            return jsonErr(
+                inv.status === "paid" ? "This invoice is already paid." :
+                inv.status === "draft" ? "A draft invoice cannot take a payment yet." :
+                "A voided invoice cannot take a payment.",
+                400
+            );
+        }
+
+        var money = await apxInvMoney(env, inv);
+        if (amountCents > money.balance_cents) {
+            return jsonErr(
+                "That is more than the remaining balance (" + apxUsd(money.balance_cents) + "). " +
+                "Enter an amount at or below the balance.",
+                400
+            );
+        }
+
+        var paymentId = crypto.randomUUID();
+        var actor = actorName(user) || user.role;
+        var beforeCents = money.balance_cents;
+        var afterCents = Math.max(0, beforeCents - amountCents);
+
+        // The cash transaction is inserted first (if applicable) so its id is
+        // ready to go straight onto the payment row in the single guarded
+        // INSERT below -- never a two-step write a crash could split, and the
+        // invoice_payments row that links them is written in the very same
+        // step, so a cash deposit is never a moment away from being offered
+        // as a match candidate for some OTHER invoice (buildMatchCandidates
+        // only excludes a transaction once invoice_payments links it).
+        //
+        // transfer_status is set to 'rejected' (not the 'none' default) so
+        // detectTransfers can never pair this row as a transfer leg --
+        // 'rejected' is the one status both the pairing pass and the learned
+        // auto-rule promoter permanently skip. merchant_normalized is a fixed,
+        // distinctive string, never the client's name: a real learned payer
+        // alias on that string would let selectKnownPayerMatches auto-apply
+        // this row to a future invoice by mistake. category_id is set up
+        // front so it never shows as an "uncategorized spend" attention item
+        // (it is income, not spend, but the counter has no sign filter).
+        var cashTxnId = null;
+        if (method === "cash") {
+            cashTxnId = crypto.randomUUID();
+            await env.DB.prepare(
+                "INSERT INTO transactions (id, account_id, plaid_transaction_id, pending_plaid_transaction_id, amount_cents, date, posted_date, description, merchant_normalized, category_id, category_source, categorized_at, is_transfer, transfer_status, pending) " +
+                "VALUES (?, 'apex-cash', NULL, NULL, ?, ?, ?, ?, 'APEX CASH PAYMENT', 'cat_receita_clientes', 'manual', datetime('now'), 0, 'rejected', 0)"
+            ).bind(
+                cashTxnId, amountCents, paidDate, paidDate,
+                "Cash payment " + (inv.number || "") + (inv.client_name ? " (" + inv.client_name + ")" : "")
+            ).run();
+        }
+
+        // The guard IS the write: dedupe_key is unique, so a double tap (same
+        // invoice, amount, method, date, within the same minute) inserts
+        // nothing the second time -- INSERT OR IGNORE can never race itself,
+        // unlike a SELECT-then-INSERT check.
+        var dedupeKey = invoiceId + "|" + amountCents + "|" + method + "|" + paidDate + "|" +
+            new Date().toISOString().slice(0, 16);
+        var receiptNumber = await apxRctAllocateNumber(env);
+        var receiptToken = gmEstNewToken();
+
+        var ins = await env.DB.prepare(
+            "INSERT OR IGNORE INTO invoice_payments (id, invoice_id, transaction_id, amount_cents, match_type, note, approved_by, method, paid_date, reference, receipt_number, receipt_token, receipt_issued_at, recorded_by, balance_before_cents, balance_after_cents, dedupe_key) " +
+            "VALUES (?, ?, ?, ?, 'manual_no_txn', ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?)"
+        ).bind(
+            paymentId, invoiceId, cashTxnId, amountCents, note, actor,
+            method, paidDate, reference, receiptNumber, receiptToken, actor,
+            beforeCents, afterCents, dedupeKey
+        ).run();
+
+        if (!ins.meta || !ins.meta.changes) {
+            // Lost the race (or this is a genuine double tap): void the cash
+            // transaction this attempt created, since the winning attempt's
+            // own insert already has its own.
+            if (cashTxnId) { await env.DB.prepare("UPDATE transactions SET voided_at = datetime('now'), voided_reason = 'duplicate_submit' WHERE id = ?").bind(cashTxnId).run(); }
+            var winner = await env.DB.prepare("SELECT id, receipt_number, receipt_token FROM invoice_payments WHERE dedupe_key = ?").bind(dedupeKey).first();
+            var freshInv = await env.DB.prepare("SELECT status FROM invoices WHERE id = ?").bind(invoiceId).first();
+            return jsonOk({
+                payment_id: winner && winner.id,
+                receipt_number: winner && winner.receipt_number,
+                receipt_link: winner && winner.receipt_token ? (DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + winner.receipt_token) : null,
+                invoice_status: freshInv && freshInv.status
+            });
+        }
+
+        var invoiceStatus = inv.status;
+        if (afterCents <= 0 || (money.paid_cents + amountCents) >= (inv.amount_cents || 0) ||
+            ((inv.amount_cents || 0) - (money.paid_cents + amountCents)) <= Math.min(200, Math.round((inv.amount_cents || 0) * 0.005))) {
+            var upd = await env.DB.prepare(
+                "UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'sent'"
+            ).bind(paidDate, invoiceId).run();
+            if (upd.meta && upd.meta.changes) { invoiceStatus = "paid"; }
+        }
+
+        docPdfAfterFinalApexReceipt(request, env, receiptToken);
+
+        return jsonOk({
+            payment_id: paymentId,
+            receipt_number: receiptNumber,
+            receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + receiptToken,
+            invoice_status: invoiceStatus
+        });
+    } catch (e) {
+        return jsonErr("Error recording the payment: " + e.message, 500);
+    }
+}
+
+// Fire-and-forget PDF pre-render after a receipt is issued, same pattern as
+// docPdfAfterFinal / apxInvAfterView -- never lets a render failure break
+// the record-payment response.
+function docPdfAfterFinalApexReceipt(request, env, token) {
+    var job = (async function() {
+        try {
+            await handleGetPublicApexReceiptPdf(token, { url: DEFAULT_ORIGIN + "/api/public/pdf/apex-receipt/" + token + "?lang=pt", headers: new Headers() }, env);
+        } catch (e) {
+            console.error("[apex-receipt] pre-render failed, will render on first download: " + (e && e.message));
+        }
+    })();
+    var c = REQUEST_CTX.get(request);
+    if (c && c.waitUntil) { c.waitUntil(job); }
+}
+
+// Shared payload builder for both the public JSON route and the PDF route.
+async function apxRctPayload(env, p, inv, clientName, clientLogoUrl) {
+    var voided = !!p.undone_at;
+    return {
+        receipt_number: p.receipt_number,
+        invoice_number: inv.number || "",
+        client_name: clientName || "",
+        client_logo_url: clientLogoUrl,
+        amount_cents: p.amount_cents || 0,
+        method: apxRctDerivedMethod(p),
+        reference: p.reference || null,
+        paid_date: p.paid_date || apxInvEasternDate(p.matched_at),
+        balance_before_cents: p.balance_before_cents,
+        balance_after_cents: p.balance_after_cents,
+        voided: voided,
+        voided_at: voided ? p.undone_at : null,
+        business: {
+            name: "Apex Business & Leadership",
+            address: "Tampa, FL",
+            website: "apexbusiness.pro",
+            logo_url: DEFAULT_ORIGIN + "/assets/apex-logo.png"
+        }
+    };
+}
+
+async function apxRctLoad(env, token) {
+    if (!/^[a-f0-9]{48}$/.test(token || "")) { return null; }
+    var p = await env.DB.prepare("SELECT * FROM invoice_payments WHERE receipt_token = ? AND receipt_number IS NOT NULL").bind(token).first();
+    if (!p) { return null; }
+    var inv = await env.DB.prepare(
+        "SELECT i.*, c.name AS client_name, c.logo_url AS client_logo_url FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+    ).bind(p.invoice_id).first();
+    if (!inv) { return null; }
+    var hasLogo = !!(inv.client_id && inv.client_logo_url && String(inv.client_logo_url).trim());
+    var clientLogoUrl = hasLogo
+        ? (APEX_API_BASE + "/api/clients/" + inv.client_id + "/logo-image" + logoVersionParam(String(inv.client_logo_url).trim()))
+        : null;
+    return { payment: p, invoice: inv, clientLogoUrl: clientLogoUrl };
+}
+
+// GET /api/public/apex-receipts/:token   NO LOGIN.
+// An undone payment is not a 404 -- it answers with voided:true so the page
+// can show the VOIDED stamp instead of pretending the receipt never existed.
+async function handleGetPublicApexReceipt(token, request, env) {
+    try {
+        var limited = await gmEstPublicRateLimit(env, request, token, 120, 300);
+        if (limited) { return apxRctNoIndex(limited); }
+        var loaded = await apxRctLoad(env, token);
+        if (!loaded) { return apxRctNoIndex(jsonErr("Not found", 404)); }
+        var payload = await apxRctPayload(env, loaded.payment, loaded.invoice, loaded.invoice.client_name, loaded.clientLogoUrl);
+        return apxRctNoIndex(jsonOk({ receipt: payload }));
+    } catch (e) {
+        return apxRctNoIndex(jsonErr("Error loading receipt: " + e.message, 500));
+    }
+}
+
+// GET /api/public/pdf/apex-receipt/:token?lang=pt|en   NO LOGIN.
+// Same R2-cache-by-payload-hash pattern as handleGetPublicApexInvoicePdf.
+async function handleGetPublicApexReceiptPdf(token, request, env) {
+    try {
+        var lang = new URL(request.url).searchParams.get("lang") === "en" ? "en" : "pt";
+        var limited = await gmEstPublicRateLimit(env, request, token, 30, 300);
+        if (limited) { return apxRctNoIndex(limited); }
+        var loaded = await apxRctLoad(env, token);
+        if (!loaded) { return apxRctNoIndex(jsonErr("Not found", 404)); }
+        var payload = await apxRctPayload(env, loaded.payment, loaded.invoice, loaded.invoice.client_name, loaded.clientLogoUrl);
+        var sha = await docPdfSha256(new TextEncoder().encode(JSON.stringify(payload) + "|" + lang + "|" + APX_RCT_PDF_REV));
+        var key = "doc-pdfs/apex/receipts/" + loaded.payment.id + "-" + sha.slice(0, 16) + ".pdf";
+        var fileName = "apex-receipt-" + String(payload.receipt_number || "").replace(/[^A-Za-z0-9-]/g, "") + ".pdf";
+        var cached = await env.ASSETS.get(key);
+        if (cached) { return apxRctNoIndex(docPdfResponse(cached.body, fileName, { source: "stored" })); }
+        var result;
+        try {
+            result = await docPdfRender(env, DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + token + "&noprint=1&render=1&lang=" + lang);
+        } catch (eR) {
+            console.error("[apex-receipt] pdf render failed: " + (eR && eR.message));
+            return apxRctNoIndex(jsonErr("PDF unavailable right now", 503));
+        }
+        if (!result || result.notFound || !result.bytes) { return apxRctNoIndex(jsonErr("PDF unavailable right now", 503)); }
+        try { await env.ASSETS.put(key, result.bytes, { httpMetadata: { contentType: "application/pdf" } }); }
+        catch (eP) { console.error("[apex-receipt] pdf cache write failed: " + (eP && eP.message)); }
+        return apxRctNoIndex(docPdfResponse(result.bytes, fileName, { source: "live", pages: result.pages, ms: result.ms }));
+    } catch (e) {
+        console.error("[apex-receipt] pdf route failed: " + (e && e.stack ? e.stack : e));
+        return apxRctNoIndex(jsonErr("PDF unavailable right now", 503));
+    }
+}
+
+// GET /api/finance-new/invoices/:id/payments   alice / rafa / developer
+// Every live (not undone) payment on the invoice, with its receipt link if
+// one has been issued, and whether an old payment is still waiting on one.
+async function handleGetApexInvoicePayments(invoiceId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var rows = (await env.DB.prepare(
+            "SELECT * FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL ORDER BY matched_at"
+        ).bind(invoiceId).all()).results || [];
+        var payments = rows.map(function(p) {
+            return {
+                id: p.id,
+                amount_cents: p.amount_cents || 0,
+                date: p.paid_date || apxInvEasternDate(p.matched_at),
+                method: p.receipt_number ? apxRctDerivedMethod(p) : (p.method || null),
+                reference: p.reference || null,
+                receipt_number: p.receipt_number || null,
+                receipt_link: p.receipt_number ? (DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token) : null,
+                pdf_link: p.receipt_number ? (APEX_API_BASE + "/api/public/pdf/apex-receipt/" + p.receipt_token) : null,
+                needs_receipt: !p.receipt_number
+            };
+        });
+        return jsonOk({ payments: payments });
+    } catch (e) {
+        return jsonErr("Error loading payments: " + e.message, 500);
+    }
+}
+
+// POST /api/finance-new/invoices/:id/payments/:paymentId/receipt-link
+// alice / rafa / developer. The link plus the phone and filled WhatsApp
+// message, the same way the invoice client-link does.
+async function handlePostApexInvoicePaymentReceiptLink(invoiceId, paymentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var p = await env.DB.prepare("SELECT * FROM invoice_payments WHERE id = ? AND invoice_id = ?").bind(paymentId, invoiceId).first();
+        if (!p || !p.receipt_number) { return jsonErr("This payment has no receipt yet.", 404); }
+        var inv = await env.DB.prepare(
+            "SELECT i.*, c.name AS client_name, c.whatsapp AS client_whatsapp FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?"
+        ).bind(invoiceId).first();
+        var link = DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token;
+        var who = (inv && inv.client_name) || "";
+        var amount = apxUsd(p.amount_cents || 0);
+        var message = "Aqui está o recibo do seu pagamento (" + amount + "), " + who + ": " + link;
+        var phone = (inv && inv.client_whatsapp) ? String(inv.client_whatsapp).replace(/[^0-9]/g, "") : null;
+        return jsonOk({
+            link: link,
+            receipt_number: p.receipt_number,
+            phone: phone,
+            message: message,
+            wa_url: phone ? ("https://wa.me/" + phone + "?text=" + encodeURIComponent(message)) : null
+        });
+    } catch (e) {
+        return jsonErr("Error creating the receipt link: " + e.message, 500);
+    }
+}
+
+// POST /api/finance-new/invoices/:id/payments/:paymentId/issue-receipt
+// alice / rafa / developer. Issues a receipt for a payment that already
+// exists (bank match or Stripe) but never had one. Method is derived from
+// the data, balances are computed from this invoice's live payments as of
+// right now and frozen on the row, same as a fresh record-payment.
+async function handlePostApexInvoicePaymentIssueReceipt(invoiceId, paymentId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var p = await env.DB.prepare("SELECT * FROM invoice_payments WHERE id = ? AND invoice_id = ? AND undone_at IS NULL").bind(paymentId, invoiceId).first();
+        if (!p) { return jsonErr("Payment not found.", 404); }
+        if (p.receipt_number) {
+            return jsonOk({ receipt_number: p.receipt_number, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + p.receipt_token });
+        }
+        var inv = await env.DB.prepare("SELECT * FROM invoices WHERE id = ?").bind(invoiceId).first();
+        if (!inv) { return jsonErr("Invoice not found.", 404); }
+
+        var rows = (await env.DB.prepare(
+            "SELECT id, amount_cents, matched_at FROM invoice_payments WHERE invoice_id = ? AND undone_at IS NULL ORDER BY matched_at"
+        ).bind(invoiceId).all()).results || [];
+        var before = 0;
+        rows.forEach(function(r) { if (r.matched_at < p.matched_at || (r.matched_at === p.matched_at && r.id < p.id)) { before += (r.amount_cents || 0); } });
+        var beforeCents = Math.max(0, (inv.amount_cents || 0) - before);
+        var afterCents = Math.max(0, beforeCents - (p.amount_cents || 0));
+        var derivedMethod = apxRctDerivedMethod(p);
+        var paidDate = p.paid_date || apxInvEasternDate(p.matched_at);
+
+        var receiptNumber = await apxRctAllocateNumber(env);
+        var receiptToken = gmEstNewToken();
+        var upd = await env.DB.prepare(
+            "UPDATE invoice_payments SET receipt_number = ?, receipt_token = ?, receipt_issued_at = datetime('now'), recorded_by = ?, " +
+            "method = COALESCE(method, ?), paid_date = COALESCE(paid_date, ?), balance_before_cents = ?, balance_after_cents = ? " +
+            "WHERE id = ? AND receipt_number IS NULL"
+        ).bind(receiptNumber, receiptToken, actorName(user) || user.role, derivedMethod, paidDate, beforeCents, afterCents, paymentId).run();
+        if (!upd.meta || !upd.meta.changes) {
+            var already = await env.DB.prepare("SELECT receipt_number, receipt_token FROM invoice_payments WHERE id = ?").bind(paymentId).first();
+            return jsonOk({ receipt_number: already.receipt_number, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + already.receipt_token });
+        }
+        docPdfAfterFinalApexReceipt(request, env, receiptToken);
+        return jsonOk({ receipt_number: receiptNumber, receipt_link: DEFAULT_ORIGIN + APX_RCT_PAGE + "?t=" + receiptToken });
+    } catch (e) {
+        return jsonErr("Error issuing the receipt: " + e.message, 500);
     }
 }
 

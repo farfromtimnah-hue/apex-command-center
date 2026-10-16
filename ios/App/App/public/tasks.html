@@ -1610,7 +1610,7 @@
                            "Too short. Tap and say your tasks."), "error");
         return;
       }
-      var blob = new Blob(mtChunks, { type: "audio/webm" });
+      var blob = new Blob(mtChunks, { type: (mtChunks[0] && mtChunks[0].type) || "audio/webm" });
       mtChunks = [];
       uploadMyTasksBlob(blob);
     }

@@ -2046,7 +2046,7 @@
         }
         return;
       }
-      var blob = new Blob(voiceChunks, { type: "audio/webm" });
+      var blob = new Blob(voiceChunks, { type: (voiceChunks[0] && voiceChunks[0].type) || "audio/webm" });
       if (st) { st.textContent = voiceEn() ? "Creating the meeting..." : "Criando a reuniao..."; }
 
       var fd = new FormData();
@@ -4761,7 +4761,7 @@
                            "Too short. Tap and say your tasks."), "error");
         return;
       }
-      var blob = new Blob(mtChunks, { type: "audio/webm" });
+      var blob = new Blob(mtChunks, { type: (mtChunks[0] && mtChunks[0].type) || "audio/webm" });
       mtChunks = [];
       uploadMyTasksBlob(blob);
     }
@@ -5343,7 +5343,7 @@
         if (st) { st.textContent = tellUsT("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
         return;
       }
-      var blob = new Blob(tellUsRecChunks, { type: "audio/webm" });
+      var blob = new Blob(tellUsRecChunks, { type: (tellUsRecChunks[0] && tellUsRecChunks[0].type) || "audio/webm" });
       getToken().then(function(token) {
         var fd = new FormData();
         fd.append("audio", blob, "note.webm");

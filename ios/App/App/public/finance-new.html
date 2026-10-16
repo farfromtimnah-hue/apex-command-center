@@ -11114,7 +11114,7 @@ names,
         if (st) { st.textContent = t("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
         return;
       }
-      var blob = new Blob(ctRecChunks, { type: "audio/webm" });
+      var blob = new Blob(ctRecChunks, { type: (ctRecChunks[0] && ctRecChunks[0].type) || "audio/webm" });
       getToken().then(function(token) {
         var fd = new FormData();
         fd.append("audio", blob, "note.webm");

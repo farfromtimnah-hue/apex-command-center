@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Apex Command Center uses Face ID to unlock your client and pipeline data.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Apex Command Center uses the camera when you choose to take a photo, for example a logo, a flyer or a seller photo.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Apex Command Center uses the microphone so you can speak your tasks and notes instead of typing them.</string>
 	<key>UIApplicationSceneManifest</key>

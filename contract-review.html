@@ -707,7 +707,7 @@
         if (st) { st.textContent = t("Muito curto - segure Ditar e fale.", "Too short - hold Dictate and speak."); }
         return;
       }
-      var blob = new Blob(crRecChunks, { type: "audio/webm" });
+      var blob = new Blob(crRecChunks, { type: (crRecChunks[0] && crRecChunks[0].type) || "audio/webm" });
       var fd = new FormData();
       fd.append("audio", blob, "note.webm");
       if (st) { st.textContent = t("Transcrevendo...", "Transcribing..."); }

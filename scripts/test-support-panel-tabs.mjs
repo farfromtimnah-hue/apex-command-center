@@ -78,6 +78,12 @@ for (const [k, path] of Object.entries(FILES)) {
   ok(/resolveBtn\.className\s*=\s*"btn-secondary btn-sm"/.test(fn), k + ": the per-ticket resolve button uses btn-secondary btn-sm");
   ok(!/resolveBtn\.className\s*=\s*"btn btn-sm"/.test(fn), k + ": the per-ticket resolve button is not the plain btn style");
 
+  // Ticket times are stored in UTC (toISOString), so the panel must show them
+  // in 12-hour Eastern through the shared formatter, never the raw value.
+  ok(/formatDateTimeUTC\(\s*tk\.created_at\s*\)/.test(fn), k + ": the ticket time goes through formatDateTimeUTC");
+  ok(!/escHtml\(\s*tk\.created_at\s*(\|\||\))/.test(fn), k + ": the raw created_at is never printed");
+  ok(src.indexOf('<script src="datetime.js"></script>') !== -1, k + ": datetime.js (formatDateTimeUTC) is loaded by the page");
+
   // No new browser pop-ups.
   ok(!/\balert\s*\(/.test(fn) && !/\bconfirm\s*\(/.test(fn) && !/\bprompt\s*\(/.test(fn),
      k + ": loadSupportTickets contains no alert/confirm/prompt call");

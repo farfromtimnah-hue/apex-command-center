@@ -5411,7 +5411,7 @@
           headerRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:10px;";
           headerRow.innerHTML =
             "<div><strong>" + escHtml(tk.reporter_name || tk.reporter_email || "") + "</strong> &middot; " +
-            escHtml(tk.kind) + " &middot; <span style=\"color:var(--muted);font-size:12px;\">" + escHtml(tk.created_at || "") + "</span></div>";
+            escHtml(tk.kind) + " &middot; <span style=\"color:var(--muted);font-size:12px;\">" + escHtml(tk.created_at ? formatDateTimeUTC(tk.created_at) : "") + "</span></div>";
           var detail = document.createElement("div");
           detail.hidden = true;
           detail.style.cssText = "margin-top:10px;font-size:13px;line-height:1.5;";

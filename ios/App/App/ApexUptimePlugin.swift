@@ -98,6 +98,11 @@ class ApexBridgeViewController: CAPBridgeViewController {
         // plugin. Do not add either plugin back to packageClassList.
         bridge?.registerPluginInstance(ApexLockCoverPlugin())
 
+        // Tap to Pay on iPhone (Build 5). Same app-target registration
+        // pattern as ApexUptimePlugin/ApexLockCoverPlugin above -- this
+        // plugin is NOT in capacitor.config.json's packageClassList either.
+        bridge?.registerPluginInstance(ApexTapToPayPlugin())
+
         ApexLockCover.shared.trace("BRIDGE capacitorDidLoad - plugins registered, WebView about to load")
     }
 

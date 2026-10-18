@@ -11153,7 +11153,10 @@ function gmStripeBlockHtml(i, m, hint) {
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
       '<input type="checkbox" id="gmStripeAccept" style="margin-top:3px;" onchange="document.getElementById(\'gmStripeConnectBtn\').disabled = !this.checked">' +
       '<span>' + gmStripeAgreeHtml() + '</span></label>' +
-      '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
+      '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>' +
+      (gmInApp() ? '<p class="muted" style="margin:8px 0 0;font-size:12px;">' + gmT(
+        "O Stripe abre em uma janela separada. Depois de terminar, volte para a Apex.",
+        "Stripe opens in a separate window. When you are done, come back to Apex.") + '</p>' : '');
   }
   if (!st.charges_enabled) {
     return gmStripeReacceptHtml(st) + '<p class="gm-warn" style="margin:4px 0 8px;">' + gmT(
@@ -11165,16 +11168,103 @@ function gmStripeBlockHtml(i, m, hint) {
   return gmStripeReacceptHtml(st) + '<p class="muted" style="margin:4px 0 8px;">✓ ' + gmT(
     "Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente.",
     "Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically.") + '</p>' +
-    '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>';
+    '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>' +
+    gmStripeTapBlockHtml();
+}
+// ── Tap to Pay on iPhone (Build 1): the owner's own switch, shown only once
+// Stripe is connected and charges are enabled (the caller already checked
+// that before calling this). Loads lazily the same way gmStripeLoad does.
+var gmStripeTapStatus = null;
+var gmStripeTapLoading = false;
+function gmStripeTapLoad(force) {
+  if (gmStripeTapLoading || (gmStripeTapStatus && !force)) { return; }
+  gmStripeTapLoading = true;
+  gmApi("stripe/tap").then(function(d) {
+    gmStripeTapLoading = false; gmStripeTapStatus = d || { available: false, enabled: false, accepted_at: null };
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmStripeTapLoading = false; gmStripeTapStatus = { available: false, enabled: false, accepted_at: null };
+    console.error(e);
+  });
+}
+function gmStripeTapBlockHtml() {
+  var st = gmStripeTapStatus;
+  if (!st) { gmStripeTapLoad(false); return ""; }
+  if (!st.available) { return ""; }
+  var row = '<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">' +
+    '<label style="display:flex;gap:10px;align-items:center;cursor:pointer;">' +
+    '<input type="checkbox" id="gmStripeTapSwitch"' + (st.enabled ? ' checked' : '') + ' onchange="gmStripeTapToggle(this)">' +
+    '<span>' + gmT("Tap to Pay no iPhone", "Tap to Pay on iPhone") + '</span></label>';
+  if (st.enabled) {
+    row += '<p class="muted" style="margin:6px 0 0;font-size:12px;">' + gmT("Ativado", "Turned on") +
+      (st.accepted_at ? (" " + gmT("em", "on") + " " + String(st.accepted_at).slice(0, 10)) : "") + '</p>';
+  }
+  row += '</div>';
+  return row;
+}
+function gmStripeTapToggle(box) {
+  if (box.checked) {
+    box.checked = false; // stays off until the consent card is accepted
+    gmStripeTapAsk();
+  } else {
+    gmStripeTapDisable();
+  }
+}
+// In-page consent card (Rule 31: no browser pop-ups). PT/EN wording below is
+// the exact text shown and recorded.
+function gmStripeTapAsk() {
+  gmAsk({
+    message: gmT("Ativar Tap to Pay no iPhone",
+                 "Turn on Tap to Pay on iPhone") + "\n\n" +
+      gmT("A empresa concorda em usar o Tap to Pay no iPhone com a sua própria conta Stripe. Os pagamentos com cartão dos seus clientes vão direto para a sua conta Stripe. Na primeira vez que usar, também será preciso aceitar os termos do Tap to Pay no iPhone da Apple, no próprio iPhone. É necessário um iPhone XS ou mais novo.",
+             "The business agrees to use Tap to Pay on iPhone with its own Stripe account. Your customers' card payments go straight to your own Stripe account. The first time it is used, Apple's Tap to Pay on iPhone terms must also be accepted on the iPhone itself. An iPhone XS or newer is required."),
+    yes: gmT("Ativar Tap to Pay", "Turn on Tap to Pay"),
+    keep: gmT("Agora não", "Not now"),
+    onYes: function() { gmStripeTapEnable(); }
+  });
+}
+function gmStripeTapEnable() {
+  gmApi("stripe/tap/enable", { method: "POST", body: { accepted: true, language: isEn() ? "en" : "pt" } }).then(function() {
+    gmStripeTapLoad(true);
+  }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmStripeTapDisable() {
+  gmApi("stripe/tap/disable", { method: "POST", body: {} }).then(function() { gmStripeTapLoad(true); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmStripeConnect(btn) {
   if (btn) { btn.disabled = true; }
   var acc = document.getElementById("gmStripeAccept");
   gmApi("stripe/connect", { method: "POST", body: { accepted: !!(acc && acc.checked), language: isEn() ? "en" : "pt" } }).then(function(d) {
     if (!d || !d.url) { throw new Error(gmT("O Stripe não respondeu.", "Stripe did not answer.")); }
-    if (gmInApp()) { apexOpenExternal(d.url); gmStripeStatus = { available: true, connected: true, charges_enabled: false }; gmRenderEstimatesTab(); return; }
+    if (gmInApp()) {
+      apexOpenExternal(d.url);
+      gmStripeStatus = { available: true, connected: true, charges_enabled: false };
+      gmRenderEstimatesTab();
+      gmStripeWireAppResume();
+      return;
+    }
     window.location.href = d.url;
   }).catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
+}
+// When the owner returns from Stripe's onboarding in the system browser
+// sheet (gmStripeConnect above opens it with apexOpenExternal / Capacitor's
+// Browser plugin in-app), reload the Stripe status so the card shows
+// connected without a manual refresh. A SEPARATE listener from
+// native-bridge.js's own appStateChange (lock-screen timing) -- Capacitor
+// allows several listeners on the same event name, and this one only ever
+// reloads Stripe status, never touches the lock.
+var gmStripeResumeWired = false;
+function gmStripeWireAppResume() {
+  if (gmStripeResumeWired || !gmInApp()) { return; }
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.addListener("appStateChange", function(state) {
+        if (state && state.isActive) { gmStripeLoad(true); }
+      });
+      gmStripeResumeWired = true;
+    }
+  } catch (e) { /* no App plugin available; status still refreshes on next tab load */ }
 }
 function gmStripeDisconnect() {
   gmAsk({
@@ -13197,6 +13287,7 @@ function gmInvRowHtml(inv) {
 // ── Invoice sheet ────────────────────────────────────────────────────────
 function gmOpenInvoice(id) {
   gmSheetOpen(gmT("Fatura", "Invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmTapReady = null; // re-checked fresh for whichever invoice this sheet ends up showing
   gmApi("invoices/" + encodeURIComponent(id))
     .then(function(d) { gmInvDetail = d.invoice; gmRenderInvoiceSheet(); })
     .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
@@ -13215,7 +13306,8 @@ function gmRenderInvoiceSheet() {
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (inv.status !== "void") {
     body += '<button type="button" class="gm-btn-primary" id="gmInvSendBtn" onclick="gmInvSendOpen()">' + gmT("Enviar fatura", "Send invoice") + '</button>' +
-      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>';
+      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>' +
+      gmTapButtonHtml(inv);
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(inv.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
@@ -13284,6 +13376,173 @@ function gmRenderInvoiceSheet() {
   var sendBtn = document.getElementById("gmInvSendBtn");
   if (sendBtn) { gmDocMsgAttach(sendBtn, "invoice_message"); }
   pays.forEach(function(p) { var b = document.getElementById("gmRcptSend_" + p.id); if (b) { gmDocMsgAttach(b, "receipt_message"); } });
+}
+
+// ── Tap to Pay on iPhone (Build 5): take the card payment on this device ──
+//
+// The button only ever appears: inside the native app (never on the web or
+// in a browser tab), never on iPad (ApexTapToPay.isSupported() checks the
+// device, not just the platform), only when the invoice has a balance due,
+// and only when the business has Tap to Pay switched on
+// (GET .../stripe/tap, the SAME route the owner's settings toggle reads).
+//
+// gmTapReady holds the last isSupported()+stripe/tap answer for the
+// CURRENT invoice sheet only -- it is read once when the sheet opens and
+// is deliberately not cached across invoices, since a different invoice
+// can belong to a different balance (and in principle, if this ever
+// becomes multi-tenant per session, a different business).
+var gmTapReady = null; // { supported, enabled } or null while loading
+var gmTapBusy = false;
+var gmTapLocationId = null;
+
+function gmTapPlugin() {
+  return (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.ApexTapToPay : null;
+}
+
+// Rendered synchronously as "" (nothing) the first time a sheet opens,
+// since isSupported()/stripe-tap are both async; gmTapCheckReady kicks off
+// the real check and re-renders the sheet once it resolves, same pattern as
+// gmStripeBlockHtml's own lazy-load-then-rerender.
+function gmTapButtonHtml(inv) {
+  if (!gmInApp()) { return ""; }
+  if (!(inv.balance_cents > 0)) { return ""; }
+  if (gmTapReady === null) { gmTapCheckReady(inv.id); return ""; }
+  if (!gmTapReady.supported || !gmTapReady.enabled) { return ""; }
+  return '<button type="button" class="gm-btn-secondary" id="gmTapBtn" onclick="gmTapStart(\'' + escHtml(inv.id) + '\')">' +
+    gmT("Receber no cartão (tap)", "Take card payment (tap)") + '</button>';
+}
+
+function gmTapCheckReady(invId) {
+  var plugin = gmTapPlugin();
+  if (!plugin) { gmTapReady = { supported: false, enabled: false }; return; }
+  plugin.isSupported().then(function(d) {
+    if (!d || !d.supported) { gmTapReady = { supported: false, enabled: false }; gmTapRerenderIfSameInvoice(invId); return; }
+    gmApi("stripe/tap").then(function(st) {
+      gmTapReady = { supported: true, enabled: !!(st && st.enabled) };
+      gmTapLocationId = (st && st.location_id) || gmTapLocationId;
+      gmTapRerenderIfSameInvoice(invId);
+    }).catch(function() {
+      gmTapReady = { supported: true, enabled: false };
+      gmTapRerenderIfSameInvoice(invId);
+    });
+  }).catch(function() {
+    gmTapReady = { supported: false, enabled: false };
+    gmTapRerenderIfSameInvoice(invId);
+  });
+}
+function gmTapRerenderIfSameInvoice(invId) {
+  if (gmInvDetail && gmInvDetail.id === invId) { gmRenderInvoiceSheet(); }
+}
+
+// In-page states only (Rule 31: no browser pop-ups). Reuses the sheet's own
+// body area by swapping the actions block's content via a dedicated status
+// line under the button, same visual language as gmDocShowMsg elsewhere.
+function gmTapStatusHtml(kind, text) {
+  var cls = kind === "error" ? "gm-warn" : (kind === "success" ? "gm-ok" : "muted");
+  return '<p class="' + cls + '" id="gmTapStatus" style="margin:8px 0 0;">' + escHtml(text) + '</p>';
+}
+function gmTapShowStatus(kind, text) {
+  var el = document.getElementById("gmTapStatus");
+  var html = gmTapStatusHtml(kind, text);
+  if (el) { el.outerHTML = html; return; }
+  var btn = document.getElementById("gmTapBtn");
+  if (btn && btn.parentNode) { btn.insertAdjacentHTML("afterend", html); }
+}
+
+var GM_TAP_ERROR_TEXT = {
+  cancelled: [gmT, "Pagamento cancelado.", "Payment cancelled."],
+  cancelled_on_reader: [gmT, "O cliente cancelou no iPhone.", "The customer cancelled on the iPhone."],
+  declined: [gmT, "Cartão recusado. Tente outro cartão.", "Card declined. Try another card."],
+  card_read_failed: [gmT, "Não foi possível ler o cartão. Tente de novo.", "Could not read the card. Try again."],
+  not_connected: [gmT, "O iPhone não está pronto para receber o pagamento. Tente de novo.", "The iPhone is not ready to take the payment. Try again."],
+  no_network: [gmT, "Sem conexão com a internet. Verifique a rede e tente de novo.", "No internet connection. Check your network and try again."],
+  too_many_accounts_today: [gmT, "Este iPhone já usou o limite de contas Stripe nas últimas 24 horas. Tente em outro aparelho.", "This iPhone has already reached its Stripe account limit for the last 24 hours. Try another device."],
+  payment_in_progress: [gmT, "Já existe um pagamento em andamento.", "A payment is already in progress."]
+};
+function gmTapErrorText(code) {
+  var row = GM_TAP_ERROR_TEXT[code];
+  if (row) { return gmT(row[1], row[2]); }
+  return gmT("Não foi possível processar o pagamento. Tente de novo.", "Could not process the payment. Try again.");
+}
+
+function gmTapSetBusy(busy) {
+  gmTapBusy = busy;
+  var btn = document.getElementById("gmTapBtn");
+  if (btn) { btn.disabled = busy; }
+}
+
+// Answers the plugin's "I need a fresh connection token" event by calling
+// the SAME Worker route the owner's settings card would use, then hands the
+// secret straight back to the plugin. Wired once; harmless to wire again if
+// a sheet opens more than once (addListener does not duplicate the plugin
+// SIDE of the bridge, only this page-side handler, and every call here is
+// idempotent against a requestId it has not already answered).
+var gmTapTokenListenerWired = false;
+function gmTapWireTokenListener() {
+  if (gmTapTokenListenerWired) { return; }
+  var plugin = gmTapPlugin();
+  if (!plugin || !plugin.addListener) { return; }
+  gmTapTokenListenerWired = true;
+  plugin.addListener("apexTapRequestConnectionToken", function(ev) {
+    var requestId = ev && ev.requestId;
+    if (!requestId) { return; }
+    gmApi("stripe/tap/connection-token", { method: "POST", body: {} }).then(function(d) {
+      plugin.provideConnectionToken({ requestId: requestId, secret: d.secret });
+    }).catch(function(e) {
+      plugin.provideConnectionToken({ requestId: requestId, error: e.message });
+    });
+  });
+}
+
+function gmTapStart(invId) {
+  if (gmTapBusy) { return; }
+  var plugin = gmTapPlugin();
+  if (!plugin) { return; }
+  gmTapWireTokenListener();
+  gmTapSetBusy(true);
+  gmTapShowStatus("info", gmT("Preparando...", "Preparing..."));
+
+  gmApi("stripe/tap").then(function(st) {
+    if (!st || !st.enabled) { throw new Error(gmT("Tap to Pay não está ativado.", "Tap to Pay is not turned on.")); }
+    gmTapLocationId = st.location_id || gmTapLocationId;
+    if (!gmTapLocationId) { throw new Error(gmT("Local do Tap to Pay não encontrado. Desative e ative o Tap to Pay de novo.", "Tap to Pay location not found. Turn Tap to Pay off and back on.")); }
+    return plugin.prepare({ locationId: gmTapLocationId });
+  }).then(function() {
+    return gmApi("stripe/tap/payment-intent", { method: "POST", body: { invoice_id: invId } });
+  }).then(function(pi) {
+    gmTapShowStatus("info", gmT("Aproxime o cartão ou celular da parte de trás do iPhone", "Hold the card or phone near the back of the iPhone"));
+    return plugin.takePayment({ clientSecret: pi.client_secret }).then(function(result) {
+      return { result: result, amountCents: pi.amount_cents };
+    });
+  }).then(function(o) {
+    gmTapShowStatus("success", gmT("Pagamento recebido: ", "Payment received: ") + gmMoney(o.amountCents));
+    gmTapSetBusy(false);
+    gmTapPollInvoicePaid(invId, 0);
+  }).catch(function(e) {
+    gmTapSetBusy(false);
+    var code = e && e.code; // CAPPluginCall.reject's `code` argument surfaces here
+    gmTapShowStatus("error", code ? gmTapErrorText(code) : (e && e.message) || gmTapErrorText(null));
+  });
+}
+
+// The webhook records the payment asynchronously; reload right away, then
+// poll every 2s up to 20s if it is not yet marked paid, per spec.
+function gmTapPollInvoicePaid(invId, elapsedMs) {
+  gmApi("invoices/" + encodeURIComponent(invId)).then(function(d) {
+    var inv = d.invoice;
+    if (inv && inv.derived_status === "paid") {
+      gmInvDetail = inv; gmRenderInvoiceSheet();
+      return;
+    }
+    if (elapsedMs >= 20000) {
+      gmTapShowStatus("info", gmT("Pagamento aprovado. Pode levar alguns segundos para aparecer no recibo.", "Payment approved. It can take a few seconds to show on the receipt."));
+      return;
+    }
+    setTimeout(function() { gmTapPollInvoicePaid(invId, elapsedMs + 2000); }, 2000);
+  }).catch(function() {
+    // A transient read failure here does not retract the success message
+    // already shown; the sheet simply does not refresh until reopened.
+  });
 }
 
 // Record payment (3d): amount with Full, date, method, reference, note.

@@ -251,6 +251,10 @@
               <span class="show-pt">Previs&atilde;o</span>
               <span class="show-en">Forecast</span>
             </button>
+            <button class="btn-header-secondary" onclick="openHistory()">
+              <span class="show-pt">Hist&oacute;rico</span>
+              <span class="show-en">History</span>
+            </button>
             <button class="btn-new-session" onclick="openNewVendorModal()">
               + <span class="show-pt">Adicionar fornecedor</span>
               <span class="show-en">Add vendor</span>
@@ -433,6 +437,18 @@
       <button class="sheet-close" onclick="closeSheet('sheetForecast')">&times;</button>
       <div class="sheet-title"><span class="show-pt">Previs&atilde;o</span><span class="show-en">Forecast</span></div>
       <div id="forecastBody"></div>
+    </div>
+  </div>
+
+  <!-- Sheet: history (payments already made) -->
+  <div id="sheetHistory" class="sheet-overlay" hidden onclick="if(event.target===this)closeSheet('sheetHistory')">
+    <div class="sheet-box" onclick="event.stopPropagation()" style="max-width:560px;">
+      <button class="sheet-close" onclick="closeSheet('sheetHistory')">&times;</button>
+      <div class="sheet-title"><span class="show-pt">Hist&oacute;rico</span><span class="show-en">History</span></div>
+      <div id="historyBody"></div>
+      <button class="btn btn-sm" id="historyMoreBtn" style="margin-top:10px;" onclick="loadMoreHistory()">
+        <span class="show-pt">Ver mais</span><span class="show-en">Show more</span>
+      </button>
     </div>
   </div>
 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Everything in App.entitlements, unchanged. Keep both files in sync
+	     for every key EXCEPT the Tap to Pay one below. -->
+	<key>aps-environment</key>
+	<string>development</string>
+
+	<key>com.apple.developer.default-data-protection</key>
+	<string>NSFileProtectionComplete</string>
+
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+
+	<!-- Tap to Pay on iPhone (Build 5). The entitlement Apple granted this
+	     team is DEVELOPMENT ONLY as of 2026-10-18: it works in a build run
+	     from Xcode onto a device, but is NOT valid for a TestFlight or App
+	     Store build, which is why this key lives ONLY in this Debug-only
+	     entitlements file, referenced ONLY by the Debug build configuration's
+	     CODE_SIGN_ENTITLEMENTS. App.entitlements (Release) must never gain
+	     this key until Apple issues the distribution entitlement -- a Release
+	     build carrying it, uploaded before that, would fail App Review or
+	     fail to sign. -->
+	<key>com.apple.developer.proximity-reader.payment.acceptance</key>
+	<true/>
+</dict>
+</plist>

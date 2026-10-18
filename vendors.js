@@ -674,6 +674,53 @@
     });
   }
 
+  var HISTORY_MONTHS = 12;
+  var HISTORY_OFFSET = 0;
+
+  function openHistory() {
+    HISTORY_OFFSET = 0;
+    el("historyBody").innerHTML = "";
+    loadHistoryPage(false);
+    openSheet("sheetHistory");
+  }
+  function loadMoreHistory() {
+    HISTORY_OFFSET += HISTORY_MONTHS;
+    loadHistoryPage(true);
+  }
+  function loadHistoryPage(append) {
+    var btn = el("historyMoreBtn");
+    if (btn) { btn.disabled = true; }
+    apiFetch("/api/vendors/history?months=" + HISTORY_MONTHS + "&offset=" + HISTORY_OFFSET)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (btn) { btn.disabled = false; }
+        if (data.error) { throw new Error(data.error); }
+        var html = append ? el("historyBody").innerHTML : "";
+        (data.months || []).forEach(function (m) {
+          html += '<div class="fc-month-group" style="margin-bottom:14px;">' +
+            '<div class="pay-row-main" style="font-weight:600;margin-bottom:4px;">' + fmtMonthPill(m.month) +
+            ' <span style="float:right;">' + fmtCents(m.total_cents) + '</span></div>';
+          (m.payments || []).forEach(function (p) {
+            var sub = [];
+            if (p.vendor_name) { sub.push(esc(p.vendor_name)); }
+            if (p.client_name) { sub.push(esc(p.client_name)); }
+            if (p.kind) { sub.push(esc(p.kind)); }
+            if (p.note) { sub.push(esc(p.note)); }
+            html += '<div class="pay-row"><div class="pay-row-main"><span class="pay-row-label">' + esc(p.paid_on) +
+              (sub.length ? " &middot; " + sub.join(" &middot; ") : "") + '</span></div>' +
+              '<div><span class="pay-row-amt">' + fmtCents(p.amount_cents) + '</span></div></div>';
+          });
+          html += "</div>";
+        });
+        if (!append && !(data.months || []).length) {
+          html = '<div class="empty">' + t("Nenhum pagamento ainda.", "No payments yet.") + "</div>";
+        }
+        el("historyBody").innerHTML = html;
+        if (btn) { btn.hidden = !data.has_more; }
+      })
+      .catch(function (e) { if (btn) { btn.disabled = false; } console.error(e); });
+  }
+
   function openDetail(vendorId) {
     apiFetch("/api/vendors/" + encodeURIComponent(vendorId)).then(function (r) { return r.json(); }).then(function (data) {
       if (data.error) { return; }
@@ -843,6 +890,8 @@
   };
   window.loadOverview = loadOverview;
   window.openForecast = openForecast;
+  window.openHistory = openHistory;
+  window.loadMoreHistory = loadMoreHistory;
   window.openNewVendorModal = openNewVendorModal;
   window.submitNewVendor = submitNewVendor;
   window.closeVendorDetail = closeVendorDetail;

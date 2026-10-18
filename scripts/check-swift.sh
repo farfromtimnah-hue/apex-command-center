@@ -41,6 +41,8 @@ public protocol CAPBridgedPlugin {
     open func getBool(_ k: String) -> Bool? { return nil }
     @objc open func resolve(_ d: [String: Any]) {}
     @objc open func resolve() {}
+    // Real signature from CAPPluginCall.swift:45.
+    @objc open func reject(_ message: String, _ code: String? = nil, _ error: Error? = nil) {}
 }
 @objc open class CAPPlugin: NSObject {
     @objc open func load() {}
@@ -76,16 +78,91 @@ public class SceneDelegateProxy: NSObject, UISceneDelegate {
 }
 EOF
 
-FILES="$WORK/CapacitorStub.swift"
+# Stripe Terminal SDK 6.0.0 (Tap to Pay, Build 5) -- hand-written stub of
+# just the symbols ApexTapToPayPlugin.swift touches, same spirit as the
+# Capacitor stub above: this catches syntax errors, unresolved symbols and
+# wrong signatures in OUR code, but a wrong assumption about the real SDK's
+# shape is invisible here. Verified against stripe.dev/stripe-terminal-ios
+# (the 6.0.0 API reference, not the older completion-block prose examples
+# some doc pages still show) -- see ApexTapToPayPlugin.swift's header
+# comment for the discrepancies found and resolved.
+cat > "$WORK/StripeTerminalStub.swift" <<'EOF'
+import Foundation
+public protocol Cancelable: AnyObject {}
+public class ReaderSoftwareUpdate {}
+public class ReaderDisplayMessage {}
+public class ReaderInputOptions {}
+public class DisconnectReason {}
+public class Reader { public var locationId: String? { return nil } }
+public protocol DiscoveryDelegate: AnyObject {
+    func terminal(_ terminal: Terminal, didUpdateDiscoveredReaders readers: [Reader])
+}
+public protocol TapToPayReaderDelegate: AnyObject {
+    func reader(_ reader: Reader, didStartInstallingUpdate update: ReaderSoftwareUpdate, cancelable: Cancelable?)
+    func reader(_ reader: Reader, didReportReaderSoftwareUpdateProgress progress: Float)
+    func reader(_ reader: Reader, didFinishInstallingUpdate update: ReaderSoftwareUpdate?, error: Error?)
+    func reader(_ reader: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage)
+    func reader(_ reader: Reader, didRequestReaderInput inputOptions: ReaderInputOptions)
+    func reader(_ reader: Reader, didDisconnect reason: DisconnectReason)
+}
+public protocol DiscoveryConfiguration {}
+public class TapToPayDiscoveryConfiguration: DiscoveryConfiguration {}
+public class TapToPayDiscoveryConfigurationBuilder {
+    public init() {}
+    public func setSimulated(_ v: Bool) -> Self { return self }
+    public func build() throws -> TapToPayDiscoveryConfiguration { return TapToPayDiscoveryConfiguration() }
+}
+public protocol ConnectionConfiguration {}
+public class TapToPayConnectionConfiguration: ConnectionConfiguration {}
+public class TapToPayConnectionConfigurationBuilder {
+    public init(delegate: TapToPayReaderDelegate, locationId: String) {}
+    public func build() throws -> TapToPayConnectionConfiguration { return TapToPayConnectionConfiguration() }
+}
+public protocol ConnectionTokenProvider: AnyObject {
+    func fetchConnectionToken() async throws -> String
+}
+public class PaymentMethod {}
+public class PaymentIntent { public var stripeId: String? { return nil } }
+public enum ErrorCode {
+    public enum Code: Int {
+        case canceled = 1
+        case canceledByReader = 2
+        case cardReadTimedOut = 3
+        case cardSwipeNotAvailable = 4
+        case cardInsertNotRead = 5
+        case cardRemoved = 6
+        case tapToPayReaderMerchantBlocked = 7
+        case notConnectedToReader = 8
+        case declinedByStripeAPI = 9
+        case declinedByReader = 10
+    }
+}
+public class CollectPaymentIntentConfiguration {}
+public class ConfirmPaymentIntentConfiguration {}
+public typealias PaymentIntentCompletionBlock = (PaymentIntent?, Error?) -> Void
+public typealias ConfirmPaymentIntentCompletionBlock = (PaymentIntent?, Error?) -> Void
+public typealias ErrorCompletionBlock = (Error?) -> Void
+public class Terminal {
+    public static let shared = Terminal()
+    public static func initWithTokenProvider(_ provider: ConnectionTokenProvider) {}
+    public func discoverReaders(_ configuration: DiscoveryConfiguration, delegate: DiscoveryDelegate, completion: @escaping ErrorCompletionBlock) -> Cancelable? { return nil }
+    public func connectReader(_ reader: Reader, connectionConfig: ConnectionConfiguration) async throws -> Reader { return reader }
+    public func retrievePaymentIntent(clientSecret: String) async throws -> PaymentIntent { return PaymentIntent() }
+    public func collectPaymentMethod(_ paymentIntent: PaymentIntent, completion: @escaping PaymentIntentCompletionBlock) -> Cancelable? { return nil }
+    public func confirmPaymentIntent(_ paymentIntent: PaymentIntent, completion: @escaping ConfirmPaymentIntentCompletionBlock) -> Cancelable? { return nil }
+}
+EOF
+
+FILES="$WORK/CapacitorStub.swift $WORK/StripeTerminalStub.swift"
 for f in "$SRC"/*.swift; do
   base=$(basename "$f")
   # AppDelegate pulls in Firebase and other real frameworks; skip it.
   [ "$base" = "AppDelegate.swift" ] && continue
-  sed 's/^import Capacitor$//' "$f" > "$WORK/$base"
+  sed -e 's/^import Capacitor$//' -e 's/^import StripeTerminal$//' "$f" > "$WORK/$base"
   FILES="$FILES $WORK/$base"
 done
 
-echo "Type-checking: $(echo $FILES | tr ' ' '\n' | grep -v CapacitorStub | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+echo "Type-checking: $(echo $FILES | tr ' ' '\n' | grep -v CapacitorStub | grep -v StripeTerminalStub | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
 # shellcheck disable=SC2086
 xcrun swiftc -typecheck -sdk "$SDK" -target arm64-apple-ios15.0-simulator $FILES
 echo "OK - no errors, no warnings"

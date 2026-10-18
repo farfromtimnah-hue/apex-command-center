@@ -55502,9 +55502,7 @@ function apexErrorNormalizePath(path) {
 function apexErrorMaskText(text) {
     var t = String(text || "");
     t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[hidden]");
-    t = t.replace(/(?=[A-Za-z0-9]{20,})(?:[A-Za-z]*\d[A-Za-z]*\d[A-Za-z0-9]*){1}[A-Za-z0-9]{0,}/g, function(m) {
-        return m.length >= 20 ? "[hidden]" : m;
-    });
+    t = t.replace(/[A-Za-z0-9]{20,}/g, "[hidden]");
     return t;
 }
 

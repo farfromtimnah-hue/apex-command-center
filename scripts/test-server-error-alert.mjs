@@ -244,5 +244,15 @@ function response5xx(status, errorMsg) {
   ok(w.F.apexErrorNormalizePath("/api/gm/leads") === "/api/gm/leads", "a plain route is left alone");
 }
 
+// ── apexErrorMaskText masks every run of 20+ letters or digits ──────────────
+{
+  const w = world([]);
+  ok(w.F.apexErrorMaskText("key sk_live_ABCDEFGHIJKLMNOPQRST1 bad").indexOf("ABCDEFGHIJKLMNOPQRST1") === -1, "a 20+ run with only one digit is masked");
+  ok(w.F.apexErrorMaskText("token abcdefghijklmnopqrstuvwxyz ok").indexOf("abcdefghijklmnopqrstuvwxyz") === -1, "a 20+ run of letters only is masked");
+  ok(w.F.apexErrorMaskText("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 jwt").indexOf("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") === -1, "a JWT shaped run is masked");
+  ok(w.F.apexErrorMaskText("no such table: support_tickets") === "no such table: support_tickets", "short words and underscores under 20 characters are left alone");
+  ok(w.F.apexErrorMaskText("mail maria@example.com here").indexOf("maria@example.com") === -1, "an email is still masked");
+}
+
 console.log(fail ? ("\n" + fail + " FAILED") : "\nALL PASS");
 process.exit(fail ? 1 : 0);

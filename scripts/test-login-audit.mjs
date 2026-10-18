@@ -259,6 +259,31 @@ const OWNER = { role: "client", client_id: "c1", login_role: "client", username:
   ok(devDiag.status === 200 && Array.isArray(devDiag.data.activity), "diagnostics/login-activity: developer role only, returns rows");
 }
 
+// ── 6b. The old password login must never depend on the new tables (found in review) ──
+{
+  // Switch OFF and the cutover table missing: a normal password login still works.
+  const w = world({ PASSKEY_LOGIN_ENABLED: "0" });
+  w.d.raw.exec("DROP TABLE login_legacy_cutover");
+  w.d.raw.exec("DROP TABLE login_activity");
+  const hash = await w.F.hashPassword("Sup3rSecret!23");
+  w.d.raw.prepare("INSERT INTO client_logins (username, client_id, password_hash, must_change_password, role) VALUES ('acmepools', 'c1', ?, 0, 'client')").run(hash);
+  const res = await w.F.handlePostClientLogin(rq("POST", "/api/auth/client-login", { username: "acmepools", password: "Sup3rSecret!23" }), w.env);
+  ok(res.status === 200 && !!res.data.token, "old login: works with the switch off and the new tables missing");
+  // Switch ON but the cutover table missing: still works (a failed read never breaks a login).
+  const w2 = world();
+  w2.d.raw.exec("DROP TABLE login_legacy_cutover");
+  const hash2 = await w2.F.hashPassword("Sup3rSecret!23");
+  w2.d.raw.prepare("INSERT INTO client_logins (username, client_id, password_hash, must_change_password, role) VALUES ('acmepools', 'c1', ?, 0, 'client')").run(hash2);
+  const res2 = await w2.F.handlePostClientLogin(rq("POST", "/api/auth/client-login", { username: "acmepools", password: "Sup3rSecret!23" }), w2.env);
+  ok(res2.status === 200, "old login: works with the switch on and the cutover table missing");
+  // Switch off: no audit row is written for the password login.
+  const w3 = world({ PASSKEY_LOGIN_ENABLED: "0" });
+  const hash3 = await w3.F.hashPassword("Sup3rSecret!23");
+  w3.d.raw.prepare("INSERT INTO client_logins (username, client_id, password_hash, must_change_password, role) VALUES ('acmepools', 'c1', ?, 0, 'client')").run(hash3);
+  await w3.F.handlePostClientLogin(rq("POST", "/api/auth/client-login", { username: "acmepools", password: "Sup3rSecret!23" }), w3.env);
+  ok(w3.d.q("SELECT COUNT(*) AS n FROM login_activity")[0].n === 0, "old login: no audit row is written while the switch is off");
+}
+
 // ── 7. signin_password recorded on a successful username/password login ───
 {
   const w = world();

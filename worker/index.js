@@ -16260,8 +16260,10 @@ async function handlePostClientLogin(request, env) {
         // password -- no hint the business was cut over -- while the attempt
         // still counts in the rate limit above. Staff logins (alice, rafa,
         // the developer) never go through this route, so they are unaffected.
-        var cutover = row ? await env.DB.prepare("SELECT 1 FROM login_legacy_cutover WHERE client_id = ?")
-            .bind(row.client_id).first() : null;
+        // Only while the passkey login is on (a cutover cannot exist before),
+        // and a missing table or a failed read must never break a login:
+        // passkeyLegacyCutoverActive answers false on any error.
+        var cutover = (row && passkeyEnabled(env)) ? await passkeyLegacyCutoverActive(env, row.client_id) : false;
 
         // A passkey-only login (password_hash 'PASSKEY_ONLY', passkey login
         // build) takes the SAME path as an unknown username: no hash work, the
@@ -16285,9 +16287,11 @@ async function handlePostClientLogin(request, env) {
         // Change G: every successful username/password login is recorded, for
         // every business, so the audit covers old logins too.
         try {
-            await loginActivityRecord(env, request, {
-                client_id: row.client_id, username: row.username, kind: "signin_password", detail: {}
-            });
+            if (passkeyEnabled(env)) {
+                await loginActivityRecord(env, request, {
+                    client_id: row.client_id, username: row.username, kind: "signin_password", detail: {}
+                });
+            }
         } catch (e) { /* audit never blocks a login */ }
 
         return jsonOk({
@@ -18377,8 +18381,13 @@ async function handlePostGmClientLegacyLogin(clientId, request, env) {
 }
 async function passkeyLegacyCutoverActive(env, clientId) {
     if (!clientId) { return false; }
-    var row = await env.DB.prepare("SELECT client_id FROM login_legacy_cutover WHERE client_id = ?").bind(clientId).first();
-    return !!row;
+    try {
+        var row = await env.DB.prepare("SELECT client_id FROM login_legacy_cutover WHERE client_id = ?").bind(clientId).first();
+        return !!row;
+    } catch (e) {
+        // Missing table or a failed read: never break a login over it.
+        return false;
+    }
 }
 
 // ---------------------------------------------------------------------------

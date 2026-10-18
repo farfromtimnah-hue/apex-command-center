@@ -481,7 +481,7 @@
     }
     .pg-sheet.pg-dropdown { z-index: 960; }
     .pg-sheet.pg-dropdown .pg-backdrop { background: transparent; }
-    .pg-sheet.pg-dropdown .pg-panel { bottom: auto; right: auto; width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 1px solid var(--border); }
+    .pg-sheet.pg-dropdown .pg-panel { bottom: auto; right: auto; width: 260px; box-shadow: 0 10px 30px rgba(0,0,0,0.18); border: 1px solid var(--border); overflow-y: auto; overscroll-behavior: contain; }
     .pg-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding: 8px 12px 6px; }
     .pg-item {
       display: flex; align-items: center; gap: 12px; width: 100%;
@@ -5206,14 +5206,20 @@
         var r = anchor.getBoundingClientRect();
         panel.style.top = Math.round(r.bottom + 6) + "px";
         panel.style.left = Math.round(r.left) + "px";
+        // A short window must not push the last tool (Preços) off the screen:
+        // the list scrolls inside the panel instead.
+        panel.style.maxHeight = Math.max(160, window.innerHeight - Math.round(r.bottom + 6) - 12) + "px";
       } else {
-        panel.style.top = ""; panel.style.left = "";
+        panel.style.top = ""; panel.style.left = ""; panel.style.maxHeight = "";
       }
       sheet.hidden = false;
     }
     // A drop-down pinned under its button would float away on scroll.
-    window.addEventListener("scroll", function() {
+    window.addEventListener("scroll", function(ev) {
       var sheet = document.getElementById("portalGroupSheet");
+      // Scrolling the list inside the panel must not close it.
+      var panel = document.getElementById("portalGroupPanel");
+      if (panel && ev && ev.target && ev.target !== document && panel.contains(ev.target)) { return; }
       if (sheet && !sheet.hidden && sheet.classList.contains("pg-dropdown")) { portalGroupSheetClose(); }
     }, true);
     function portalGroupSheetClose() {

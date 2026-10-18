@@ -13287,6 +13287,7 @@ function gmInvRowHtml(inv) {
 // ── Invoice sheet ────────────────────────────────────────────────────────
 function gmOpenInvoice(id) {
   gmSheetOpen(gmT("Fatura", "Invoice"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
+  gmTapReady = null; // re-checked fresh for whichever invoice this sheet ends up showing
   gmApi("invoices/" + encodeURIComponent(id))
     .then(function(d) { gmInvDetail = d.invoice; gmRenderInvoiceSheet(); })
     .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
@@ -13305,7 +13306,8 @@ function gmRenderInvoiceSheet() {
   body += '<div class="gm-sheet-section"><div class="gm-est-actions">';
   if (inv.status !== "void") {
     body += '<button type="button" class="gm-btn-primary" id="gmInvSendBtn" onclick="gmInvSendOpen()">' + gmT("Enviar fatura", "Send invoice") + '</button>' +
-      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>';
+      '<button type="button" class="gm-btn-secondary" onclick="gmInvPaymentOpen()">' + (ro ? gmT("Informar pagamento", "Report payment") : gmT("Registrar pagamento", "Record payment")) + '</button>' +
+      gmTapButtonHtml(inv);
   }
   body += '<a class="gm-btn-secondary" href="' + escHtml(inv.link) + '" target="_blank" rel="noopener">' + gmT("Ver como o cliente", "Preview as customer") + '</a>' +
     '<a class="gm-btn-secondary" href="' + escHtml(gmPdfHref(inv.pdf_link)) + '" target="_blank" rel="noopener">' + gmT("Baixar PDF", "Download PDF") + '</a>';
@@ -13374,6 +13376,173 @@ function gmRenderInvoiceSheet() {
   var sendBtn = document.getElementById("gmInvSendBtn");
   if (sendBtn) { gmDocMsgAttach(sendBtn, "invoice_message"); }
   pays.forEach(function(p) { var b = document.getElementById("gmRcptSend_" + p.id); if (b) { gmDocMsgAttach(b, "receipt_message"); } });
+}
+
+// ── Tap to Pay on iPhone (Build 5): take the card payment on this device ──
+//
+// The button only ever appears: inside the native app (never on the web or
+// in a browser tab), never on iPad (ApexTapToPay.isSupported() checks the
+// device, not just the platform), only when the invoice has a balance due,
+// and only when the business has Tap to Pay switched on
+// (GET .../stripe/tap, the SAME route the owner's settings toggle reads).
+//
+// gmTapReady holds the last isSupported()+stripe/tap answer for the
+// CURRENT invoice sheet only -- it is read once when the sheet opens and
+// is deliberately not cached across invoices, since a different invoice
+// can belong to a different balance (and in principle, if this ever
+// becomes multi-tenant per session, a different business).
+var gmTapReady = null; // { supported, enabled } or null while loading
+var gmTapBusy = false;
+var gmTapLocationId = null;
+
+function gmTapPlugin() {
+  return (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.ApexTapToPay : null;
+}
+
+// Rendered synchronously as "" (nothing) the first time a sheet opens,
+// since isSupported()/stripe-tap are both async; gmTapCheckReady kicks off
+// the real check and re-renders the sheet once it resolves, same pattern as
+// gmStripeBlockHtml's own lazy-load-then-rerender.
+function gmTapButtonHtml(inv) {
+  if (!gmInApp()) { return ""; }
+  if (!(inv.balance_cents > 0)) { return ""; }
+  if (gmTapReady === null) { gmTapCheckReady(inv.id); return ""; }
+  if (!gmTapReady.supported || !gmTapReady.enabled) { return ""; }
+  return '<button type="button" class="gm-btn-secondary" id="gmTapBtn" onclick="gmTapStart(\'' + escHtml(inv.id) + '\')">' +
+    gmT("Receber no cartão (tap)", "Take card payment (tap)") + '</button>';
+}
+
+function gmTapCheckReady(invId) {
+  var plugin = gmTapPlugin();
+  if (!plugin) { gmTapReady = { supported: false, enabled: false }; return; }
+  plugin.isSupported().then(function(d) {
+    if (!d || !d.supported) { gmTapReady = { supported: false, enabled: false }; gmTapRerenderIfSameInvoice(invId); return; }
+    gmApi("stripe/tap").then(function(st) {
+      gmTapReady = { supported: true, enabled: !!(st && st.enabled) };
+      gmTapLocationId = (st && st.location_id) || gmTapLocationId;
+      gmTapRerenderIfSameInvoice(invId);
+    }).catch(function() {
+      gmTapReady = { supported: true, enabled: false };
+      gmTapRerenderIfSameInvoice(invId);
+    });
+  }).catch(function() {
+    gmTapReady = { supported: false, enabled: false };
+    gmTapRerenderIfSameInvoice(invId);
+  });
+}
+function gmTapRerenderIfSameInvoice(invId) {
+  if (gmInvDetail && gmInvDetail.id === invId) { gmRenderInvoiceSheet(); }
+}
+
+// In-page states only (Rule 31: no browser pop-ups). Reuses the sheet's own
+// body area by swapping the actions block's content via a dedicated status
+// line under the button, same visual language as gmDocShowMsg elsewhere.
+function gmTapStatusHtml(kind, text) {
+  var cls = kind === "error" ? "gm-warn" : (kind === "success" ? "gm-ok" : "muted");
+  return '<p class="' + cls + '" id="gmTapStatus" style="margin:8px 0 0;">' + escHtml(text) + '</p>';
+}
+function gmTapShowStatus(kind, text) {
+  var el = document.getElementById("gmTapStatus");
+  var html = gmTapStatusHtml(kind, text);
+  if (el) { el.outerHTML = html; return; }
+  var btn = document.getElementById("gmTapBtn");
+  if (btn && btn.parentNode) { btn.insertAdjacentHTML("afterend", html); }
+}
+
+var GM_TAP_ERROR_TEXT = {
+  cancelled: [gmT, "Pagamento cancelado.", "Payment cancelled."],
+  cancelled_on_reader: [gmT, "O cliente cancelou no iPhone.", "The customer cancelled on the iPhone."],
+  declined: [gmT, "Cartão recusado. Tente outro cartão.", "Card declined. Try another card."],
+  card_read_failed: [gmT, "Não foi possível ler o cartão. Tente de novo.", "Could not read the card. Try again."],
+  not_connected: [gmT, "O iPhone não está pronto para receber o pagamento. Tente de novo.", "The iPhone is not ready to take the payment. Try again."],
+  no_network: [gmT, "Sem conexão com a internet. Verifique a rede e tente de novo.", "No internet connection. Check your network and try again."],
+  too_many_accounts_today: [gmT, "Este iPhone já usou o limite de contas Stripe nas últimas 24 horas. Tente em outro aparelho.", "This iPhone has already reached its Stripe account limit for the last 24 hours. Try another device."],
+  payment_in_progress: [gmT, "Já existe um pagamento em andamento.", "A payment is already in progress."]
+};
+function gmTapErrorText(code) {
+  var row = GM_TAP_ERROR_TEXT[code];
+  if (row) { return gmT(row[1], row[2]); }
+  return gmT("Não foi possível processar o pagamento. Tente de novo.", "Could not process the payment. Try again.");
+}
+
+function gmTapSetBusy(busy) {
+  gmTapBusy = busy;
+  var btn = document.getElementById("gmTapBtn");
+  if (btn) { btn.disabled = busy; }
+}
+
+// Answers the plugin's "I need a fresh connection token" event by calling
+// the SAME Worker route the owner's settings card would use, then hands the
+// secret straight back to the plugin. Wired once; harmless to wire again if
+// a sheet opens more than once (addListener does not duplicate the plugin
+// SIDE of the bridge, only this page-side handler, and every call here is
+// idempotent against a requestId it has not already answered).
+var gmTapTokenListenerWired = false;
+function gmTapWireTokenListener() {
+  if (gmTapTokenListenerWired) { return; }
+  var plugin = gmTapPlugin();
+  if (!plugin || !plugin.addListener) { return; }
+  gmTapTokenListenerWired = true;
+  plugin.addListener("apexTapRequestConnectionToken", function(ev) {
+    var requestId = ev && ev.requestId;
+    if (!requestId) { return; }
+    gmApi("stripe/tap/connection-token", { method: "POST", body: {} }).then(function(d) {
+      plugin.provideConnectionToken({ requestId: requestId, secret: d.secret });
+    }).catch(function(e) {
+      plugin.provideConnectionToken({ requestId: requestId, error: e.message });
+    });
+  });
+}
+
+function gmTapStart(invId) {
+  if (gmTapBusy) { return; }
+  var plugin = gmTapPlugin();
+  if (!plugin) { return; }
+  gmTapWireTokenListener();
+  gmTapSetBusy(true);
+  gmTapShowStatus("info", gmT("Preparando...", "Preparing..."));
+
+  gmApi("stripe/tap").then(function(st) {
+    if (!st || !st.enabled) { throw new Error(gmT("Tap to Pay não está ativado.", "Tap to Pay is not turned on.")); }
+    gmTapLocationId = st.location_id || gmTapLocationId;
+    if (!gmTapLocationId) { throw new Error(gmT("Local do Tap to Pay não encontrado. Desative e ative o Tap to Pay de novo.", "Tap to Pay location not found. Turn Tap to Pay off and back on.")); }
+    return plugin.prepare({ locationId: gmTapLocationId });
+  }).then(function() {
+    return gmApi("stripe/tap/payment-intent", { method: "POST", body: { invoice_id: invId } });
+  }).then(function(pi) {
+    gmTapShowStatus("info", gmT("Aproxime o cartão ou celular da parte de trás do iPhone", "Hold the card or phone near the back of the iPhone"));
+    return plugin.takePayment({ clientSecret: pi.client_secret }).then(function(result) {
+      return { result: result, amountCents: pi.amount_cents };
+    });
+  }).then(function(o) {
+    gmTapShowStatus("success", gmT("Pagamento recebido: ", "Payment received: ") + gmMoney(o.amountCents));
+    gmTapSetBusy(false);
+    gmTapPollInvoicePaid(invId, 0);
+  }).catch(function(e) {
+    gmTapSetBusy(false);
+    var code = e && e.code; // CAPPluginCall.reject's `code` argument surfaces here
+    gmTapShowStatus("error", code ? gmTapErrorText(code) : (e && e.message) || gmTapErrorText(null));
+  });
+}
+
+// The webhook records the payment asynchronously; reload right away, then
+// poll every 2s up to 20s if it is not yet marked paid, per spec.
+function gmTapPollInvoicePaid(invId, elapsedMs) {
+  gmApi("invoices/" + encodeURIComponent(invId)).then(function(d) {
+    var inv = d.invoice;
+    if (inv && inv.derived_status === "paid") {
+      gmInvDetail = inv; gmRenderInvoiceSheet();
+      return;
+    }
+    if (elapsedMs >= 20000) {
+      gmTapShowStatus("info", gmT("Pagamento aprovado. Pode levar alguns segundos para aparecer no recibo.", "Payment approved. It can take a few seconds to show on the receipt."));
+      return;
+    }
+    setTimeout(function() { gmTapPollInvoicePaid(invId, elapsedMs + 2000); }, 2000);
+  }).catch(function() {
+    // A transient read failure here does not retract the success message
+    // already shown; the sheet simply does not refresh until reopened.
+  });
 }
 
 // Record payment (3d): amount with Full, date, method, reference, note.

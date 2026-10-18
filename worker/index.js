@@ -29574,11 +29574,17 @@ async function handleGetGmStripeTap(id, request, env) {
         var guard = gmStripeTapActorGuard(user, id);
         if (guard) { return guard; }
         var sa;
-        try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null }); } throw e; }
+        try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null, location_id: null }); } throw e; }
         var available = !!(sa && sa.charges_enabled);
-        return jsonOk({ available: available, enabled: !!(sa && sa.tap_enabled), accepted_at: (sa && sa.tap_accepted_at) || null });
+        // location_id: so a page that opens well after enabling (not just
+        // the enable response itself) still has what the native plugin's
+        // prepare() needs -- the app never has to call enable again to
+        // learn it.
+        var loc = null;
+        try { loc = await env.DB.prepare("SELECT location_id FROM gm_stripe_terminal_locations WHERE client_id = ?").bind(id).first(); } catch (e2) { if (!gmTapMigrationMissing(e2)) { throw e2; } }
+        return jsonOk({ available: available, enabled: !!(sa && sa.tap_enabled), accepted_at: (sa && sa.tap_accepted_at) || null, location_id: loc ? loc.location_id : null });
     } catch (e) {
-        if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null }); }
+        if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null, location_id: null }); }
         return jsonErr("Error loading Tap to Pay status: " + e.message, 500);
     }
 }

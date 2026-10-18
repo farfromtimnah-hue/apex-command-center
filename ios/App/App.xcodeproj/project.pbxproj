@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
+		A1E5F0071000000000000003 /* StripeTerminal in Frameworks */ = {isa = PBXBuildFile; productRef = A1E5F0071000000000000002 /* StripeTerminal */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
@@ -21,6 +22,7 @@
 		A1E5F0021000000000000002 /* ApexUptimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0021000000000000001 /* ApexUptimePlugin.swift */; };
 		A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0041000000000000001 /* ApexAppIntents.swift */; };
 		A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */; };
+		A1E5F0051000000000000002 /* ApexTapToPayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +43,8 @@
 		A1E5F0021000000000000001 /* ApexUptimePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexUptimePlugin.swift; sourceTree = "<group>"; };
 		A1E5F0041000000000000001 /* ApexAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexAppIntents.swift; sourceTree = "<group>"; };
 		A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexLockCoverPlugin.swift; sourceTree = "<group>"; };
+		A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexTapToPayPlugin.swift; sourceTree = "<group>"; };
+		A1E5F0061000000000000001 /* App.Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.Debug.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,6 +53,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				A1E5F0071000000000000003 /* StripeTerminal in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -76,10 +81,12 @@
 			isa = PBXGroup;
 			children = (
 				79A26313304A5A4800909662 /* App.entitlements */,
+				A1E5F0061000000000000001 /* App.Debug.entitlements */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				A1E5F0021000000000000001 /* ApexUptimePlugin.swift */,
 				A1E5F0041000000000000001 /* ApexAppIntents.swift */,
 				A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */,
+				A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -112,6 +119,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				A1E5F0071000000000000002 /* StripeTerminal */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -144,6 +152,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				A1E5F0071000000000000001 /* XCRemoteSwiftPackageReference "stripe-terminal-ios-spm" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -182,6 +191,7 @@
 				A1E5F0021000000000000002 /* ApexUptimePlugin.swift in Sources */,
 				A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */,
 				A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */,
+				A1E5F0051000000000000002 /* ApexTapToPayPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -321,7 +331,12 @@
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
+				// Tap to Pay (Build 5): the proximity-reader entitlement Apple
+				// granted is DEVELOPMENT ONLY, so it lives in a Debug-only
+				// entitlements file, referenced ONLY here. Release below keeps
+				// App.entitlements unchanged, so a TestFlight/App Store build
+				// keeps signing and uploading exactly as before.
+				CODE_SIGN_ENTITLEMENTS = App/App.Debug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = 9W5WP66A7Z;
@@ -394,11 +409,27 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A1E5F0071000000000000001 /* XCRemoteSwiftPackageReference "stripe-terminal-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-terminal-ios-spm";
+			requirement = {
+				kind = exactVersion;
+				version = 6.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		A1E5F0071000000000000002 /* StripeTerminal */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1E5F0071000000000000001 /* XCRemoteSwiftPackageReference "stripe-terminal-ios-spm" */;
+			productName = StripeTerminal;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

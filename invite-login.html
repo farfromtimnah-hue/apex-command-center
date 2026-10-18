@@ -192,9 +192,15 @@
       var g = document.getElementById("greeting");
       if (g) { g.innerHTML = inviteBi("Olá, " + inviteEsc(info.name) + "!", "Hi, " + inviteEsc(info.name) + "!"); }
       var b = document.getElementById("businessLine");
+      // Login completion build (Change A/C): an 'add' or 'replace' purpose
+      // is a device link, not a first invite -- the greeting says so.
+      var isDevicePurpose = info.purpose === "add" || info.purpose === "replace";
       if (b) {
-        b.innerHTML = inviteBi("Você foi convidado(a) para entrar no Apex de <strong>" + inviteEsc(info.business_name) + "</strong>.",
-          "You were invited to sign in to Apex for <strong>" + inviteEsc(info.business_name) + "</strong>.");
+        b.innerHTML = isDevicePurpose
+          ? inviteBi("Este link é para um novo aparelho no Apex de <strong>" + inviteEsc(info.business_name) + "</strong>.",
+              "This link is for a new device for Apex at <strong>" + inviteEsc(info.business_name) + "</strong>.")
+          : inviteBi("Você foi convidado(a) para entrar no Apex de <strong>" + inviteEsc(info.business_name) + "</strong>.",
+              "You were invited to sign in to Apex for <strong>" + inviteEsc(info.business_name) + "</strong>.");
       }
       var r = document.getElementById("roleChip");
       if (r) {
@@ -203,9 +209,14 @@
         r.hidden = !(lbl.pt || lbl.en);
       }
       var m = document.getElementById("maskedLine");
+      // Change E: SMS for +1 numbers, WhatsApp for +55 -- no choice. The
+      // info route's `channel` field picks the wording.
       if (m) {
-        m.innerHTML = inviteBi("Vamos enviar um código por SMS para " + inviteEsc(info.masked_phone),
-          "We will text a code to " + inviteEsc(info.masked_phone));
+        m.innerHTML = info.channel === "whatsapp"
+          ? inviteBi("Vamos enviar um código pelo WhatsApp para " + inviteEsc(info.masked_phone),
+              "We will send a code on WhatsApp to " + inviteEsc(info.masked_phone))
+          : inviteBi("Vamos enviar um código por SMS para " + inviteEsc(info.masked_phone),
+              "We will text a code to " + inviteEsc(info.masked_phone));
       }
     }
 

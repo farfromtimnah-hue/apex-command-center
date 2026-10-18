@@ -516,6 +516,14 @@
         <span class="show-pt">Entrar com passkey</span>
         <span class="show-en">Sign in with passkey</span>
       </button>
+      <!-- Login completion build: a small help line under the passkey
+           button, shown only when the button itself is visible AND this is
+           not the native app (the QR-code-from-a-phone flow is a browser
+           affordance). passkeyInitButton() sets this hidden flag. -->
+      <p class="status-msg" id="passkeyHelpLine" hidden style="font-size:12px;opacity:0.75;margin-top:6px;">
+        <span class="show-pt">Em um computador novo? Toque no botão e escolha usar um celular para ler o QR code.</span>
+        <span class="show-en">On a new computer? Tap the button and choose to use a phone and scan the QR code.</span>
+      </p>
     </div>
     <div class="status-msg" id="statusMsg"></div>
   </main>
@@ -837,10 +845,17 @@
         })
         .then(function(show) {
           btn.hidden = !show;
+          var help = document.getElementById("passkeyHelpLine");
+          if (help) {
+            var isNative = typeof apexIsNative === "function" && apexIsNative();
+            help.hidden = !(show && !isNative);
+          }
           return !!show;
         })
         .catch(function() {
           btn.hidden = true;
+          var help = document.getElementById("passkeyHelpLine");
+          if (help) { help.hidden = true; }
           return false;
         });
     }

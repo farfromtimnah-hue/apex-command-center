@@ -430,6 +430,17 @@ async function authenticateInner(request, env) {
     var row = await env.DB.prepare("SELECT role, display_name, avatar_url, client_id FROM users WHERE email = ?")
         .bind(payload.email).first();
     if (!row) { return null; }
+    // Change F: a cut-over business's Google sign-in is refused the same way
+    // as a wrong password, for the SAME reason a cut-over username/password
+    // login is refused -- the business asked to be passkey-only. The check
+    // is scoped to row.role === "client" (the owner's Google-linked account),
+    // which is distinct from every staff role (alice, rafa, developer) on
+    // this same table and query, so staff Google sign-in is never touched.
+    if (row.role === "client" && row.client_id && passkeyEnabled(env)) {
+        var cutover = await env.DB.prepare("SELECT 1 FROM login_legacy_cutover WHERE client_id = ?")
+            .bind(row.client_id).first().catch(function() { return null; });
+        if (cutover) { return null; }
+    }
     return {
         email: payload.email, role: row.role,
         display_name: row.display_name ?? null, avatar_url: row.avatar_url ?? null,
@@ -15563,7 +15574,17 @@ function clientRequestAllowed(path, method, clientId) {
     // apply the partner rule (passkeyMayManage); the whole family is 404
     // while PASSKEY_LOGIN_ENABLED is off.
     if (path === "/api/gm/people" && (method === "GET" || method === "POST")) { return true; }
-    if (/^\/api\/gm\/people\/[A-Za-z0-9-]+\/(invite|disable|enable)$/.test(path) && method === "POST") { return true; }
+    if (/^\/api\/gm\/people\/[A-Za-z0-9-]+\/(invite|disable|enable|role|device-event|loss-review)$/.test(path) &&
+        (method === "POST" || (method === "GET" && /\/loss-review$/.test(path)))) { return true; }
+    if (/^\/api\/gm\/people\/[A-Za-z0-9-]+\/passkeys\/[A-Za-z0-9-]+\/revoke$/.test(path) && method === "POST") { return true; }
+    // Login completion build: "My devices" (any signed-in person) and the
+    // owner/partner-visible audit and loss-review reads. The admin-only
+    // routes (seat-policy, seat-usage, source, legacy-login, loss-reviews
+    // list/review/recheck, diagnostics) are deliberately NOT added here --
+    // those stay reachable only through the admin role branch, never through
+    // this owner/partner/staff allowlist.
+    if (path.indexOf("/api/me/passkeys") === 0) { return true; }
+    if (path === "/api/gm/activity" && method === "GET") { return true; }
     var base = "/api/clients/" + clientId;
     if (path === base && method === "GET") { return true; }
     if (path.indexOf(base + "/") === 0) {
@@ -18077,7 +18098,7 @@ async function handlePostGmPersonDeviceEvent(personId, request, env) {
         // minutes is a no-op (returns the prior result's shape where sensible).
         var dup = await env.DB.prepare(
             "SELECT * FROM login_device_events WHERE person_id = ? AND reason = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1"
-        ).bind(personId, reason, new Date(Date.now() - 5 * 60 * 1000).toISOString()).first();
+        ).bind(personId, reason, passkeyIso(passkeyNow().getTime() - 5 * 60 * 1000)).first();
         if (dup) {
             if (reason === "left") { return jsonOk({ done: true, reason: "left", duplicate: true }); }
             // For new_phone/lost, re-use the newest open invite if one exists.
@@ -18174,7 +18195,7 @@ async function passkeyLossReviewPeriodSummary(env, usernames, personId, fromIso,
 async function passkeyRunLossReview(env, eventId, person, reportedLossAt, reportedAt) {
     try {
         var usernames = person.username ? [person.username] : [];
-        var nowIso = new Date().toISOString();
+        var nowIso = passkeyNow().toISOString();
         var between = await passkeyLossReviewPeriodSummary(env, usernames, person.id, reportedLossAt, reportedAt);
         var after = await passkeyLossReviewPeriodSummary(env, usernames, person.id, reportedAt, nowIso);
         var flagged = (between.flagged || after.flagged) ? 1 : 0;
@@ -18260,7 +18281,7 @@ async function handlePostGmLossReviewRecheck(reviewId, request, env) {
         if (!row) { return jsonErr("Not found", 404); }
         var person = await env.DB.prepare("SELECT * FROM login_people WHERE id = ?").bind(row.person_id).first();
         var usernames = person && person.username ? [person.username] : [];
-        var nowIso = new Date().toISOString();
+        var nowIso = passkeyNow().toISOString();
         var between = await passkeyLossReviewPeriodSummary(env, usernames, row.person_id, row.reported_loss_at, row.reported_at);
         var after = await passkeyLossReviewPeriodSummary(env, usernames, row.person_id, row.reported_at, nowIso);
         var flagged = (between.flagged || after.flagged) ? 1 : 0;

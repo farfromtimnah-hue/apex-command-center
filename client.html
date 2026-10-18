@@ -93,7 +93,7 @@
   <link rel="stylesheet" href="doc-hero.css?v=1790541646">
   <script src="doc-hero.js?v=1790547506"></script>
   <script src="gm-labels.js?v=1791231031"></script>
-  <script src="gm.js?v=1792347362"></script>
+  <script src="gm.js?v=1792356089"></script>
   <script src="data/us-br-states.js?v=1791950001"></script>
   <script src="client-places.js?v=1791950001"></script>
   <script src="apex-contract.js?v=1792120317"></script>
@@ -2728,6 +2728,18 @@
           </div>
         </div>
 
+        <!-- Login security (passkey login completion): legacy cutover (F),
+             seats + source (J/K), lost-device reviews (H). Admin only; hidden
+             entirely while the passkey login switch is off. -->
+        <div class="content-card" id="sec-loginSecurity" hidden>
+          <div class="content-card-header">
+            <span class="show-pt">Segurança do login</span><span class="show-en">Login security</span>
+          </div>
+          <div id="loginSecurityBody" style="padding:16px 20px;">
+            <div style="color:var(--muted);font-size:13px;"><span class="show-pt">Carregando...</span><span class="show-en">Loading...</span></div>
+          </div>
+        </div>
+
         <!-- Salesperson login requests from THIS client. Recording a decision
              here provisions nothing — see the worker route comment. -->
         <div class="content-card" id="sec-sellerLogins">
@@ -4654,7 +4666,7 @@
           onSaved: function(saved) { if (!messageTemplates) { messageTemplates = {}; } messageTemplates[saved.template_key] = saved.template_text; }
         });
       }
-      ownerInviteCheckEnabled();
+      ownerInviteCheckEnabled().then(function(on) { if (on) { loadLoginSecurity(); } });
     }
 
     // ── Owner invite link (passkey login build) ─────────────────────────────
@@ -4808,6 +4820,189 @@
       if (!waTab) {
         pageNotice(t("Popup bloqueado — permita popups e tente novamente.", "Popup blocked: allow popups and try again."));
       }
+    }
+
+    // ── "Segurança do login" / "Login security" (passkey login completion) ──
+    // Changes F (legacy cutover), H (lost-device reviews), J/K (seats and
+    // source). Admin only; this whole section stays hidden while
+    // GET /api/passkey-login/status says disabled (checked by the caller).
+    var loginSecurity = { legacy: null, logins: null, seats: null, source: null, reviews: null, ownerPersonId: null, ownerHasPasskey: false, err: "" };
+
+    function loadLoginSecurity() {
+      var card = document.getElementById("sec-loginSecurity");
+      if (card) { card.hidden = false; }
+      return Promise.all([
+        apiFetch("/api/clients/" + CLIENT_ID + "/login").then(function(r) { return r.ok ? r.json() : { exists: false }; }).catch(function() { return { exists: false }; }),
+        apiFetch("/api/gm/clients/" + CLIENT_ID + "/seat-usage").then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; }),
+        apiFetch("/api/gm/loss-reviews?status=open").then(function(r) { return r.ok ? r.json() : { reviews: [] }; }).catch(function() { return { reviews: [] }; }),
+        apiFetch("/api/gm/people?client_id=" + encodeURIComponent(CLIENT_ID)).then(function(r) { return r.ok ? r.json() : { people: [] }; }).catch(function() { return { people: [] }; })
+      ]).then(function(results) {
+        loginSecurity.logins = results[0];
+        loginSecurity.seats = results[1];
+        loginSecurity.reviews = (results[2].reviews || []).filter(function(r) { return r.client_id === CLIENT_ID; });
+        var owner = (results[3].people || []).filter(function(p) { return p.role === "client"; })[0];
+        loginSecurity.ownerPersonId = owner ? owner.id : null;
+        loginSecurity.ownerHasPasskey = !!(owner && owner.active_devices > 0);
+        renderLoginSecurity();
+      });
+    }
+
+    function renderLoginSecurity() {
+      var el = document.getElementById("loginSecurityBody");
+      if (!el) { return; }
+      var html = "";
+      // Change H: open lost-device reviews for this client.
+      if (loginSecurity.reviews && loginSecurity.reviews.length) {
+        html += '<div style="margin-bottom:16px;"><div style="font-weight:700;margin-bottom:8px;">' +
+          '<span class="show-pt">Revisões de perda de aparelho</span><span class="show-en">Lost device reviews</span></div>';
+        loginSecurity.reviews.forEach(function(r) {
+          var hours = Math.round((Date.parse(r.reported_at) - Date.parse(r.reported_loss_at)) / 3600000 * 10) / 10;
+          html += '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px;">' +
+            '<div><strong>' + escHtml(r.display_name || r.person_id) + '</strong> (' + escHtml(r.person_role || "") + ')' +
+            (r.flagged ? ' <span style="color:#b44040;font-weight:700;">' + t("Sinalizado", "Flagged") + '</span>' : '') + '</div>' +
+            '<div style="color:var(--muted);">' + t("Perdido em ", "Went missing ") + escHtml(r.reported_loss_at) + '<br>' +
+            t("Reportado em ", "Reported ") + escHtml(r.reported_at) + ' (' + hours + 'h)</div>' +
+            '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button class="btn-add" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', true)">' + t("Marcar sinalizado", "Mark flagged") + '</button>' +
+            '<button class="btn-add" onclick="lossReviewMark(\'' + escHtml(r.id) + '\', false)">' + t("Marcar revisado", "Mark reviewed") + '</button>' +
+            '<button class="btn-add" onclick="lossReviewRecheck(\'' + escHtml(r.id) + '\')">' + t("Reverificar", "Recheck") + '</button>' +
+            '</div></div>';
+        });
+        html += '</div>';
+      }
+      // Change J/K: seats card.
+      var s = loginSecurity.seats;
+      if (s) {
+        html += '<div style="margin-bottom:16px;"><div style="font-weight:700;margin-bottom:8px;">' +
+          '<span class="show-pt">Assentos</span><span class="show-en">Seats</span></div>' +
+          '<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">' +
+          t("Em uso: ", "In use: ") + s.used + ' · ' + t("Incluídos: ", "Included: ") + s.included + ' · ' + t("Pico: ", "Peak: ") + s.peak_ever + '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+          '<select id="seatModeSel">' +
+            '<option value="track"' + (s.mode === "track" ? " selected" : "") + '>' + t("Só contar", "Count only") + '</option>' +
+            '<option value="notice"' + (s.mode === "notice" ? " selected" : "") + '>' + t("Avisar o dono", "Notify the owner") + '</option>' +
+            '<option value="block"' + (s.mode === "block" ? " selected" : "") + '>' + t("Bloquear no limite", "Block at the limit") + '</option>' +
+          '</select>' +
+          '<input type="number" id="seatIncludedInput" min="1" max="500" value="' + s.included + '" style="width:80px;" placeholder="' + t("Incluídos", "Included") + '">' +
+          '<input type="number" id="seatHardLimitInput" min="1" value="" style="width:80px;" placeholder="' + t("Limite", "Limit") + '"' + (s.mode === "block" ? "" : " hidden") + '>' +
+          '<button class="btn-add" onclick="saveSeatPolicy()">' + t("Salvar", "Save") + '</button>' +
+          '</div></div>';
+      }
+      html += '<div style="margin-bottom:16px;"><div style="font-weight:700;margin-bottom:8px;">' +
+        '<span class="show-pt">Origem do negócio</span><span class="show-en">Business source</span></div>' +
+        '<select id="sourceSel" onchange="saveSource()">' +
+          '<option value="apex_direct">' + t("Apex direto (consultoria)", "Apex direct (consulting)") + '</option>' +
+          '<option value="public_signup">' + t("Cadastro público", "Public signup") + '</option>' +
+        '</select></div>';
+      // Change F: old login per business.
+      var logins = loginSecurity.logins;
+      html += '<div><div style="font-weight:700;margin-bottom:8px;">' +
+        '<span class="show-pt">Login antigo (usuário e senha)</span><span class="show-en">Old login (username and password)</span></div>';
+      if (logins && logins.exists) {
+        html += '<div style="font-size:13px;margin-bottom:8px;">' + escHtml(logins.username) + '</div>';
+      } else {
+        html += '<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">' + t("Nenhum login antigo.", "No old login.") + '</div>';
+      }
+      html += '<button class="btn-add" onclick="toggleLegacyLogin()">' +
+        '<span id="legacyToggleLabel">' + t("Desativar login antigo deste negócio", "Turn off the old login for this business") + '</span></button></div>';
+      // The owner's own device-loss card (admin only, same three reasons),
+      // shown once the owner already has a passkey.
+      if (loginSecurity.ownerPersonId && loginSecurity.ownerHasPasskey) {
+        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">' +
+          '<button class="btn-add" onclick="ownerDeviceLossOpen()">' + t("Aparelho do dono: perdido, trocado ou saída", "Owner's device: lost, replaced or leaving") + '</button></div>';
+      }
+      el.innerHTML = html;
+    }
+
+    function ownerDeviceLossOpen() {
+      var personId = loginSecurity.ownerPersonId;
+      if (!personId) { return; }
+      pageDialog({
+        message: t(
+          "O que aconteceu com o aparelho do dono?\n\n1) Comprou um celular novo\n2) Perdido ou roubado\n3) Saiu da empresa (raro para o dono)\n\nEscolha uma opção abaixo; para a opção 3, use o botão de desativar na ficha.",
+          "What happened to the owner's device?\n\n1) Got a new phone\n2) Lost or stolen\n3) Left the company (rare for the owner)\n\nChoose below; for option 3, use the disable button in the profile."
+        ),
+        yes: t("Comprou celular novo", "Got a new phone"),
+        keep: t("Perdido ou roubado", "Lost or stolen"),
+        onYes: function() { ownerDeviceLossSubmit(personId, "new_phone", {}); },
+        onKeep: function() { ownerDeviceLossLostFlow(personId); }
+      });
+    }
+    function ownerDeviceLossLostFlow(personId) {
+      pageDialog({
+        message: t("Quando o aparelho foi perdido?\n\nEscolha a opção mais próxima; vamos revisar a atividade desde então.", "When was the device lost?\n\nChoose the closest option; we will review activity since then."),
+        yes: t("Agora", "Now"),
+        keep: t("Hoje", "Today"),
+        onYes: function() { ownerDeviceLossSubmit(personId, "lost", { when: "now" }); },
+        onKeep: function() { ownerDeviceLossSubmit(personId, "lost", { when: "today" }); }
+      });
+    }
+    function ownerDeviceLossSubmit(personId, reason, extra) {
+      var body = Object.assign({ reason: reason }, extra || {});
+      apiFetch("/api/gm/people/" + encodeURIComponent(personId) + "/device-event", { method: "POST", body: body })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { pageNotice(r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Erro")); return; }
+          if (r.data && r.data.invite_url) {
+            ownerInvite.result = r.data;
+            var m = document.getElementById("modalOwnerInvite");
+            if (m) { m.hidden = false; }
+            renderOwnerInvite();
+          }
+          loadLoginSecurity();
+        })
+        .catch(function(e) { pageNotice(e.message); });
+    }
+
+    function saveSeatPolicy() {
+      var mode = document.getElementById("seatModeSel").value;
+      var included = parseInt(document.getElementById("seatIncludedInput").value, 10);
+      var hardLimit = parseInt(document.getElementById("seatHardLimitInput").value, 10);
+      apiFetch("/api/gm/clients/" + CLIENT_ID + "/seat-policy", { method: "POST", body: { included_seats: included, mode: mode, hard_limit: mode === "block" ? hardLimit : undefined } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { pageNotice(r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Erro")); return; }
+          loadLoginSecurity();
+        })
+        .catch(function(e) { pageNotice(e.message); });
+    }
+    function saveSource() {
+      var source = document.getElementById("sourceSel").value;
+      apiFetch("/api/gm/clients/" + CLIENT_ID + "/source", { method: "POST", body: { source: source } })
+        .catch(function(e) { pageNotice(e.message); });
+    }
+    function toggleLegacyLogin() {
+      pageDialog({
+        message: t(
+          "Desativar o login antigo deste negócio?\n\nNinguém mais entra com usuário e senha; todas as sessões atuais encerram.",
+          "Turn off the old login for this business?\n\nNobody signs in with a username and password any more; all current sessions end."
+        ),
+        yes: t("Desativar", "Turn off"),
+        keep: t("Manter", "Keep"),
+        onYes: function() {
+          apiFetch("/api/gm/clients/" + CLIENT_ID + "/legacy-login", { method: "POST", body: { disabled: true } })
+            .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+            .then(function(r) {
+              if (!r.ok) {
+                var msg = r.data.error_pt ? t(r.data.error_pt, r.data.error_en) : (r.data.error || "Erro");
+                pageNotice(msg);
+                return;
+              }
+              loadLoginSecurity();
+            })
+            .catch(function(e) { pageNotice(e.message); });
+        }
+      });
+    }
+    function lossReviewMark(id, flagged) {
+      apiFetch("/api/gm/loss-reviews/" + encodeURIComponent(id) + "/review", { method: "POST", body: { flagged: flagged, note: "" } })
+        .then(function() { loadLoginSecurity(); })
+        .catch(function(e) { pageNotice(e.message); });
+    }
+    function lossReviewRecheck(id) {
+      apiFetch("/api/gm/loss-reviews/" + encodeURIComponent(id) + "/recheck", { method: "POST", body: {} })
+        .then(function() { loadLoginSecurity(); })
+        .catch(function(e) { pageNotice(e.message); });
     }
 
     // Pr. Rafa's per-client switches (hero build, E). OFF: that gate no longer

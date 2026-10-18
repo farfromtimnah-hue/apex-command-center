@@ -5025,7 +5025,7 @@ function gmRenderPricing() {
     html += '<button type="button" class="btn-gold gm-add-btn" onclick="gmOpenPricing(-1)">' +
       gmT("+ Novo item", "+ New item") + '</button>' +
       '<button type="button" class="btn-gold gm-add-btn" onclick="gmPricingImportOpen()">' +
-      gmT("Importar CSV", "Import CSV") + '</button>';
+      gmT("Importar planilha", "Import spreadsheet") + '</button>';
   }
   html += '</div>';
   body.innerHTML = html;

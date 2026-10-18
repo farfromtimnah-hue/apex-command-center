@@ -23,6 +23,7 @@
 		A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0041000000000000001 /* ApexAppIntents.swift */; };
 		A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */; };
 		A1E5F0051000000000000002 /* ApexTapToPayPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */; };
+		A1E5F0A11000000000000002 /* ApexPasskeyPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0A11000000000000001 /* ApexPasskeyPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		A1E5F0041000000000000001 /* ApexAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexAppIntents.swift; sourceTree = "<group>"; };
 		A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexLockCoverPlugin.swift; sourceTree = "<group>"; };
 		A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexTapToPayPlugin.swift; sourceTree = "<group>"; };
+		A1E5F0A11000000000000001 /* ApexPasskeyPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApexPasskeyPlugin.swift; sourceTree = "<group>"; };
 		A1E5F0061000000000000001 /* App.Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.Debug.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -87,6 +89,7 @@
 				A1E5F0041000000000000001 /* ApexAppIntents.swift */,
 				A1E5F0031000000000000001 /* ApexLockCoverPlugin.swift */,
 				A1E5F0051000000000000001 /* ApexTapToPayPlugin.swift */,
+				A1E5F0A11000000000000001 /* ApexPasskeyPlugin.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -192,6 +195,7 @@
 				A1E5F0041000000000000002 /* ApexAppIntents.swift in Sources */,
 				A1E5F0031000000000000002 /* ApexLockCoverPlugin.swift in Sources */,
 				A1E5F0051000000000000002 /* ApexTapToPayPlugin.swift in Sources */,
+				A1E5F0A11000000000000002 /* ApexPasskeyPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

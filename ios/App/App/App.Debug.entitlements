@@ -24,5 +24,15 @@
 	     fail to sign. -->
 	<key>com.apple.developer.proximity-reader.payment.acceptance</key>
 	<true/>
+
+	<!-- Passkey sign-in (passkey login build). Lets AuthenticationServices use
+	     passkeys for apex.resonateai.online; Apple checks it against
+	     https://apex.resonateai.online/.well-known/apple-app-site-association.
+	     The Associated Domains capability must be enabled on the App ID in the
+	     developer portal before a signed build. Same value in BOTH files. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:apex.resonateai.online</string>
+	</array>
 </dict>
 </plist>

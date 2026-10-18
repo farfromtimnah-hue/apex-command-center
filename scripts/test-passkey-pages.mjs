@@ -217,9 +217,10 @@ const INFO = { name: "Pat", business_name: "Acme Pools", role_label: { pt: "Equi
     [["peopleRoleChoices", PORTAL]], [["PEOPLE_ROLES", PORTAL]]);
   ok(owner.peopleRoleChoices(true).length === 4 && owner.peopleRoleChoices(false).length === 3 && owner.peopleRoleChoices(false).every((r) => r.key !== "partner"), "people: role choices 4 for an owner, 3 for a partner (no Partner)");
   // Render the whole card both ways.
-  const src = varSrc("PEOPLE_ROLES", PORTAL) + "\n" + varSrc("peopleState", PORTAL) + "\n" +
-    ["peopleRoleChoices", "peopleRoleLabel", "peopleStatusChip", "peopleCardHtml", "peopleLinkCardHtml", "peopleSendWhatsapp"].map((n) => fnSrc(n, PORTAL)).join("\n") +
-    "\nreturn { st: function() { return peopleState; }, html: peopleCardHtml, send: peopleSendWhatsapp };";
+  const src = varSrc("PEOPLE_ROLES", PORTAL) + "\n" + varSrc("peopleState", PORTAL) + "\n" + varSrc("lossState", PORTAL) + "\n" +
+    ["peopleRoleChoices", "peopleRoleLabel", "peopleStatusChip", "peopleCardHtml", "peopleLinkCardHtml", "peopleSendWhatsapp",
+      "lossCardHtml", "lossWhenLabel"].map((n) => fnSrc(n, PORTAL)).join("\n") +
+    "\nreturn { st: function() { return peopleState; }, html: peopleCardHtml, send: peopleSendWhatsapp, lossSt: function() { return lossState; } };";
   const opened = [];
   const P = new Function("isEn", "escHtml", "formatDate", "window", "gmToast", src)(() => false, (s) => String(s == null ? "" : s), (s) => s, { open: (u) => { opened.push(u); return {}; } }, () => {});
   P.st().list = [{ id: "p1", name: "Pat", role: "staff", status: "active", masked_phone: "••• •••• 1234", last_passkey_login_at: "2026-10-18T10:00:00Z" }];
@@ -231,7 +232,12 @@ const INFO = { name: "Pat", business_name: "Acme Pools", role_label: { pt: "Equi
   ok(count(hOwner) === 4 && count(hPartner) === 3 && hPartner.indexOf('data-role="partner"') === -1, "people card: 4 role buttons for the owner, 3 for a partner");
   ok(/Pessoas e acessos/.test(hOwner) && /Sócio\(a\) ou assistente executivo\(a\)/.test(hOwner) && /Equipe com acesso ao financeiro/.test(hOwner) && /Equipe sem acesso ao financeiro/.test(hOwner) && /Vendedor\(a\)/.test(hOwner), "people card: Portuguese labels with accents");
   ok(/Estados Unidos \(\+1\)/.test(hOwner) && /Brasil \(\+55\)/.test(hOwner) && (hOwner.match(/<option /g) || []).length === 2, "people card: country selector limited to +1 and +55");
-  ok(/Ativo/.test(hOwner) && /Novo link/.test(hOwner) && /Desativar/.test(hOwner) && /1234/.test(hOwner), "people card: status chip, masked phone, new link and disable buttons");
+  // Change A/C wording: the plain re-invite button became "Novo aparelho
+  // (manter os atuais)" (purpose 'add'), and the single device-loss button
+  // ("Aparelho perdido, trocado ou saída") replaced a separate "new link"
+  // action for the lost/replaced/leaving cases.
+  ok(/Ativo/.test(hOwner) && /Novo aparelho \(manter os atuais\)/.test(hOwner) && /Aparelho perdido, trocado ou saída/.test(hOwner) &&
+    /Desativar/.test(hOwner) && /1234/.test(hOwner), "people card: status chip, masked phone, add-device/loss and disable buttons");
 
   // The WhatsApp message, built by the REAL Worker wording.
   const W = buildWorker(["passkeyInviteMessage", "passkeyInviteMessageFor", "passkeyFirstName"], ["PASSKEY_APP_STORE_URL"], baseStubs);

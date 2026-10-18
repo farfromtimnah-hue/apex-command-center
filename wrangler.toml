@@ -69,3 +69,7 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 #   STYTCH_ENV                 var:    "live" for api.stytch.com, else test.stytch.com
 #   STYTCH_PROJECT_ID          secret: Stytch project id
 #   STYTCH_SECRET              secret: Stytch secret (never commit it)
+# Login completion build, 2026-10-18. Names only, same rule as above.
+#   PASSKEY_WHATSAPP_ENABLED     var: "1" turns on the WhatsApp channel for +55 numbers
+#   PASSKEY_WHATSAPP_DAILY_CAP   var: app-wide WhatsApp code sends per 24h (default 30)
+#   PASSKEY_TRUSTED_COUNTRIES    var: comma list of ISO country codes (default "US,BR,CA")

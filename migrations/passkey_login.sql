@@ -80,16 +80,16 @@ CREATE TABLE IF NOT EXISTS login_passkeys (
 );
 CREATE INDEX IF NOT EXISTS idx_login_passkeys_person ON login_passkeys (person_id);
 
--- Every SMS code send, for the per-invite, app-wide and per-IP caps. Rows
--- older than 3 days are deleted on every insert. CHANGE E: this table also
--- carries WhatsApp sends now (the cap logic for the two channels is kept
--- separate at the application layer; see passkey_whatsapp_alerts below for
--- the WhatsApp-only volume-alert marker).
+-- Every code send (SMS or WhatsApp), for the per-invite, app-wide and per-IP
+-- caps. Rows older than 3 days are deleted on every insert. CHANGE E: channel
+-- ('sms' or 'whatsapp') lets the two app-wide daily caps be counted
+-- separately; existing rows with no channel count as 'sms'.
 CREATE TABLE IF NOT EXISTS login_code_sends (
   id         TEXT PRIMARY KEY,
   created_at TEXT,
   person_id  TEXT,
-  ip         TEXT
+  ip         TEXT,
+  channel    TEXT NOT NULL DEFAULT 'sms'
 );
 CREATE INDEX IF NOT EXISTS idx_login_code_sends_created ON login_code_sends (created_at);
 CREATE INDEX IF NOT EXISTS idx_login_code_sends_ip ON login_code_sends (ip, created_at);

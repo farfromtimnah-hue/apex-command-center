@@ -22,16 +22,41 @@ const FNS = [
   "passkeyPeopleActor", "passkeyMayManage", "passkeyPublicPerson", "passkeyInviterName", "passkeyInviteResponse",
   "passkeyForbidden", "handleGetGmPeople", "handlePostGmPeople", "passkeyLoadPersonFor", "handlePostGmPersonInvite",
   "handlePostGmPersonStatus", "handleGmOwnerInvite", "passkeyIsRoutePath", "passkeyRoute",
-  "loginRoleRuleHit", "loginRoleDenied", "enforceClientRoleGate", "clientRequestAllowed", "sellerRequestAllowed",
+  "loginRoleRuleHit", "loginRoleDenied", "enforceClientRoleGate", "enforceClientRoleGateChecks",
+  "clientRequestAllowed", "sellerRequestAllowed",
   "sessionSellerName", "isAdminRole", "gmStr", "sha256Hex", "generateClientToken", "handlePostClientLogin",
-  "verifyPassword", "hashPassword", "pbkdf2Hash", "bytesToB64", "b64ToBytes", "authenticateClientToken"
+  "verifyPassword", "hashPassword", "pbkdf2Hash", "bytesToB64", "b64ToBytes", "authenticateClientToken",
+  // Login completion build (Changes A-K): device limit / labels, WhatsApp
+  // channel, the audit log and its auto-recorders, seats, country anomaly,
+  // "my devices", device-event / loss review, legacy cutover, source tag.
+  "passkeyDeviceLimitMsg", "passkeyKeepOneMsg", "passkeySignInAgainMsg", "passkeyWhatsappSoonMsg",
+  "passkeyDeviceLabel", "passkeyDeviceLabelOrDefault", "passkeyChannelFor", "passkeyWhatsappEnabled",
+  "passkeyWhatsappCap", "passkeyPhoneSendable", "passkeyMaybeWhatsappAlert",
+  "loginActivityIpPrefix", "loginActivityCountry", "loginActivityInsert", "loginActivityRecord",
+  "loginActivityPathGroup", "loginActivityHourKey", "loginActivityMinuteKey", "loginActivityMaybeAuto",
+  "loginActivityPurgeDaily",
+  "passkeySeatsUsed", "passkeySeatPolicy", "passkeySeatBlocked", "passkeySeatUsageBump", "passkeySeatBlockedMsgDirect",
+  "passkeyTrustedCountries", "passkeyNewCountryCheck", "notifyNicoleTelegramOncePerPersonCountry",
+  "notifyNicoleTelegramOncePerPersonHour", "passkeySessionCountryCheck",
+  "handlePostGmPersonPasskeyRevoke", "passkeyMeLoadPerson", "passkeyMeForbidden", "handleGetMePasskeys",
+  "handlePostMePasskeysStartAdd", "handlePostMePasskeysFinishAdd", "handlePostMePasskeyRemove",
+  "passkeyMeRateLimited", "handlePostGmPersonRole",
+  "passkeyDeviceEventDupMsg", "passkeyEasternMidnight", "passkeyEasternDateTime", "passkeyEasternTodayStr",
+  "passkeyMostRecentFridayStr", "passkeyComputeReportedLossAt", "passkeyDeviceLossWhenError",
+  "handlePostGmPersonDeviceEvent", "passkeyLossReviewPeriodSummary", "passkeyRunLossReview",
+  "handleGetGmLossReviews", "handlePostGmLossReviewMark", "handlePostGmLossReviewRecheck",
+  "handleGetGmPersonLossReview", "handlePostGmClientLegacyLogin", "passkeyLegacyCutoverActive",
+  "handleGetGmActivity", "handleGetDiagnosticsLoginActivity", "handleGetDiagnosticsDeviceEvents",
+  "handlePostGmClientSeatPolicy", "handleGetGmClientSeatUsage", "handlePostGmClientSource"
 ];
 const VARS = [
   "PASSKEY_RP_ID", "PASSKEY_INVITE_URL", "PASSKEY_APP_STORE_URL", "PASSKEY_INVITE_HOURS", "PASSKEY_CODE_MINUTES",
   "PASSKEY_REGISTER_MINUTES", "PASSKEY_SENDS_PER_INVITE", "PASSKEY_SEND_COOLDOWN_S", "PASSKEY_SENDS_PER_IP",
   "PASSKEY_VERIFY_FAILURES_MAX", "PASSKEY_SIGNIN_PER_IP_HOUR", "PASSKEY_ONLY_HASH", "PASSKEY_NEW_LOGIN_ROLES",
   "PASSKEY_PERSON_ROLES", "PASSKEY_ROLE_LABELS", "LOGIN_ROLE_DENY_OWNER_ONLY", "LOGIN_ROLE_DENY_SETTINGS",
-  "LOGIN_ROLE_DENY_MONEY", "PBKDF2_ITERATIONS"
+  "LOGIN_ROLE_DENY_MONEY", "PBKDF2_ITERATIONS",
+  "PASSKEY_MAX_DEVICES", "PASSKEY_RECENT_SIGNIN_MINUTES", "PASSKEY_DEVICE_LOSS_REASONS", "PASSKEY_INVITE_PURPOSES",
+  "PASSKEY_TRUSTED_COUNTRIES_DEFAULT", "LOGIN_FINANCE_VIEW_RE", "LOGIN_CLIENT_ROUTE_RE", "PASSKEY_SENSITIVE_KINDS"
 ];
 
 const BASE_TABLES = [
@@ -155,7 +180,7 @@ async function completeInvite(w, t, reg) {
 
 // ── 2. Invite creation: hash only, 72 hours ────────────────────────────────
 {
-  const w = world();
+  const w = world({ PASSKEY_WHATSAPP_ENABLED: "1" });
   const t0 = w.state.clockMs;
   const r = await addPerson(w, "staff", "407 555 0199", "Pat Lee");
   ok(r.status === 200 && /^https:\/\/apex\.resonateai\.online\/invite-login\.html\?t=[A-Za-z0-9_-]{43}$/.test(r.data.invite_url), "people POST returns the invite_url with a 43-char base64url token");
@@ -325,8 +350,11 @@ async function completeInvite(w, t, reg) {
   w2.state.user = { role: "alice", display_name: "Alice" };
   const none = await w2.F.passkeyRoute(rq("POST", "/api/gm/clients/c2/owner-invite", {}), w2.env, "/api/gm/clients/c2/owner-invite", "POST");
   ok(none.status === 400 && none.need_phone === true && /Type the number/.test(none.error_en) && /Digite o número/.test(none.error_pt), "owner-invite: no usable number asks the admin to type one (bilingual)");
-  const typed = await w2.F.passkeyRoute(rq("POST", "/api/gm/clients/c2/owner-invite", { phone: "+55 21 99876 5432" }), w2.env, "/api/gm/clients/c2/owner-invite", "POST");
-  ok(typed.status === 200 && /5432$/.test(typed.data.masked_phone), "owner-invite: a typed number is accepted");
+  // Change E: a +55 number needs PASSKEY_WHATSAPP_ENABLED="1" now (tested in
+  // scripts/test-whatsapp-channel.mjs); here a +1 number keeps testing the
+  // original point (language follows the client's saved language).
+  const typed = await w2.F.passkeyRoute(rq("POST", "/api/gm/clients/c2/owner-invite", { phone: "+1 786 555 0199" }), w2.env, "/api/gm/clients/c2/owner-invite", "POST");
+  ok(typed.status === 200 && /0199$/.test(typed.data.masked_phone), "owner-invite: a typed number is accepted");
   ok(/^Hi Ana!/.test(typed.data.message) && typed.data.message.indexOf("Olá") === -1, "owner-invite: message follows the client's saved language (en)");
   w2.state.user = OWNER;
   const notAdmin = await w2.F.passkeyRoute(rq("POST", "/api/gm/clients/c1/owner-invite", {}), w2.env, "/api/gm/clients/c1/owner-invite", "POST");
@@ -380,21 +408,47 @@ async function completeInvite(w, t, reg) {
   ok(last.status === 429 && w2.state.calls.length === 30, "sign-in: the 31st attempt from one IP in an hour is refused BEFORE calling Stytch");
 }
 
-// ── 9. Re-invite revokes older passkeys on completion ──────────────────────
+// ── 9. Invite purposes (Change A): 'add' keeps both devices, 'replace' revokes ──
 {
+  // Default purpose for a re-invite is now 'add' (Change A) -- a person with
+  // a phone AND a laptop keeps both. Only an explicit 'replace' (new or lost
+  // device) revokes the older passkey once it completes.
   const w = world();
   const r = await addPerson(w, "seller", "4075550112", "Rui Lima");
   await completeInvite(w, tokenOf(r.data.invite_url), "reg-old");
   w.state.user = OWNER;
   const pid = r.data.person.id;
   const re = await w.F.passkeyRoute(rq("POST", "/api/gm/people/" + pid + "/invite"), w.env, "/api/gm/people/" + pid + "/invite", "POST");
-  ok(w.d.q("SELECT COUNT(*) AS n FROM login_passkeys WHERE revoked_at IS NULL")[0].n === 1, "re-invite: the old passkey still works until the new invite is completed");
+  // created_at can tie to the same millisecond as the first invite under a
+  // fast clock, so order by rowid (insertion order), not created_at, to find
+  // the invite this call just made.
+  ok(re.data.person && w.d.q("SELECT purpose FROM login_invites ORDER BY rowid DESC LIMIT 1")[0].purpose === "add", "re-invite: no purpose given defaults to 'add'");
+  ok(w.d.q("SELECT COUNT(*) AS n FROM login_passkeys WHERE revoked_at IS NULL")[0].n === 1, "re-invite ('add'): the old passkey still works until the new invite is completed");
   w.state.clockMs += 61000;
   await completeInvite(w, tokenOf(re.data.invite_url), "reg-new");
   const keys = w.d.q("SELECT webauthn_registration_id, revoked_at FROM login_passkeys ORDER BY created_at");
-  ok(keys.find((k) => k.webauthn_registration_id === "reg-old").revoked_at && !keys.find((k) => k.webauthn_registration_id === "reg-new").revoked_at, "re-invite: completing it revokes the older passkey");
-  ok((await finish(w, { id: "x", user: "user-0112", reg: "reg-old" })).status === 401 && (await finish(w, { id: "x", user: "user-0112", reg: "reg-new" })).status === 200, "re-invite: old device refused, new device signs in");
+  ok(!keys.find((k) => k.webauthn_registration_id === "reg-old").revoked_at && !keys.find((k) => k.webauthn_registration_id === "reg-new").revoked_at, "re-invite ('add'): completing it keeps BOTH passkeys (phone and laptop)");
+  ok((await finish(w, { id: "x", user: "user-0112", reg: "reg-old" })).status === 200 && (await finish(w, { id: "x", user: "user-0112", reg: "reg-new" })).status === 200, "re-invite ('add'): both devices sign in");
   ok(w.d.q("SELECT COUNT(*) AS n FROM client_logins WHERE client_id = 'c1'")[0].n === 1, "re-invite: the same client_logins row is reused (no second login)");
+
+  // An explicit 'replace' invite (lost or new device) DOES revoke the older
+  // passkey(s), once it completes.
+  const w2 = world();
+  const r2 = await addPerson(w2, "seller", "4075550212", "Rui Lima 2");
+  await completeInvite(w2, tokenOf(r2.data.invite_url), "reg-old2");
+  w2.state.user = OWNER;
+  const pid2 = r2.data.person.id;
+  const re2 = await w2.F.passkeyRoute(rq("POST", "/api/gm/people/" + pid2 + "/invite", { purpose: "replace" }), w2.env, "/api/gm/people/" + pid2 + "/invite", "POST");
+  ok(re2.data.invite_url, "re-invite ('replace'): accepted");
+  w2.state.clockMs += 61000;
+  await completeInvite(w2, tokenOf(re2.data.invite_url), "reg-new2");
+  const keys2 = w2.d.q("SELECT webauthn_registration_id, revoked_at FROM login_passkeys ORDER BY created_at");
+  ok(keys2.find((k) => k.webauthn_registration_id === "reg-old2").revoked_at && !keys2.find((k) => k.webauthn_registration_id === "reg-new2").revoked_at, "re-invite ('replace'): completing it revokes the OLDER passkey");
+  ok((await finish(w2, { id: "x", user: "user-0212", reg: "reg-old2" })).status === 401 && (await finish(w2, { id: "x", user: "user-0212", reg: "reg-new2" })).status === 200, "re-invite ('replace'): old device refused, new device signs in");
+
+  // An unknown purpose value is a clear 400.
+  const bad = await w2.F.passkeyRoute(rq("POST", "/api/gm/people/" + pid2 + "/invite", { purpose: "whatever" }), w2.env, "/api/gm/people/" + pid2 + "/invite", "POST");
+  ok(bad.status === 400, "invite: an unknown purpose value is refused");
 }
 
 // ── 10. Disable kills sessions at once; enable only after acceptance ───────

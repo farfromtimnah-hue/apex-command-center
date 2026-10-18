@@ -409,7 +409,7 @@ async function authenticateInner(request, env) {
     // Opaque client-portal tokens (username/password logins) — Firebase JWTs
     // never start with this prefix, so the existing flow is untouched.
     if (token.indexOf("capt_") === 0) {
-        return authenticateClientToken(token, env);
+        return authenticateClientToken(token, env, request);
     }
     // A Worker-signed render token for ONE customer document (docs PDF
     // build): the client gate below lets it GET that document and nothing else.
@@ -448,7 +448,13 @@ async function sha256Hex(str) {
     return out;
 }
 
-async function authenticateClientToken(token, env) {
+// Change I: passkeySessionCountryCheck (country/session anomaly check) and
+// notifyNicoleTelegramOncePerPersonHour are defined further down in this
+// file, next to the rest of the Change I helpers; both are plain hoisted
+// function declarations, so the forward reference from authenticateClientToken
+// below resolves fine at call time.
+
+async function authenticateClientToken(token, env, request) {
     var tokenHash = await sha256Hex(token);
     // The join is on USERNAME, not client_id. It used to be client_id, which
     // was unambiguous only while client_logins.client_id was UNIQUE. Salesperson
@@ -467,6 +473,14 @@ async function authenticateClientToken(token, env) {
     ).bind(tokenHash).first();
     if (!row) { return null; }
     if (!row.expires_at || row.expires_at <= new Date().toISOString()) { return null; }
+    // Change I: country/session anomaly check, only while the passkey login
+    // build is on. A missing login_session_meta row (old password sessions
+    // are never bound) or a missing/unchanged CF-IPCountry header skips this
+    // entirely -- at most one extra primary-key read per request.
+    if (passkeyEnabled(env) && request && request.headers) {
+        var anomaly = await passkeySessionCountryCheck(env, request, tokenHash);
+        if (anomaly === "killed") { return null; }
+    }
     // A salesperson is still role "client" to every existing caller — they are
     // a client-tier session and go through the same client gate. seller_name is
     // the discriminator, and it is the ONLY source of truth for row-level lead
@@ -16019,11 +16033,27 @@ function sellerRequestAllowed(path, method, clientId) {
     return false;
 }
 
+// Change G.4: the single central place authenticated client requests are
+// authorized. A request that reaches "allowed" (null) here is exactly the
+// set the two bounded auto-recorders (finance_view, data_change) should see,
+// so they are hooked in this one wrapper rather than in every route.
 async function enforceClientRoleGate(request, env, path, method) {
     var auth = request.headers.get("Authorization") || "";
     if (!auth.startsWith("Bearer ")) { return null; }   // unauthenticated flows unchanged
     var user = null;
     try { user = await authenticate(request, env); } catch (e) { return null; }
+    var result = await enforceClientRoleGateChecks(request, env, path, method, user);
+    // Change G.4: hooked HERE, the single central place authenticated client
+    // requests are authorized -- a result of null means the request is about
+    // to be let through, which is exactly the set the two bounded
+    // auto-recorders (finance_view, data_change) should see. No route needs
+    // editing for this.
+    if (!result && user) {
+        await loginActivityMaybeAuto(env, request, path, method, user);
+    }
+    return result;
+}
+async function enforceClientRoleGateChecks(request, env, path, method, user) {
     if (!user || user.role !== "client") { return null; } // admin/unknown → existing behavior
     // Forced first-login password change: until completed, a password-token
     // session can reach nothing but the change-password flow. Not bypassable.
@@ -16203,12 +16233,21 @@ async function handlePostClientLogin(request, env) {
             "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
         ).bind(username).first();
 
+        // Change F: a business cut over to passkey-only login (a row in
+        // login_legacy_cutover) refuses the OLD password login with EXACTLY
+        // the same generic answer, status and timing path as a wrong
+        // password -- no hint the business was cut over -- while the attempt
+        // still counts in the rate limit above. Staff logins (alice, rafa,
+        // the developer) never go through this route, so they are unaffected.
+        var cutover = row ? await env.DB.prepare("SELECT 1 FROM login_legacy_cutover WHERE client_id = ?")
+            .bind(row.client_id).first() : null;
+
         // A passkey-only login (password_hash 'PASSKEY_ONLY', passkey login
         // build) takes the SAME path as an unknown username: no hash work, the
         // same 401, nothing thrown. verifyPassword would also refuse it (the
         // value has no pbkdf2$ parts), but saying so here keeps the two
         // refusals indistinguishable by design rather than by accident.
-        var ok = (row && row.password_hash !== PASSKEY_ONLY_HASH) ? await verifyPassword(password, row.password_hash) : false;
+        var ok = (row && row.password_hash !== PASSKEY_ONLY_HASH && !cutover) ? await verifyPassword(password, row.password_hash) : false;
         if (!ok) { return jsonErr("Usuário ou senha inválidos", 401); }
 
         // Lazy purge of expired tokens, then mint a 30-day session token.
@@ -16221,6 +16260,14 @@ async function handlePostClientLogin(request, env) {
         ).bind(tokenHash, row.client_id, row.username, expires).run();
         await env.DB.prepare("UPDATE client_logins SET last_login_at = datetime('now') WHERE username = ?")
             .bind(row.username).run();
+
+        // Change G: every successful username/password login is recorded, for
+        // every business, so the audit covers old logins too.
+        try {
+            await loginActivityRecord(env, request, {
+                client_id: row.client_id, username: row.username, kind: "signin_password", detail: {}
+            });
+        } catch (e) { /* audit never blocks a login */ }
 
         return jsonOk({
             token: token,
@@ -16387,6 +16434,202 @@ var PASSKEY_ROLE_LABELS = {
     staff:         { pt: "Equipe sem acesso ao financeiro", en: "Staff without finance access" },
     seller:        { pt: "Vendedor(a)", en: "Salesperson" }
 };
+
+// ===========================================================================
+// PASSKEY LOGIN COMPLETION, 2026-10-18. Changes A through K of the login
+// spec. New env vars read below (document only the names in wrangler.toml):
+//   PASSKEY_WHATSAPP_ENABLED     "1" turns on the WhatsApp channel for +55
+//   PASSKEY_WHATSAPP_DAILY_CAP   app-wide WhatsApp sends per 24h (default 30)
+//   PASSKEY_TRUSTED_COUNTRIES    comma list of ISO country codes, default
+//                                "US,BR,CA"
+// ===========================================================================
+
+var PASSKEY_MAX_DEVICES = 5;
+var PASSKEY_RECENT_SIGNIN_MINUTES = 15;
+var PASSKEY_DEVICE_LOSS_REASONS = ["left", "new_phone", "lost"];
+var PASSKEY_INVITE_PURPOSES = ["first", "add", "replace"];
+var PASSKEY_TRUSTED_COUNTRIES_DEFAULT = "US,BR,CA";
+
+function passkeyDeviceLimitMsg() {
+    return jsonErr2("Limite de aparelhos atingido. Remova um aparelho.",
+        "Device limit reached. Remove a device.", 409);
+}
+function passkeyKeepOneMsg() {
+    return jsonErr2("Mantenha pelo menos um aparelho.", "Keep at least one device.", 409);
+}
+function passkeySignInAgainMsg() {
+    return jsonErr2("Entre de novo para adicionar um aparelho.", "Sign in again to add a device.", 401);
+}
+function passkeyWhatsappSoonMsg() {
+    return jsonErr2("Números do Brasil estarão disponíveis em breve (WhatsApp).",
+        "Brazilian numbers will be available soon (WhatsApp).", 400);
+}
+
+// Short device label from a User-Agent. Falls back to "Aparelho"/"Device".
+function passkeyDeviceLabel(ua) {
+    var s = String(ua || "");
+    var os = /iphone/i.test(s) ? "iPhone" : /ipad/i.test(s) ? "iPad" : /macintosh|mac os/i.test(s) ? "Mac" :
+        /android/i.test(s) ? "Android" : /windows/i.test(s) ? "Windows" : "";
+    var browser = /edg\//i.test(s) ? "Edge" : /chrome\//i.test(s) ? "Chrome" : /crios/i.test(s) ? "Chrome" :
+        /safari\//i.test(s) && !/chrome/i.test(s) ? "Safari" : /firefox\//i.test(s) ? "Firefox" : "";
+    var label = (os + " " + browser).trim();
+    return label || null;
+}
+function passkeyDeviceLabelOrDefault(ua, lang) {
+    return passkeyDeviceLabel(ua) || (lang === "en" ? "Device" : "Aparelho");
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE E: WhatsApp vs SMS channel, fixed in code. +1 = SMS, +55 = WhatsApp.
+// ---------------------------------------------------------------------------
+function passkeyChannelFor(e164) {
+    return passkeyCountryCode(e164) === "55" ? "whatsapp" : "sms";
+}
+function passkeyWhatsappEnabled(env) {
+    return !!env && String(env.PASSKEY_WHATSAPP_ENABLED || "") === "1";
+}
+function passkeyWhatsappCap(env) {
+    var n = parseInt((env && env.PASSKEY_WHATSAPP_DAILY_CAP) || "", 10);
+    return (n > 0) ? n : 30;
+}
+// A phone number is sendable right now: +1 always; +55 only when the
+// WhatsApp channel is on.
+function passkeyPhoneSendable(env, e164) {
+    var ch = passkeyChannelFor(e164);
+    if (ch === "whatsapp") { return passkeyWhatsappEnabled(env); }
+    return true;
+}
+
+async function passkeyMaybeWhatsappAlert(env, count, cap) {
+    var day = passkeyNow().toISOString().slice(0, 10);
+    var half = Math.ceil(cap / 2);
+    var levels = [];
+    if (count >= half) { levels.push("half"); }
+    if (count >= cap) { levels.push("cap"); }
+    for (var i = 0; i < levels.length; i++) {
+        var res = await env.DB.prepare(
+            "INSERT OR IGNORE INTO passkey_whatsapp_alerts (day, threshold, sent_at) VALUES (?, ?, ?)"
+        ).bind(day, levels[i], passkeyNow().toISOString()).run();
+        if (res && res.meta && res.meta.changes === 1) {
+            await notifyNicoleTelegram(env, levels[i] === "cap"
+                ? "Apex passkey login: WhatsApp codes reached the daily cap (" + count + " of " + cap + " in the last 24 hours). New code sends are blocked until older ones age out."
+                : "Apex passkey login: WhatsApp codes reached half of the daily cap (" + count + " of " + cap + " in the last 24 hours).");
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE G: the security audit log. Never throws, never delays a response
+// beyond one small insert. Call sites pass fields; this builds country and
+// ip_prefix from the request headers and truncates detail to 500 chars.
+// ---------------------------------------------------------------------------
+function loginActivityIpPrefix(request) {
+    var ip = String((request && request.headers && request.headers.get("CF-Connecting-IP")) || "");
+    if (!ip) { return null; }
+    if (ip.indexOf(":") !== -1) {
+        var groups = ip.split(":").filter(function(x) { return x !== ""; });
+        return groups.slice(0, 4).join(":") || null;
+    }
+    var octets = ip.split(".");
+    return octets.length === 4 ? octets.slice(0, 3).join(".") : null;
+}
+function loginActivityCountry(request) {
+    var c = (request && request.headers && request.headers.get("CF-IPCountry")) || "";
+    return c ? String(c).slice(0, 8) : null;
+}
+async function loginActivityInsert(env, fields) {
+    var detail = "";
+    try { detail = JSON.stringify(fields.detail || {}).slice(0, 500); } catch (e) { detail = "{}"; }
+    await env.DB.prepare(
+        "INSERT INTO login_activity (id, at, client_id, person_id, username, role, kind, detail, country, ip_prefix, device_label) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+        crypto.randomUUID(), new Date().toISOString(),
+        fields.client_id || null, fields.person_id || null, fields.username || null, fields.role || null,
+        fields.kind, detail, fields.country || null, fields.ip_prefix || null, fields.device_label || null
+    ).run();
+}
+async function loginActivityRecord(env, request, fields) {
+    try {
+        var out = Object.assign({
+            country: loginActivityCountry(request),
+            ip_prefix: loginActivityIpPrefix(request)
+        }, fields || {});
+        var ctx = request ? REQUEST_CTX.get(request) : null;
+        if (ctx && ctx.waitUntil) {
+            ctx.waitUntil(loginActivityInsert(env, out).catch(function() {}));
+        } else {
+            await loginActivityInsert(env, out);
+        }
+    } catch (e) { /* never throws, never blocks a response */ }
+}
+
+// Route-group paths for the two bounded automatic recorders (Change G.4).
+// finance_view: GET on these groups, once per username per hour.
+var LOGIN_FINANCE_VIEW_RE = /^\/api\/clients\/[^\/]+\/gm\/(finance(\/report)?|invoices(\/[^\/]+)?|payments\/[^\/]+|receipts\/[^\/]+)/;
+// data_change: POST/PUT/PATCH/DELETE under the client business routes, once
+// per username + path group (ids replaced by :id) + method per minute.
+var LOGIN_CLIENT_ROUTE_RE = /^\/api\/clients\/[^\/]+\//;
+function loginActivityPathGroup(path) {
+    // Replace the client id and every id-shaped segment with :id.
+    return path.replace(/^(\/api\/clients\/)[^\/]+/, "$1:id")
+        .replace(/\/[A-Za-z0-9_-]{8,}(?=\/|$)/g, "/:id");
+}
+function loginActivityHourKey() {
+    return new Date().toISOString().slice(0, 13).replace(/[-T:]/g, "");
+}
+function loginActivityMinuteKey() {
+    return new Date().toISOString().slice(0, 16).replace(/[-T:]/g, "");
+}
+// Hooked from handleFetch right after enforceClientRoleGate (the single
+// central place authenticated client requests are authorized). Bounded by
+// INSERT OR IGNORE on a deterministic key: at most one finance_view row per
+// username per hour, and at most one data_change row per username + path
+// group + method per minute, no matter how many matching requests arrive.
+async function loginActivityMaybeAuto(env, request, path, method, user) {
+    try {
+        if (!user || user.role !== "client" || !user.username) { return; }
+        // Never the audit log's own routes or the login routes.
+        if (path.indexOf("/api/gm/activity") === 0 || path.indexOf("/api/diagnostics/") === 0) { return; }
+        if (method === "GET" && LOGIN_FINANCE_VIEW_RE.test(path)) {
+            var fvKey = "fv:" + user.username + ":" + loginActivityHourKey();
+            var fvIns = await env.DB.prepare("INSERT OR IGNORE INTO login_maintenance (key, last_run) VALUES (?, ?)")
+                .bind(fvKey, new Date().toISOString()).run();
+            if (fvIns && fvIns.meta && fvIns.meta.changes === 1) {
+                await loginActivityRecord(env, request, {
+                    client_id: user.client_id, username: user.username, role: user.login_role || "client",
+                    kind: "finance_view", detail: { group: loginActivityPathGroup(path), method: method }
+                });
+            }
+            return;
+        }
+        if ((method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") && LOGIN_CLIENT_ROUTE_RE.test(path)) {
+            var group = loginActivityPathGroup(path);
+            var dcKey = "dc:" + user.username + ":" + group + ":" + method + ":" + loginActivityMinuteKey();
+            var dcIns = await env.DB.prepare("INSERT OR IGNORE INTO login_maintenance (key, last_run) VALUES (?, ?)")
+                .bind(dcKey, new Date().toISOString()).run();
+            if (dcIns && dcIns.meta && dcIns.meta.changes === 1) {
+                await loginActivityRecord(env, request, {
+                    client_id: user.client_id, username: user.username, role: user.login_role || "client",
+                    kind: "data_change", detail: { group: group, method: method }
+                });
+            }
+        }
+    } catch (e) { /* never throws, never blocks a response */ }
+}
+
+// Purge rows older than 120 days, at most once per day (login_maintenance
+// marker). Called from the scheduled handler.
+async function loginActivityPurgeDaily(env) {
+    try {
+        var today = passkeyNow().toISOString().slice(0, 10);
+        var res = await env.DB.prepare("INSERT OR IGNORE INTO login_maintenance (key, last_run) VALUES (?, ?)")
+            .bind("activity_purge:" + today, new Date().toISOString()).run();
+        if (!res || !res.meta || res.meta.changes !== 1) { return; }
+        await env.DB.prepare("DELETE FROM login_activity WHERE at < ?")
+            .bind(new Date(Date.now() - 120 * 24 * 3600 * 1000).toISOString()).run();
+    } catch (e) { /* best-effort maintenance */ }
+}
 
 function passkeyEnabled(env) {
     return !!env && String(env.PASSKEY_LOGIN_ENABLED || "") === "1";
@@ -16568,7 +16811,11 @@ function passkeyCredentialString(c) {
 // expiry, the same last_login_at stamp and the same response shape. Not a new
 // session type.
 // ---------------------------------------------------------------------------
-async function passkeyMintSession(env, username) {
+// personId and request are OPTIONAL (old call sites pass neither): when
+// given, and when CF-IPCountry is present, Change I records the session's
+// minting country in login_session_meta. A missing header skips the write
+// entirely -- no row means no anomaly check for that token later.
+async function passkeyMintSession(env, username, personId, request) {
     var row = await env.DB.prepare(
         "SELECT l.username, l.client_id, l.must_change_password, c.name AS client_name " +
         "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
@@ -16583,6 +16830,14 @@ async function passkeyMintSession(env, username) {
     ).bind(tokenHash, row.client_id, row.username, expires).run();
     await env.DB.prepare("UPDATE client_logins SET last_login_at = datetime('now') WHERE username = ?")
         .bind(row.username).run();
+    try {
+        var country = request && request.headers ? request.headers.get("CF-IPCountry") : null;
+        if (country) {
+            await env.DB.prepare(
+                "INSERT INTO login_session_meta (token_hash, person_id, country, minted_at) VALUES (?, ?, ?, ?)"
+            ).bind(tokenHash, personId || null, String(country).toUpperCase(), new Date().toISOString()).run();
+        }
+    } catch (e) { /* session binding is best-effort, never blocks sign-in */ }
     return {
         token: token,
         client_id: row.client_id,
@@ -16659,10 +16914,15 @@ async function handlePostPasskeyLoginFinish(request, env) {
             !passkeyConstantEq(row.stytch_user_id, String(r.data.user_id))) {
             return passkeyFail("signin");
         }
-        var session = await passkeyMintSession(env, row.username);
+        var session = await passkeyMintSession(env, row.username, row.person_id, request);
         if (!session) { return passkeyFail("signin"); }
         await env.DB.prepare("UPDATE login_people SET last_passkey_login_at = ? WHERE id = ?")
             .bind(passkeyNow().toISOString(), row.person_id).run();
+        await loginActivityRecord(env, request, {
+            client_id: session.client_id, person_id: row.person_id, username: row.username,
+            kind: "signin_passkey", detail: {}
+        });
+        await passkeyNewCountryCheck(env, request, row.person_id);
         return jsonOk(session);
     } catch (e) {
         console.log("passkey finish failed");
@@ -16673,20 +16933,28 @@ async function handlePostPasskeyLoginFinish(request, env) {
 // ---------------------------------------------------------------------------
 // Invites
 // ---------------------------------------------------------------------------
-async function passkeyCreateInvite(env, personId) {
+// purpose: 'first' | 'add' | 'replace'. A person who has never had an active
+// (unrevoked) passkey always gets 'first', regardless of what was asked for,
+// so the very first device is never treated as a replace.
+async function passkeyCreateInvite(env, personId, purpose) {
     var token = passkeyNewToken();
     var hash = await sha256Hex(token);
     var now = passkeyNow().getTime();
     var expires = passkeyIso(now + PASSKEY_INVITE_HOURS * 3600 * 1000);
+    var p = PASSKEY_INVITE_PURPOSES.indexOf(purpose) !== -1 ? purpose : "add";
+    var active = await env.DB.prepare(
+        "SELECT COUNT(*) AS c FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL"
+    ).bind(personId).first();
+    if (!active || !active.c) { p = "first"; }
     // Every older unused invite of this person stops working at once.
     await env.DB.prepare(
         "UPDATE login_invites SET replaced_at = ? WHERE person_id = ? AND used_at IS NULL AND replaced_at IS NULL"
     ).bind(passkeyIso(now), personId).run();
     await env.DB.prepare(
-        "INSERT INTO login_invites (id, person_id, token_hash, expires_at, code_sends, code_verify_failures, created_at) " +
-        "VALUES (?, ?, ?, ?, 0, 0, ?)"
-    ).bind(crypto.randomUUID(), personId, hash, expires, passkeyIso(now)).run();
-    return { invite_url: PASSKEY_INVITE_URL + token, expires_at: expires };
+        "INSERT INTO login_invites (id, person_id, token_hash, expires_at, code_sends, code_verify_failures, created_at, purpose) " +
+        "VALUES (?, ?, ?, ?, 0, 0, ?, ?)"
+    ).bind(crypto.randomUUID(), personId, hash, expires, passkeyIso(now), p).run();
+    return { invite_url: PASSKEY_INVITE_URL + token, expires_at: expires, purpose: p };
 }
 
 async function passkeyLoadInvite(env, token) {
@@ -16694,7 +16962,7 @@ async function passkeyLoadInvite(env, token) {
     var hash = await sha256Hex(token);
     var row = await env.DB.prepare(
         "SELECT i.id, i.person_id, i.token_hash, i.expires_at, i.used_at, i.replaced_at, i.code_sends, " +
-        "i.code_verify_failures, i.last_send_at, i.stytch_method_id, i.register_until, i.created_at, " +
+        "i.code_verify_failures, i.last_send_at, i.stytch_method_id, i.register_until, i.created_at, i.purpose, " +
         "p.client_id, p.role, p.display_name, p.phone_e164, p.username, p.stytch_user_id, " +
         "p.status AS person_status, p.accepted_at, c.name AS business_name " +
         "FROM login_invites i JOIN login_people p ON p.id = i.person_id " +
@@ -16760,7 +17028,11 @@ async function handleGetPasskeyInviteInfo(request, env) {
             masked_phone: passkeyMaskPhone(row.phone_e164),
             expires_at: row.expires_at,
             code_sent: !!row.stytch_method_id,
-            resend_in: cooldown
+            resend_in: cooldown,
+            // Change E: the page picks SMS/WhatsApp wording from this.
+            channel: passkeyChannelFor(row.phone_e164),
+            // Change A: the page greets differently for a device-only invite.
+            purpose: PASSKEY_INVITE_PURPOSES.indexOf(row.purpose) !== -1 ? row.purpose : "first"
         });
     } catch (e) {
         return jsonErr("Not found", 404);
@@ -16796,6 +17068,11 @@ async function handlePostPasskeyInviteSendCode(request, env) {
         var row = await passkeyLoadInvite(env, body && body.t);
         if (!passkeyInviteUsable(row)) { return passkeyFail("later"); }
         if (!passkeyCountryAllowed(env, row.phone_e164)) { return passkeyFail("later"); }
+        // Change E: a +55 number is a generic "try again later" at send time
+        // while the WhatsApp channel is off (never a hint that the number or
+        // person is otherwise fine).
+        if (!passkeyPhoneSendable(env, row.phone_e164)) { return passkeyFail("later"); }
+        var channel = passkeyChannelFor(row.phone_e164);
         var now = passkeyNow().getTime();
         var dayAgo = passkeyIso(now - 24 * 3600 * 1000);
         // Per invite: every older invite of this person is replaced when a new
@@ -16809,11 +17086,13 @@ async function handlePostPasskeyInviteSendCode(request, env) {
         if (row.last_send_at && (now - Date.parse(row.last_send_at)) < PASSKEY_SEND_COOLDOWN_S * 1000) {
             return passkeyFail("later");
         }
-        var cap = passkeySmsCap(env);
-        var all = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_code_sends WHERE created_at > ?")
-            .bind(dayAgo).first();
+        // The two channels have separate app-wide daily caps and alerts.
+        var cap = channel === "whatsapp" ? passkeyWhatsappCap(env) : passkeySmsCap(env);
+        var all = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_code_sends WHERE created_at > ? AND channel = ?")
+            .bind(dayAgo, channel).first();
         if (all && all.c >= cap) {
-            await passkeyMaybeAlert(env, all.c, cap);
+            if (channel === "whatsapp") { await passkeyMaybeWhatsappAlert(env, all.c, cap); }
+            else { await passkeyMaybeAlert(env, all.c, cap); }
             return passkeyFail("later");
         }
         var ip = request.headers.get("CF-Connecting-IP") || "";
@@ -16823,21 +17102,31 @@ async function handlePostPasskeyInviteSendCode(request, env) {
             ).bind(ip, dayAgo).first();
             if (byIp && byIp.c >= PASSKEY_SENDS_PER_IP) { return passkeyFail("later"); }
         }
-        // Counted BEFORE the SMS goes out, so a failed or slow Stytch call can
+        // Counted BEFORE the code goes out, so a failed or slow Stytch call can
         // never be retried into unlimited sends.
         await env.DB.prepare("DELETE FROM login_code_sends WHERE created_at < ?")
             .bind(passkeyIso(now - 3 * 24 * 3600 * 1000)).run();
-        await env.DB.prepare("INSERT INTO login_code_sends (id, created_at, person_id, ip) VALUES (?, ?, ?, ?)")
-            .bind(crypto.randomUUID(), passkeyIso(now), row.person_id, ip || null).run();
+        await env.DB.prepare("INSERT INTO login_code_sends (id, created_at, person_id, ip, channel) VALUES (?, ?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), passkeyIso(now), row.person_id, ip || null, channel).run();
         await env.DB.prepare("UPDATE login_invites SET code_sends = code_sends + 1, last_send_at = ? WHERE id = ?")
             .bind(passkeyIso(now), row.id).run();
-        await passkeyMaybeAlert(env, ((all && all.c) || 0) + 1, cap);
+        if (channel === "whatsapp") { await passkeyMaybeWhatsappAlert(env, ((all && all.c) || 0) + 1, cap); }
+        else { await passkeyMaybeAlert(env, ((all && all.c) || 0) + 1, cap); }
 
-        var r = await stytchCall(env, "/v1/otps/sms/login_or_create", {
-            phone_number: row.phone_e164,
-            expiration_minutes: PASSKEY_CODE_MINUTES,
-            locale: passkeyCountryCode(row.phone_e164) === "55" ? "pt-br" : "en"
-        });
+        // Change E: +1 uses the SMS one-time-code endpoint; +55 uses Stytch's
+        // WhatsApp one-time-code endpoint. Everything else about the send
+        // (caps, alerts, verification, 5-failure limit) is identical.
+        var r = channel === "whatsapp"
+            ? await stytchCall(env, "/v1/otps/whatsapp/login_or_create", {
+                phone_number: row.phone_e164,
+                expiration_minutes: PASSKEY_CODE_MINUTES,
+                locale: "pt-br"
+            })
+            : await stytchCall(env, "/v1/otps/sms/login_or_create", {
+                phone_number: row.phone_e164,
+                expiration_minutes: PASSKEY_CODE_MINUTES,
+                locale: passkeyCountryCode(row.phone_e164) === "55" ? "pt-br" : "en"
+            });
         if (!r.ok || !r.data.phone_id || !r.data.user_id) {
             console.log("passkey send-code failed for " + passkeyMaskPhone(row.phone_e164));
             return passkeyFail("later");
@@ -16938,9 +17227,11 @@ async function passkeyEnsureLogin(env, row) {
 // ---------------------------------------------------------------------------
 // Route: POST /api/passkey-invite/register { t, credential } — public. Needs
 // a verified code (register_until in the future). Stores the registration id
-// in the allow-list, activates the person, links or creates the login row,
-// revokes every OLDER passkey of the person (a new device replaces the old
-// ones) and signs the person in with the normal session.
+// in the allow-list, activates the person, links or creates the login row.
+// Revokes every OLDER passkey of the person ONLY when the invite's purpose is
+// 'replace' (a new or lost device). 'first' and 'add' keep every existing
+// passkey -- a person with a phone and a laptop keeps both. At most 5 active
+// passkeys per person; a 6th is refused and the invite stays unused.
 // ---------------------------------------------------------------------------
 async function handlePostPasskeyInviteRegister(request, env) {
     try {
@@ -16952,6 +17243,13 @@ async function handlePostPasskeyInviteRegister(request, env) {
         }
         var cred = passkeyCredentialString(body && body.credential);
         if (!cred) { return passkeyFail("register"); }
+        var activeCount = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL"
+        ).bind(row.person_id).first();
+        var purpose = PASSKEY_INVITE_PURPOSES.indexOf(row.purpose) !== -1 ? row.purpose : "add";
+        if (purpose !== "replace" && (activeCount && activeCount.c) >= PASSKEY_MAX_DEVICES) {
+            return passkeyDeviceLimitMsg();
+        }
         var r = await stytchCall(env, "/v1/webauthn/register", { user_id: row.stytch_user_id, public_key_credential: cred });
         if (!r.ok || !r.data.webauthn_registration_id || !passkeyConstantEq(r.data.user_id, row.stytch_user_id)) {
             return passkeyFail("register");
@@ -16959,21 +17257,35 @@ async function handlePostPasskeyInviteRegister(request, env) {
         var nowIso = passkeyNow().toISOString();
         var username = await passkeyEnsureLogin(env, row);
         var keyId = crypto.randomUUID();
+        var ua = String((request && request.headers && request.headers.get("User-Agent")) || "").slice(0, 200);
+        var label = passkeyDeviceLabelOrDefault(ua, null);
         await env.DB.prepare(
-            "INSERT INTO login_passkeys (id, person_id, webauthn_registration_id, created_at) VALUES (?, ?, ?, ?)"
-        ).bind(keyId, row.person_id, String(r.data.webauthn_registration_id), nowIso).run();
-        await env.DB.prepare(
-            "UPDATE login_passkeys SET revoked_at = ? WHERE person_id = ? AND id != ? AND revoked_at IS NULL"
-        ).bind(nowIso, row.person_id, keyId).run();
+            "INSERT INTO login_passkeys (id, person_id, webauthn_registration_id, created_at, label, user_agent) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(keyId, row.person_id, String(r.data.webauthn_registration_id), nowIso, label, ua).run();
+        if (purpose === "replace") {
+            await env.DB.prepare(
+                "UPDATE login_passkeys SET revoked_at = ? WHERE person_id = ? AND id != ? AND revoked_at IS NULL"
+            ).bind(nowIso, row.person_id, keyId).run();
+        }
         await env.DB.prepare("UPDATE login_invites SET used_at = ?, register_until = NULL WHERE id = ?")
             .bind(nowIso, row.id).run();
         await env.DB.prepare(
             "UPDATE login_people SET status = 'active', accepted_at = COALESCE(accepted_at, ?), username = ? WHERE id = ?"
         ).bind(nowIso, username, row.person_id).run();
-        var session = await passkeyMintSession(env, username);
+        var session = await passkeyMintSession(env, username, row.person_id, request);
         if (!session) { return passkeyFail("register"); }
         await env.DB.prepare("UPDATE login_people SET last_passkey_login_at = ? WHERE id = ?")
             .bind(nowIso, row.person_id).run();
+        await loginActivityRecord(env, request, {
+            client_id: row.client_id, person_id: row.person_id, username: username, role: row.role,
+            kind: "passkey_registered", detail: { device_label: label, purpose: purpose }, device_label: label
+        });
+        await loginActivityRecord(env, request, {
+            client_id: row.client_id, person_id: row.person_id, username: username, role: row.role,
+            kind: "invite_used", detail: { purpose: purpose }
+        });
+        await passkeySeatUsageBump(env, row.client_id);
+        await passkeyNewCountryCheck(env, request, row.person_id);
         return jsonOk(session);
     } catch (e) {
         console.log("passkey register error");
@@ -17057,6 +17369,152 @@ function passkeyForbidden() {
     return jsonErr2("Sem permissão para esta ação.", "You do not have permission for this action.", 403);
 }
 
+// ---------------------------------------------------------------------------
+// CHANGE J: seat counting. Seats used = login_people rows with status
+// 'invited' or 'active'. Effective mode: a policy row's own mode, else the
+// source-tag default ('public_signup' -> 'notice', else -> 'track').
+// ---------------------------------------------------------------------------
+async function passkeySeatsUsed(env, clientId) {
+    var r = await env.DB.prepare(
+        "SELECT COUNT(*) AS c FROM login_people WHERE client_id = ? AND status IN ('invited','active')"
+    ).bind(clientId).first();
+    return (r && r.c) || 0;
+}
+async function passkeySeatPolicy(env, clientId) {
+    var pol = await env.DB.prepare("SELECT * FROM login_seat_policy WHERE client_id = ?").bind(clientId).first();
+    if (pol) { return pol; }
+    var meta = await env.DB.prepare("SELECT source FROM login_business_meta WHERE client_id = ?").bind(clientId).first();
+    var mode = (meta && meta.source === "public_signup") ? "notice" : "track";
+    return { client_id: clientId, included_seats: 5, mode: mode, hard_limit: null };
+}
+// 'block' refusal when at or above hard_limit. Never auto-applies to
+// anything but a 'public_signup' default's 'notice' (which never blocks).
+async function passkeySeatBlocked(env, clientId) {
+    var pol = await passkeySeatPolicy(env, clientId);
+    if (pol.mode !== "block" || !pol.hard_limit) { return null; }
+    var used = await passkeySeatsUsed(env, clientId);
+    if (used >= pol.hard_limit) {
+        return jsonErr2("Limite de pessoas atingido. Fale com a Apex para ampliar.",
+            "People limit reached. Ask Apex to raise it.", 409);
+    }
+    return null;
+}
+// One bounded write per person-count change: upsert today's peak.
+async function passkeySeatUsageBump(env, clientId) {
+    try {
+        var used = await passkeySeatsUsed(env, clientId);
+        var day = passkeyNow().toISOString().slice(0, 10);
+        await env.DB.prepare(
+            "INSERT INTO login_seat_usage (client_id, day, peak) VALUES (?, ?, ?) " +
+            "ON CONFLICT (client_id, day) DO UPDATE SET peak = MAX(peak, excluded.peak)"
+        ).bind(clientId, day, used).run();
+    } catch (e) { /* usage tracking never blocks the caller */ }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE I (sign-in half): new-country tracking at passkey sign-in and
+// registration. Never blocks -- the passkey itself is the proof.
+// ---------------------------------------------------------------------------
+function passkeyTrustedCountries(env) {
+    return String((env && env.PASSKEY_TRUSTED_COUNTRIES) || PASSKEY_TRUSTED_COUNTRIES_DEFAULT)
+        .split(",").map(function(x) { return x.trim().toUpperCase(); }).filter(Boolean);
+}
+async function passkeyNewCountryCheck(env, request, personId) {
+    try {
+        var country = (request && request.headers && request.headers.get("CF-IPCountry")) || "";
+        if (!country) { return; }
+        country = String(country).toUpperCase();
+        var known = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_known_places WHERE person_id = ?")
+            .bind(personId).first();
+        var hasHistory = !!(known && known.c);
+        var seen = await env.DB.prepare("SELECT 1 FROM login_known_places WHERE person_id = ? AND country = ?")
+            .bind(personId, country).first();
+        if (!seen) {
+            var trusted = passkeyTrustedCountries(env).indexOf(country) !== -1;
+            if (hasHistory) {
+                var person = await env.DB.prepare("SELECT client_id, username, role FROM login_people WHERE id = ?")
+                    .bind(personId).first();
+                await loginActivityRecord(env, request, {
+                    client_id: person && person.client_id, person_id: personId,
+                    username: person && person.username, role: person && person.role,
+                    kind: "new_country_signin", country: country, detail: { trusted: trusted }
+                });
+                if (!trusted) {
+                    await notifyNicoleTelegramOncePerPersonCountry(env, personId, country,
+                        "Apex passkey login: a sign-in for person " + personId + " from a new, untrusted country (" + country + ").");
+                }
+            }
+            await env.DB.prepare("INSERT OR IGNORE INTO login_known_places (person_id, country, first_seen) VALUES (?, ?, ?)")
+                .bind(personId, country, new Date().toISOString()).run();
+        }
+    } catch (e) { /* never blocks sign-in */ }
+}
+// Once per person and country, using login_maintenance as the marker (keyed
+// so re-alerting the same person+country is a no-op, not time-boxed -- the
+// spec says "once per person and country", not per hour, for this alert).
+async function notifyNicoleTelegramOncePerPersonCountry(env, personId, country, message) {
+    var key = "newcountry:" + personId + ":" + country;
+    var res = await env.DB.prepare("INSERT OR IGNORE INTO login_maintenance (key, last_run) VALUES (?, ?)")
+        .bind(key, new Date().toISOString()).run();
+    if (res && res.meta && res.meta.changes === 1) { await notifyNicoleTelegram(env, message); }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE I (authenticate half): called from authenticateClientToken once the
+// token itself is already valid. One primary-key read of login_session_meta
+// by token_hash. US, BR and CA (PASSKEY_TRUSTED_COUNTRIES) are trusted:
+// travelling between them, or a Brazilian owner visiting Brazil, is normal --
+// no alert, no sign-out, just a quiet update of the stored country (only
+// when it changed, so this stays a bounded write). An UNTRUSTED country that
+// differs from the one the session was minted in kills the token and the
+// meta row, logs 'session_country_change' and alerts Nicole once per person
+// per hour; the caller (authenticateClientToken) then returns null, which
+// reads to the caller exactly like an expired session.
+// ---------------------------------------------------------------------------
+async function passkeySessionCountryCheck(env, request, tokenHash) {
+    try {
+        var current = request.headers.get("CF-IPCountry") || "";
+        if (!current) { return "ok"; }
+        current = String(current).toUpperCase();
+        var meta = await env.DB.prepare("SELECT * FROM login_session_meta WHERE token_hash = ?").bind(tokenHash).first();
+        if (!meta) { return "ok"; } // old password sessions, or a passkey session with no header at minting time
+        if (current === String(meta.country || "").toUpperCase()) { return "ok"; }
+        var trusted = passkeyTrustedCountries(env).indexOf(current) !== -1;
+        if (trusted) {
+            await env.DB.prepare("UPDATE login_session_meta SET country = ? WHERE token_hash = ?")
+                .bind(current, tokenHash).run();
+            return "ok";
+        }
+        var person = meta.person_id ? await env.DB.prepare("SELECT client_id, username, role FROM login_people WHERE id = ?")
+            .bind(meta.person_id).first() : null;
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE token_hash = ?").bind(tokenHash).run();
+        await env.DB.prepare("DELETE FROM login_session_meta WHERE token_hash = ?").bind(tokenHash).run();
+        await loginActivityRecord(env, request, {
+            client_id: person && person.client_id, person_id: meta.person_id,
+            username: person && person.username, role: person && person.role,
+            kind: "session_country_change", country: current,
+            detail: { from: String(meta.country || ""), to: current }
+        });
+        if (meta.person_id) {
+            await notifyNicoleTelegramOncePerPersonHour(env, meta.person_id,
+                "Apex passkey login: a session was ended because it moved from " + meta.country + " to an untrusted country (" +
+                current + "). The person will simply sign in again with their passkey.");
+        }
+        return "killed";
+    } catch (e) {
+        return "ok"; // never block a request on this check's own failure
+    }
+}
+// Once per person per UTC hour (independent of the per-country marker above,
+// which is "once per person+country" forever): the session-kill alert can
+// legitimately repeat for the same person on a later, different day.
+async function notifyNicoleTelegramOncePerPersonHour(env, personId, message) {
+    var key = "sessioncountry:" + personId + ":" + new Date().toISOString().slice(0, 13).replace(/[-T:]/g, "");
+    var res = await env.DB.prepare("INSERT OR IGNORE INTO login_maintenance (key, last_run) VALUES (?, ?)")
+        .bind(key, new Date().toISOString()).run();
+    if (res && res.meta && res.meta.changes === 1) { await notifyNicoleTelegram(env, message); }
+}
+
 // Route: GET /api/gm/people[?client_id=] — owner and partner; admins any.
 async function handleGetGmPeople(request, env) {
     try {
@@ -17066,15 +17524,40 @@ async function handleGetGmPeople(request, env) {
         if (!actor) { return passkeyForbidden(); }
         var rows = (await env.DB.prepare(
             "SELECT p.id, p.client_id, p.role, p.display_name, p.phone_e164, p.status, p.accepted_at, p.last_passkey_login_at, " +
-            "(SELECT MAX(i.expires_at) FROM login_invites i WHERE i.person_id = p.id AND i.used_at IS NULL AND i.replaced_at IS NULL) AS invite_expires_at " +
+            "(SELECT MAX(i.expires_at) FROM login_invites i WHERE i.person_id = p.id AND i.used_at IS NULL AND i.replaced_at IS NULL) AS invite_expires_at, " +
+            "(SELECT COUNT(*) FROM login_passkeys k WHERE k.person_id = p.id AND k.revoked_at IS NULL) AS active_devices " +
             "FROM login_people p WHERE p.client_id = ? ORDER BY p.created_at"
         ).bind(actor.clientId).all()).results || [];
-        return jsonOk({
-            people: rows.map(function(p) { return passkeyPublicPerson(p, p.invite_expires_at); }),
+        var withDevices = new URL(request.url).searchParams.get("devices") === "1";
+        var peopleOut = [];
+        for (var i = 0; i < rows.length; i++) {
+            var pp = passkeyPublicPerson(rows[i], rows[i].invite_expires_at);
+            pp.active_devices = rows[i].active_devices || 0;
+            if (withDevices) {
+                var devs = (await env.DB.prepare(
+                    "SELECT id, label, created_at FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL ORDER BY created_at"
+                ).bind(rows[i].id).all()).results || [];
+                pp.devices = devs;
+            }
+            var lr = await env.DB.prepare(
+                "SELECT status FROM login_loss_reviews WHERE person_id = ? ORDER BY created_at DESC LIMIT 1"
+            ).bind(rows[i].id).first();
+            if (lr) { pp.loss_review_status = lr.status; }
+            peopleOut.push(pp);
+        }
+        var out = {
+            people: peopleOut,
             actor: actor.kind,
             can_manage_partner: actor.kind !== "partner",
             app_ready: passkeyAppReady(env)
-        });
+        };
+        // Change J: seats object, only for notice/block (owners/partners), always for admins.
+        var pol = await passkeySeatPolicy(env, actor.clientId);
+        if (actor.kind === "admin" || pol.mode === "notice" || pol.mode === "block") {
+            var used = await passkeySeatsUsed(env, actor.clientId);
+            out.seats = { used: used, included: pol.included_seats, mode: pol.mode, over: Math.max(0, used - pol.included_seats) };
+        }
+        return jsonOk(out);
     } catch (e) {
         return jsonErr("Error fetching people: " + e.message, 500);
     }
@@ -17113,6 +17596,9 @@ async function handlePostGmPeople(request, env) {
             return jsonErr2("Já existe um acesso com este nome nesta empresa. Use um nome diferente (por exemplo, com o sobrenome).",
                 "An access with this name already exists at this business. Use a different name (for example, with the last name).", 409);
         }
+        if (passkeyChannelFor(ph.e164) === "whatsapp" && !passkeyWhatsappEnabled(env)) { return passkeyWhatsappSoonMsg(); }
+        var seatBlock = await passkeySeatBlocked(env, actor.clientId);
+        if (seatBlock) { return seatBlock; }
         var person = {
             id: crypto.randomUUID(), client_id: actor.clientId, role: role, display_name: name,
             phone_e164: ph.e164, status: "invited", accepted_at: null, last_passkey_login_at: null
@@ -17121,7 +17607,12 @@ async function handlePostGmPeople(request, env) {
             "INSERT INTO login_people (id, client_id, role, display_name, phone_e164, status, created_by, created_at) " +
             "VALUES (?, ?, ?, ?, ?, 'invited', ?, ?)"
         ).bind(person.id, person.client_id, role, name, ph.e164, actorName(user), passkeyNow().toISOString()).run();
-        var invite = await passkeyCreateInvite(env, person.id);
+        var invite = await passkeyCreateInvite(env, person.id, "first");
+        await passkeySeatUsageBump(env, actor.clientId);
+        await loginActivityRecord(env, request, {
+            client_id: actor.clientId, person_id: person.id, role: role,
+            kind: "person_added", detail: { role: role }
+        });
         return jsonOk(await passkeyInviteResponse(env, actor, user, person, invite, null));
     } catch (e) {
         return jsonErr("Error adding person: " + e.message, 500);
@@ -17136,9 +17627,10 @@ async function passkeyLoadPersonFor(env, user, personId, request, body) {
     return { person: p, actor: actor };
 }
 
-// Route: POST /api/gm/people/:id/invite — a NEW link (lost phone, new device,
-// expired link). Older unused links of the person stop working now; older
-// passkeys are revoked when this one is completed.
+// Route: POST /api/gm/people/:id/invite { purpose? } — a NEW link. purpose
+// defaults to 'add' (keep every current passkey); 'replace' is for a lost or
+// new device (older passkeys revoked when THIS invite completes). Unknown
+// values are a 400.
 async function handlePostGmPersonInvite(personId, request, env) {
     try {
         var user = await authenticate(request, env);
@@ -17149,10 +17641,43 @@ async function handlePostGmPersonInvite(personId, request, env) {
         if (got.person.status === "disabled") {
             return jsonErr2("Este acesso está desativado. Ative primeiro.", "This access is disabled. Enable it first.", 409);
         }
-        var invite = await passkeyCreateInvite(env, got.person.id);
+        var body = await request.json().catch(function() { return {}; });
+        var purpose = body && body.purpose ? String(body.purpose) : "add";
+        if (["add", "replace"].indexOf(purpose) === -1) {
+            return jsonErr2("Tipo de convite inválido.", "Invalid invite type.", 400);
+        }
+        var invite = await passkeyCreateInvite(env, got.person.id, purpose);
+        await loginActivityRecord(env, request, {
+            client_id: got.person.client_id, person_id: got.person.id, role: got.person.role,
+            kind: "invite_created", detail: { purpose: invite.purpose }
+        });
         return jsonOk(await passkeyInviteResponse(env, got.actor, user, got.person, invite, null));
     } catch (e) {
         return jsonErr("Error creating link: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/gm/people/:id/passkeys/:keyId/revoke — removes one passkey
+// of a person (same permission rules as the other people routes).
+async function handlePostGmPersonPasskeyRevoke(personId, keyId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        if (!passkeyMayManage(got.actor, got.person.role, "revoke")) { return passkeyForbidden(); }
+        var key = await env.DB.prepare("SELECT * FROM login_passkeys WHERE id = ? AND person_id = ?")
+            .bind(keyId, personId).first();
+        if (!key) { return jsonErr("Not found", 404); }
+        await env.DB.prepare("UPDATE login_passkeys SET revoked_at = ? WHERE id = ?")
+            .bind(new Date().toISOString(), keyId).run();
+        await loginActivityRecord(env, request, {
+            client_id: got.person.client_id, person_id: personId, role: got.person.role,
+            kind: "passkey_removed", detail: { device_label: key.label || null }, device_label: key.label || null
+        });
+        return jsonOk({ revoked: true });
+    } catch (e) {
+        return jsonErr("Error revoking passkey: " + e.message, 500);
     }
 }
 
@@ -17173,18 +17698,30 @@ async function handlePostGmPersonStatus(personId, action, request, env) {
                     .bind(p.username, p.client_id).run();
             }
             p.status = "disabled";
+            await loginActivityRecord(env, request, { client_id: p.client_id, person_id: p.id, role: p.role, kind: "person_disabled", detail: {} });
         } else {
             if (!p.accepted_at) {
                 return jsonErr2("Esta pessoa ainda não aceitou o convite. Envie um novo link.",
                     "This person has not accepted the invite yet. Send a new link.", 409);
             }
+            // Change J: re-enabling only re-checks the seat limit in 'block' mode.
+            var pol = await passkeySeatPolicy(env, p.client_id);
+            if (pol.mode === "block" && pol.hard_limit) {
+                var used = await passkeySeatsUsed(env, p.client_id);
+                if (used >= pol.hard_limit) { return passkeySeatBlockedMsgDirect(); }
+            }
             await env.DB.prepare("UPDATE login_people SET status = 'active' WHERE id = ?").bind(p.id).run();
             p.status = "active";
         }
+        await passkeySeatUsageBump(env, p.client_id);
         return jsonOk({ person: passkeyPublicPerson(p, null) });
     } catch (e) {
         return jsonErr("Error updating person: " + e.message, 500);
     }
+}
+function passkeySeatBlockedMsgDirect() {
+    return jsonErr2("Limite de pessoas atingido. Fale com a Apex para ampliar.",
+        "People limit reached. Ask Apex to raise it.", 409);
 }
 
 // ---------------------------------------------------------------------------
@@ -17222,6 +17759,11 @@ async function handleGmOwnerInvite(clientId, request, env) {
             return jsonErr2("Não há um número válido (+1 ou +55) no cadastro do dono. Digite o número e confirme.",
                 "There is no valid number (+1 or +55) on the owner's record. Type the number and confirm.", 400, { need_phone: true });
         }
+        if (passkeyChannelFor(phone) === "whatsapp" && !passkeyWhatsappEnabled(env)) { return passkeyWhatsappSoonMsg(); }
+        var purpose = body && body.purpose ? String(body.purpose) : "add";
+        if (["add", "replace"].indexOf(purpose) === -1) {
+            return jsonErr2("Tipo de convite inválido.", "Invalid invite type.", 400);
+        }
         var owner = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND role = 'client'")
             .bind(clientId).first();
         var nowIso = passkeyNow().toISOString();
@@ -17249,13 +17791,689 @@ async function handleGmOwnerInvite(clientId, request, env) {
             person.phone_e164 = phone;
             person.status = status;
         }
-        var invite = await passkeyCreateInvite(env, person.id);
+        var invite = await passkeyCreateInvite(env, person.id, purpose);
         var lang = client.language === "en" ? "en" : (client.language === "pt" ? "pt" : null);
         var out = await passkeyInviteResponse(env, { kind: "admin", clientId: clientId }, user, person, invite, lang);
         out.masked_phone = passkeyMaskPhone(phone);
         return jsonOk(out);
     } catch (e) {
         return jsonErr("Error creating owner link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE B: "My devices" -- any signed-in person with a login_people row.
+// A session with no login_people row (e.g. an old password login) answers
+// the same generic 403 as everyone else.
+// ---------------------------------------------------------------------------
+async function passkeyMeLoadPerson(env, user) {
+    if (!user || user.role !== "client" || !user.client_id || !user.username) { return null; }
+    var p = await env.DB.prepare("SELECT * FROM login_people WHERE client_id = ? AND username = ? AND status = 'active'")
+        .bind(user.client_id, user.username).first();
+    return p || null;
+}
+function passkeyMeForbidden() {
+    return jsonErr2("Sem permissão para esta ação.", "You do not have permission for this action.", 403);
+}
+
+// Route: GET /api/me/passkeys
+async function handleGetMePasskeys(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var p = await passkeyMeLoadPerson(env, user);
+        if (!p) { return passkeyMeForbidden(); }
+        var rows = (await env.DB.prepare(
+            "SELECT id, label, created_at FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL ORDER BY created_at"
+        ).bind(p.id).all()).results || [];
+        return jsonOk({ passkeys: rows });
+    } catch (e) {
+        return jsonErr("Error fetching passkeys: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/me/passkeys/start-add — requires a session issued within
+// the last 15 minutes (computed from client_auth_tokens.expires_at - 30
+// days), the person active, fewer than 5 active passkeys.
+async function handlePostMePasskeysStartAdd(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var p = await passkeyMeLoadPerson(env, user);
+        if (!p) { return passkeyMeForbidden(); }
+        var tok = await env.DB.prepare("SELECT expires_at FROM client_auth_tokens WHERE username = ? AND token_hash = ?")
+            .bind(user.username, user.token_hash).first();
+        if (!tok) { return passkeySignInAgainMsg(); }
+        var mintedAt = Date.parse(tok.expires_at) - 30 * 24 * 3600 * 1000;
+        if ((passkeyNow().getTime() - mintedAt) > PASSKEY_RECENT_SIGNIN_MINUTES * 60 * 1000) {
+            return passkeySignInAgainMsg();
+        }
+        var active = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL")
+            .bind(p.id).first();
+        if (active && active.c >= PASSKEY_MAX_DEVICES) { return passkeyDeviceLimitMsg(); }
+        if (!p.stytch_user_id) { return passkeyFail("unavailable"); }
+        var startBody = {
+            user_id: p.stytch_user_id, domain: PASSKEY_RP_ID,
+            return_passkey_credential_options: true, use_base64_url_encoding: true
+        };
+        var s = await stytchCall(env, "/v1/webauthn/register/start", startBody);
+        var opts = s.ok ? passkeyParseOptions(s.data.public_key_credential_creation_options) : null;
+        if (!opts || !opts.challenge) { return passkeyFail("unavailable"); }
+        return jsonOk({ options: opts });
+    } catch (e) {
+        return jsonErr("Error starting device add: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/me/passkeys/finish-add { credential, label }
+async function handlePostMePasskeysFinishAdd(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var p = await passkeyMeLoadPerson(env, user);
+        if (!p) { return passkeyMeForbidden(); }
+        var body = await request.json().catch(function() { return {}; });
+        var cred = passkeyCredentialString(body && body.credential);
+        if (!cred) { return passkeyFail("register"); }
+        var active = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL")
+            .bind(p.id).first();
+        if (active && active.c >= PASSKEY_MAX_DEVICES) { return passkeyDeviceLimitMsg(); }
+        var r = await stytchCall(env, "/v1/webauthn/register", { user_id: p.stytch_user_id, public_key_credential: cred });
+        if (!r.ok || !r.data.webauthn_registration_id || !passkeyConstantEq(r.data.user_id, p.stytch_user_id)) {
+            return passkeyFail("register");
+        }
+        var ua = String((request && request.headers && request.headers.get("User-Agent")) || "").slice(0, 200);
+        var typedLabel = gmStr(body && body.label, 40);
+        var label = typedLabel || passkeyDeviceLabelOrDefault(ua, null);
+        var nowIso = new Date().toISOString();
+        await env.DB.prepare(
+            "INSERT INTO login_passkeys (id, person_id, webauthn_registration_id, created_at, label, user_agent) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), p.id, String(r.data.webauthn_registration_id), nowIso, label, ua).run();
+        await loginActivityRecord(env, request, {
+            client_id: p.client_id, person_id: p.id, username: p.username, role: p.role,
+            kind: "passkey_registered", detail: { device_label: label, purpose: "add" }, device_label: label
+        });
+        return jsonOk({ added: true, label: label });
+    } catch (e) {
+        return jsonErr("Error adding passkey: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/me/passkeys/:id/remove — refused if it is the person's
+// only active passkey.
+async function handlePostMePasskeyRemove(keyId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var p = await passkeyMeLoadPerson(env, user);
+        if (!p) { return passkeyMeForbidden(); }
+        var key = await env.DB.prepare("SELECT * FROM login_passkeys WHERE id = ? AND person_id = ? AND revoked_at IS NULL")
+            .bind(keyId, p.id).first();
+        if (!key) { return jsonErr("Not found", 404); }
+        var active = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_passkeys WHERE person_id = ? AND revoked_at IS NULL")
+            .bind(p.id).first();
+        if (active && active.c <= 1) { return passkeyKeepOneMsg(); }
+        await env.DB.prepare("UPDATE login_passkeys SET revoked_at = ? WHERE id = ?")
+            .bind(new Date().toISOString(), keyId).run();
+        await loginActivityRecord(env, request, {
+            client_id: p.client_id, person_id: p.id, username: p.username, role: p.role,
+            kind: "passkey_removed", detail: { device_label: key.label || null, self: true }, device_label: key.label || null
+        });
+        return jsonOk({ removed: true });
+    } catch (e) {
+        return jsonErr("Error removing passkey: " + e.message, 500);
+    }
+}
+
+// Small D1-counter rate limit for the /api/me/passkeys/* routes, same style
+// as passkey_login_attempts: per-IP, per hour.
+async function passkeyMeRateLimited(env, request, bucket, limit) {
+    var ip = request.headers.get("CF-Connecting-IP") || "";
+    await env.DB.prepare("DELETE FROM passkey_login_attempts WHERE created_at < datetime('now', '-2 days')").run();
+    if (ip) {
+        var hits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM passkey_login_attempts WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first();
+        if (hits && hits.c >= (limit || 30)) { return true; }
+    }
+    await env.DB.prepare("INSERT INTO passkey_login_attempts (id, ip) VALUES (?, ?)")
+        .bind(crypto.randomUUID(), ip || null).run();
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE D: owner finance-access toggle.
+// ---------------------------------------------------------------------------
+// Route: POST /api/gm/people/:id/role { role: 'staff' | 'staff_finance' }.
+// Deletes the person's sessions so the new role takes effect on their very
+// next request -- see the report for why.
+async function handlePostGmPersonRole(personId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        var p = got.person;
+        if (!passkeyMayManage(got.actor, p.role, "role")) { return passkeyForbidden(); }
+        if (["client", "partner", "seller"].indexOf(p.role) !== -1) {
+            return jsonErr2("Este tipo de acesso não pode ser alterado por aqui.",
+                "This access type cannot be changed here.", 400);
+        }
+        var body = await request.json().catch(function() { return {}; });
+        var newRole = String((body && body.role) || "");
+        if (["staff", "staff_finance"].indexOf(newRole) === -1) {
+            return jsonErr2("Escolha staff ou staff_finance.", "Choose staff or staff_finance.", 400);
+        }
+        await env.DB.prepare("UPDATE login_people SET role = ? WHERE id = ?").bind(newRole, p.id).run();
+        if (p.username) {
+            await env.DB.prepare("UPDATE client_logins SET role = ? WHERE username = ?").bind(newRole, p.username).run();
+            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ?").bind(p.username).run();
+        }
+        await loginActivityRecord(env, request, {
+            client_id: p.client_id, person_id: p.id, role: newRole,
+            kind: "role_changed", detail: { from: p.role, to: newRole }
+        });
+        return jsonOk({ person: passkeyPublicPerson(Object.assign({}, p, { role: newRole }), null) });
+    } catch (e) {
+        return jsonErr("Error updating role: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE C: the device-loss flow. One handler, three reasons, always records
+// login_device_events FIRST. Double-press within 5 minutes for the same
+// person+reason is a no-op (checks the last event row).
+// ---------------------------------------------------------------------------
+function passkeyDeviceEventDupMsg() {
+    return jsonErr2("Já registramos isso há pouco.", "We already recorded this a moment ago.", 200);
+}
+// Eastern-time computation of reported_loss_at for the 'lost' reason.
+// now: current moment. today: midnight start of today (Eastern). weekend:
+// midnight start of the most recent FRIDAY (errs toward covering MORE, not
+// less). date: given date at given time (Eastern), or midnight when no time.
+function passkeyEasternMidnight(dateStr) {
+    // dateStr is "YYYY-MM-DD" already in Eastern terms; build it as a UTC
+    // instant for storage by treating Eastern midnight as UTC-4 (EDT) or
+    // UTC-5 (EST). Since exact DST transition for an arbitrary date is hard
+    // without a tz database, and USA Eastern time DST rules are fixed
+    // (second Sunday in March to first Sunday in November), approximate with
+    // the offset the CURRENT moment uses -- acceptable here because the
+    // "reported_loss_at" window is deliberately generous (errs toward more).
+    var now = passkeyNow();
+    var offsetMin = -(new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime() -
+        new Date(now.toLocaleString("en-US", { timeZone: "UTC" })).getTime()) / 60000;
+    return new Date(dateStr + "T00:00:00" + (offsetMin <= -299 ? "-05:00" : "-04:00")).toISOString();
+}
+function passkeyEasternDateTime(dateStr, timeStr) {
+    var now = passkeyNow();
+    var offsetMin = -(new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime() -
+        new Date(now.toLocaleString("en-US", { timeZone: "UTC" })).getTime()) / 60000;
+    var tz = offsetMin <= -299 ? "-05:00" : "-04:00";
+    var t = timeStr && /^\d{2}:\d{2}$/.test(timeStr) ? timeStr + ":00" : "00:00:00";
+    return new Date(dateStr + "T" + t + tz).toISOString();
+}
+function passkeyEasternTodayStr() {
+    try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(passkeyNow());
+    } catch (e) { return passkeyNow().toISOString().slice(0, 10); }
+}
+// Most recent Friday (inclusive of today if today IS Friday), Eastern date.
+function passkeyMostRecentFridayStr() {
+    var todayStr = passkeyEasternTodayStr();
+    var d = new Date(todayStr + "T12:00:00Z");
+    var dow = d.getUTCDay(); // 0=Sun..6=Sat; Friday=5
+    var back = (dow - 5 + 7) % 7;
+    d.setUTCDate(d.getUTCDate() - back);
+    return d.toISOString().slice(0, 10);
+}
+function passkeyComputeReportedLossAt(whenChoice, dateStr, timeStr) {
+    var nowIso = passkeyNow().toISOString();
+    if (whenChoice === "now") { return { ok: true, iso: nowIso }; }
+    if (whenChoice === "today") { return { ok: true, iso: passkeyEasternMidnight(passkeyEasternTodayStr()) }; }
+    if (whenChoice === "weekend") { return { ok: true, iso: passkeyEasternMidnight(passkeyMostRecentFridayStr()) }; }
+    if (whenChoice === "date") {
+        if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { return { ok: false, kind: "invalid" }; }
+        var iso = passkeyEasternDateTime(dateStr, timeStr);
+        return { ok: true, iso: iso };
+    }
+    return { ok: false, kind: "invalid" };
+}
+function passkeyDeviceLossWhenError(kind) {
+    if (kind === "future") {
+        return jsonErr2("A data ou hora não pode estar no futuro.", "The date or time cannot be in the future.", 400);
+    }
+    if (kind === "tooold") {
+        return jsonErr2("Isso foi há mais de 90 dias. Fale com a Apex.", "That was more than 90 days ago. Contact Apex.", 400);
+    }
+    return jsonErr2("Informe quando o aparelho foi perdido.", "Tell us when the device was lost.", 400);
+}
+
+// Route: POST /api/gm/people/:id/device-event { reason, when, date, time }
+async function handlePostGmPersonDeviceEvent(personId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        var p = got.person;
+        if (!passkeyMayManage(got.actor, p.role, "device-event")) { return passkeyForbidden(); }
+        var body = await request.json().catch(function() { return {}; });
+        var reason = String((body && body.reason) || "");
+        if (PASSKEY_DEVICE_LOSS_REASONS.indexOf(reason) === -1) {
+            return jsonErr2("Escolha um motivo válido.", "Choose a valid reason.", 400);
+        }
+        var reportedLossAt = null, whenChoice = null;
+        if (reason === "lost") {
+            whenChoice = String((body && body.when) || "");
+            var computed = passkeyComputeReportedLossAt(whenChoice, body && body.date, body && body.time);
+            if (!computed.ok) { return passkeyDeviceLossWhenError(computed.kind); }
+            var nowMs = passkeyNow().getTime();
+            var lossMs = Date.parse(computed.iso);
+            if (lossMs > nowMs + 60000) { return passkeyDeviceLossWhenError("future"); }
+            if (nowMs - lossMs > 90 * 24 * 3600 * 1000) { return passkeyDeviceLossWhenError("tooold"); }
+            reportedLossAt = computed.iso;
+        }
+        // Double-press guard: an identical reason for this person within 5
+        // minutes is a no-op (returns the prior result's shape where sensible).
+        var dup = await env.DB.prepare(
+            "SELECT * FROM login_device_events WHERE person_id = ? AND reason = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1"
+        ).bind(personId, reason, new Date(Date.now() - 5 * 60 * 1000).toISOString()).first();
+        if (dup) {
+            if (reason === "left") { return jsonOk({ done: true, reason: "left", duplicate: true }); }
+            // For new_phone/lost, re-use the newest open invite if one exists.
+            var latestInvite = await env.DB.prepare(
+                "SELECT * FROM login_invites WHERE person_id = ? AND used_at IS NULL AND replaced_at IS NULL ORDER BY created_at DESC LIMIT 1"
+            ).bind(personId).first();
+            if (latestInvite) {
+                var out = await passkeyInviteResponse(env, got.actor, user, p, { invite_url: PASSKEY_INVITE_URL + "dup", expires_at: latestInvite.expires_at }, null);
+                out.duplicate = true;
+                return jsonOk(out);
+            }
+            return jsonOk({ done: true, reason: reason, duplicate: true });
+        }
+        var nowIso = passkeyNow().toISOString();
+        var eventId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO login_device_events (id, person_id, client_id, reason, reported_loss_at, when_choice, reported_by, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(eventId, personId, p.client_id, reason, reportedLossAt, whenChoice, actorName(user), nowIso).run();
+        await loginActivityRecord(env, request, {
+            client_id: p.client_id, person_id: personId, role: p.role,
+            kind: "device_event", detail: { reason: reason }
+        });
+
+        if (reason === "left") {
+            await env.DB.prepare("UPDATE login_people SET status = 'disabled' WHERE id = ?").bind(personId).run();
+            await env.DB.prepare("UPDATE login_passkeys SET revoked_at = ? WHERE person_id = ? AND revoked_at IS NULL")
+                .bind(nowIso, personId).run();
+            if (p.username) {
+                await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ?").bind(p.username).run();
+            }
+            await passkeySeatUsageBump(env, p.client_id);
+            return jsonOk({ done: true, reason: "left" });
+        }
+        if (reason === "new_phone") {
+            if (p.username) {
+                await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ?").bind(p.username).run();
+            }
+            var invite = await passkeyCreateInvite(env, personId, "replace");
+            var resp = await passkeyInviteResponse(env, got.actor, user, p, invite, null);
+            resp.reason = "new_phone";
+            return jsonOk(resp);
+        }
+        // reason === "lost": emergency path. Revoke everything, kill sessions,
+        // then run the loss review (Change H) and send the Telegram alert,
+        // then return a 'replace' invite too.
+        await env.DB.prepare("UPDATE login_passkeys SET revoked_at = ? WHERE person_id = ? AND revoked_at IS NULL")
+            .bind(nowIso, personId).run();
+        if (p.username) {
+            await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ?").bind(p.username).run();
+        }
+        await passkeyRunLossReview(env, eventId, p, reportedLossAt, nowIso);
+        var lostInvite = await passkeyCreateInvite(env, personId, "replace");
+        var lostResp = await passkeyInviteResponse(env, got.actor, user, p, lostInvite, null);
+        lostResp.reason = "lost";
+        return jsonOk(lostResp);
+    } catch (e) {
+        return jsonErr("Error recording device event: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE H: the lost-device review. Built once, right when a 'lost' event is
+// created. Splits login_activity for the person into TWO periods: between
+// lost and reported, and after reported.
+// ---------------------------------------------------------------------------
+var PASSKEY_SENSITIVE_KINDS = ["finance_view", "data_change", "passkey_registered", "role_changed",
+    "person_added", "signin_passkey", "signin_password", "new_country_signin", "session_country_change"];
+
+async function passkeyLossReviewPeriodSummary(env, usernames, personId, fromIso, toIso) {
+    var rows = [];
+    if (personId) {
+        rows = rows.concat((await env.DB.prepare(
+            "SELECT kind, at, country, device_label FROM login_activity WHERE person_id = ? AND at >= ? AND at < ? ORDER BY at"
+        ).bind(personId, fromIso, toIso).all()).results || []);
+    }
+    for (var i = 0; i < usernames.length; i++) {
+        rows = rows.concat((await env.DB.prepare(
+            "SELECT kind, at, country, device_label FROM login_activity WHERE username = ? AND at >= ? AND at < ? ORDER BY at"
+        ).bind(usernames[i], fromIso, toIso).all()).results || []);
+    }
+    rows.sort(function(a, b) { return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0); });
+    var counts = {};
+    rows.forEach(function(r) { counts[r.kind] = (counts[r.kind] || 0) + 1; });
+    var items = rows.filter(function(r) { return PASSKEY_SENSITIVE_KINDS.indexOf(r.kind) !== -1; }).slice(0, 50)
+        .map(function(r) { return { kind: r.kind, time: r.at, country: r.country || null, device_label: r.device_label || null }; });
+    return {
+        counts: counts, total: rows.length,
+        first: rows.length ? rows[0].at : null, last: rows.length ? rows[rows.length - 1].at : null,
+        items: items, flagged: items.length > 0
+    };
+}
+
+async function passkeyRunLossReview(env, eventId, person, reportedLossAt, reportedAt) {
+    try {
+        var usernames = person.username ? [person.username] : [];
+        var nowIso = new Date().toISOString();
+        var between = await passkeyLossReviewPeriodSummary(env, usernames, person.id, reportedLossAt, reportedAt);
+        var after = await passkeyLossReviewPeriodSummary(env, usernames, person.id, reportedAt, nowIso);
+        var flagged = (between.flagged || after.flagged) ? 1 : 0;
+        var summary = {
+            window_start: reportedLossAt, window_end: reportedAt,
+            between: { counts: between.counts, first: between.first, last: between.last, items: between.items },
+            after: { counts: after.counts, first: after.first, last: after.last, items: after.items }
+        };
+        var reviewId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO login_loss_reviews (id, event_id, person_id, client_id, reported_loss_at, reported_at, created_at, status, flagged, summary) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)"
+        ).bind(reviewId, eventId, person.id, person.client_id, reportedLossAt, reportedAt, nowIso, flagged, JSON.stringify(summary)).run();
+
+        var hours = Math.round((Date.parse(reportedAt) - Date.parse(reportedLossAt)) / 3600000 * 10) / 10;
+        var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(person.client_id).first();
+        var msg = "Apex: aparelho perdido/roubado reportado -- " + (client && client.name || person.client_id) + "\n" +
+            "Pessoa: " + person.display_name + " (" + person.role + ")\n" +
+            "Perdido em: " + reportedLossAt + "\n" +
+            "Reportado em: " + reportedAt + " (" + hours + "h depois)\n" +
+            "Último login por passkey: " + (person.last_passkey_login_at || "nunca") + "\n" +
+            "Eventos sensíveis entre perda e aviso: " + between.total + "\n" +
+            "Eventos sensíveis depois do aviso: " + after.total + "\n" +
+            "Sinalizado: " + (flagged ? "SIM" : "não") + "\n" +
+            "Revise no perfil do cliente.";
+        await notifyNicoleTelegram(env, msg);
+        return reviewId;
+    } catch (e) { /* the device-loss handler must still answer even if this fails */ }
+}
+
+// Route: GET /api/gm/loss-reviews?status=open — admin roles only.
+async function handleGetGmLossReviews(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var status = new URL(request.url).searchParams.get("status") || "open";
+        var rows = (await env.DB.prepare(
+            "SELECT r.*, p.display_name, p.role AS person_role, c.name AS client_name FROM login_loss_reviews r " +
+            "LEFT JOIN login_people p ON p.id = r.person_id LEFT JOIN clients c ON c.id = r.client_id " +
+            "WHERE r.status = ? ORDER BY r.created_at DESC"
+        ).bind(status).all()).results || [];
+        return jsonOk({ reviews: rows.map(function(r) {
+            return {
+                id: r.id, person_id: r.person_id, client_id: r.client_id, display_name: r.display_name,
+                person_role: r.person_role, client_name: r.client_name,
+                reported_loss_at: r.reported_loss_at, reported_at: r.reported_at, created_at: r.created_at,
+                status: r.status, flagged: !!r.flagged, summary: r.summary ? JSON.parse(r.summary) : null,
+                reviewed_by: r.reviewed_by, reviewed_at: r.reviewed_at, note: r.note
+            };
+        }) });
+    } catch (e) {
+        return jsonErr("Error fetching loss reviews: " + e.message, 500);
+    }
+}
+// Route: POST /api/gm/loss-reviews/:id/review { note, flagged } — admin only.
+async function handlePostGmLossReviewMark(reviewId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var row = await env.DB.prepare("SELECT * FROM login_loss_reviews WHERE id = ?").bind(reviewId).first();
+        if (!row) { return jsonErr("Not found", 404); }
+        var body = await request.json().catch(function() { return {}; });
+        var note = gmStr(body && body.note, 500);
+        var flagged = (body && body.flagged) ? 1 : 0;
+        await env.DB.prepare(
+            "UPDATE login_loss_reviews SET status = 'reviewed', reviewed_by = ?, reviewed_at = ?, note = ?, flagged = ? WHERE id = ?"
+        ).bind(actorName(user), new Date().toISOString(), note, flagged, reviewId).run();
+        return jsonOk({ reviewed: true });
+    } catch (e) {
+        return jsonErr("Error marking review: " + e.message, 500);
+    }
+}
+// Route: POST /api/gm/loss-reviews/:id/recheck — admin only. Recomputes both
+// periods from the stored times up to now.
+async function handlePostGmLossReviewRecheck(reviewId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var row = await env.DB.prepare("SELECT * FROM login_loss_reviews WHERE id = ?").bind(reviewId).first();
+        if (!row) { return jsonErr("Not found", 404); }
+        var person = await env.DB.prepare("SELECT * FROM login_people WHERE id = ?").bind(row.person_id).first();
+        var usernames = person && person.username ? [person.username] : [];
+        var nowIso = new Date().toISOString();
+        var between = await passkeyLossReviewPeriodSummary(env, usernames, row.person_id, row.reported_loss_at, row.reported_at);
+        var after = await passkeyLossReviewPeriodSummary(env, usernames, row.person_id, row.reported_at, nowIso);
+        var flagged = (between.flagged || after.flagged) ? 1 : 0;
+        var summary = {
+            window_start: row.reported_loss_at, window_end: row.reported_at,
+            between: { counts: between.counts, first: between.first, last: between.last, items: between.items },
+            after: { counts: after.counts, first: after.first, last: after.last, items: after.items }
+        };
+        await env.DB.prepare("UPDATE login_loss_reviews SET summary = ?, flagged = ? WHERE id = ?")
+            .bind(JSON.stringify(summary), flagged, reviewId).run();
+        return jsonOk({ summary: summary, flagged: !!flagged });
+    } catch (e) {
+        return jsonErr("Error rechecking review: " + e.message, 500);
+    }
+}
+// Route: GET /api/gm/people/:id/loss-review — owner and partner of that
+// business; admins. Returns { status: 'open' } ONLY while open.
+async function handleGetGmPersonLossReview(personId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        var row = await env.DB.prepare(
+            "SELECT * FROM login_loss_reviews WHERE person_id = ? ORDER BY created_at DESC LIMIT 1"
+        ).bind(personId).first();
+        if (!row) { return jsonOk({ status: null }); }
+        if (row.status !== "reviewed") { return jsonOk({ status: "open" }); }
+        var summary = row.summary ? JSON.parse(row.summary) : {};
+        var items = (summary.between && summary.between.items || []).map(function(it) { return Object.assign({ period: "between" }, it); })
+            .concat((summary.after && summary.after.items || []).map(function(it) { return Object.assign({ period: "after" }, it); }));
+        return jsonOk({
+            status: "reviewed", flagged: !!row.flagged, note: row.note,
+            reviewed_at: row.reviewed_at, window_start: summary.window_start, window_end: summary.window_end,
+            items: items
+        });
+    } catch (e) {
+        return jsonErr("Error fetching loss review: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE F: retire the old login one business at a time.
+// ---------------------------------------------------------------------------
+// Route: POST /api/gm/clients/:clientId/legacy-login { disabled } — admin only.
+async function handlePostGmClientLegacyLogin(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var body = await request.json().catch(function() { return {}; });
+        var disabled = !!(body && body.disabled);
+        if (!disabled) {
+            await env.DB.prepare("DELETE FROM login_legacy_cutover WHERE client_id = ?").bind(clientId).run();
+            await loginActivityRecord(env, request, { client_id: clientId, kind: "legacy_cutover", detail: { disabled: false } });
+            return jsonOk({ disabled: false });
+        }
+        var logins = (await env.DB.prepare(
+            "SELECT username, role, seller_name FROM client_logins WHERE client_id = ? AND password_hash != ?"
+        ).bind(clientId, PASSKEY_ONLY_HASH).all()).results || [];
+        var missing = [];
+        for (var i = 0; i < logins.length; i++) {
+            var l = logins[i];
+            var covered = await env.DB.prepare(
+                "SELECT p.id FROM login_people p JOIN login_passkeys k ON k.person_id = p.id " +
+                "WHERE p.client_id = ? AND p.username = ? AND p.status = 'active' AND k.revoked_at IS NULL LIMIT 1"
+            ).bind(clientId, l.username).first();
+            if (!covered) { missing.push(l.seller_name || l.username); }
+        }
+        if (missing.length) {
+            return jsonErr2("Ainda faltam: " + missing.join(", "), "Still missing: " + missing.join(", "), 409, { missing: missing });
+        }
+        await env.DB.prepare(
+            "INSERT INTO login_legacy_cutover (client_id, disabled_at, disabled_by) VALUES (?, ?, ?) " +
+            "ON CONFLICT (client_id) DO UPDATE SET disabled_at = excluded.disabled_at, disabled_by = excluded.disabled_by"
+        ).bind(clientId, new Date().toISOString(), actorName(user)).run();
+        await env.DB.prepare("DELETE FROM client_auth_tokens WHERE client_id = ?").bind(clientId).run();
+        await loginActivityRecord(env, request, { client_id: clientId, kind: "legacy_cutover", detail: { disabled: true } });
+        return jsonOk({ disabled: true });
+    } catch (e) {
+        return jsonErr("Error updating legacy login: " + e.message, 500);
+    }
+}
+async function passkeyLegacyCutoverActive(env, clientId) {
+    if (!clientId) { return false; }
+    var row = await env.DB.prepare("SELECT client_id FROM login_legacy_cutover WHERE client_id = ?").bind(clientId).first();
+    return !!row;
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE G: audit log read routes.
+// ---------------------------------------------------------------------------
+// Route: GET /api/gm/activity?person=<id>&since=<iso> — owner/partner for
+// people of their own business; admins for any. At most 200 rows.
+async function handleGetGmActivity(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var url = new URL(request.url);
+        var personId = url.searchParams.get("person");
+        var since = url.searchParams.get("since");
+        if (!personId) { return jsonErr2("Informe a pessoa.", "Specify the person.", 400); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        var sql = "SELECT kind, at, country, device_label, detail FROM login_activity WHERE person_id = ?";
+        var args = [personId];
+        if (since) { sql += " AND at > ?"; args.push(since); }
+        sql += " ORDER BY at DESC LIMIT 200";
+        var stmt = env.DB.prepare(sql);
+        var rows = (await stmt.bind.apply(stmt, args).all()).results || [];
+        return jsonOk({ activity: rows });
+    } catch (e) {
+        return jsonErr("Error fetching activity: " + e.message, 500);
+    }
+}
+// Route: GET /api/diagnostics/login-activity — developer only. Latest 100.
+async function handleGetDiagnosticsLoginActivity(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    try {
+        var rows = (await env.DB.prepare("SELECT * FROM login_activity ORDER BY at DESC LIMIT 100").all()).results || [];
+        return jsonOk({ activity: rows });
+    } catch (e) {
+        if (/no such table/i.test(String(e && e.message))) { return jsonOk({ activity: [] }); }
+        return jsonErr("Error loading activity diagnostics: " + e.message, 500);
+    }
+}
+// Route: GET /api/diagnostics/device-events — developer only. Latest 50.
+async function handleGetDiagnosticsDeviceEvents(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    try {
+        var rows = (await env.DB.prepare("SELECT * FROM login_device_events ORDER BY created_at DESC LIMIT 50").all()).results || [];
+        return jsonOk({ events: rows });
+    } catch (e) {
+        if (/no such table/i.test(String(e && e.message))) { return jsonOk({ events: [] }); }
+        return jsonErr("Error loading device-event diagnostics: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CHANGE J/K: seat policy, seat usage and the business source tag. Admin
+// roles only.
+// ---------------------------------------------------------------------------
+// Route: POST /api/gm/clients/:id/seat-policy { included_seats, mode, hard_limit }
+async function handlePostGmClientSeatPolicy(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var body = await request.json().catch(function() { return {}; });
+        var included = parseInt(body && body.included_seats, 10);
+        if (!(included >= 1 && included <= 500)) {
+            return jsonErr2("Assentos incluídos deve ser de 1 a 500.", "Included seats must be 1 to 500.", 400);
+        }
+        var mode = String((body && body.mode) || "");
+        if (["track", "notice", "block"].indexOf(mode) === -1) {
+            return jsonErr2("Escolha um modo válido.", "Choose a valid mode.", 400);
+        }
+        var hardLimit = mode === "block" ? parseInt(body && body.hard_limit, 10) : null;
+        if (mode === "block" && !(hardLimit > 0)) {
+            return jsonErr2("Informe o limite para o modo bloquear.", "Enter the limit for block mode.", 400);
+        }
+        await env.DB.prepare(
+            "INSERT INTO login_seat_policy (client_id, included_seats, mode, hard_limit, set_by, set_at) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT (client_id) DO UPDATE SET included_seats = excluded.included_seats, mode = excluded.mode, " +
+            "hard_limit = excluded.hard_limit, set_by = excluded.set_by, set_at = excluded.set_at"
+        ).bind(clientId, included, mode, hardLimit, actorName(user), new Date().toISOString()).run();
+        return jsonOk({ included_seats: included, mode: mode, hard_limit: hardLimit });
+    } catch (e) {
+        return jsonErr("Error saving seat policy: " + e.message, 500);
+    }
+}
+// Route: GET /api/gm/clients/:id/seat-usage
+async function handleGetGmClientSeatUsage(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var pol = await passkeySeatPolicy(env, clientId);
+        var used = await passkeySeatsUsed(env, clientId);
+        var peakRow = await env.DB.prepare("SELECT MAX(peak) AS m FROM login_seat_usage WHERE client_id = ?").bind(clientId).first();
+        var daily = (await env.DB.prepare(
+            "SELECT day, peak FROM login_seat_usage WHERE client_id = ? AND day > ? ORDER BY day DESC"
+        ).bind(clientId, new Date(Date.now() - 180 * 24 * 3600 * 1000).toISOString().slice(0, 10)).all()).results || [];
+        return jsonOk({
+            used: used, included: pol.included_seats, mode: pol.mode,
+            peak_ever: (peakRow && peakRow.m) || used, daily_peaks: daily
+        });
+    } catch (e) {
+        return jsonErr("Error fetching seat usage: " + e.message, 500);
+    }
+}
+// Route: POST /api/gm/clients/:id/source { source } — admin only.
+async function handlePostGmClientSource(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var body = await request.json().catch(function() { return {}; });
+        var source = String((body && body.source) || "");
+        if (["apex_direct", "public_signup"].indexOf(source) === -1) {
+            return jsonErr2("Escolha uma origem válida.", "Choose a valid source.", 400);
+        }
+        await env.DB.prepare(
+            "INSERT INTO login_business_meta (client_id, source, updated_at) VALUES (?, ?, ?) " +
+            "ON CONFLICT (client_id) DO UPDATE SET source = excluded.source, updated_at = excluded.updated_at"
+        ).bind(clientId, source, new Date().toISOString()).run();
+        return jsonOk({ source: source });
+    } catch (e) {
+        return jsonErr("Error saving source: " + e.message, 500);
     }
 }
 
@@ -17269,7 +18487,10 @@ async function handleGmOwnerInvite(clientId, request, env) {
 function passkeyIsRoutePath(path) {
     return path.indexOf("/api/passkey-login/") === 0 || path.indexOf("/api/passkey-invite/") === 0 ||
         path === "/api/gm/people" || path.indexOf("/api/gm/people/") === 0 ||
-        /^\/api\/gm\/clients\/[^\/]+\/owner-invite$/.test(path);
+        path.indexOf("/api/me/passkeys") === 0 ||
+        path === "/api/gm/activity" || path === "/api/gm/loss-reviews" || path.indexOf("/api/gm/loss-reviews/") === 0 ||
+        path === "/api/diagnostics/device-events" || path === "/api/diagnostics/login-activity" ||
+        /^\/api\/gm\/clients\/[^\/]+\/(owner-invite|legacy-login|seat-policy|seat-usage|source)$/.test(path);
 }
 async function passkeyRoute(request, env, path, method) {
     if (!passkeyIsRoutePath(path)) { return null; }
@@ -17295,13 +18516,49 @@ async function passkeyRoute(request, env, path, method) {
     }
     if (path === "/api/gm/people" && method === "GET") { return handleGetGmPeople(request, env); }
     if (path === "/api/gm/people" && method === "POST") { return handlePostGmPeople(request, env); }
-    var pm = path.match(/^\/api\/gm\/people\/([A-Za-z0-9-]+)\/(invite|disable|enable)$/);
-    if (pm && method === "POST") {
-        if (pm[2] === "invite") { return handlePostGmPersonInvite(pm[1], request, env); }
-        return handlePostGmPersonStatus(pm[1], pm[2], request, env);
+    var pm = path.match(/^\/api\/gm\/people\/([A-Za-z0-9-]+)\/(invite|disable|enable|role|device-event|loss-review)$/);
+    if (pm) {
+        if (pm[2] === "invite" && method === "POST") { return handlePostGmPersonInvite(pm[1], request, env); }
+        if ((pm[2] === "disable" || pm[2] === "enable") && method === "POST") { return handlePostGmPersonStatus(pm[1], pm[2], request, env); }
+        if (pm[2] === "role" && method === "POST") { return handlePostGmPersonRole(pm[1], request, env); }
+        if (pm[2] === "device-event" && method === "POST") { return handlePostGmPersonDeviceEvent(pm[1], request, env); }
+        if (pm[2] === "loss-review" && method === "GET") { return handleGetGmPersonLossReview(pm[1], request, env); }
     }
+    var pk = path.match(/^\/api\/gm\/people\/([A-Za-z0-9-]+)\/passkeys\/([A-Za-z0-9-]+)\/revoke$/);
+    if (pk && method === "POST") { return handlePostGmPersonPasskeyRevoke(pk[1], pk[2], request, env); }
+
+    if (path === "/api/me/passkeys" && method === "GET") { return handleGetMePasskeys(request, env); }
+    if (path === "/api/me/passkeys/start-add" && method === "POST") {
+        if (await passkeyMeRateLimited(env, request, "me-start-add", 30)) { return passkeyFail("busy"); }
+        return handlePostMePasskeysStartAdd(request, env);
+    }
+    if (path === "/api/me/passkeys/finish-add" && method === "POST") {
+        if (await passkeyMeRateLimited(env, request, "me-finish-add", 30)) { return passkeyFail("busy"); }
+        return handlePostMePasskeysFinishAdd(request, env);
+    }
+    var mr = path.match(/^\/api\/me\/passkeys\/([A-Za-z0-9-]+)\/remove$/);
+    if (mr && method === "POST") { return handlePostMePasskeyRemove(mr[1], request, env); }
+
+    if (path === "/api/gm/activity" && method === "GET") { return handleGetGmActivity(request, env); }
+    if (path === "/api/gm/loss-reviews" && method === "GET") { return handleGetGmLossReviews(request, env); }
+    var lrm = path.match(/^\/api\/gm\/loss-reviews\/([A-Za-z0-9-]+)\/(review|recheck)$/);
+    if (lrm && method === "POST") {
+        if (lrm[2] === "review") { return handlePostGmLossReviewMark(lrm[1], request, env); }
+        return handlePostGmLossReviewRecheck(lrm[1], request, env);
+    }
+    if (path === "/api/diagnostics/device-events" && method === "GET") { return handleGetDiagnosticsDeviceEvents(request, env); }
+    if (path === "/api/diagnostics/login-activity" && method === "GET") { return handleGetDiagnosticsLoginActivity(request, env); }
+
     var om = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/owner-invite$/);
     if (om && (method === "GET" || method === "POST")) { return handleGmOwnerInvite(om[1], request, env); }
+    var ll = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/legacy-login$/);
+    if (ll && method === "POST") { return handlePostGmClientLegacyLogin(ll[1], request, env); }
+    var sp = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/seat-policy$/);
+    if (sp && method === "POST") { return handlePostGmClientSeatPolicy(sp[1], request, env); }
+    var su = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/seat-usage$/);
+    if (su && method === "GET") { return handleGetGmClientSeatUsage(su[1], request, env); }
+    var sc = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/source$/);
+    if (sc && method === "POST") { return handlePostGmClientSource(sc[1], request, env); }
     return jsonErr("Not found", 404);
 }
 
@@ -51717,6 +52974,13 @@ export default {
         // 4-hourly cadence (the tick at UTC 00:00, 04:00, 08:00 ...).
         ctx.waitUntil(runAppointmentReminders(env).catch(function(e) {
             console.log("appointment reminders failed: " + (e && e.message));
+        }));
+        // Passkey login completion, Change G.5: purge login_activity rows
+        // older than 120 days. Runs on every 5-minute tick but is a no-op
+        // past the first hit of a UTC day (login_maintenance marker row), so
+        // this is at most one DELETE per day, never more.
+        ctx.waitUntil(loginActivityPurgeDaily(env).catch(function(e) {
+            console.log("login activity purge failed: " + (e && e.message));
         }));
         var tickAt = new Date(event && event.scheduledTime ? event.scheduledTime : Date.now());
         if (!(tickAt.getUTCHours() % 4 === 0 && tickAt.getUTCMinutes() < 5)) { return; }

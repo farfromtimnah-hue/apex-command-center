@@ -10,11 +10,19 @@ import { makeDb, build, baseStubs } from "./fixtures/d1-shim.mjs";
 let fail = 0, pass = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass++; } else { fail++; } };
 
-const GATE_FNS = ["enforceClientRoleGate", "clientRequestAllowed", "sellerRequestAllowed", "sessionSellerName", "loginRoleRuleHit", "loginRoleDenied"];
-const GATE_VARS = ["LOGIN_ROLE_DENY_OWNER_ONLY", "LOGIN_ROLE_DENY_SETTINGS", "LOGIN_ROLE_DENY_MONEY"];
+const GATE_FNS = ["enforceClientRoleGate", "enforceClientRoleGateChecks",
+  "clientRequestAllowed", "sellerRequestAllowed", "sessionSellerName", "loginRoleRuleHit", "loginRoleDenied",
+  "loginActivityMaybeAuto", "loginActivityRecord", "loginActivityInsert", "loginActivityIpPrefix",
+  "loginActivityCountry", "loginActivityPathGroup", "loginActivityHourKey", "loginActivityMinuteKey"];
+const GATE_VARS = ["LOGIN_ROLE_DENY_OWNER_ONLY", "LOGIN_ROLE_DENY_SETTINGS", "LOGIN_ROLE_DENY_MONEY",
+  "LOGIN_FINANCE_VIEW_RE", "LOGIN_CLIENT_ROUTE_RE"];
 
 let currentUser = null;
-const stubs = Object.assign({}, baseStubs, { authenticate: async () => currentUser });
+const activityDb = makeDb(["migrations/passkey_login.sql"]);
+const stubs = Object.assign({}, baseStubs, {
+  authenticate: async () => currentUser,
+  REQUEST_CTX: new WeakMap()
+});
 const G = build(GATE_FNS, GATE_VARS, stubs);
 
 const C = "c1";
@@ -25,7 +33,7 @@ function rq(method, path) {
 const sess = (login_role, extra) => Object.assign({ role: "client", client_id: C, login_role, auth_method: "password", must_change_password: false, display_name: "X", seller_name: login_role === "seller" ? "Rui" : null }, extra || {});
 async function gate(user, method, path) {
   currentUser = user;
-  const r = await G.enforceClientRoleGate(rq(method, path), {}, path, method);
+  const r = await G.enforceClientRoleGate(rq(method, path), { DB: activityDb.DB }, path, method);
   return r ? r.status : 200;   // 200 = the gate lets it through to the handler
 }
 
@@ -151,9 +159,13 @@ const P_FNS = [
   "passkeyForbidden", "handleGetGmPeople", "handlePostGmPeople", "passkeyLoadPersonFor", "handlePostGmPersonInvite",
   "handlePostGmPersonStatus", "handleGmOwnerInvite", "passkeyCreateInvite", "passkeyNewToken", "passkeyB64url",
   "passkeyNormalizePhone", "passkeyPhoneError", "passkeyMaskPhone", "passkeyFirstName", "passkeyAppReady",
-  "passkeyInviteMessage", "passkeyInviteMessageFor", "passkeyIso", "isAdminRole", "gmStr", "sha256Hex"
+  "passkeyInviteMessage", "passkeyInviteMessageFor", "passkeyIso", "isAdminRole", "gmStr", "sha256Hex",
+  "passkeyChannelFor", "passkeyCountryCode", "passkeyWhatsappEnabled", "passkeyWhatsappSoonMsg", "passkeyPhoneSendable",
+  "passkeySeatBlocked", "passkeySeatPolicy", "passkeySeatsUsed", "passkeySeatUsageBump",
+  "loginActivityRecord", "loginActivityInsert", "loginActivityIpPrefix", "loginActivityCountry"
 ];
-const P_VARS = ["PASSKEY_INVITE_URL", "PASSKEY_APP_STORE_URL", "PASSKEY_INVITE_HOURS", "PASSKEY_PERSON_ROLES", "PASSKEY_ROLE_LABELS"];
+const P_VARS = ["PASSKEY_INVITE_URL", "PASSKEY_APP_STORE_URL", "PASSKEY_INVITE_HOURS", "PASSKEY_PERSON_ROLES", "PASSKEY_ROLE_LABELS",
+  "PASSKEY_INVITE_PURPOSES"];
 function pworld() {
   const d = makeDb(["migrations/passkey_login.sql"]);
   d.raw.exec("CREATE TABLE client_logins (username TEXT PRIMARY KEY, client_id TEXT NOT NULL, password_hash TEXT NOT NULL, must_change_password INTEGER NOT NULL DEFAULT 1, role TEXT NOT NULL DEFAULT 'client', seller_name TEXT, created_by TEXT, last_login_at TEXT, UNIQUE (client_id, seller_name))");
@@ -165,9 +177,10 @@ function pworld() {
     authenticate: async () => st.user,
     jsonErr2: (pt, en, status, extra) => Object.assign({ status: status || 400, error: en, error_pt: pt }, extra || {}),
     passkeyNow: () => new Date(),
-    actorName: (u) => (u && (u.display_name || u.role)) || null
+    actorName: (u) => (u && (u.display_name || u.role)) || null,
+    REQUEST_CTX: new WeakMap()
   }));
-  return { d, F, st, env: { DB: d.DB } };
+  return { d, F, st, env: { DB: d.DB, PASSKEY_LOGIN_ENABLED: "1" } };
 }
 const preq = (method, path, body) => ({ method, url: "https://apex-api.test" + path, headers: { get: () => null }, json: async () => body || {} });
 {

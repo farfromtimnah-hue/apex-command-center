@@ -185,6 +185,36 @@ const OWNER = { role: "client", client_id: "c1", login_role: "client", username:
   ok(w.d.q("SELECT COUNT(*) AS n FROM login_activity WHERE id = 'old2'")[0].n === 1, "retention: purge runs at most once per day (marker row)");
 }
 
+// ── 5b. Dark switch and bounded markers (found in review) ─────────────────
+{
+  // Switch off: the automatic recorders write NOTHING (no audit rows, no markers).
+  const w = world({ PASSKEY_LOGIN_ENABLED: "0" });
+  await w.F.loginActivityMaybeAuto(w.env, rq("POST", "/api/clients/c1/gm/leads"), "/api/clients/c1/gm/leads", "POST", OWNER);
+  await w.F.loginActivityMaybeAuto(w.env, rq("GET", "/api/clients/c1/gm/finance"), "/api/clients/c1/gm/finance", "GET", OWNER);
+  ok(w.d.q("SELECT COUNT(*) AS n FROM login_activity")[0].n === 0, "dark: with the switch off the recorders write no audit rows");
+  ok(w.d.q("SELECT COUNT(*) AS n FROM login_maintenance")[0].n === 0, "dark: with the switch off the recorders write no marker rows");
+  // Switch on: they record again.
+  const w2 = world();
+  await w2.F.loginActivityMaybeAuto(w2.env, rq("POST", "/api/clients/c1/gm/leads"), "/api/clients/c1/gm/leads", "POST", OWNER);
+  ok(w2.d.q("SELECT COUNT(*) AS n FROM login_activity WHERE kind = 'data_change'")[0].n === 1, "dark: with the switch on the data_change recorder works");
+}
+{
+  // The daily purge also removes old deduplication markers, and only those.
+  const w = world();
+  const old = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+  const fresh = new Date().toISOString();
+  w.d.raw.prepare("INSERT INTO login_maintenance (key, last_run) VALUES ('fv:acme:2020010100', ?)").run(old);
+  w.d.raw.prepare("INSERT INTO login_maintenance (key, last_run) VALUES ('dc:acme:/x:POST:202001010000', ?)").run(old);
+  w.d.raw.prepare("INSERT INTO login_maintenance (key, last_run) VALUES ('activity_purge:2020-01-01', ?)").run(old);
+  w.d.raw.prepare("INSERT INTO login_maintenance (key, last_run) VALUES ('fv:acme:recent', ?)").run(fresh);
+  w.d.raw.prepare("INSERT INTO login_maintenance (key, last_run) VALUES ('something_else', ?)").run(old);
+  await w.F.loginActivityPurgeDaily(w.env);
+  const keys = w.d.q("SELECT key FROM login_maintenance").map((r) => r.key);
+  ok(keys.indexOf("fv:acme:2020010100") === -1 && keys.indexOf("dc:acme:/x:POST:202001010000") === -1 && keys.indexOf("activity_purge:2020-01-01") === -1, "markers: old fv, dc and purge markers are deleted");
+  ok(keys.indexOf("fv:acme:recent") !== -1, "markers: a recent marker is kept");
+  ok(keys.indexOf("something_else") !== -1, "markers: unrelated maintenance keys are never touched");
+}
+
 // ── 6. Read permissions ─────────────────────────────────────────────────────
 {
   const w = world();

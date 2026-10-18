@@ -16609,6 +16609,9 @@ function loginActivityMinuteKey() {
 // group + method per minute, no matter how many matching requests arrive.
 async function loginActivityMaybeAuto(env, request, path, method, user) {
     try {
+        // Dark until the passkey login is switched on: no extra writes for any
+        // live business before then.
+        if (!passkeyEnabled(env)) { return; }
         if (!user || user.role !== "client" || !user.username) { return; }
         // Never the audit log's own routes or the login routes.
         if (path.indexOf("/api/gm/activity") === 0 || path.indexOf("/api/diagnostics/") === 0) { return; }
@@ -16649,6 +16652,13 @@ async function loginActivityPurgeDaily(env) {
         if (!res || !res.meta || res.meta.changes !== 1) { return; }
         await env.DB.prepare("DELETE FROM login_activity WHERE at < ?")
             .bind(new Date(Date.now() - 120 * 24 * 3600 * 1000).toISOString()).run();
+        // The deduplication markers (fv: per hour, dc: per minute, and the
+        // daily purge marker itself) are only needed for the minute or hour
+        // they guard. Delete the old ones so login_maintenance never grows
+        // without bound.
+        await env.DB.prepare(
+            "DELETE FROM login_maintenance WHERE (key LIKE 'fv:%' OR key LIKE 'dc:%' OR key LIKE 'activity_purge:%') AND last_run < ?"
+        ).bind(new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()).run();
     } catch (e) { /* best-effort maintenance */ }
 }
 

@@ -11153,7 +11153,10 @@ function gmStripeBlockHtml(i, m, hint) {
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 10px;font-size:14px;cursor:pointer;">' +
       '<input type="checkbox" id="gmStripeAccept" style="margin-top:3px;" onchange="document.getElementById(\'gmStripeConnectBtn\').disabled = !this.checked">' +
       '<span>' + gmStripeAgreeHtml() + '</span></label>' +
-      '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>';
+      '<button type="button" id="gmStripeConnectBtn" class="gm-btn-primary" disabled onclick="gmStripeConnect(this)">' + gmT("Conectar Stripe", "Connect Stripe") + '</button>' +
+      (gmInApp() ? '<p class="muted" style="margin:8px 0 0;font-size:12px;">' + gmT(
+        "O Stripe abre em uma janela separada. Depois de terminar, volte para a Apex.",
+        "Stripe opens in a separate window. When you are done, come back to Apex.") + '</p>' : '');
   }
   if (!st.charges_enabled) {
     return gmStripeReacceptHtml(st) + '<p class="gm-warn" style="margin:4px 0 8px;">' + gmT(
@@ -11165,16 +11168,103 @@ function gmStripeBlockHtml(i, m, hint) {
   return gmStripeReacceptHtml(st) + '<p class="muted" style="margin:4px 0 8px;">✓ ' + gmT(
     "Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente.",
     "Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically.") + '</p>' +
-    '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>';
+    '<button type="button" class="gm-btn-secondary" onclick="gmStripeDisconnect()">' + gmT("Desconectar", "Disconnect") + '</button>' +
+    gmStripeTapBlockHtml();
+}
+// ── Tap to Pay on iPhone (Build 1): the owner's own switch, shown only once
+// Stripe is connected and charges are enabled (the caller already checked
+// that before calling this). Loads lazily the same way gmStripeLoad does.
+var gmStripeTapStatus = null;
+var gmStripeTapLoading = false;
+function gmStripeTapLoad(force) {
+  if (gmStripeTapLoading || (gmStripeTapStatus && !force)) { return; }
+  gmStripeTapLoading = true;
+  gmApi("stripe/tap").then(function(d) {
+    gmStripeTapLoading = false; gmStripeTapStatus = d || { available: false, enabled: false, accepted_at: null };
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmStripeTapLoading = false; gmStripeTapStatus = { available: false, enabled: false, accepted_at: null };
+    console.error(e);
+  });
+}
+function gmStripeTapBlockHtml() {
+  var st = gmStripeTapStatus;
+  if (!st) { gmStripeTapLoad(false); return ""; }
+  if (!st.available) { return ""; }
+  var row = '<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.08);">' +
+    '<label style="display:flex;gap:10px;align-items:center;cursor:pointer;">' +
+    '<input type="checkbox" id="gmStripeTapSwitch"' + (st.enabled ? ' checked' : '') + ' onchange="gmStripeTapToggle(this)">' +
+    '<span>' + gmT("Tap to Pay no iPhone", "Tap to Pay on iPhone") + '</span></label>';
+  if (st.enabled) {
+    row += '<p class="muted" style="margin:6px 0 0;font-size:12px;">' + gmT("Ativado", "Turned on") +
+      (st.accepted_at ? (" " + gmT("em", "on") + " " + String(st.accepted_at).slice(0, 10)) : "") + '</p>';
+  }
+  row += '</div>';
+  return row;
+}
+function gmStripeTapToggle(box) {
+  if (box.checked) {
+    box.checked = false; // stays off until the consent card is accepted
+    gmStripeTapAsk();
+  } else {
+    gmStripeTapDisable();
+  }
+}
+// In-page consent card (Rule 31: no browser pop-ups). PT/EN wording below is
+// the exact text shown and recorded.
+function gmStripeTapAsk() {
+  gmAsk({
+    message: gmT("Ativar Tap to Pay no iPhone",
+                 "Turn on Tap to Pay on iPhone") + "\n\n" +
+      gmT("A empresa concorda em usar o Tap to Pay no iPhone com a sua própria conta Stripe. Os pagamentos com cartão dos seus clientes vão direto para a sua conta Stripe. Na primeira vez que usar, também será preciso aceitar os termos do Tap to Pay no iPhone da Apple, no próprio iPhone. É necessário um iPhone XS ou mais novo.",
+             "The business agrees to use Tap to Pay on iPhone with its own Stripe account. Your customers' card payments go straight to your own Stripe account. The first time it is used, Apple's Tap to Pay on iPhone terms must also be accepted on the iPhone itself. An iPhone XS or newer is required."),
+    yes: gmT("Ativar Tap to Pay", "Turn on Tap to Pay"),
+    keep: gmT("Agora não", "Not now"),
+    onYes: function() { gmStripeTapEnable(); }
+  });
+}
+function gmStripeTapEnable() {
+  gmApi("stripe/tap/enable", { method: "POST", body: { accepted: true, language: isEn() ? "en" : "pt" } }).then(function() {
+    gmStripeTapLoad(true);
+  }).catch(function(e) { gmToast(e.message); console.error(e); });
+}
+function gmStripeTapDisable() {
+  gmApi("stripe/tap/disable", { method: "POST", body: {} }).then(function() { gmStripeTapLoad(true); })
+    .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 function gmStripeConnect(btn) {
   if (btn) { btn.disabled = true; }
   var acc = document.getElementById("gmStripeAccept");
   gmApi("stripe/connect", { method: "POST", body: { accepted: !!(acc && acc.checked), language: isEn() ? "en" : "pt" } }).then(function(d) {
     if (!d || !d.url) { throw new Error(gmT("O Stripe não respondeu.", "Stripe did not answer.")); }
-    if (gmInApp()) { apexOpenExternal(d.url); gmStripeStatus = { available: true, connected: true, charges_enabled: false }; gmRenderEstimatesTab(); return; }
+    if (gmInApp()) {
+      apexOpenExternal(d.url);
+      gmStripeStatus = { available: true, connected: true, charges_enabled: false };
+      gmRenderEstimatesTab();
+      gmStripeWireAppResume();
+      return;
+    }
     window.location.href = d.url;
   }).catch(function(e) { if (btn) { btn.disabled = false; } gmToast(e.message); console.error(e); });
+}
+// When the owner returns from Stripe's onboarding in the system browser
+// sheet (gmStripeConnect above opens it with apexOpenExternal / Capacitor's
+// Browser plugin in-app), reload the Stripe status so the card shows
+// connected without a manual refresh. A SEPARATE listener from
+// native-bridge.js's own appStateChange (lock-screen timing) -- Capacitor
+// allows several listeners on the same event name, and this one only ever
+// reloads Stripe status, never touches the lock.
+var gmStripeResumeWired = false;
+function gmStripeWireAppResume() {
+  if (gmStripeResumeWired || !gmInApp()) { return; }
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.addListener("appStateChange", function(state) {
+        if (state && state.isActive) { gmStripeLoad(true); }
+      });
+      gmStripeResumeWired = true;
+    }
+  } catch (e) { /* no App plugin available; status still refreshes on next tab load */ }
 }
 function gmStripeDisconnect() {
   gmAsk({

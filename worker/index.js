@@ -15515,7 +15515,7 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^leads\/[A-Za-z0-9-]+\/booking$/.test(gmRest)) { return true; }
                 // Card payments: the owner's own Stripe connection status
                 // (owner only; the seller list never names it).
-                if (gmRest === "stripe/status") { return true; }
+                if (gmRest === "stripe/status" || gmRest === "stripe/tap") { return true; }
                 // Job 38: the owner's Facebook Page connection (owner only: the
                 // handler refuses a seller and the seller list never names it).
                 if (gmRest === "meta/status") { return true; }
@@ -15585,6 +15585,14 @@ function clientRequestAllowed(path, method, clientId) {
                 if (gmRest === "pdf-link") { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
+                // Tap to Pay (owner only): turn it on/off. The connection
+                // token, payment intent and shared-details routes are owner
+                // OR seller -- see sellerRequestAllowed below, which also
+                // names them, and gmStripeTapOwnerGuard, which keeps
+                // enable/disable owner-only inside the handler regardless.
+                if (gmRest === "stripe/tap/enable" || gmRest === "stripe/tap/disable" ||
+                    gmRest === "stripe/tap/connection-token" || gmRest === "stripe/tap/payment-intent" ||
+                    gmRest === "stripe/tap/shared-details") { return true; }
                 // Job 38: connect, choose Pages, disconnect Facebook (owner only).
                 if (gmRest === "meta/connect" || gmRest === "meta/pages" || gmRest === "meta/disconnect") { return true; }
                 if (/^jobs\/[A-Za-z0-9-]+\/photos$/.test(gmRest)) { return true; }
@@ -15861,6 +15869,12 @@ function sellerRequestAllowed(path, method, clientId) {
         if (/^gm\/change-orders\/[A-Za-z0-9-]+\/(company-sign|send|signed-copy)$/.test(rest)) { return true; }
         if (/^gm\/jobs\/[A-Za-z0-9-]+\/(condition-photos|acks|punch)$/.test(rest)) { return true; }
         if (/^gm\/payments\/[A-Za-z0-9-]+\/receipt-message$/.test(rest)) { return true; }
+        // Tap to Pay: a seller taking the card themselves needs the
+        // connection token and the payment intent for an invoice; enable and
+        // disable stay owner-only (absent here, and refused in the handler
+        // by gmStripeTapOwnerGuard regardless). The shared-details save
+        // (Build 4) is independent of who takes the payment.
+        if (rest === "gm/stripe/tap/connection-token" || rest === "gm/stripe/tap/payment-intent" || rest === "gm/stripe/tap/shared-details") { return true; }
         return false;
     }
     // Same pending-contact PATCH the owner needs (see clientRequestAllowed):
@@ -29448,8 +29462,42 @@ async function stripeWebhookGate(env, event) {
     return null;
 }
 
-// Stripe confirmed the money: record ONE verified payment on the invoice.
-// gm_stripe_events (event id PRIMARY KEY) makes a redelivered event a no-op.
+// Shared core: record ONE verified card payment on an invoice, given the
+// event id (for the gm_stripe_events claim), the invoice/client ids, the
+// amount, the reference (used as the dup-check key) and the note text.
+// gm_stripe_events (event id PRIMARY KEY) makes a redelivered event a no-op,
+// and the (invoice_id, method='card', reference) check stops a Checkout
+// event and a Tap to Pay event from ever recording the same PaymentIntent
+// twice, since both can carry the same payment_intent id as their reference.
+async function gmStripeRecordCardPayment(env, request, eventId, clientId, invId, amountCents, reference, noteText) {
+    var sa = await gmStripeRow(env, clientId);
+    if (!sa) { return "account mismatch"; }
+    var inv = await gmInvLoad(env, clientId, invId);
+    if (!inv) { return "invoice not found"; }
+    var amount = Math.round(Number(amountCents));
+    if (!(amount > 0)) { return "no amount"; }
+    var claim = await env.DB.prepare("INSERT OR IGNORE INTO gm_stripe_events (event_id, client_id, invoice_id, created_at) VALUES (?, ?, ?, datetime('now'))").bind(eventId, clientId, invId).run();
+    if (!claim.meta || !claim.meta.changes) { return "already recorded"; }
+    var ref = String(reference || "").slice(0, 120);
+    var dup = await env.DB.prepare("SELECT 1 AS x FROM gm_invoice_payments WHERE invoice_id = ? AND method = 'card' AND reference = ?").bind(invId, ref).first();
+    if (dup) { return "already recorded"; }
+    var pid = crypto.randomUUID();
+    var now = new Date().toISOString().slice(0, 19).replace("T", " ");
+    await env.DB.prepare(
+        "INSERT INTO gm_invoice_payments (id, invoice_id, client_id, amount_cents, paid_date, method, reference, note, state, recorded_by, recorded_by_role, verified_by, verified_at) " +
+        "VALUES (?, ?, ?, ?, ?, 'card', ?, ?, 'verified', 'Stripe', 'system', 'Stripe', ?)"
+    ).bind(pid, invId, clientId, amount, gmEasternToday(), ref, noteText, now).run();
+    await gmInvIssueReceipt(env, clientId, pid, request);
+    await gmFinancePostPayment(env, clientId, pid, "payment");
+    if (inv.lead_id) {
+        await gmLogLeadEvents(env, clientId, inv.lead_id, "Stripe", [{ action: "payment_recorded", field: inv.number, old_value: null, new_value: (amount / 100).toFixed(2), reason: "card " + ref }]);
+    }
+    return "recorded";
+}
+
+// Stripe confirmed the money (Checkout): record ONE verified payment on the
+// invoice. Byte-for-byte the same effect as before the Tap to Pay refactor --
+// this is now a thin wrapper around gmStripeRecordCardPayment.
 async function gmStripeRecordPaid(env, request, event) {
     var session = event.data && event.data.object;
     if (!session || session.payment_status !== "paid") { return "not paid"; }
@@ -29459,27 +29507,297 @@ async function gmStripeRecordPaid(env, request, event) {
     var sa = await gmStripeRow(env, clientId);
     // The event must come from the account this business connected.
     if (!sa || !event.account || sa.stripe_account_id !== event.account) { return "account mismatch"; }
-    var inv = await gmInvLoad(env, clientId, invId);
-    if (!inv) { return "invoice not found"; }
     var amount = Math.round(Number(session.amount_total));
-    if (!(amount > 0)) { return "no amount"; }
-    var claim = await env.DB.prepare("INSERT OR IGNORE INTO gm_stripe_events (event_id, client_id, invoice_id, created_at) VALUES (?, ?, ?, datetime('now'))").bind(event.id, clientId, invId).run();
-    if (!claim.meta || !claim.meta.changes) { return "already recorded"; }
     var ref = String(session.payment_intent || session.id || "").slice(0, 120);
-    var dup = await env.DB.prepare("SELECT 1 AS x FROM gm_invoice_payments WHERE invoice_id = ? AND method = 'card' AND reference = ?").bind(invId, ref).first();
-    if (dup) { return "already recorded"; }
-    var pid = crypto.randomUUID();
-    var now = new Date().toISOString().slice(0, 19).replace("T", " ");
-    await env.DB.prepare(
-        "INSERT INTO gm_invoice_payments (id, invoice_id, client_id, amount_cents, paid_date, method, reference, note, state, recorded_by, recorded_by_role, verified_by, verified_at) " +
-        "VALUES (?, ?, ?, ?, ?, 'card', ?, ?, 'verified', 'Stripe', 'system', 'Stripe', ?)"
-    ).bind(pid, invId, clientId, amount, gmEasternToday(), ref, "Paid online by card (Stripe)", now).run();
-    await gmInvIssueReceipt(env, clientId, pid, request);
-    await gmFinancePostPayment(env, clientId, pid, "payment");
-    if (inv.lead_id) {
-        await gmLogLeadEvents(env, clientId, inv.lead_id, "Stripe", [{ action: "payment_recorded", field: inv.number, old_value: null, new_value: (amount / 100).toFixed(2), reason: "card " + ref }]);
+    return gmStripeRecordCardPayment(env, request, event.id, clientId, invId, amount, ref, "Paid online by card (Stripe)");
+}
+
+// Stripe confirmed the money (Tap to Pay, card_present PaymentIntent):
+// record ONE verified payment on the invoice. Only called for events whose
+// metadata.apex_source === "tap_to_pay" -- see handleStripeWebhook. Uses the
+// same gm_stripe_events claim and the same (invoice_id, method, reference)
+// dup check as Checkout, so a Checkout event and a tap event can never
+// double-record the same PaymentIntent.
+async function gmStripeRecordTapPaid(env, request, event) {
+    var pi = event.data && event.data.object;
+    if (!pi || pi.status !== "succeeded") { return "not paid"; }
+    var meta = pi.metadata || {};
+    var invId = meta.apex_invoice_id, clientId = meta.apex_client_id;
+    if (!invId || !clientId) { return "not an Apex invoice"; }
+    var sa = await gmStripeRow(env, clientId);
+    if (!sa || !event.account || sa.stripe_account_id !== event.account) { return "account mismatch"; }
+    var amount = Math.round(Number(pi.amount_received !== null && pi.amount_received !== undefined ? pi.amount_received : pi.amount));
+    var ref = String(pi.id || "").slice(0, 120);
+    return gmStripeRecordCardPayment(env, request, event.id, clientId, invId, amount, ref, "Paid in person by card (Tap to Pay)");
+}
+
+// ---------------------------------------------------------------------------
+// TAP TO PAY ON IPHONE (2026-10-18), Stripe side only. This build prepares
+// everything the Worker and portal need; a later build adds the native
+// Terminal reader in the iPhone app. See migrations/tap_to_pay.sql.
+//
+// Every route here requires the migration to be applied: a missing column
+// or table is caught and answered as "Tap to Pay is not available yet"
+// rather than a 500, so a deploy of this code ahead of the migration (or a
+// dev environment that has not run it) degrades gracefully.
+// ---------------------------------------------------------------------------
+
+// True when the error looks like the tap_to_pay migration has not run yet
+// (a missing column or table on gm_stripe_accounts / gm_stripe_terminal_locations).
+function gmTapMigrationMissing(e) {
+    var m = String((e && e.message) || "");
+    return /no such column: tap_|no such table: gm_stripe_terminal_locations/i.test(m);
+}
+function gmTapNotAvailable() {
+    return jsonErr2("O Tap to Pay ainda não está disponível.", "Tap to Pay is not available yet.", 409);
+}
+
+// Owner-only, same shape as gmStripeOwnerGuard (enable/disable).
+function gmStripeTapOwnerGuard(user, clientId) {
+    return gmStripeOwnerGuard(user, clientId);
+}
+
+// Owner OR a seller of the SAME business (connection-token, payment-intent,
+// shared-details): sellerRequestAllowed/clientRequestAllowed decide whether
+// a seller session can even reach these paths; this guard only checks that
+// whoever got through belongs to this exact client.
+function gmStripeTapActorGuard(user, clientId) {
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
+    return null;
+}
+
+// GET .../gm/stripe/tap
+async function handleGetGmStripeTap(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapActorGuard(user, id);
+        if (guard) { return guard; }
+        var sa;
+        try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null }); } throw e; }
+        var available = !!(sa && sa.charges_enabled);
+        return jsonOk({ available: available, enabled: !!(sa && sa.tap_enabled), accepted_at: (sa && sa.tap_accepted_at) || null });
+    } catch (e) {
+        if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null }); }
+        return jsonErr("Error loading Tap to Pay status: " + e.message, 500);
     }
-    return "recorded";
+}
+
+// POST .../gm/stripe/tap/enable   { accepted: true, language }
+// Creates the Terminal location once (idempotent: a second call finds the
+// location already recorded in gm_stripe_terminal_locations and skips
+// creating another one on Stripe).
+async function handlePostGmStripeTapEnable(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapOwnerGuard(user, id);
+        if (guard) { return guard; }
+        var body = await request.json().catch(function() { return {}; });
+        if (!body || body.accepted !== true) { return jsonErr2("Marque a caixa para concordar.", "Tick the box to agree.", 400); }
+        var sa;
+        try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
+        if (!sa || !sa.charges_enabled) { return jsonErr2("Conecte o Stripe e termine o cadastro antes de ativar o Tap to Pay.", "Connect Stripe and finish setup before turning on Tap to Pay.", 409); }
+
+        var loc = await env.DB.prepare("SELECT * FROM gm_stripe_terminal_locations WHERE client_id = ?").bind(id).first();
+        if (!loc) {
+            var settings = await gmDocSettingsRow(env, id);
+            var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(id).first();
+            var addr = String(settings.address || "").trim();
+            if (!addr) {
+                return jsonErr2("Preencha o endereço da empresa nas configurações de documentos antes de ativar o Tap to Pay.",
+                    "Fill in the company address in document settings before turning on Tap to Pay.", 409);
+            }
+            var displayName = String(settings.legal_name || (client && client.name) || "Business").slice(0, 100);
+            var created = await stripeApi(env, "POST", "/v1/terminal/locations", {
+                display_name: displayName,
+                address: { line1: addr.slice(0, 500), country: "US" }
+            }, sa.stripe_account_id);
+            await env.DB.prepare("INSERT INTO gm_stripe_terminal_locations (client_id, location_id, created_at) VALUES (?, ?, datetime('now')) ON CONFLICT (client_id) DO NOTHING")
+                .bind(id, created.id).run();
+            loc = await env.DB.prepare("SELECT * FROM gm_stripe_terminal_locations WHERE client_id = ?").bind(id).first();
+        }
+
+        await env.DB.prepare("UPDATE gm_stripe_accounts SET tap_enabled = 1, tap_accepted_at = datetime('now'), tap_accepted_by = ? WHERE client_id = ?")
+            .bind(actorName(user), id).run();
+        return jsonOk({ enabled: true, location_id: loc.location_id });
+    } catch (e) {
+        if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); }
+        return jsonErr("Error enabling Tap to Pay: " + e.message, 500);
+    }
+}
+
+// POST .../gm/stripe/tap/disable
+// Does not delete the Terminal location or touch the Stripe account.
+async function handlePostGmStripeTapDisable(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapOwnerGuard(user, id);
+        if (guard) { return guard; }
+        try {
+            await env.DB.prepare("UPDATE gm_stripe_accounts SET tap_enabled = 0 WHERE client_id = ?").bind(id).run();
+        } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
+        return jsonOk({ enabled: false });
+    } catch (e) {
+        if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); }
+        return jsonErr("Error disabling Tap to Pay: " + e.message, 500);
+    }
+}
+
+// POST .../gm/stripe/tap/connection-token   (owner or seller of this business)
+async function handlePostGmStripeTapConnectionToken(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapActorGuard(user, id);
+        if (guard) { return guard; }
+        var sa, loc;
+        try {
+            sa = await gmStripeRow(env, id);
+            loc = sa ? await env.DB.prepare("SELECT * FROM gm_stripe_terminal_locations WHERE client_id = ?").bind(id).first() : null;
+        } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
+        if (!sa || !sa.tap_enabled || !loc) { return gmTapNotAvailable(); }
+        var token = await stripeApi(env, "POST", "/v1/terminal/connection_tokens", { location: loc.location_id }, sa.stripe_account_id);
+        // Never log the secret.
+        return jsonOk({ secret: token.secret, location_id: loc.location_id });
+    } catch (e) {
+        if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); }
+        return jsonErr("Error creating the connection token: " + e.message, 500);
+    }
+}
+
+// POST .../gm/stripe/tap/payment-intent   { invoice_id }
+// Capture method: AUTOMATIC. Per
+// https://docs.stripe.com/terminal/payments/collect-card-payment, the iOS
+// Terminal SDK's collectPaymentMethod + confirmPaymentIntent flow finishes
+// the payment in one call for a PaymentIntent created with
+// capture_method: automatic, with no separate server-side capture step
+// required for card_present. Manual capture is only needed for an
+// authorize-now/capture-later flow (e.g. hotel incidentals), which Apex's
+// invoices do not need: the balance is captured the moment the card reads.
+async function handlePostGmStripeTapPaymentIntent(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapActorGuard(user, id);
+        if (guard) { return guard; }
+        var body = await request.json().catch(function() { return {}; });
+        var invoiceId = body && body.invoice_id;
+        if (!invoiceId) { return jsonErr2("Fatura não informada.", "No invoice given.", 400); }
+        var sa;
+        try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
+        if (!sa || !sa.tap_enabled) { return gmTapNotAvailable(); }
+        var inv = await gmInvLoad(env, id, invoiceId);
+        if (!inv || inv.status === "void" || inv.status === "draft") { return jsonErr2("Esta fatura não pode ser paga.", "This invoice cannot be paid.", 409); }
+        var d = gmInvDerive(inv, inv.payments, inv.credits, gmEasternToday());
+        if (!(d.balance_cents > 0)) { return jsonErr2("Esta fatura não tem saldo devedor.", "This invoice has no balance due.", 409); }
+        var meta = { apex_invoice_id: inv.id, apex_client_id: id, apex_invoice_number: inv.number, apex_source: "tap_to_pay" };
+        var label = "Invoice " + inv.number;
+        var pi = await stripeApi(env, "POST", "/v1/payment_intents", {
+            amount: d.balance_cents,
+            currency: "usd",
+            payment_method_types: { 0: "card_present" },
+            capture_method: "automatic",
+            description: label.slice(0, 500),
+            metadata: meta
+        }, sa.stripe_account_id);
+        return jsonOk({ client_secret: pi.client_secret, payment_intent_id: pi.id, amount_cents: d.balance_cents });
+    } catch (e) {
+        if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); }
+        return jsonErr("Error creating the payment: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// BUILD 4: fill empty lead fields from details a customer shares at a tap
+// (Apple's Tap to Share, via a later iOS build). This is the Worker side
+// only: it saves what it is sent and never decides whether to ask for it.
+//
+// Field mapping, gm_leads columns (from migrations/gm_lead_contacts.sql,
+// migrations/2026-10-13_lead_structured_address.sql):
+//   email             -> email
+//   phone             -> telefone (no normalizer exists for phones anywhere
+//                        in this codebase today -- gm_leads.telefone is
+//                        always stored as the trimmed free text the lead
+//                        form sends, via gmStr. The same treatment is used
+//                        here rather than inventing a new format.)
+//   address_line1      -> addr_street
+//   city               -> addr_city
+//   state              -> addr_state
+//   postal_code        -> addr_zip
+//   name               -> NO COLUMN. gm_leads.cliente is NOT NULL and is
+//                        "the row's existence key" (see
+//                        migrations/gm_growth_management.sql) -- there is no
+//                        safe "empty" state to fill, and overwriting the
+//                        identity field of an existing lead from an
+//                        unauthenticated customer action is not something
+//                        this build should do. Always skipped, reason
+//                        "no_column".
+//   address_line2      -> NO COLUMN. gm_leads has no second address line
+//                        anywhere (addr_access is a gate-code/access note,
+//                        not a line 2). Always skipped, reason "no_column".
+// ---------------------------------------------------------------------------
+var GM_TAP_SHARED_FIELD_MAP = {
+    email: { column: "email", max: 200, kind: "email" },
+    phone: { column: "telefone", max: 60, kind: "text" },
+    address_line1: { column: "addr_street", max: 200, kind: "text" },
+    city: { column: "addr_city", max: 100, kind: "text" },
+    state: { column: "addr_state", max: 2, kind: "text" },
+    postal_code: { column: "addr_zip", max: 12, kind: "text" }
+};
+var GM_TAP_SHARED_NO_COLUMN = ["name", "address_line2"];
+
+function gmTapShareEmailOk(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); }
+
+// POST .../gm/stripe/tap/shared-details   { invoice_id, details: {...} }
+// Fills EMPTY lead fields only, one guarded UPDATE per field so two
+// requests can never clash or write the same value twice. Never blocks or
+// changes a payment: independent of the Tap to Pay payment routes above.
+async function handlePostGmStripeTapSharedDetails(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        var guard = gmStripeTapActorGuard(user, id);
+        if (guard) { return guard; }
+        var body = await request.json().catch(function() { return {}; });
+        var invoiceId = body && body.invoice_id;
+        var details = (body && body.details && typeof body.details === "object") ? body.details : {};
+        if (!invoiceId) { return jsonErr2("Fatura não informada.", "No invoice given.", 400); }
+
+        var inv = await gmInvLoad(env, id, invoiceId);
+        if (!inv) { return jsonErr("Invoice not found", 404); }
+        if (!inv.lead_id) { return jsonOk({ saved: [], skipped: [], reason: "no lead" }); }
+        var lead = await env.DB.prepare("SELECT * FROM gm_leads WHERE id = ? AND client_id = ?").bind(inv.lead_id, id).first();
+        if (!lead) { return jsonOk({ saved: [], skipped: [], reason: "no lead" }); }
+
+        var saved = [], skipped = [];
+        Object.keys(details).forEach(function(key) {
+            if (GM_TAP_SHARED_NO_COLUMN.indexOf(key) !== -1) { skipped.push(key); return; }
+            var spec = GM_TAP_SHARED_FIELD_MAP[key];
+            if (!spec) { skipped.push(key); return; }
+            var v = gmStr(details[key], spec.max);
+            if (!v) { skipped.push(key); return; }
+            if (spec.kind === "email" && !gmTapShareEmailOk(v)) { skipped.push(key); return; }
+            // One guarded UPDATE per field: only writes when the column is
+            // STILL empty (NULL or whitespace-only) at write time, so two
+            // concurrent requests can never clash or overwrite a real value.
+            var sql = "UPDATE gm_leads SET " + spec.column + " = ? WHERE id = ? AND client_id = ? AND (" +
+                spec.column + " IS NULL OR TRIM(" + spec.column + ") = '')";
+            saved.push({ key: key, v: v, sql: sql });
+        });
+
+        var actuallySaved = [];
+        for (var i = 0; i < saved.length; i++) {
+            var s = saved[i];
+            var res = await env.DB.prepare(s.sql).bind(s.v, inv.lead_id, id).run();
+            if (res.meta && res.meta.changes) { actuallySaved.push(s); } else { skipped.push(s.key); }
+        }
+
+        if (actuallySaved.length) {
+            await gmLogLeadEvents(env, id, inv.lead_id, "Tap to Share", actuallySaved.map(function(s) {
+                return { action: "payment_recorded", field: s.key, old_value: null, new_value: s.v, reason: "shared by customer at Tap to Pay, invoice " + inv.number };
+            }));
+        }
+        return jsonOk({ saved: actuallySaved.map(function(s) { return s.key; }), skipped: skipped });
+    } catch (e) {
+        return jsonErr("Error saving shared details: " + e.message, 500);
+    }
 }
 
 // Route: POST /api/stripe/webhook (no login; verified by Stripe's signature).
@@ -29499,6 +29817,14 @@ async function handleStripeWebhook(request, env) {
         var result = "ignored";
         if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
             result = await gmStripeRecordPaid(env, request, event);
+        } else if (event.type === "payment_intent.succeeded" && event.data && event.data.object && event.data.object.metadata && event.data.object.metadata.apex_source === "tap_to_pay") {
+            // Checkout ALSO fires payment_intent.succeeded, but only its own
+            // checkout.session.completed path (above) records it -- this
+            // branch only ever fires for a PaymentIntent this Worker itself
+            // created with apex_source=tap_to_pay (see
+            // handlePostGmStripeTapPaymentIntent), so a Checkout payment can
+            // never be recorded twice.
+            result = await gmStripeRecordTapPaid(env, request, event);
         } else if (event.type === "account.updated" && event.data && event.data.object) {
             var a = event.data.object;
             await env.DB.prepare("UPDATE gm_stripe_accounts SET charges_enabled = ?, details_submitted = ?, updated_at = datetime('now') WHERE stripe_account_id = ?")
@@ -37834,6 +38160,16 @@ async function syncPlaidTransactions(env) {
         // Uncategorized is a normal state. Nothing to report.
     }
 
+    // Owner draws: mark the second leg of a suspected/confirmed transfer
+    // pair the moment the first leg is categorized cat_retirada by a rule.
+    // Must run AFTER applyCategorizationRules above -- see
+    // mirrorOwnerDrawAcrossPair for why.
+    try {
+        await mirrorOwnerDrawAcrossPair(env);
+    } catch (eDraw) {
+        // Next sync tries again; never fails the sync that pulled the money.
+    }
+
     // Apex Club: Zelle confirmation numbers guests sent before the bank feed
     // had their deposit are tried again now that it may. Purely additive: it
     // cannot change the summary and a failure here never fails the sync.
@@ -38454,6 +38790,62 @@ async function applyCategorizationRules(env, opts) {
     }
 
     applied += await categorizeClientIncome(env);
+    return applied;
+}
+
+// ---------------------------------------------------------------------------
+// Owner draws marked as soon as the transfer is PENDING, not after posting.
+//
+// Problem: a Zelle owner draw lands as TWO legs -- the incoming leg (e.g.
+// "Zelle payment from APEX BUSINESS LEADERSHIP") gets category cat_retirada
+// right away from a manual categorization rule, but the matching outgoing
+// leg ("Zelle payment to ALICE CORSINO", same confirmation number) has no
+// merchant pattern a rule would ever match, so it sits with category_id
+// NULL until someone categorizes it by hand -- often never, while it is
+// still pending.
+//
+// MUST RUN AFTER applyCategorizationRules, not inside detectTransfers. At
+// the moment detectTransfers marks a pair 'suspected', neither leg has a
+// category yet -- category_id is only set afterward, by the rules pass.
+// The information this function needs (which leg got cat_retirada) does not
+// exist until the rules pass has run, so "the same pass that sets the pair"
+// is only satisfiable as "the same sync run", immediately after it.
+//
+// Totals are unaffected either way: every ledger/report query in this file
+// excludes a row purely by transfer_status IN ('suspected','confirmed'),
+// never by category_id (verified across every such query in this file).
+// Setting category_id here on an already-excluded row changes nothing a
+// report shows, before or after the pair posts and transfer_status becomes
+// 'confirmed' -- see scripts/test-pending-draw.mjs.
+//
+// One guarded UPDATE, WHERE category_id IS NULL, so two writers (this pass
+// running twice, or a race with a manual categorization) can never clash or
+// write over a real category. Never touches a leg when the FIRST leg is any
+// category other than cat_retirada from a rule, and never overwrites a leg
+// that already has any category of its own.
+// ---------------------------------------------------------------------------
+async function mirrorOwnerDrawAcrossPair(env) {
+    var pairs = await env.DB.prepare(
+        "SELECT DISTINCT transfer_pair_id FROM transactions " +
+        "WHERE transfer_status IN ('suspected','confirmed') AND transfer_pair_id IS NOT NULL"
+    ).all();
+    var applied = 0;
+    var rows = pairs.results || [];
+    for (var i = 0; i < rows.length; i++) {
+        var pairId = rows[i].transfer_pair_id;
+        var legs = (await env.DB.prepare(
+            "SELECT id, category_id, category_source FROM transactions WHERE transfer_pair_id = ?"
+        ).bind(pairId).all()).results || [];
+        if (legs.length !== 2) { continue; }
+        var marked = legs.find(function(l) { return l.category_id === "cat_retirada" && l.category_source === "rule"; });
+        var empty = legs.find(function(l) { return l.category_id === null || l.category_id === undefined; });
+        if (!marked || !empty || marked.id === empty.id) { continue; }
+        var res = await env.DB.prepare(
+            "UPDATE transactions SET category_id = 'cat_retirada', category_source = 'rule', categorized_at = datetime('now') " +
+            "WHERE id = ? AND category_id IS NULL"
+        ).bind(empty.id).run();
+        applied += (res.meta && res.meta.changes) || 0;
+    }
     return applied;
 }
 
@@ -51056,6 +51448,17 @@ async function handleFetch(request, env, ctx) {
                     if (segs[5] === "connect" && method === "POST") { return handlePostGmStripeConnect(cid, request, env); }
                     if (segs[5] === "reaccept" && method === "POST") { return handlePostGmStripeReaccept(cid, request, env); }
                     if (segs[5] === "disconnect" && method === "POST") { return handlePostGmStripeDisconnect(cid, request, env); }
+                    if (segs[5] === "tap" && method === "GET") { return handleGetGmStripeTap(cid, request, env); }
+                }
+                // Tap to Pay on iPhone (Stripe side): owner enable/disable;
+                // owner OR seller of this business for the connection token,
+                // the payment intent and the shared-details save (Build 4).
+                if (segs.length === 7 && gmCol === "stripe" && segs[5] === "tap") {
+                    if (segs[6] === "enable" && method === "POST") { return handlePostGmStripeTapEnable(cid, request, env); }
+                    if (segs[6] === "disable" && method === "POST") { return handlePostGmStripeTapDisable(cid, request, env); }
+                    if (segs[6] === "connection-token" && method === "POST") { return handlePostGmStripeTapConnectionToken(cid, request, env); }
+                    if (segs[6] === "payment-intent" && method === "POST") { return handlePostGmStripeTapPaymentIntent(cid, request, env); }
+                    if (segs[6] === "shared-details" && method === "POST") { return handlePostGmStripeTapSharedDetails(cid, request, env); }
                 }
                 // Job 38: the business's Facebook Page connection (owner only).
                 if (segs.length === 6 && gmCol === "meta") {
@@ -51583,6 +51986,7 @@ async function handleFetch(request, env, ctx) {
         // ── Fornecedores (vendor payable tracking) ─────────────────────────
         if (path === "/api/vendors/overview" && method === "GET") { return handleGetVendorsOverview(request, env); }
         if (path === "/api/vendors/forecast" && method === "GET") { return handleGetVendorsForecast(request, env); }
+        if (path === "/api/vendors/history" && method === "GET") { return handleGetVendorsHistory(request, env); }
         if (path === "/api/vendors/remitly-unmatched" && method === "GET") { return handleGetVendorsRemitlyUnmatched(request, env); }
         if (path === "/api/vendors/remitly/ignore" && method === "POST") { return handlePostVendorsRemitlyIgnore(request, env); }
         if (path === "/api/vendors/services" && method === "POST") { return handlePostVendorService(request, env); }
@@ -57995,6 +58399,93 @@ async function handleGetVendorsForecast(request, env) {
         return jsonOk({ months: months_out, vendors: vendorRows, waiting_completion: waiting });
     } catch (e) {
         return jsonErr("Error loading vendor forecast: " + e.message, 500);
+    }
+}
+
+// GET /api/vendors/history?months=12&offset=0 (vendorAuth: alice, developer,
+// rafa -- same gate as forecast; a client or seller never reaches this page
+// at all). Payments ALREADY MADE, newest first, grouped by month with a
+// month total, going back `months` months starting `offset` months before
+// today. Reuses the exact batch/allocation query vdHistory (the per-vendor
+// card) already relies on (handleGetVendorDetail below), so the per-vendor
+// view and this global view can never disagree about what counts as a
+// payment. Shows only what the vendor card already shows: paid_on, amount,
+// kind, note -- no internal note beyond that.
+async function handleGetVendorsHistory(request, env) {
+    try {
+        var a = await vendorAuth(request, env);
+        if (a.err) { return a.err; }
+        var url = new URL(request.url);
+        var months = Math.min(12, Math.max(1, parseInt(url.searchParams.get("months") || "12", 10)));
+        var offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
+
+        // newestMonth: the most recent month in this page (today's month when
+        // offset=0). oldestMonth: the oldest month in this page, `months`
+        // months back from newestMonth inclusive.
+        var newestMonth = vendorAddMonths(vendorMonthOf(gmEasternToday()), -offset);
+        var oldestMonth = vendorAddMonths(newestMonth, -(months - 1));
+        var startDate = oldestMonth + "-01";
+        var endDate = newestMonth + "-01";
+
+        var batches = (await env.DB.prepare(
+            "SELECT b.id, b.vendor_id, b.amount_cents, b.paid_on, b.note, b.kind, v.name AS vendor_name " +
+            "FROM vendor_payment_batches b JOIN vendors v ON v.id = b.vendor_id " +
+            "WHERE b.paid_on >= ? AND b.paid_on < date(?, '+1 month') " +
+            "ORDER BY b.paid_on DESC"
+        ).bind(startDate, endDate).all()).results || [];
+
+        // Client name, when the batch is tied to a client service -- via the
+        // same allocations -> payables -> client_id path as the vendor
+        // detail's own batches query, so this view and vdHistory never
+        // disagree about what a batch paid for. A batch spanning more than
+        // one client's payables shows the first; batches split across
+        // clients are rare and this still shows the amount correctly either
+        // way, just not every client name.
+        var clientNameByBatch = {};
+        if (batches.length) {
+            var batchIds = batches.map(function(b) { return b.id; });
+            var placeholders = batchIds.map(function() { return "?"; }).join(",");
+            var allocRows = (await env.DB.prepare(
+                "SELECT al.batch_id, c.name AS client_name FROM vendor_payment_allocations al " +
+                "JOIN vendor_payables p ON p.id = al.payable_id " +
+                "JOIN clients c ON c.id = p.client_id " +
+                "WHERE al.batch_id IN (" + placeholders + ")"
+            ).bind.apply(null, batchIds).all()).results || [];
+            allocRows.forEach(function(r) { if (!clientNameByBatch[r.batch_id]) { clientNameByBatch[r.batch_id] = r.client_name; } });
+        }
+
+        var monthsOut = [];
+        for (var i = 0; i < months; i++) {
+            var m = vendorAddMonths(newestMonth, -i);
+            monthsOut.push({ month: m, payments: [], total_cents: 0 });
+        }
+        var byMonth = {};
+        monthsOut.forEach(function(mo) { byMonth[mo.month] = mo; });
+
+        batches.forEach(function(b) {
+            var mo = byMonth[vendorMonthOf(b.paid_on)];
+            if (!mo) { return; }
+            mo.payments.push({
+                paid_on: b.paid_on,
+                vendor_name: b.vendor_name,
+                client_name: clientNameByBatch[b.id] || null,
+                amount_cents: b.amount_cents,
+                kind: b.kind || null,
+                note: b.note || null
+            });
+            mo.total_cents += b.amount_cents;
+        });
+
+        // Newest month first, each month's own payments already newest-first
+        // from the ORDER BY above.
+        monthsOut.sort(function(x, y) { return y.month < x.month ? -1 : (y.month > x.month ? 1 : 0); });
+
+        // "Show more" only when at least one payment exists before this
+        // window's start -- otherwise the button would load 12 empty months.
+        var older = await env.DB.prepare("SELECT 1 AS x FROM vendor_payment_batches WHERE paid_on < ? LIMIT 1").bind(startDate).first();
+        return jsonOk({ months: monthsOut, has_more: !!older });
+    } catch (e) {
+        return jsonErr("Error loading vendor history: " + e.message, 500);
     }
 }
 

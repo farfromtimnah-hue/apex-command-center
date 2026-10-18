@@ -2207,6 +2207,242 @@ function apexInstallSafeArea() {
   head.appendChild(style);
 }
 
+// THE RANDOM ZOOM BUG (2026-10-18).
+//
+// Capacitor's default when ios.zoomEnabled is unset is zoom OFF: the first
+// time the WKWebView starts ANY zoom -- including iOS's own automatic zoom
+// when a text field under 16px gets focus -- Capacitor's
+// WebViewDelegationHandler.swift turns the pinch gesture recognizer off for
+// the rest of the app session (scrollViewWillBeginZooming). Pinch-out can
+// never recover, and only a force-close fixes it.
+//
+// capacitor.config.json now sets ios.zoomEnabled true (Fix 1), so pinch can
+// recover. These two rules are Fix 2 and Fix 3, meant to stop the zoom from
+// EVER starting in the first place:
+//
+//   - 16px minimum font-size on text fields, so iOS never auto-zooms into
+//     one. 81 CSS rules across the app style an input/select/textarea below
+//     16px; rather than hunt down and edit all 81 (and every one added
+//     later), this is one override rule, injected only in the app.
+//   - touch-action: manipulation on tappable elements, so a double-tap can
+//     never start a zoom either. Pinch is untouched -- manipulation disables
+//     double-tap-to-zoom only.
+//
+// App-only (apexIsNative()): a normal browser is completely unchanged,
+// exactly like the safe-area CSS above and for the same reason -- this file
+// is the one thing nearly every page already loads.
+function apexZoomGuardCss() {
+  return "" +
+    "@media (pointer: coarse) {" +
+      "input:not([type=checkbox]):not([type=radio]):not([type=range])" +
+      ":not([type=color]):not([type=file])," +
+      "select, textarea {" +
+        "font-size: 16px !important;" +
+      "}" +
+    "}" +
+    "html, body, button," +
+    "input:not([type=checkbox]):not([type=radio]):not([type=range])" +
+    ":not([type=color]):not([type=file])," +
+    "select, textarea, a, label, summary, [role=button], [onclick] {" +
+      "touch-action: manipulation;" +
+    "}";
+}
+
+function apexInstallZoomGuard() {
+  var style = document.createElement("style");
+  style.id = "apex-zoom-guard";
+  style.textContent = apexZoomGuardCss();
+  var head = document.head || document.documentElement;
+  if (!head) { return; }
+  head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// FIX 4: a quiet logger that names the trigger the FIRST time a zoom is
+// detected on a page view, so the real cause (a small input, a double-tap,
+// or something else entirely -- the iOS 26 fixed-header shift is the leading
+// suspect) is proven rather than guessed. App-only, and only when
+// window.visualViewport exists; never throws, never shows anything, never
+// blocks a page, never sends free text or a field's value.
+//
+// Throttle: at most 1 record per 60 seconds and 5 per app session (the
+// session counter resets on a cold launch, same lifetime as everything else
+// at module scope in this file). The Worker enforces its own independent cap
+// (20 rows/user/day) so this is defence in depth, not the only limit.
+// ---------------------------------------------------------------------------
+var APEX_ZOOM_SENT_THIS_SESSION = 0;
+var APEX_ZOOM_MAX_PER_SESSION = 5;
+var APEX_ZOOM_MIN_GAP_MS = 60000;
+var APEX_ZOOM_LAST_SENT_AT = 0;
+var APEX_ZOOM_ALREADY_REPORTED_THIS_PAGE = false;
+
+var APEX_ZOOM_LAST_TOUCHES = []; // most recent last, at most 2: {t, target}
+var APEX_ZOOM_LAST_BLUR = null;  // {tag, type, id, fontSize, at}
+var APEX_ZOOM_LAST_TOUCH_COUNT = 0;
+
+function apexZoomFieldInfo(el) {
+  if (!el || !el.tagName) { return null; }
+  var tag = el.tagName.toLowerCase();
+  if (tag !== "input" && tag !== "select" && tag !== "textarea") { return null; }
+  var fontSize = null;
+  try {
+    fontSize = window.getComputedStyle(el).fontSize || null;
+  } catch (e) { fontSize = null; }
+  return {
+    tag: tag,
+    type: tag === "input" ? (el.type || "text") : null,
+    id: el.id || null,
+    fontSize: fontSize
+  };
+}
+
+function apexZoomBaseline() {
+  var vv = window.visualViewport;
+  return {
+    scale: vv.scale,
+    innerWidth: window.innerWidth,
+    clientWidth: document.documentElement ? document.documentElement.clientWidth : null,
+    screenWidth: (window.screen && window.screen.width) || null,
+    offsetTop: vv.offsetTop,
+    offsetLeft: vv.offsetLeft
+  };
+}
+
+// True when the current viewport state looks like a zoom that was not
+// already reported on this page view.
+function apexZoomDetected() {
+  var vv = window.visualViewport;
+  if (!vv) { return false; }
+  var doc = document.documentElement;
+  var scrollWider = doc && (doc.scrollWidth - doc.clientWidth > 2);
+  return (vv.scale > 1.02 ||
+          Math.abs(vv.offsetTop) > 2 ||
+          Math.abs(vv.offsetLeft) > 2 ||
+          scrollWider) && !APEX_ZOOM_ALREADY_REPORTED_THIS_PAGE;
+}
+
+function apexZoomBuildRecord() {
+  var vv = window.visualViewport;
+  var doc = document.documentElement;
+  var active = document.activeElement;
+  var activeInfo = apexZoomFieldInfo(active);
+  var fieldInfo = activeInfo;
+  var fieldState = activeInfo ? "focused" : null;
+  if (!fieldInfo && APEX_ZOOM_LAST_BLUR && (Date.now() - APEX_ZOOM_LAST_BLUR.at) <= 2000) {
+    fieldInfo = APEX_ZOOM_LAST_BLUR;
+    fieldState = "blurred";
+  }
+
+  var tapGapMs = null, doubleTap = false;
+  if (APEX_ZOOM_LAST_TOUCHES.length === 2) {
+    tapGapMs = APEX_ZOOM_LAST_TOUCHES[1].t - APEX_ZOOM_LAST_TOUCHES[0].t;
+    doubleTap = tapGapMs >= 0 && tapGapMs <= 350;
+  }
+
+  return {
+    path: window.location.pathname,
+    time: new Date().toISOString(),
+    scale: vv.scale,
+    vv_width: vv.width,
+    vv_height: vv.height,
+    offset_top: vv.offsetTop,
+    offset_left: vv.offsetLeft,
+    inner_width: window.innerWidth,
+    inner_height: window.innerHeight,
+    client_width: doc ? doc.clientWidth : null,
+    scroll_width: doc ? doc.scrollWidth : null,
+    screen_width: (window.screen && window.screen.width) || null,
+    field: fieldInfo ? {
+      tag: fieldInfo.tag, type: fieldInfo.type, id: fieldInfo.id,
+      font_size: fieldInfo.fontSize, state: fieldState
+    } : null,
+    tap_gap_ms: tapGapMs,
+    double_tap: doubleTap,
+    touch_count: APEX_ZOOM_LAST_TOUCH_COUNT
+  };
+}
+
+function apexZoomSendRecord(record) {
+  if (APEX_ZOOM_SENT_THIS_SESSION >= APEX_ZOOM_MAX_PER_SESSION) { return; }
+  var now = Date.now();
+  if (now - APEX_ZOOM_LAST_SENT_AT < APEX_ZOOM_MIN_GAP_MS) { return; }
+
+  var fbPlugin = apexFirebaseAuthPlugin();
+  var clientTok = null;
+  try { clientTok = window.localStorage.getItem("apex_client_token"); } catch (e) { clientTok = null; }
+  var idPromise = fbPlugin ? fbPlugin.getIdToken().then(function (res) {
+    return res && res.token ? res.token : null;
+  }).catch(function () { return null; }) : Promise.resolve(null);
+
+  idPromise.then(function (idToken) {
+    var bearer = idToken || clientTok;
+    if (!bearer) { return; } // not signed in: drop the record
+
+    APEX_ZOOM_SENT_THIS_SESSION = APEX_ZOOM_SENT_THIS_SESSION + 1;
+    APEX_ZOOM_LAST_SENT_AT = now;
+
+    return fetch(apexWorkerBase() + "/api/diagnostics/zoom", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + bearer
+      },
+      body: JSON.stringify(record)
+    });
+  }).catch(function (e) {
+    // Never throws, never shows anything.
+  });
+}
+
+var APEX_ZOOM_DEBOUNCE_TIMER = null;
+
+function apexZoomCheck() {
+  if (APEX_ZOOM_DEBOUNCE_TIMER) { window.clearTimeout(APEX_ZOOM_DEBOUNCE_TIMER); }
+  APEX_ZOOM_DEBOUNCE_TIMER = window.setTimeout(function () {
+    try {
+      if (!apexZoomDetected()) { return; }
+      APEX_ZOOM_ALREADY_REPORTED_THIS_PAGE = true;
+      apexZoomSendRecord(apexZoomBuildRecord());
+    } catch (e) {
+      // Never throws.
+    }
+  }, 250);
+}
+
+function apexInstallZoomDiagnostics() {
+  if (!window.visualViewport) { return; }
+
+  try {
+    apexZoomBaseline(); // establishes nothing by itself; kept for parity with
+                         // the spec's "keep a baseline" step -- the detector
+                         // above compares live values against the same fixed
+                         // thresholds every time, which is equivalent and
+                         // needs no stored baseline to go stale.
+  } catch (e) {}
+
+  window.visualViewport.addEventListener("resize", apexZoomCheck, { passive: true });
+  window.visualViewport.addEventListener("scroll", apexZoomCheck, { passive: true });
+  window.addEventListener("focusin", apexZoomCheck, { passive: true });
+  window.addEventListener("focusout", function (ev) {
+    try {
+      var info = apexZoomFieldInfo(ev.target);
+      if (info) {
+        info.at = Date.now();
+        APEX_ZOOM_LAST_BLUR = info;
+      }
+    } catch (e) {}
+    apexZoomCheck();
+  }, { passive: true });
+  window.addEventListener("touchend", function (ev) {
+    try {
+      APEX_ZOOM_LAST_TOUCH_COUNT = (ev.touches && ev.touches.length) || 0;
+      APEX_ZOOM_LAST_TOUCHES.push({ t: Date.now(), target: ev.target });
+      if (APEX_ZOOM_LAST_TOUCHES.length > 2) { APEX_ZOOM_LAST_TOUCHES.shift(); }
+    } catch (e) {}
+    apexZoomCheck();
+  }, { passive: true });
+}
+
 function apexInitNativeBridge() {
   if (!apexIsNative()) { return; }   // no-op in a normal browser
 
@@ -2217,6 +2453,16 @@ function apexInitNativeBridge() {
     apexInstallSafeArea();
   } catch (e) {
     // A failed inset injection must not take the auth mirror down with it.
+  }
+  try {
+    apexInstallZoomGuard();
+  } catch (e) {
+    // Same rule: a failed zoom-guard injection must not take anything else down.
+  }
+  try {
+    apexInstallZoomDiagnostics();
+  } catch (e) {
+    // The logger is pure telemetry; a failure here must never affect the page.
   }
 
 

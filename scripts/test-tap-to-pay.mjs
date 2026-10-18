@@ -10,7 +10,7 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail+
 
 const FNS = [
   "gmStripeRow", "gmStripeOwnerGuard", "stripeAvailableFor",
-  "gmTapMigrationMissing", "gmTapNotAvailable", "gmStripeTapOwnerGuard", "gmStripeTapActorGuard",
+  "gmTapMigrationMissing", "gmTapNotAvailable", "gmTapRoleGate", "gmStripeTapOwnerGuard", "gmStripeTapActorGuard",
   "handleGetGmStripeTap", "handlePostGmStripeTapEnable", "handlePostGmStripeTapDisable",
   "handlePostGmStripeTapConnectionToken", "handlePostGmStripeTapPaymentIntent",
   "gmInvLoad", "gmInvDerive", "gmInvTolerance", "gmDocSettingsRow", "gmDocParseLicenses", "gmDocHexColor", "gmDocParseJsonObject",
@@ -59,7 +59,10 @@ function world(stripeApiImpl, overrides) {
     jsonErr2: (pt, en, status) => ({ status: status || 400, error: en, error_pt: pt, error_en: en })
   }, overrides || {});
   const F = build(FNS, VARS, stubs);
-  return { d, env: { DB: d.DB, STRIPE_SECRET_KEY: "sk_test_x" }, F, calls };
+  // TAP_TO_PAY_PUBLIC: "1" so this file's owner/seller/guard tests exercise
+  // the pre-existing logic unchanged; the developer-only gate itself (Fix 5,
+  // 2026-10-18) has its own tests in scripts/test-tap-gate.mjs.
+  return { d, env: { DB: d.DB, STRIPE_SECRET_KEY: "sk_test_x", TAP_TO_PAY_PUBLIC: "1" }, F, calls };
 }
 
 function seedClient(d, id, name) {

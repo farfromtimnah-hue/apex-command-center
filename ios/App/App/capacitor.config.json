@@ -3,7 +3,8 @@
 	"appName": "Apex CC",
 	"webDir": "www",
 	"ios": {
-		"contentInset": "always"
+		"contentInset": "always",
+		"zoomEnabled": true
 	},
 	"plugins": {
 		"FirebaseAuthentication": {

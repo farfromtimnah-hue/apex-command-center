@@ -10442,6 +10442,101 @@ async function handlePostStaffClick(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /api/diagnostics/zoom   (Fix 4, the random-zoom bug, 2026-10-18)
+// Any signed-in user (not staff-only, unlike staff/click): the app's own
+// logger in native-bridge.js reports the first zoom it detects on a page
+// view, from whichever role is signed in when it happens.
+//
+//   - Every number and string is validated and length-capped; anything that
+//     is not the expected shape is refused with 400.
+//   - At most ZOOM_EVENTS_MAX_PER_DAY rows per signed-in user per rolling 24
+//     hours, checked with one indexed COUNT query (idx_zoom_events_who_created),
+//     never a table scan. Refused rows still answer 200 ({stored:false}) --
+//     this is telemetry, never something a page can fail on.
+//   - A missing table (migration not yet applied) answers {stored:false} and
+//     never crashes, same contract as handlePostStaffClick.
+//   - The body is stored as opaque JSON and never parsed for meaning here;
+//     the shape checks below only bound its size, they do not interpret it.
+// ---------------------------------------------------------------------------
+var ZOOM_EVENTS_MAX_PER_DAY = 20;
+var ZOOM_PATH_RE = /^\/[A-Za-z0-9._\/-]{0,120}$/;
+
+// Recursively bounds a JSON value so a malformed or hostile payload cannot
+// balloon storage: strings capped at 200 chars, at most 40 object keys per
+// level, at most 3 levels of nesting, numbers/booleans/null passed through,
+// anything else (function, symbol, giant array) rejected outright.
+function zoomValidatePayload(v, depth) {
+    if (v === null || typeof v === "number" || typeof v === "boolean") { return true; }
+    if (typeof v === "string") { return v.length <= 200; }
+    if (depth >= 3) { return false; }
+    if (Array.isArray(v)) {
+        if (v.length > 10) { return false; }
+        for (var i = 0; i < v.length; i++) { if (!zoomValidatePayload(v[i], depth + 1)) { return false; } }
+        return true;
+    }
+    if (typeof v === "object") {
+        var keys = Object.keys(v);
+        if (keys.length > 40) { return false; }
+        for (var j = 0; j < keys.length; j++) {
+            if (keys[j].length > 40) { return false; }
+            if (!zoomValidatePayload(v[keys[j]], depth + 1)) { return false; }
+        }
+        return true;
+    }
+    return false;
+}
+
+async function handlePostDiagnosticsZoom(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+
+    var body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    if (!body || typeof body !== "object") { return jsonOk({ stored: false }); }
+    if (typeof body.path !== "string" || !ZOOM_PATH_RE.test(body.path)) { return jsonOk({ stored: false }); }
+    if (!zoomValidatePayload(body, 0)) { return jsonOk({ stored: false }); }
+
+    var who = user.email || user.username || actorName(user) || user.role;
+    var ua = String(request.headers.get("User-Agent") || "").slice(0, 200);
+
+    try {
+        var cnt = await env.DB.prepare(
+            "SELECT COUNT(*) AS n FROM zoom_events WHERE who = ? AND created_at >= datetime('now', '-1 day')"
+        ).bind(who).first();
+        if (cnt && Number(cnt.n) >= ZOOM_EVENTS_MAX_PER_DAY) { return jsonOk({ stored: false }); }
+
+        await env.DB.prepare(
+            "INSERT INTO zoom_events (id, who, path, payload, user_agent) VALUES (?, ?, ?, ?, ?)"
+        ).bind(crypto.randomUUID(), who, body.path, JSON.stringify(body), ua).run();
+    } catch (e) {
+        // Missing table or a failed write: never an error a page could show.
+        return jsonOk({ stored: false });
+    }
+    return jsonOk({ stored: true });
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/diagnostics/zoom   (developer role only)
+// The latest 50 rows, for the reviewer to read. Not paginated or filterable
+// on purpose -- this is a developer-only debugging window, not a report.
+// ---------------------------------------------------------------------------
+async function handleGetDiagnosticsZoom(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+
+    try {
+        var rows = (await env.DB.prepare(
+            "SELECT id, created_at, who, path, payload, user_agent FROM zoom_events ORDER BY created_at DESC LIMIT 50"
+        ).all()).results || [];
+        return jsonOk({ events: rows });
+    } catch (e) {
+        if (/no such table/i.test(String(e && e.message))) { return jsonOk({ events: [] }); }
+        return jsonErr("Error loading zoom diagnostics: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/settings/templates
 // Auth: alice / rafa / developer only.
 // ---------------------------------------------------------------------------
@@ -29552,6 +29647,25 @@ function gmTapNotAvailable() {
     return jsonErr2("O Tap to Pay ainda não está disponível.", "Tap to Pay is not available yet.", 409);
 }
 
+// ---------------------------------------------------------------------------
+// FIX 5 (2026-10-18): Apple's Tap to Pay entitlement is development-only for
+// now -- it works from Xcode Debug builds but NOT from TestFlight or the App
+// Store, which would otherwise ship a plugin, a settings switch and an
+// invoice button that cannot work for a real business owner. Until Apple
+// grants the distribution entitlement, every Tap to Pay route is gated to
+// the developer role only, unless env.TAP_TO_PAY_PUBLIC is the string "1" --
+// at that point this function always passes and the feature is open to
+// everyone again, with no code change.
+//
+// Same "not available yet" shape as a missing migration (409, bilingual,
+// never a crash) so a gated owner sees exactly what they would see before
+// the Tap to Pay build ever existed.
+function gmTapRoleGate(user, env) {
+    if (env && env.TAP_TO_PAY_PUBLIC === "1") { return null; }
+    if (user && user.role === "developer") { return null; }
+    return gmTapNotAvailable();
+}
+
 // Owner-only, same shape as gmStripeOwnerGuard (enable/disable).
 function gmStripeTapOwnerGuard(user, clientId) {
     return gmStripeOwnerGuard(user, clientId);
@@ -29573,6 +29687,11 @@ async function handleGetGmStripeTap(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapActorGuard(user, id);
         if (guard) { return guard; }
+        // Fix 5: anyone but the developer (or TAP_TO_PAY_PUBLIC="1") sees
+        // exactly the same shape as "not enabled" -- gm.js already hides the
+        // settings switch and the invoice button on available:false with no
+        // other change needed.
+        if (gmTapRoleGate(user, env)) { return jsonOk({ available: false, enabled: false, accepted_at: null, location_id: null }); }
         var sa;
         try { sa = await gmStripeRow(env, id); } catch (e) { if (gmTapMigrationMissing(e)) { return jsonOk({ available: false, enabled: false, accepted_at: null, location_id: null }); } throw e; }
         var available = !!(sa && sa.charges_enabled);
@@ -29598,6 +29717,8 @@ async function handlePostGmStripeTapEnable(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapOwnerGuard(user, id);
         if (guard) { return guard; }
+        var roleGate = gmTapRoleGate(user, env);
+        if (roleGate) { return roleGate; }
         var body = await request.json().catch(function() { return {}; });
         if (!body || body.accepted !== true) { return jsonErr2("Marque a caixa para concordar.", "Tick the box to agree.", 400); }
         var sa;
@@ -29639,6 +29760,8 @@ async function handlePostGmStripeTapDisable(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapOwnerGuard(user, id);
         if (guard) { return guard; }
+        var roleGate = gmTapRoleGate(user, env);
+        if (roleGate) { return roleGate; }
         try {
             await env.DB.prepare("UPDATE gm_stripe_accounts SET tap_enabled = 0 WHERE client_id = ?").bind(id).run();
         } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
@@ -29655,6 +29778,8 @@ async function handlePostGmStripeTapConnectionToken(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapActorGuard(user, id);
         if (guard) { return guard; }
+        var roleGate = gmTapRoleGate(user, env);
+        if (roleGate) { return roleGate; }
         var sa, loc;
         try {
             sa = await gmStripeRow(env, id);
@@ -29684,6 +29809,8 @@ async function handlePostGmStripeTapPaymentIntent(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapActorGuard(user, id);
         if (guard) { return guard; }
+        var roleGate = gmTapRoleGate(user, env);
+        if (roleGate) { return roleGate; }
         var body = await request.json().catch(function() { return {}; });
         var invoiceId = body && body.invoice_id;
         if (!invoiceId) { return jsonErr2("Fatura não informada.", "No invoice given.", 400); }
@@ -29761,6 +29888,8 @@ async function handlePostGmStripeTapSharedDetails(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeTapActorGuard(user, id);
         if (guard) { return guard; }
+        var roleGate = gmTapRoleGate(user, env);
+        if (roleGate) { return roleGate; }
         var body = await request.json().catch(function() { return {}; });
         var invoiceId = body && body.invoice_id;
         var details = (body && body.details && typeof body.details === "object") ? body.details : {};
@@ -51829,6 +51958,12 @@ async function handleFetch(request, env, ctx) {
         // /api/staff/click  POST (quiet count of staff clicks)
         if (segs[0] === "api" && segs[1] === "staff" && segs[2] === "click" && !segs[3] && method === "POST") {
             return handlePostStaffClick(request, env);
+        }
+
+        // /api/diagnostics/zoom  POST (any signed-in user) | GET (developer only)
+        if (segs[0] === "api" && segs[1] === "diagnostics" && segs[2] === "zoom" && !segs[3]) {
+            if (method === "POST") { return handlePostDiagnosticsZoom(request, env); }
+            if (method === "GET") { return handleGetDiagnosticsZoom(request, env); }
         }
 
         // /api/tasks/:id/notes  GET | POST (the note thread on a staff task)

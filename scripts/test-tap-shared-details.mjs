@@ -9,7 +9,7 @@ let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail++; };
 
 const FNS = [
-  "handlePostGmStripeTapSharedDetails", "gmStripeTapActorGuard", "requireClientAccess",
+  "handlePostGmStripeTapSharedDetails", "gmStripeTapActorGuard", "gmTapRoleGate", "requireClientAccess",
   "gmInvLoad", "gmStr", "gmTapShareEmailOk", "gmLogLeadEvents"
 ];
 const VARS = ["GM_TAP_SHARED_FIELD_MAP", "GM_TAP_SHARED_NO_COLUMN"];
@@ -24,7 +24,10 @@ function world(authUser) {
   d.raw.exec("CREATE TABLE gm_lead_events (id TEXT PRIMARY KEY, lead_id TEXT, client_id TEXT, action TEXT, field TEXT, old_value TEXT, new_value TEXT, actor TEXT, reason TEXT)");
   const stubs = Object.assign({}, baseStubs, { authenticate: async () => authUser });
   const F = build(FNS, VARS, stubs);
-  return { d, env: { DB: d.DB }, F };
+  // TAP_TO_PAY_PUBLIC: "1" -- this file tests the shared-details field-fill
+  // logic, not the developer-only gate (Fix 5, 2026-10-18); that gate has its
+  // own coverage in scripts/test-tap-gate.mjs.
+  return { d, env: { DB: d.DB, TAP_TO_PAY_PUBLIC: "1" }, F };
 }
 
 function seedInvoice(d, id, clientId, leadId, status) {

@@ -54,3 +54,8 @@ binding = "BROWSER"
 
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
+# TAP_TO_PAY_PUBLIC: unset (developer-only gate, Fix 5, 2026-10-18). Once
+# Apple grants the distribution entitlement, set this to "1" here (or via
+# `wrangler secret put` / the dashboard) to open Tap to Pay to every business
+# owner -- no code change. Left unset deliberately: do not add it as "1"
+# without Apple's approval in hand.

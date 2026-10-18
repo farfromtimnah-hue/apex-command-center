@@ -119,5 +119,16 @@ for (const role of ["alice", "developer", "rafa"]) {
   ok(r.status === 200 && r.data.months.every((m) => m.payments.length === 0 && m.total_cents === 0), "no payments at all: 12 empty months, not an error");
 }
 
+// ── real-D1 trap the in-memory shim cannot catch ──────────────────────────
+// The shim's statements do not depend on `this`, but the real D1 does:
+// stmt.bind.apply(null, ids) throws "Cannot read properties of null (reading
+// 'dbSession')" in production. This shipped once on the history sheet (it
+// loaded empty). Guard the whole Worker source against that exact pattern.
+{
+  const fs = await import("node:fs");
+  const src = fs.readFileSync(new URL("../worker/index.js", import.meta.url), "utf8");
+  ok(!/\.bind\.apply\(\s*null/.test(src), "worker/index.js never calls bind.apply(null, ...) (real D1 needs the statement as this)");
+}
+
 console.log(fail ? `\n❌ ${fail} FAILED` : "\n✅ ALL PASS");
 process.exit(fail ? 1 : 0);

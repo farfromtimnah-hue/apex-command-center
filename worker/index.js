@@ -58452,12 +58452,15 @@ async function handleGetVendorsHistory(request, env) {
         if (batches.length) {
             var batchIds = batches.map(function(b) { return b.id; });
             var placeholders = batchIds.map(function() { return "?"; }).join(",");
-            var allocRows = (await env.DB.prepare(
+            // bind.apply must receive the STATEMENT as `this`; with null the real
+            // D1 throws "Cannot read properties of null (reading 'dbSession')".
+            var allocStmt = env.DB.prepare(
                 "SELECT al.batch_id, c.name AS client_name FROM vendor_payment_allocations al " +
                 "JOIN vendor_payables p ON p.id = al.payable_id " +
                 "JOIN clients c ON c.id = p.client_id " +
                 "WHERE al.batch_id IN (" + placeholders + ")"
-            ).bind.apply(null, batchIds).all()).results || [];
+            );
+            var allocRows = (await allocStmt.bind.apply(allocStmt, batchIds).all()).results || [];
             allocRows.forEach(function(r) { if (!clientNameByBatch[r.batch_id]) { clientNameByBatch[r.batch_id] = r.client_name; } });
         }
 

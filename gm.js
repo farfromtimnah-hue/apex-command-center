@@ -7514,6 +7514,7 @@ function gmValueHistoryValue(field, v) {
 function gmLoadValueHistory(kind, rowId, boxId) {
   var box = document.getElementById(boxId);
   if (!box) { return; }
+  if (gmNoFinanceView()) { box.innerHTML = ""; return; }
   box.innerHTML = gmSheetSection(gmT("Histórico de valores", "Value history"), '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi(kind + "/" + encodeURIComponent(rowId) + "/value-history")
     .then(function(d) {
@@ -13805,7 +13806,17 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
 
 // ── Project sheet: invoices, payments, receipts, credits (3g) ─────────────
 var gmJobInvoices = {};
+// Passkey login build: a staff session without finance access (portal.html
+// sets window.PORTAL_LOGIN_ROLE). Presentation only: the Worker refuses the
+// same routes for this role (loginRoleDenied).
+function gmNoFinanceView() { return window.PORTAL_LOGIN_ROLE === "staff"; }
+
 function gmLoadJobInvoices(jobId) {
+  if (gmNoFinanceView()) {
+    var hideBox = document.getElementById("gmJobInvoicesSection");
+    if (hideBox) { hideBox.hidden = true; }
+    return;
+  }
   gmApi("invoices?job_id=" + encodeURIComponent(jobId))
     .then(function(d) { gmJobInvoices[jobId] = d.invoices || []; gmRenderJobInvoices(jobId); })
     .catch(function(e) { gmJobInvoices[jobId] = []; gmRenderJobInvoices(jobId, e.message); });
@@ -14144,4 +14155,161 @@ function gmBkSendMark() {
   gmApi("leads/" + encodeURIComponent(d.lead_id) + "/booking-sent", { method: "POST" })
     .then(function() { delete gmBkLeadState[d.lead_id]; })
     .catch(function(e) { console.error("booking-sent", e); });
+}
+
+// ===========================================================================
+// "Meus aparelhos" / "My devices" (passkey login completion, Change B/screens
+// item 1). Shared so both portal.html and client.html (the owner) can open
+// the same sheet. Reachable by EVERY role that has a login_people row.
+// Uses apiFetch, escHtml, isEn (host page globals) and gmSheetOpen/gmAsk.
+// ===========================================================================
+var gmMyDevicesState = { list: null, err: "", busy: false, adding: false, addName: "" };
+
+function gmMyDevicesOpen() {
+  gmMyDevicesState = { list: null, err: "", busy: false, adding: false, addName: "" };
+  gmSheetOpen(gmT("Meus aparelhos", "My devices"), gmMyDevicesBodyHtml());
+  gmMyDevicesLoad();
+}
+function gmMyDevicesLoad() {
+  return apiFetch("/api/me/passkeys")
+    .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) { gmMyDevicesState.err = gmApiErrText(r.data, r.status); gmMyDevicesRender(); return; }
+      gmMyDevicesState.list = r.data.passkeys || [];
+      gmMyDevicesRender();
+    })
+    .catch(function(e) { gmMyDevicesState.err = e.message; gmMyDevicesRender(); });
+}
+function gmMyDevicesRender() {
+  var body = document.querySelector(".gm-sheet-body");
+  if (!body) { return; }
+  body.innerHTML = gmMyDevicesBodyHtml();
+}
+function gmMyDevicesBodyHtml() {
+  var en = isEn();
+  var native = (typeof apexIsNative === "function") && apexIsNative();
+  var html = '<p class="muted">' + gmT(
+    "No iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque.",
+    "On iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap."
+  ) + '</p>';
+  if (gmMyDevicesState.err) { html += '<p class="gm-warn">' + escHtml(gmMyDevicesState.err) + '</p>'; }
+  var list = gmMyDevicesState.list;
+  if (list === null) {
+    html += '<p class="muted">' + gmT("Carregando...", "Loading...") + '</p>';
+  } else if (!list.length) {
+    html += '<p class="muted">' + gmT("Nenhum aparelho.", "No devices.") + '</p>';
+  } else {
+    list.forEach(function(d) {
+      html += '<div class="gm-sheet-section" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+        '<div><strong>' + escHtml(d.label || gmT("Aparelho", "Device")) + '</strong><br>' +
+        '<span class="muted" style="font-size:12px;">' + gmT("Adicionado em ", "Added ") + escHtml(String(d.created_at || "").slice(0, 10)) + '</span></div>' +
+        '<button type="button" class="gm-btn-secondary" onclick="gmMyDevicesRemove(\'' + escHtml(d.id) + '\')">' + gmT("Remover", "Remove") + '</button>' +
+        '</div>';
+    });
+  }
+  if (native) {
+    html += '<p class="muted" style="margin-top:14px;">' + gmT(
+      "Passkeys criadas no site, no iPhone, iPad ou Mac do mesmo Apple ID funcionam no app. Para adicionar um computador, abra o Apex no navegador dele.",
+      "Passkeys made on the website, or on an iPhone, iPad or Mac with the same Apple ID, work in the app. To add a computer, open Apex in its browser."
+    ) + '</p>';
+  } else {
+    if (gmMyDevicesState.adding) {
+      html += '<div class="gm-sheet-section">' +
+        '<div class="gm-field-label">' + gmT("Nome do aparelho (opcional)", "Device name (optional)") + '</div>' +
+        '<input type="text" id="gmMyDeviceName" maxlength="40" value="' + escHtml(gmMyDevicesState.addName || "") + '" style="width:100%;">' +
+        '<button type="button" class="gm-btn-primary" style="margin-top:10px;" ' + (gmMyDevicesState.busy ? "disabled" : "") +
+        ' onclick="gmMyDevicesAdd()">' + gmT("Continuar", "Continue") + '</button></div>';
+    } else {
+      html += '<button type="button" class="gm-btn-secondary" style="margin-top:10px;" onclick="gmMyDevicesState.adding=true; gmMyDevicesRender();">' +
+        gmT("Adicionar este aparelho", "Add this device") + '</button>';
+    }
+  }
+  return html;
+}
+function gmMyDevicesRemove(id) {
+  var list = gmMyDevicesState.list || [];
+  gmAsk({
+    message: gmT("Remover este aparelho?\n\nEle não poderá mais entrar com a passkey.", "Remove this device?\n\nIt will no longer be able to sign in with its passkey."),
+    yes: gmT("Remover", "Remove"),
+    keep: gmT("Manter", "Keep"),
+    onYes: function() {
+      apiFetch("/api/me/passkeys/" + encodeURIComponent(id) + "/remove", { method: "POST", body: {} })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { gmMyDevicesState.err = gmApiErrText(r.data, r.status); gmMyDevicesRender(); return; }
+          return gmMyDevicesLoad();
+        })
+        .catch(function(e) { gmMyDevicesState.err = e.message; gmMyDevicesRender(); });
+    }
+  });
+}
+// Drives start-add -> navigator.credentials.create -> finish-add in a normal
+// browser. The native app never reaches this (it shows plain text instead).
+function gmMyDevicesAdd() {
+  var nameEl = document.getElementById("gmMyDeviceName");
+  var label = nameEl ? String(nameEl.value || "").trim().slice(0, 40) : "";
+  gmMyDevicesState.busy = true;
+  gmMyDevicesState.err = "";
+  gmMyDevicesRender();
+  apiFetch("/api/me/passkeys/start-add", { method: "POST", body: {} })
+    .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) { throw { shown: true, message: gmApiErrText(r.data, r.status) }; }
+      var opts = gmMyDevicesDecodeOptions(r.data.options);
+      if (!window.PublicKeyCredential || !navigator.credentials || !navigator.credentials.create) {
+        throw { shown: true, message: gmT("Este navegador não tem suporte a passkeys.", "This browser does not support passkeys.") };
+      }
+      return navigator.credentials.create({ publicKey: opts });
+    })
+    .then(function(cred) {
+      var encoded = gmMyDevicesEncodeCredential(cred);
+      return apiFetch("/api/me/passkeys/finish-add", { method: "POST", body: { credential: encoded, label: label } });
+    })
+    .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+    .then(function(r) {
+      gmMyDevicesState.busy = false;
+      gmMyDevicesState.adding = false;
+      if (!r.ok) { gmMyDevicesState.err = gmApiErrText(r.data, r.status); gmMyDevicesRender(); return; }
+      return gmMyDevicesLoad();
+    })
+    .catch(function(e) {
+      gmMyDevicesState.busy = false;
+      gmMyDevicesState.err = (e && e.shown) ? e.message : gmT("Não foi possível adicionar o aparelho.", "Could not add the device.");
+      gmMyDevicesRender();
+    });
+}
+// base64url <-> ArrayBuffer helpers for the WebAuthn creation options.
+function gmB64urlToBuf(s) {
+  var pad = s.length % 4 ? 4 - (s.length % 4) : 0;
+  var b64 = (s + "=".repeat(pad)).replace(/-/g, "+").replace(/_/g, "/");
+  var bin = atob(b64);
+  var buf = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) { buf[i] = bin.charCodeAt(i); }
+  return buf;
+}
+function gmBufToB64url(buf) {
+  var bytes = new Uint8Array(buf);
+  var bin = "";
+  for (var i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function gmMyDevicesDecodeOptions(opts) {
+  var out = Object.assign({}, opts);
+  out.challenge = gmB64urlToBuf(opts.challenge);
+  if (opts.user && opts.user.id) { out.user = Object.assign({}, opts.user, { id: gmB64urlToBuf(opts.user.id) }); }
+  if (opts.excludeCredentials) {
+    out.excludeCredentials = opts.excludeCredentials.map(function(c) { return Object.assign({}, c, { id: gmB64urlToBuf(c.id) }); });
+  }
+  return out;
+}
+function gmMyDevicesEncodeCredential(cred) {
+  return {
+    id: cred.id,
+    rawId: gmBufToB64url(cred.rawId),
+    type: cred.type,
+    response: {
+      attestationObject: gmBufToB64url(cred.response.attestationObject),
+      clientDataJSON: gmBufToB64url(cred.response.clientDataJSON)
+    }
+  };
 }

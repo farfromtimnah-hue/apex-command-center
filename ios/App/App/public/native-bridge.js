@@ -540,6 +540,110 @@ function apexIsNative() {
   return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 }
 
+// ── Passkey sign-in (passkey login build) ─────────────────────────────────
+// One entry point for index.html: apexPasskeyGetAssertion(options) turns the
+// options from POST /api/passkey-login/start into the credential JSON Stytch's
+// webauthn/authenticate wants. Inside the iPhone app it asks the native
+// ApexPasskey plugin (Apple's passkey sheet for apex.resonateai.online: a
+// browser WebAuthn call cannot use that relying party from
+// capacitor://localhost); in a browser it uses navigator.credentials.get.
+// Every binary value travels base64url, both ways (the Worker asks Stytch for
+// use_base64_url_encoding). The credential is never logged.
+function apexPasskeyPlugin() {
+  if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
+  return window.Capacitor.Plugins.ApexPasskey || null;
+}
+
+function apexB64urlToBuf(s) {
+  var b = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
+  while (b.length % 4) { b += "="; }
+  var bin = atob(b);
+  var out = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+  return out.buffer;
+}
+
+function apexBufToB64url(buf) {
+  if (!buf) { return ""; }
+  var bytes = new Uint8Array(buf);
+  var s = "";
+  for (var i = 0; i < bytes.length; i++) { s += String.fromCharCode(bytes[i]); }
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Resolves true when the passkey button may show: in the app, the plugin's
+// own isSupported() (iOS 16 or newer); in a browser, always true (a browser
+// without WebAuthn is told so when the button is tapped).
+function apexPasskeySupported() {
+  if (!apexIsNative()) { return Promise.resolve(true); }
+  var p = apexPasskeyPlugin();
+  if (!p || typeof p.isSupported !== "function") { return Promise.resolve(false); }
+  return Promise.resolve(p.isSupported()).then(function (r) {
+    return !!(r && r.supported);
+  }).catch(function () { return false; });
+}
+
+function apexPasskeyError(code, message) {
+  var e = new Error(message || code);
+  e.code = code;
+  return e;
+}
+
+function apexPasskeyGetAssertion(options) {
+  var opts = options || {};
+  if (!opts.challenge) { return Promise.reject(apexPasskeyError("failed", "no challenge")); }
+  if (apexIsNative()) {
+    var p = apexPasskeyPlugin();
+    if (!p || typeof p.signIn !== "function") { return Promise.reject(apexPasskeyError("unsupported_os")); }
+    return Promise.resolve(p.signIn({ rpId: opts.rpId || "apex.resonateai.online", challenge: opts.challenge }))
+      .then(function (r) {
+        if (!r || !r.credential) { throw apexPasskeyError("failed"); }
+        return r.credential;
+      }, function (err) {
+        var code = (err && err.code) || "failed";
+        if (["user_cancelled", "no_credentials", "not_associated", "unsupported_os", "failed"].indexOf(code) === -1) { code = "failed"; }
+        throw apexPasskeyError(code, err && err.message);
+      });
+  }
+  if (!window.PublicKeyCredential || !navigator.credentials || typeof navigator.credentials.get !== "function") {
+    return Promise.reject(apexPasskeyError("unsupported_browser"));
+  }
+  var publicKey = {
+    challenge: apexB64urlToBuf(opts.challenge),
+    rpId: opts.rpId || "apex.resonateai.online",
+    timeout: opts.timeout || 60000,
+    userVerification: opts.userVerification || "preferred"
+  };
+  if (opts.allowCredentials && opts.allowCredentials.length) {
+    publicKey.allowCredentials = opts.allowCredentials.map(function (c) {
+      return { type: c.type || "public-key", id: apexB64urlToBuf(c.id), transports: c.transports };
+    });
+  }
+  return navigator.credentials.get({ publicKey: publicKey }).then(function (cred) {
+    if (!cred || !cred.response) { throw apexPasskeyError("no_credentials"); }
+    return {
+      id: cred.id,
+      rawId: apexBufToB64url(cred.rawId),
+      type: cred.type || "public-key",
+      authenticatorAttachment: cred.authenticatorAttachment || undefined,
+      response: {
+        authenticatorData: apexBufToB64url(cred.response.authenticatorData),
+        clientDataJSON: apexBufToB64url(cred.response.clientDataJSON),
+        signature: apexBufToB64url(cred.response.signature),
+        userHandle: cred.response.userHandle ? apexBufToB64url(cred.response.userHandle) : null
+      },
+      clientExtensionResults: (typeof cred.getClientExtensionResults === "function") ? cred.getClientExtensionResults() : {}
+    };
+  }, function (err) {
+    // A browser reports "no passkey here" and "cancelled" with the same
+    // NotAllowedError on purpose; the no-passkey text tells the person what
+    // to do in both cases.
+    if (err && err.name === "NotAllowedError") { throw apexPasskeyError("no_credentials", err.message); }
+    if (err && err.name === "SecurityError") { throw apexPasskeyError("not_associated", err.message); }
+    throw apexPasskeyError("failed", err && err.message);
+  });
+}
+
 function apexPrefs() {
   if (!window.Capacitor || !window.Capacitor.Plugins) { return null; }
   return window.Capacitor.Plugins.Preferences || null;

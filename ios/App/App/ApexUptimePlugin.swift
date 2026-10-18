@@ -103,6 +103,10 @@ class ApexBridgeViewController: CAPBridgeViewController {
         // plugin is NOT in capacitor.config.json's packageClassList either.
         bridge?.registerPluginInstance(ApexTapToPayPlugin())
 
+        // Passkey sign-in (passkey login build, Build C). Same app-target
+        // registration pattern; NOT in packageClassList either.
+        bridge?.registerPluginInstance(ApexPasskeyPlugin())
+
         ApexLockCover.shared.trace("BRIDGE capacitorDidLoad - plugins registered, WebView about to load")
     }
 

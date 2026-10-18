@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1792339992"></script>
+  <script src="native-bridge.js?v=1792347363"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -375,6 +375,9 @@
     .btn-client-login:hover  { background: rgba(201,164,58,0.14); }
     .btn-client-login:active { transform: scale(0.98); }
     .btn-client-login:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+    /* Passkey button: the same outline style, on the same glass as the form. */
+    .btn-passkey { background: rgba(26, 26, 24, 0.62); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+    .btn-passkey[hidden] { display: none; }
 
     /* ---------- Footer ---------- */
     footer {
@@ -504,6 +507,15 @@
           <span class="show-en">Sign in</span>
         </button>
       </form>
+      <!-- Passkey sign-in (passkey login build). Hidden until
+           GET /api/passkey-login/status says enabled (and, in the iPhone app,
+           until the ApexPasskey plugin says this device supports it). Nothing
+           to type: the passkey picks the person. -->
+      <button type="button" class="btn-client-login btn-passkey" id="passkeyLoginBtn" hidden
+              onclick="handlePasskeyLogin()">
+        <span class="show-pt">Entrar com passkey</span>
+        <span class="show-en">Sign in with passkey</span>
+      </button>
     </div>
     <div class="status-msg" id="statusMsg"></div>
   </main>
@@ -788,6 +800,113 @@
           setStatus(e.message, true);
         });
     }
+
+    // ── Passkey sign-in (passkey login build) ──────────────────────────────
+    // The server decides whether this exists: the button stays hidden unless
+    // GET /api/passkey-login/status says enabled, and inside the iPhone app
+    // also unless the native plugin says this device supports passkeys. The
+    // session it gets back is the SAME shape the username/password login
+    // gets, and is stored exactly the same way.
+    function passkeyText(pt, en) {
+      return document.body.classList.contains("lang-en") ? en : pt;
+    }
+
+    var PASSKEY_ERROR_TEXT = {
+      no_credentials: ["Nenhuma passkey neste aparelho. Peça um novo link de convite.",
+                       "No passkey on this device. Ask for a new invite link."],
+      user_cancelled: ["Entrada com passkey cancelada.", "Passkey sign-in cancelled."],
+      not_associated: ["O app ainda não está ligado ao site para passkeys. Entre pelo site por enquanto.",
+                       "The app is not linked to the website for passkeys yet. Sign in on the website for now."],
+      unsupported_os: ["Este aparelho não aceita passkeys (precisa do iOS 16 ou mais novo).",
+                       "This device does not support passkeys (it needs iOS 16 or newer)."],
+      unsupported_browser: ["Este navegador não aceita passkeys. Use o Safari ou o Chrome atualizado.",
+                            "This browser does not support passkeys. Use an up-to-date Safari or Chrome."],
+      failed: ["Não foi possível entrar com passkey. Tente de novo.", "Could not sign in with passkey. Try again."]
+    };
+
+    function passkeyInitButton() {
+      var btn = document.getElementById("passkeyLoginBtn");
+      if (!btn) { return Promise.resolve(false); }
+      btn.hidden = true;
+      return fetch(WORKER_URL + "/api/passkey-login/status")
+        .then(function(res) { return res.ok ? res.json() : { enabled: false }; })
+        .then(function(d) {
+          if (!d || d.enabled !== true) { return false; }
+          if (typeof apexPasskeySupported !== "function") { return false; }
+          return apexPasskeySupported();
+        })
+        .then(function(show) {
+          btn.hidden = !show;
+          return !!show;
+        })
+        .catch(function() {
+          btn.hidden = true;
+          return false;
+        });
+    }
+
+    function handlePasskeyLogin() {
+      var btn = document.getElementById("passkeyLoginBtn");
+      if (!btn) { return Promise.resolve(); }
+      if (btn.dataset.signingIn === "1") { return Promise.resolve(); }
+      btn.dataset.signingIn = "1";
+      btn.disabled = true;
+      setStatus(passkeyText("Entrando com passkey...", "Signing in with passkey..."));
+      // The passkey sheet backgrounds nothing, but the biometric lock must not
+      // stack a Face ID prompt on top of Apple's own.
+      if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(true); }
+      return fetch(WORKER_URL + "/api/passkey-login/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data || !r.data.options) {
+            var se = new Error(passkeyText((r.data && r.data.error_pt) || PASSKEY_ERROR_TEXT.failed[0],
+                                           (r.data && r.data.error_en) || PASSKEY_ERROR_TEXT.failed[1]));
+            se.shown = true;
+            throw se;
+          }
+          var opts = r.data.options;
+          if (!opts.rpId && r.data.rp_id) { opts.rpId = r.data.rp_id; }
+          return apexPasskeyGetAssertion(opts);
+        })
+        .then(function(credential) {
+          return fetch(WORKER_URL + "/api/passkey-login/finish", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: JSON.stringify(credential) })
+          });
+        })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok || !r.data || !r.data.token) {
+            var fe = new Error(passkeyText((r.data && r.data.error_pt) || PASSKEY_ERROR_TEXT.failed[0],
+                                           (r.data && r.data.error_en) || PASSKEY_ERROR_TEXT.failed[1]));
+            fe.shown = true;
+            throw fe;
+          }
+          if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(false); }
+          // Exactly what handleClientLogin stores for a password login.
+          localStorage.setItem("apex_client_token", r.data.token);
+          localStorage.setItem("apex_client_id",    r.data.client_id);
+          localStorage.setItem("apex_client_name",  r.data.client_name || "");
+          window.location.href = "portal.html";
+        })
+        .catch(function(e) {
+          if (typeof apexSetSignInInFlight === "function") { apexSetSignInInFlight(false); }
+          btn.dataset.signingIn = "";
+          btn.disabled = false;
+          var pair = e && e.code ? (PASSKEY_ERROR_TEXT[e.code] || PASSKEY_ERROR_TEXT.failed) : null;
+          if (pair) { setStatus(passkeyText(pair[0], pair[1]), true); return; }
+          setStatus(e && e.shown ? e.message : passkeyText(PASSKEY_ERROR_TEXT.failed[0], PASSKEY_ERROR_TEXT.failed[1]), true);
+        });
+    }
+
+    window.onload = function() {
+      passkeyInitButton();
+    };
 
     // Skip sign-in if already authenticated. The token is VALIDATED before we
     // redirect: a stale/expired client token used to bounce admins straight into

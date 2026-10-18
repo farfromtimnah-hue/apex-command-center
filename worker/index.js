@@ -38831,25 +38831,26 @@ async function applyCategorizationRules(env, opts) {
 // that already has any category of its own.
 // ---------------------------------------------------------------------------
 async function mirrorOwnerDrawAcrossPair(env) {
-    var pairs = await env.DB.prepare(
-        "SELECT DISTINCT transfer_pair_id FROM transactions " +
-        "WHERE transfer_status IN ('suspected','confirmed') AND transfer_pair_id IS NOT NULL"
+    // ONE read, and only for the rare candidates: an uncategorized leg whose
+    // partner leg already carries cat_retirada from a rule, in a pair of
+    // exactly two legs. (An earlier version read every pair ever detected,
+    // one query per pair, on every sync; that grows without limit and the
+    // cron's CPU budget on the free plan is about 10 ms per run.)
+    var cand = await env.DB.prepare(
+        "SELECT a.id AS empty_id FROM transactions a " +
+        "JOIN transactions b ON b.transfer_pair_id = a.transfer_pair_id AND b.id <> a.id " +
+        "WHERE a.transfer_status IN ('suspected','confirmed') AND a.transfer_pair_id IS NOT NULL " +
+        "AND a.category_id IS NULL " +
+        "AND b.category_id = 'cat_retirada' AND b.category_source = 'rule' " +
+        "AND (SELECT COUNT(*) FROM transactions c WHERE c.transfer_pair_id = a.transfer_pair_id) = 2"
     ).all();
     var applied = 0;
-    var rows = pairs.results || [];
+    var rows = cand.results || [];
     for (var i = 0; i < rows.length; i++) {
-        var pairId = rows[i].transfer_pair_id;
-        var legs = (await env.DB.prepare(
-            "SELECT id, category_id, category_source FROM transactions WHERE transfer_pair_id = ?"
-        ).bind(pairId).all()).results || [];
-        if (legs.length !== 2) { continue; }
-        var marked = legs.find(function(l) { return l.category_id === "cat_retirada" && l.category_source === "rule"; });
-        var empty = legs.find(function(l) { return l.category_id === null || l.category_id === undefined; });
-        if (!marked || !empty || marked.id === empty.id) { continue; }
         var res = await env.DB.prepare(
             "UPDATE transactions SET category_id = 'cat_retirada', category_source = 'rule', categorized_at = datetime('now') " +
             "WHERE id = ? AND category_id IS NULL"
-        ).bind(empty.id).run();
+        ).bind(rows[i].empty_id).run();
         applied += (res.meta && res.meta.changes) || 0;
     }
     return applied;

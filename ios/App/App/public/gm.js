@@ -5283,26 +5283,55 @@ function gmPricingDeleteDo() {
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
 
-// ── CSV import ───────────────────────────────────────────────────────────
-// Upload never writes. The file is parsed by the Worker into a PREVIEW of
-// what would be created and updated, and only an explicit confirm commits it.
-// Re-importing a corrected spreadsheet updates matching items by name rather
-// than duplicating them, which is the normal case for a price list.
+// ── Spreadsheet import ──────────────────────────────────────────────────
+// Upload never writes. The file is converted to CSV text in the browser (if
+// it isn't already) and parsed by the Worker into a PREVIEW of what would be
+// created and updated; only an explicit confirm commits it. Re-importing a
+// corrected spreadsheet updates matching items by name rather than
+// duplicating them, which is the normal case for a price list.
+//
+// .xlsx / .xls go through SheetJS (xlsx.mini.min.js, vendored in this repo —
+// no CDN, so the bundled iPhone app works offline-ish and the library is
+// never fetched from the network at runtime). It's loaded lazily, only once
+// someone actually picks a spreadsheet, so it costs nothing on every other
+// portal page load. .csv / .tsv go straight to the Worker as before (TSV is
+// just re-delimited to the same comma/quote CSV text gmCsvParse already
+// reads, so the Worker payload format never changes).
 
 var gmPricingCsvText = null;
 var gmPricingColumnMap = null;
+var gmXlsxLibPromise = null;
+
+function gmLoadXlsxLib() {
+  if (window.XLSX) { return Promise.resolve(); }
+  if (gmXlsxLibPromise) { return gmXlsxLibPromise; }
+  gmXlsxLibPromise = new Promise(function(resolve, reject) {
+    var s = document.createElement("script");
+    s.src = "xlsx.mini.min.js";
+    s.onload = function() { resolve(); };
+    s.onerror = function() { gmXlsxLibPromise = null; reject(new Error(gmT("Não foi possível carregar o leitor de planilhas.", "Could not load the spreadsheet reader."))); };
+    document.body.appendChild(s);
+  });
+  return gmXlsxLibPromise;
+}
 
 function gmPricingImportOpen() {
   gmPricingCsvText = null;
   gmPricingImport = null;
   gmPricingColumnMap = null;
   gmPricingCostTypes = null;
+  gmPricingWorkbook = null;
+  gmPricingHeaderRow = null;
   var body = '<div class="gm-sheet-section">' +
     '<p class="muted">' +
-    gmT("Escolha um arquivo CSV. Na tela seguinte você confirma qual coluna é o item, o preço, a unidade, a categoria, o tipo e a descrição, e diz se cada outra coluna é custo de material, mão de obra ou outros.",
-        "Pick a CSV file. On the next screen you confirm which column is the item, price, unit, category, type and description, and say whether each remaining column is a material, labor or other cost.") +
+    gmT("Escolha um arquivo (Excel ou CSV). Na tela seguinte você confirma qual coluna é o item, o preço, a unidade, a categoria, o tipo e a descrição, e diz se cada outra coluna é custo de material, mão de obra ou outros.",
+        "Pick a file (Excel or CSV). On the next screen you confirm which column is the item, price, unit, category, type and description, and say whether each remaining column is a material, labor or other cost.") +
     '</p>' +
-    '<input type="file" id="gmPricingCsvInput" accept=".csv,text/csv" hidden ' +
+    '<p class="muted"><small>' +
+    gmT("Numbers ou Google Sheets? Use Arquivo > Exportar (Excel ou CSV) antes de escolher o arquivo aqui.",
+        "Numbers or Google Sheets? Use File > Export (Excel or CSV) before picking the file here.") +
+    '</small></p>' +
+    '<input type="file" id="gmPricingCsvInput" accept=".csv,.tsv,.xlsx,.xls,text/csv" hidden ' +
       'onchange="gmPricingCsvChosen(this)">' +
     '<button type="button" class="gm-btn-primary" ' +
       'onclick="var f = document.getElementById(\'gmPricingCsvInput\'); if (f) { f.click(); }">' +
@@ -5312,18 +5341,170 @@ function gmPricingImportOpen() {
   gmSheetOpen(gmT("Importar tabela de preços", "Import pricing table"), body);
 }
 
+// RFC4180 round-trip: if a cell contains a comma, quote or newline, quote it
+// and double any embedded quotes, so the Worker's gmCsvParse reads it back
+// exactly. Used both for a parsed .xlsx sheet and for a .tsv file.
+function gmCsvCell(v) {
+  var s = v === null || v === undefined ? "" : String(v);
+  if (/[",\n\r]/.test(s)) { return '"' + s.replace(/"/g, '""') + '"'; }
+  return s;
+}
+function gmRowsToCsv(rows) {
+  return rows.map(function(r) { return r.map(gmCsvCell).join(","); }).join("\n");
+}
+
 function gmPricingCsvChosen(input) {
   if (!input || !input.files || !input.files[0]) { return; }
+  var file = input.files[0];
+  var name = (file.name || "").toLowerCase();
+  var box = document.getElementById("gmPricingImportBody");
+  if (/\.(xlsx|xls)$/.test(name)) {
+    if (box) { box.innerHTML = '<p class="muted">' + gmT("Lendo a planilha…", "Reading the spreadsheet…") + '</p>'; }
+    gmLoadXlsxLib().then(function() {
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var wb = window.XLSX.read(new Uint8Array(reader.result), { type: "array", cellDates: true });
+          gmPricingWorkbookChosen(wb);
+        } catch (e) {
+          if (box) { box.innerHTML = '<p class="gm-warn">' + escHtml(gmT("Não foi possível ler esse arquivo. Confirme que é um Excel ou CSV válido.", "Could not read that file. Confirm it's a valid Excel or CSV file.")) + '</p>'; }
+          console.error(e);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }).catch(function(e) {
+      if (box) { box.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; }
+    });
+    return;
+  }
+  if (/\.tsv$/.test(name)) {
+    var tReader = new FileReader();
+    tReader.onload = function() {
+      var text = String(tReader.result || "");
+      // Re-delimit tab-separated text into the same quoted-CSV shape the
+      // Worker's gmCsvParse already reads -- the payload format never changes.
+      var rows = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+        .filter(function(l) { return l.length > 0; })
+        .map(function(l) { return l.split("\t"); });
+      gmPricingCsvText = gmRowsToCsv(rows);
+      gmPricingHeaders();
+    };
+    tReader.readAsText(file);
+    return;
+  }
+  // .csv (or unlabelled text/csv): unchanged from before.
   var reader = new FileReader();
   reader.onload = function() {
     gmPricingCsvText = String(reader.result || "");
     gmPricingHeaders();
   };
-  reader.readAsText(input.files[0]);
+  reader.readAsText(file);
 }
 
-// Step 1 (D8): the Worker returns the headers and exact-name suggestions;
-// the owner confirms every field before anything is previewed.
+// ── Workbook: sheet pick + header-row detection ─────────────────────────
+var gmPricingWorkbook = null;   // { sheetName -> 2D array of cell values }
+var gmPricingHeaderRow = null;  // 0-based index into the chosen sheet's rows
+
+function gmPricingSheetToRows(wb, sheetName) {
+  var ws = wb.Sheets[sheetName];
+  // defval: "" so a short row still lines up by column index; raw: false
+  // formats dates/numbers the way the cell displays, which is what a human
+  // typed or expects to see, not an Excel serial number.
+  return window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false, blankrows: false });
+}
+
+function gmPricingWorkbookChosen(wb) {
+  gmPricingWorkbook = wb;
+  var names = (wb.SheetNames || []).filter(function(n) {
+    var rows = gmPricingSheetToRows(wb, n);
+    return rows.length > 0;
+  });
+  if (!names.length) {
+    var box = document.getElementById("gmPricingImportBody");
+    if (box) { box.innerHTML = '<p class="gm-warn">' + escHtml(gmT("Essa planilha não tem nenhuma aba com dados.", "That workbook has no sheet with data.")) + '</p>'; }
+    return;
+  }
+  if (names.length === 1) { gmPricingSheetChosen(names[0]); return; }
+  gmRenderPricingSheetPicker(names);
+}
+
+function gmRenderPricingSheetPicker(names) {
+  var box = document.getElementById("gmPricingImportBody");
+  if (!box) { return; }
+  var h = '<p class="muted" style="margin-top:12px;">' +
+    gmT("Essa planilha tem várias abas. Qual tem a tabela de preços?", "That workbook has more than one sheet. Which one has the price list?") +
+    '</p>' +
+    '<select id="gmPricingSheetSelect" class="gm-input">' +
+    names.map(function(n) { return '<option value="' + escHtml(n) + '">' + escHtml(n) + '</option>'; }).join("") +
+    '</select>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmPricingSheetChosen(document.getElementById(\'gmPricingSheetSelect\').value)">' +
+    gmT("Continuar", "Continue") + '</button>';
+  box.innerHTML = h;
+}
+
+// A row "looks like a header" when most of its cells are non-empty text (not
+// pure numbers) and the row right after it has at least one non-empty cell
+// too -- a title row above the real headers is usually one or two cells,
+// and a blank spacer row is all empty, so neither passes this bar.
+function gmPricingLooksLikeHeaderRow(rows, i) {
+  var row = rows[i];
+  if (!row || !row.length) { return false; }
+  var nonEmpty = row.filter(function(c) { return String(c).trim() !== ""; });
+  if (nonEmpty.length < 2) { return false; }
+  var textish = nonEmpty.filter(function(c) { return !/^-?[\d.,\s$R€£]+$/.test(String(c).trim()); });
+  if (textish.length < Math.ceil(nonEmpty.length * 0.6)) { return false; }
+  var next = rows[i + 1];
+  return !!(next && next.some(function(c) { return String(c).trim() !== ""; }));
+}
+function gmPricingDetectHeaderRow(rows) {
+  for (var i = 0; i < Math.min(rows.length, 15); i++) {
+    if (gmPricingLooksLikeHeaderRow(rows, i)) { return i; }
+  }
+  return 0;
+}
+
+var gmPricingSheetRows = null;  // 2D array of the chosen sheet, unsliced
+
+function gmPricingSheetChosen(sheetName) {
+  var rows = gmPricingSheetToRows(gmPricingWorkbook, sheetName);
+  gmPricingSheetRows = rows;
+  gmPricingHeaderRow = gmPricingDetectHeaderRow(rows);
+  gmRenderPricingHeaderRowConfirm();
+}
+
+function gmRenderPricingHeaderRowConfirm() {
+  var box = document.getElementById("gmPricingImportBody");
+  if (!box) { return; }
+  var rows = gmPricingSheetRows || [];
+  var i = gmPricingHeaderRow || 0;
+  var preview = (rows[i] || []).filter(function(c) { return String(c).trim() !== ""; }).slice(0, 6).join(", ");
+  var h = '<p class="muted" style="margin-top:12px;">' +
+    gmT("Linha de cabeçalho usada: linha " + (i + 1) + " (" + escHtml(preview) + "). Errado?", "Header row used: row " + (i + 1) + " (" + escHtml(preview) + "). Wrong?") +
+    '</p>' +
+    '<label class="gm-field-label" for="gmPricingHeaderRowInput">' + gmT("Número da linha do cabeçalho", "Header row number") + '</label>' +
+    '<input type="number" min="1" max="' + rows.length + '" id="gmPricingHeaderRowInput" class="gm-input" value="' + (i + 1) + '">' +
+    '<button type="button" class="gm-btn-secondary" onclick="gmPricingHeaderRowChanged()">' + gmT("Usar essa linha", "Use this row") + '</button>' +
+    '<button type="button" class="gm-btn-primary" onclick="gmPricingSheetToCsvAndMap()">' + gmT("Continuar", "Continue") + '</button>';
+  box.innerHTML = h;
+}
+function gmPricingHeaderRowChanged() {
+  var inp = document.getElementById("gmPricingHeaderRowInput");
+  var n = inp ? parseInt(inp.value, 10) : NaN;
+  if (isFinite(n) && n >= 1 && n <= (gmPricingSheetRows || []).length) { gmPricingHeaderRow = n - 1; }
+  gmRenderPricingHeaderRowConfirm();
+}
+function gmPricingSheetToCsvAndMap() {
+  var inp = document.getElementById("gmPricingHeaderRowInput");
+  var n = inp ? parseInt(inp.value, 10) : NaN;
+  if (isFinite(n) && n >= 1 && n <= (gmPricingSheetRows || []).length) { gmPricingHeaderRow = n - 1; }
+  var rows = (gmPricingSheetRows || []).slice(gmPricingHeaderRow);
+  gmPricingCsvText = gmRowsToCsv(rows);
+  gmPricingHeaders();
+}
+
+// Step 1 (D8): the Worker returns the headers, exact-name suggestions and one
+// sample value per column from the first data row; the owner confirms every
+// field before anything is previewed.
 var gmPricingCostTypes = null;
 function gmPricingHeaders() {
   var box = document.getElementById("gmPricingImportBody");
@@ -5351,13 +5532,17 @@ function gmRenderPricingMapping() {
   var d = gmPricingImport || {};
   var headers = d.headers || [];
   var sugg = d.suggested || {};
+  var sample = d.sample || [];
   var map = gmPricingColumnMap || {};
   var h = '<p class="muted" style="margin-top:12px;">' + gmT("Confirme cada campo. Só as combinações exatas de nome vêm pré-selecionadas.", "Confirm every field. Only exact header matches are pre-selected.") + '</p>';
   GM_PRICING_MAP_FIELDS.forEach(function(f) {
     var cur = map[f.role] !== undefined ? map[f.role] : (sugg[f.role] || "");
     h += '<label class="gm-field-label" for="gmMap_' + f.role + '">' + gmT(f.pt, f.en) + '</label>' +
       '<select id="gmMap_' + f.role + '" class="gm-input" onchange="gmPricingMapChanged()"><option value="">' + gmT("Não está nesta planilha", "Not on this spreadsheet") + '</option>' +
-      headers.map(function(hd) { return '<option value="' + escHtml(hd) + '"' + (hd === cur ? " selected" : "") + '>' + escHtml(hd) + '</option>'; }).join("") + '</select>';
+      headers.map(function(hd, i) {
+        var s = sample[i] ? " — " + escHtml(sample[i]) : "";
+        return '<option value="' + escHtml(hd) + '"' + (hd === cur ? " selected" : "") + '>' + escHtml(hd) + s + '</option>';
+      }).join("") + '</select>';
   });
   h += '<div id="gmPricingCostCols"></div>' +
     '<p class="gm-warn" id="gmPricingMapMsg" hidden></p>' +
@@ -5371,6 +5556,7 @@ function gmRenderPricingMapping() {
 function gmPricingMapChanged() {
   var d = gmPricingImport || {};
   var headers = d.headers || [];
+  var sample = d.sample || [];
   var used = {};
   GM_PRICING_MAP_FIELDS.forEach(function(f) { var sel = document.getElementById("gmMap_" + f.role); if (sel && sel.value) { used[sel.value] = true; } });
   var box = document.getElementById("gmPricingCostCols");
@@ -5380,9 +5566,11 @@ function gmPricingMapChanged() {
   var types = gmPricingCostTypes || {};
   var h = '<p class="gm-sheet-section-title" style="margin-top:12px;">' + gmT("Colunas de custo", "Cost columns") + '</p>' +
     '<p class="muted">' + gmT("Cada uma das outras colunas pode virar uma linha de custo. Diga o tipo, ou ignore.", "Each remaining column can become a cost line. Say its type, or ignore it.") + '</p>';
-  rest.forEach(function(hd, i) {
+  rest.forEach(function(hd) {
     var guess = types[hd] || (/labor|m[aã]o|obra|crew|install/i.test(hd) ? "labor" : (/permit|other|outro|fee|tax/i.test(hd) ? "other" : "material"));
-    h += '<div class="gm-cost-line"><span class="gm-cost-label" style="align-self:center;">' + escHtml(hd) + '</span>' +
+    var si = headers.indexOf(hd);
+    var s = (si !== -1 && sample[si]) ? " (" + escHtml(sample[si]) + ")" : "";
+    h += '<div class="gm-cost-line"><span class="gm-cost-label" style="align-self:center;">' + escHtml(hd) + s + '</span>' +
       '<select class="gm-input gm-cost-type" data-cost-col="' + escHtml(hd) + '" aria-label="' + escHtml(hd) + '">' +
       [["material", gmT("Material", "Material")], ["labor", gmT("Mão de obra", "Labor")], ["other", gmT("Outros", "Other")], ["ignore", gmT("Ignorar", "Ignore")]].map(function(o) {
         return '<option value="' + o[0] + '"' + (guess === o[0] ? " selected" : "") + '>' + escHtml(o[1]) + '</option>';
@@ -5477,7 +5665,7 @@ function gmRenderPricingPreview() {
 
 function gmPricingRemap() {
   if (!gmPricingImport) { return; }
-  gmPricingImport = { needs_mapping: true, headers: gmPricingImport.headers || [], suggested: gmPricingColumnMap || {} };
+  gmPricingImport = { needs_mapping: true, headers: gmPricingImport.headers || [], suggested: gmPricingColumnMap || {}, sample: gmPricingImport.sample || [] };
   gmRenderPricingMapping();
 }
 

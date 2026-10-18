@@ -11,9 +11,11 @@ const FNS = [
   "supportStaffAuthed", "supportStaffAuth", "supportToolLookupClient", "supportRunClaudeTool",
   "supportRateLimited", "supportIncrementDailyCount", "handlePostSupportMessage",
   "handleGetSupportTickets", "handleGetSupportTicketDetail", "handlePostSupportTicketResolve",
-  "handlePostSupportTicketUndoResolve", "handlePostSupportTicketsClearResolved", "handleGetSupportOpenCount"
+  "handlePostSupportTicketUndoResolve", "handlePostSupportTicketsClearResolved", "handleGetSupportOpenCount",
+  "supportPageIsPortal", "supportFeatureGuideFor"
 ];
-const VARS = ["SUPPORT_TOOLS", "SUPPORT_FEATURE_GUIDE_PT", "SUPPORT_FEATURE_GUIDE_EN", "SUPPORT_AI_MODEL"];
+const VARS = ["SUPPORT_TOOLS", "SUPPORT_FEATURE_GUIDE_STAFF_PT", "SUPPORT_FEATURE_GUIDE_STAFF_EN",
+  "SUPPORT_FEATURE_GUIDE_PORTAL_PT", "SUPPORT_FEATURE_GUIDE_PORTAL_EN", "SUPPORT_AI_MODEL"];
 const MIGRATIONS = ["migrations/support_tickets.sql"];
 
 function world(stubOverrides) {
@@ -161,6 +163,50 @@ function claudeTextReply(text) {
   const clearResp = await w.F.handlePostSupportTicketsClearResolved({}, w.env);
   ok(clearResp.status === 200 && clearResp.data.deleted === 1, "clear-resolved: deletes exactly the resolved ticket");
   ok(w.d.q("SELECT COUNT(*) AS n FROM support_tickets")[0].n === 0, "clear-resolved: the ticket is gone for good");
+}
+
+// ── The guide answers from the right menu for the page the user is on ──
+{
+  const w = world();
+  ok(!w.F.supportPageIsPortal("/dashboard.html"), "dashboard.html is the staff app, not the portal");
+  ok(!w.F.supportPageIsPortal(""), "no page given defaults to the staff app, not the portal");
+  ok(w.F.supportPageIsPortal("/portal.html"), "portal.html is recognized as the client portal");
+  ok(w.F.supportPageIsPortal("/portal.html?tab=gmpricing"), "a portal deep link with a query string still counts as the portal");
+
+  const staffPt = w.F.supportFeatureGuideFor("/dashboard.html", "pt");
+  const staffEn = w.F.supportFeatureGuideFor("/dashboard.html", "en");
+  const portalPt = w.F.supportFeatureGuideFor("/portal.html", "pt");
+  const portalEn = w.F.supportFeatureGuideFor("/portal.html", "en");
+  ok(staffPt.indexOf("dock de 5 posicoes") !== -1, "staff PT guide describes the phone dock, not a side menu, for mobile");
+  ok(staffEn.indexOf("5-spot dock") !== -1, "staff EN guide describes the phone dock, not a side menu, for mobile");
+  ok(staffPt.indexOf("Precos") === -1 && staffEn.indexOf("Pricing") === -1, "the staff guide says nothing about the portal's Pricing placement");
+  ok(portalPt.indexOf("Negocio") !== -1 && portalPt.indexOf("Precos") !== -1, "portal PT guide names the Negocio group and Precos");
+  ok(portalEn.indexOf("Business") !== -1 && portalEn.indexOf("Pricing") !== -1, "portal EN guide names the Business group and Pricing");
+  ok(/Precos[^\n]*por ultimo/.test(portalPt) || portalPt.indexOf("por ultimo Precos") !== -1, "portal PT guide places Precos last in Negocio");
+  ok(portalEn.indexOf("last Pricing") !== -1, "portal EN guide places Pricing last in Business");
+  ok(portalPt.indexOf("engrenagem") !== -1 && portalPt.toLowerCase().indexOf("nao fica mais na engrenagem") !== -1,
+     "portal PT guide explicitly says Precos is no longer behind the gear");
+  ok(portalEn.toLowerCase().indexOf("not behind the gear") !== -1, "portal EN guide explicitly says Pricing is no longer behind the gear");
+}
+
+// ── A page/feature not confirmed in the guide: "not sure", ticket still filed ──
+{
+  const w = world({
+    fetch: async function (url, opts) {
+      const body = JSON.parse(opts.body);
+      if (body.tools) {
+        return { ok: true, json: async () => ({ content: [{ type: "text", text: "Nao tenho certeza se essa pagina existe no momento. O relato foi enviado." }] }) };
+      }
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: "WHAT: unclear feature request." }] }) };
+    }
+  });
+  const reqBody = { transcript: [{ role: "user", text: "Onde fica a pagina de X?" }, { role: "assistant", text: "..." }, { role: "user", text: "Nao sei dizer mais detalhes" }], kind: "need", page: "/portal.html", language: "pt" };
+  const r = await w.F.handlePostSupportMessage({ json: async () => reqBody }, w.env);
+  ok(r.status === 200 && r.data.done === true, "an unconfirmed feature still finishes the conversation");
+  ok(r.data.assistant_text.toLowerCase().indexOf("nao tenho certeza") !== -1 || r.data.assistant_text.toLowerCase().indexOf("certeza") !== -1,
+     "the reply hedges with uncertainty rather than asserting the page doesn't exist");
+  const tickets = w.d.q("SELECT * FROM support_tickets");
+  ok(tickets.length === 1, "the ticket is still filed even when the guide can't confirm the feature");
 }
 
 // ── Non-developer is forbidden from the Support panel endpoints ─────────

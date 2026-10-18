@@ -5028,23 +5028,25 @@
     // destinations instead of a dock plus a full-screen "Mais":
     //   Início    what needs the owner now (alerts)
     //   Negócio   the business tools, in the order the work happens: a lead
-    //             first, invoicing last (contracts live inside Projetos)
+    //             first, invoicing last (contracts live inside Projetos);
+    //             Preços goes last in the group since it's set up once and
+    //             then only maintained, not a daily tool (Nicole, 2026-10-17)
     //   Agenda    daily, and not a step: a lead visit and a job visit both
     //   Analytics the numbers
     //   Apex      the client's relationship with Apex
-    // Preços and Ajustes are setup, not steps, so they sit behind the gear
+    // Ajustes is setup, not a step, so it sits behind the gear
     // (PORTAL_GEAR_TABS). Every group is filtered by portalTabs(), so roles and
     // PORTAL_TAB_GATES still decide what exists; a group left empty is dropped,
     // and a group left with one tool shows as that tool. Assigned joins Apex
     // only while something is waiting. Leads keep their own shape.
     var PORTAL_GROUPS = [
       { key: "grp-home",      icon: "home",      labelPt: "In\u00edcio",   labelEn: "Home",      tabs: ["home"] },
-      { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance"] },
+      { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance", "gmpricing"] },
       { key: "grp-agenda",    icon: "calendar",  labelPt: "Agenda",       labelEn: "Calendar",  tabs: ["gmcalendar"] },
       { key: "grp-analytics", icon: "bar-chart", labelPt: "Analytics",    labelEn: "Analytics", tabs: ["analytics"] },
       { key: "grp-apex",      icon: "peak",      labelPt: "Apex",         labelEn: "Apex",      tabs: ["assigned", "goals", "gmroadmap", "tasks", "documents"] }
     ];
-    var PORTAL_GEAR_TABS = ["gmpricing", "worksched"];
+    var PORTAL_GEAR_TABS = ["worksched"];
 
     // The tools of one group this session can actually open, in process order.
     function portalGroupTabs(g) {
@@ -5221,7 +5223,8 @@
     function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
     function portalGearToggle() {
       var gear = portalGearTabs();
-      // One item (a seller's Preços): the gear opens it directly.
+      // One item (Ajustes, the only thing left behind the gear): open it
+      // directly instead of popping a one-row menu.
       if (gear.length === 1) { switchTab(gear[0].tab); return; }
       var menu = document.getElementById("portalGearMenu");
       var btn = document.getElementById("heroGearBtn");
@@ -7691,7 +7694,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1792112848"></script>
+  <script src="gm.js?v=1792291938"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

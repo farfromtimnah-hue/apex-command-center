@@ -25743,12 +25743,23 @@ async function handlePostGmPricingImport(id, request, env) {
         try { body = await request.json(); } catch (e2) { body = {}; }
         var csv = typeof body.csv === "string" ? body.csv : "";
         if (!csv.trim()) { return jsonErr("csv is required", 400); }
+        // An .xlsx converted to CSV in the browser can be far bigger than a
+        // typical hand-made price list; a clear limit beats a Worker timeout
+        // or an opaque 500 partway through parsing.
+        if (csv.length > 8 * 1024 * 1024) {
+            return jsonErr2("Arquivo muito grande. O limite e 8MB de texto (aproximadamente 50.000 linhas). Divida a planilha em partes menores.",
+                "File too large. The limit is 8MB of text (about 50,000 rows). Split the spreadsheet into smaller parts.", 400);
+        }
         // Anything other than an explicit commit is a preview. A missing or
         // misspelled mode must never fall through to a write.
         var commit = body.mode === "commit";
 
         var rows = gmCsvParse(csv);
         if (rows.length < 2) { return jsonErr("O arquivo precisa de um cabecalho e ao menos uma linha", 400); }
+        if (rows.length > 20000) {
+            return jsonErr2("Muitas linhas (" + rows.length + "). O limite e 20.000 linhas por importacao.",
+                "Too many rows (" + rows.length + "). The limit is 20,000 rows per import.", 400);
+        }
 
         var headers = rows[0].map(function(h) { return String(h).trim(); });
         // D8: column matching is EXPLICIT. The first call (mode "headers") only
@@ -25759,7 +25770,12 @@ async function handlePostGmPricingImport(id, request, env) {
             var suggested = gmPricingResolveColumns(headers, null);
             var sugg = {};
             Object.keys(suggested).forEach(function(role) { sugg[role] = suggested[role] === -1 ? null : headers[suggested[role]]; });
-            return jsonOk({ needs_mapping: true, headers: headers, suggested: sugg });
+            // One sample value per column, from the first data row -- shown
+            // next to each mapping dropdown so a header-name guess can be
+            // checked against real data (same idea as a contacts import).
+            var sampleRow = rows.length > 1 ? rows[1] : [];
+            var sample = headers.map(function(h, i) { return sampleRow[i] === undefined ? "" : String(sampleRow[i]); });
+            return jsonOk({ needs_mapping: true, headers: headers, suggested: sugg, sample: sample });
         }
         var cols = gmPricingResolveColumns(headers, body.column_map, true);
         if (cols.item === -1) { return jsonErr("Pick the Item column", 400); }
@@ -59898,24 +59914,66 @@ async function supportRunClaudeTool(env, toolName, toolInput) {
 
 // Compact bilingual feature guide, built from reading the real pages and
 // nav.js. Kept accurate on purpose -- a feature not confirmed here is left
-// out rather than guessed. See nav.js for the authoritative label set this
-// was built from.
-var SUPPORT_FEATURE_GUIDE_PT =
-    "Menu lateral: Dashboard, Clientes, Analise de Clientes, Sessoes, Calendario, Documentos, Tarefas, Financeiro, Fornecedores, Apex Club, Vendas, Configuracoes.\n" +
+// out rather than guessed. See nav.js (staff side menu AND getMobileNavConfig
+// for the phone dock) and PORTAL_GROUPS / PORTAL_GEAR_TABS in portal.html
+// (client portal menu) for the authoritative label sets this was built from.
+// Two separate guides because the staff app and the client portal have two
+// different menus; supportPageIsPortal() below picks the right one from the
+// `page` value the request already carries (Nicole, 2026-10-17 -- a client's
+// contact could not find the Pricing page, and "Tell us" told her the menu
+// has no such page because the guide only knew the STAFF side menu).
+var SUPPORT_FEATURE_GUIDE_STAFF_PT =
+    "Menu lateral (desktop): Dashboard, Clientes, Analise de Clientes, Sessoes, Calendario, Documentos, Tarefas, Financeiro, Fornecedores, Apex Club, Vendas, Configuracoes.\n" +
+    "No celular NAO HA menu lateral: ha um dock de 5 posicoes na parte de baixo da tela -- Inicio, um grupo Clientes, um grupo Agenda, uma 5a posicao (Financeiro para Alice/desenvolvedor, Tarefas para o Rafa) e um grupo Negocio -- alem da engrenagem de Configuracoes. O conteudo de cada grupo pode variar por pessoa.\n" +
     "- Para criar uma fatura: abra Financeiro > Faturas > Nova Fatura, escolha o cliente e adicione os itens.\n" +
     "- Para faturas recorrentes: na Nova Fatura, marque a caixa de recorrencia e preencha o intervalo e a data de inicio.\n" +
     "- Para marcar um pagamento de fornecedor: abra Fornecedores, escolha o fornecedor e use 'Enviei o pagamento'.\n" +
     "- Para agendar uma sessao: abra Calendario ou Sessoes e use o botao de nova sessao (ou dite por voz).\n" +
     "- Para ver o perfil de um cliente: abra Clientes e clique no nome do cliente.\n" +
     "- Para revisar um contrato: abra Documentos > Revisao do contrato.";
-var SUPPORT_FEATURE_GUIDE_EN =
-    "Side menu: Dashboard, Clients, Client Analytics, Sessions, Calendar, Documents, Tasks, Financial, Vendors, Apex Club, Sales, Settings.\n" +
+var SUPPORT_FEATURE_GUIDE_STAFF_EN =
+    "Side menu (desktop): Dashboard, Clients, Client Analytics, Sessions, Calendar, Documents, Tasks, Financial, Vendors, Apex Club, Sales, Settings.\n" +
+    "On the phone there is NO side menu: there is a 5-spot dock at the bottom of the screen -- Home, a Clients group, an Agenda group, a 5th spot (Financial for Alice/developer, Tasks for Rafa), and a Business group -- plus the Settings gear. What is in each group can vary by person.\n" +
     "- To create an invoice: open Financial > Invoices > New Invoice, pick the client, and add line items.\n" +
     "- For recurring invoices: on New Invoice, check the recurring box and fill in the interval and start date.\n" +
     "- To mark a vendor payment: open Vendors, pick the vendor, and use 'I sent the payment'.\n" +
     "- To schedule a session: open Calendar or Sessions and use the new-session button (or dictate it by voice).\n" +
     "- To see a client's profile: open Clients and click the client's name.\n" +
     "- To review a contract: open Documents > Contract review.";
+// The client portal's own menu (portal.html, PORTAL_GROUPS / PORTAL_GEAR_TABS):
+// five destinations -- Inicio, Negocio, Agenda, Analytics, Apex -- plus the
+// Ajustes gear. Negocio holds the business tools in the order the work
+// happens, Precos last (set up once, then only maintained). A group with
+// several tools opens a small pop-up of them from the dock on a phone, or a
+// drop-down on desktop; a group left with one tool just opens that tool.
+var SUPPORT_FEATURE_GUIDE_PORTAL_PT =
+    "Menu do portal do cliente (celular e desktop): Inicio, Negocio (Pipeline, Orcamentos, Contratos, Projetos, Faturas, Financeiro e por ultimo Precos), Agenda, Analytics e Apex -- alem da engrenagem de Ajustes. Um vendedor ve um Negocio mais curto (so as ferramentas dele) e normalmente nao tem nada na engrenagem.\n" +
+    "- Precos esta dentro do grupo Negocio, por ultimo (e uma ferramenta de configuracao inicial, nao do dia a dia) -- NAO fica mais na engrenagem.\n" +
+    "- Para importar uma planilha de precos: dentro de Precos, use o botao de importar.\n" +
+    "- Para ver ou editar um orcamento: abra Negocio > Orcamentos.\n" +
+    "- Para ver um contrato: abra Negocio > Contratos (ou dentro do Projeto).\n" +
+    "- Para ver faturas: abra Negocio > Faturas.\n" +
+    "- Para agendar: abra Agenda.";
+var SUPPORT_FEATURE_GUIDE_PORTAL_EN =
+    "Client portal menu (phone and desktop): Home, Business (Pipeline, Estimates, Contracts, Projects, Invoices, Finances and last Pricing), Calendar, Analytics and Apex -- plus the Settings (Ajustes) gear. A salesperson sees a shorter Business group (only their own tools) and usually has nothing behind the gear.\n" +
+    "- Pricing lives inside the Business group, last (it's a one-time setup tool, not a daily one) -- it is NOT behind the gear any more.\n" +
+    "- To import a pricing spreadsheet: inside Pricing, use the import button.\n" +
+    "- To see or edit an estimate: open Business > Estimates.\n" +
+    "- To see a contract: open Business > Contracts (or inside the Project).\n" +
+    "- To see invoices: open Business > Invoices.\n" +
+    "- To book something: open Calendar.";
+// `page` is location.pathname from the caller (apiFetch body) -- the one
+// signal we already have for which app the person is on. Checking for
+// "portal.html" rather than the staff pages' names because a stray or future
+// staff page should default to the staff guide, not silently fall through.
+function supportPageIsPortal(page) {
+    return String(page || "").indexOf("portal.html") !== -1;
+}
+function supportFeatureGuideFor(page, language) {
+    var portal = supportPageIsPortal(page);
+    if (language === "en") { return portal ? SUPPORT_FEATURE_GUIDE_PORTAL_EN : SUPPORT_FEATURE_GUIDE_STAFF_EN; }
+    return portal ? SUPPORT_FEATURE_GUIDE_PORTAL_PT : SUPPORT_FEATURE_GUIDE_STAFF_PT;
+}
 
 function supportRateLimited(env, userEmail) {
     var today = gmEasternToday();
@@ -59969,7 +60027,9 @@ async function handlePostSupportMessage(request, env) {
             "Ask AT MOST ONE short follow-up question per turn, and at most 3 total, to get: which page, which client or invoice (use the tools to verify if she gives a name or number), what she expected, and what she actually saw. " +
             "Stop asking as soon as you have enough to write a complete ticket -- do not ask for the sake of asking. " +
             "When you decide you have enough, do NOT ask another question -- instead respond with guidance for her in her own language: " +
-            "if a real feature exists for what she needs, give step-by-step directions using this feature guide (quote it, do not invent steps not in it):\n" + (language === "en" ? SUPPORT_FEATURE_GUIDE_EN : SUPPORT_FEATURE_GUIDE_PT) + "\n" +
+            "if a real feature exists for what she needs, give step-by-step directions using this feature guide (quote it, do not invent steps not in it):\n" + supportFeatureGuideFor(page, language) + "\n" +
+            "This guide is for the app she is currently on (the staff app or the client portal -- they have different menus; do not describe the other one's menu to her). " +
+            "Only say a page or feature does not exist when you are sure it is genuinely missing from this guide -- if you are not sure, say you are not sure rather than that it doesn't exist, and still finish the report. " +
             "If something is broken, give at most ONE troubleshooting tip ONLY if it is one of: refresh the page, check the language toggle, sign out and sign back in -- never invent a tip beyond these three. " +
             "Then tell her plainly the report was sent. " +
             "You have two read-only tools: lookup_invoice and lookup_client. Use them only to verify a specific invoice number or client name she mentioned -- never to browse.";

@@ -5427,7 +5427,7 @@
           actions.style.cssText = "margin-top:8px;display:flex;gap:8px;";
           if (status === "open") {
             var resolveBtn = document.createElement("button");
-            resolveBtn.className = "btn btn-sm";
+            resolveBtn.className = "btn-secondary btn-sm";
             resolveBtn.textContent = tellUsT("Marcar resolvido", "Mark resolved");
             resolveBtn.onclick = function() { supportResolveTicket(tk.id); };
             actions.appendChild(resolveBtn);

@@ -73,6 +73,11 @@ for (const [k, path] of Object.entries(FILES)) {
   ok(!!micMatch, k + ": tellUsMicBtn keeps its id and onclick");
   ok(!!micMatch && micMatch[1] === "btn-secondary btn-sm", k + ": tellUsMicBtn class changed to btn-secondary btn-sm");
 
+  // The per-ticket "Marcar resolvido" button is built in JS: it must use the
+  // same defined gold outline look, not the plain .btn card look.
+  ok(/resolveBtn\.className\s*=\s*"btn-secondary btn-sm"/.test(fn), k + ": the per-ticket resolve button uses btn-secondary btn-sm");
+  ok(!/resolveBtn\.className\s*=\s*"btn btn-sm"/.test(fn), k + ": the per-ticket resolve button is not the plain btn style");
+
   // No new browser pop-ups.
   ok(!/\balert\s*\(/.test(fn) && !/\bconfirm\s*\(/.test(fn) && !/\bprompt\s*\(/.test(fn),
      k + ": loadSupportTickets contains no alert/confirm/prompt call");

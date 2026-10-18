@@ -59,3 +59,13 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 # `wrangler secret put` / the dashboard) to open Tap to Pay to every business
 # owner -- no code change. Left unset deliberately: do not add it as "1"
 # without Apple's approval in hand.
+# PASSKEY LOGIN (Stytch Consumer project, 2026-10-18). Names only, no values
+# here; the reviewer sets them. Every passkey route except
+# GET /api/passkey-login/status answers 404 until PASSKEY_LOGIN_ENABLED = "1".
+#   PASSKEY_LOGIN_ENABLED      var:    "1" turns the passkey routes on
+#   PASSKEY_APP_READY          var:    "1" = invite message offers the iPhone app
+#   PASSKEY_SMS_DAILY_CAP      var:    app-wide SMS code sends per 24h (default 30)
+#   PASSKEY_ALLOWED_COUNTRIES  var:    calling codes allowed for SMS (default "1,55")
+#   STYTCH_ENV                 var:    "live" for api.stytch.com, else test.stytch.com
+#   STYTCH_PROJECT_ID          secret: Stytch project id
+#   STYTCH_SECRET              secret: Stytch secret (never commit it)

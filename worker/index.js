@@ -473,12 +473,21 @@ async function authenticateClientToken(token, env) {
     // filtering: it comes from the login row via the token, never from a header,
     // a query param or a request body.
     var isSeller = row.login_role === "seller" && !!row.seller_name;
+    // Passkey login build: three NEW login roles (partner, staff_finance,
+    // staff). Each is carried through EXPLICITLY so the client gate can apply
+    // its own deny list (loginRoleDenied); none of them ever falls through to
+    // "client" (owner). Their name sits in seller_name, but seller_name is
+    // only ever handed on as a seller filter for login_role 'seller'.
+    var isNewRole = PASSKEY_NEW_LOGIN_ROLES.indexOf(row.login_role) !== -1;
+    // A value this code does not know fails CLOSED ("unknown" is denied by
+    // the gate). 'client' and 'seller' resolve exactly as before.
+    var known = isSeller || isNewRole || !row.login_role || row.login_role === "client" || row.login_role === "seller";
     return {
         email: null, role: "client",
-        display_name: isSeller ? row.seller_name : (row.client_name || row.username),
+        display_name: isSeller ? row.seller_name : (isNewRole ? (row.seller_name || row.username) : (row.client_name || row.username)),
         avatar_url: null,
         client_id: row.client_id, username: row.username,
-        login_role: isSeller ? "seller" : "client",
+        login_role: isSeller ? "seller" : (isNewRole ? row.login_role : (known ? "client" : "unknown")),
         seller_name: isSeller ? row.seller_name : null,
         must_change_password: !!row.must_change_password,
         auth_method: "password", token_hash: tokenHash
@@ -15535,6 +15544,12 @@ function clientRequestAllowed(path, method, clientId) {
     // every client, and the :id/approve|reject decision route is admin-only too.
     // Both must stay unreachable here, so no prefix match on /api/gm/.
     if (path === "/api/gm/seller-login-requests" && method === "POST") { return true; }
+    // Passkey login build: People and access (owner, and a partner through
+    // its own deny list). The handlers take client_id from the session and
+    // apply the partner rule (passkeyMayManage); the whole family is 404
+    // while PASSKEY_LOGIN_ENABLED is off.
+    if (path === "/api/gm/people" && (method === "GET" || method === "POST")) { return true; }
+    if (/^\/api\/gm\/people\/[A-Za-z0-9-]+\/(invite|disable|enable)$/.test(path) && method === "POST") { return true; }
     var base = "/api/clients/" + clientId;
     if (path === base && method === "GET") { return true; }
     if (path.indexOf(base + "/") === 0) {
@@ -16032,6 +16047,17 @@ async function enforceClientRoleGate(request, env, path, method) {
         if (!sellerRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
         return null;
     }
+    // Passkey login build: partner, staff_finance and staff are the owner's
+    // allowlist MINUS their own deny list (loginRoleDenied). Handled here by
+    // name, never by falling through to the owner branch below. Any other
+    // login_role value (a typo, a future role) is refused outright.
+    var lr = user.login_role;
+    if (lr === "partner" || lr === "staff_finance" || lr === "staff") {
+        if (!clientRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
+        if (loginRoleDenied(lr, path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
+        return null;
+    }
+    if (lr && lr !== "client") { return jsonErr("Forbidden", 403); }
     if (!clientRequestAllowed(path, method, user.client_id)) { return jsonErr("Forbidden", 403); }
     return null;
 }
@@ -16177,7 +16203,12 @@ async function handlePostClientLogin(request, env) {
             "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
         ).bind(username).first();
 
-        var ok = row ? await verifyPassword(password, row.password_hash) : false;
+        // A passkey-only login (password_hash 'PASSKEY_ONLY', passkey login
+        // build) takes the SAME path as an unknown username: no hash work, the
+        // same 401, nothing thrown. verifyPassword would also refuse it (the
+        // value has no pbkdf2$ parts), but saying so here keeps the two
+        // refusals indistinguishable by design rather than by accident.
+        var ok = (row && row.password_hash !== PASSKEY_ONLY_HASH) ? await verifyPassword(password, row.password_hash) : false;
         if (!ok) { return jsonErr("Usuário ou senha inválidos", 401); }
 
         // Lazy purge of expired tokens, then mint a 30-day session token.
@@ -16304,6 +16335,1083 @@ async function handlePostClientLogout(request, env) {
     } catch (e) {
         return jsonErr("Error logging out: " + e.message, 500);
     }
+}
+
+// ===========================================================================
+// PASSKEY LOGIN (Stytch Consumer project), 2026-10-18.
+//
+// Stytch does exactly two things here: (a) a one-time SMS code to the number
+// ALREADY stored for the person in login_people, and (b) passkey (WebAuthn)
+// registration and authentication. Apex keeps its own people, roles,
+// sessions and permissions in D1: a successful passkey sign-in mints the SAME
+// capt_ session handlePostClientLogin mints, against a client_logins row, so
+// every existing gate, session and kill switch keeps working unchanged.
+//
+// DARK BY DEFAULT. Every route below except GET /api/passkey-login/status
+// answers 404 {"error":"Not found"} unless env.PASSKEY_LOGIN_ENABLED is the
+// string "1" (see passkeyRoute). The screens ship hidden behind that status.
+//
+// NEVER LOGGED: codes, link tokens, the Stytch secret, credentials and full
+// phone numbers (passkeyMaskPhone keeps the last 4 digits only).
+//
+// Environment read by this block (names only; values are set by the reviewer):
+//   PASSKEY_LOGIN_ENABLED     "1" turns every route on; anything else = 404
+//   STYTCH_PROJECT_ID         Stytch project id (HTTP Basic user)
+//   STYTCH_SECRET             Stytch secret (HTTP Basic password), secret
+//   STYTCH_ENV                "live" -> api.stytch.com, else test.stytch.com
+//   PASSKEY_APP_READY         "1" -> the invite message offers the iPhone app
+//   PASSKEY_SMS_DAILY_CAP     app-wide SMS sends per 24 hours (default 30)
+//   PASSKEY_ALLOWED_COUNTRIES comma list of calling codes (default "1,55")
+// ===========================================================================
+
+var PASSKEY_RP_ID = "apex.resonateai.online";
+var PASSKEY_INVITE_URL = "https://apex.resonateai.online/invite-login.html?t=";
+var PASSKEY_APP_STORE_URL = "https://apps.apple.com/app/id6808500506";
+var PASSKEY_INVITE_HOURS = 72;
+var PASSKEY_CODE_MINUTES = 5;
+var PASSKEY_REGISTER_MINUTES = 10;
+var PASSKEY_SENDS_PER_INVITE = 3;
+var PASSKEY_SEND_COOLDOWN_S = 60;
+var PASSKEY_SENDS_PER_IP = 10;
+var PASSKEY_VERIFY_FAILURES_MAX = 5;
+var PASSKEY_SIGNIN_PER_IP_HOUR = 30;
+var PASSKEY_ONLY_HASH = "PASSKEY_ONLY";
+// The three login roles this build adds to client_logins.role. 'client'
+// (owner) and 'seller' keep every existing meaning.
+var PASSKEY_NEW_LOGIN_ROLES = ["partner", "staff_finance", "staff"];
+var PASSKEY_PERSON_ROLES = ["partner", "staff_finance", "staff", "seller"];
+var PASSKEY_ROLE_LABELS = {
+    client:        { pt: "Dono(a) do negócio", en: "Business owner" },
+    partner:       { pt: "Sócio(a) ou assistente executivo(a)", en: "Partner or executive assistant" },
+    staff_finance: { pt: "Equipe com acesso ao financeiro", en: "Staff with finance access" },
+    staff:         { pt: "Equipe sem acesso ao financeiro", en: "Staff without finance access" },
+    seller:        { pt: "Vendedor(a)", en: "Salesperson" }
+};
+
+function passkeyEnabled(env) {
+    return !!env && String(env.PASSKEY_LOGIN_ENABLED || "") === "1";
+}
+function passkeyAppReady(env) {
+    return !!env && String(env.PASSKEY_APP_READY || "") === "1";
+}
+function passkeyNow() {
+    return new Date();
+}
+function passkeyIso(ms) {
+    return new Date(ms).toISOString();
+}
+
+// One generic answer per situation. None of them says whether a person, a
+// number or a link exists.
+function passkeyFail(kind) {
+    if (kind === "signin") {
+        return jsonErr2("Não foi possível entrar com passkey. Tente de novo ou peça um novo link de convite.",
+            "Could not sign in with passkey. Try again or ask for a new invite link.", 401);
+    }
+    if (kind === "later") {
+        return jsonErr2("Não foi possível enviar o código agora. Tente novamente mais tarde.",
+            "We could not send a code right now. Try again later.", 429);
+    }
+    if (kind === "busy") {
+        return jsonErr2("Muitas tentativas. Tente novamente mais tarde.",
+            "Too many attempts. Try again later.", 429);
+    }
+    if (kind === "code") {
+        return jsonErr2("Código inválido ou expirado.", "Invalid or expired code.", 400);
+    }
+    if (kind === "register") {
+        return jsonErr2("Não foi possível criar a passkey. Tente de novo.",
+            "Could not create the passkey. Try again.", 400);
+    }
+    if (kind === "unavailable") {
+        return jsonErr2("Serviço indisponível no momento. Tente novamente mais tarde.",
+            "Service unavailable right now. Try again later.", 503);
+    }
+    // "link": invalid, expired, used, replaced or dead.
+    return jsonErr2("Este link expirou ou já foi usado. Peça um novo link para quem convidou você.",
+        "This link has expired or was already used. Ask whoever invited you for a new link.", 404, { restart: true });
+}
+
+// Constant-time string comparison for anything secret-like compared here.
+function passkeyConstantEq(a, b) {
+    a = String(a || ""); b = String(b || "");
+    if (a.length !== b.length || !a.length) { return false; }
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) { diff |= a.charCodeAt(i) ^ b.charCodeAt(i); }
+    return diff === 0;
+}
+
+function passkeyB64url(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) { s += String.fromCharCode(bytes[i]); }
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+// 32 random bytes, base64url: 43 characters, never stored (only its SHA-256).
+function passkeyNewToken() {
+    return passkeyB64url(crypto.getRandomValues(new Uint8Array(32)));
+}
+function passkeyTokenShapeOk(t) {
+    return typeof t === "string" && /^[A-Za-z0-9_-]{43}$/.test(t);
+}
+
+// E.164 for the two countries Apex serves. +1 assumed for 10 bare digits.
+// Returns { e164 } or { error: "invalid" | "country" }.
+function passkeyNormalizePhone(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s) { return { error: "invalid" }; }
+    var plus = s.charAt(0) === "+";
+    if (!plus && s.indexOf("00") === 0) { plus = true; s = s.slice(2); }
+    var d = s.replace(/\D/g, "");
+    if (!d) { return { error: "invalid" }; }
+    if (!plus) {
+        if (d.length === 10) { d = "1" + d; }
+        else if (d.length === 11 && d.charAt(0) === "1") { /* already +1 */ }
+        else if ((d.length === 12 || d.length === 13) && d.indexOf("55") === 0) { /* Brazil */ }
+        else { return { error: "invalid" }; }
+    }
+    if (d.charAt(0) === "1") {
+        // NANP: area code and exchange never start with 0 or 1.
+        if (d.length !== 11 || !/^1[2-9]\d{2}[2-9]\d{6}$/.test(d)) { return { error: "invalid" }; }
+        return { e164: "+" + d };
+    }
+    if (d.indexOf("55") === 0) {
+        // Brazil: 2-digit area code (11-99) + 8 or 9 digit number.
+        if (!/^55[1-9][1-9]\d{8,9}$/.test(d)) { return { error: "invalid" }; }
+        return { e164: "+" + d };
+    }
+    if (d.length < 8 || d.length > 15) { return { error: "invalid" }; }
+    return { error: "country" };
+}
+function passkeyPhoneError(kind) {
+    if (kind === "country") {
+        return jsonErr2("Só aceitamos números dos Estados Unidos e Canadá (+1) ou do Brasil (+55).",
+            "We only accept numbers from the United States and Canada (+1) or Brazil (+55).", 400);
+    }
+    return jsonErr2("Número de telefone inválido. Use o código do país (+1 ou +55) e o número completo.",
+        "Invalid phone number. Use the country code (+1 or +55) and the full number.", 400);
+}
+function passkeyCountryCode(e164) {
+    var s = String(e164 || "");
+    if (s.indexOf("+1") === 0) { return "1"; }
+    if (s.indexOf("+55") === 0) { return "55"; }
+    return "";
+}
+function passkeyCountryAllowed(env, e164) {
+    var list = String((env && env.PASSKEY_ALLOWED_COUNTRIES) || "1,55").split(",")
+        .map(function(x) { return x.trim().replace(/^\+/, ""); }).filter(Boolean);
+    var cc = passkeyCountryCode(e164);
+    return !!cc && list.indexOf(cc) !== -1;
+}
+// The only form a phone number ever takes in a log line or a response.
+function passkeyMaskPhone(e164) {
+    var d = String(e164 || "").replace(/\D/g, "");
+    return "••• •••• " + (d.length >= 4 ? d.slice(-4) : "????");
+}
+function passkeySmsCap(env) {
+    var n = parseInt((env && env.PASSKEY_SMS_DAILY_CAP) || "", 10);
+    return (n > 0) ? n : 30;
+}
+function passkeyFirstName(name) {
+    var s = String(name || "").trim();
+    return s ? s.split(/\s+/)[0] : "";
+}
+
+// ---------------------------------------------------------------------------
+// Stytch REST. HTTP Basic auth (project id : secret). The test project is the
+// default; STYTCH_ENV "live" is the only way to reach the live API. Never logs
+// a request or response body.
+// ---------------------------------------------------------------------------
+function stytchBaseUrl(env) {
+    return String((env && env.STYTCH_ENV) || "test").trim() === "live" ? "https://api.stytch.com" : "https://test.stytch.com";
+}
+async function stytchCall(env, path, body) {
+    if (!env.STYTCH_PROJECT_ID || !env.STYTCH_SECRET) {
+        console.log("stytch " + path + ": not configured");
+        return { ok: false, status: 0, data: {} };
+    }
+    var res;
+    try {
+        res = await fetch(stytchBaseUrl(env) + path, {
+            method: "POST",
+            headers: {
+                "Authorization": "Basic " + btoa(env.STYTCH_PROJECT_ID + ":" + env.STYTCH_SECRET),
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body || {})
+        });
+    } catch (e) {
+        console.log("stytch " + path + ": network error");
+        return { ok: false, status: 0, data: {} };
+    }
+    var data = {};
+    try { data = (await res.json()) || {}; } catch (e) { data = {}; }
+    if (!res.ok) { console.log("stytch " + path + ": " + res.status + " " + (data.error_type || "")); }
+    return { ok: !!res.ok, status: res.status, data: data };
+}
+// Stytch returns the WebAuthn options as a JSON STRING. The page and the
+// native plugin want the object.
+function passkeyParseOptions(s) {
+    if (s && typeof s === "object") { return s; }
+    try { return JSON.parse(String(s || "")); } catch (e) { return null; }
+}
+// Stytch wants public_key_credential as a JSON string. The page or plugin may
+// send it as an object or as the string already.
+function passkeyCredentialString(c) {
+    if (!c) { return ""; }
+    if (typeof c === "string") { return c.length <= 20000 ? c : ""; }
+    try { var s = JSON.stringify(c); return s.length <= 20000 ? s : ""; } catch (e) { return ""; }
+}
+
+// ---------------------------------------------------------------------------
+// The session. A COPY of handlePostClientLogin's minting: the same capt_
+// token, the same SHA-256 stored in client_auth_tokens, the same 30-day
+// expiry, the same last_login_at stamp and the same response shape. Not a new
+// session type.
+// ---------------------------------------------------------------------------
+async function passkeyMintSession(env, username) {
+    var row = await env.DB.prepare(
+        "SELECT l.username, l.client_id, l.must_change_password, c.name AS client_name " +
+        "FROM client_logins l LEFT JOIN clients c ON c.id = l.client_id WHERE l.username = ?"
+    ).bind(username).first();
+    if (!row) { return null; }
+    await env.DB.prepare("DELETE FROM client_auth_tokens WHERE expires_at <= datetime('now')").run();
+    var token = generateClientToken();
+    var tokenHash = await sha256Hex(token);
+    var expires = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+    await env.DB.prepare(
+        "INSERT INTO client_auth_tokens (token_hash, client_id, username, expires_at) VALUES (?, ?, ?, ?)"
+    ).bind(tokenHash, row.client_id, row.username, expires).run();
+    await env.DB.prepare("UPDATE client_logins SET last_login_at = datetime('now') WHERE username = ?")
+        .bind(row.username).run();
+    return {
+        token: token,
+        client_id: row.client_id,
+        client_name: row.client_name,
+        must_change_password: !!row.must_change_password
+    };
+}
+
+// Per-IP rate limit for the public sign-in (start and finish both count),
+// BEFORE any Stytch call. Same shape as client_login_attempts.
+async function passkeySigninRateLimited(env, request) {
+    var ip = request.headers.get("CF-Connecting-IP") || "";
+    await env.DB.prepare("DELETE FROM passkey_login_attempts WHERE created_at < datetime('now', '-2 days')").run();
+    if (ip) {
+        var hits = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM passkey_login_attempts WHERE ip = ? AND created_at > datetime('now', '-1 hour')"
+        ).bind(ip).first();
+        if (hits && hits.c >= PASSKEY_SIGNIN_PER_IP_HOUR) { return true; }
+    }
+    await env.DB.prepare("INSERT INTO passkey_login_attempts (id, ip) VALUES (?, ?)")
+        .bind(crypto.randomUUID(), ip || null).run();
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/passkey-login/status — always answers. { enabled }
+// ---------------------------------------------------------------------------
+async function handleGetPasskeyStatus(request, env) {
+    return jsonOk({ enabled: passkeyEnabled(env) });
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/passkey-login/start — no body, nothing typed. Asks Stytch
+// for a discoverable-credential challenge (no user_id) for the relying party
+// apex.resonateai.online and hands the request options to the page or plugin.
+// ---------------------------------------------------------------------------
+async function handlePostPasskeyLoginStart(request, env) {
+    try {
+        if (await passkeySigninRateLimited(env, request)) { return passkeyFail("busy"); }
+        var r = await stytchCall(env, "/v1/webauthn/authenticate/start", {
+            domain: PASSKEY_RP_ID,
+            return_passkey_credential_options: true,
+            use_base64_url_encoding: true
+        });
+        var opts = r.ok ? passkeyParseOptions(r.data.public_key_credential_request_options) : null;
+        if (!opts || !opts.challenge) { return passkeyFail("unavailable"); }
+        return jsonOk({ options: opts, rp_id: opts.rpId || PASSKEY_RP_ID });
+    } catch (e) {
+        console.log("passkey start failed");
+        return passkeyFail("unavailable");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/passkey-login/finish — { credential }. Stytch verifies the
+// assertion; Apex then requires (1) the registration id in login_passkeys and
+// not revoked, (2) its person active with the same Stytch user id, and (3) a
+// client_logins row for that person. Any mismatch: one generic 401.
+// ---------------------------------------------------------------------------
+async function handlePostPasskeyLoginFinish(request, env) {
+    try {
+        if (await passkeySigninRateLimited(env, request)) { return passkeyFail("busy"); }
+        var body = await request.json().catch(function() { return {}; });
+        var cred = passkeyCredentialString(body && body.credential);
+        if (!cred) { return passkeyFail("signin"); }
+        var r = await stytchCall(env, "/v1/webauthn/authenticate", { public_key_credential: cred });
+        if (!r.ok || !r.data.user_id || !r.data.webauthn_registration_id) { return passkeyFail("signin"); }
+        var row = await env.DB.prepare(
+            "SELECT p.id AS person_id, p.username, p.stytch_user_id, p.status " +
+            "FROM login_passkeys k JOIN login_people p ON p.id = k.person_id " +
+            "WHERE k.webauthn_registration_id = ? AND k.revoked_at IS NULL"
+        ).bind(String(r.data.webauthn_registration_id)).first();
+        if (!row || row.status !== "active" || !row.username ||
+            !passkeyConstantEq(row.stytch_user_id, String(r.data.user_id))) {
+            return passkeyFail("signin");
+        }
+        var session = await passkeyMintSession(env, row.username);
+        if (!session) { return passkeyFail("signin"); }
+        await env.DB.prepare("UPDATE login_people SET last_passkey_login_at = ? WHERE id = ?")
+            .bind(passkeyNow().toISOString(), row.person_id).run();
+        return jsonOk(session);
+    } catch (e) {
+        console.log("passkey finish failed");
+        return passkeyFail("signin");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+async function passkeyCreateInvite(env, personId) {
+    var token = passkeyNewToken();
+    var hash = await sha256Hex(token);
+    var now = passkeyNow().getTime();
+    var expires = passkeyIso(now + PASSKEY_INVITE_HOURS * 3600 * 1000);
+    // Every older unused invite of this person stops working at once.
+    await env.DB.prepare(
+        "UPDATE login_invites SET replaced_at = ? WHERE person_id = ? AND used_at IS NULL AND replaced_at IS NULL"
+    ).bind(passkeyIso(now), personId).run();
+    await env.DB.prepare(
+        "INSERT INTO login_invites (id, person_id, token_hash, expires_at, code_sends, code_verify_failures, created_at) " +
+        "VALUES (?, ?, ?, ?, 0, 0, ?)"
+    ).bind(crypto.randomUUID(), personId, hash, expires, passkeyIso(now)).run();
+    return { invite_url: PASSKEY_INVITE_URL + token, expires_at: expires };
+}
+
+async function passkeyLoadInvite(env, token) {
+    if (!passkeyTokenShapeOk(token)) { return null; }
+    var hash = await sha256Hex(token);
+    var row = await env.DB.prepare(
+        "SELECT i.id, i.person_id, i.token_hash, i.expires_at, i.used_at, i.replaced_at, i.code_sends, " +
+        "i.code_verify_failures, i.last_send_at, i.stytch_method_id, i.register_until, i.created_at, " +
+        "p.client_id, p.role, p.display_name, p.phone_e164, p.username, p.stytch_user_id, " +
+        "p.status AS person_status, p.accepted_at, c.name AS business_name " +
+        "FROM login_invites i JOIN login_people p ON p.id = i.person_id " +
+        "LEFT JOIN clients c ON c.id = p.client_id WHERE i.token_hash = ?"
+    ).bind(hash).first();
+    if (!row || !passkeyConstantEq(row.token_hash, hash)) { return null; }
+    return row;
+}
+function passkeyInviteUsable(row) {
+    if (!row) { return false; }
+    if (row.used_at || row.replaced_at) { return false; }
+    if (!row.expires_at || row.expires_at <= passkeyNow().toISOString()) { return false; }
+    if (row.person_status === "disabled") { return false; }
+    if ((row.code_verify_failures || 0) >= PASSKEY_VERIFY_FAILURES_MAX) { return false; }
+    return true;
+}
+
+// The invite message (WhatsApp and copy). Two wordings, chosen by
+// PASSKEY_APP_READY: until the app build with the native plugin is live the
+// message says "website only" and carries NO app link.
+function passkeyInviteMessage(lang, o, appReady) {
+    var first = passkeyFirstName(o.name);
+    if (lang === "en") {
+        return "Hi " + first + "! " + o.inviter + " invited you to sign in to Apex (" + o.business + "). " +
+            "Open this link to create your passkey access: " + o.link + "\n\n" +
+            "The link is valid for 72 hours. " +
+            (appReady
+                ? "After you create your passkey, you can also sign in with the Apex app: " + PASSKEY_APP_STORE_URL
+                : "Note: this new login works only on the website for now. In the app, coming soon.");
+    }
+    return "Olá " + first + "! " + o.inviter + " convidou você para entrar no Apex (" + o.business + "). " +
+        "Abra este link para criar seu acesso com passkey: " + o.link + "\n\n" +
+        "O link vale por 72 horas. " +
+        (appReady
+            ? "Depois de criar a passkey, você também pode entrar pelo app do Apex: " + PASSKEY_APP_STORE_URL
+            : "Atenção: este novo login funciona só no site por enquanto. No app, em breve.");
+}
+// The recipient's saved language when known, otherwise Portuguese first and
+// English below it.
+function passkeyInviteMessageFor(lang, o, appReady) {
+    if (lang === "pt" || lang === "en") { return passkeyInviteMessage(lang, o, appReady); }
+    return passkeyInviteMessage("pt", o, appReady) + "\n\n—\n\n" + passkeyInviteMessage("en", o, appReady);
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET /api/passkey-invite/info?t= — public; the token is the key.
+// ---------------------------------------------------------------------------
+async function handleGetPasskeyInviteInfo(request, env) {
+    try {
+        var t = new URL(request.url).searchParams.get("t") || "";
+        var row = await passkeyLoadInvite(env, t);
+        if (!passkeyInviteUsable(row)) { return jsonErr("Not found", 404); }
+        var label = PASSKEY_ROLE_LABELS[row.role] || PASSKEY_ROLE_LABELS.staff;
+        var cooldown = 0;
+        if (row.last_send_at) {
+            var since = (passkeyNow().getTime() - Date.parse(row.last_send_at)) / 1000;
+            cooldown = Math.max(0, Math.ceil(PASSKEY_SEND_COOLDOWN_S - since));
+        }
+        return jsonOk({
+            name: passkeyFirstName(row.display_name),
+            business_name: row.business_name || "",
+            role_label: label,
+            masked_phone: passkeyMaskPhone(row.phone_e164),
+            expires_at: row.expires_at,
+            code_sent: !!row.stytch_method_id,
+            resend_in: cooldown
+        });
+    } catch (e) {
+        return jsonErr("Not found", 404);
+    }
+}
+
+async function passkeyMaybeAlert(env, count, cap) {
+    var day = passkeyNow().toISOString().slice(0, 10);
+    var half = Math.ceil(cap / 2);
+    var levels = [];
+    if (count >= half) { levels.push("half"); }
+    if (count >= cap) { levels.push("cap"); }
+    for (var i = 0; i < levels.length; i++) {
+        var res = await env.DB.prepare(
+            "INSERT OR IGNORE INTO passkey_sms_alerts (day, threshold, sent_at) VALUES (?, ?, ?)"
+        ).bind(day, levels[i], passkeyNow().toISOString()).run();
+        if (res && res.meta && res.meta.changes === 1) {
+            await notifyNicoleTelegram(env, levels[i] === "cap"
+                ? "Apex passkey login: SMS codes reached the daily cap (" + count + " of " + cap + " in the last 24 hours). New code sends are blocked until older ones age out."
+                : "Apex passkey login: SMS codes reached half of the daily cap (" + count + " of " + cap + " in the last 24 hours).");
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/passkey-invite/send-code { t } — public. The number is
+// ALWAYS the one stored on the person; nothing in the request can change it.
+// Every refusal answers the same "try again later".
+// ---------------------------------------------------------------------------
+async function handlePostPasskeyInviteSendCode(request, env) {
+    try {
+        var body = await request.json().catch(function() { return {}; });
+        var row = await passkeyLoadInvite(env, body && body.t);
+        if (!passkeyInviteUsable(row)) { return passkeyFail("later"); }
+        if (!passkeyCountryAllowed(env, row.phone_e164)) { return passkeyFail("later"); }
+        var now = passkeyNow().getTime();
+        var dayAgo = passkeyIso(now - 24 * 3600 * 1000);
+        // Per invite: every older invite of this person is replaced when a new
+        // one is created, so this person's sends since this invite was created
+        // are exactly this invite's sends.
+        var since = row.created_at && row.created_at > dayAgo ? row.created_at : dayAgo;
+        var mine = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM login_code_sends WHERE person_id = ? AND created_at >= ?"
+        ).bind(row.person_id, since).first();
+        if (mine && mine.c >= PASSKEY_SENDS_PER_INVITE) { return passkeyFail("later"); }
+        if (row.last_send_at && (now - Date.parse(row.last_send_at)) < PASSKEY_SEND_COOLDOWN_S * 1000) {
+            return passkeyFail("later");
+        }
+        var cap = passkeySmsCap(env);
+        var all = await env.DB.prepare("SELECT COUNT(*) AS c FROM login_code_sends WHERE created_at > ?")
+            .bind(dayAgo).first();
+        if (all && all.c >= cap) {
+            await passkeyMaybeAlert(env, all.c, cap);
+            return passkeyFail("later");
+        }
+        var ip = request.headers.get("CF-Connecting-IP") || "";
+        if (ip) {
+            var byIp = await env.DB.prepare(
+                "SELECT COUNT(*) AS c FROM login_code_sends WHERE ip = ? AND created_at > ?"
+            ).bind(ip, dayAgo).first();
+            if (byIp && byIp.c >= PASSKEY_SENDS_PER_IP) { return passkeyFail("later"); }
+        }
+        // Counted BEFORE the SMS goes out, so a failed or slow Stytch call can
+        // never be retried into unlimited sends.
+        await env.DB.prepare("DELETE FROM login_code_sends WHERE created_at < ?")
+            .bind(passkeyIso(now - 3 * 24 * 3600 * 1000)).run();
+        await env.DB.prepare("INSERT INTO login_code_sends (id, created_at, person_id, ip) VALUES (?, ?, ?, ?)")
+            .bind(crypto.randomUUID(), passkeyIso(now), row.person_id, ip || null).run();
+        await env.DB.prepare("UPDATE login_invites SET code_sends = code_sends + 1, last_send_at = ? WHERE id = ?")
+            .bind(passkeyIso(now), row.id).run();
+        await passkeyMaybeAlert(env, ((all && all.c) || 0) + 1, cap);
+
+        var r = await stytchCall(env, "/v1/otps/sms/login_or_create", {
+            phone_number: row.phone_e164,
+            expiration_minutes: PASSKEY_CODE_MINUTES,
+            locale: passkeyCountryCode(row.phone_e164) === "55" ? "pt-br" : "en"
+        });
+        if (!r.ok || !r.data.phone_id || !r.data.user_id) {
+            console.log("passkey send-code failed for " + passkeyMaskPhone(row.phone_e164));
+            return passkeyFail("later");
+        }
+        // Later sends reuse the same Stytch user; a different user for the
+        // stored number would mean the record changed under us.
+        if (row.stytch_user_id && !passkeyConstantEq(row.stytch_user_id, r.data.user_id)) {
+            console.log("passkey send-code: Stytch user mismatch for " + passkeyMaskPhone(row.phone_e164));
+            return passkeyFail("later");
+        }
+        if (!row.stytch_user_id) {
+            await env.DB.prepare("UPDATE login_people SET stytch_user_id = ? WHERE id = ?")
+                .bind(String(r.data.user_id), row.person_id).run();
+        }
+        await env.DB.prepare("UPDATE login_invites SET stytch_method_id = ? WHERE id = ?")
+            .bind(String(r.data.phone_id), row.id).run();
+        return jsonOk({ sent: true, resend_in: PASSKEY_SEND_COOLDOWN_S, expires_in_minutes: PASSKEY_CODE_MINUTES });
+    } catch (e) {
+        console.log("passkey send-code error");
+        return passkeyFail("later");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/passkey-invite/verify-code { t, code } — public. At most 5
+// failed tries per invite (the invite lives 72 hours, so this is stricter
+// than 5 per 24 hours); after the 5th the link is dead and the person needs a
+// new one. On success the passkey step opens for 10 minutes.
+// ---------------------------------------------------------------------------
+async function handlePostPasskeyInviteVerifyCode(request, env) {
+    try {
+        var body = await request.json().catch(function() { return {}; });
+        var row = await passkeyLoadInvite(env, body && body.t);
+        if (!passkeyInviteUsable(row)) { return passkeyFail("link"); }
+        var code = String((body && body.code) || "").replace(/\s/g, "");
+        if (!row.stytch_method_id || !row.stytch_user_id || !/^\d{6}$/.test(code)) { return passkeyFail("code"); }
+        var r = await stytchCall(env, "/v1/otps/authenticate", { method_id: row.stytch_method_id, code: code });
+        if (!r.ok || !passkeyConstantEq(r.data.user_id, row.stytch_user_id)) {
+            if (r.status >= 500 || r.status === 0) { return passkeyFail("unavailable"); }
+            await env.DB.prepare("UPDATE login_invites SET code_verify_failures = code_verify_failures + 1 WHERE id = ?")
+                .bind(row.id).run();
+            if ((row.code_verify_failures || 0) + 1 >= PASSKEY_VERIFY_FAILURES_MAX) { return passkeyFail("link"); }
+            return passkeyFail("code");
+        }
+        var until = passkeyIso(passkeyNow().getTime() + PASSKEY_REGISTER_MINUTES * 60 * 1000);
+        await env.DB.prepare("UPDATE login_invites SET register_until = ? WHERE id = ?").bind(until, row.id).run();
+        var startBody = {
+            user_id: row.stytch_user_id,
+            domain: PASSKEY_RP_ID,
+            return_passkey_credential_options: true,
+            use_base64_url_encoding: true
+        };
+        var label = passkeyFirstName(row.display_name) + (row.business_name ? " (" + row.business_name + ")" : "");
+        if (label.trim()) { startBody.override_name = label; startBody.override_display_name = label; }
+        var s = await stytchCall(env, "/v1/webauthn/register/start", startBody);
+        var opts = s.ok ? passkeyParseOptions(s.data.public_key_credential_creation_options) : null;
+        if (!opts || !opts.challenge) { return passkeyFail("unavailable"); }
+        return jsonOk({ verified: true, options: opts, register_until: until });
+    } catch (e) {
+        console.log("passkey verify-code error");
+        return passkeyFail("code");
+    }
+}
+
+// The client_logins row a person acts as. An owner who already has the
+// role='client' row keeps it (no second owner row); everyone else gets a
+// 'pk-' row whose password can never match.
+async function passkeyEnsureLogin(env, row) {
+    if (row.username) {
+        var have = await env.DB.prepare("SELECT username FROM client_logins WHERE username = ? AND client_id = ?")
+            .bind(row.username, row.client_id).first();
+        if (have) { return row.username; }
+    }
+    if (row.role === "client") {
+        var owner = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND role = 'client'")
+            .bind(row.client_id).first();
+        if (owner) { return owner.username; }
+    }
+    var username = null;
+    for (var n = 0; n < 8; n++) {
+        var cand = "pk-" + passkeyB64url(crypto.getRandomValues(new Uint8Array(6))).toLowerCase().replace(/[^a-z0-9]/g, "x");
+        var taken = await env.DB.prepare("SELECT username FROM client_logins WHERE username = ?").bind(cand).first();
+        if (!taken) { username = cand; break; }
+    }
+    if (!username) { throw new Error("no free username"); }
+    // Owner rows keep seller_name NULL (that is what marks the owner login for
+    // pushes and for UNIQUE (client_id, seller_name)); everyone else carries
+    // their name there, which is only ever read as a seller filter when
+    // role = 'seller'.
+    await env.DB.prepare(
+        "INSERT INTO client_logins (username, client_id, password_hash, must_change_password, created_by, role, seller_name) " +
+        "VALUES (?, ?, ?, 0, ?, ?, ?)"
+    ).bind(username, row.client_id, PASSKEY_ONLY_HASH, "passkey-invite", row.role,
+        row.role === "client" ? null : row.display_name).run();
+    return username;
+}
+
+// ---------------------------------------------------------------------------
+// Route: POST /api/passkey-invite/register { t, credential } — public. Needs
+// a verified code (register_until in the future). Stores the registration id
+// in the allow-list, activates the person, links or creates the login row,
+// revokes every OLDER passkey of the person (a new device replaces the old
+// ones) and signs the person in with the normal session.
+// ---------------------------------------------------------------------------
+async function handlePostPasskeyInviteRegister(request, env) {
+    try {
+        var body = await request.json().catch(function() { return {}; });
+        var row = await passkeyLoadInvite(env, body && body.t);
+        if (!passkeyInviteUsable(row)) { return passkeyFail("link"); }
+        if (!row.register_until || row.register_until <= passkeyNow().toISOString() || !row.stytch_user_id) {
+            return passkeyFail("code");
+        }
+        var cred = passkeyCredentialString(body && body.credential);
+        if (!cred) { return passkeyFail("register"); }
+        var r = await stytchCall(env, "/v1/webauthn/register", { user_id: row.stytch_user_id, public_key_credential: cred });
+        if (!r.ok || !r.data.webauthn_registration_id || !passkeyConstantEq(r.data.user_id, row.stytch_user_id)) {
+            return passkeyFail("register");
+        }
+        var nowIso = passkeyNow().toISOString();
+        var username = await passkeyEnsureLogin(env, row);
+        var keyId = crypto.randomUUID();
+        await env.DB.prepare(
+            "INSERT INTO login_passkeys (id, person_id, webauthn_registration_id, created_at) VALUES (?, ?, ?, ?)"
+        ).bind(keyId, row.person_id, String(r.data.webauthn_registration_id), nowIso).run();
+        await env.DB.prepare(
+            "UPDATE login_passkeys SET revoked_at = ? WHERE person_id = ? AND id != ? AND revoked_at IS NULL"
+        ).bind(nowIso, row.person_id, keyId).run();
+        await env.DB.prepare("UPDATE login_invites SET used_at = ?, register_until = NULL WHERE id = ?")
+            .bind(nowIso, row.id).run();
+        await env.DB.prepare(
+            "UPDATE login_people SET status = 'active', accepted_at = COALESCE(accepted_at, ?), username = ? WHERE id = ?"
+        ).bind(nowIso, username, row.person_id).run();
+        var session = await passkeyMintSession(env, username);
+        if (!session) { return passkeyFail("register"); }
+        await env.DB.prepare("UPDATE login_people SET last_passkey_login_at = ? WHERE id = ?")
+            .bind(nowIso, row.person_id).run();
+        return jsonOk(session);
+    } catch (e) {
+        console.log("passkey register error");
+        return passkeyFail("register");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// People management. Who is acting: an admin (any business, client id from
+// the request), the owner, or a partner (their own business only). Everyone
+// else: null (403). Staff and sellers never reach these routes (the client
+// gate denies them first); this is the second wall.
+// ---------------------------------------------------------------------------
+function passkeyPeopleActor(user, requestedClientId) {
+    if (!user) { return null; }
+    if (isAdminRole(user)) {
+        return requestedClientId ? { kind: "admin", clientId: requestedClientId } : null;
+    }
+    if (user.role !== "client" || !user.client_id || user.auth_method === "render") { return null; }
+    if (requestedClientId && requestedClientId !== user.client_id) { return null; }
+    if (!user.login_role || user.login_role === "client") { return { kind: "owner", clientId: user.client_id }; }
+    if (user.login_role === "partner") { return { kind: "partner", clientId: user.client_id }; }
+    return null;
+}
+// Only the owner and the admin roles may create, re-invite, disable or enable
+// a partner, and only an admin may touch the owner's own login from here
+// (the owner may re-invite themself).
+function passkeyMayManage(actor, targetRole, action) {
+    if (!actor) { return false; }
+    if (actor.kind === "admin") { return true; }
+    if (targetRole === "client") {
+        return actor.kind === "owner" && action === "invite";
+    }
+    if (targetRole === "partner") { return actor.kind === "owner"; }
+    return actor.kind === "owner" || actor.kind === "partner";
+}
+
+function passkeyPublicPerson(p, inviteExpires) {
+    return {
+        id: p.id, name: p.display_name, role: p.role,
+        role_label: PASSKEY_ROLE_LABELS[p.role] || null,
+        status: p.status, masked_phone: passkeyMaskPhone(p.phone_e164),
+        last_passkey_login_at: p.last_passkey_login_at || null,
+        accepted_at: p.accepted_at || null,
+        invite_expires_at: inviteExpires || null
+    };
+}
+
+// Who the invite message says invited them: the owner's own name when known.
+async function passkeyInviterName(env, actor, user, clientId) {
+    if (actor.kind === "partner") { return user.display_name || ""; }
+    if (actor.kind === "owner") {
+        var me = await env.DB.prepare("SELECT display_name FROM login_people WHERE client_id = ? AND role = 'client'")
+            .bind(clientId).first();
+        if (me && me.display_name) { return me.display_name; }
+        var c = await env.DB.prepare("SELECT owners, name FROM clients WHERE id = ?").bind(clientId).first();
+        var owner = c && c.owners ? String(c.owners).split(/,|&| e | and /)[0].trim() : "";
+        return owner || (c && c.name) || "";
+    }
+    return actorName(user) || "Apex";
+}
+
+async function passkeyInviteResponse(env, actor, user, person, invite, lang) {
+    var client = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(person.client_id).first();
+    var inviter = await passkeyInviterName(env, actor, user, person.client_id);
+    var appReady = passkeyAppReady(env);
+    var o = { name: person.display_name, inviter: inviter, business: (client && client.name) || "", link: invite.invite_url };
+    return {
+        person: passkeyPublicPerson(person, invite.expires_at),
+        invite_url: invite.invite_url,
+        expires_at: invite.expires_at,
+        app_ready: appReady,
+        whatsapp_digits: String(person.phone_e164 || "").replace(/\D/g, ""),
+        message: passkeyInviteMessageFor(lang, o, appReady),
+        message_pt: passkeyInviteMessage("pt", o, appReady),
+        message_en: passkeyInviteMessage("en", o, appReady)
+    };
+}
+
+function passkeyForbidden() {
+    return jsonErr2("Sem permissão para esta ação.", "You do not have permission for this action.", 403);
+}
+
+// Route: GET /api/gm/people[?client_id=] — owner and partner; admins any.
+async function handleGetGmPeople(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var actor = passkeyPeopleActor(user, new URL(request.url).searchParams.get("client_id") || null);
+        if (!actor) { return passkeyForbidden(); }
+        var rows = (await env.DB.prepare(
+            "SELECT p.id, p.client_id, p.role, p.display_name, p.phone_e164, p.status, p.accepted_at, p.last_passkey_login_at, " +
+            "(SELECT MAX(i.expires_at) FROM login_invites i WHERE i.person_id = p.id AND i.used_at IS NULL AND i.replaced_at IS NULL) AS invite_expires_at " +
+            "FROM login_people p WHERE p.client_id = ? ORDER BY p.created_at"
+        ).bind(actor.clientId).all()).results || [];
+        return jsonOk({
+            people: rows.map(function(p) { return passkeyPublicPerson(p, p.invite_expires_at); }),
+            actor: actor.kind,
+            can_manage_partner: actor.kind !== "partner",
+            app_ready: passkeyAppReady(env)
+        });
+    } catch (e) {
+        return jsonErr("Error fetching people: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/gm/people { name, role, phone[, client_id for admins] }
+async function handlePostGmPeople(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var body = await request.json().catch(function() { return {}; });
+        var actor = passkeyPeopleActor(user, isAdminRole(user) ? (gmStr(body.client_id, 80) || null) : null);
+        if (!actor) { return passkeyForbidden(); }
+        var role = String(body.role || "");
+        if (PASSKEY_PERSON_ROLES.indexOf(role) === -1) {
+            return jsonErr2("Escolha um tipo de acesso.", "Choose an access type.", 400);
+        }
+        if (!passkeyMayManage(actor, role, "create")) { return passkeyForbidden(); }
+        var name = gmStr(body.name, 80);
+        if (!name) { return jsonErr2("Informe o nome.", "Enter the name.", 400); }
+        var ph = passkeyNormalizePhone(body.phone);
+        if (ph.error) { return passkeyPhoneError(ph.error); }
+        var client = await env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(actor.clientId).first();
+        if (!client) { return passkeyForbidden(); }
+        var dupPhone = await env.DB.prepare("SELECT id FROM login_people WHERE client_id = ? AND phone_e164 = ?")
+            .bind(actor.clientId, ph.e164).first();
+        if (dupPhone) {
+            return jsonErr2("Já existe uma pessoa com este número nesta empresa. Use \"Novo link\" na lista.",
+                "Someone with this number already exists at this business. Use \"New link\" in the list.", 409);
+        }
+        var dupName = await env.DB.prepare(
+            "SELECT (SELECT COUNT(*) FROM login_people WHERE client_id = ? AND LOWER(TRIM(display_name)) = LOWER(TRIM(?)) AND role != 'client') + " +
+            "(SELECT COUNT(*) FROM client_logins WHERE client_id = ? AND LOWER(TRIM(seller_name)) = LOWER(TRIM(?))) AS n"
+        ).bind(actor.clientId, name, actor.clientId, name).first();
+        if (dupName && dupName.n > 0) {
+            return jsonErr2("Já existe um acesso com este nome nesta empresa. Use um nome diferente (por exemplo, com o sobrenome).",
+                "An access with this name already exists at this business. Use a different name (for example, with the last name).", 409);
+        }
+        var person = {
+            id: crypto.randomUUID(), client_id: actor.clientId, role: role, display_name: name,
+            phone_e164: ph.e164, status: "invited", accepted_at: null, last_passkey_login_at: null
+        };
+        await env.DB.prepare(
+            "INSERT INTO login_people (id, client_id, role, display_name, phone_e164, status, created_by, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, 'invited', ?, ?)"
+        ).bind(person.id, person.client_id, role, name, ph.e164, actorName(user), passkeyNow().toISOString()).run();
+        var invite = await passkeyCreateInvite(env, person.id);
+        return jsonOk(await passkeyInviteResponse(env, actor, user, person, invite, null));
+    } catch (e) {
+        return jsonErr("Error adding person: " + e.message, 500);
+    }
+}
+
+async function passkeyLoadPersonFor(env, user, personId, request, body) {
+    var p = await env.DB.prepare("SELECT * FROM login_people WHERE id = ?").bind(personId).first();
+    if (!p) { return { error: jsonErr("Not found", 404) }; }
+    var actor = passkeyPeopleActor(user, p.client_id);
+    if (!actor) { return { error: passkeyForbidden() }; }
+    return { person: p, actor: actor };
+}
+
+// Route: POST /api/gm/people/:id/invite — a NEW link (lost phone, new device,
+// expired link). Older unused links of the person stop working now; older
+// passkeys are revoked when this one is completed.
+async function handlePostGmPersonInvite(personId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        if (!passkeyMayManage(got.actor, got.person.role, "invite")) { return passkeyForbidden(); }
+        if (got.person.status === "disabled") {
+            return jsonErr2("Este acesso está desativado. Ative primeiro.", "This access is disabled. Enable it first.", 409);
+        }
+        var invite = await passkeyCreateInvite(env, got.person.id);
+        return jsonOk(await passkeyInviteResponse(env, got.actor, user, got.person, invite, null));
+    } catch (e) {
+        return jsonErr("Error creating link: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/gm/people/:id/disable and /enable. Disable kills every
+// open session of that login at once.
+async function handlePostGmPersonStatus(personId, action, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var got = await passkeyLoadPersonFor(env, user, personId, request);
+        if (got.error) { return got.error; }
+        var p = got.person;
+        if (!passkeyMayManage(got.actor, p.role, action)) { return passkeyForbidden(); }
+        if (action === "disable") {
+            await env.DB.prepare("UPDATE login_people SET status = 'disabled' WHERE id = ?").bind(p.id).run();
+            if (p.username) {
+                await env.DB.prepare("DELETE FROM client_auth_tokens WHERE username = ? AND client_id = ?")
+                    .bind(p.username, p.client_id).run();
+            }
+            p.status = "disabled";
+        } else {
+            if (!p.accepted_at) {
+                return jsonErr2("Esta pessoa ainda não aceitou o convite. Envie um novo link.",
+                    "This person has not accepted the invite yet. Send a new link.", 409);
+            }
+            await env.DB.prepare("UPDATE login_people SET status = 'active' WHERE id = ?").bind(p.id).run();
+            p.status = "active";
+        }
+        return jsonOk({ person: passkeyPublicPerson(p, null) });
+    } catch (e) {
+        return jsonErr("Error updating person: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Route: GET  /api/gm/clients/:clientId/owner-invite — admin preview: the
+//              masked number the link will be texted to (nothing created).
+// Route: POST /api/gm/clients/:clientId/owner-invite { phone? } — admin only.
+// Finds or creates the owner's person (role 'client'), number from
+// clients.whatsapp then clients.phone unless the admin typed one, links it to
+// the existing owner login row, creates an invite.
+// ---------------------------------------------------------------------------
+async function handleGmOwnerInvite(clientId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return passkeyForbidden(); }
+        var client = await env.DB.prepare("SELECT id, name, owners, whatsapp, phone, language FROM clients WHERE id = ?")
+            .bind(clientId).first();
+        if (!client) { return jsonErr("Not found", 404); }
+        var person = await env.DB.prepare("SELECT * FROM login_people WHERE client_id = ? AND role = 'client'")
+            .bind(clientId).first();
+        var body = request.method === "POST" ? await request.json().catch(function() { return {}; }) : {};
+        var typed = body && body.phone ? passkeyNormalizePhone(body.phone) : null;
+        if (typed && typed.error) { return passkeyPhoneError(typed.error); }
+        var stored = null;
+        [client.whatsapp, client.phone].forEach(function(v) {
+            if (stored || !v) { return; }
+            var n = passkeyNormalizePhone(v);
+            if (n.e164) { stored = n.e164; }
+        });
+        var phone = (typed && typed.e164) || (person && person.phone_e164) || stored;
+        if (request.method === "GET") {
+            return jsonOk({ has_phone: !!phone, masked_phone: phone ? passkeyMaskPhone(phone) : null, app_ready: passkeyAppReady(env) });
+        }
+        if (!phone) {
+            return jsonErr2("Não há um número válido (+1 ou +55) no cadastro do dono. Digite o número e confirme.",
+                "There is no valid number (+1 or +55) on the owner's record. Type the number and confirm.", 400, { need_phone: true });
+        }
+        var owner = await env.DB.prepare("SELECT username FROM client_logins WHERE client_id = ? AND role = 'client'")
+            .bind(clientId).first();
+        var nowIso = passkeyNow().toISOString();
+        var ownerName = client.owners ? String(client.owners).split(/,|&| e | and /)[0].trim() : "";
+        if (!person) {
+            person = {
+                id: crypto.randomUUID(), client_id: clientId, role: "client",
+                display_name: ownerName || client.name, phone_e164: phone,
+                username: owner ? owner.username : null, status: "invited",
+                accepted_at: null, last_passkey_login_at: null
+            };
+            await env.DB.prepare(
+                "INSERT INTO login_people (id, client_id, role, display_name, phone_e164, username, status, created_by, created_at) " +
+                "VALUES (?, ?, 'client', ?, ?, ?, 'invited', ?, ?)"
+            ).bind(person.id, clientId, person.display_name, phone, person.username, actorName(user), nowIso).run();
+        } else {
+            var changed = phone !== person.phone_e164;
+            // An admin sending a fresh owner link also restores a disabled
+            // owner: to the state they had before (active if they ever
+            // accepted, otherwise invited).
+            var status = person.status === "disabled" ? (person.accepted_at ? "active" : "invited") : person.status;
+            await env.DB.prepare(
+                "UPDATE login_people SET phone_e164 = ?, stytch_user_id = ?, username = COALESCE(username, ?), status = ? WHERE id = ?"
+            ).bind(phone, changed ? null : person.stytch_user_id, owner ? owner.username : null, status, person.id).run();
+            person.phone_e164 = phone;
+            person.status = status;
+        }
+        var invite = await passkeyCreateInvite(env, person.id);
+        var lang = client.language === "en" ? "en" : (client.language === "pt" ? "pt" : null);
+        var out = await passkeyInviteResponse(env, { kind: "admin", clientId: clientId }, user, person, invite, lang);
+        out.masked_phone = passkeyMaskPhone(phone);
+        return jsonOk(out);
+    } catch (e) {
+        return jsonErr("Error creating owner link: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch for every passkey route. Runs in handleFetch BEFORE the client
+// gate so the dark switch answers a plain 404 to everyone (a staff session
+// must not learn from a 403 that the route exists). When the switch is on,
+// the /api/gm/ routes still go through enforceClientRoleGate and the admin
+// preview read-only rule first. Returns null for any other path.
+// ---------------------------------------------------------------------------
+function passkeyIsRoutePath(path) {
+    return path.indexOf("/api/passkey-login/") === 0 || path.indexOf("/api/passkey-invite/") === 0 ||
+        path === "/api/gm/people" || path.indexOf("/api/gm/people/") === 0 ||
+        /^\/api\/gm\/clients\/[^\/]+\/owner-invite$/.test(path);
+}
+async function passkeyRoute(request, env, path, method) {
+    if (!passkeyIsRoutePath(path)) { return null; }
+    if (path === "/api/passkey-login/status" && method === "GET") { return handleGetPasskeyStatus(request, env); }
+    if (!passkeyEnabled(env)) { return jsonErr("Not found", 404); }
+
+    if (path === "/api/passkey-login/start" && method === "POST") { return handlePostPasskeyLoginStart(request, env); }
+    if (path === "/api/passkey-login/finish" && method === "POST") { return handlePostPasskeyLoginFinish(request, env); }
+    if (path === "/api/passkey-invite/info" && method === "GET") {
+        if (publicReadRateLimited(request, "pkinv", "info", 60, 0)) { return passkeyFail("busy"); }
+        return handleGetPasskeyInviteInfo(request, env);
+    }
+    if (path === "/api/passkey-invite/send-code" && method === "POST") { return handlePostPasskeyInviteSendCode(request, env); }
+    if (path === "/api/passkey-invite/verify-code" && method === "POST") { return handlePostPasskeyInviteVerifyCode(request, env); }
+    if (path === "/api/passkey-invite/register" && method === "POST") { return handlePostPasskeyInviteRegister(request, env); }
+    if (path.indexOf("/api/passkey-") === 0) { return jsonErr("Not found", 404); }
+
+    // Authenticated management routes.
+    var gate = await enforceClientRoleGate(request, env, path, method);
+    if (gate) { return gate; }
+    if (method !== "GET" && new URL(request.url).searchParams.get("previewAs")) {
+        return jsonErr("Preview is read-only", 403);
+    }
+    if (path === "/api/gm/people" && method === "GET") { return handleGetGmPeople(request, env); }
+    if (path === "/api/gm/people" && method === "POST") { return handlePostGmPeople(request, env); }
+    var pm = path.match(/^\/api\/gm\/people\/([A-Za-z0-9-]+)\/(invite|disable|enable)$/);
+    if (pm && method === "POST") {
+        if (pm[2] === "invite") { return handlePostGmPersonInvite(pm[1], request, env); }
+        return handlePostGmPersonStatus(pm[1], pm[2], request, env);
+    }
+    var om = path.match(/^\/api\/gm\/clients\/([A-Za-z0-9-]+)\/owner-invite$/);
+    if (om && (method === "GET" || method === "POST")) { return handleGmOwnerInvite(om[1], request, env); }
+    return jsonErr("Not found", 404);
+}
+
+// ---------------------------------------------------------------------------
+// LOGIN-ROLE DENY LISTS for the three roles this build adds. They run AFTER
+// clientRequestAllowed (the owner's allowlist), so these roles can never reach
+// more than an owner, and a path an owner cannot reach stays closed to them.
+// Exposed as data so scripts/test-people-roles.mjs checks the exact lists.
+//
+// Partner: owner-only items. staff_finance: owner-only + Settings and people.
+// staff: all of that + Finance, Invoices and every money total.
+// ---------------------------------------------------------------------------
+
+// "base" rules match the path after /api/clients/<own id>/ ("" is the client
+// record itself); "abs" rules match the full path.
+var LOGIN_ROLE_DENY_OWNER_ONLY = [
+    // The owner's own login: password, Google link, and the admin credential
+    // routes (admin-only anyway; named so the list is complete).
+    { m: "POST", abs: "/api/auth/client-change-password" },
+    { m: "POST", abs: "/api/auth/client-link-google" },
+    { m: "POST", base: /^login$/ },
+    // Deleting, archiving or editing the business record.
+    { m: "DELETE", base: /^$/ },
+    { m: "PUT", base: /^$/ },
+    { m: "PATCH", base: /^$/ },
+    { m: "PUT", base: /^archive$/ }
+];
+var LOGIN_ROLE_DENY_SETTINGS = [
+    // Ajustes (Settings): working days, blocked periods, referral page and
+    // branding, the lists, online booking.
+    { m: "PUT", base: /^work-settings$/ },
+    { m: "POST", base: /^blocked-ranges$/ },
+    { m: "DELETE", base: /^blocked-ranges\/[A-Za-z0-9-]+$/ },
+    { m: "PUT", base: /^referral-settings$/ },
+    { m: "POST", base: /^logo$/ },
+    { m: "PUT", base: /^gm\/config$/ },
+    { m: "PUT", base: /^gm\/booking-settings$/ },
+    // Estimates > Settings: document settings and branding, contract settings.
+    { m: "PUT", base: /^gm\/doc-settings$/ },
+    { m: "PUT", base: /^gm\/doc-hero-choice$/ },
+    { m: "POST", base: /^gm\/doc-hero$/ },
+    { m: "PUT", base: /^gm\/contract-settings$/ },
+    // Stripe connect / disconnect and Tap to Pay on / off.
+    { m: "POST", base: /^gm\/stripe\/(connect|disconnect|reaccept)$/ },
+    { m: "POST", base: /^gm\/stripe\/tap\/(enable|disable)$/ },
+    // Social integration (Facebook Page) connect / choose / disconnect.
+    { m: "POST", base: /^gm\/meta\/(connect|pages|disconnect)$/ },
+    // People: the old salesperson login requests and the seat roster, and
+    // every new people route.
+    { m: "POST", abs: "/api/gm/seller-login-requests" },
+    { m: "GET", base: /^seller-logins$/ },
+    { m: "GET", base: /^gm\/seller-login-requests$/ },
+    { m: "*", abs: "/api/gm/people" },
+    { m: "*", absRe: /^\/api\/gm\/people\// }
+];
+var LOGIN_ROLE_DENY_MONEY = [
+    // Financeiro tab (gmfinance) and its report.
+    { m: "GET", base: /^gm\/finance(\/report)?$/ },
+    { m: "POST", base: /^gm\/finance$/ },
+    { m: "PUT", base: /^gm\/finance\/[A-Za-z0-9-]+$/ },
+    { m: "DELETE", base: /^gm\/finance\/[A-Za-z0-9-]+$/ },
+    // Faturas tab (gminvoices): invoices, payments, receipts, card payments.
+    { m: "GET", base: /^gm\/invoices(\/[A-Za-z0-9-]+)?$/ },
+    { m: "POST", base: /^gm\/jobs\/[A-Za-z0-9-]+\/invoices-from-estimate$/ },
+    { m: "POST", base: /^gm\/invoices\/[A-Za-z0-9-]+\/[a-z-]+$/ },
+    { m: "POST", base: /^gm\/payments\/[A-Za-z0-9-]+\/[a-z-]+$/ },
+    { m: "POST", base: /^gm\/receipts\/[A-Za-z0-9-]+\/(disable-link|enable-link)$/ },
+    { m: "GET", base: /^gm\/stripe\/(status|tap)$/ },
+    { m: "POST", base: /^gm\/stripe\/tap\/(connection-token|payment-intent|shared-details)$/ },
+    // Money totals outside those tabs: a project's or lead's value history,
+    // Apex's own invoices to the business, and the daily log / pace numbers
+    // (Analytics and Ritmo show revenue and profit).
+    { m: "GET", base: /^gm\/(jobs|leads)\/[A-Za-z0-9-]+\/value-history$/ },
+    { m: "GET", base: /^invoices$/ },
+    { m: "GET", base: /^(entries|entries-summary|indicator-history|goal-state)$/ },
+    { m: "PUT", base: /^goals$/ },
+    { m: "PUT", base: /^entries\/\d{4}-\d{2}-\d{2}\/sections\/[a-z_]+$/ },
+    { m: "POST", base: /^entries\/\d{4}-\d{2}-\d{2}\/day-off$/ }
+];
+
+function loginRoleRuleHit(rules, path, method, clientId) {
+    var base = "/api/clients/" + clientId;
+    var rest = null;
+    if (path === base) { rest = ""; }
+    else if (path.indexOf(base + "/") === 0) { rest = path.slice(base.length + 1); }
+    for (var i = 0; i < rules.length; i++) {
+        var r = rules[i];
+        if (r.m !== "*" && r.m !== method) { continue; }
+        if (r.abs && path === r.abs) { return true; }
+        if (r.absRe && r.absRe.test(path)) { return true; }
+        if (r.base && rest !== null && r.base.test(rest)) { return true; }
+    }
+    return false;
+}
+
+// True when this login role may NOT make this request. Unknown roles: denied.
+function loginRoleDenied(loginRole, path, method, clientId) {
+    if (loginRole === "partner") {
+        return loginRoleRuleHit(LOGIN_ROLE_DENY_OWNER_ONLY, path, method, clientId);
+    }
+    if (loginRole === "staff_finance") {
+        return loginRoleRuleHit(LOGIN_ROLE_DENY_OWNER_ONLY, path, method, clientId) ||
+            loginRoleRuleHit(LOGIN_ROLE_DENY_SETTINGS, path, method, clientId);
+    }
+    if (loginRole === "staff") {
+        return loginRoleRuleHit(LOGIN_ROLE_DENY_OWNER_ONLY, path, method, clientId) ||
+            loginRoleRuleHit(LOGIN_ROLE_DENY_SETTINGS, path, method, clientId) ||
+            loginRoleRuleHit(LOGIN_ROLE_DENY_MONEY, path, method, clientId);
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -50705,6 +51813,13 @@ async function handleFetch(request, env, ctx) {
             });
             return new Response(null, { status: 204, headers: preflight });
         }
+
+        // Passkey login build: every passkey route, dark (404) unless
+        // PASSKEY_LOGIN_ENABLED is "1". Ahead of the client gate so the dark
+        // answer is the same plain 404 for every caller; the management
+        // routes run the client gate themselves inside passkeyRoute.
+        var passkeyResponse = await passkeyRoute(request, env, path, method);
+        if (passkeyResponse) { return passkeyResponse; }
 
         // Client-role isolation gate: a 'client' user can only reach the
         // portal whitelist, always scoped to their own client_id. Admin and

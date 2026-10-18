@@ -52981,10 +52981,31 @@ export default {
                     return new Response("Muitas tentativas. Tente novamente em alguns minutos. / Too many attempts. Please try again in a few minutes.",
                         { status: 429, headers: { "Content-Type": "text/plain; charset=utf-8", "X-Robots-Tag": "noindex", "Retry-After": "600" } });
                 }
-                return await docLinkServe(request, env);
+                var docResponse = await docLinkServe(request, env);
+                // Server error alerts, call site (b): the Worker tells Nicole
+                // first -- see apexReportServerError() above. Held in a
+                // variable and returned unchanged; the reporting itself is
+                // deferred into ctx.waitUntil so it never delays this response.
+                if (docResponse.status >= 500) {
+                    var docReport = apexErrorTextFromResponse(docResponse).then(function(errText) {
+                        return apexReportServerError(env, ctx, request.method, docPath, docResponse.status, errText);
+                    });
+                    if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(docReport); } else { await docReport; }
+                }
+                return docResponse;
             }
             await gmLoadHiddenActors(env);
             var response = await handleFetch(request, env, ctx);
+            // Server error alerts, call site (a): same idea as (b) above, for
+            // the normal handleFetch path. response is returned byte-for-byte
+            // unchanged below; only the (cloned) text is read for the alert.
+            if (response.status >= 500) {
+                var reqPath = new URL(request.url).pathname;
+                var mainReport = apexErrorTextFromResponse(response).then(function(errText) {
+                    return apexReportServerError(env, ctx, request.method, reqPath, response.status, errText);
+                });
+                if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(mainReport); } else { await mainReport; }
+            }
             return withCorsOrigin(publicDocHeaders(response, request), request);
         } catch (err) {
             // A rejected credential answers 401, never 500. Classified on the
@@ -52995,6 +53016,13 @@ export default {
                 return withCorsOrigin(authFailureResponse(err), request);
             }
             console.log("Unhandled error: " + (err && err.stack ? err.stack : err));
+            // Server error alerts, call site (c): a thrown error that is NOT
+            // an auth error (isAuthError already returned false above).
+            try {
+                var errPath = new URL(request.url).pathname;
+                var errReport = apexReportServerError(env, ctx, request.method, errPath, 500, err && err.message);
+                if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(errReport); }
+            } catch (e) { /* malformed request.url etc -- never let reporting break the error response */ }
             return withCorsOrigin(jsonErr("Internal error", 500), request);
         }
     },
@@ -54594,6 +54622,7 @@ async function handleFetch(request, env, ctx) {
         if (supTicketUndo && method === "POST") { return handlePostSupportTicketUndoResolve(supTicketUndo[1], request, env); }
         var supTicketDetail = path.match(/^\/api\/support\/tickets\/([A-Za-z0-9_-]+)$/);
         if (supTicketDetail && method === "GET") { return handleGetSupportTicketDetail(supTicketDetail[1], request, env); }
+        if (path === "/api/dev/error-alert-test" && method === "POST") { return handlePostDevErrorAlertTest(request, env); }
         var vndByClient = path.match(/^\/api\/vendors\/by-client\/([A-Za-z0-9_-]+)$/);
         if (vndByClient && method === "GET") { return handleGetVendorByClient(vndByClient[1], request, env); }
         var vndChangeOptions = path.match(/^\/api\/vendors\/([A-Za-z0-9_-]+)\/change-options$/);
@@ -55429,6 +55458,172 @@ async function checkIntegrationHealth(env) {
             "Apex integration check failed:\n\n" + failures.join("\n") +
             "\n\nReconnect via add-user.html when you're at your desktop."
         );
+    }
+}
+
+// ===========================================================================
+// SERVER ERROR ALERTS (2026-10-19): on 10/13 a missing placeholder made every
+// new lead fail for about half a day, and nobody at Apex was told by the
+// system -- a client told Pr. Rafa, who told Nicole. Most handlers catch
+// their own errors and RETURN a 5xx jsonErr() instead of throwing, so the
+// outer try/catch in fetch() only ever sees part of the failures. These
+// functions are the one gate that sees BOTH kinds (a thrown error, and a
+// returned 5xx response), used from the three call sites inside fetch()
+// below. Reuses notifyNicoleTelegram() -- no second alert channel. The
+// in-memory map below is per-Worker-instance, not shared state, which is
+// exactly what the per-signature/per-hour caps need (never a database write
+// on every failing request).
+// ===========================================================================
+
+// method + normalized path + status -- one kind of failing route is one
+// report, no matter how many requests hit it while it's broken.
+function apexErrorSignature(method, path, status) {
+    return method + " " + path + " " + status;
+}
+
+// Collapses anything identity-shaped out of a path so /api/gm/leads/8821 and
+// /api/gm/leads/9043 are the SAME route for alerting purposes: a run of 4+
+// digits, a UUID, or any single segment of 20+ id-shaped characters all
+// become ":id". Query string is never included -- the caller strips it
+// before this runs (it is path-only by construction, never re-parsed here).
+function apexErrorNormalizePath(path) {
+    var p = String(path || "");
+    p = p.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ":id");
+    p = p.replace(/\d{4,}/g, ":id");
+    p = p.split("/").map(function(seg) {
+        return (seg.length >= 20 && /^[A-Za-z0-9_-]+$/.test(seg)) ? ":id" : seg;
+    }).join("/");
+    return p;
+}
+
+// Masks anything that looks like a credential or PII out of free text before
+// it reaches Telegram or a ticket row: an email address, or a long run of
+// letters+digits (a token/session id), each becomes "[hidden]".
+function apexErrorMaskText(text) {
+    var t = String(text || "");
+    t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[hidden]");
+    t = t.replace(/(?=[A-Za-z0-9]{20,})(?:[A-Za-z]*\d[A-Za-z]*\d[A-Za-z0-9]*){1}[A-Za-z0-9]{0,}/g, function(m) {
+        return m.length >= 20 ? "[hidden]" : m;
+    });
+    return t;
+}
+
+// Never report: below 500, the auth 401 path (that is handled separately and
+// silently by design), or an OPTIONS preflight.
+function apexErrorShouldReport(status, method) {
+    if (method === "OPTIONS") { return false; }
+    return status >= 500;
+}
+
+var APEX_ERROR_REPORT_STATE = { lastSent: {}, hourStartMs: 0, hourCount: 0 };
+
+// Per-signature: one report per 30 minutes. Overall: at most 10/hour per
+// Worker instance, after which it stays silent rather than flooding Nicole
+// during a real outage. Entries older than an hour are dropped on every
+// call so this map can never grow without bound.
+function apexErrorGateAndMark(signature) {
+    var now = Date.now();
+    var state = APEX_ERROR_REPORT_STATE;
+    Object.keys(state.lastSent).forEach(function(sig) {
+        if (now - state.lastSent[sig] > 60 * 60 * 1000) { delete state.lastSent[sig]; }
+    });
+    if (now - state.hourStartMs > 60 * 60 * 1000) { state.hourStartMs = now; state.hourCount = 0; }
+    if (state.hourCount >= 10) { return false; }
+    var last = state.lastSent[signature];
+    if (last && now - last < 30 * 60 * 1000) { return false; }
+    state.lastSent[signature] = now;
+    state.hourCount++;
+    return true;
+}
+
+// 12-hour Eastern time, e.g. "3:42 PM ET".
+function apexErrorTimeEt() {
+    var fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true
+    });
+    return fmt.format(new Date()) + " ET";
+}
+
+// Plain-English, one message, no query string / body / headers / cookies /
+// tokens / user names -- path only, and the error text masked and truncated.
+function apexErrorAlertText(method, normalizedPath, status, errText, workerVersion) {
+    var masked = apexErrorMaskText(errText || "no message").slice(0, 200);
+    var parts = [
+        "Apex server error " + status,
+        method + " " + normalizedPath,
+        apexErrorTimeEt(),
+        masked
+    ];
+    if (workerVersion) { parts.push("Worker " + workerVersion); }
+    return parts.join(" | ");
+}
+
+// lowercase, non a-z0-9 -> "-", collapsed, max 90 chars -- used as part of
+// the ticket id so the DATABASE itself (INSERT OR IGNORE on the primary key)
+// allows at most one automatic ticket per failure kind per hour, even across
+// several Worker instances during a real outage.
+function apexErrorSlug(signature) {
+    return signature.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 90);
+}
+function apexErrorTicketId(signature) {
+    var utcHour = new Date().toISOString().slice(0, 13).replace(/[-T]/g, "");
+    return "auto-" + utcHour + "-" + apexErrorSlug(signature);
+}
+
+// Does the actual Telegram-then-ticket work (step 7 of the brief). Order
+// matters: Telegram first, ticket second -- a ticket-insert failure must
+// never prevent the Telegram message that already told Nicole, and a
+// Telegram failure must still leave the ticket as her history. Each step is
+// its own try block so neither failure can throw or stop the other.
+async function apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature) {
+    try { await notifyNicoleTelegram(env, alertText); }
+    catch (e) { console.log("apexReportServerError: Telegram send failed: " + (e && e.message)); }
+
+    try {
+        var ticketId = apexErrorTicketId(signature);
+        var nowIso = new Date().toISOString().replace("T", " ").slice(0, 19);
+        var page = normalizedPath.slice(0, 200);
+        var summaryEn = ("[Auto] Server error " + status + " on " + method + " " + normalizedPath + ": " +
+            apexErrorMaskText(errText || "no message").slice(0, 200));
+        await env.DB.prepare(
+            "INSERT OR IGNORE INTO support_tickets (id, created_at, reporter_email, reporter_name, language, kind, page, transcript_json, original_words, summary_en, guidance, status) " +
+            "VALUES (?, ?, 'system', 'System (auto)', 'en', 'broken', ?, '[]', ?, ?, NULL, 'open')"
+        ).bind(ticketId, nowIso, page, alertText, summaryEn).run();
+    } catch (e) {
+        console.log("apexReportServerError: ticket insert failed: " + (e && e.message));
+    }
+}
+
+// Reads the "error" field out of a 5xx JSON response without consuming the
+// original body -- clones first, so the response returned to the caller is
+// never touched by this. "no message" when it cannot be read (not JSON, no
+// "error" field, or the clone/parse itself throws).
+async function apexErrorTextFromResponse(response) {
+    try {
+        var data = await response.clone().json();
+        return (data && typeof data.error === "string") ? data.error : "no message";
+    } catch (e) {
+        return "no message";
+    }
+}
+
+// The one entry point used from the three call sites in fetch() below.
+// Wrapped so it can never throw and can never change or delay the response
+// already on its way out: the gate check runs synchronously (so a report
+// that will be suppressed costs nothing), and only the actual Telegram +
+// ticket work is deferred into ctx.waitUntil(). Handles a missing/stub ctx
+// (as the tests pass) by just awaiting the work inline instead.
+async function apexReportServerError(env, ctx, method, path, status, errText) {
+    try {
+        if (!apexErrorShouldReport(status, method)) { return; }
+        var normalizedPath = apexErrorNormalizePath(path);
+        var signature = apexErrorSignature(method, normalizedPath, status);
+        if (!apexErrorGateAndMark(signature)) { return; }
+        var alertText = apexErrorAlertText(method, normalizedPath, status, errText, env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id);
+        var work = apexReportServerErrorDo(env, method, normalizedPath, status, errText, alertText, signature);
+        if (ctx && typeof ctx.waitUntil === "function") { ctx.waitUntil(work); } else { await work; }
+    } catch (e) {
+        console.log("apexReportServerError failed: " + (e && e.message));
     }
 }
 
@@ -63230,6 +63425,18 @@ async function handleGetSupportTickets(request, env) {
     } catch (e) {
         return jsonErr("Error fetching support tickets: " + e.message, 500);
     }
+}
+
+// POST /api/dev/error-alert-test -- developer-only. Deliberately throws so
+// Nicole's own session can prove the real path (the fetch() wrapper's catch
+// block, then Telegram, then the automatic ticket) after a deploy, without
+// Claude Code ever calling this itself (it needs a developer sign-in). Does
+// nothing else -- no data is read or written here; the throw is the point.
+async function handlePostDevErrorAlertTest(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    throw new Error("TEST: deliberate error to prove the alert works");
 }
 
 // GET /api/support/tickets/:id -- developer-only, full detail incl. transcript.

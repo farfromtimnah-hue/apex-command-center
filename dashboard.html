@@ -766,17 +766,33 @@
     .list-row.mt-fresh { animation: mtFresh 6s ease-out 1; }
     @keyframes mtFresh { 0%, 60% { background: #fbf1cf; } 100% { background: transparent; } }
     /* Tell us box + Support panel: these classes are not defined elsewhere on
-       this page, so unstyled they fell back to plain browser buttons. Scoped. */
-    #tellUsSection .btn, #tellUsSection .btn-secondary, #supportPanelSection .btn, #supportPanelSection .btn-secondary,
-    #supportPanelSection .btn-gold, #tellUsSection .btn-gold {
+       this page, so unstyled they fell back to plain browser buttons. Scoped.
+       .btn-secondary matches the gold-outline look already used by the Tell
+       us box's own choice buttons (#tellUsPicker .tu-opt) -- see those rules
+       just below -- rather than the plain card-colored button this used to
+       render as (Nicole, 2026-10-19: she could not tell .btn-secondary from
+       the page background, and no tab ever showed as active). */
+    #tellUsSection .btn, #supportPanelSection .btn, #supportPanelSection .btn-gold, #tellUsSection .btn-gold {
       display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
       background: var(--card); color: var(--text); border: 1px solid var(--border);
       border-radius: 8px; padding: 9px 16px; font-family: 'Inter', sans-serif;
       font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
     }
+    #tellUsSection .btn-secondary, #supportPanelSection .btn-secondary {
+      display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box;
+      background: transparent; color: var(--text); border: 1.5px solid var(--gold);
+      border-radius: 8px; padding: 9px 16px; font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    #tellUsSection .btn-secondary:hover, #supportPanelSection .btn-secondary:hover { background: var(--gold-dim); }
+    #tellUsSection .btn-secondary:focus-visible, #supportPanelSection .btn-secondary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    #tellUsSection .btn-secondary:disabled, #supportPanelSection .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+    #tellUsSection .btn-secondary.is-active, #supportPanelSection .btn-secondary.is-active {
+      background: var(--gold); color: #fff; border-color: var(--gold); font-weight: 600;
+    }
     #tellUsSection .btn-sm, #supportPanelSection .btn-sm { padding: 7px 12px; font-size: 12.5px; }
     #tellUsSection .btn-gold, #supportPanelSection .btn-gold { background: var(--gold); color: #fff; border-color: var(--gold); }
-    #tellUsSection .btn:hover, #tellUsSection .btn-secondary:hover, #supportPanelSection .btn:hover, #supportPanelSection .btn-secondary:hover { opacity: 0.88; }
+    #tellUsSection .btn:hover, #supportPanelSection .btn:hover { opacity: 0.88; }
     #tellUsSection .field-input, #supportPanelSection .field-input {
       box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
       font-family: 'Inter', sans-serif; font-size: 14px; background: var(--card); color: var(--text);
@@ -787,7 +803,6 @@
     #tellUsPicker .tu-opt { flex: 1 1 220px; justify-content: center; padding: 12px 16px; font-size: 14px; border: 1.5px solid var(--gold); background: transparent; color: var(--text); }
     #tellUsPicker .tu-opt.is-active { background: var(--gold); color: #fff; }
     #tellUsConvo { padding-top: 4px; }
-    #supportPanelSection .tab-row .btn-secondary.is-active { background: var(--gold-dim); border-color: var(--gold); }
     .btn-cta-link {
       display: inline-flex;
       align-items: center;
@@ -1336,7 +1351,7 @@
           <div id="tellUsMessages" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
           <textarea id="tellUsInput" class="field-input" rows="3" style="width:100%;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-            <button class="btn btn-sm" id="tellUsMicBtn" onclick="toggleTellUsMic()">
+            <button class="btn-secondary btn-sm" id="tellUsMicBtn" onclick="toggleTellUsMic()">
               &#127908; <span class="show-pt">Ditar</span><span class="show-en">Dictate</span>
             </button>
             <span id="tellUsMicStatus" style="font-size:12px;color:var(--muted);"></span>
@@ -5367,6 +5382,18 @@
     var SUPPORT_UNDO_TIMERS = {};
 
     function loadSupportTickets(status) {
+      var tabOpen = document.getElementById("supportTabOpen");
+      var tabResolved = document.getElementById("supportTabResolved");
+      if (tabOpen) {
+        var openActive = status === "open";
+        tabOpen.classList.toggle("is-active", openActive);
+        tabOpen.setAttribute("aria-pressed", openActive ? "true" : "false");
+      }
+      if (tabResolved) {
+        var resolvedActive = status === "resolved";
+        tabResolved.classList.toggle("is-active", resolvedActive);
+        tabResolved.setAttribute("aria-pressed", resolvedActive ? "true" : "false");
+      }
       var list = document.getElementById("supportTicketList");
       if (!list) { return; }
       list.innerHTML = '<div class="table-empty"><div class="spinner" style="width:20px;height:20px;border-width:2px;margin:0 auto 8px;"></div></div>';

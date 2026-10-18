@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1792339992"></script>
+  <script src="native-bridge.js?v=1792347363"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -3001,6 +3001,9 @@
       // below is meaningless to them — and the goals hard gate would be a wall
       // they could not get past, i.e. a broken login. Straight to the Pipeline.
       if (isSeller()) { showPortal(); return; }
+      // Staff (passkey login build): the monthly goals and daily-log gates are
+      // the owner's own routine, not theirs. Straight to the portal.
+      if (isStaffSession()) { showPortal(); return; }
       // A lead never sees the goal or daily-entry gates — those belong to the
       // full client engagement. They land on Assigned (showPortal picks it).
       // The moment clients.status flips to 'active', this branch stops firing
@@ -3189,9 +3192,297 @@
         (isEn() ? "+ Add blocked period" : "+ Adicionar período bloqueado") + '</button></div></div>';
 
       html += referralSettingsHtml();
+      // People and access (passkey login build): filled by portalPeopleLoad,
+      // and only when the Worker says the passkey login is switched on.
+      html += '<div id="peopleCardWrap"></div>';
       html += (typeof gmBkCardHtml === "function" ? gmBkCardHtml() : "");
       body.innerHTML = html;
       syncReferralColorInputs();
+      portalPeopleLoad();
+    }
+
+    // ── People and access (passkey login build) ─────────────────────────────
+    // The owner and a partner add people here; each gets an invite LINK (sent
+    // by them, on WhatsApp or pasted anywhere) that creates a passkey on the
+    // person's own phone or laptop. Shown only when GET
+    // /api/passkey-login/status says enabled. Every rule (who may add a
+    // partner, who may disable whom) is enforced again by the Worker.
+    var peopleState = { enabled: false, list: null, canPartner: false, appReady: false, lastInvite: null, role: "", err: "", busy: false, copied: false };
+    var PEOPLE_ROLES = [
+      { key: "partner", pt: "Sócio(a) ou assistente executivo(a)", en: "Partner or executive assistant",
+        hpt: "Pode tudo o que o dono pode, exceto excluir a empresa. Só o dono adiciona.",
+        hen: "Can do everything the owner can, except delete the business. Only the owner can add one." },
+      { key: "staff_finance", pt: "Equipe com acesso ao financeiro", en: "Staff with finance access",
+        hpt: "Vê tudo, exceto ajustes e pessoas.", hen: "Sees everything except settings and people." },
+      { key: "staff", pt: "Equipe sem acesso ao financeiro", en: "Staff without finance access",
+        hpt: "Não vê Financeiro nem Faturas.", hen: "Cannot see Finance or Invoices." },
+      { key: "seller", pt: "Vendedor(a)", en: "Salesperson",
+        hpt: "Visão mínima: só os próprios leads e projetos.", hen: "Minimal view: only their own leads and projects." }
+    ];
+    function peopleRoleChoices(canPartner) {
+      return PEOPLE_ROLES.filter(function(r) { return canPartner || r.key !== "partner"; });
+    }
+    function peopleRoleLabel(key) {
+      var r = PEOPLE_ROLES.filter(function(x) { return x.key === key; })[0];
+      if (key === "client") { return isEn() ? "Owner" : "Dono(a)"; }
+      return r ? (isEn() ? r.en : r.pt) : key;
+    }
+
+    function portalPeopleLoad() {
+      var wrap = document.getElementById("peopleCardWrap");
+      if (!wrap) { return Promise.resolve(); }
+      if (isStaffSession() || isSeller()) { wrap.innerHTML = ""; return Promise.resolve(); }
+      return apiFetch("/api/passkey-login/status")
+        .then(function(res) { return res.ok ? res.json() : { enabled: false }; })
+        .then(function(st) {
+          peopleState.enabled = !!(st && st.enabled === true);
+          if (!peopleState.enabled) { return null; }
+          return apiFetch("/api/gm/people?client_id=" + encodeURIComponent(clientId))
+            .then(function(res) { return res.ok ? res.json() : null; });
+        })
+        .then(function(d) {
+          if (!peopleState.enabled || !d) { wrap.innerHTML = ""; return; }
+          peopleState.list = d.people || [];
+          peopleState.canPartner = d.can_manage_partner === true && !isPartnerSession();
+          peopleState.appReady = d.app_ready === true;
+          renderPeopleCard();
+        })
+        .catch(function() { wrap.innerHTML = ""; });
+    }
+
+    function peopleStatusChip(s) {
+      var map = {
+        invited:  ["Convidado", "Invited", "#8a6d1f", "rgba(201,164,58,0.14)"],
+        active:   ["Ativo", "Active", "#3f7d4e", "rgba(63,125,78,0.12)"],
+        disabled: ["Desativado", "Disabled", "#b44040", "rgba(180,64,64,0.10)"]
+      };
+      var m = map[s] || map.invited;
+      return '<span style="font-size:11px;font-weight:700;color:' + m[2] + ';background:' + m[3] +
+        ';border-radius:999px;padding:3px 9px;white-space:nowrap;">' + (isEn() ? m[1] : m[0]) + '</span>';
+    }
+
+    function peopleCardHtml() {
+      var en = isEn();
+      var html = '<div class="content-card" id="peopleCard">' +
+        '<div class="card-title">' + (en ? "People and access" : "Pessoas e acessos") + '</div>' +
+        '<p class="muted" style="margin-bottom:12px;">' +
+        (en ? "Add someone and send them a link. They create a passkey on their own phone or laptop: no password to share."
+            : "Adicione alguém e envie um link. A pessoa cria uma passkey no próprio celular ou computador: sem senha para compartilhar.") + '</p>';
+
+      var list = peopleState.list || [];
+      if (!list.length) {
+        html += '<p class="muted" style="margin-bottom:12px;">' + (en ? "Nobody added yet." : "Ninguém adicionado ainda.") + '</p>';
+      }
+      list.forEach(function(p) {
+        // The owner's own login and (for a partner) another partner are
+        // listed but carry no buttons here: those are owner or Apex actions.
+        var manageable = p.role !== "client" && (p.role !== "partner" || peopleState.canPartner);
+        var last = p.last_passkey_login_at
+          ? (en ? "Last sign-in " : "Último acesso ") + formatDate(String(p.last_passkey_login_at).slice(0, 10))
+          : (p.status === "invited" && p.invite_expires_at
+            ? (en ? "Link valid until " : "Link válido até ") + formatDate(String(p.invite_expires_at).slice(0, 10))
+            : (en ? "Never signed in" : "Nunca entrou"));
+        html += '<div class="list-row" style="flex-wrap:wrap;gap:8px;">' +
+          '<div class="list-main"><div class="list-title">' + escHtml(p.name) + ' ' + peopleStatusChip(p.status) + '</div>' +
+          '<div class="list-sub">' + escHtml(peopleRoleLabel(p.role)) + ' · ' + escHtml(p.masked_phone) + ' · ' + escHtml(last) + '</div></div>';
+        if (manageable) {
+          html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+          if (p.status !== "disabled") {
+            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleNewLink(\'' + escHtml(p.id) + '\')">' +
+              (en ? "New link" : "Novo link") + '</button>' +
+              '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'disable\')">' +
+              (en ? "Disable" : "Desativar") + '</button>';
+          } else {
+            html += '<button type="button" class="btn-outline" style="min-height:44px;padding:4px 10px;font-size:12px;" onclick="peopleSetStatus(\'' + escHtml(p.id) + '\', \'enable\')">' +
+              (en ? "Enable" : "Ativar") + '</button>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+
+      if (peopleState.lastInvite) { html += peopleLinkCardHtml(peopleState.lastInvite); }
+
+      // Add a person.
+      html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">' +
+        '<div class="card-title" style="font-size:15px;">' + (en ? "Add a person" : "Adicionar pessoa") + '</div>' +
+        '<label class="field-label" for="peopleName">' + (en ? "Name" : "Nome") + '</label>' +
+        '<input type="text" id="peopleName" maxlength="80" autocomplete="off" style="margin-bottom:10px;">' +
+        '<div class="field-label">' + (en ? "Access" : "Acesso") + '</div>' +
+        '<div id="peopleRoles" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">';
+      peopleRoleChoices(peopleState.canPartner).forEach(function(r) {
+        var sel = peopleState.role === r.key;
+        html += '<button type="button" class="gm-choice-chip' + (sel ? " gm-chip-sel" : "") + '" data-role="' + r.key + '" ' +
+          'style="text-align:left;display:block;width:100%;min-height:48px;padding:8px 12px;" onclick="peoplePickRole(\'' + r.key + '\')">' +
+          '<strong>' + (en ? r.en : r.pt) + '</strong><br><span style="font-size:12px;opacity:0.8;">' + (en ? r.hen : r.hpt) + '</span></button>';
+      });
+      html += '</div>' +
+        '<label class="field-label" for="peoplePhone">' + (en ? "Mobile number" : "Celular") + '</label>' +
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+          '<select id="peopleCountry" style="flex:0 0 auto;min-height:48px;">' +
+            '<option value="1">' + (en ? "United States (+1)" : "Estados Unidos (+1)") + '</option>' +
+            '<option value="55">' + (en ? "Brazil (+55)" : "Brasil (+55)") + '</option>' +
+          '</select>' +
+          '<input type="tel" id="peoplePhone" inputmode="tel" autocomplete="off" placeholder="(407) 555-0123" style="flex:1;min-width:0;">' +
+        '</div>' +
+        '<div class="err-msg" id="peopleErr">' + escHtml(peopleState.err || "") + '</div>' +
+        '<button type="button" class="btn-gold" style="width:100%;min-height:48px;margin-top:6px;"' + (peopleState.busy ? " disabled" : "") +
+        ' onclick="peopleAdd()">' + (en ? "Create invite link" : "Criar link de convite") + '</button>' +
+        '</div></div>';
+      return html;
+    }
+
+    function peopleLinkCardHtml(inv) {
+      var en = isEn();
+      return '<div style="margin:12px 0;padding:12px;border:1px solid var(--gold);border-radius:10px;background:rgba(201,164,58,0.06);">' +
+        '<div style="font-weight:700;margin-bottom:6px;">' + (en ? "Invite link for " : "Link de convite para ") + escHtml(inv.person ? inv.person.name : "") + '</div>' +
+        '<div style="font-size:12px;word-break:break-all;margin-bottom:6px;">' + escHtml(inv.invite_url) + '</div>' +
+        '<div class="muted" style="font-size:12px;margin-bottom:10px;">' + (en ? "Valid for 72 hours." : "Vale por 72 horas.") + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button type="button" class="btn-outline" style="flex:1;min-height:48px;" onclick="peopleCopyLink()">' +
+            (peopleState.copied ? (en ? "Copied" : "Copiado") : (en ? "Copy link" : "Copiar link")) + '</button>' +
+          '<button type="button" class="btn-gold" style="flex:1;min-height:48px;" onclick="peopleSendWhatsapp()">' +
+            (en ? "Send on WhatsApp" : "Enviar pelo WhatsApp") + '</button>' +
+        '</div></div>';
+    }
+
+    function renderPeopleCard() {
+      var wrap = document.getElementById("peopleCardWrap");
+      if (!wrap) { return; }
+      // Keep what is being typed across a re-render.
+      var nameEl = document.getElementById("peopleName");
+      var phoneEl = document.getElementById("peoplePhone");
+      var ccEl = document.getElementById("peopleCountry");
+      var keep = { name: nameEl ? nameEl.value : "", phone: phoneEl ? phoneEl.value : "", cc: ccEl ? ccEl.value : "1" };
+      wrap.innerHTML = peopleCardHtml();
+      var n2 = document.getElementById("peopleName"); if (n2) { n2.value = keep.name; }
+      var p2 = document.getElementById("peoplePhone"); if (p2) { p2.value = keep.phone; }
+      var c2 = document.getElementById("peopleCountry"); if (c2) { c2.value = keep.cc || "1"; }
+    }
+
+    function peoplePickRole(key) {
+      peopleState.role = key;
+      renderPeopleCard();
+    }
+
+    function peopleApiErr(d, status) {
+      if (d && d.error_pt && d.error_en) { return isEn() ? d.error_en : d.error_pt; }
+      return (d && d.error) || ("HTTP " + status);
+    }
+
+    function peopleAdd() {
+      var nameEl = document.getElementById("peopleName");
+      var phoneEl = document.getElementById("peoplePhone");
+      var ccEl = document.getElementById("peopleCountry");
+      var name = nameEl ? String(nameEl.value || "").trim() : "";
+      var digits = phoneEl ? String(phoneEl.value || "").replace(/\D/g, "") : "";
+      var cc = ccEl ? ccEl.value : "1";
+      peopleState.err = "";
+      if (!name) { peopleState.err = isEn() ? "Enter the name." : "Informe o nome."; renderPeopleCard(); return Promise.resolve(); }
+      if (!peopleState.role) { peopleState.err = isEn() ? "Choose an access type." : "Escolha um tipo de acesso."; renderPeopleCard(); return Promise.resolve(); }
+      if (digits.length < 8) { peopleState.err = isEn() ? "Enter the mobile number." : "Informe o celular."; renderPeopleCard(); return Promise.resolve(); }
+      // The country picker supplies the code unless it was typed already.
+      if (digits.indexOf(cc) !== 0 || (cc === "1" && digits.length === 10)) { digits = cc + digits; }
+      peopleState.busy = true;
+      renderPeopleCard();
+      return apiFetch("/api/gm/people", { method: "POST", body: { name: name, role: peopleState.role, phone: "+" + digits } })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+        .then(function(r) {
+          peopleState.busy = false;
+          if (!r.ok) { peopleState.err = peopleApiErr(r.data, r.status); renderPeopleCard(); return; }
+          peopleState.lastInvite = r.data;
+          peopleState.copied = false;
+          peopleState.role = "";
+          if (nameEl) { nameEl.value = ""; }
+          if (phoneEl) { phoneEl.value = ""; }
+          var n3 = document.getElementById("peopleName"); if (n3) { n3.value = ""; }
+          var p3 = document.getElementById("peoplePhone"); if (p3) { p3.value = ""; }
+          return portalPeopleLoad();
+        })
+        .catch(function(e) {
+          peopleState.busy = false;
+          peopleState.err = e.message;
+          renderPeopleCard();
+        });
+    }
+
+    function peopleNewLink(id) {
+      return apiFetch("/api/gm/people/" + encodeURIComponent(id) + "/invite", { method: "POST", body: {} })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { gmToast(peopleApiErr(r.data, r.status)); return; }
+          peopleState.lastInvite = r.data;
+          peopleState.copied = false;
+          return portalPeopleLoad();
+        })
+        .catch(function(e) { gmToast(e.message); });
+    }
+
+    function peopleDoStatus(id, action) {
+      return apiFetch("/api/gm/people/" + encodeURIComponent(id) + "/" + action, { method: "POST", body: {} })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { gmToast(peopleApiErr(r.data, r.status)); return; }
+          return portalPeopleLoad();
+        })
+        .catch(function(e) { gmToast(e.message); });
+    }
+
+    // Disabling ends the person's open sessions at once, so it is confirmed
+    // in an in-page card first. Enabling needs no confirmation.
+    function peopleSetStatus(id, action) {
+      if (action !== "disable") { return peopleDoStatus(id, action); }
+      var p = (peopleState.list || []).filter(function(x) { return x.id === id; })[0];
+      var who = p ? p.name : "";
+      gmAsk({
+        message: isEn()
+          ? "Disable " + who + "?\n\nThey are signed out everywhere right away and cannot sign in until enabled again."
+          : "Desativar " + who + "?\n\nA pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo.",
+        yes: isEn() ? "Disable" : "Desativar",
+        keep: isEn() ? "Keep access" : "Manter acesso",
+        onYes: function() { peopleDoStatus(id, "disable"); }
+      });
+      return Promise.resolve();
+    }
+
+    // Copies the invite message (it carries the link). "Copied" shows in the
+    // button itself; no pop-up.
+    function peopleCopyLink() {
+      var inv = peopleState.lastInvite;
+      if (!inv) { return; }
+      var text = inv.message || inv.invite_url;
+      var done = function() { peopleState.copied = true; renderPeopleCard(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function() { peopleCopyFallback(text); done(); });
+        return;
+      }
+      peopleCopyFallback(text);
+      done();
+    }
+    function peopleCopyFallback(text) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    // window.open runs synchronously in the click, before anything async, so
+    // no popup blocker stops it (same pattern as client.html's sends).
+    function peopleSendWhatsapp() {
+      var inv = peopleState.lastInvite;
+      if (!inv) { return; }
+      var digits = String(inv.whatsapp_digits || "").replace(/\D/g, "");
+      var waUrl = (digits.length >= 10 ? "https://wa.me/" + digits : "https://wa.me/") +
+        "?text=" + encodeURIComponent(inv.message || inv.invite_url);
+      var waTab = window.open(waUrl, "_blank");
+      if (!waTab) {
+        gmToast(isEn() ? "Popup blocked: allow popups and try again." : "Popup bloqueado: permita popups e tente novamente.");
+      }
     }
 
     // ── Referral page settings ─────────────────────────────────────────────
@@ -4345,6 +4636,15 @@
         if (leadMore && leadMore.parentNode) { leadMore.parentNode.removeChild(leadMore); }
         return;
       }
+      // Staff (passkey login build): the same removal, against their derived
+      // list. Their other tabs keep the owner's behavior below.
+      if (isStaffSession()) {
+        var staffList = portalRoleTabList();
+        document.querySelectorAll(".portal-tab").forEach(function(b) {
+          var st = b.getAttribute("data-tab");
+          if (st !== "assigned" && staffList.indexOf(st) === -1 && b.parentNode) { b.parentNode.removeChild(b); }
+        });
+      }
       document.querySelectorAll(".portal-tab").forEach(function(b) {
         var t = b.getAttribute("data-tab");
         if (!lead) {
@@ -4454,7 +4754,9 @@
       // Owner attention (A9 / A2) exists only where the Faturas tab does.
       var invTab = null;
       PORTAL_TABS.forEach(function(t) { if (t.tab === "gminvoices") { invTab = t; } });
-      window.gmAttentionEnabled = !isSeller() && !isLead() && !!invTab && portalTabEnabled(invTab);
+      // Staff without finance has no Faturas tab, so no invoice attention.
+      var invVisible = portalTabs().some(function(t) { return t.tab === "gminvoices"; });
+      window.gmAttentionEnabled = !isSeller() && !isLead() && !!invTab && portalTabEnabled(invTab) && invVisible;
       window.PORTAL_CONTRACTS_ENABLED = !isLead() && portalTabEnabled({ gate: "contracts" });
       if (window.gmAttentionEnabled && typeof gmLoadAttention === "function") { gmLoadAttention(); }
       populateMobileDock();
@@ -5010,10 +5312,42 @@
     // rows handleGetGmContracts already filters to vendedor / secundario.
     var SELLER_TABS = ["gmcrm", "gmjobs", "gmpricing", "gmestimates", "gmcontracts", "gmcalendar", "documents"];
 
+    // ── Passkey login build: partner and staff sessions ────────────────────
+    // login_role from /api/role: 'client' (owner), 'seller', or one of the
+    // three new roles. PRESENTATION ONLY, like isSeller(): the Worker enforces
+    // every one of these (loginRoleDenied in the client gate) whether or not
+    // the portal hides the tab.
+    //   partner        the owner's full portal, Settings included; only the
+    //                  owner-only controls are hidden (adding a partner)
+    //   staff_finance  everything except Settings (the gear) and people
+    //   staff          staff_finance minus Finance, Invoices and the money
+    //                  totals (Analytics and Ritmo show revenue and profit)
+    var portalLoginRole = "client";
+    function isPartnerSession() { return portalLoginRole === "partner"; }
+    function isStaffSession() { return portalLoginRole === "staff_finance" || portalLoginRole === "staff"; }
+    function isStaffNoFinance() { return portalLoginRole === "staff"; }
+
+    // The two staff roles (passkey login build), DERIVED from PORTAL_TABS by
+    // filter so a tab added for owners reaches staff too and nothing can
+    // drift. A partner uses the owner's full list. Navigation only: the
+    // Worker denies the same areas (loginRoleDenied).
+    var STAFF_FINANCE_TABS = PORTAL_TABS.map(function(t) { return t.tab; })
+      .filter(function(k) { return k !== "worksched"; });
+    var STAFF_TABS = STAFF_FINANCE_TABS.filter(function(k) {
+      return k !== "gmfinance" && k !== "gminvoices" && k !== "analytics" && k !== "goals";
+    });
+    function portalRoleTabList() {
+      if (isSeller()) { return SELLER_TABS; }
+      if (portalLoginRole === "staff_finance") { return STAFF_FINANCE_TABS; }
+      if (portalLoginRole === "staff") { return STAFF_TABS; }
+      return null;
+    }
+
     function portalTabs() {
       var tabs = PORTAL_TABS.filter(portalTabEnabled);
-      if (!isSeller()) { return tabs; }
-      return tabs.filter(function(t) { return SELLER_TABS.indexOf(t.tab) !== -1; });
+      var only = portalRoleTabList();
+      if (!only) { return tabs; }
+      return tabs.filter(function(t) { return only.indexOf(t.tab) !== -1; });
     }
 
     function portalTabByKey(tab) {
@@ -5646,6 +5980,11 @@
       // back to the Pipeline instead of firing that tab's loader and painting
       // a screen of 403s.
       if (isSeller() && SELLER_TABS.indexOf(tab) === -1) { tab = "gmcrm"; }
+      // Same safety net for the two staff roles: a deep link or a stale dock
+      // aiming at Settings (or, for staff, Finance / Invoices / the money
+      // totals) lands on Home, which both lists keep.
+      if (isStaffSession() && portalRoleTabList().indexOf(tab) === -1 &&
+          tab !== "assigned" && !spaConf(tab) && tab !== "xray") { tab = "home"; }
       // A gated tab this client does not have (or the hidden Apex invoices
       // tab) falls back the same way a stale deep link does.
       var gatedMeta = portalTabByKey(tab);
@@ -7579,6 +7918,11 @@
           isSellerSession = (role.login_role === "seller") ||
                             (!!PREVIEW_SELLER && !!PREVIEW_AS);
           window.PORTAL_IS_SELLER = isSellerSession;
+          // Passkey login build: partner / staff_finance / staff. Anything
+          // else that is not a seller is the owner, exactly as before.
+          portalLoginRole = (!PREVIEW_AS && ["partner", "staff_finance", "staff"].indexOf(role.login_role) !== -1)
+            ? role.login_role : (isSellerSession ? "seller" : "client");
+          window.PORTAL_LOGIN_ROLE = portalLoginRole;
           // The seller's own name (from the session, never a header) for the
           // {seller_name} fallback on send sheets.
           window.PORTAL_SELLER_NAME = isSellerSession ? (role.seller_name || role.display_name || "") : "";
@@ -7632,7 +7976,8 @@
           return Promise.all([
             apiFetch("/api/clients/" + clientId + "/field-config").then(function(r) { return r.json(); }),
             loadEntryState(),
-            loadGoalState().catch(function() { goalState = null; }),
+            // Staff without finance cannot read the goal numbers (money).
+            (isStaffNoFinance() ? Promise.resolve(null) : loadGoalState()).catch(function() { goalState = null; }),
             loadAssessmentList().catch(function() { xrayAssigned = false; })
           ]);
         })
@@ -7700,7 +8045,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1792336540"></script>
+  <script src="gm.js?v=1792347362"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

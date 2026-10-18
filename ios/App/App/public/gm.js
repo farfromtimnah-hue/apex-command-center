@@ -7514,6 +7514,7 @@ function gmValueHistoryValue(field, v) {
 function gmLoadValueHistory(kind, rowId, boxId) {
   var box = document.getElementById(boxId);
   if (!box) { return; }
+  if (gmNoFinanceView()) { box.innerHTML = ""; return; }
   box.innerHTML = gmSheetSection(gmT("Histórico de valores", "Value history"), '<p class="muted" style="padding:10px 12px;">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi(kind + "/" + encodeURIComponent(rowId) + "/value-history")
     .then(function(d) {
@@ -13805,7 +13806,17 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
 
 // ── Project sheet: invoices, payments, receipts, credits (3g) ─────────────
 var gmJobInvoices = {};
+// Passkey login build: a staff session without finance access (portal.html
+// sets window.PORTAL_LOGIN_ROLE). Presentation only: the Worker refuses the
+// same routes for this role (loginRoleDenied).
+function gmNoFinanceView() { return window.PORTAL_LOGIN_ROLE === "staff"; }
+
 function gmLoadJobInvoices(jobId) {
+  if (gmNoFinanceView()) {
+    var hideBox = document.getElementById("gmJobInvoicesSection");
+    if (hideBox) { hideBox.hidden = true; }
+    return;
+  }
   gmApi("invoices?job_id=" + encodeURIComponent(jobId))
     .then(function(d) { gmJobInvoices[jobId] = d.invoices || []; gmRenderJobInvoices(jobId); })
     .catch(function(e) { gmJobInvoices[jobId] = []; gmRenderJobInvoices(jobId, e.message); });

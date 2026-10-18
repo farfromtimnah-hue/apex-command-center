@@ -5721,13 +5721,19 @@
         stepNav.hidden = true;
       }
       var gear = portalGearTabs();
-      if (gearBtn) { gearBtn.hidden = !gear.length; }
+      // "Meus aparelhos" / "My devices" (passkey login completion): every
+      // role with a login_people row reaches it here, alongside whatever
+      // else the gear already holds. Forces the gear button visible even for
+      // a role (e.g. seller) whose tab list leaves PORTAL_GEAR_TABS empty.
+      if (gearBtn) { gearBtn.hidden = false; }
       var menu = document.getElementById("portalGearMenu");
       if (menu) {
         menu.innerHTML = gear.map(function(t) {
           return '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalGearGo(\'' + t.tab + '\')">' +
             window.apexNavSvg(t.icon) + portalLabelHtml(t) + '</button>';
-        }).join("");
+        }).join("") +
+        '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalMyDevicesGo();">' +
+          '<span class="show-pt">Meus aparelhos</span><span class="show-en">My devices</span></button>';
       }
     }
     // Dock tap. A group with several tools pops up its list (phone); a
@@ -5799,6 +5805,13 @@
       var menu = document.getElementById("portalGearMenu");
       if (menu) { menu.hidden = true; }
       switchTab(tab);
+    }
+    // "Meus aparelhos" / "My devices": closes the gear menu, opens the shared
+    // gm.js sheet. Not a tab (switchTab), so no tab-system change is needed.
+    function portalMyDevicesGo() {
+      var menu = document.getElementById("portalGearMenu");
+      if (menu) { menu.hidden = true; }
+      if (typeof gmMyDevicesOpen === "function") { gmMyDevicesOpen(); }
     }
     document.addEventListener("click", function(e) {
       var menu = document.getElementById("portalGearMenu");
@@ -8256,7 +8269,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1792356089"></script>
+  <script src="gm.js?v=1792358107"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

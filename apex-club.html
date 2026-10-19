@@ -541,6 +541,21 @@
     </div>
   </div>
 
+  <!-- Edit the WhatsApp message for one send (on-page, never a browser pop-up) -->
+  <div id="clubMsgOverlay" class="overlay" hidden onclick="if(event.target===this)closeClubMsgEdit()">
+    <div class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()" style="max-width:460px">
+      <div class="modal-title"><span class="show-pt">Editar mensagem</span><span class="show-en">Edit message</span></div>
+      <div id="cmWho" style="font-size:13px;color:#6b6b6b;margin-bottom:10px"></div>
+      <textarea id="cmText" class="field-input" rows="9" style="font-size:16px;line-height:1.4;resize:vertical"></textarea>
+      <div class="ev-err" id="cmErr" hidden style="margin-top:12px"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="resetClubMsgEdit()"><span class="show-pt">Restaurar padrão</span><span class="show-en">Reset to default</span></button>
+        <button class="btn" onclick="closeClubMsgEdit()"><span class="show-pt">Cancelar</span><span class="show-en">Cancel</span></button>
+        <button class="btn btn-gold" id="cmOpenBtn" onclick="openClubMsgWhatsApp()"><span class="show-pt">Abrir WhatsApp</span><span class="show-en">Open WhatsApp</span></button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" hidden><span id="toastText"></span></div>
   <div id="mobile-tab-bar"></div>
   <div id="mobile-more-menu"></div>
@@ -548,7 +563,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="nav.js"></script>
-  <script src="apex-club.js?v=5"></script>
+  <script src="apex-club.js?v=6"></script>
   <script>
     var WORKER_URL = "https://apex-api.farfromtimnah.workers.dev";
     var PUBLIC_BASE = (location.protocol === "http:" || location.protocol === "https:")

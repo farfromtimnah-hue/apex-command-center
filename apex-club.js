@@ -279,7 +279,8 @@
               ? '<div class="guest-plusone">' + t("Acompanhante: ", "Plus one: ") + esc(g.plus_one_name) + " · " + esc(g.plus_one_phone) +
                 ' <a class="gbtn wa" href="https://wa.me/' + esc(g.plus_one_phone) + "?text=" +
                 encodeURIComponent(buildClubWhatsAppText(ev, Object.assign({}, g, { name: g.plus_one_name }))) +
-                '" target="_blank" rel="noopener">WhatsApp</a>' +
+                '" target="_blank" rel="noopener">WhatsApp</a> ' +
+                clubMsgEditBtn(g.id, "plus") +
                 ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Editar", "Edit") + "</button></div>"
               : '<div class="guest-plusone"><span class="chip-missing">' + t("Acompanhante: faltando", "Plus one: missing") + '</span>' +
                 ' <button class="gbtn" onclick="openPlusOneSheet(\'' + g.id + '\')">' + t("Adicionar", "Add") + "</button></div>";
@@ -296,6 +297,7 @@
               '<a class="gbtn wa" href="https://wa.me/' + esc(g.phone) + "?text=" +
                 encodeURIComponent(waText) + '" target="_blank" rel="noopener" ' +
                 'onclick="markClubConfirmed(\'' + g.id + '\')" ' + clubTip("Abrir o WhatsApp com a mensagem de confirma&ccedil;&atilde;o deste convidado", "Open WhatsApp with this guest&#39;s confirmation message") + '>WhatsApp</a>' +
+              clubMsgEditBtn(g.id, "guest") +
               (clubIsMoneyRole()
                 ? '<button class="gbtn' + (g.plus_one ? " on" : "") + '" onclick="toggleClubPlusOne(\'' + g.id + '\',' + (g.plus_one ? "true" : "false") + ')" ' + clubTip("Traz mais uma pessoa (conta dois lugares)", "Bringing one more person (counts as two seats)") + '>+1</button>' +
                   '<button class="gbtn' + (isNext ? " on" : "") + '" onclick="toggleClubNextTime(\'' + g.id + '\',' + (isNext ? "true" : "false") + ')" ' +
@@ -392,6 +394,7 @@
                 '<span class="guest-tools">' +
                   '<a class="gbtn wa" href="https://wa.me/' + esc(p.phone) + "?text=" + encodeURIComponent(waText) + '" target="_blank" rel="noopener"' +
                     (p.isPlusOne ? "" : ' onclick="markClubConfirmed(\'' + p.regId + '\')"') + ">WhatsApp</a>" +
+                  clubMsgEditBtn(p.regId, p.isPlusOne ? "plus" : "guest") +
                 "</span></div>";
         }).join("") || '<div class="club-count-sub">' + t("Ninguém confirmado ainda.", "Nobody confirmed yet.") + "</div>";
     }
@@ -426,6 +429,72 @@
         copyTextToClipboard(lines.join("\n")).then(function () {
             toast(lines.length + " " + t("pessoas", "people"));
         });
+    }
+
+    // ── Edit the WhatsApp message for ONE send ───────────────────────────
+    // "Editar msg" next to each WhatsApp button opens an on-page sheet (never
+    // a browser pop-up) with the exact text buildClubWhatsAppText gives that
+    // person. The edit is for this one send only: nothing is saved, the
+    // Settings template is untouched, closing the sheet throws it away.
+    // Opening WhatsApp from here marks the guest confirmed exactly as the
+    // plain button does; a plus-one's marks nothing, same as today.
+    var CLUB_MSG = null;
+    function clubMsgEditBtn(regId, kind) {
+      return ' <button class="gbtn" onclick="openClubMsgEdit(\'' + regId + '\',\'' + kind + '\')" ' +
+        clubTip("Editar a mensagem antes de abrir o WhatsApp", "Edit the message before opening WhatsApp") + ">" +
+        t("Editar msg", "Edit msg") + "</button>";
+    }
+    function clubMsgFind(regId, kind) {
+      var found = null;
+      CLUB_EVENTS.forEach(function (e) {
+        (e.registrations || []).forEach(function (g) {
+          if (!found && g.id === regId) { found = { ev: e.event || e, g: g }; }
+        });
+      });
+      if (!found) { return null; }
+      var isPlus = kind === "plus";
+      var guest = isPlus ? Object.assign({}, found.g, { name: found.g.plus_one_name }) : found.g;
+      return {
+        regId: regId, isPlus: isPlus, ev: found.ev, guest: guest,
+        name: isPlus ? found.g.plus_one_name : found.g.name,
+        phone: isPlus ? found.g.plus_one_phone : found.g.phone,
+        text: buildClubWhatsAppText(found.ev, guest)
+      };
+    }
+    function openClubMsgEdit(regId, kind) {
+      var m = clubMsgFind(regId, kind);
+      if (!m) { return; }
+      CLUB_MSG = m;
+      document.getElementById("cmWho").textContent = (m.name || "") + " · " + (m.phone || "");
+      document.getElementById("cmText").value = m.text;
+      var digits = String(m.phone || "").replace(/\D/g, "");
+      var bad = digits.length < 10;
+      var errEl = document.getElementById("cmErr");
+      errEl.textContent = bad ? t("Este contato não tem um número de WhatsApp válido.", "This contact has no valid WhatsApp number.") : "";
+      errEl.hidden = !bad;
+      document.getElementById("cmOpenBtn").disabled = bad;
+      document.getElementById("clubMsgOverlay").hidden = false;
+    }
+    function closeClubMsgEdit() {
+      document.getElementById("clubMsgOverlay").hidden = true;
+      CLUB_MSG = null;
+    }
+    function resetClubMsgEdit() {
+      if (CLUB_MSG) { document.getElementById("cmText").value = CLUB_MSG.text; }
+    }
+    function openClubMsgWhatsApp() {
+      if (!CLUB_MSG) { return; }
+      var digits = String(CLUB_MSG.phone || "").replace(/\D/g, "");
+      var text = document.getElementById("cmText").value;
+      var errEl = document.getElementById("cmErr");
+      if (digits.length < 10) { return; }
+      if (!text.trim()) { errEl.textContent = t("Escreva a mensagem.", "Write the message."); errEl.hidden = false; return; }
+      var a = document.createElement("a");
+      a.href = "https://wa.me/" + digits + "?text=" + encodeURIComponent(text);
+      a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      if (!CLUB_MSG.isPlus) { markClubConfirmed(CLUB_MSG.regId); }
+      closeClubMsgEdit();
     }
 
     // Plus-one Adicionar/Editar sheet: an on-page sheet (never a browser

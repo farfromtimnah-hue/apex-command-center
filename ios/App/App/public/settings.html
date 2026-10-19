@@ -1237,6 +1237,25 @@
             <div id="apxSwitchStatus" style="margin-top:8px;font-size:13px;"></div>
           </div>
 
+          <!-- Group 1.3: SMS usage, developer/alice/rafa only (there is no
+               Apex-staff "partner" role to show this to; the passkey login's
+               "partner" is a client-tier role scoped to one business). -->
+          <div id="smsUsageBlock" hidden style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:600;margin-bottom:10px;">
+              <span class="show-pt">Uso de SMS</span>
+              <span class="show-en">SMS usage</span>
+            </div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">
+              <span class="show-pt">Códigos de acesso (passkey): </span>
+              <span class="show-en">Passkey login codes: </span>
+              <span id="smsUsagePasskeyText">—</span>
+            </div>
+            <div style="font-size:13px;color:var(--muted);">
+              <span class="show-pt">Lembretes de reunião: </span>
+              <span class="show-en">Meeting reminders: </span>
+              <span id="smsUsageReminderText">—</span>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -1505,6 +1524,7 @@
         sessionStorage.setItem("apex_email",        data.email);
         sessionStorage.setItem("apex_display_name", data.display_name || "");
         sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
         var roleEl = document.getElementById("headerRole");
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
@@ -3146,6 +3166,31 @@
           if (b) { b.checked = d.club_pay_enabled === true; }
           block.hidden = false;
           loadAutoApplySwitch();
+          loadSmsUsage();
+        })
+        .catch(function() {});
+    }
+    // Group 1.3: today/this-month counts against both caps, for the
+    // developer and the other admin roles (alice, rafa) that already pass
+    // this block's own role check above.
+    function loadSmsUsage() {
+      getToken().then(function(token) {
+        return fetch(WORKER_URL + "/api/gm/sms-usage", { headers: { "Authorization": "Bearer " + token } });
+      }).then(function(res) { return res.json(); })
+        .then(function(d) {
+          var block = document.getElementById("smsUsageBlock");
+          if (!block || !d || d.error) { return; }
+          var pk = document.getElementById("smsUsagePasskeyText");
+          var rm = document.getElementById("smsUsageReminderText");
+          if (pk && d.passkey_sms) {
+            pk.textContent = d.passkey_sms.today + "/" + d.passkey_sms.today_cap + " today, " +
+              d.passkey_sms.month + "/" + d.passkey_sms.month_cap + " this month";
+          }
+          if (rm && d.reminder_sms) {
+            rm.textContent = d.reminder_sms.today + "/" + d.reminder_sms.today_cap + " today, " +
+              d.reminder_sms.month + "/" + d.reminder_sms.month_cap + " this month";
+          }
+          block.hidden = false;
         })
         .catch(function() {});
     }

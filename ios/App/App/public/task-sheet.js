@@ -161,7 +161,11 @@ function taskSheetStyles() {
     ".task-add-quiet:empty { display: none; }" +
     ".task-add-duerow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }" +
     ".task-sheet-orig { display: block; margin-top: 4px; padding-left: 0; }" +
-    ".task-sheet-orig[hidden] { display: none; }";
+    ".task-sheet-orig[hidden] { display: none; }" +
+    ".task-sheet-attachrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; }" +
+    ".task-sheet-attachstatus { font-size: 12px; color: #6b6459; }" +
+    ".task-sheet-attachlist { margin-top: 6px; }" +
+    ".task-sheet-attachitem { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 4px 0; font-size: 13px; }";
   document.head.appendChild(st);
 }
 
@@ -722,6 +726,7 @@ function taskSheetOpen(o) {
     descriptionPt: o.descriptionPt || null, showOriginal: false,
     editing: false, savingWords: false,
     notes: [], loadState: "loading", sending: false, savingProgress: false, savingDue: false,
+    attachments: [], attachLoadState: "loading", attachUploading: false,
     prevFocus: document.activeElement, overlay: null, onKey: null
   };
 
@@ -887,6 +892,41 @@ function taskSheetOpen(o) {
   status.setAttribute("aria-live", "polite");
   box.appendChild(status);
 
+  // Task 1.4: attachments. A hidden file input plus a visible "Anexar"
+  // button (never the raw <input>, which has no house styling), a small
+  // list, and a loading/empty/error state the same way the thread above does.
+  var attachRow = document.createElement("div");
+  attachRow.className = "task-sheet-attachrow";
+  var attachBtn = document.createElement("button");
+  attachBtn.type = "button";
+  attachBtn.id = "taskSheetAttachBtn";
+  attachBtn.className = "task-sheet-btn";
+  attachBtn.innerHTML = taskSheetBoth("Anexar", "Attach");
+  attachBtn.addEventListener("click", function() {
+    var input = document.getElementById("taskSheetAttachInput");
+    if (input) { input.click(); }
+  });
+  attachRow.appendChild(attachBtn);
+  var attachInput = document.createElement("input");
+  attachInput.type = "file";
+  attachInput.id = "taskSheetAttachInput";
+  attachInput.hidden = true;
+  attachInput.accept = "image/*,.pdf,.doc,.docx,.heic,.heif";
+  attachInput.addEventListener("change", function() {
+    if (attachInput.files && attachInput.files[0]) { taskSheetUploadAttachment(attachInput.files[0]); }
+    attachInput.value = "";
+  });
+  attachRow.appendChild(attachInput);
+  var attachStatus = document.createElement("span");
+  attachStatus.id = "taskSheetAttachStatus";
+  attachStatus.className = "task-sheet-attachstatus";
+  attachRow.appendChild(attachStatus);
+  box.appendChild(attachRow);
+  var attachList = document.createElement("div");
+  attachList.id = "taskSheetAttachList";
+  attachList.className = "task-sheet-attachlist";
+  box.appendChild(attachList);
+
   var thread = document.createElement("div");
   thread.id = "taskSheetThread";
   thread.className = "task-sheet-thread";
@@ -949,7 +989,180 @@ function taskSheetOpen(o) {
   closeBtn.focus();
 
   taskSheetLoad(s);
+  taskSheetLoadAttachments(s);
   return true;
+}
+
+// Task 1.4: attachments list, upload, remove, and HEIC-to-JPEG conversion.
+function taskSheetAttachFmtSize(n) {
+  if (!n) { return ""; }
+  if (n < 1024) { return n + " B"; }
+  if (n < 1024 * 1024) { return Math.round(n / 1024) + " KB"; }
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function taskSheetPaintAttachments() {
+  var s = taskSheetNow;
+  var box = document.getElementById("taskSheetAttachList");
+  if (!s || !box) { return; }
+  box.innerHTML = "";
+  if (s.attachLoadState !== "ready") {
+    var wait = document.createElement("div");
+    wait.className = "task-sheet-quiet";
+    wait.innerHTML = s.attachLoadState === "failed"
+      ? taskSheetBoth("N&atilde;o foi poss&iacute;vel carregar os anexos.", "Could not load the attachments.")
+      : taskSheetBoth("Carregando anexos...", "Loading attachments...");
+    box.appendChild(wait);
+    return;
+  }
+  if (!s.attachments.length) {
+    var none = document.createElement("div");
+    none.className = "task-sheet-quiet";
+    none.innerHTML = taskSheetBoth("Nenhum anexo ainda.", "No attachments yet.");
+    box.appendChild(none);
+    return;
+  }
+  for (var i = 0; i < s.attachments.length; i++) {
+    (function(a) {
+      var row = document.createElement("div");
+      row.className = "task-sheet-attachitem";
+      var isHeic = /\.(heic|heif)$/i.test(a.original_name || "") || /heic|heif/i.test(a.content_type || "");
+      var link = document.createElement("a");
+      link.className = "task-sheet-link";
+      link.textContent = a.original_name + (a.size_bytes ? " (" + taskSheetAttachFmtSize(a.size_bytes) + ")" : "");
+      link.href = "javascript:void(0)";
+      link.addEventListener("click", function() { taskSheetDownloadAttachment(a.id, a.original_name); });
+      row.appendChild(link);
+      if (isHeic) {
+        var note = document.createElement("span");
+        note.className = "task-sheet-quiet";
+        note.style.marginLeft = "8px";
+        note.innerHTML = taskSheetBoth("HEIC n&atilde;o pode ser visto aqui", "HEIC cannot be previewed here");
+        row.appendChild(note);
+      }
+      var rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "task-sheet-link";
+      rm.style.marginLeft = "8px";
+      rm.innerHTML = taskSheetBoth("remover", "remove");
+      rm.addEventListener("click", function() { taskSheetRemoveAttachment(a.id); });
+      row.appendChild(rm);
+      box.appendChild(row);
+    })(s.attachments[i]);
+  }
+}
+
+function taskSheetLoadAttachments(s) {
+  if (taskSheetNow !== s) { return; }
+  taskSheetApi("/api/tasks/" + encodeURIComponent(s.id) + "/attachments", "GET")
+    .then(function(r) {
+      if (taskSheetNow !== s) { return; }
+      if (!r.ok) { throw r.data; }
+      s.attachments = r.data.attachments || [];
+      s.attachLoadState = "ready";
+      taskSheetPaintAttachments();
+    })
+    .catch(function() {
+      if (taskSheetNow !== s) { return; }
+      s.attachLoadState = "failed";
+      taskSheetPaintAttachments();
+    });
+}
+
+// HEIC-to-JPEG: only when the browser itself can decode HEIC into a canvas
+// (Safari on iOS/macOS can; most others cannot). No new dependency -- a
+// browser that fails to decode it uploads the original file unchanged, and
+// the list shows "HEIC cannot be previewed here" for it.
+function taskSheetMaybeConvertHeic(file) {
+  var isHeic = /\.(heic|heif)$/i.test(file.name || "") || /heic|heif/i.test(file.type || "");
+  if (!isHeic || typeof createImageBitmap !== "function") { return Promise.resolve(file); }
+  return createImageBitmap(file).then(function(bitmap) {
+    var canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    return new Promise(function(resolve) {
+      canvas.toBlob(function(blob) {
+        if (!blob) { resolve(file); return; }
+        var newName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+        resolve(new File([blob], newName, { type: "image/jpeg" }));
+      }, "image/jpeg", 0.9);
+    });
+  }).catch(function() { return file; });
+}
+
+function taskSheetUploadAttachment(file) {
+  var s = taskSheetNow;
+  var statusEl = document.getElementById("taskSheetAttachStatus");
+  if (!s || s.attachUploading) { return; }
+  if (file.size > 10 * 1024 * 1024) {
+    if (statusEl) { statusEl.innerHTML = taskSheetBoth("Arquivo muito grande (limite 10 MB).", "File too large (10 MB limit)."); }
+    return;
+  }
+  s.attachUploading = true;
+  if (statusEl) { statusEl.innerHTML = taskSheetBoth("Enviando...", "Uploading..."); }
+  taskSheetMaybeConvertHeic(file).then(function(toSend) {
+    var form = new FormData();
+    form.append("file", toSend);
+    return s.getToken().then(function(token) {
+      return fetch(s.apiBase + "/api/tasks/" + encodeURIComponent(s.id) + "/attachments", {
+        method: "POST", headers: { "Authorization": "Bearer " + token }, body: form
+      });
+    });
+  }).then(function(res) {
+    return res.json().then(function(data) { return { ok: res.ok, data: data || {} }; });
+  }).then(function(r) {
+    if (taskSheetNow !== s) { return; }
+    s.attachUploading = false;
+    if (!r.ok || !r.data.attachment) {
+      if (statusEl) { statusEl.innerHTML = taskSheetBoth("N&atilde;o foi poss&iacute;vel enviar o arquivo.", "Could not upload the file."); }
+      return;
+    }
+    if (statusEl) { statusEl.innerHTML = ""; }
+    taskSheetLoadAttachments(s);
+  }).catch(function() {
+    if (taskSheetNow !== s) { return; }
+    s.attachUploading = false;
+    if (statusEl) { statusEl.innerHTML = taskSheetBoth("N&atilde;o foi poss&iacute;vel enviar o arquivo.", "Could not upload the file."); }
+  });
+}
+
+function taskSheetDownloadAttachment(attId, name) {
+  var s = taskSheetNow;
+  if (!s) { return; }
+  s.getToken().then(function(token) {
+    return fetch(s.apiBase + "/api/tasks/" + encodeURIComponent(s.id) + "/attachments/" + encodeURIComponent(attId) + "/download", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+  }).then(function(res) {
+    if (!res.ok) { throw new Error("download failed"); }
+    return res.blob();
+  }).then(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name || "arquivo";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  }).catch(function() {
+    var statusEl = document.getElementById("taskSheetAttachStatus");
+    if (statusEl) { statusEl.innerHTML = taskSheetBoth("N&atilde;o foi poss&iacute;vel abrir o arquivo.", "Could not open the file."); }
+  });
+}
+
+function taskSheetRemoveAttachment(attId) {
+  var s = taskSheetNow;
+  if (!s) { return; }
+  taskSheetApi("/api/tasks/" + encodeURIComponent(s.id) + "/attachments/" + encodeURIComponent(attId) + "/remove", "POST", {})
+    .then(function(r) {
+      if (taskSheetNow !== s) { return; }
+      if (!r.ok) { throw r.data; }
+      taskSheetLoadAttachments(s);
+    })
+    .catch(function() {});
 }
 
 // -- "Adicionar tarefa" / "Add task": a task typed instead of spoken ---------

@@ -27,6 +27,13 @@ database_id   = "03fdcf49-4a1f-43f3-a0d9-d54772074b74"
 binding     = "ASSETS"
 bucket_name = "apex-command-center"
 
+# Task 1.4: task attachments (photos, PDFs, documents up to 10 MB). Never
+# served from a public URL -- every download streams through the Worker
+# with the same auth as the task itself.
+[[r2_buckets]]
+binding     = "TASK_FILES"
+bucket_name = "apex-task-files"
+
 # Runs the `scheduled` handler (worker/index.js) every 4 hours to proactively
 # exercise the Zoho Books + Google Calendar token refresh and alert Nicole's
 # Telegram DM on failure, instead of finding out when a client hits a broken
@@ -63,6 +70,16 @@ binding = "IMAGES"
 
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
+# Task 1.5: Twilio identifiers (not secrets -- TWILIO_API_KEY_SECRET is a
+# Worker secret set separately and never appears here). FROM_NUMBER and
+# MESSAGING_SERVICE_SID stay empty until Nicole has a sender; with both
+# empty and REMINDER_TEXTS_ENABLED empty, no reminder text can ever send
+# (see reminderTextsConfigured in worker/index.js).
+TWILIO_ACCOUNT_SID           = "ACXXXXXXXXXXXXXXXX"
+TWILIO_API_KEY_SID           = "SKXXXXXXXXXXXXXXXXa5"
+TWILIO_FROM_NUMBER           = ""
+TWILIO_MESSAGING_SERVICE_SID = ""
+REMINDER_TEXTS_ENABLED       = ""
 # TAP_TO_PAY_PUBLIC: unset (developer-only gate, Fix 5, 2026-10-18). Once
 # Apple grants the distribution entitlement, set this to "1" here (or via
 # `wrangler secret put` / the dashboard) to open Tap to Pay to every business
@@ -82,3 +99,16 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 #   PASSKEY_WHATSAPP_ENABLED     var: "1" turns on the WhatsApp channel for +55 numbers
 #   PASSKEY_WHATSAPP_DAILY_CAP   var: app-wide WhatsApp code sends per 24h (default 30)
 #   PASSKEY_TRUSTED_COUNTRIES    var: comma list of ISO country codes (default "US,BR,CA")
+# Group 1.3 (2026-10-19): a MONTHLY cap on top of the existing daily one
+# (PASSKEY_SMS_DAILY_CAP), plus the two new reminder-text counters (task 1.5).
+#   PASSKEY_SMS_MONTHLY_CAP   var: app-wide passkey SMS sends per calendar month (default 600)
+#   REMINDER_SMS_DAILY_CAP    var: app-wide reminder-text sends per 24h (default 60)
+#   REMINDER_SMS_MONTHLY_CAP  var: app-wide reminder-text sends per calendar month (default 600)
+# Task 1.5 (2026-10-19): text reminders for meetings, through Twilio. These
+# three are IDENTIFIERS, not secrets -- TWILIO_API_KEY_SECRET already exists
+# as a Worker secret and is never declared here.
+#   TWILIO_ACCOUNT_SID            var: "ACXXXXXXXXXXXXXXXX"
+#   TWILIO_API_KEY_SID             var: "SKXXXXXXXXXXXXXXXXa5"
+#   TWILIO_FROM_NUMBER             var: unset until Nicole has a sender number
+#   TWILIO_MESSAGING_SERVICE_SID   var: unset until Nicole has one (preferred over FROM when set)
+#   REMINDER_TEXTS_ENABLED         var: "1" turns reminder sends on; unset/anything else = off

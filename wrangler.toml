@@ -70,13 +70,15 @@ binding = "IMAGES"
 
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
-# Task 1.5: Twilio identifiers (not secrets -- TWILIO_API_KEY_SECRET is a
-# Worker secret set separately and never appears here). FROM_NUMBER and
+# Task 1.5: Twilio. GitHub's push protection blocks a Twilio Account/API-key
+# SID committed in plaintext even though they are identifiers, not
+# passwords -- so TWILIO_ACCOUNT_SID and TWILIO_API_KEY_SID are Worker
+# SECRETS (set via `wrangler secret put`, same as TWILIO_API_KEY_SECRET),
+# not vars. env.TWILIO_ACCOUNT_SID / env.TWILIO_API_KEY_SID in worker/index.js
+# work identically either way -- no code change needed. FROM_NUMBER and
 # MESSAGING_SERVICE_SID stay empty until Nicole has a sender; with both
 # empty and REMINDER_TEXTS_ENABLED empty, no reminder text can ever send
 # (see reminderTextsConfigured in worker/index.js).
-TWILIO_ACCOUNT_SID           = "ACXXXXXXXXXXXXXXXX"
-TWILIO_API_KEY_SID           = "SKXXXXXXXXXXXXXXXXa5"
 TWILIO_FROM_NUMBER           = ""
 TWILIO_MESSAGING_SERVICE_SID = ""
 REMINDER_TEXTS_ENABLED       = ""
@@ -104,11 +106,14 @@ REMINDER_TEXTS_ENABLED       = ""
 #   PASSKEY_SMS_MONTHLY_CAP   var: app-wide passkey SMS sends per calendar month (default 600)
 #   REMINDER_SMS_DAILY_CAP    var: app-wide reminder-text sends per 24h (default 60)
 #   REMINDER_SMS_MONTHLY_CAP  var: app-wide reminder-text sends per calendar month (default 600)
-# Task 1.5 (2026-10-19): text reminders for meetings, through Twilio. These
-# three are IDENTIFIERS, not secrets -- TWILIO_API_KEY_SECRET already exists
-# as a Worker secret and is never declared here.
-#   TWILIO_ACCOUNT_SID            var: "ACXXXXXXXXXXXXXXXX"
-#   TWILIO_API_KEY_SID             var: "SKXXXXXXXXXXXXXXXXa5"
+# Task 1.5 (2026-10-19): text reminders for meetings, through Twilio.
+# TWILIO_ACCOUNT_SID and TWILIO_API_KEY_SID are identifiers, not secrets by
+# nature, but GitHub's push protection still blocks a Twilio SID committed
+# in plaintext -- so both are Worker SECRETS here (set via `wrangler secret
+# put`, values held by the reviewer, never committed), same as
+# TWILIO_API_KEY_SECRET. Names only:
+#   TWILIO_ACCOUNT_SID             secret: Twilio Account SID
+#   TWILIO_API_KEY_SID             secret: Twilio API key SID
 #   TWILIO_FROM_NUMBER             var: unset until Nicole has a sender number
 #   TWILIO_MESSAGING_SERVICE_SID   var: unset until Nicole has one (preferred over FROM when set)
 #   REMINDER_TEXTS_ENABLED         var: "1" turns reminder sends on; unset/anything else = off

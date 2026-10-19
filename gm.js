@@ -14297,7 +14297,11 @@ function gmMyDevicesAdd() {
         why = " " + gmT("O navegador cancelou o pedido ou a página estava sem foco. Toque na página e tente de novo.",
                         "The browser canceled the request or the page was not focused. Click the page and try again.");
       } else if (name === "InvalidStateError") {
-        why = " " + gmT("Este aparelho já tem uma passkey do Apex.", "This device already has an Apex passkey.");
+        // Not a failure: the passkey already reached this device (iCloud sync).
+        gmMyDevicesState.err = gmT("Este aparelho já tem a sua passkey do Apex (ela sincronizou pelo iCloud). Não precisa adicionar: é só entrar com a passkey.",
+                                   "This device already has your Apex passkey (it synced through iCloud). No need to add it: just sign in with the passkey.");
+        gmMyDevicesRender();
+        return;
       } else if (name) {
         why = " (" + name + ")";
       }

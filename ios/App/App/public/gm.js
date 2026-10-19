@@ -14289,7 +14289,19 @@ function gmMyDevicesAdd() {
     })
     .catch(function(e) {
       gmMyDevicesState.busy = false;
-      gmMyDevicesState.err = (e && e.shown) ? e.message : gmT("Não foi possível adicionar o aparelho.", "Could not add the device.");
+      var name = (e && e.name) ? String(e.name) : "";
+      // Say WHY when the browser gave a reason; keep the old generic line otherwise.
+      console.error("add device: " + name + ": " + ((e && e.message) || ""));
+      var why = "";
+      if (name === "NotAllowedError") {
+        why = " " + gmT("O navegador cancelou o pedido ou a página estava sem foco. Toque na página e tente de novo.",
+                        "The browser canceled the request or the page was not focused. Click the page and try again.");
+      } else if (name === "InvalidStateError") {
+        why = " " + gmT("Este aparelho já tem uma passkey do Apex.", "This device already has an Apex passkey.");
+      } else if (name) {
+        why = " (" + name + ")";
+      }
+      gmMyDevicesState.err = ((e && e.shown) ? e.message : gmT("Não foi possível adicionar o aparelho.", "Could not add the device.")) + (e && e.shown ? "" : why);
       gmMyDevicesRender();
     });
 }

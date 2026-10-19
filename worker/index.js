@@ -895,6 +895,7 @@ async function handleGetRole(request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
+        var lang = await meLanguageResolve(env, user);
         return jsonOk({
             role: user.role, email: user.email, display_name: user.display_name, avatar_url: user.avatar_url,
             client_id: user.client_id || null,
@@ -904,10 +905,89 @@ async function handleGetRole(request, env) {
             // are enforced server-side and do not depend on it.
             login_role: user.login_role || "client",
             seller_name: user.seller_name || null,
-            auth_method: user.auth_method || "google"
+            auth_method: user.auth_method || "google",
+            // Group 1.1: the signed-in person's saved language, or the right
+            // default when nothing has been saved yet. language_unset tells
+            // the page whether to show the first-sign-in Portuguese/English
+            // card (true only for a STAFF-tier login_people row -- partner,
+            // staff_finance, staff, seller -- that has never chosen). An
+            // owner (login_role client) and every Google-auth staff role
+            // (alice/rafa/developer) always default silently to pt and are
+            // never asked.
+            language: lang.language,
+            language_unset: lang.unset
         });
     } catch (e) {
         return jsonErr("Auth failed: " + e.message, 401);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Group 1.1: per-person language. ONE saved value per person, read by
+// /api/role on every page load and written only by that same person through
+// PUT /api/me/language. Never localStorage, never a client-wide default
+// beyond the rule below.
+//
+// Resolution:
+//  - Google-auth staff (alice/rafa/developer): users.language, default 'pt'.
+//  - Client-tier owner (login_role 'client'/'seller' with no login_people
+//    row, i.e. a legacy password login): defaults to 'pt' (Pr. Rafa consults
+//    in Portuguese; owners are Portuguese speakers), never asked, because
+//    this is the party line even if they later get a login_people row.
+//  - A STAFF-tier login_people row (partner/staff_finance/staff) whose
+//    language is NULL has never chosen: unset=true shows the first-sign-in
+//    card. An owner's own login_people row (role 'client') with NULL also
+//    defaults to pt silently -- an owner who already saved an explicit 'en'
+//    keeps it, per the brief's "change nothing existing".
+// ---------------------------------------------------------------------------
+async function meLanguageResolve(env, user) {
+    if (user.role !== "client") {
+        if (user.role === "alice" || user.role === "rafa" || user.role === "developer") {
+            var staffRow = await env.DB.prepare("SELECT language FROM users WHERE email = ?")
+                .bind(user.email).first().catch(function () { return null; });
+            return { language: (staffRow && staffRow.language) || "pt", unset: false };
+        }
+        return { language: "pt", unset: false };
+    }
+    if (!user.client_id || !user.username) { return { language: "pt", unset: false }; }
+    var p = await env.DB.prepare("SELECT role, language FROM login_people WHERE client_id = ? AND username = ?")
+        .bind(user.client_id, user.username).first().catch(function () { return null; });
+    if (!p) { return { language: "pt", unset: false }; }
+    if (p.language === "pt" || p.language === "en") { return { language: p.language, unset: false }; }
+    if (p.role === "client") { return { language: "pt", unset: false }; }
+    return { language: "pt", unset: true };
+}
+
+// Route: PUT /api/me/language { language: "pt" | "en" }
+// Any signed-in person (staff Google-auth OR a login_people row) sets ONLY
+// their own saved language. No body field can target another person -- the
+// row to update comes entirely from the session.
+async function handlePutMeLanguage(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var body = await request.json();
+        var lang = body && body.language;
+        if (lang !== "pt" && lang !== "en") { return jsonErr("language must be pt or en", 400); }
+        if (user.role === "alice" || user.role === "rafa" || user.role === "developer") {
+            await env.DB.prepare("UPDATE users SET language = ? WHERE email = ?").bind(lang, user.email).run();
+            return jsonOk({ saved: true, language: lang });
+        }
+        if (user.role === "client" && user.client_id && user.username) {
+            var res = await env.DB.prepare(
+                "UPDATE login_people SET language = ? WHERE client_id = ? AND username = ?"
+            ).bind(lang, user.client_id, user.username).run();
+            if (!res.meta || !res.meta.changes) {
+                // No login_people row for this session (legacy password login) --
+                // nothing to save to, but this is not an error the UI needs to
+                // show; the owner default (pt) already governs every page.
+                return jsonOk({ saved: false, language: lang });
+            }
+            return jsonOk({ saved: true, language: lang });
+        }
+        return jsonErr("Forbidden", 403);
+    } catch (e) {
+        return jsonErr("Error saving language: " + e.message, 500);
     }
 }
 
@@ -9600,6 +9680,113 @@ async function handlePostTaskNote(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Task 1.4: attachments (photos, PDFs, documents up to 10 MB), stored in R2
+// (binding TASK_FILES). Same auth as the task itself (whoever may see the
+// task may see its files) -- the three-role check taskNotesTask's callers
+// already use. A "remove" only sets removed_at: no hard delete, no R2
+// delete, per rule 5.
+// ---------------------------------------------------------------------------
+var TASK_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+// Route: POST /api/tasks/:id/attachments  multipart: file
+async function handlePostTaskAttachment(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+
+        var form = await request.formData().catch(function() { return null; });
+        var file = form ? form.get("file") : null;
+        if (!file || typeof file.arrayBuffer !== "function") {
+            return jsonErr2("Escolha um arquivo.", "Choose a file.", 400);
+        }
+        if (file.size > TASK_ATTACHMENT_MAX_BYTES) {
+            return jsonErr2("Arquivo muito grande. O limite é 10 MB.", "File too large. The limit is 10 MB.", 400);
+        }
+        var attId = crypto.randomUUID();
+        var originalName = String(file.name || "arquivo").slice(0, 200);
+        var contentType = String(file.type || "application/octet-stream").slice(0, 100);
+        var fileKey = "tasks/" + id + "/" + attId + "-" + originalName.replace(/[^A-Za-z0-9._-]/g, "_");
+        var bytes = await file.arrayBuffer();
+        await env.TASK_FILES.put(fileKey, bytes, { httpMetadata: { contentType: contentType } });
+        var nowIso = new Date().toISOString();
+        await env.DB.prepare(
+            "INSERT INTO task_attachments (id, task_id, file_key, original_name, content_type, size_bytes, uploaded_by, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        ).bind(attId, id, fileKey, originalName, contentType, file.size, actorName(user), nowIso).run();
+        return jsonOk({
+            attachment: { id: attId, original_name: originalName, content_type: contentType, size_bytes: file.size, created_at: nowIso }
+        });
+    } catch (e) {
+        return jsonErr("Error uploading attachment: " + e.message, 500);
+    }
+}
+
+// Route: GET /api/tasks/:id/attachments — list, newest first, removed hidden
+async function handleGetTaskAttachments(id, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+        var rows = (await env.DB.prepare(
+            "SELECT id, original_name, content_type, size_bytes, uploaded_by, created_at FROM task_attachments " +
+            "WHERE task_id = ? AND removed_at IS NULL ORDER BY created_at DESC"
+        ).bind(id).all()).results || [];
+        return jsonOk({ attachments: rows });
+    } catch (e) {
+        return jsonErr("Error fetching attachments: " + e.message, 500);
+    }
+}
+
+// Route: GET /api/tasks/:id/attachments/:attId/download — streams through
+// the Worker (never a public URL), same auth as the task.
+async function handleGetTaskAttachmentDownload(id, attId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+        var row = await env.DB.prepare(
+            "SELECT file_key, original_name, content_type FROM task_attachments WHERE id = ? AND task_id = ? AND removed_at IS NULL"
+        ).bind(attId, id).first();
+        if (!row) { return jsonErr("Attachment not found", 404); }
+        var obj = await env.TASK_FILES.get(row.file_key);
+        if (!obj) { return jsonErr("File not found", 404); }
+        return new Response(obj.body, {
+            headers: {
+                "Content-Type": row.content_type || "application/octet-stream",
+                "Content-Disposition": "attachment; filename=\"" + row.original_name.replace(/"/g, "") + "\""
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error downloading attachment: " + e.message, 500);
+    }
+}
+
+// Route: POST /api/tasks/:id/attachments/:attId/remove — soft remove only.
+async function handlePostTaskAttachmentRemove(id, attId, request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role !== "alice" && user.role !== "rafa" && user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        var found = await taskNotesTask(id, env);
+        if (found.error) { return found.error; }
+        var res = await env.DB.prepare(
+            "UPDATE task_attachments SET removed_at = ? WHERE id = ? AND task_id = ? AND removed_at IS NULL"
+        ).bind(new Date().toISOString(), attId, id).run();
+        if (!res.meta || !res.meta.changes) { return jsonErr("Attachment not found", 404); }
+        return jsonOk({ removed: true });
+    } catch (e) {
+        return jsonErr("Error removing attachment: " + e.message, 500);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route: GET /api/tasks/consultant/overdue
 // Returns all overdue consultant tasks (pending, due_date < today).
 // ---------------------------------------------------------------------------
@@ -15584,6 +15771,10 @@ function clientRequestAllowed(path, method, clientId) {
     // those stay reachable only through the admin role branch, never through
     // this owner/partner/staff allowlist.
     if (path.indexOf("/api/me/passkeys") === 0) { return true; }
+    // Group 1.1: any signed-in client-tier person (owner, partner,
+    // staff_finance, staff, seller) saves only their own language. The
+    // handler takes client_id/username from the SESSION, never the body.
+    if (path === "/api/me/language" && method === "PUT") { return true; }
     if (path === "/api/gm/activity" && method === "GET") { return true; }
     var base = "/api/clients/" + clientId;
     if (path === base && method === "GET") { return true; }
@@ -15874,6 +16065,8 @@ function sellerRequestAllowed(path, method, clientId) {
     if (path === "/api/portal/me" && method === "GET") { return true; }
     // F49: a salesperson's device can receive "contract awaiting your signature".
     if ((path === "/api/push/apns" || path === "/api/push/subscribe") && method === "POST") { return true; }
+    // Group 1.1: a salesperson saves only their own language.
+    if (path === "/api/me/language" && method === "PUT") { return true; }
 
     var base = "/api/clients/" + clientId;
     // The portal shell reads the client record to boot (name, logo, industry).
@@ -16789,6 +16982,104 @@ function passkeySmsCap(env) {
     var n = parseInt((env && env.PASSKEY_SMS_DAILY_CAP) || "", 10);
     return (n > 0) ? n : 30;
 }
+
+// ---------------------------------------------------------------------------
+// Group 1.3: monthly caps on top of the existing daily ones, counted in
+// Eastern calendar days/months (not UTC), plus the SAME pattern reused for
+// task 1.5's two reminder-text counters. ONE small table (send_counters),
+// atomic increments (INSERT ... ON CONFLICT DO UPDATE), no read-then-write.
+// ---------------------------------------------------------------------------
+function sendCounterMonthlyCap(env, name, fallback) {
+    var n = parseInt((env && env[name]) || "", 10);
+    return (n > 0) ? n : fallback;
+}
+function passkeySmsMonthlyCap(env) { return sendCounterMonthlyCap(env, "PASSKEY_SMS_MONTHLY_CAP", 600); }
+function reminderSmsDailyCap(env) { return sendCounterMonthlyCap(env, "REMINDER_SMS_DAILY_CAP", 60); }
+function reminderSmsMonthlyCap(env) { return sendCounterMonthlyCap(env, "REMINDER_SMS_MONTHLY_CAP", 600); }
+
+// Reads the current count for a bucket/period without incrementing it.
+async function sendCounterRead(env, bucket, periodKey) {
+    var row = await env.DB.prepare("SELECT count FROM send_counters WHERE bucket = ? AND period_key = ?")
+        .bind(bucket, periodKey).first();
+    return (row && row.count) || 0;
+}
+
+// Atomically increments the counter and returns the NEW count. Call this
+// only once the send has actually gone out (counted AFTER success, per the
+// brief's "record the send only after Twilio accepted the message" for
+// reminders; the existing passkey daily cap counts before sending via its
+// own login_code_sends rows, which this does not change).
+async function sendCounterIncrement(env, bucket, periodKey) {
+    var now = new Date().toISOString();
+    await env.DB.prepare(
+        "INSERT INTO send_counters (bucket, period_key, count, updated_at) VALUES (?, ?, 1, ?) " +
+        "ON CONFLICT (bucket, period_key) DO UPDATE SET count = count + 1, updated_at = excluded.updated_at"
+    ).bind(bucket, periodKey, now).run();
+    return sendCounterRead(env, bucket, periodKey);
+}
+
+// Eastern calendar day/month keys, per rule 2 (never derive from
+// toISOString -- every caller here uses the Eastern wall clock).
+function sendCounterDayKey() { return easternDateStr(0); }
+function sendCounterMonthKey() { return easternDateStr(0).slice(0, 7); }
+
+async function sendCounterMaybeAlert(env, bucket, periodKey, count, cap, label) {
+    var half = Math.ceil(cap / 2);
+    var levels = [];
+    if (count >= half) { levels.push("half"); }
+    if (count >= cap) { levels.push("cap"); }
+    for (var i = 0; i < levels.length; i++) {
+        var res = await env.DB.prepare(
+            "INSERT OR IGNORE INTO send_counter_alerts (bucket, period_key, threshold, sent_at) VALUES (?, ?, ?, ?)"
+        ).bind(bucket, periodKey, levels[i], new Date().toISOString()).run();
+        if (res && res.meta && res.meta.changes === 1) {
+            await notifyNicoleTelegram(env, levels[i] === "cap"
+                ? "Apex " + label + ": reached the monthly cap (" + count + " of " + cap + " this month). New sends are blocked until next month."
+                : "Apex " + label + ": reached half of the monthly cap (" + count + " of " + cap + " this month).");
+        }
+    }
+}
+
+// True when the monthly cap for this bucket has already been reached (read
+// only -- does not increment). Call BEFORE sending, same as the existing
+// daily check, so a month at the cap refuses with no Stytch/Twilio call.
+async function sendCounterMonthlyBlocked(env, bucket, cap) {
+    var count = await sendCounterRead(env, bucket, sendCounterMonthKey());
+    return count >= cap;
+}
+
+// Route: GET /api/gm/sms-usage — developer/alice/rafa only. Today and this
+// month against both caps, for passkey login SMS and reminder SMS. The
+// brief also names "partners"; there is no Apex-staff partner role (the
+// passkey login_role 'partner' is a CLIENT-tier business partner, scoped to
+// one client, not this cross-business operational screen), so this stays
+// admin-only -- see the final report.
+async function handleGetSmsUsage(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+        var passkeySmsToday = await env.DB.prepare(
+            "SELECT COUNT(*) AS c FROM login_code_sends WHERE created_at > ? AND channel = 'sms'"
+        ).bind(dayAgo).first();
+        var passkeySmsMonth = await sendCounterRead(env, "passkey_sms", sendCounterMonthKey());
+        var reminderSmsToday = await sendCounterRead(env, "reminder_sms", sendCounterDayKey());
+        var reminderSmsMonth = await sendCounterRead(env, "reminder_sms", sendCounterMonthKey());
+        return jsonOk({
+            passkey_sms: {
+                today: (passkeySmsToday && passkeySmsToday.c) || 0, today_cap: passkeySmsCap(env),
+                month: passkeySmsMonth, month_cap: passkeySmsMonthlyCap(env)
+            },
+            reminder_sms: {
+                today: reminderSmsToday, today_cap: reminderSmsDailyCap(env),
+                month: reminderSmsMonth, month_cap: reminderSmsMonthlyCap(env)
+            }
+        });
+    } catch (e) {
+        return jsonErr("Error fetching SMS usage: " + e.message, 500);
+    }
+}
 function passkeyFirstName(name) {
     var s = String(name || "").trim();
     return s ? s.split(/\s+/)[0] : "";
@@ -17130,6 +17421,12 @@ async function handlePostPasskeyInviteSendCode(request, env) {
             else { await passkeyMaybeAlert(env, all.c, cap); }
             return passkeyFail("later");
         }
+        // Group 1.3: the NEW monthly cap (PASSKEY_SMS_MONTHLY_CAP), SMS only
+        // per spec -- WhatsApp keeps its existing daily-only cap. Checked
+        // before anything is sent, same automatic switch-off as the daily one.
+        if (channel === "sms" && await sendCounterMonthlyBlocked(env, "passkey_sms", passkeySmsMonthlyCap(env))) {
+            return passkeyFail("later");
+        }
         var ip = request.headers.get("CF-Connecting-IP") || "";
         if (ip) {
             var byIp = await env.DB.prepare(
@@ -17146,7 +17443,12 @@ async function handlePostPasskeyInviteSendCode(request, env) {
         await env.DB.prepare("UPDATE login_invites SET code_sends = code_sends + 1, last_send_at = ? WHERE id = ?")
             .bind(passkeyIso(now), row.id).run();
         if (channel === "whatsapp") { await passkeyMaybeWhatsappAlert(env, ((all && all.c) || 0) + 1, cap); }
-        else { await passkeyMaybeAlert(env, ((all && all.c) || 0) + 1, cap); }
+        else {
+            await passkeyMaybeAlert(env, ((all && all.c) || 0) + 1, cap);
+            var monthlyCount = await sendCounterIncrement(env, "passkey_sms", sendCounterMonthKey());
+            await sendCounterMaybeAlert(env, "passkey_sms", sendCounterMonthKey(), monthlyCount,
+                passkeySmsMonthlyCap(env), "passkey login SMS");
+        }
 
         // Change E: +1 uses the SMS one-time-code endpoint; +55 uses Stytch's
         // WhatsApp one-time-code endpoint. Everything else about the send
@@ -53478,6 +53780,8 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/gm/seller-login-requests"    && method === "GET")  { return handleGetGmSellerLoginRequests(request, env); }
 
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
+        if (path === "/api/me/language"                && method === "PUT")  { return handlePutMeLanguage(request, env); }
+        if (path === "/api/gm/sms-usage"                && method === "GET")  { return handleGetSmsUsage(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
@@ -54478,6 +54782,22 @@ async function handleFetch(request, env, ctx) {
         }
         if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "notes" && !segs[4] && method === "POST") {
             return handlePostTaskNote(segs[2], request, env);
+        }
+
+        // /api/tasks/:id/attachments  GET (list) | POST (upload multipart)
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "attachments" && !segs[4] && method === "GET") {
+            return handleGetTaskAttachments(segs[2], request, env);
+        }
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "attachments" && !segs[4] && method === "POST") {
+            return handlePostTaskAttachment(segs[2], request, env);
+        }
+        // /api/tasks/:id/attachments/:attId/download  GET
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "attachments" && segs[4] && segs[5] === "download" && !segs[6] && method === "GET") {
+            return handleGetTaskAttachmentDownload(segs[2], segs[4], request, env);
+        }
+        // /api/tasks/:id/attachments/:attId/remove  POST
+        if (segs[0] === "api" && segs[1] === "tasks" && segs[2] && segs[3] === "attachments" && segs[4] && segs[5] === "remove" && !segs[6] && method === "POST") {
+            return handlePostTaskAttachmentRemove(segs[2], segs[4], request, env);
         }
 
         // /api/tasks/:id  PATCH (status toggle, and the pill, due date and words of a staff task)

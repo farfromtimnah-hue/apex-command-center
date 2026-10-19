@@ -4214,6 +4214,7 @@
         sessionStorage.setItem("apex_email",        data.email);
         sessionStorage.setItem("apex_display_name", data.display_name || "");
         sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
         var roleEl = document.getElementById("headerRole");
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);
@@ -4745,7 +4746,7 @@
         html += '<p style="font-size:13px;color:var(--muted);margin-bottom:8px;">' +
           '<span class="show-pt">Digite o celular do dono com o c&oacute;digo do pa&iacute;s (+1 ou +55) e confirme.</span>' +
           '<span class="show-en">Type the owner&#39;s mobile number with the country code (+1 or +55) and confirm.</span></p>' +
-          '<input type="tel" id="ownerInvitePhone" inputmode="tel" placeholder="+1 407 555 0123" style="width:100%;margin-bottom:10px;">';
+          '<input type="tel" id="ownerInvitePhone" inputmode="tel" placeholder="(407) 555-0123" style="width:100%;margin-bottom:10px;" oninput="window.apexFormatPhoneInput(this)">';
       }
       if (ownerInvite.err) { html += '<div style="color:#b44040;font-size:13px;margin-bottom:10px;">' + escHtml(ownerInvite.err) + '</div>'; }
       html += '<button class="btn-primary" style="width:100%;"' + (ownerInvite.busy ? " disabled" : "") + ' onclick="ownerInviteCreate()">' +

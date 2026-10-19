@@ -698,6 +698,7 @@
         sessionStorage.setItem("apex_role", data.role);
         sessionStorage.setItem("apex_email", data.email);
         sessionStorage.setItem("apex_display_name", data.display_name || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
         var roleEl = document.getElementById("headerRole");
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null);

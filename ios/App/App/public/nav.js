@@ -378,12 +378,99 @@
     }
     applyTitle();
     var lang = window.apexIsEn() ? "en" : "pt";
+    window.apexSaveLanguage(lang);
     try {
       document.dispatchEvent(new CustomEvent("apex:langchange", { detail: { lang: lang } }));
     } catch (e) {
       // Never let one page's listener throwing leave the toggle half-applied.
       if (window.console && console.error) { console.error("apex:langchange listener failed", e); }
     }
+  };
+
+  // ── Public: one shared US-style phone input behavior (task 1.2a) ────────
+  // Formats as the person types: "(123) 456-7890", accepts a leading +1.
+  // Returns the digits-only value (the existing storage format) so a caller
+  // can build "+1" + digits or "+" + digits exactly as it already does.
+  // Call on an <input type="tel"> element's oninput.
+  window.apexFormatPhoneInput = function (el) {
+    try {
+      if (!el) { return ""; }
+      var raw = String(el.value || "");
+      var hadPlus1 = /^\s*\+?1/.test(raw);
+      var digits = raw.replace(/\D/g, "");
+      // Drop a leading "1" country code from the 10-digit US number before
+      // formatting -- the UI's parens-and-dash shape is always 10 digits.
+      if (digits.length === 11 && digits.charAt(0) === "1") { digits = digits.slice(1); }
+      else if (digits.length > 10 && hadPlus1) { digits = digits.slice(digits.length - 10); }
+      digits = digits.slice(0, 10);
+      var out = digits;
+      if (digits.length > 6) {
+        out = "(" + digits.slice(0, 3) + ") " + digits.slice(3, 6) + "-" + digits.slice(6);
+      } else if (digits.length > 3) {
+        out = "(" + digits.slice(0, 3) + ") " + digits.slice(3);
+      } else if (digits.length > 0) {
+        out = "(" + digits;
+      }
+      el.value = out;
+      return digits;
+    } catch (e) { return ""; }
+  };
+
+  // ── Public: apply the server's answer for this person's language ────────
+  // Group 1.1. Call this once, right after /api/role (or /api/portal/me's
+  // own role fetch) answers, with that same JSON body. It is the single
+  // place that turns { language, language_unset } into the page's lang-pt /
+  // lang-en class and the sessionStorage paint cache for the NEXT page.
+  // Returns language_unset so the caller can show the first-sign-in card.
+  window.apexApplyRoleLanguage = function (data) {
+    try {
+      var lang = (data && data.language === "en") ? "en" : "pt";
+      var b = document.body;
+      if (lang === "en") {
+        b.classList.remove("lang-pt"); b.classList.add("lang-en");
+      } else {
+        b.classList.remove("lang-en"); b.classList.add("lang-pt");
+      }
+      sessionStorage.setItem("apex_lang", lang);
+      applyTitle();
+      return !!(data && data.language_unset);
+    } catch (e) { return false; }
+  };
+
+  // ── Public: save the signed-in person's language to the server ──────────
+  // Group 1.1. sessionStorage is still written above as a same-tab paint
+  // cache (so a navigation to the next page shows the right language before
+  // /api/role answers); the server row is the source of truth across
+  // sign-ins and devices. Fire and forget, like apexTrack: a save that fails
+  // never blocks the toggle the person already sees take effect.
+  window.apexSaveLanguage = function (lang) {
+    try {
+      if (lang !== "pt" && lang !== "en") { return; }
+      var workerUrl = window.WORKER_URL || "https://apex-api.farfromtimnah.workers.dev";
+      var body = JSON.stringify({ language: lang });
+      var role = sessionStorage.getItem("apex_role");
+      if (role === "alice" || role === "rafa" || role === "developer") {
+        var fb = window.firebase;
+        if (!fb || !fb.auth || !fb.auth().currentUser) { return; }
+        fb.auth().currentUser.getIdToken().then(function (token) {
+          return fetch(workerUrl + "/api/me/language", {
+            method: "PUT", keepalive: true,
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+            body: body
+          });
+        }).then(function () {}, function () {});
+        return;
+      }
+      // Client-tier (owner/partner/staff_finance/staff/seller): the
+      // client-portal opaque token, same storage key portal.html uses.
+      var clientToken = sessionStorage.getItem("apex_client_token") || localStorage.getItem("apex_client_token");
+      if (!clientToken) { return; }
+      fetch(workerUrl + "/api/me/language", {
+        method: "PUT", keepalive: true,
+        headers: { "Authorization": "Bearer " + clientToken, "Content-Type": "application/json" },
+        body: body
+      }).then(function () {}, function () {});
+    } catch (e) { /* never throws */ }
   };
 
   // ── Public: toggle collapse ───────────────────────────────────────────────

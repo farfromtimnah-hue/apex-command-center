@@ -1794,6 +1794,7 @@
         sessionStorage.setItem("apex_email",        data.email);
         sessionStorage.setItem("apex_display_name", data.display_name || "");
         sessionStorage.setItem("apex_avatar_url",   data.avatar_url   || "");
+        if (window.apexApplyRoleLanguage) { window.apexApplyRoleLanguage(data); }
         var roleEl = document.getElementById("headerRole");
         if (roleEl) { roleEl.textContent = data.role; }
         populateHeaderUser(data.email, data.display_name || null, data.avatar_url || null);

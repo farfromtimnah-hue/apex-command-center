@@ -1152,6 +1152,21 @@
     </span>
   </div>
 
+  <!-- Group 1.1: first sign-in for a STAFF-tier passkey login (partner,
+       staff_finance, staff) with no saved language yet. Shown once; the
+       choice is saved to login_people.language on the server, never
+       localStorage. Neither word is gated by .show-pt/.show-en -- the
+       person has not chosen a language yet, so both labels always show. -->
+  <div id="langChoiceCard" hidden style="position:fixed; inset:0; z-index:200; background:rgba(26,26,29,0.55); display:flex; align-items:center; justify-content:center; padding:16px;">
+    <div style="background:var(--card); border-radius:var(--radius); max-width:360px; width:100%; padding:28px 24px; text-align:center; box-shadow:var(--shadow);">
+      <div style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:18px;">Português ou English?</div>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button type="button" onclick="chooseLangFirstSignin('pt')" style="flex:1; background:var(--header); color:#fff; border:none; border-radius:8px; padding:12px 0; font-family:'Inter',sans-serif; font-size:14px; font-weight:600; cursor:pointer;">Português</button>
+        <button type="button" onclick="chooseLangFirstSignin('en')" style="flex:1; background:var(--gold); color:#1a1a1d; border:none; border-radius:8px; padding:12px 0; font-family:'Inter',sans-serif; font-size:14px; font-weight:600; cursor:pointer;">English</button>
+      </div>
+    </div>
+  </div>
+
   <div id="loadingScreen">
     <span class="show-pt">Carregando…</span>
     <span class="show-en">Loading…</span>
@@ -2223,6 +2238,18 @@
 
     function isEn() { return document.body.classList.contains("lang-en"); }
 
+    // Group 1.1: the first-sign-in card's two buttons. The body already
+    // carries lang-pt (apexApplyRoleLanguage's unset default), so choosing
+    // Portuguese only dismisses the card; choosing English flips the class
+    // and re-renders through the existing toggleLang(), then both save.
+    function chooseLangFirstSignin(lang) {
+      if (lang === "en" && !isEn()) { toggleLang(); }
+      if (window.apexSaveLanguage) { window.apexSaveLanguage(lang); }
+      langChoiceUnset = false;
+      var card = document.getElementById("langChoiceCard");
+      if (card) { card.hidden = true; }
+    }
+
     function toggleLang() {
       var b = document.body;
       if (b.classList.contains("lang-pt")) { b.classList.remove("lang-pt"); b.classList.add("lang-en"); }
@@ -2254,6 +2281,7 @@
         relabelEntryFormStatic();
       }
       if (window.gmOnLangChange) { gmOnLangChange(); }
+      if (window.apexSaveLanguage) { window.apexSaveLanguage(isEn() ? "en" : "pt"); }
     }
 
     function todayStr() {
@@ -3373,7 +3401,7 @@
             '<option value="1">' + (en ? "United States (+1)" : "Estados Unidos (+1)") + '</option>' +
             '<option value="55">' + (en ? "Brazil (+55)" : "Brasil (+55)") + '</option>' +
           '</select>' +
-          '<input type="tel" id="peoplePhone" inputmode="tel" autocomplete="off" placeholder="(407) 555-0123" style="flex:1;min-width:0;">' +
+          '<input type="tel" id="peoplePhone" inputmode="tel" autocomplete="off" placeholder="(407) 555-0123" style="flex:1;min-width:0;" oninput="window.apexFormatPhoneInput(this)">' +
         '</div>' +
         '<div class="err-msg" id="peopleErr">' + escHtml(peopleState.err || "") + '</div>' +
         '<button type="button" class="btn-gold" style="width:100%;min-height:48px;margin-top:6px;"' + (peopleState.busy ? " disabled" : "") +
@@ -5048,6 +5076,10 @@
     // window.PORTAL_IS_SELLER is the same value, published for gm.js.
     var isSellerSession = false;
     function isSeller() { return isSellerSession === true; }
+
+    // Group 1.1: true for exactly one boot, when the signed-in STAFF-tier
+    // person (partner/staff_finance/staff) has never saved a language.
+    var langChoiceUnset = false;
 
     // ── Single-page assessments registry ───────────────────────────────────
     // Every assigned assessment EXCEPT the Business X-Ray renders as one
@@ -8163,6 +8195,12 @@
           // PREVIEW_SELLER is already gated on an admin role in the Worker
           // (previewSellerName), and this only ever NARROWS what is displayed,
           // so it cannot widen anyone's access.
+          // Group 1.1: apply the server's saved language before anything
+          // else paints, and remember whether to show the first-sign-in
+          // card (STAFF-tier login_people row, never chosen yet).
+          if (window.apexApplyRoleLanguage) {
+            langChoiceUnset = window.apexApplyRoleLanguage(role);
+          }
           isSellerSession = (role.login_role === "seller") ||
                             (!!PREVIEW_SELLER && !!PREVIEW_AS);
           window.PORTAL_IS_SELLER = isSellerSession;
@@ -8237,6 +8275,10 @@
           // unchanged inside proceedToEntries().
           applyRitmoPriority();
           decideBootView();
+          if (langChoiceUnset && !PREVIEW_AS) {
+            var card = document.getElementById("langChoiceCard");
+            if (card) { card.hidden = false; }
+          }
         })
         .catch(function(e) {
           if (e && (e.message === "redirect" || e.message === "halt")) { return; }

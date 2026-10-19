@@ -27539,7 +27539,7 @@ async function gmApexMeetingEvents(env, clientId, fromDate, toDate) {
     var rows = await env.DB.prepare(
         "SELECT id, date, time, session_type, location, google_meet_link " +
         "FROM sessions WHERE client_id = ? AND date >= ? AND date <= ? " +
-        "AND status != 'cancelled' AND status != 'discarded' AND meeting_category != 'event' " +
+        "AND status != 'cancelled' AND status != 'discarded' AND status != 'archived' AND meeting_category != 'event' " +
         "ORDER BY date ASC, time ASC"
     ).bind(clientId, fromDate, toDate).all();
 

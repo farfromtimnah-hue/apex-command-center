@@ -3195,10 +3195,33 @@
       // People and access (passkey login build): filled by portalPeopleLoad,
       // and only when the Worker says the passkey login is switched on.
       html += '<div id="peopleCardWrap"></div>';
+      // "Meus aparelhos": the passkey list lives on this page, not in a menu.
+      html += '<div id="devicesCardWrap"></div>';
       html += (typeof gmBkCardHtml === "function" ? gmBkCardHtml() : "");
       body.innerHTML = html;
       syncReferralColorInputs();
       portalPeopleLoad();
+      portalDevicesMount();
+    }
+
+    // "Meus aparelhos" card on the Ajustes page (passkey login). Only shown
+    // when the passkey login is on and the person has a login record; the
+    // list itself is the shared gm.js code, rendered inline.
+    function portalDevicesMount() {
+      var wrap = document.getElementById("devicesCardWrap");
+      if (!wrap) { return Promise.resolve(); }
+      if (isStaffSession()) { wrap.innerHTML = ""; return Promise.resolve(); }
+      return apiFetch("/api/passkey-login/status")
+        .then(function(res) { return res.ok ? res.json() : { enabled: false }; })
+        .then(function(st) {
+          var w = document.getElementById("devicesCardWrap");
+          if (!w) { return; }
+          if (!st || !st.enabled || typeof gmMyDevicesMount !== "function") { w.innerHTML = ""; return; }
+          w.innerHTML = '<div class="content-card" id="devicesCard"><div class="card-title">' +
+            (isEn() ? "My devices" : "Meus aparelhos") + '</div><div id="gmMyDevicesInline"></div></div>';
+          gmMyDevicesMount();
+        })
+        .catch(function() { var w = document.getElementById("devicesCardWrap"); if (w) { w.innerHTML = ""; } });
     }
 
     // ── People and access (passkey login build) ─────────────────────────────
@@ -5731,9 +5754,10 @@
         menu.innerHTML = gear.map(function(t) {
           return '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalGearGo(\'' + t.tab + '\')">' +
             window.apexNavSvg(t.icon) + portalLabelHtml(t) + '</button>';
-        }).join("") +
-        '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalMyDevicesGo();">' +
-          '<span class="show-pt">Meus aparelhos</span><span class="show-en">My devices</span></button>';
+        }).join("") + (gear.length === 0
+          ? '<button type="button" class="portal-gear-item" role="menuitem" onclick="portalMyDevicesGo();">' +
+            '<span class="show-pt">Meus aparelhos</span><span class="show-en">My devices</span></button>'
+          : "");
       }
     }
     // Dock tap. A group with several tools pops up its list (phone); a
@@ -5779,9 +5803,10 @@
     }
     function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
     function portalGearToggle() {
-      // The menu always opens: "Meus aparelhos" sits beside Ajustes, so even a
-      // gear with one tab has two rows (a direct jump to Ajustes made the
-      // devices page unreachable on a computer).
+      var gear = portalGearTabs();
+      // One item (Ajustes): open it directly. "Meus aparelhos" is a card on
+      // that page. With no Ajustes at all, the menu holds just the devices row.
+      if (gear.length === 1) { switchTab(gear[0].tab); return; }
       var menu = document.getElementById("portalGearMenu");
       var btn = document.getElementById("heroGearBtn");
       if (!menu || !btn) { return; }
@@ -8268,7 +8293,7 @@
 
     init();
   </script>
-  <script src="gm.js?v=1792358107"></script>
+  <script src="gm.js?v=1792429491"></script>
   <script src="nav.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav

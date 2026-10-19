@@ -14174,14 +14174,29 @@ function gmMyDevicesLoad() {
   return apiFetch("/api/me/passkeys")
     .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, status: res.status, data: d }; }); })
     .then(function(r) {
+      if (!r.ok && r.status === 403 && gmMyDevicesState.inline) {
+        var card = document.getElementById("devicesCard");
+        if (card) { card.parentNode.removeChild(card); }
+        return;
+      }
       if (!r.ok) { gmMyDevicesState.err = gmApiErrText(r.data, r.status); gmMyDevicesRender(); return; }
       gmMyDevicesState.list = r.data.passkeys || [];
       gmMyDevicesRender();
     })
     .catch(function(e) { gmMyDevicesState.err = e.message; gmMyDevicesRender(); });
 }
+// The list draws into the inline card on the Ajustes page when it is there,
+// otherwise into the open sheet.
+function gmMyDevicesHost() {
+  return document.getElementById("gmMyDevicesInline") || document.querySelector(".gm-sheet-body");
+}
+function gmMyDevicesMount() {
+  gmMyDevicesState = { list: null, err: "", busy: false, adding: false, addName: "", inline: true };
+  gmMyDevicesRender();
+  return gmMyDevicesLoad();
+}
 function gmMyDevicesRender() {
-  var body = document.querySelector(".gm-sheet-body");
+  var body = gmMyDevicesHost();
   if (!body) { return; }
   body.innerHTML = gmMyDevicesBodyHtml();
 }

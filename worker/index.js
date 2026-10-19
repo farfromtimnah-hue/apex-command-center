@@ -24070,12 +24070,79 @@ function gmBytesToB64(buf) {
     return btoa(bin);
 }
 
+// The saved contact's photo (2026-10-19 fix): a seller's own face reads the
+// customer's trust far better than a logo, and whichever one is used must
+// never be cropped by the circle iOS/macOS draws around a contact photo.
+//
+// - A seller photo (photo_r2_key) already arrives square, ~512px (see the
+//   comment on handlePostGmSellerPhoto above) -- it is used as-is, no
+//   transform needed, so a face is never pushed outside the circle.
+// - With no seller photo, the business logo is usually NOT square (a wide
+//   wordmark, a wide lockup, etc.), so dropping it straight into a circular
+//   frame clips it (the reported bug: "MARLOW" read as "MARLC"). It is
+//   padded into a square canvas first -- fit: "pad" never crops the source,
+//   it only adds the background color where the logo doesn't reach a square
+//   edge -- using the business's own brand color so the padding is never a
+//   jarring default white/black box.
+//
+// Returns { buf, type } ("JPEG" or "PNG", for the vCard TYPE= param) or null
+// when there is nothing to show or the source could not be read/transformed.
+var GM_VCARD_PHOTO_SIZE = 512;
+var GM_VCARD_PHOTO_PAD_BG = "#2b2b2b"; // used only if the business has no brand color on file
+async function gmVcardPhotoBytes(env, sellerPhotoKey, logoKey, brandHex) {
+    if (sellerPhotoKey) {
+        try {
+            var photoObj = await env.ASSETS.get(sellerPhotoKey);
+            if (photoObj) {
+                var photoCt = (photoObj.httpMetadata && photoObj.httpMetadata.contentType) || "image/jpeg";
+                var photoBuf = await photoObj.arrayBuffer();
+                if (photoBuf.byteLength <= 400 * 1024) {
+                    return { buf: photoBuf, type: /png/i.test(photoCt) ? "PNG" : "JPEG" };
+                }
+                console.error("[vcard] seller photo over 400KB, PHOTO left out: " + sellerPhotoKey);
+            }
+        } catch (e) { console.error("[vcard] seller photo read failed: " + (e && e.message)); }
+        // Falls through to the logo only if the photo itself could not be
+        // read -- a broken photo key should not leave the contact with no
+        // picture at all when a perfectly good logo exists.
+    }
+    if (!logoKey) { return null; }
+    try {
+        var logoObj = await env.ASSETS.get(logoKey);
+        if (!logoObj) { return null; }
+        var logoBuf = await logoObj.arrayBuffer();
+        if (!env.IMAGES) {
+            // No Images binding available (e.g. local/offline test run) --
+            // never crop by guessing; leave the photo out rather than ship
+            // an unpadded, possibly-clipped logo.
+            console.error("[vcard] IMAGES binding unavailable, logo PHOTO left out: " + logoKey);
+            return null;
+        }
+        var padded = await env.IMAGES.input(logoBuf).transform({
+            width: GM_VCARD_PHOTO_SIZE, height: GM_VCARD_PHOTO_SIZE,
+            fit: "pad", background: referralHexOrNull(brandHex) || GM_VCARD_PHOTO_PAD_BG,
+            format: "jpeg", quality: 90
+        }).output();
+        var paddedBuf = await padded.response().arrayBuffer();
+        if (paddedBuf.byteLength > 400 * 1024) {
+            console.error("[vcard] padded logo over 400KB, PHOTO left out: " + logoKey);
+            return null;
+        }
+        return { buf: paddedBuf, type: "JPEG" };
+    } catch (e) {
+        console.error("[vcard] logo pad failed: " + (e && e.message));
+        return null;
+    }
+}
+
 // vCard 3.0. opts: { company, first, title, phone, email, urls: [{label, url}],
-// note, logoKey }. The name shows as "<First> (<Company>)" (Nicole approved the
-// parentheses, click-through fixes A4), carried whole in the given name so the
-// phone displays it exactly and a search for the company still finds it; with
-// no salesperson first name it is the company alone. ORG = the company.
-// PHOTO = the company logo (as stored).
+// note, logoKey, sellerPhotoKey, brandHex }. The name shows as
+// "<First> (<Company>)" (Nicole approved the parentheses, click-through
+// fixes A4), carried whole in the given name so the phone displays it
+// exactly and a search for the company still finds it; with no salesperson
+// first name it is the company alone. ORG = the company.
+// PHOTO = the seller's own photo when there is one, else the business logo
+// padded into a square (see gmVcardPhotoBytes above) -- never cropped.
 async function gmBuildVcard(env, opts) {
     var lines = ["BEGIN:VCARD", "VERSION:3.0"];
     var display = opts.first && opts.first !== opts.company ? opts.first + (opts.company ? " (" + opts.company + ")" : "") : (opts.company || "");
@@ -24091,18 +24158,8 @@ async function gmBuildVcard(env, opts) {
         lines.push("item" + (i + 1) + ".X-ABLabel:" + gmVcardEsc(u.label));
     });
     if (opts.note) { lines.push("NOTE:" + gmVcardEsc(opts.note)); }
-    if (opts.logoKey) {
-        try {
-            var obj = await env.ASSETS.get(opts.logoKey);
-            if (obj) {
-                var ct = (obj.httpMetadata && obj.httpMetadata.contentType) || (/\.png$/i.test(opts.logoKey) ? "image/png" : "image/jpeg");
-                var type = /png/i.test(ct) ? "PNG" : (/webp/i.test(ct) ? "WEBP" : "JPEG");
-                var buf = await obj.arrayBuffer();
-                if (buf.byteLength <= 400 * 1024) { lines.push(gmVcardFold("PHOTO;ENCODING=b;TYPE=" + type + ":" + gmBytesToB64(buf))); }
-                else { console.error("[vcard] logo over 400KB, PHOTO left out: " + opts.logoKey); }
-            }
-        } catch (e) { console.error("[vcard] logo read failed: " + (e && e.message)); }
-    }
+    var photo = await gmVcardPhotoBytes(env, opts.sellerPhotoKey, opts.logoKey, opts.brandHex);
+    if (photo) { lines.push(gmVcardFold("PHOTO;ENCODING=b;TYPE=" + photo.type + ":" + gmBytesToB64(photo.buf))); }
     lines.push("END:VCARD");
     return lines.map(function(l) { return l.indexOf("\r\n") !== -1 ? l : gmVcardFold(l); }).join("\r\n") + "\r\n";
 }
@@ -24367,6 +24424,7 @@ async function gmCardContext(env, origin, p, withReferral) {
         phone: (prof && prof.phone) || doc.phone || p.client_phone || null,
         email: (prof && prof.email) || doc.email || p.client_email || null,
         has_photo: !!(prof && prof.photo_r2_key),
+        photo_key: (prof && prof.photo_r2_key) || null,
         website: links.website,
         urls: urls,
         referral_link: refLink,
@@ -24391,7 +24449,8 @@ async function handleGetPublicCard(token, kind, request, env) {
         var ctx = await gmCardContext(env, origin, p, true);
         if (kind === "vcf") {
             var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first, title: ctx.title, phone: ctx.phone, email: ctx.email,
-                urls: ctx.urls, note: ctx.language === "pt" ? "Conhece alguém que precisa disso? Toque em Indique um amigo acima." : "Know someone who needs this? Tap Refer a friend above.", logoKey: ctx.logo_key });
+                urls: ctx.urls, note: ctx.language === "pt" ? "Conhece alguém que precisa disso? Toque em Indique um amigo acima." : "Know someone who needs this? Tap Refer a friend above.",
+                logoKey: ctx.logo_key, sellerPhotoKey: ctx.photo_key, brandHex: ctx.brand_primary });
             return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
         }
         return jsonOk({ card: {
@@ -24516,7 +24575,7 @@ async function handleGetReferralExtra(slug, kind, request, env) {
         if (kind === "photo") { return gmSellerPhotoResponse(env, full.client_id, full.seller_name); }
         var ctx = await gmCardContext(env, new URL(request.url).origin, full, false);
         var v = await gmBuildVcard(env, { company: ctx.company, first: ctx.seller_first, title: ctx.title, phone: ctx.phone, email: ctx.email,
-            urls: ctx.urls, note: null, logoKey: ctx.logo_key });
+            urls: ctx.urls, note: null, logoKey: ctx.logo_key, sellerPhotoKey: ctx.photo_key, brandHex: ctx.brand_primary });
         return gmVcardResponse(v, [ctx.seller_first, ctx.company].filter(Boolean).join(" "));
     } catch (e) {
         return jsonErr("Error loading the contact: " + e.message, 500);

@@ -52,6 +52,15 @@ binding = "AI"
 [browser]
 binding = "BROWSER"
 
+# Cloudflare Images (2026-10-19, contact-card vCard photo fix): the ONLY use
+# is gmVcardPhotoBytes() padding a business logo of ANY aspect ratio into a
+# square canvas (fit: "pad", a brand-color background) so the circle iOS
+# draws around a saved contact's photo never crops it. The logo bytes
+# themselves still come from R2 (env.ASSETS) -- this binding only transforms
+# them, nothing is uploaded to or stored in Cloudflare Images.
+[images]
+binding = "IMAGES"
+
 [vars]
 FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 # TAP_TO_PAY_PUBLIC: unset (developer-only gate, Fix 5, 2026-10-18). Once

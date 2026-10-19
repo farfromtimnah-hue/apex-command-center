@@ -1731,6 +1731,10 @@
             </div>
             <div class="glass-tile-value is-gold" id="heroBalance">--</div>
             <div class="glass-tile-sub" id="heroBalanceSub"></div>
+            <!-- Task 4.2: the STORED sync time, never the time of the
+                 browser's own refresh -- a refresh that finds nothing new
+                 must not claim the data got fresher. -->
+            <div class="glass-tile-sub" id="heroBalanceUpdated" style="font-size:11px;opacity:0.7;"></div>
           </div>
           <!-- Entrou / Saiu are BUTTONS. Alice and Rafa read these two figures
                and could not tell what made them up, so the numbers read as
@@ -2031,6 +2035,14 @@
           <span class="show-en">per month, from confirmed terms</span>
         </div>
         <div id="ctForecastList"></div>
+        <!-- Task 4.3: month by month for the next 6 months. -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">
+            <span class="show-pt">Previs&atilde;o por m&ecirc;s (6 meses)</span>
+            <span class="show-en">Month-by-month forecast (6 months)</span>
+          </div>
+          <div id="ctForecastMonthsWrap" style="overflow-x:auto;"></div>
+        </div>
       </div>
     </div>
 
@@ -6584,6 +6596,8 @@
         }
       }
 
+      accountsUpdatedAtLabel();
+
       var b = SUMMARY && SUMMARY.business ? SUMMARY.business : null;
       var p = SUMMARY && SUMMARY.personal ? SUMMARY.personal : null;
       if (!b && !p) {
@@ -9397,6 +9411,72 @@
       });
     }
 
+    // Task 4.2: "updated at h:mm AM/PM" (Eastern), from the STORED sync
+    // time of the data -- the same Eastern 12-hour convention
+    // formatDateTimeUTC (datetime.js) already uses, just the time half.
+    function accountsUpdatedAtLabel() {
+      var newest = null;
+      ACCOUNTS.forEach(function(a) {
+        if (a.last_synced_at && (!newest || a.last_synced_at > newest)) { newest = a.last_synced_at; }
+      });
+      var el = document.getElementById("heroBalanceUpdated");
+      if (!el) { return; }
+      if (!newest) { el.textContent = ""; return; }
+      var s = String(newest).replace(" ", "T").split(".")[0];
+      if (!/[Zz]|[+-]\d\d:?\d\d$/.test(s)) { s += "Z"; }
+      var d = new Date(s);
+      if (isNaN(d.getTime())) { el.textContent = ""; return; }
+      try {
+        var p = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true
+        }).formatToParts(d).reduce(function(acc, part) { acc[part.type] = part.value; return acc; }, {});
+        var timeStr = p.hour + ":" + p.minute + " " + (p.dayPeriod || "").toUpperCase();
+        el.textContent = t("atualizado às " + timeStr, "updated at " + timeStr);
+      } catch (e) { el.textContent = ""; }
+    }
+
+    // Task 4.2: a light refresh of ONLY the stored balances (the same
+    // Worker read loadAll already does, never a live Plaid call -- Plaid
+    // bills per call, and this is the Worker's own D1 copy). Re-read on
+    // page show, when the tab becomes visible again, and about every 3
+    // minutes while the tab stays visible; never two overlapping requests.
+    var accountsRefreshTimer = null;
+    var accountsRefreshInFlight = false;
+    function refreshAccounts() {
+      if (accountsRefreshInFlight) { return Promise.resolve(); }
+      accountsRefreshInFlight = true;
+      return apiFetch("/api/finance-new/accounts").then(function(r) { return r.json(); })
+        .then(function(data) {
+          accountsRefreshInFlight = false;
+          if (!data || data.error) { return; }
+          ACCOUNTS     = data.accounts || [];
+          REAUTH_ITEMS = data.reauth_items || [];
+          renderBanners();
+          renderHero();
+          renderAccountCards();
+          renderCharts();
+        })
+        .catch(function() { accountsRefreshInFlight = false; });
+    }
+    function accountsRefreshStartInterval() {
+      stopAccountsRefreshInterval();
+      accountsRefreshTimer = setInterval(refreshAccounts, 3 * 60 * 1000);
+    }
+    function stopAccountsRefreshInterval() {
+      if (accountsRefreshTimer) { clearInterval(accountsRefreshTimer); accountsRefreshTimer = null; }
+    }
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === "visible") {
+        refreshAccounts();
+        accountsRefreshStartInterval();
+      } else {
+        stopAccountsRefreshInterval();
+      }
+    });
+    window.addEventListener("pageshow", function(evt) {
+      if (evt.persisted) { refreshAccounts(); }
+    });
+
     // ── "Precisa de voce" as an interview launcher ────────────────────────
     //
     // This queue was correct, worked, and went unused for months. Every item
@@ -10379,6 +10459,10 @@ names,
       }
       loadAll();
       preloadCategories();
+      // Task 4.2: start the light balance-only refresh cycle (visibilitychange
+      // above also starts/stops it; this covers the normal "tab is already
+      // visible at boot" case).
+      if (document.visibilityState === "visible") { accountsRefreshStartInterval(); }
     }
 
     // ?highlight=invoice — set by the legacy finance.html banner link.
@@ -11129,6 +11213,8 @@ names,
     }
 
     function loadCtForecast() {
+      var monthsWrap = document.getElementById("ctForecastMonthsWrap");
+      if (monthsWrap) { monthsWrap.innerHTML = '<p class="muted" style="font-size:13px;">' + t("Carregando…", "Loading…") + '</p>'; }
       apiFetch("/api/client-terms/forecast").then(function(r) { return r.json(); }).then(function(data) {
         var card = document.getElementById("ctForecastCard");
         if (!card) { return; }
@@ -11144,10 +11230,97 @@ names,
           var label = c.client_name;
           if (c.excluded && c.status === "paused") { label += " (" + t("pausado", "paused") + ")"; }
           else if (c.excluded && c.reason === "contract_ended") { label += " (" + t("contrato encerrado", "contract ended") + ")"; }
+          else if (c.excluded && c.reason === "no_plan") { label += " (" + t("sem plano", "no plan") + ")"; }
           row.innerHTML = "<span>" + label.replace(/</g, "&lt;") + "</span><span>" + (c.excluded ? "—" : fmtUsdCents(c.monthly_cents)) + "</span>";
           list.appendChild(row);
         });
-      }).catch(function() {});
+        renderCtForecastMonths(data);
+      }).catch(function() {
+        var card = document.getElementById("ctForecastCard");
+        if (card) { card.hidden = false; }
+        if (monthsWrap) {
+          monthsWrap.innerHTML = '<p class="muted" style="font-size:13px;">' +
+            t("Não foi possível carregar a previsão.", "Could not load the forecast.") + '</p>';
+        }
+      });
+    }
+
+    // Task 4.3: month by month for the next 6 months. A client with a
+    // stored recurring plan (monthly_cents) is due that amount every
+    // month unless a contract_end date has already passed it; a client
+    // with NO stored plan shows "Sem plano"/"No plan" with no number, in
+    // every column -- never invented, never defaulted. One-time amounts
+    // (setup fee, balloon payment) land ONLY in their own specific month,
+    // from data.one_time, which already carries an exact YYYY-MM for a
+    // balloon and null (billed now, the current month) for a setup fee.
+    function ctForecastMonthKeys() {
+      var out = [];
+      var d = new Date();
+      for (var i = 0; i < 6; i++) {
+        var y = d.getFullYear(), m = d.getMonth() + 1 + i;
+        y += Math.floor((m - 1) / 12);
+        m = ((m - 1) % 12) + 1;
+        out.push(y + "-" + String(m).padStart(2, "0"));
+      }
+      return out;
+    }
+    function ctForecastMonthLabel(key) {
+      var parts = key.split("-");
+      var names = t_monthNamesShort();
+      return names[Number(parts[1]) - 1] + " " + parts[0];
+    }
+    function t_monthNamesShort() {
+      return isEn()
+        ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        : ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    }
+    function renderCtForecastMonths(data) {
+      var wrap = document.getElementById("ctForecastMonthsWrap");
+      if (!wrap) { return; }
+      var months = ctForecastMonthKeys();
+      var thisMonthKey = months[0];
+      var oneTimeByClientMonth = {};
+      (data.one_time || []).forEach(function(ot) {
+        var monthKey = ot.month || thisMonthKey;
+        var k = ot.client_id + "|" + monthKey;
+        oneTimeByClientMonth[k] = (oneTimeByClientMonth[k] || 0) + ot.amount_cents;
+      });
+
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">' +
+        '<thead><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">' +
+        t("Cliente", "Client") + '</th>';
+      months.forEach(function(mk) {
+        html += '<th style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">' + ctForecastMonthLabel(mk) + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      var monthTotals = months.map(function() { return 0; });
+      data.clients.forEach(function(c) {
+        html += '<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);">' + String(c.client_name || "").replace(/</g, "&lt;") + '</td>';
+        months.forEach(function(mk, i) {
+          var cellCents = null;
+          if (c.excluded && c.reason === "no_plan") {
+            // Never shown, never counted -- "Sem plano"/"No plan" in every column.
+          } else if (!c.excluded) {
+            // A contract that has already ended by this month stops being due.
+            var pastEnd = c.contract_end && mk > c.contract_end.slice(0, 7);
+            if (!pastEnd) { cellCents = (cellCents || 0) + (c.monthly_cents || 0); }
+          }
+          var ot = oneTimeByClientMonth[c.client_id + "|" + mk];
+          if (ot) { cellCents = (cellCents || 0) + ot; }
+          if (cellCents !== null) { monthTotals[i] += cellCents; }
+          html += '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);">' +
+            (cellCents === null ? "—" : fmtUsdCents(cellCents)) + '</td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '<tr style="font-weight:700;"><td style="padding:6px 8px;">' + t("Total", "Total") + '</td>';
+      monthTotals.forEach(function(mt) {
+        html += '<td style="text-align:right;padding:6px 8px;">' + fmtUsdCents(mt) + '</td>';
+      });
+      html += '</tr></tbody></table>';
+      wrap.innerHTML = html;
     }
 
     init();

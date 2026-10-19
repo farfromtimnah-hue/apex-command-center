@@ -13773,82 +13773,50 @@ async function handleGetReconciliationCategoryTotals(request, env) {
 // "Faturas" tab is a client-facing read, so the client branch is required.
 // ---------------------------------------------------------------------------
 
+// Task 4.1: reads D1 directly (the finance-new invoices table), the same
+// derivation logic handleGetFinanceNewInvoices already uses (paid_cents,
+// remaining_cents, partially_paid, overdue derived from due_at). Includes
+// draft/sent/paid/overdue states and the one-time zoho_migrated rows.
+// Zoho is no longer called from this route -- see the final report for
+// what else still touches Zoho and is deliberately left in place.
 async function handleGetClientInvoices(clientId, request, env) {
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
         if (!requireClientAccess(user, clientId)) { return jsonErr("Forbidden", 403); }
 
-        var clientRow = await env.DB.prepare(
-            "SELECT id, name, zoho_customer_id FROM clients WHERE id = ?"
-        ).bind(clientId).first();
+        var clientRow = await env.DB.prepare("SELECT id, name FROM clients WHERE id = ?").bind(clientId).first();
         if (!clientRow) { return jsonErr("Client not found", 404); }
-        if (!clientRow.zoho_customer_id) {
-            return jsonOk({ unpaid: [], paid: [], client_id: clientId, note: "No zoho_customer_id set for this client" });
-        }
 
-        var zohoAuth;
-        try {
-            zohoAuth = await getZohoAccessToken(env);
-        } catch (e) {
-            return jsonErr("Zoho auth error: " + e.message, 502);
-        }
+        var res = await env.DB.prepare(
+            "SELECT id, number, amount_cents, issued_at, due_at, status, sent_at, paid_at, source, created_at, " +
+            "notes, line_description " +
+            "FROM invoices WHERE client_id = ? AND status != 'voided_mistake' ORDER BY number DESC"
+        ).bind(clientId).all();
+        var rows = res.results || [];
 
-        // Fetch both unpaid and paid for this customer
-        async function fetchForStatus(zohoStatus, accessToken, orgId) {
-            var zohoUrl = "https://www.zohoapis.com/books/v3/invoices" +
-                "?organization_id=" + orgId +
-                "&customer_id=" + clientRow.zoho_customer_id +
-                "&status=" + zohoStatus +
-                "&per_page=100&sort_column=date&sort_order=D";
+        var payRes = await env.DB.prepare(
+            "SELECT invoice_id, COALESCE(SUM(amount_cents), 0) AS paid FROM invoice_payments " +
+            "WHERE undone_at IS NULL AND invoice_id IN (SELECT id FROM invoices WHERE client_id = ?) GROUP BY invoice_id"
+        ).bind(clientId).all();
+        var paidByInvoice = {};
+        (payRes.results || []).forEach(function(p) { paidByInvoice[p.invoice_id] = p.paid; });
 
-            var controller = new AbortController();
-            var timer = setTimeout(function() { controller.abort(); }, 15000);
+        var today = new Date().toISOString().slice(0, 10);
+        var unpaid = [], paid = [];
+        rows.forEach(function(inv) {
+            inv.paid_cents = paidByInvoice[inv.id] || 0;
+            inv.remaining_cents = Math.max(0, (inv.amount_cents || 0) - inv.paid_cents);
+            inv.partially_paid = inv.status === "sent" && inv.paid_cents > 0;
+            inv.overdue = inv.status === "sent" && !!inv.due_at && String(inv.due_at) < today;
+            // unpaid vs paid for the card's own two lists -- draft stays in
+            // neither (a draft is not yet a document the client has seen).
+            if (inv.status === "sent") { unpaid.push(inv); }
+            else if (inv.status === "paid") { paid.push(inv); }
+        });
 
-            var res;
-            try {
-                res = await fetch(zohoUrl, {
-                    method: "GET",
-                    headers: { "Authorization": "Zoho-oauthtoken " + accessToken },
-                    signal: controller.signal
-                });
-            } finally {
-                clearTimeout(timer);
-            }
-
-            if (!res.ok) {
-                var errBody = await res.text();
-                throw new Error("Zoho invoices lookup failed (status=" + zohoStatus + "): HTTP " + res.status + " " + errBody);
-            }
-            var data = await res.json();
-            var list = data.invoices || [];
-            var result = [];
-            for (var i = 0; i < list.length; i++) {
-                var inv = list[i];
-                result.push({
-                    invoice_id:     inv.invoice_id,
-                    invoice_number: inv.invoice_number,
-                    customer_name:  inv.customer_name,
-                    total:          inv.total,
-                    due_date:       inv.due_date,
-                    status:         inv.status
-                });
-            }
-            return result;
-        }
-
-        // Zoho only accepts one status per request; fetch each separately and merge.
-        // Draft and void invoices are intentionally excluded from client.html — only
-        // sent/overdue/partially_paid are visible to clients as "unpaid".
-        var sentBatch         = await fetchForStatus("sent",          zohoAuth.access_token, zohoAuth.organization_id);
-        var overdueBatch      = await fetchForStatus("overdue",       zohoAuth.access_token, zohoAuth.organization_id);
-        var partialBatch      = await fetchForStatus("partially_paid", zohoAuth.access_token, zohoAuth.organization_id);
-        var unpaid = sentBatch.concat(overdueBatch).concat(partialBatch);
-        var paid   = await fetchForStatus("paid", zohoAuth.access_token, zohoAuth.organization_id);
-
-        return jsonOk({ unpaid: unpaid, paid: paid, client_id: clientId, client_name: clientRow.name });
+        return jsonOk({ invoices: rows, unpaid: unpaid, paid: paid, client_id: clientId, client_name: clientRow.name });
     } catch (e) {
-        if (e.name === "AbortError") { return jsonErr("Zoho request timed out", 504); }
         return jsonErr("Error fetching client invoices: " + e.message, 500);
     }
 }
@@ -63868,10 +63836,13 @@ async function handleGetClientTermsForecast(request, env) {
         var a = await clientTermsAuth(request, env);
         if (a.err) { return a.err; }
 
+        // Task 4.3: LEFT JOIN so a client with NO completed client_terms row
+        // still appears (answers_json null) -- the month-by-month table
+        // needs to show "Sem plano"/"No plan" for them, never a number.
         var rows = (await env.DB.prepare(
-            "SELECT t.client_id, t.answers_json, c.name, c.status FROM client_terms t " +
-            "JOIN clients c ON c.id = t.client_id " +
-            "WHERE t.completed = 1 AND COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused')"
+            "SELECT c.id AS client_id, t.answers_json, c.name, c.status FROM clients c " +
+            "LEFT JOIN client_terms t ON t.client_id = c.id AND t.completed = 1 " +
+            "WHERE COALESCE(c.archived, 0) = 0 AND c.status IN ('active','paused')"
         ).all()).results || [];
 
         var today = gmEasternToday();
@@ -63880,10 +63851,22 @@ async function handleGetClientTermsForecast(request, env) {
         var oneTimeByMonth = [];
 
         rows.forEach(function(row) {
+            // Task 4.3: no client_terms row at all (never completed) is its
+            // own case -- "Sem plano"/"No plan", never silently dropped and
+            // never confused with a plan that has an amount/frequency
+            // deliberately skipped (which also shows no number, but is a
+            // different reason the month-by-month table states explicitly).
+            if (row.answers_json === null || row.answers_json === undefined) {
+                lines.push({ client_id: row.client_id, client_name: row.name, status: row.status, excluded: true, reason: "no_plan", monthly_cents: 0 });
+                return;
+            }
             var answers = JSON.parse(row.answers_json || "{}");
             var amount = answers.amount;
             var freq = answers.frequency;
-            if (!amount || amount.skipped || !freq || freq.skipped) { return; }
+            if (!amount || amount.skipped || !freq || freq.skipped) {
+                lines.push({ client_id: row.client_id, client_name: row.name, status: row.status, excluded: true, reason: "no_plan", monthly_cents: 0 });
+                return;
+            }
 
             if (row.status === "paused") {
                 var resume = answers.pause_resume;

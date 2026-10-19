@@ -8155,9 +8155,11 @@
       }
       var html = "";
       list.forEach(function(inv) {
+        // Task 4.1: D1 field names (number/amount_cents/due_at), not Zoho's
+        // (invoice_number/total/due_date) -- this card now reads D1 directly.
         html += '<div class="list-row"><div class="list-main">' +
-          '<div class="list-title">#' + escHtml(inv.invoice_number) + ' · ' + fmtNum(inv.total, "currency") + '</div>' +
-          '<div class="list-sub">' + (inv.due_date ? (isEn() ? "Due " : "Vencimento ") + formatDate(inv.due_date) : "") + '</div>' +
+          '<div class="list-title">#' + escHtml(inv.number) + ' · ' + fmtNum((Number(inv.amount_cents) || 0) / 100, "currency") + '</div>' +
+          '<div class="list-sub">' + (inv.due_at ? (isEn() ? "Due " : "Vencimento ") + formatDate(inv.due_at) : "") + '</div>' +
           '</div>' +
           '<span class="badge ' + (kind === "paid" ? "paid" : "unpaid") + '">' +
           (kind === "paid" ? (isEn() ? "Paid" : "Paga") : (isEn() ? "Open" : "Em aberto")) + '</span>' +

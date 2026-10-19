@@ -12516,16 +12516,26 @@
       var mcIcon = window.apexMcIcon || function () { return ""; };
       for (var i = 0; i < invoices.length; i++) {
         var inv = invoices[i];
+        // Task 4.1: this card now reads D1 directly (handleGetClientInvoices)
+        // instead of Zoho -- the row shape changed from invoice_id/
+        // invoice_number/total/due_date to id/number/amount_cents/due_at.
+        // "overdue" is DERIVED (inv.overdue, computed server-side), never a
+        // stored status -- the stored status stays sent/paid/draft/void.
+        var isOverdue = !!inv.overdue;
         var statusClass = inv.status === "paid" ? "inv-status-paid"
-            : inv.status === "overdue" ? "inv-status-overdue"
+            : isOverdue ? "inv-status-overdue"
             : inv.status === "draft" ? "inv-status-draft"
             : "inv-status-unpaid";
-        var statusLabel = inv.status === "paid" ? "Paga" : inv.status === "overdue" ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
-        var invPath = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.invoice_id);
+        var statusLabel = inv.status === "paid" ? "Paga" : isOverdue ? "Vencida" : inv.status === "draft" ? "Rascunho" : "A Pagar";
+        // src=finance-new tells the template to read D1 (not Zoho) if a
+        // staff session ever opens this same link; a client-tier session
+        // (the normal case here) has no Firebase user at all and the
+        // template redirects straight to the no-login public link instead.
+        var invPath = "templates/apex-invoice-template-DRAFT.html?invoice_id=" + encodeURIComponent(inv.id) + "&src=finance-new";
         html += '<tr>';
-        html += '<td class="mc-head" style="font-weight:600;">' + escHtml(inv.invoice_number || inv.invoice_id) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + (parseFloat(inv.total) || 0).toFixed(2) + '</td>';
-        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_date)) + '</td>';
+        html += '<td class="mc-head" style="font-weight:600;">' + escHtml(inv.number || inv.id) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Total" data-label-en="Total" style="font-weight:600;">$ ' + ((Number(inv.amount_cents) || 0) / 100).toFixed(2) + '</td>';
+        html += '<td class="mc-field" data-label-pt="Vencimento" data-label-en="Due Date">' + escHtml(formatDate(inv.due_at)) + '</td>';
         html += '<td class="mc-field" data-label-pt="Status" data-label-en="Status"><span class="' + statusClass + '">' + escHtml(statusLabel) + '</span></td>';
         // Same target="_blank" no-op as btnViewPortal above, and this renderer
         // is the phone-width one, which is where the app always is. Bundled

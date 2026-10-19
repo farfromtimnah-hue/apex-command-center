@@ -82,6 +82,12 @@ FIREBASE_PROJECT_ID          = "apex-command-center-4b038"
 TWILIO_FROM_NUMBER           = ""
 TWILIO_MESSAGING_SERVICE_SID = ""
 REMINDER_TEXTS_ENABLED       = ""
+# Task 5.2: "Meu próprio contrato" -- the Claude model that reads an
+# uploaded PDF contract and maps its clauses onto the Apex standard
+# template's own areas. Defaults to claude-sonnet-5-5 in code
+# (gmContractOwnTemplateModel) if this is left unset; reported to Nicole
+# for approval in the job's final report.
+CONTRACT_READ_MODEL          = "claude-sonnet-5-5"
 # TAP_TO_PAY_PUBLIC: unset (developer-only gate, Fix 5, 2026-10-18). Once
 # Apple grants the distribution entitlement, set this to "1" here (or via
 # `wrangler secret put` / the dashboard) to open Tap to Pay to every business

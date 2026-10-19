@@ -24,6 +24,52 @@
   var editingId = null;  // contract id being edited (null = new)
   var PAGE = "apex-contract";
 
+  // Task 5.1: draft autosave. draftId/draftVersion track the server row so
+  // two open tabs can never silently overwrite each other's newer save.
+  // savedNote is the small "Salvo" mark shown near the save button.
+  var draftId = null, draftVersion = 0, draftTimer = null, draftSaving = false, savedNote = "";
+  function draftRoute() { return base() + "/draft"; }
+  function scheduleDraftSave() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(function() {
+      readForm();
+      draftSaveNow();
+    }, 1500);
+  }
+  function draftSaveNow() {
+    if (draftSaving || !S.clientId) { return; }
+    draftSaving = true;
+    var data = JSON.parse(JSON.stringify(F));
+    delete data._count; delete data._first; delete data._freq; delete data._scopePkg;
+    call(draftRoute(), "PUT", { data: data, version: draftVersion }).then(function(res) {
+      return res.json().then(function(d) { return { ok: res.ok, data: d }; });
+    }).then(function(r) {
+      draftSaving = false;
+      if (!r.ok) {
+        // A version conflict means another tab saved a newer draft; this
+        // tab's own in-progress typing is left alone (never discarded by
+        // force), but the "Salvo" mark does not fire for an unsaved state.
+        return;
+      }
+      draftId = r.data.id; draftVersion = r.data.version;
+      savedNote = "Salvo";
+      var el = byId("apxSavedNote");
+      if (el) { el.textContent = savedNote; }
+    }).catch(function() { draftSaving = false; });
+  }
+  // Loaded once, when the builder opens fresh (never for an existing
+  // contract being edited). Resumes the open draft if one exists.
+  function draftLoad() {
+    return call(draftRoute(), "GET").then(function(res) { return res.json(); }).then(function(d) {
+      if (d && d.draft) {
+        draftId = d.draft.id; draftVersion = d.draft.version;
+        return d.draft.data;
+      }
+      draftId = null; draftVersion = 0;
+      return null;
+    }).catch(function() { return null; });
+  }
+
   var PKG = {
     start:    { label: "START",    program: "APEX START™",    months: 0 },
     growth:   { label: "GROWTH",   program: "APEX Growth™",   months: 4 },
@@ -157,6 +203,12 @@
     o.innerHTML = '<div class="gm-sheet apx-sheet"><div class="gm-sheet-grabber"></div><div class="gm-sheet-head"><div class="gm-sheet-title">' + title +
       '</div><button type="button" class="gm-sheet-close" aria-label="Fechar" onclick="ApexContract.close()">&#10005;</button></div><div class="gm-sheet-body">' + body + '</div></div>';
     o.addEventListener("click", function(ev) { if (ev.target === o) { sheetClose(); } });
+    // Task 5.1: autosave. Any typed field anywhere in the sheet (delegated,
+    // since most text inputs here have no onchange of their own -- they are
+    // only read when readForm() runs) debounces a draft save. Builder only
+    // (editingId null): an existing contract's own answers already save
+    // through gmConSaveAnswers-equivalent explicit actions.
+    o.addEventListener("input", function() { if (!editingId) { scheduleDraftSave(); } });
     document.body.appendChild(o);
     sheetEl = o;
   }
@@ -175,11 +227,16 @@
   function pill(st) { var s = STATUS[st] || { pt: st, cls: "gm-muted" }; return '<span class="gm-pill ' + s.cls + '">' + s.pt + '</span>'; }
 
   // ── card on the host page ─────────────────────────────────────────────
+  var hasOpenDraft = false;
   function load() {
     return call(base()).then(function(d) {
       S.list = d.contracts || []; S.prefill = d.prefill || {}; S.packages = d.packages || {}; S.vendors = d.vendors || []; S.role = d.role; S.clientPhone = d.phone || null;
+      // Task 5.1: whether this client has an open draft -- the card's
+      // button reads "Continuar contrato" instead of "Montar contrato"
+      // when one exists, same button either way (openBuilder resumes it).
+      return call(draftRoute()).then(function(dd) { hasOpenDraft = !!(dd && dd.draft); }).catch(function() { hasOpenDraft = false; });
+    }).then(function() {
       renderCard();
-      return d;
     }).catch(function(e) {
       if (S.mount) { S.mount.innerHTML = '<div class="gm-derived-note" style="color:var(--red);">Não foi possível carregar os contratos: ' + esc(e.message) + '</div>'; }
       console.error(e);
@@ -196,7 +253,8 @@
     } else {
       h += '<div class="gm-derived-note" style="margin:0 0 10px;">Nenhum contrato ainda.</div>';
     }
-    h += '<button type="button" class="gm-btn-primary" style="margin-top:0;" onclick="ApexContract.build()">Montar contrato</button>';
+    h += '<button type="button" class="gm-btn-primary" style="margin-top:0;" onclick="ApexContract.build()">' +
+      (hasOpenDraft ? "Continuar contrato" : "Montar contrato") + '</button>';
     S.mount.innerHTML = h;
   }
 
@@ -427,7 +485,13 @@
       field("Cláusula específica deste cliente (opcional)", '<textarea class="gm-input" id="apxNotes" placeholder="Entra como uma cláusula própria, antes do foro.">' + esc(f.notes) + '</textarea>');
     h += section("6. Bônus e observações", bo, "sem custo para o cliente");
 
+    // Task 5.1: the live "Falta:" list, recomputed from the in-memory
+    // draft on every redraw (the server's own apxProblems check still
+    // blocks sending; this is a preview as the person types, never the
+    // authority).
+    h += liveMissingHtml(f);
     h += '<div class="gm-warn" id="apxErr" style="margin-top:6px;"></div>' +
+      (editingId ? "" : '<div class="gm-derived-note" id="apxSavedNote" style="min-height:16px;">' + esc(savedNote) + '</div>') +
       '<button type="button" class="gm-btn-primary" id="apxSave" onclick="ApexContract._save()">' + (editingId ? "Salvar alterações" : "Salvar contrato") + '</button>';
     return h;
   }
@@ -456,24 +520,64 @@
     if (!mount || !window.ClientPlaces) { return; }
     ClientPlaces.stateOnlyControl(mount, F.company_state || null, { lang: function() { return document.body.classList.contains("lang-en"); } });
   }
+  // Task 5.1: shared by an existing contract's own data and a resumed
+  // draft's data -- same shape, same field defaults.
+  function applyLoadedData(data) {
+    F = JSON.parse(JSON.stringify(data || {}));
+    F.representatives = F.representatives && F.representatives.length ? F.representatives : [{ name: "", gender: "m", title: "" }];
+    F.addons = F.addons || []; F.bonuses = F.bonuses || []; F.schedule = F.schedule || []; F.included_services = F.included_services || [];
+    if (!F.scope_items) { F.scope_items = (PKG_SCOPE[F.package_key] || []).map(function(x) { return x.key; }); }
+    F._scopePkg = F.package_key;
+    F._count = F.schedule.length || 1; F._first = (F.schedule[0] && F.schedule[0].due_date) || F.contract_date; F._freq = 1;
+    if (F.schedule.length > 1) {
+      var d0 = F.schedule[0].due_date, day = Number(d0.slice(8, 10));
+      if (F.schedule[1].due_date === addMonths(d0, 3, day)) { F._freq = 3; }
+    }
+  }
+  // Task 5.1: the live "Falta:" list -- a client-side mirror of the
+  // server's apxProblems(d), named each missing field instead of a single
+  // blocking error. Preview only; the server still has the real say.
+  function liveMissingHtml(f) {
+    var items = [];
+    if (!f.package_key) { items.push("Pacote"); }
+    if (!f.company_name) { items.push("Nome da empresa"); }
+    if (!f.company_city) { items.push("Cidade da empresa"); }
+    if (!f.company_state) { items.push("Estado da empresa"); }
+    if (!(f.representatives || []).some(function(r) { return r.name; })) { items.push("Ao menos um representante"); }
+    if (!f.contract_date) { items.push("Data do contrato"); }
+    if (!f.start_date) { items.push("Data de início"); }
+    if (f.package_key === "start" && !f.end_date) { items.push("Data de término"); }
+    if (!f.package_price_cents) { items.push("Valor do pacote"); }
+    if (!(f.schedule || []).length) { items.push("Cronograma de pagamento"); }
+    var sum = 0, missingSchedule = false;
+    (f.schedule || []).forEach(function(s) { sum += s.amount_cents || 0; if (!s.due_date || !s.amount_cents) { missingSchedule = true; } });
+    if (missingSchedule) { items.push("Data e valor de cada parcela"); }
+    if (!items.length) { return ""; }
+    return '<div class="gm-sheet-section"><div class="gm-warn"><strong>Falta:</strong><ul style="margin:6px 0 0 18px;">' +
+      items.map(function(t) { return '<li>' + esc(t) + '</li>'; }).join("") + '</ul></div></div>';
+  }
+
   function openBuilder(existing) {
     editingId = existing ? existing.id : null;
     if (existing) {
-      F = JSON.parse(JSON.stringify(existing.data || {}));
-      F.representatives = F.representatives && F.representatives.length ? F.representatives : [{ name: "", gender: "m", title: "" }];
-      F.addons = F.addons || []; F.bonuses = F.bonuses || []; F.schedule = F.schedule || []; F.included_services = F.included_services || [];
-      if (!F.scope_items) { F.scope_items = (PKG_SCOPE[F.package_key] || []).map(function(x) { return x.key; }); }
-      F._scopePkg = F.package_key;
-      F._count = F.schedule.length || 1; F._first = (F.schedule[0] && F.schedule[0].due_date) || F.contract_date; F._freq = 1;
-      if (F.schedule.length > 1) {
-        var d0 = F.schedule[0].due_date, day = Number(d0.slice(8, 10));
-        if (F.schedule[1].due_date === addMonths(d0, 3, day)) { F._freq = 3; }
-      }
-    } else {
-      F = freshForm();
+      applyLoadedData(existing.data);
+      sheetOpen("Editar contrato " + esc(existing.number), renderBuilder());
+      initStateMount();
+      return;
     }
-    sheetOpen(editingId ? "Editar contrato " + esc(existing.number) : "Montar contrato", renderBuilder());
+    // Task 5.1: a fresh "Montar contrato" first checks for an open draft of
+    // THIS client and resumes it instead of starting blank.
+    F = freshForm();
+    draftId = null; draftVersion = 0;
+    sheetOpen("Montar contrato", renderBuilder());
     initStateMount();
+    draftLoad().then(function(data) {
+      if (data && editingId === null && sheetEl) {
+        applyLoadedData(data);
+        redrawBuilder(false);
+        initStateMount();
+      }
+    });
   }
 
   function save() {

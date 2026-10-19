@@ -5715,6 +5715,87 @@ function gmConDraftFromSettings() {
   ["business_dba", "qualifier_name", "business_entity_type"].forEach(function(k) { if (!gmConDraft.values[k] && sug[k]) { gmConDraft.values[k] = sug[k]; } });
 }
 
+// Task 5.2: "Meu próprio contrato" -- upload box + the read-only mapping
+// result once Claude has read it. gmConOwnTemplates holds the client's own
+// upload history (newest first), loaded lazily the first time the "client"
+// source is picked.
+var gmConOwnTemplates = null;
+var gmConOwnTemplateUploading = false;
+function gmConOwnTemplateHtml() {
+  if (gmConOwnTemplates === null) {
+    gmApi("contract-own-templates").then(function(d) {
+      gmConOwnTemplates = d.templates || [];
+      gmRenderEstimatesTab();
+    }).catch(function(e) { gmConOwnTemplates = []; console.error(e); });
+    return '<div class="gm-sheet-section"><p class="muted">' + gmT("Carregando…", "Loading…") + '</p></div>';
+  }
+  var h = '<div class="gm-sheet-section">' +
+    '<p class="muted" style="font-size:13px;">' +
+    gmT("Um sistema de inteligência artificial (Claude, da Anthropic) lê este arquivo para organizar as cláusulas. A equipe revisa antes do uso.",
+        "An artificial intelligence system (Claude, by Anthropic) reads this file to organize the clauses. The team reviews it before use.") +
+    '</p>' +
+    '<input type="file" id="gmConOwnTemplateFile" accept="application/pdf" style="display:none;" onchange="gmConOwnTemplateUpload(this.files[0])">' +
+    '<button type="button" class="gm-btn-secondary"' + (gmConOwnTemplateUploading ? " disabled" : "") + ' onclick="document.getElementById(\'gmConOwnTemplateFile\').click();">' +
+    (gmConOwnTemplateUploading ? gmT("Enviando…", "Uploading…") : gmT("Enviar PDF do meu contrato", "Upload my contract PDF")) + '</button>' +
+    '<div id="gmConOwnTemplateMsg" class="gm-warn" style="margin-top:6px;"></div>';
+  (gmConOwnTemplates || []).forEach(function(t) {
+    h += gmConOwnTemplateRowHtml(t);
+  });
+  h += '</div>';
+  return h;
+}
+function gmConOwnTemplateRowHtml(t) {
+  var m = t.mapping || {};
+  var areaRows = (m.areas || []).map(function(a) {
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="font-weight:600;font-size:13px;">' + escHtml(a.name) + '</div>' +
+      (a.excerpt
+        ? '<div class="muted" style="font-size:12px;white-space:pre-wrap;">' + escHtml(String(a.excerpt).slice(0, 400)) + '</div>'
+        : '<div style="font-size:12px;color:var(--red);">' + gmT("Não encontrado", "Not found") + '</div>') +
+      '</div>';
+  }).join("");
+  var unmatchedHtml = (m.unmatched || []).length
+    ? '<div style="margin-top:8px;"><p class="gm-field-label">' + gmT("Cláusulas sem área correspondente", "Clauses with no matching area") + '</p>' +
+      (m.unmatched || []).map(function(u) { return '<div class="muted" style="font-size:12px;">' + escHtml(u) + '</div>'; }).join("") + '</div>'
+    : "";
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+    '<div><strong>' + escHtml(t.original_name || "") + '</strong> <span class="muted" style="font-size:12px;">' + (m.page_count ? m.page_count + " " + gmT("páginas", "pages") : "") + '</span></div>' +
+    '<span class="gm-pill' + (t.status === "reviewed" ? " gm-chip-sel" : "") + '">' + (t.status === "reviewed" ? gmT("Revisado", "Reviewed") : gmT("Pendente de revisão", "Pending review")) + '</span>' +
+    '</div>' + areaRows + unmatchedHtml +
+    (t.status === "pending_review" && (window.sessionStorage && sessionStorage.getItem("apex_role") === "developer")
+      ? '<button type="button" class="gm-btn-secondary" style="margin-top:8px;" onclick="gmConOwnTemplateMarkReviewed(\'' + escHtml(t.id) + '\')">' + gmT("Marcar como revisado", "Mark reviewed") + '</button>'
+      : "") +
+    '</div>';
+}
+function gmConOwnTemplateUpload(file) {
+  if (!file || gmConOwnTemplateUploading) { return; }
+  if (file.size > 10 * 1024 * 1024) {
+    var msgEl = document.getElementById("gmConOwnTemplateMsg");
+    if (msgEl) { msgEl.textContent = gmT("Arquivo muito grande (limite 10 MB).", "File too large (10 MB limit)."); }
+    return;
+  }
+  gmConOwnTemplateUploading = true;
+  var msgEl2 = document.getElementById("gmConOwnTemplateMsg");
+  if (msgEl2) { msgEl2.textContent = gmT("Lendo o contrato…", "Reading the contract…"); }
+  var form = new FormData();
+  form.append("file", file);
+  gmApi("contract-own-templates", { method: "POST", formData: form }).then(function(d) {
+    gmConOwnTemplateUploading = false;
+    gmConOwnTemplates = null; // reload with the new row included
+    gmRenderEstimatesTab();
+  }).catch(function(e) {
+    gmConOwnTemplateUploading = false;
+    var msgEl3 = document.getElementById("gmConOwnTemplateMsg");
+    if (msgEl3) { msgEl3.textContent = e.message || gmT("Não foi possível ler o contrato.", "Could not read the contract."); }
+  });
+}
+function gmConOwnTemplateMarkReviewed(id) {
+  gmApi("contract-own-templates/" + encodeURIComponent(id) + "/reviewed", { method: "POST" })
+    .then(function() { gmConOwnTemplates = null; gmRenderEstimatesTab(); })
+    .catch(function(e) { gmToast(e.message); });
+}
+
 // Settings card, rendered under the document settings form.
 function gmConSettingsHtml() {
   if (!gmContractsEnabled()) { return ""; }
@@ -5760,7 +5841,9 @@ function gmConSettingsHtml() {
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Origem do contrato", "Contract source") + '</p><div class="gm-chip-set">' +
     '<button type="button" class="gm-choice-chip' + (d.source === "apex" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'apex\'; gmRenderEstimatesTab();">' + gmT("Modelo padrão Apex", "Apex standard template") + '</button>' +
     '<button type="button" class="gm-choice-chip' + (d.source === "client" ? " gm-chip-sel" : "") + '" onclick="gmConDraft.source = \'client\'; gmRenderEstimatesTab();">' + gmT("Meu próprio contrato", "My own contract") + '</button></div>' +
-    '<p class="muted" style="font-size:13px;">' + gmT("O seu próprio contrato é convertido uma vez pela Apex em um modelo limpo; o texto nunca é editado aqui.", "Your own contract is converted once by Apex into a clean template; the text is never edited here.") + '</p></div>';
+    '<p class="muted" style="font-size:13px;">' + gmT("O seu próprio contrato é convertido uma vez pela Apex em um modelo limpo; o texto nunca é editado aqui.", "Your own contract is converted once by Apex into a clean template; the text is never edited here.") + '</p>' +
+    (d.source === "client" ? gmConOwnTemplateHtml() : "") +
+    '</div>';
   // Settings-source values (short list of the most used)
   var vals = [["business_dba", "Nome fantasia (DBA)", "Doing business as (DBA)"], ["business_entity_type", "Tipo de empresa (ex.: limited liability company)", "Entity type (e.g. limited liability company)"], ["license_type", "Tipo de licença (ex.: Certified Pool Contractor)", "License type (e.g. Certified Pool Contractor)"], ["qualifier_name", "Qualificador (qualifying agent)", "Qualifying agent"],
     ["work_hours_start", "Início do expediente (ex.: 8:00 AM)", "Work hours start (e.g. 8:00 AM)"], ["work_hours_end", "Fim do expediente (ex.: 5:00 PM)", "Work hours end (e.g. 5:00 PM)"], ["work_days", "Dias de trabalho (ex.: Monday through Friday)", "Work days (e.g. Monday through Friday)"],

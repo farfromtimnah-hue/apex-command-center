@@ -1,0 +1,17 @@
+-- Task 6.1: fallback geocoding chain (Census one-line -> ZIP centroid -> town).
+-- addr_located records HOW the saved addr_lat/addr_lon were found, so the
+-- address form can tell the difference between an exact pin and a rough one
+-- instead of showing every geocoded lead as equally precise.
+--
+--   'exact' -- Census matched the full street address.
+--   'zip'   -- fell back to the ZIP code's centroid.
+--   'town'  -- fell back to the city/town's centroid.
+--   NULL    -- never geocoded, or geocoding failed outright (addr_lat/lon are
+--              also NULL in that case).
+--
+-- No backfill: existing rows keep addr_located NULL even though many of them
+-- already have addr_lat/addr_lon from the exact-only geocoder that shipped on
+-- 2026-10-13 -- this migration does not know, and must not guess, which of
+-- those were exact. The brief for this task is explicit that calling the
+-- geocoder again for existing rows is out of scope.
+ALTER TABLE gm_leads ADD COLUMN addr_located TEXT;

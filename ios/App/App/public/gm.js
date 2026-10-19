@@ -3826,11 +3826,25 @@ function gmSaveLeadField(key, value, after, reason) {
         Object.keys(lead).forEach(function(k) { if (d.lead[k] === undefined) { d.lead[k] = lead[k]; } });
         if (idx !== -1) { gmLeadsData.leads[idx] = d.lead; }
         if (gmDetailLead && gmDetailLead.id === d.lead.id) { gmDetailLead = d.lead; }
+        // Task 6.1: editing any structured address field re-geocodes server
+        // side; tell the user what was actually found (exact pin vs. an
+        // approximate ZIP/town centroid vs. nothing) right where they just
+        // typed it, rather than leaving it silent until the map is opened.
+        if (["addr_street", "addr_city", "addr_state", "addr_zip"].indexOf(key) !== -1) {
+          gmToast(gmLeadLocatedLabel(d.lead.addr_located));
+        }
       }
       gmLoadCrmSilent();
       if (after) { after(); }
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
+}
+
+function gmLeadLocatedLabel(located) {
+  if (located === "exact") { return gmT("Localizado: endereço exato", "Located: exact address"); }
+  if (located === "zip") { return gmT("Localizado: aproximado (CEP)", "Located: approximate (ZIP)"); }
+  if (located === "town") { return gmT("Localizado: aproximado (cidade)", "Located: approximate (town)"); }
+  return gmT("Não localizado", "Not located");
 }
 
 function gmDeleteLead() {
@@ -4798,6 +4812,17 @@ function gmRenderJobs() {
   // rather than leaving all-time numbers above filtered rows (the exact bug
   // fixed on the pipeline side). Hidden when there is nothing to describe.
   if (shown.length) { html += gmJobsSummaryHtml(shown); }
+
+  // Task 6.1: a read-only count of projects with no coordinates at all —
+  // over the FULL list, not the filtered month, since this is a data-quality
+  // count rather than a period metric. addr_lat/addr_lon come from the job's
+  // lead (a hand-made job with no lead has none either way).
+  var noCoords = jobs.filter(function(j) { return typeof j.addr_lat !== "number" || typeof j.addr_lon !== "number"; }).length;
+  if (jobs.length && noCoords) {
+    html += '<p class="muted" style="margin-top:4px;">' +
+      gmT(noCoords + " de " + jobs.length + " projetos sem coordenadas de mapa.",
+          noCoords + " of " + jobs.length + " projects have no map coordinates.") + '</p>';
+  }
 
   if (!jobs.length) {
     html += '<p class="muted">' + gmT("Nenhum projeto cadastrado ainda.", "No projects yet.") + '</p>';

@@ -23217,20 +23217,27 @@ async function handleGetGmLeads(id, request, env) {
 }
 
 // ---------------------------------------------------------------------------
-// Lead geocoding — addr_lat/addr_lon (migrations/2026-10-13_lead_geocode.sql).
+// Lead geocoding — addr_lat/addr_lon/addr_located (migrations/2026-10-13_lead_geocode.sql,
+// migrations/2026-10-19_lead_geocode_precision.sql).
 //
-// US-only, free, no API key: the Census Bureau's one-line geocoder. Kept
-// behind this one function so the provider can be swapped later — Apex will
-// need a GLOBAL geocoder once it serves Brazil, at which point swap this to
-// Open-Meteo's geocoding (free, no key, worldwide) WITHOUT changing any
-// caller. Do not wire a second provider now.
+// US-only, free, no API key: the Census Bureau's geocoder for every step of
+// the chain. Kept behind this one function so the provider can be swapped
+// later — Apex will need a GLOBAL geocoder once it serves Brazil, at which
+// point swap this to Open-Meteo's geocoding (free, no key, worldwide)
+// WITHOUT changing any caller. Do not wire a second provider now.
 //
-// Never throws: a failed or no-match geocode returns { lat: null, lon: null }
-// so the caller can always store it and move on — geocoding must never block
-// a lead save.
+// Fallback chain, each step only tried when the one before it found nothing:
+//   1. "exact"  — the full street address, one-line geocoder.
+//   2. "zip"    — just the ZIP code, one-line geocoder. The Census one-line
+//                 endpoint accepts a bare ZIP and returns that ZCTA's
+//                 centroid, which is exactly "approximate, by ZIP" — no
+//                 separate ZIP-centroid table or service needed.
+//   3. "town"   — city + state, one-line geocoder (no street, no ZIP).
+// Never throws: a failed or no-match geocode returns
+// { lat: null, lon: null, located: null } at every step, and the chain moves
+// to the next one (or gives up) — geocoding must never block a lead save.
 // ---------------------------------------------------------------------------
-async function geocodeAddress(parts) {
-    var line = [parts.street, parts.city, parts.state, parts.zip].filter(function(s) { return s && String(s).trim(); }).join(", ");
+async function geocodeOneLine(line) {
     if (!line) { return { lat: null, lon: null }; }
     var url = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?" +
         "address=" + encodeURIComponent(line) + "&benchmark=Public_AR_Current&format=json";
@@ -23248,6 +23255,28 @@ async function geocodeAddress(parts) {
     }
 }
 
+async function geocodeAddress(parts) {
+    var street = parts.street && String(parts.street).trim();
+    var city = parts.city && String(parts.city).trim();
+    var state = parts.state && String(parts.state).trim();
+    var zip = parts.zip && String(parts.zip).trim();
+
+    if (street) {
+        var full = [street, city, state, zip].filter(function(s) { return s; }).join(", ");
+        var exact = await geocodeOneLine(full);
+        if (exact.lat !== null) { return { lat: exact.lat, lon: exact.lon, located: "exact" }; }
+    }
+    if (zip) {
+        var byZip = await geocodeOneLine(zip);
+        if (byZip.lat !== null) { return { lat: byZip.lat, lon: byZip.lon, located: "zip" }; }
+    }
+    if (city || state) {
+        var byTown = await geocodeOneLine([city, state].filter(function(s) { return s; }).join(", "));
+        if (byTown.lat !== null) { return { lat: byTown.lat, lon: byTown.lon, located: "town" }; }
+    }
+    return { lat: null, lon: null, located: null };
+}
+
 // True when any of the structured address fields present in `f` differ from
 // `existing` (or `existing` is null, i.e. a new lead) — the only case that
 // should pay for a geocode call.
@@ -23262,10 +23291,10 @@ function gmLeadAddressChanged(f, existing) {
     return false;
 }
 
-// Geocodes in place on `f` (sets addr_lat/addr_lon) when the structured
-// address changed. `existing` is null for a new lead (always geocode if any
-// address field is present) or the current row for an update (only
-// re-geocode when it actually changed).
+// Geocodes in place on `f` (sets addr_lat/addr_lon/addr_located) when the
+// structured address changed. `existing` is null for a new lead (always
+// geocode if any address field is present) or the current row for an update
+// (only re-geocode when it actually changed).
 async function gmLeadGeocodeIfNeeded(f, existing) {
     if (!gmLeadAddressChanged(f, existing)) { return; }
     var merged = {
@@ -23277,6 +23306,7 @@ async function gmLeadGeocodeIfNeeded(f, existing) {
     var geo = await geocodeAddress(merged);
     f.addr_lat = geo.lat;
     f.addr_lon = geo.lon;
+    f.addr_located = geo.located;
 }
 
 // The cost columns a lead carries, in the order they render on the sheet.
@@ -23446,8 +23476,8 @@ async function gmInsertLead(env, clientId, f, actor) {
     await env.DB.prepare(
         "INSERT INTO gm_leads (id, client_id, mes_lead, data_lead, cliente, telefone, email, origem, parceiro_id, servico, " +
         "observacao, vendedor, data_contato, data_estimate, valor, estagio, followups, proxima_acao, mes_fechamento, " +
-        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, created_by, updated_by, " + costCols + ") " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
+        "address, city, addr_street, addr_city, addr_state, addr_zip, addr_access, addr_lat, addr_lon, addr_located, created_by, updated_by, " + costCols + ") " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " + costMarks + ")"
     ).bind(
         leadId, clientId,
         f.mes_lead !== undefined ? f.mes_lead : null,
@@ -23476,6 +23506,7 @@ async function gmInsertLead(env, clientId, f, actor) {
         f.addr_access !== undefined ? f.addr_access : null,
         f.addr_lat !== undefined ? f.addr_lat : null,
         f.addr_lon !== undefined ? f.addr_lon : null,
+        f.addr_located !== undefined ? f.addr_located : null,
         actor || null,
         actor || null,
         ...costBinds
@@ -26415,13 +26446,18 @@ async function handleGetGmJobs(id, request, env) {
         // owner and is invisible to every seller. Read-only: no seller write
         // route to gm/jobs exists, and the UI hides the editors.
         var sellerName = sessionSellerName(user);
+        // Task 6.1: l.addr_lat/addr_lon via a LEFT JOIN, so the staff Projects
+        // screen can show a read-only count of projects with no coordinates
+        // without a separate route. LEFT, not JOIN, in the owner branch: a
+        // hand-made job with no lead_id must still come back.
         var rows = sellerName
             ? await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat, l.addr_lon FROM gm_jobs j JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
                 "WHERE j.client_id = ? AND (l.vendedor = ? OR l.vendedor_secundario = ?) ORDER BY j.created_at DESC"
               ).bind(id, sellerName, sellerName).all()
             : await env.DB.prepare(
-                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents FROM gm_jobs j WHERE j.client_id = ? ORDER BY j.created_at DESC"
+                "SELECT j.*, " + GM_JOB_SIGNED_SQL + " AS signed_final_cents, " + gmEstimatePriceSql("j.lead_id") + " AS estimate_price_cents, l.addr_lat, l.addr_lon FROM gm_jobs j LEFT JOIN gm_leads l ON l.id = j.lead_id AND l.client_id = j.client_id " +
+                "WHERE j.client_id = ? ORDER BY j.created_at DESC"
               ).bind(id).all();
         var jobs = [];
         (rows.results || []).forEach(function(r) {

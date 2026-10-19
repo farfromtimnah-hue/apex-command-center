@@ -24520,11 +24520,15 @@ async function handlePostGmLeadContactCard(id, leadId, request, env) {
         // The customer reads it: in the client's customer language, English
         // unless explicitly 'pt'. Never "one tap": on iPhone a .vcf opens a
         // preview first (click-through fixes A2, B1).
+        // Task 2.11b: an empty lead name must not print "Oi , aqui é..." /
+        // "Hi , it's..." -- the greeting word carries straight into the
+        // comma with no name, same fix as gmDocFillMessage.
+        var custFirst = gmFirstName(lead.cliente);
         var msg = client && client.language === "pt"
-            ? "Oi " + gmFirstName(lead.cliente) + ", aqui é " + (gmFirstName(credited) || company) + " da " + company + ". Salve o meu contato: " + cardLink +
+            ? "Oi" + (custFirst ? " " + custFirst : "") + ", aqui é " + (gmFirstName(credited) || company) + " da " + company + ". Salve o meu contato: " + cardLink +
               "\nToque em Salvar nos contatos e depois em Criar Novo Contato." +
               "\nSe um amigo perguntar quem fez o seu projeto, o cartão tem o seu próprio link de indicação."
-            : "Hi " + gmFirstName(lead.cliente) + ", it's " + (gmFirstName(credited) || company) + " from " + company + ". Save my contact: " + cardLink +
+            : "Hi" + (custFirst ? " " + custFirst : "") + ", it's " + (gmFirstName(credited) || company) + " from " + company + ". Save my contact: " + cardLink +
               "\nTap Save to contacts, then tap Create New Contact." +
               "\nIf a friend ever asks who did your project, the card has your own referral link.";
         await gmLogLeadEvents(env, id, leadId, actorName(user), [{ action: "contact_card_sent", field: "contact_card", old_value: null, new_value: partner.card_token ? "card" : null, reason: credited ? "salesperson " + credited : null }]);
@@ -29026,8 +29030,19 @@ async function handleGetGmDocSettings(id, request, env) {
         // until they save.
         var client = await env.DB.prepare(
             "SELECT name, legal_entity_name, legal_entity_address, phone, email, logo_url, " +
-            "referral_bg_color, referral_text_color FROM clients WHERE id = ?"
+            "referral_bg_color, referral_text_color, location_state FROM clients WHERE id = ?"
         ).bind(id).first();
+        // Task 2.4: the business's own state (clients.location_state), same
+        // state-aware source contractBusinessState uses for the contract
+        // builder. Drives the license/late-fee statute wording below --
+        // null, not "FL", when it is genuinely unset (unlike
+        // contractBusinessState, which defaults to Florida for the
+        // CONTRACT pipeline's own reasons; this screen must show a neutral
+        // sentence instead of guessing Florida, per task 2.4/2.5).
+        settings.business_state = contractStateCode(client && client.location_state);
+        settings.business_state_name = settings.business_state ? contractStateName(settings.business_state) : null;
+        var businessStateRider = settings.business_state ? contractStateRider(settings.business_state) : null;
+        settings.license_statute_text = (businessStateRider && businessStateRider.license && businessStateRider.license.text) || null;
         settings.prefill = {
             business_name: (client && client.name) || null,
             legal_name:    (client && client.legal_entity_name) || null,
@@ -29969,7 +29984,7 @@ function gmEstimatePublicPayload(est, settings, client, origin) {
 // Freeze the business's current look onto a document the first time it is
 // sent (estimates since 7ac208a; contracts and invoices 2026-09-27, Nicole:
 // "what I approve and send stays that way"). Written only while empty.
-var GM_DOC_LOOK_TABLES = { estimate: "gm_estimates", contract: "gm_contracts", invoice: "gm_invoices" };
+var GM_DOC_LOOK_TABLES = { estimate: "gm_estimates", contract: "gm_contracts", invoice: "gm_invoices", change_order: "gm_change_orders" };
 async function gmDocFreezeLook(env, request, clientId, kind, rowId) {
     var table = GM_DOC_LOOK_TABLES[kind];
     if (!table || !rowId) { return; }
@@ -30750,6 +30765,13 @@ function gmDocSendPhone(lead, docPhone) {
 function gmDocFillMessage(tpl, vars) {
     var out = String(tpl || "");
     Object.keys(vars).forEach(function(k) { out = out.split("{" + k + "}").join(vars[k] === null || vars[k] === undefined ? "" : String(vars[k])); });
+    // Task 2.11b: an empty name leaves "Hi , it's..." (a dangling comma and
+    // space before the name) -- every template this function fills opens
+    // with "Hi {customer_first_name}, " and a missing first name is common
+    // (a hand-made lead with no contact typed yet). Collapses the extra
+    // space so the comma sits right after "Hi" when the name was empty;
+    // untouched when a real name filled the placeholder.
+    out = out.replace(/^Hi\s*,/, "Hi,");
     return out;
 }
 
@@ -33240,7 +33262,13 @@ function contractStateFromAddress(addr) {
     if (m[2] === "NE" && m[1] !== "," && !/,\s*NE$/.test(a)) { return null; }
     return contractStateCode(m[2]);
 }
-function contractBusinessState(settings) { return contractStateCode(settings && settings.values && settings.values.business_state) || "FL"; }
+// Task 2.5: the RAW business state, with NO Florida fallback -- null means
+// genuinely unset. Used only to decide whether to block sending with
+// "Falta o estado" ("State missing"); contractBusinessState itself keeps
+// defaulting to FL so the rider pipeline below (rest of this file) never
+// has to handle a null state code.
+function contractBusinessStateRaw(settings) { return contractStateCode(settings && settings.values && settings.values.business_state); }
+function contractBusinessState(settings) { return contractBusinessStateRaw(settings) || "FL"; }
 // The default job state: the property address, else the business's own state, else Florida.
 function contractDefaultJobState(address, settings) { return contractStateFromAddress(address) || contractBusinessState(settings); }
 function contractIsEditable(c) {
@@ -34753,6 +34781,29 @@ function contractCompose(ctx, c, today, mode) {
     var locked = {};
     lib.locked_blocks.forEach(function(b) { locked[b.id] = b; });
     var sections = [], missing = {}, blockers = [], used = {};
+    // Task 2.5: the contract state must never silently default to Florida.
+    // st.code already resolved to "FL" if nothing else was set (see
+    // contractBusinessState/contractJobState) -- this only checks whether
+    // that resolution had anything REAL behind it: the owner's own job_state
+    // choice, the property address, or the business's own configured state.
+    // When none of those exist, block sending rather than quietly treating
+    // the job as Florida.
+    if (!contractStateCode(c && c.flags && c.flags.job_state) &&
+        !contractStateFromAddress(v.property_address) &&
+        !contractBusinessStateRaw(ctx && ctx.settings)) {
+        blockers.push({ code: "state_missing",
+            pt: "Falta o estado. Informe o estado do trabalho ou o estado da empresa (configurações dos documentos) antes de enviar.",
+            en: "State missing. Enter the job's state or the business's own state (document settings) before sending." });
+    }
+    // Task 2.5: C04-B (milestone + grace period + interest) names a grace
+    // period in its own clause text; without one set, the printed sentence
+    // would read "within  days" with no number. Blocked rather than left to
+    // print a broken sentence.
+    if (c && c.selections && c.selections.C04 === "C04-B" && !v.grace_period_days) {
+        blockers.push({ code: "late_fee_grace_days",
+            pt: "Esta cláusula de pagamento (C04-B) precisa de um prazo de carência. Informe os dias de carência nas configurações dos documentos antes de enviar.",
+            en: "This payment clause (C04-B) needs a grace period. Enter the grace days in document settings before sending." });
+    }
     // RES-36: outside Florida the finish lines are planned before the body is
     // laid out, because a part can belong on the first page or right after a
     // clause area. finishAt = { place: [{ line, part }] }.
@@ -38341,6 +38392,12 @@ async function coPublicPayload(env, co, origin) {
         var coSubs = await env.DB.prepare("SELECT COUNT(*) AS n FROM gm_job_subcontractors WHERE client_id = ? AND job_id = ? AND removed_at IS NULL").bind(co.client_id, co.job_id).first();
         stateStatements = contractStateCoStatements(coFlags, (coSubs && coSubs.n) || 0);
     } catch (eCs) { console.error("state statements on a change order", eCs && eCs.message); }
+    var coBusiness = { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
+        logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null, hero_url: gmDocHero(origin, co.client_id, doc).url, hero: gmDocHero(origin, co.client_id, doc).hero,
+        brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null };
+    // Task 2.10: an issued change order keeps the look it had when issued,
+    // same frozen-look mechanism invoices/contracts/estimates already use.
+    coBusiness = gmEstApplyBrandOverride(co, coBusiness);
     return {
         state_statements: stateStatements,
         number: co.number, status: co.status, description: co.description, items: co.items,
@@ -38349,9 +38406,7 @@ async function coPublicPayload(env, co, origin) {
         contract_display_number: contract ? contract.number + (contract.revision > 1 ? "-R" + contract.revision : "") : null, contract_date: contract ? contract.contract_date : null,
         job_name: job ? job.obra : null, customer_name: lead ? lead.cliente : (job ? job.obra : null), property_address: lead ? [lead.address, lead.city].filter(Boolean).join(", ") : null,
         created_at: co.created_at,
-        business: { name: doc.legal_name || (client && client.name) || "", address: doc.address || null, phone: doc.phone || null, email: doc.email || null, license_numbers: doc.license_numbers || [],
-            logo_url: (client && client.logo_url) ? origin + "/api/clients/" + co.client_id + "/logo-image" + logoVersionParam(client.logo_url) : null, hero_url: gmDocHero(origin, co.client_id, doc).url, hero: gmDocHero(origin, co.client_id, doc).hero,
-            brand_primary: doc.brand_primary || null, brand_accent: doc.brand_accent || null },
+        business: coBusiness,
         company_signature: co.company_signed_at ? { signer_name: co.company_signer_name, signed_at: co.company_signed_at, kind: co.company_signature_kind, image_url: co.company_signature_r2_key ? tokenBase + "/signature-image/company" : null } : null,
         homeowner_signature: co.homeowner_signed_at ? { signer_name: co.homeowner_signer_name, signed_at: co.homeowner_signed_at, kind: co.homeowner_signature_kind, image_url: co.homeowner_signature_r2_key ? tokenBase + "/signature-image/homeowner" : null, device: gmEstSummarizeUa(co.homeowner_signed_ua) } : null,
         disclaimer_line: stateDisclaimer || (reviewed ? ("Template reviewed by " + lib.version.attorney_name + ", Florida Bar #" + lib.version.attorney_bar_number + ", on " + contractFmtDate(lib.version.attorney_review_date) + ".") : CONTRACT_DISCLAIMER_UNREVIEWED),
@@ -38497,6 +38552,9 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
         var res = markIt ? await env.DB.prepare("UPDATE gm_change_orders SET status = 'sent', sent_at = COALESCE(sent_at, datetime('now')), updated_at = datetime('now') WHERE id = ? AND client_id = ? AND status IN ('company_signed','sent','viewed')").bind(coid, id).run()
             : { meta: { changes: ["company_signed", "sent", "viewed"].indexOf(co.status) !== -1 ? 1 : 0 } };
         if (!res.meta || !res.meta.changes) { return jsonErr2("Este aditivo não pode ser enviado agora (" + contractStatusPt(co.status) + ").", "This change order cannot be sent now (status " + co.status + ")", 409); }
+        // Task 2.10: freeze the look at the real send, same point invoices
+        // and contracts already freeze at -- never on a preview (mark:false).
+        if (markIt) { await gmDocFreezeLook(env, request, id, "change_order", coid); }
         var doc = await gmDocSettingsRow(env, id);
         var client = await env.DB.prepare("SELECT name, owners FROM clients WHERE id = ?").bind(id).first();
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
@@ -38922,17 +38980,29 @@ async function handleGetAdminStaleContractNotices(request, env) {
         // the open notice itself, so it needs no clause here.)
         // N1: accepted_estimates = 0 marks a project made by hand (no lead or
         // no accepted estimate), which can never get a contract (F12).
+        // Task 2.6: the SQL used to filter at a flat $2,500 (250000 cents)
+        // for every state -- Florida's own written-contract threshold. That
+        // filter is gone; every open notice (a small, bounded set: resolved
+        // ones and completed-contract ones are already excluded above) is
+        // now re-checked through coJobContractStatus, the SAME state-aware
+        // function the per-job warning already uses, and kept only when it
+        // genuinely still needs the warning for ITS OWN state's threshold.
         var sql = "SELECT n.*, j.obra AS job_name, j.valor, c.name AS client_name, " +
             "(SELECT COUNT(1) FROM gm_estimates e WHERE j.lead_id IS NOT NULL AND e.client_id = n.client_id AND e.lead_id = j.lead_id AND e.status = 'accepted') AS accepted_estimates " +
             "FROM gm_contract_notices n JOIN gm_jobs j ON j.id = n.job_id JOIN clients c ON c.id = n.client_id WHERE n.resolved_at IS NULL AND n.created_at <= datetime('now', '-7 days')" +
-            " AND j.status <> 'Concluída' AND CAST(COALESCE(j.valor, 0) AS REAL) * 100 > 250000" +
+            " AND j.status <> 'Concluída'" +
             " AND NOT EXISTS (SELECT 1 FROM gm_contracts k WHERE k.client_id = n.client_id AND k.job_id = n.job_id AND k.status = 'completed')";
         var binds = [];
         if (clientId) { sql += " AND n.client_id = ?"; binds.push(clientId); }
         sql += " ORDER BY n.created_at";
         var stmt = env.DB.prepare(sql);
         var rows = (await stmt.bind.apply(stmt, binds).all()).results || [];
-        return jsonOk({ notices: rows });
+        var kept = [];
+        for (var i = 0; i < rows.length; i++) {
+            var st = await coJobContractStatus(env, rows[i].client_id, rows[i].job_id);
+            if (st && st.needs_warning) { kept.push(rows[i]); }
+        }
+        return jsonOk({ notices: kept });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }
@@ -39834,6 +39904,22 @@ async function handleDeleteGmRow(id, collection, rowId, request, env) {
             ).bind(rowId).first();
             if (refFin && refFin.c > 0) {
                 return jsonErr("Esta obra tem lançamentos financeiros vinculados — remova o vínculo antes de excluir", 400);
+            }
+            // Task 2.7: gm_events.job_id is a hard foreign key with no
+            // cascade, so deleting a project with a calendar entry used to
+            // throw a raw SQL constraint error -- caught by the generic
+            // catch below and shown as "Could not delete. Nothing was
+            // changed." with no real reason. Checked explicitly here, same
+            // pattern as the finance-link check above; no automatic
+            // deletion of the calendar entry -- the owner removes it first.
+            var refEvents = await env.DB.prepare(
+                "SELECT COUNT(*) AS c FROM gm_events WHERE job_id = ?"
+            ).bind(rowId).first();
+            if (refEvents && refEvents.c > 0) {
+                return jsonErr2(
+                    "Este projeto tem um evento no calendário. Remova o evento primeiro.",
+                    "This project has a calendar event. Remove the event first.",
+                    400, { code: "job_has_calendar_event" });
             }
             // F54: a removed project closes its no-contract warning (soft; the notice row stays).
             await env.DB.prepare("UPDATE gm_contract_notices SET resolved_at = datetime('now'), resolution = 'job_removed', resolved_by = ? WHERE client_id = ? AND job_id = ? AND resolved_at IS NULL").bind(actorName(user), id, rowId).run();

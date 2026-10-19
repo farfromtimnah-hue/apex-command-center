@@ -1474,6 +1474,20 @@
         <div id="staleContractNoticesList"></div>
       </div>
     </div>
+    <!-- Task 3.1: a login created 3+ full days ago that has never been used
+         (passkey or the old password login), same queue card as the others. -->
+    <div class="below-section" id="dormantLoginsSection" hidden>
+      <div class="content-card">
+        <div class="content-card-header">
+          <h2 class="content-card-title">
+            <span class="show-pt">Logins criados sem acesso (3+ dias)</span>
+            <span class="show-en">Logins created, never used (3+ days)</span>
+            <span id="dormantLoginsBadge" style="display:inline-block;margin-left:8px;background:rgba(180,64,64,0.12);color:#b44040;font-size:12px;font-weight:800;padding:2px 10px;border-radius:12px;vertical-align:middle;"></span>
+          </h2>
+        </div>
+        <div id="dormantLoginsList"></div>
+      </div>
+    </div>
     <div class="below-section" id="sellerLoginRequestsSection" hidden>
       <div class="content-card">
         <div class="content-card-header">
@@ -2351,6 +2365,7 @@
         loadWatchedFiles();
         loadContractReviewStatus("developer");
         loadStaleContractNotices();
+        loadDormantLogins();
         window.setView(sessionStorage.getItem("apex_dev_view") || "dev");
       }
 
@@ -2966,6 +2981,51 @@
           section.hidden = false;
         })
         .catch(function() {});
+    }
+
+    // Task 3.1: dormant logins, same queue card pattern as the others. The
+    // Resend button reuses the SAME owner-invite route the client profile
+    // page's "Enviar novo login (link)" / "Reenviar acesso" button calls --
+    // no separate send mechanism, so the 3-per-day/60-second limits apply
+    // identically here.
+    function loadDormantLogins() {
+      apiFetch("/api/gm/dormant-logins")
+        .then(function(res) { return res.json(); })
+        .then(function(d) {
+          var section = document.getElementById("dormantLoginsSection");
+          var listEl = document.getElementById("dormantLoginsList");
+          var badge = document.getElementById("dormantLoginsBadge");
+          if (!section || !listEl) { return; }
+          var rows = d.dormant || [];
+          if (!rows.length) { section.hidden = true; listEl.innerHTML = ""; return; }
+          if (badge) { badge.textContent = rows.length; }
+          var isEnLang = document.body.classList.contains("lang-en");
+          listEl.innerHTML = rows.map(function(p) {
+            var days = Math.floor((Date.now() - Date.parse(String(p.created_at).replace(" ", "T") + "Z")) / 86400000);
+            return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid var(--border);" data-dormant-row="' + escHtml(p.id) + '">' +
+              '<div style="flex:1;min-width:220px;"><div style="font-size:14px;font-weight:600;">' + escHtml(p.client_name || "") + ' &middot; ' + escHtml(p.display_name || "") + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + (isEnLang ? 'Created ' + days + ' days ago, never signed in' : 'Criado há ' + days + ' dias, nunca acessou') + '</div></div>' +
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<a href="client.html?id=' + encodeURIComponent(p.client_id) + '" class="btn-cta-link">' + (isEnLang ? 'Open client' : 'Abrir cliente') + '</a>' +
+              '<button class="btn-add" onclick="resendDormantLogin(\'' + escHtml(p.client_id) + '\', this)">' + (isEnLang ? 'Resend' : 'Reenviar') + '</button>' +
+              '</div></div>';
+          }).join("");
+          section.hidden = false;
+        })
+        .catch(function() {});
+    }
+    function resendDormantLogin(clientId, btn) {
+      if (btn) { btn.disabled = true; }
+      apiFetch("/api/gm/clients/" + encodeURIComponent(clientId) + "/owner-invite", { method: "POST", body: {} })
+        .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+        .then(function(r) {
+          if (!r.ok) { throw new Error((r.data && (r.data.error_en || r.data.error)) || "Error"); }
+          loadDormantLogins();
+        })
+        .catch(function(e) {
+          if (btn) { btn.disabled = false; }
+          showToast ? showToast(e.message) : console.error(e);
+        });
     }
 
     function loadSellerLoginRequests() {

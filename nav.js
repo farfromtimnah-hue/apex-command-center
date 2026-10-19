@@ -1108,6 +1108,12 @@
         labelPt: "Adicionar Usu&aacute;rio", labelEn: "Add User",
         tipPt: "Adicionar Usuario",           tipEn: "Add User"
       });
+      // Task 3.2: the read-only login activity / lost-device review screen.
+      items.push({
+        key: "loginactivity", href: "login-activity.html", icon: "file",
+        labelPt: "Atividade", labelEn: "Activity",
+        tipPt: "Atividade",     tipEn: "Activity"
+      });
     }
 
     sidebar.innerHTML = buildNavHTML(role, items, devView);

@@ -4915,6 +4915,16 @@
       }
       html += '<button class="btn-add" onclick="toggleLegacyLogin()">' +
         '<span id="legacyToggleLabel">' + t("Desativar login antigo deste negócio", "Turn off the old login for this business") + '</span></button></div>';
+      // Task 3.1: "Reenviar acesso" / "Resend access" -- a fresh passkey
+      // invite link, same action and same limits as the owner-invite
+      // button on the profile card (openOwnerInvite / handleGmOwnerInvite,
+      // reused here, not duplicated). Shown whenever the owner has a
+      // login_people row, whether or not they have accepted a passkey yet
+      // -- a held-back login is exactly the case this button is for.
+      if (loginSecurity.ownerPersonId) {
+        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">' +
+          '<button class="btn-add" onclick="openOwnerInvite()">' + t("Reenviar acesso", "Resend access") + '</button></div>';
+      }
       // The owner's own device-loss card (admin only, same three reasons),
       // shown once the owner already has a passkey.
       if (loginSecurity.ownerPersonId && loginSecurity.ownerHasPasskey) {

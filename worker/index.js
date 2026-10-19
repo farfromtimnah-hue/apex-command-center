@@ -18724,18 +18724,53 @@ async function handleGetGmActivity(request, env) {
         return jsonErr("Error fetching activity: " + e.message, 500);
     }
 }
-// Route: GET /api/diagnostics/login-activity — developer only. Latest 100.
+// Route: GET /api/diagnostics/login-activity — developer only. Newest 100,
+// optional ?person=<username or display name substring>&date=YYYY-MM-DD
+// (Eastern calendar day). Task 3.2: read-only audit screen. There is no
+// Apex-staff "partner" role to extend this to (the passkey login_role
+// "partner" is scoped to one client, not this cross-business screen) --
+// same gap already noted for task 1.3's SMS usage screen.
 async function handleGetDiagnosticsLoginActivity(request, env) {
     var user = await authenticate(request, env);
     if (!user) { return jsonErr("Unauthorized", 401); }
     if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
     try {
-        var rows = (await env.DB.prepare("SELECT * FROM login_activity ORDER BY at DESC LIMIT 100").all()).results || [];
+        var url = new URL(request.url);
+        var person = gmStr(url.searchParams.get("person"), 120);
+        var date = gmStr(url.searchParams.get("date"), 10);
+        var sql = "SELECT a.*, p.display_name FROM login_activity a LEFT JOIN login_people p ON p.id = a.person_id WHERE 1=1";
+        var binds = [];
+        if (person) {
+            sql += " AND (a.username LIKE ? OR p.display_name LIKE ?)";
+            binds.push("%" + person + "%", "%" + person + "%");
+        }
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            // Eastern calendar day -> the UTC range that covers it (a.at is
+            // stored as a UTC ISO string). Eastern is UTC-4 or UTC-5, so one
+            // day of slack on each side is enough and the exact Eastern
+            // comparison still narrows it precisely.
+            sql += " AND a.at >= ? AND a.at < ?";
+            var dayMs = Date.parse(date + "T00:00:00Z");
+            binds.push(new Date(dayMs - 24 * 3600000).toISOString(), new Date(dayMs + 2 * 24 * 3600000).toISOString());
+        }
+        sql += " ORDER BY a.at DESC LIMIT 100";
+        var stmt = env.DB.prepare(sql);
+        var rows = (await stmt.bind.apply(stmt, binds).all()).results || [];
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            rows = rows.filter(function(r) { return easternDateStrFromIso(r.at) === date; });
+        }
         return jsonOk({ activity: rows });
     } catch (e) {
         if (/no such table/i.test(String(e && e.message))) { return jsonOk({ activity: [] }); }
         return jsonErr("Error loading activity diagnostics: " + e.message, 500);
     }
+}
+// The Eastern calendar day of a stored UTC ISO timestamp, for the exact
+// per-row filter after the SQL range narrows the candidates.
+function easternDateStrFromIso(iso) {
+    try {
+        return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+    } catch (e) { return null; }
 }
 // Route: GET /api/diagnostics/device-events — developer only. Latest 50.
 async function handleGetDiagnosticsDeviceEvents(request, env) {
@@ -46286,6 +46321,34 @@ async function runAppointmentReminders(env, opts) {
 // client-tier role answers "not available" rather than guessing a scope.
 // ---------------------------------------------------------------------------
 
+// Task 3.1: GET /api/gm/dormant-logins -- admin only (alice/rafa/developer).
+// A login created at least 3 full EASTERN calendar days ago, with a
+// username (the invite was accepted and a login_logins row exists) but no
+// recorded sign-in since -- passkey and the old password login both count
+// as "used" via the SAME client_logins.last_login_at column, so a login
+// that switched from password to passkey (or vice versa) is never
+// double-counted as dormant.
+async function handleGetGmDormantLogins(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (!isAdminRole(user)) { return jsonErr("Forbidden", 403); }
+        var cutoff = easternDateStr(-3) + " 00:00:00";
+        var rows = (await env.DB.prepare(
+            "SELECT p.id, p.client_id, p.display_name, p.role, p.created_at, c.name AS client_name " +
+            "FROM login_people p " +
+            "JOIN client_logins l ON l.username = p.username " +
+            "JOIN clients c ON c.id = p.client_id " +
+            "WHERE p.username IS NOT NULL AND p.created_at <= ? AND l.last_login_at IS NULL " +
+            "AND p.status != 'disabled' " +
+            "ORDER BY p.created_at"
+        ).bind(cutoff).all()).results || [];
+        return jsonOk({ dormant: rows });
+    } catch (e) {
+        return jsonErr("Error fetching dormant logins: " + e.message, 500);
+    }
+}
+
 // Route: GET /api/me/outstanding-invoices
 async function handleGetMeOutstandingInvoices(request, env) {
     try {
@@ -54170,6 +54233,7 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/me/language"                && method === "PUT")  { return handlePutMeLanguage(request, env); }
         if (path === "/api/gm/sms-usage"                && method === "GET")  { return handleGetSmsUsage(request, env); }
+        if (path === "/api/gm/dormant-logins"           && method === "GET")  { return handleGetGmDormantLogins(request, env); }
         if (path === "/api/me/outstanding-invoices"     && method === "GET")  { return handleGetMeOutstandingInvoices(request, env); }
         if (path === "/api/me/today-schedule"           && method === "GET")  { return handleGetMeTodaySchedule(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }

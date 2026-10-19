@@ -191,9 +191,9 @@ const INFO = { name: "Pat", business_name: "Acme Pools", role_label: { pt: "Equi
   ok(visible(w.els, "stepSend") && !visible(w.els, "stepCode") && !visible(w.els, "stepPasskey"), "invite: starts at the send-code step");
   w = inviteWorld({ info: INFO, navLang: "en-US" });
   await w.F.inviteInit();
-  ok(w.cls.has("lang-en") && !w.cls.has("lang-pt"), "invite: English for a non-pt device language");
+  ok(w.cls.has("lang-pt") && !w.cls.has("lang-en"), "invite: Portuguese first even on a non-pt device language");
   w.F.inviteToggleLang();
-  ok(w.cls.has("lang-pt"), "invite: the toggle switches language");
+  ok(w.cls.has("lang-en"), "invite: the toggle switches language");
   for (const label of ["expired", "used", "replaced", "bad token"]) {
     const x = inviteWorld({ info: null });
     await x.F.inviteInit();

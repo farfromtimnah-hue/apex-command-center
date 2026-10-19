@@ -16999,7 +16999,7 @@ async function passkeyLoadInvite(env, token) {
         "SELECT i.id, i.person_id, i.token_hash, i.expires_at, i.used_at, i.replaced_at, i.code_sends, " +
         "i.code_verify_failures, i.last_send_at, i.stytch_method_id, i.register_until, i.created_at, i.purpose, " +
         "p.client_id, p.role, p.display_name, p.phone_e164, p.username, p.stytch_user_id, " +
-        "p.status AS person_status, p.accepted_at, c.name AS business_name " +
+        "p.status AS person_status, p.accepted_at, c.name AS business_name, c.language AS client_language " +
         "FROM login_invites i JOIN login_people p ON p.id = i.person_id " +
         "LEFT JOIN clients c ON c.id = p.client_id WHERE i.token_hash = ?"
     ).bind(hash).first();
@@ -17160,7 +17160,7 @@ async function handlePostPasskeyInviteSendCode(request, env) {
             : await stytchCall(env, "/v1/otps/sms/login_or_create", {
                 phone_number: row.phone_e164,
                 expiration_minutes: PASSKEY_CODE_MINUTES,
-                locale: passkeyCountryCode(row.phone_e164) === "55" ? "pt-br" : "en"
+                locale: (passkeyCountryCode(row.phone_e164) !== "55" && row.client_language === "en") ? "en" : "pt-br"
             });
         if (!r.ok || !r.data.phone_id || !r.data.user_id) {
             console.log("passkey send-code failed for " + passkeyMaskPhone(row.phone_e164));

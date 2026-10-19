@@ -129,11 +129,10 @@
 
     function inviteIsEn() { return document.body.classList.contains("lang-en"); }
 
-    // Device language decides the first view; the toggle switches it. Nothing
-    // is stored.
+    // Portuguese is the first view; the toggle switches it. Nothing is stored.
     function inviteDefaultLang(nav) {
-      var l = String((nav && (nav.language || (nav.languages && nav.languages[0]))) || "").toLowerCase();
-      return l.indexOf("pt") === 0 ? "pt" : "en";
+      // Portuguese first for everyone; the PT and EN toggle switches it.
+      return "pt";
     }
     function inviteSetLang(lang) {
       var b = document.body;

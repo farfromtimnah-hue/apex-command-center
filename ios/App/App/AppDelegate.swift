@@ -138,4 +138,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         completionHandler([.banner, .sound])
     }
 
+    // Task 1.6: a TAPPED notification (not just one that arrived). Capacitor
+    // ships its own NotificationRouter (CAPBridge.notificationRouter), which
+    // forwards a tap to the push plugin's didReceive(response:) -> the JS
+    // event "pushNotificationActionPerformed" -- but only when it is the
+    // registered UNUserNotificationCenterDelegate. This class reclaims that
+    // role for itself (see didFinishLaunchingWithOptions above, "whoever is
+    // last wins"), which is correct for willPresent's custom banner behavior
+    // above, but silently drops every tap: AppDelegate never implemented
+    // this method, so iOS simply called the completion handler and nothing
+    // in JS ever heard about it. Forwarding to the real bridge's router here
+    // restores the plugin's own tap handling without giving the delegate
+    // role back.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler:
+                                    @escaping () -> Void) {
+        ApexLockCover.shared.trace("PUSH-TAP didReceive called -> forwarding to bridge")
+        if let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+           let bridge = bridgeVC.bridge {
+            bridge.notificationRouter.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
+        } else {
+            ApexLockCover.shared.trace("PUSH-TAP no bridge available -> cannot forward")
+            completionHandler()
+        }
+    }
+
 }

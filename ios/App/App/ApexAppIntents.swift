@@ -125,21 +125,23 @@ struct OutstandingInvoicesIntent: AppIntent {
     static var openAppWhenRun: Bool = false
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let json = try await ApexIntentAuth.get("/api/finance-new/invoices")
-        let rows = (json["invoices"] as? [[String: Any]]) ?? []
+        // Task 1.7: answers for WHOEVER is signed in, scoped by their own
+        // session's role server-side (/api/me/outstanding-invoices) --
+        // Apex's own outstanding invoices for staff, or the signed-in
+        // owner's OWN business balance for a client session. Replaces the
+        // old direct call to the admin-only /api/finance-new/invoices,
+        // which answered the same Apex-wide number for every role.
+        let json = try await ApexIntentAuth.get("/api/me/outstanding-invoices")
+        let total = (json["outstanding_cents"] as? Int) ?? 0
+        let count = (json["invoice_count"] as? Int) ?? 0
 
-        let unpaid = rows.filter { ($0["status"] as? String) == "sent" }
-        let total = unpaid.reduce(0) { sum, row in
-            sum + ((row["amount_cents"] as? Int) ?? 0)
-        }
-
-        if unpaid.isEmpty {
+        if count == 0 {
             return .result(dialog: "Nothing outstanding. Everything invoiced has been collected.")
         }
 
         let amount = ApexIntentAuth.money(total)
-        let noun = unpaid.count == 1 ? "invoice" : "invoices"
-        return .result(dialog: "\(amount) outstanding across \(unpaid.count) \(noun).")
+        let noun = count == 1 ? "invoice" : "invoices"
+        return .result(dialog: "\(amount) outstanding across \(count) \(noun).")
     }
 }
 
@@ -163,9 +165,13 @@ struct TodayScheduleIntent: AppIntent {
     static var openAppWhenRun: Bool = false
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let today = ISO8601DateFormatter.apexDay.string(from: Date())
-        let json = try await ApexIntentAuth.get(
-            "/api/sessions/calendar?from=\(today)&to=\(today)")
+        // Task 1.7: /api/me/today-schedule scopes by the caller's own
+        // session role server-side -- every session today for staff, or
+        // just the signed-in owner's OWN business's gm_events for a client
+        // session. Replaces the old direct call to the admin-only
+        // /api/sessions/calendar, which returned every client's sessions
+        // unscoped regardless of who was asking.
+        let json = try await ApexIntentAuth.get("/api/me/today-schedule")
         let rows = (json["sessions"] as? [[String: Any]]) ?? []
 
         // Belt and braces on the archived-status bug: filter here too rather

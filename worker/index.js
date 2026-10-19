@@ -6260,14 +6260,17 @@ async function handlePostSessionsSchedule(request, env) {
             }
         }
 
+        // Task 1.5: only a real client meeting can carry the checkbox (never
+        // an event/vendor/personal/church block, which has no client to text).
+        var sendTextReminder = (clientId && body.send_text_reminder) ? 1 : 0;
         var sessionIds = [];
         for (var i = 0; i < recurCount; i++) {
             var occDate = recurFreq ? recurOccurrenceDate(body.date, recurFreq, i) : body.date;
             var sessionId = crypto.randomUUID();
             await env.DB.prepare(
-                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, kids_covered, created_by) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?, ?)"
-            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, kidsCovered, actorName(user)).run();
+                "INSERT INTO sessions (id, client_id, client_name, date, time, end_time, location, session_type, google_meet_link, google_event_id, calendar_provider, status, raw_transcript, meeting_category, series_id, html_link, kids_covered, created_by, send_text_reminder) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'apex', 'scheduled', ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(sessionId, clientId, clientName, occDate, body.time, endTime, location, sessionType, meetLink, googleEventId, body.notes || null, meetingCategory, seriesId, htmlLink, kidsCovered, actorName(user), sendTextReminder).run();
             // Mirror into session_clients immediately, so every client meeting
             // -- not just imported or hand-linked ones -- is readable through
             // the same table. Without this the multi-client read would be a
@@ -15775,6 +15778,9 @@ function clientRequestAllowed(path, method, clientId) {
     // staff_finance, staff, seller) saves only their own language. The
     // handler takes client_id/username from the SESSION, never the body.
     if (path === "/api/me/language" && method === "PUT") { return true; }
+    // Task 1.7: Siri shortcuts, scoped to the caller's own role inside the
+    // handler itself (a seller session is refused there, not here).
+    if ((path === "/api/me/outstanding-invoices" || path === "/api/me/today-schedule") && method === "GET") { return true; }
     if (path === "/api/gm/activity" && method === "GET") { return true; }
     var base = "/api/clients/" + clientId;
     if (path === base && method === "GET") { return true; }
@@ -45776,6 +45782,133 @@ async function pushToUsers(env, emails, payloadObj) {
 }
 
 // ---------------------------------------------------------------------------
+// TASK 1.5: text reminders for meetings, through Twilio. OFF by default --
+// nothing sends unless REMINDER_TEXTS_ENABLED === "1" AND a sender is
+// configured (TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER) AND the
+// caps allow it. The template is ONE generic string with merge fields; it
+// never has a business name written into the code -- [nome]/[name] and
+// [empresa]/[business] come from the meeting and its business record.
+// ---------------------------------------------------------------------------
+var REMINDER_TEXT_TEMPLATE_PT = "Lembrete: sua reunião com {name} de {business} é em {date} às {time}. Responda STOP para não receber mais.";
+var REMINDER_TEXT_TEMPLATE_EN = "Reminder: your meeting with {name} from {business} is on {date} at {time}. Reply STOP to opt out.";
+
+function reminderTextsEnabled(env) {
+    return !!env && String(env.REMINDER_TEXTS_ENABLED || "") === "1";
+}
+function reminderTextSenderConfigured(env) {
+    return !!env && !!(String(env.TWILIO_MESSAGING_SERVICE_SID || "").trim() || String(env.TWILIO_FROM_NUMBER || "").trim());
+}
+function reminderTextsConfigured(env) {
+    return reminderTextsEnabled(env) && reminderTextSenderConfigured(env);
+}
+
+function reminderTextFill(template, name, business, dateStr, timeStr) {
+    return template
+        .replace("{name}", name || "")
+        .replace("{business}", business || "")
+        .replace("{date}", dateStr)
+        .replace("{time}", timeStr);
+}
+
+// One Twilio REST call. Never throws -- returns { ok, sid, error }. Basic
+// auth is (TWILIO_API_KEY_SID, env.TWILIO_API_KEY_SECRET); the secret is a
+// Worker secret, never a var, and this function never logs it or the body.
+async function twilioSendSms(env, toE164, body) {
+    if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_API_KEY_SID || !env.TWILIO_API_KEY_SECRET) {
+        return { ok: false, error: "not_configured" };
+    }
+    var sender = String(env.TWILIO_MESSAGING_SERVICE_SID || "").trim();
+    var form = new URLSearchParams();
+    form.set("To", toE164);
+    form.set("Body", body);
+    if (sender) { form.set("MessagingServiceSid", sender); }
+    else { form.set("From", String(env.TWILIO_FROM_NUMBER || "").trim()); }
+    var res;
+    try {
+        res = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + env.TWILIO_ACCOUNT_SID + "/Messages.json", {
+            method: "POST",
+            headers: {
+                "Authorization": "Basic " + btoa(env.TWILIO_API_KEY_SID + ":" + env.TWILIO_API_KEY_SECRET),
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: form.toString()
+        });
+    } catch (e) {
+        return { ok: false, error: "network" };
+    }
+    var data = {};
+    try { data = (await res.json()) || {}; } catch (e) { data = {}; }
+    if (!res.ok) {
+        // 21610: the recipient has opted out (replied STOP). Never retried.
+        if (data && Number(data.code) === 21610) { return { ok: false, error: "opted_out" }; }
+        return { ok: false, error: "twilio_" + res.status };
+    }
+    return { ok: true, sid: data.sid || null };
+}
+
+// True when this phone has opted out (21610 seen before). Checked BEFORE
+// every send so an opted-out number is never retried.
+async function reminderTextOptedOut(env, phoneE164) {
+    var row = await env.DB.prepare("SELECT 1 AS x FROM reminder_text_optouts WHERE phone_e164 = ?")
+        .bind(phoneE164).first();
+    return !!row;
+}
+
+// Sends one reminder text for one meeting + recipient, guarded by the
+// UNIQUE(session_id, recipient) key so it can never send twice even if two
+// cron ticks overlap. The row is inserted ONLY after Twilio accepted the
+// message (per the brief: "record the send only after Twilio accepted").
+// recipient is a stable key (person name or email), never the phone itself.
+async function reminderTextSend(env, sessionId, recipient, phoneE164, name, business, dateStr, timeStr, lang) {
+    if (!reminderTextsConfigured(env)) { return { sent: false, reason: "not_configured" }; }
+    var already = await env.DB.prepare("SELECT 1 AS x FROM reminder_text_sends WHERE session_id = ? AND recipient = ?")
+        .bind(sessionId, recipient).first();
+    if (already) { return { sent: false, reason: "already_sent" }; }
+    if (await reminderTextOptedOut(env, phoneE164)) { return { sent: false, reason: "opted_out" }; }
+
+    var dayKey = sendCounterDayKey();
+    var monthKey = sendCounterMonthKey();
+    var dailyCount = await sendCounterRead(env, "reminder_sms", dayKey);
+    if (dailyCount >= reminderSmsDailyCap(env)) { return { sent: false, reason: "daily_cap" }; }
+    var monthlyCount = await sendCounterRead(env, "reminder_sms", monthKey);
+    if (monthlyCount >= reminderSmsMonthlyCap(env)) { return { sent: false, reason: "monthly_cap" }; }
+
+    var template = lang === "en" ? REMINDER_TEXT_TEMPLATE_EN : REMINDER_TEXT_TEMPLATE_PT;
+    var body = reminderTextFill(template, name, business, dateStr, timeStr);
+    var r = await twilioSendSms(env, phoneE164, body);
+    if (!r.ok) {
+        if (r.error === "opted_out") {
+            await env.DB.prepare("INSERT OR IGNORE INTO reminder_text_optouts (phone_e164, opted_out_at) VALUES (?, ?)")
+                .bind(phoneE164, new Date().toISOString()).run();
+        }
+        return { sent: false, reason: r.error };
+    }
+    // Recorded only now, after Twilio accepted it.
+    await env.DB.prepare(
+        "INSERT INTO reminder_text_sends (id, session_id, recipient, phone_e164, sent_at, twilio_sid) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), sessionId, recipient, phoneE164, new Date().toISOString(), r.sid).run();
+    var newDaily = await sendCounterIncrement(env, "reminder_sms", dayKey);
+    var newMonthly = await sendCounterIncrement(env, "reminder_sms", monthKey);
+    await sendCounterMaybeAlert(env, "reminder_sms", monthKey, newMonthly, reminderSmsMonthlyCap(env), "reminder text SMS (monthly)");
+    if (newDaily >= Math.ceil(reminderSmsDailyCap(env) / 2)) {
+        // Daily alerts reuse the same half/cap pattern, keyed by day instead
+        // of month, through the same generic helper.
+        await sendCounterMaybeAlert(env, "reminder_sms_daily", dayKey, newDaily, reminderSmsDailyCap(env), "reminder text SMS (daily)");
+    }
+    return { sent: true, sid: r.sid };
+}
+
+// A hand-made meeting (calendar.html / client.html) texts only when ticked
+// at creation (sessions.send_text_reminder). A scheduling-page booking
+// ("Agendamento pelo cliente") is ALWAYS eligible -- no checkbox exists for
+// it because the brief's rule is unconditional for that path. Every other
+// origin (fireflies, an untagged row) is never eligible.
+function sessionGetsTextReminder(s) {
+    if (String(s.created_by || "") === "Agendamento pelo cliente") { return true; }
+    return !!s.send_text_reminder;
+}
+
+// ---------------------------------------------------------------------------
 // APPOINTMENT REMINDERS. Pr. Rafa asked (2026-10-15) for a push one hour
 // before every appointment, for staff and for clients' own calendars. Nicole
 // had designed a time-sensitive meeting push at iOS-build time (prompt written
@@ -45829,6 +45962,15 @@ function apptRemTime(t) {
     return (h < 10 ? "0" : "") + h + ":" + m[2];
 }
 
+// "2026-10-19" -> "10/19/2026". Rule 2: every date the Worker builds into
+// client-facing text is month first, never derived from toISOString (this
+// takes an already-local YYYY-MM-DD wall-clock string, never a Date).
+function apptRemDateMDY(ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
+    if (!m) { return String(ymd || ""); }
+    return m[2] + "/" + m[3] + "/" + m[1];
+}
+
 function apptRemFmt12(hhmm) {
     var h = Number(hhmm.slice(0, 2));
     var ap = h >= 12 ? "PM" : "AM";
@@ -45844,7 +45986,7 @@ function apptRemLead(min, pt) {
 
 async function apptRemFindSessions(env, lo, hi) {
     var res = await env.DB.prepare(
-        "SELECT id, client_name, date, time, session_type, location, created_by FROM sessions " +
+        "SELECT id, client_id, client_name, date, time, session_type, location, created_by, send_text_reminder FROM sessions " +
         "WHERE date >= ? AND date <= ? AND time IS NOT NULL AND time != '' " +
         "AND status NOT IN ('discarded', 'cancelled', 'inbox', 'archived')"
     ).bind(lo.slice(0, 10), hi.slice(0, 10)).all();
@@ -45853,7 +45995,13 @@ async function apptRemFindSessions(env, lo, hi) {
         var t = apptRemTime(r.time);
         if (!t) { badTime++; return; }
         var wall = r.date + " " + t;
-        if (wall > lo && wall <= hi) { rows.push({ id: r.id, client_name: r.client_name, date: r.date, time: t, session_type: r.session_type, location: r.location, created_by: r.created_by }); }
+        if (wall > lo && wall <= hi) {
+            rows.push({
+                id: r.id, client_id: r.client_id, client_name: r.client_name, date: r.date, time: t,
+                session_type: r.session_type, location: r.location, created_by: r.created_by,
+                send_text_reminder: r.send_text_reminder
+            });
+        }
     });
     return { rows: rows, bad_time: badTime };
 }
@@ -45861,10 +46009,17 @@ async function apptRemFindSessions(env, lo, hi) {
 // A client's own calendar is in THAT client's zone (clients.timezone, falling
 // back to the business zone): a customer's time follows their device, so the
 // window is computed per row's zone, never converted.
+//
+// Task 1.5: lead_id/telefone/client_name/owners are only for the text-reminder
+// path (a gm_events row created from a client-portal booking, book.html, via
+// bkCreateEvent -- ALWAYS eligible, no checkbox exists for this path). A
+// hand-made client calendar entry (no lead_id) is never texted here.
 async function apptRemFindClientEvents(env, loMs, hiMs) {
     var res = await env.DB.prepare(
-        "SELECT e.id, e.client_id, e.title, e.event_date, e.start_time, e.location, c.language AS language, c.timezone AS timezone " +
-        "FROM gm_events e JOIN clients c ON c.id = e.client_id " +
+        "SELECT e.id, e.client_id, e.title, e.event_date, e.start_time, e.location, e.lead_id, " +
+        "c.language AS language, c.timezone AS timezone, c.name AS client_name, c.owners AS owners, " +
+        "l.telefone AS lead_phone " +
+        "FROM gm_events e JOIN clients c ON c.id = e.client_id LEFT JOIN gm_leads l ON l.id = e.lead_id " +
         "WHERE e.event_date >= ? AND e.event_date <= ? AND COALESCE(e.all_day, 0) = 0 " +
         "AND e.start_time IS NOT NULL AND e.start_time != '' " +
         "AND c.status IN ('active', 'paused') AND COALESCE(c.archived, 0) = 0"
@@ -45876,7 +46031,13 @@ async function apptRemFindClientEvents(env, loMs, hiMs) {
         var zone = r.timezone || APEX_TIMEZONE;
         if (!zoneWalls[zone]) { zoneWalls[zone] = { lo: apptRemWall(loMs, zone), hi: apptRemWall(hiMs, zone) }; }
         var wall = r.event_date + " " + t;
-        if (wall > zoneWalls[zone].lo && wall <= zoneWalls[zone].hi) { rows.push({ id: r.id, client_id: r.client_id, title: r.title, date: r.event_date, time: t, location: r.location, language: r.language }); }
+        if (wall > zoneWalls[zone].lo && wall <= zoneWalls[zone].hi) {
+            rows.push({
+                id: r.id, client_id: r.client_id, title: r.title, date: r.event_date, time: t, location: r.location,
+                language: r.language, lead_id: r.lead_id, lead_phone: r.lead_phone,
+                client_name: r.client_name, owners: r.owners
+            });
+        }
     });
     return { rows: rows, bad_time: badTime };
 }
@@ -45886,6 +46047,36 @@ async function apptRemRoleEmails(env, cache, role) {
     var r = await env.DB.prepare("SELECT email FROM users WHERE role = ?").bind(role).all();
     cache[role] = (r.results || []).map(function(x) { return x.email; }).filter(function(e) { return !!e; });
     return cache[role];
+}
+
+// Task 1.5: the display name of whichever staff role is hosting an admin
+// meeting, for the text's [name] merge field. Never throws; falls back to
+// the role's own capitalized name.
+async function apptRemStaffDisplayName(env, cache, role) {
+    var key = "name:" + role;
+    if (cache[key]) { return cache[key]; }
+    var fallback = role === "alice" ? "Alice" : role === "rafa" ? "Rafa" : "Nicole";
+    try {
+        var row = await env.DB.prepare("SELECT display_name FROM users WHERE role = ? ORDER BY email").bind(role).first();
+        cache[key] = (row && String(row.display_name || "").trim()) || fallback;
+    } catch (e) { cache[key] = fallback; }
+    return cache[key];
+}
+
+// Task 1.5: the client's own phone, normalized, for an Apex-admin meeting
+// text (the recipient is the CLIENT being met with). whatsapp first, then
+// phone, same preference order handleGmOwnerInvite already uses.
+async function apptRemClientPhone(env, clientId) {
+    if (!clientId) { return null; }
+    var row = await env.DB.prepare("SELECT whatsapp, phone, language FROM clients WHERE id = ?").bind(clientId).first();
+    if (!row) { return null; }
+    var found = null;
+    [row.whatsapp, row.phone].forEach(function(v) {
+        if (found || !v) { return; }
+        var n = passkeyNormalizePhone(v);
+        if (n.e164 && passkeyCountryCode(n.e164) === "1") { found = n.e164; }
+    });
+    return { phone: found, language: row.language };
 }
 
 async function apptRemSend(env, key, emails, payload, out) {
@@ -45943,6 +46134,20 @@ async function runAppointmentReminders(env, opts) {
                 };
                 if (dry) { out.staff.push({ id: s.id, name: s.client_name, when: s.date + " " + s.time, owner: s.created_by, role: role, recipients: emails.length }); continue; }
                 await apptRemSend(env, "apptrem:s:" + s.id + ":" + leadMin, emails, payload, out);
+                // Task 1.5: text reminder, SAME timing (one hour before) as
+                // the push above. Only for a meeting WITH the client -- the
+                // scheduling-page booking path is always eligible; a
+                // hand-made meeting needs its checkbox ticked.
+                if (leadMin === 60 && sessionGetsTextReminder(s) && s.client_id) {
+                    var cp = await apptRemClientPhone(env, s.client_id);
+                    if (cp && cp.phone) {
+                        var hostName = await apptRemStaffDisplayName(env, roleCache, role || "rafa");
+                        await reminderTextSend(
+                            env, s.id, "client:" + s.client_id, cp.phone, hostName, "Apex",
+                            apptRemDateMDY(s.date), apptRemFmt12(s.time), cp.language
+                        );
+                    }
+                }
             }
 
             var ce = await apptRemFindClientEvents(env, loMs, hiMs);
@@ -45960,6 +46165,21 @@ async function runAppointmentReminders(env, opts) {
                 };
                 if (dry) { out.clients.push({ id: e.id, client_id: e.client_id, title: e.title, when: e.date + " " + e.time, recipients: targets.length }); continue; }
                 await apptRemSend(env, "apptrem:g:" + e.id + ":" + leadMin, targets, cpayload, out);
+                // Task 1.5: a client-portal booking (book.html -> gm_events
+                // with a lead_id) always texts the customer who booked --
+                // SAME timing as the push above, no checkbox (this path has
+                // no hand-made-meeting form to put one on).
+                if (leadMin === 60 && e.lead_id && e.lead_phone) {
+                    var leadPhoneNorm = passkeyNormalizePhone(e.lead_phone);
+                    if (leadPhoneNorm.e164 && passkeyCountryCode(leadPhoneNorm.e164) === "1") {
+                        var ownerFirst = e.owners ? String(e.owners).split(/,|&| e | and /)[0].trim() : "";
+                        await reminderTextSend(
+                            env, "ge:" + e.id, "lead:" + e.lead_id, leadPhoneNorm.e164,
+                            ownerFirst || e.client_name, e.client_name,
+                            apptRemDateMDY(e.date), apptRemFmt12(e.time), e.language
+                        );
+                    }
+                }
             }
         }
     } catch (err) {
@@ -45967,6 +46187,88 @@ async function runAppointmentReminders(env, opts) {
         console.log("runAppointmentReminders failed: " + out.error);
     }
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// Task 1.7: Siri shortcuts answer for whoever is SIGNED IN, scoped by their
+// own session's role -- never the admin-wide routes the intents called
+// directly before this. Staff (alice/rafa/developer) keep the exact admin
+// answer they had (Apex's own outstanding invoices to its clients / every
+// session on the calendar). An owner session instead gets THEIR OWN
+// business's figures (their balance due to Apex's client-facing invoicing,
+// and today's gm_events on their own calendar). A seller or any other
+// client-tier role answers "not available" rather than guessing a scope.
+// ---------------------------------------------------------------------------
+
+// Route: GET /api/me/outstanding-invoices
+async function handleGetMeOutstandingInvoices(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        if (user.role === "alice" || user.role === "rafa" || user.role === "developer") {
+            // Identical query/shape handleGetFinanceNewInvoices already
+            // answers with -- Apex's own invoices to its clients.
+            var res = await env.DB.prepare(
+                "SELECT amount_cents FROM invoices WHERE status = 'sent'"
+            ).all();
+            var rows = res.results || [];
+            var total = 0;
+            for (var i = 0; i < rows.length; i++) { total += rows[i].amount_cents || 0; }
+            return jsonOk({ outstanding_cents: total, invoice_count: rows.length, scope: "apex" });
+        }
+        if (user.role === "client" && user.client_id && !sessionSellerName(user) &&
+            (!user.login_role || user.login_role === "client" || user.login_role === "partner" || user.login_role === "staff_finance")) {
+            var g = await env.DB.prepare(
+                "SELECT i.id, i.amount_cents, i.status FROM gm_invoices i WHERE i.client_id = ?"
+            ).bind(user.client_id).all();
+            var grows = g.results || [];
+            var pays = (await env.DB.prepare(
+                "SELECT invoice_id, COALESCE(SUM(amount_cents), 0) AS paid FROM gm_invoice_payments " +
+                "WHERE client_id = ? GROUP BY invoice_id"
+            ).bind(user.client_id).all()).results || [];
+            var paidByInv = {};
+            pays.forEach(function(p) { paidByInv[p.invoice_id] = p.paid; });
+            var balance = 0, count = 0;
+            grows.forEach(function(inv) {
+                if (inv.status === "void" || inv.status === "draft") { return; }
+                var owed = (inv.amount_cents || 0) - (paidByInv[inv.id] || 0);
+                if (owed > 0) { balance += owed; count++; }
+            });
+            return jsonOk({ outstanding_cents: balance, invoice_count: count, scope: "own_business" });
+        }
+        return jsonErr2("Isso não está disponível para o seu tipo de acesso.",
+            "This is not available for your access type.", 403);
+    } catch (e) {
+        return jsonErr("Error fetching outstanding invoices: " + e.message, 500);
+    }
+}
+
+// Route: GET /api/me/today-schedule
+async function handleGetMeTodaySchedule(request, env) {
+    try {
+        var user = await authenticate(request, env);
+        if (!user) { return jsonErr("Unauthorized", 401); }
+        var today = easternDateStr(0);
+        if (user.role === "alice" || user.role === "rafa" || user.role === "developer") {
+            var res = await env.DB.prepare(
+                "SELECT id, client_name, date, time, session_type, location, status FROM sessions " +
+                "WHERE date = ? AND status NOT IN ('discarded', 'cancelled', 'archived', 'inbox')"
+            ).bind(today).all();
+            return jsonOk({ sessions: res.results || [], scope: "apex" });
+        }
+        if (user.role === "client" && user.client_id && !sessionSellerName(user) &&
+            (!user.login_role || user.login_role === "client" || user.login_role === "partner" || user.login_role === "staff_finance" || user.login_role === "staff")) {
+            var res2 = await env.DB.prepare(
+                "SELECT id, title AS client_name, event_date AS date, start_time AS time, location FROM gm_events " +
+                "WHERE client_id = ? AND event_date = ?"
+            ).bind(user.client_id, today).all();
+            return jsonOk({ sessions: res2.results || [], scope: "own_business" });
+        }
+        return jsonErr2("Isso não está disponível para o seu tipo de acesso.",
+            "This is not available for your access type.", 403);
+    } catch (e) {
+        return jsonErr("Error fetching today's schedule: " + e.message, 500);
+    }
 }
 
 // GET /api/appointment-reminders/dry-run?horizon_hours=24  (developer only)
@@ -53782,6 +54084,8 @@ async function handleFetch(request, env, ctx) {
         if (path === "/api/role"                       && method === "GET")  { return handleGetRole(request, env); }
         if (path === "/api/me/language"                && method === "PUT")  { return handlePutMeLanguage(request, env); }
         if (path === "/api/gm/sms-usage"                && method === "GET")  { return handleGetSmsUsage(request, env); }
+        if (path === "/api/me/outstanding-invoices"     && method === "GET")  { return handleGetMeOutstandingInvoices(request, env); }
+        if (path === "/api/me/today-schedule"           && method === "GET")  { return handleGetMeTodaySchedule(request, env); }
         if (path === "/api/google/oauth/start"        && method === "GET")  { return handleGoogleOAuthStart(request, env); }
         if (path === "/api/google/oauth/callback"     && method === "GET")  { return handleGoogleOAuthCallback(request, env); }
         if (path === "/api/google/oauth/status"       && method === "GET")  { return handleGoogleOAuthStatus(request, env); }
@@ -55002,6 +55306,7 @@ async function handleFetch(request, env, ctx) {
         var supTicketDetail = path.match(/^\/api\/support\/tickets\/([A-Za-z0-9_-]+)$/);
         if (supTicketDetail && method === "GET") { return handleGetSupportTicketDetail(supTicketDetail[1], request, env); }
         if (path === "/api/dev/error-alert-test" && method === "POST") { return handlePostDevErrorAlertTest(request, env); }
+        if (path === "/api/dev/reminder-text-test" && method === "POST") { return handlePostDevReminderTextTest(request, env); }
         var vndByClient = path.match(/^\/api\/vendors\/by-client\/([A-Za-z0-9_-]+)$/);
         if (vndByClient && method === "GET") { return handleGetVendorByClient(vndByClient[1], request, env); }
         var vndChangeOptions = path.match(/^\/api\/vendors\/([A-Za-z0-9_-]+)\/change-options$/);
@@ -63814,6 +64119,46 @@ async function handlePostDevErrorAlertTest(request, env) {
     if (!user) { return jsonErr("Unauthorized", 401); }
     if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
     throw new Error("TEST: deliberate error to prove the alert works");
+}
+
+// POST /api/dev/reminder-text-test -- developer-only, at most once per hour.
+// Sends ONE sample reminder to the signed-in developer's own phone on file
+// (their login_people row, role 'client' is irrelevant here -- any
+// login_people row for this developer's own session works the same way "My
+// devices" resolves a person: client_id + username). Refused for every
+// other role. If no sender is configured, answers a clear reason instead of
+// silently doing nothing.
+var DEV_REMINDER_TEST_LAST = {};
+async function handlePostDevReminderTextTest(request, env) {
+    var user = await authenticate(request, env);
+    if (!user) { return jsonErr("Unauthorized", 401); }
+    if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+    if (!reminderTextSenderConfigured(env)) {
+        return jsonErr2("Nenhum remetente configurado (TWILIO_FROM_NUMBER ou TWILIO_MESSAGING_SERVICE_SID).",
+            "No sender configured (TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID).", 400);
+    }
+    var last = DEV_REMINDER_TEST_LAST[user.email || "dev"];
+    if (last && (Date.now() - last) < 3600000) {
+        return jsonErr2("Já enviado nesta hora. Tente novamente mais tarde.",
+            "Already sent this hour. Try again later.", 429);
+    }
+    var row = await env.DB.prepare(
+        "SELECT phone_e164 FROM login_people WHERE client_id = (SELECT client_id FROM users WHERE email = ?) ORDER BY created_at DESC LIMIT 1"
+    ).bind(user.email || "").first().catch(function() { return null; });
+    // A developer's own session usually has no client_id/login_people row at
+    // all (it is a Google/Firebase staff login). Fall back to a users-table
+    // phone column if one exists; otherwise there is nothing to text.
+    var phone = row && row.phone_e164 ? passkeyNormalizePhone(row.phone_e164) : null;
+    if (!phone || !phone.e164) {
+        return jsonErr2("Nenhum telefone cadastrado para você.", "No phone on file for you.", 400);
+    }
+    var sent = await twilioSendSms(env, phone.e164,
+        reminderTextFill(REMINDER_TEXT_TEMPLATE_PT, "Rafael Prata", "Apex", apptRemDateMDY(easternDateStr(0)), "5:00 PM"));
+    if (!sent.ok) {
+        return jsonErr2("Falha no envio: " + sent.error, "Send failed: " + sent.error, 500);
+    }
+    DEV_REMINDER_TEST_LAST[user.email || "dev"] = Date.now();
+    return jsonOk({ sent: true, sid: sent.sid, to: passkeyMaskPhone(phone.e164) });
 }
 
 // GET /api/support/tickets/:id -- developer-only, full detail incl. transcript.

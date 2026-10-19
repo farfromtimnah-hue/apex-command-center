@@ -74,7 +74,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1792347363"></script>
+  <script src="native-bridge.js?v=1792442281"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -3461,6 +3461,15 @@
               <span class="show-en">Meet link will be generated automatically.</span>
             </div>
           </div>
+        </div>
+        <div class="field-group" style="display:flex;align-items:center;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+            <!-- Task 1.5. NOT checked by default: a hand-made meeting texts
+                 the client only when this is explicitly ticked. -->
+            <input type="checkbox" id="ssReminderText">
+            <span class="show-pt">Enviar lembrete por texto</span>
+            <span class="show-en">Send text reminder</span>
+          </label>
         </div>
         <div class="field-group">
           <textarea id="ssNotes" style="width:100%;border:1px solid var(--border);border-radius:7px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--surface);resize:vertical;min-height:80px;line-height:1.5;" data-ph-pt="Notas (opcional)" data-ph-en="Notes (optional)" placeholder="Notas (opcional)"></textarea>
@@ -12080,6 +12089,8 @@
       if (timeEl) { timeEl.value = ""; }
       var notesEl = document.getElementById("ssNotes");
       if (notesEl) { notesEl.value = ""; }
+      var reminderEl = document.getElementById("ssReminderText");
+      if (reminderEl) { reminderEl.checked = false; }
       setScheduleSessionType("online_meet");
       var statusEl = document.getElementById("ssStatus");
       if (statusEl) { statusEl.textContent = ""; statusEl.className = "pull-status"; }
@@ -12144,7 +12155,11 @@
 
       function finishSchedule(meetLink, googleEventId) {
         if (statusEl) { statusEl.textContent = "Agendando... / Scheduling..."; statusEl.className = "pull-status"; }
-        var body = { client_id: clientId, date: date, time: time, session_type: type, notes: notes || null };
+        var reminderCk = document.getElementById("ssReminderText");
+        var body = {
+          client_id: clientId, date: date, time: time, session_type: type, notes: notes || null,
+          send_text_reminder: !!(reminderCk && reminderCk.checked)
+        };
         if (meetLink) { body.google_meet_link = meetLink; }
         if (googleEventId) { body.google_event_id = googleEventId; }
         apiFetch("/api/sessions/schedule", { method: "POST", body: body })

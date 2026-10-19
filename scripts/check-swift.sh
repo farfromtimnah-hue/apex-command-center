@@ -25,7 +25,19 @@ trap 'rm -rf "$WORK"' EXIT
 cat > "$WORK/CapacitorStub.swift" <<'EOF'
 import Foundation
 import UIKit
+import UserNotifications
 import WebKit
+// Task 1.6: real signature from NotificationRouter.swift -- an
+// NSObject, UNUserNotificationCenterDelegate that CAPBridgeProtocol exposes
+// as `notificationRouter` so an app that reclaims the delegate role (as
+// AppDelegate does, see its own header comment) can still forward a tap.
+open class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
+    public func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                        didReceive response: UNNotificationResponse,
+                                        withCompletionHandler completionHandler: @escaping () -> Void) {
+        completionHandler()
+    }
+}
 public struct CAPPluginMethodReturnType { }
 public let CAPPluginReturnPromise = CAPPluginMethodReturnType()
 public class CAPPluginMethod {
@@ -55,6 +67,8 @@ public protocol CAPBridgedPlugin {
 }
 public protocol CAPBridgeProtocol {
     func registerPluginInstance(_ p: CAPPlugin)
+    // Task 1.6: real signature from CAPBridgeProtocol.swift -- non-optional.
+    var notificationRouter: NotificationRouter { get }
 }
 public class InstanceConfiguration: NSObject {}
 open class CAPBridgeViewController: UIViewController {

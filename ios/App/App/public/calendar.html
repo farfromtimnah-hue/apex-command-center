@@ -75,7 +75,7 @@
     window.__apexErrHookInstalled = true;
   })();
   </script>
-  <script src="native-bridge.js?v=1792347363"></script>
+  <script src="native-bridge.js?v=1792442281"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a1d">
@@ -1855,6 +1855,16 @@
                  mechanism that works; applyCalBilingualAttrs() swaps them. -->
             <option value="" data-opt-pt="— selecionar —" data-opt-en="— select —">— selecionar —</option>
           </select>
+        </div>
+        <!-- Task 1.5: hand-made meetings with a client get a text reminder
+             only when this is ticked (default unticked). Hidden alongside
+             the client dropdown -- same group, same "needs a client" rule. -->
+        <div class="field-group" id="nsReminderTextGroup">
+          <label class="recur-check-row">
+            <input type="checkbox" id="nsReminderText">
+            <span class="show-pt">Enviar lembrete por texto</span>
+            <span class="show-en">Send text reminder</span>
+          </label>
         </div>
         <!-- Event name: only shown for "+ Event" / "+ Apex Club" entries.
              Stored in the client_name column server-side. -->
@@ -3999,6 +4009,15 @@
 
       var clientGroup = document.getElementById("nsClientGroup");
       if (clientGroup) { clientGroup.hidden = !needsClient; }
+      // Task 1.5: the text-reminder checkbox only makes sense for a meeting
+      // WITH a client. Hiding it also clears it, so switching away from a
+      // client meeting type never leaves a stale "send text" intent behind.
+      var reminderGroup = document.getElementById("nsReminderTextGroup");
+      if (reminderGroup) { reminderGroup.hidden = !needsClient; }
+      if (!needsClient) {
+        var reminderCk = document.getElementById("nsReminderText");
+        if (reminderCk) { reminderCk.checked = false; }
+      }
 
       // The free-text name field serves event / vendor / church / personal.
       var nameGroup = document.getElementById("nsEventNameGroup");
@@ -6687,6 +6706,11 @@
         if (isEvent || isVendor) { body.event_name = eventName; } else { body.client_id = clientId; }
         if (endTime)  { body.end_time = endTime; }
         if (location) { body.location = location; }
+        // Task 1.5: default unticked. Only sent for a meeting type that
+        // actually has a client dropdown -- applyNsMeetingType already hides
+        // and clears the checkbox for every other type.
+        var reminderCk = document.getElementById("nsReminderText");
+        body.send_text_reminder = !!(reminderCk && !reminderCk.hidden && reminderCk.checked);
         // A church meeting occasionally has a real link (an elders' call).
         // It rides in the same column the Meet link uses, so every reader
         // that already knows how to open a link keeps working unchanged.

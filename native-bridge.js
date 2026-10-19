@@ -355,6 +355,10 @@ function apexDisarmPaintCover(reason) {
   // The app is now visible on a real page. This is the moment to ask about
   // notifications, whichever route got us here.
   apexMaybeAskPush();
+  // Task 1.6: a notification tapped while the app was still cold-launching
+  // (session not yet restored) left its target waiting; the app is now
+  // genuinely past login, so it is safe to navigate.
+  apexNavigatePendingPush();
     try { cover.hide({ reason: why }); } catch (e) {
       apexTrace("DISARM-NATIVE", "hide() threw: " + (e && e.message));
     }
@@ -2014,6 +2018,26 @@ function apexRegisterApnsToken(token) {
   });
 }
 
+// Task 1.6: navigates to a push's target, once, past the login screen.
+// Called both right after a tap (if the app is already revealed) and right
+// after the app reveals (if the tap arrived earlier, during cold launch).
+// Safe to call with nothing pending -- it is a no-op.
+function apexNavigatePendingPush() {
+  try {
+    var onLogin = /(^|\/)(index\.html)?$/.test(window.location.pathname);
+    if (onLogin) { return; }
+    var url = null;
+    try { url = window.sessionStorage.getItem("apex_pending_push_url"); } catch (e) {}
+    if (!url) { return; }
+    try { window.sessionStorage.removeItem("apex_pending_push_url"); } catch (e) {}
+    // Only ever a same-origin relative path (every url the Worker sends
+    // starts with "/"); never follow an absolute or cross-origin value.
+    if (url.charAt(0) !== "/") { return; }
+    apexTrace("PUSH", "navigating to pending target: " + url);
+    window.location.href = url;
+  } catch (e) { apexTrace("PUSH", "navigate pending failed: " + (e && e.message)); }
+}
+
 // Asks for permission and starts registration. Safe to call repeatedly.
 // Asks for push on any page that is NOT the login screen, however the app got
 // revealed. apexInitPush's only caller was the unlock success path, but a page
@@ -2085,6 +2109,26 @@ function apexInitPush() {
 
   plugin.addListener("registrationError", function (err) {
     apexTrace("PUSH", "registrationError: " + JSON.stringify(err || {}));
+  });
+
+  // Task 1.6: tapping a delivered notification opens the screen it is about,
+  // not whatever tab happened to be open. The Worker already puts a `url`
+  // on every push (sendApns passes payloadObj.url through at the top level
+  // of the APNs payload, outside aps), so this only has to read it and
+  // navigate -- after sign-in, never to a stale tab left over from before
+  // the app was backgrounded.
+  plugin.addListener("pushNotificationActionPerformed", function (action) {
+    try {
+      var data = action && action.notification && action.notification.data;
+      var url = data && data.url ? String(data.url) : null;
+      apexTrace("PUSH", "tapped, url=" + (url || "(none)"));
+      if (!url) { return; }
+      // A session may not have finished restoring yet (the tap can arrive
+      // while the app is still cold-launching). Hold the target and apply
+      // it once the app has revealed, the same way a deep link would.
+      try { window.sessionStorage.setItem("apex_pending_push_url", url); } catch (e) {}
+      apexNavigatePendingPush();
+    } catch (e) { apexTrace("PUSH", "action handler failed: " + (e && e.message)); }
   });
 
   // Ask the OS for the token EVERY launch once permission exists, and re-post

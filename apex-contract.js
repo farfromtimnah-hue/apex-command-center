@@ -109,7 +109,10 @@
   // ── small helpers ─────────────────────────────────────────────────────
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function money(c) { var n = Math.round(Number(c) || 0); return "$" + String(Math.floor(n / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + String(n % 100).padStart(2, "0"); }
-  function toCents(v) { var n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.]/g, "")); return isNaN(n) ? 0 : Math.round(n * 100); }
+  // Task 2.5: an empty/unreadable field is null (missing), never a typed-
+  // looking 0 -- only generic toCents() callers that genuinely want 0 for
+  // "nothing entered" should guard with `|| 0` at the call site.
+  function toCents(v) { var n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.]/g, "")); return isNaN(n) ? null : Math.round(n * 100); }
   function centsInput(c) { return c ? (Math.round(c) / 100).toFixed(2) : ""; }
   function todayET() {
     try { var p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); return p; }
@@ -227,35 +230,54 @@
     var scopeKeys = (PKG_SCOPE[key] || []).map(function(x) { return x.key; });
     if (!keepDates || f._scopePkg !== key) { f.scope_items = scopeKeys.slice(); }
     f._scopePkg = key;
+    // Task 2.5: no typed fallback number. A package price missing from
+    // Settings leaves package_price_cents null (shown empty, "Falta", the
+    // contract not sendable) rather than a made-up figure that reads as real.
     if (key === "start") {
-      f.package_price_cents = Math.round((P.start && P.start.price ? P.start.price : 997) * 100);
+      f.package_price_cents = (P.start && P.start.price) ? Math.round(P.start.price * 100) : null;
       f.pricing_option = "upfront"; f._count = 1; f.payment_method = "zelle";
       if (!f.end_date) { f.end_date = addDays(f.start_date, 30); }
     } else if (key === "growth") {
       var g = P.growth || {};
       f.pricing_option = f.pricing_option === "upfront" ? "upfront" : "installment";
-      f.package_price_cents = Math.round((f.pricing_option === "upfront" ? (g.upfront || 6997) : (g.installment_total || 8788)) * 100);
+      var gPrice = f.pricing_option === "upfront" ? g.upfront : g.installment_total;
+      f.package_price_cents = gPrice ? Math.round(gPrice * 100) : null;
       f._count = f.pricing_option === "upfront" ? 1 : (g.count || 4);
       f.payment_method = "card_zelle"; f.end_date = null;
     } else {
       var a = P.advanced || {};
       f.pricing_option = "installment";
-      f.package_price_cents = Math.round((a.installment_total || 8382) * 100);
+      f.package_price_cents = a.installment_total ? Math.round(a.installment_total * 100) : null;
       f._count = a.count || 6; f.payment_method = "card_zelle"; f.end_date = null;
     }
     f._first = f.contract_date;
     rebuildSchedule(f);
   }
+  // Task 2.5: null, not a number, when the package price itself is missing
+  // -- addons cannot patch over a missing base price, and a caller that
+  // does not check for null would otherwise silently total a contract
+  // around a $0 package.
   function totalCents(f) {
+    if (f.package_price_cents === null || f.package_price_cents === undefined) { return null; }
     var t = f.package_price_cents;
-    f.addons.forEach(function(a) { t += a.recurrence === "once" ? a.client_price_cents : a.client_price_cents * (a.months || 1); });
+    // An addon price field cleared by hand means "free", same as a brand
+    // new addon's own 0 default (line ~768) -- only the PACKAGE base price
+    // is ever "missing" rather than "zero".
+    f.addons.forEach(function(a) {
+      var ap = a.client_price_cents || 0;
+      t += a.recurrence === "once" ? ap : ap * (a.months || 1);
+    });
     return t;
   }
   // Equal instalments on the same day each month (or every 3 months); any
   // remainder cents land on the last one. Rows stay editable (balloon plans).
   function rebuildSchedule(f) {
-    var n = Math.max(1, Math.min(36, parseInt(f._count, 10) || 1));
     var total = totalCents(f);
+    // Task 2.5: a missing package price builds no schedule at all -- an
+    // empty list reads as "not ready" everywhere the schedule is shown,
+    // rather than a row of $0.00 payments that looks like a real plan.
+    if (total === null) { f.schedule = []; return; }
+    var n = Math.max(1, Math.min(36, parseInt(f._count, 10) || 1));
     var each = Math.floor(total / n);
     var first = f._first || f.contract_date || todayET();
     var day = Number(first.slice(8, 10));
@@ -282,7 +304,10 @@
       var v = null; S.vendors.forEach(function(x) { if (x.id === a.vendor_id) { v = x; } });
       a.vendor_name = v ? v.name : null;
       a.label = (q("apxAddLabel" + i) || "").trim(); a.description = (q("apxAddDesc" + i) || "").trim();
-      a.client_price_cents = toCents(q("apxAddPrice" + i)); a.months = parseInt(q("apxAddMonths" + i), 10) || 1;
+      // An addon price is "free" when cleared, never "missing" -- only the
+      // package base price (F.package_price_cents above) carries the
+      // null-means-missing rule.
+      a.client_price_cents = toCents(q("apxAddPrice" + i)) || 0; a.months = parseInt(q("apxAddMonths" + i), 10) || 1;
       var vc = q("apxAddCost" + i); a.vendor_cost_cents = (vc === null || vc === "") ? null : toCents(vc);
     });
     F.bonuses = F.bonuses.map(function(b, i) { return (q("apxBonus" + i) || "").trim(); });

@@ -132,7 +132,7 @@
         // payment or amount received -- the event name alone stands in.
         var verdict = clubIsMoneyRole()
           ? '<div class="club-verdict' + (net > 0 ? " is-up" : "") + '">' +
-              esc(ev.name) + ": " + (net >= 0 ? "+" : "") + fmtCents(net) +
+              esc(ev.name) + ": " + (net > 0 ? "+" : "") + fmtCents(net) +
             "</div>"
           : '<div class="club-verdict">' + esc(ev.name) + "</div>";
 
@@ -170,14 +170,19 @@
           "</div>";
 
         // P&L detail: Rafa never sees income/expense or card receipts.
+        // Task 2.2: nobody has joined yet reads as a plain statement, not
+        // "$0.00 from 0 people" (which sounds like a reporting glitch).
+        var joinedLine = c.people === 0
+          ? '<span class="show-pt">Ningu&eacute;m entrou ainda</span><span class="show-en">No one has joined yet</span>'
+          : '<span class="show-pt">Entrou ' + fmtCents(c.income_cents) +
+              " de " + c.people + " pessoa" + (c.people === 1 ? "" : "s") + "</span>" +
+            '<span class="show-en">In ' + fmtCents(c.income_cents) +
+              " from " + c.people + " " + (c.people === 1 ? "person" : "people") + "</span>";
         var detail = !clubIsMoneyRole() ? "" :
           '<div class="club-detail">' +
-            '<span class="show-pt">Entrou ' + fmtCents(c.income_cents) +
-              " de " + c.people + " pessoa" + (c.people === 1 ? "" : "s") +
-              " &middot; saiu " + fmtCents(c.expense_cents) + "</span>" +
-            '<span class="show-en">In ' + fmtCents(c.income_cents) +
-              " from " + c.people + " " + (c.people === 1 ? "person" : "people") +
-              " &middot; out " + fmtCents(c.expense_cents) + "</span>" +
+            joinedLine +
+            '<span class="show-pt">' + (c.people === 0 ? "" : " &middot; ") + "saiu " + fmtCents(c.expense_cents) + "</span>" +
+            '<span class="show-en">' + (c.people === 0 ? "" : " &middot; ") + "out " + fmtCents(c.expense_cents) + "</span>" +
           "</div>" +
           // Card receipts, their own labeled lines (already inside the
           // in / out figures above). Absent when nobody paid by card.

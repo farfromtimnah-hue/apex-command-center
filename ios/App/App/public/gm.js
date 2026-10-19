@@ -5770,10 +5770,13 @@ function gmConSettingsHtml() {
     ["suspension_trigger_days", "Dias de atraso que permitem suspender", "Days late before suspension"], ["suspension_notice_days", "Dias úteis de aviso de suspensão", "Business days' notice before suspension"], ["contractor_termination_days", "Dias de suspensão antes de rescindir", "Days of suspension before termination"], ["owner_cure_days", "Dias úteis para começar a corrigir", "Business days to begin a cure"],
     ["negotiation_days", "Dias para a negociação (C14)", "Negotiation days (C14)"], ["mediation_days", "Dias para a mediação (C14)", "Mediation days (C14)"], ["debris_frequency", "Frequência de retirada de entulho", "Debris removal frequency"], ["co_response_days", "Dias úteis para enviar o aditivo (C05-B)", "Business days to send a change order (C05-B)"], ["urgent_cap_amount", "Teto do serviço urgente (C05-C)", "Urgent work cap (C05-C)"]];
   h += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Valores fixos da empresa", "Your standard values") + ' <span class="gm-sheet-section-note">' + gmT("usados pelas cláusulas; o que ficar em branco é perguntado no contrato", "used by the clauses; anything left blank is asked on the contract") + '</span></p>';
-  // State riders: the business's home state (unset = Florida).
-  var bizState = d.values.business_state || "FL";
+  // Task 2.5: the business's home state is never assumed. Unset shows a
+  // blank placeholder (never a silently pre-picked Florida) and the
+  // contract compose pipeline blocks sending until a real state is chosen.
+  var bizState = d.values.business_state || "";
   h += '<label class="gm-field-label" for="gmConBizState">' + gmT("Estado de registro da empresa", "State your business is registered in") + '</label>' +
     '<select id="gmConBizState" class="gm-input" onchange="gmConDraft.values.business_state = this.value">' +
+    '<option value=""' + (bizState ? "" : " selected") + '>' + gmT("— selecionar —", "— select —") + '</option>' +
     (S.states || []).map(function(x) { return '<option value="' + escHtml(x.code) + '"' + (x.code === bizState ? " selected" : "") + '>' + escHtml(x.name) + '</option>'; }).join("") + '</select>';
   h += gmConBizFactsHtml(d, S);
   vals.forEach(function(v) { h += '<label class="gm-field-label" for="gmConVal_' + v[0] + '">' + gmT(v[1], v[2]) + '</label><input type="text" id="gmConVal_' + v[0] + '" class="gm-input" value="' + escHtml(d.values[v[0]] || "") + '" oninput="gmConDraft.values[\'' + v[0] + '\'] = this.value">'; });
@@ -9283,6 +9286,32 @@ function gmDownloadReferralQr() {
 // was: the sheet's scroll position and every field typed but not saved.
 // Sections that load after the redraw get their typed text back on a second
 // pass, only where the new field is still empty.
+// Task 2.9: a small "Não salvo" / "Not saved" mark next to a field this
+// function has just put typed-but-unsaved text back into, cleared the next
+// time that field loses focus (every field this restores already saves on
+// its own blur handler elsewhere in gm.js, so "the user left the field" is
+// the save attempt firing). Reuses the existing small-text style
+// (gmDocFieldMarkHtml's own inline span shape) rather than inventing one.
+function gmSheetUnsavedMarkHtml() {
+  return '<span class="gm-sheet-unsaved-mark muted" style="font-size:11px;margin-left:6px;">' +
+    gmT("Não salvo", "Not saved") + '</span>';
+}
+function gmSheetMarkUnsaved(el) {
+  if (!el || !el.parentNode) { return; }
+  var existing = el.parentNode.querySelector(".gm-sheet-unsaved-mark");
+  if (existing) { return; }
+  var mark = document.createElement("span");
+  mark.className = "gm-sheet-unsaved-mark muted";
+  mark.style.fontSize = "11px";
+  mark.style.marginLeft = "6px";
+  mark.textContent = gmT("Não salvo", "Not saved");
+  el.parentNode.insertBefore(mark, el.nextSibling);
+  var clear = function() {
+    if (mark.parentNode) { mark.parentNode.removeChild(mark); }
+    el.removeEventListener("blur", clear);
+  };
+  el.addEventListener("blur", clear);
+}
 function gmSheetKeepState(redraw) {
   var sheet = gmSheetEl ? gmSheetEl.querySelector(".gm-sheet") : null;
   var top = sheet ? sheet.scrollTop : 0;
@@ -9302,7 +9331,12 @@ function gmSheetKeepState(redraw) {
       if (!el || !sh.contains(el)) { return; }
       if (typed[id].c !== undefined) { if (!onlyEmpty) { el.checked = typed[id].c; } return; }
       if (onlyEmpty && el.value) { return; }
+      // Mark only a field that genuinely changes FROM the fresh redraw's own
+      // value -- a field the redraw already filled correctly (nothing
+      // actually pending) gets no mark.
+      var freshValue = el.value;
       el.value = typed[id].v;
+      if (typed[id].v && typed[id].v !== freshValue) { gmSheetMarkUnsaved(el); }
     });
     sh.scrollTop = top;
   };
@@ -9667,9 +9701,12 @@ function gmRenderCalendar() {
       gmT("Hoje", "Today") + '</button>' +
     '</div>' +
     gmCalViewToggleHtml() +
-    '<div id="gmCalGrid"></div>' +
-    // Day view only (gmCalRenderDayWeather) -- empty on Month/Week.
+    // Task 2.3: moved ABOVE the grid (Day view only, gmCalRenderDayWeather --
+    // empty on Month/Week). It used to sit below the grid, where it read as
+    // an afterthought on a screen meant to answer "is today a rain day" at a
+    // glance.
     '<div id="gmCalDayWeather"></div>' +
+    '<div id="gmCalGrid"></div>' +
     // Legend: three visually distinct kinds need saying once, or the dashed
     // and dark chips read as styling rather than meaning.
     '<div class="gm-cal-legend">' +
@@ -10217,6 +10254,40 @@ var gmDocSaveMsg = null;       // last inline save/validation message
 // this list saves through PUT gm/config, not PUT gm/doc-settings.
 var gmDocServicosDraft = null;
 
+// Task 2.4: state-aware statutory texts (previously fixed Florida wording
+// shown to every business regardless of their real state). Florida keeps
+// the exact wording it always had; another known state names itself with
+// no statute number unless the state-riders data already holds one for it
+// (license.text, same source the contract builder's state rider uses);
+// an unknown/unset state gets a neutral sentence with no state and no
+// statute. d is gmDocDraft (business_state/business_state_name/
+// license_statute_text, read-only fields set from the server).
+function gmDocLicenseHelpHtml(d) {
+  var st = (d && d.business_state) || null;
+  if (!st || st === "FL") {
+    return gmT("A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.",
+      "Florida law (§489.119) requires your license number on every bid and contract.");
+  }
+  if (d.license_statute_text) {
+    return gmT("A lei de " + escHtml(d.business_state_name) + " (" + escHtml(d.license_statute_text) + ") exige o número da sua licença em toda proposta e contrato.",
+      d.business_state_name + " law (" + d.license_statute_text + ") requires your license number on every bid and contract.");
+  }
+  return gmT("A lei de " + escHtml(d.business_state_name) + " exige o número da sua licença em toda proposta e contrato.",
+    d.business_state_name + " law requires your license number on every bid and contract.");
+}
+function gmDocLateFeeCapHtml(d) {
+  var st = (d && d.business_state) || null;
+  if (!st || st === "FL") {
+    return gmT("A lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).",
+      "Florida law (§687.03) caps interest at 18% per year (1.5% per month).");
+  }
+  if (st) {
+    return gmT("A lei de " + escHtml(d.business_state_name) + " pode limitar os juros cobrados. Confirme o limite com um advogado do seu estado.",
+      d.business_state_name + " law may cap the interest you charge. Confirm the limit with an attorney in your state.");
+  }
+  return gmT("As leis de juros variam por estado. Confirme o limite com um advogado antes de cobrar juros.",
+    "Interest-rate limits vary by state. Confirm the limit with an attorney before charging interest.");
+}
 // Fixed statutory texts. Shown verbatim; not editable.
 var GM_DOC_LICENSE_HELP_PT = "A lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato.";
 var GM_DOC_LICENSE_HELP_EN = "Florida law (§489.119) requires your license number on every bid and contract.";
@@ -10358,6 +10429,11 @@ function gmDocDraftFromSettings() {
   var pre = st.prefill || {};
   var pm = st.payment_methods || {};
   gmDocDraft = {
+    // Task 2.4: read-only, never a draft field the owner edits here (the
+    // business's own state is set on the client record, not this screen).
+    business_state: st.business_state || null,
+    business_state_name: st.business_state_name || null,
+    license_statute_text: st.license_statute_text || null,
     brand_primary: st.brand_primary || pre.brand_primary || "",
     brand_accent:  st.brand_accent  || pre.brand_accent  || "",
     legal_name: st.legal_name || pre.legal_name || pre.business_name || "",
@@ -10625,7 +10701,7 @@ function gmDocSettingsFormHtml() {
   html += '<div class="gm-sheet-section">' +
     '<p class="gm-sheet-section-title">' + gmT("Licenciamento", "Licensing") + '</p>' +
     '<div class="gm-field-label">' + gmT("Número(s) de licença", "License number(s)") + ' <span class="gm-warn" id="gmDocLicenseStar"' + (d.license_not_required ? ' hidden' : '') + '>*</span> <span id="gmDocMark_license_numbers">' + gmDocFieldMarkHtml("license_numbers") + '</span></div>' +
-    '<p class="muted" style="margin:2px 0 8px;">' + gmT(GM_DOC_LICENSE_HELP_PT, GM_DOC_LICENSE_HELP_EN) + '</p>' +
+    '<p class="muted" style="margin:2px 0 8px;">' + gmDocLicenseHelpHtml(d) + '</p>' +
     '<div id="gmDocLicenses">' + gmDocLicensesHtml() + '</div>' +
     '<button type="button" class="gm-btn-secondary" id="gmDocAddLicenseBtn"' + (d.license_not_required ? ' disabled' : '') + ' onclick="gmDocAddLicense()">' + gmT("+ Adicionar licença", "+ Add license") + '</button>' +
     gmDocLicenseNotRequiredHtml(d, st) +
@@ -10729,8 +10805,8 @@ function gmDocSettingsFormHtml() {
     gmDocField("gmDocLateFee", "Juros por atraso (% ao ano)", "Late payment interest (% per year)",
       gmDocTextInput("gmDocLateFee", "late_fee_annual_pct", d.late_fee_annual_pct, 'inputmode="decimal"'), "late_fee_annual_pct") +
     '<p class="muted" id="gmDocLateFeeNote" style="margin:-4px 0 10px;">' +
-      (Number(d.late_fee_annual_pct) > 18 ? '<span class="gm-warn">' + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) + '</span>'
-                                          : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN)) + '</p>' +
+      (Number(d.late_fee_annual_pct) > 18 ? '<span class="gm-warn">' + gmDocLateFeeCapHtml(d) + '</span>'
+                                          : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmDocLateFeeCapHtml(d)) + '</p>' +
     gmDocField("gmDocGrace", "Dias de carência", "Grace days",
       gmDocTextInput("gmDocGrace", "late_fee_grace_days", d.late_fee_grace_days, 'inputmode="numeric"'), "late_fee_grace_days") +
     '</div>';
@@ -10839,9 +10915,13 @@ function gmDocLicensesHtml() {
   // box disables these inputs rather than just clearing them, so the two
   // states can never both read as active at once.
   var off = !!d.license_not_required;
+  // Task 2.4: CPC1234567 is a real Florida pool-contractor license shape --
+  // the wrong example for every other trade and state. Shown only for a
+  // Florida business; everyone else gets a neutral label with no example.
+  var licensePlaceholder = (d.business_state === "FL") ? "CPC1234567" : gmT("Número da licença", "License number");
   d.licenses.forEach(function(v, i) {
     h += '<div class="gm-cost-line">' +
-      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="CPC1234567"' + (off ? ' disabled' : '') + ' ' +
+      '<input type="text" class="gm-input gm-cost-label" value="' + escHtml(v) + '" placeholder="' + escHtml(licensePlaceholder) + '"' + (off ? ' disabled' : '') + ' ' +
         'aria-label="' + gmT("Número de licença", "License number") + '" oninput="gmDocLicenseSet(' + i + ', this.value)" onblur="gmDocLicensesBlur()">' +
       (d.licenses.length > 1
         ? '<button type="button" class="gm-cost-del" aria-label="' + gmT("Remover", "Remove") + '"' + (off ? ' disabled' : '') + ' onclick="gmDocRemoveLicense(' + i + ')">&times;</button>'
@@ -10973,8 +11053,8 @@ function gmDocDraftSet(key, value) {
     var note = document.getElementById("gmDocLateFeeNote");
     if (note) {
       note.innerHTML = Number(value) > 18
-        ? '<span class="gm-warn">' + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) + '</span>'
-        : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN);
+        ? '<span class="gm-warn">' + gmDocLateFeeCapHtml(gmDocDraft) + '</span>'
+        : gmT("Em branco = sem juros. ", "Blank = no penalty. ") + gmDocLateFeeCapHtml(gmDocDraft);
     }
   }
 }
@@ -11007,7 +11087,7 @@ function gmDocScalarFieldPayload(key) {
   }
   if (key === "late_fee_annual_pct") {
     if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
-      gmDocFieldStatus[key] = { ok: false, text: gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) };
+      gmDocFieldStatus[key] = { ok: false, text: gmDocLateFeeCapHtml(d) };
       return null;
     }
     return { late_fee_annual_pct: d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct) };
@@ -11397,7 +11477,7 @@ function gmDocSettingsSave() {
   payload.payment_methods = pm;
 
   if (d.late_fee_annual_pct !== "" && Number(d.late_fee_annual_pct) > 18) {
-    skipped.push({ key: "late_fee_annual_pct", text: gmT(GM_DOC_LATE_FEE_CAP_PT, GM_DOC_LATE_FEE_CAP_EN) });
+    skipped.push({ key: "late_fee_annual_pct", text: gmDocLateFeeCapHtml(d) });
   } else {
     payload.late_fee_annual_pct = d.late_fee_annual_pct === "" ? null : Number(d.late_fee_annual_pct);
   }

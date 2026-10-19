@@ -5779,10 +5779,9 @@
     }
     function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
     function portalGearToggle() {
-      var gear = portalGearTabs();
-      // One item (Ajustes, the only thing left behind the gear): open it
-      // directly instead of popping a one-row menu.
-      if (gear.length === 1) { switchTab(gear[0].tab); return; }
+      // The menu always opens: "Meus aparelhos" sits beside Ajustes, so even a
+      // gear with one tab has two rows (a direct jump to Ajustes made the
+      // devices page unreachable on a computer).
       var menu = document.getElementById("portalGearMenu");
       var btn = document.getElementById("heroGearBtn");
       if (!menu || !btn) { return; }

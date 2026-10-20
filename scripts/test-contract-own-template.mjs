@@ -24,7 +24,7 @@ function fakePdfBytes() {
 }
 
 function world() {
-  const d = makeDb(["migrations/2026-10-19_gm_contract_own_template.sql"]);
+  const d = makeDb(["migrations/2026-10-19_gm_contract_own_template.sql", "migrations/2026-10-20_gm_contract_own_template_lawyer.sql"]);
   try {
     d.raw.exec("CREATE TABLE contract_clause_areas (id TEXT NOT NULL, version INTEGER NOT NULL, title TEXT, intro_md TEXT, notes_md TEXT, sort_order INTEGER, PRIMARY KEY (id, version))");
   } catch (e) { /* already exists from a migration file */ }
@@ -54,11 +54,12 @@ function world() {
   return { d, F, env: { DB: d.DB, CLAUDE_API_KEY: "test-key", TASK_FILES: taskFiles }, state };
 }
 
-function rqUpload() {
+function rqUpload(lawyer) {
   const file = { name: "my-contract.pdf", type: "application/pdf", size: 1000, arrayBuffer: async () => fakePdfBytes().buffer };
+  const answer = lawyer === undefined ? "yes" : lawyer;
   return {
     url: "https://x.test/", headers: { get: () => null },
-    formData: async () => ({ get: (k) => (k === "file" ? file : null) })
+    formData: async () => ({ get: (k) => (k === "file" ? file : (k === "lawyer_reviewed" ? answer : null)) })
   };
 }
 function rq() { return { url: "https://x.test/", headers: { get: () => null }, json: async () => ({}) }; }
@@ -128,7 +129,7 @@ function rq() { return { url: "https://x.test/", headers: { get: () => null }, j
 
   w.state.user = { role: "rafa" };
   const r1 = await w.F.handlePostGmContractOwnTemplateReviewed("c1", tid, rq(), w.env);
-  ok(r1.status === 403, "rafa (admin but not developer) cannot mark it reviewed");
+  ok(r1.status === 403, "rafa (Apex staff but not developer) cannot confirm it: the contract is the owner's");
 
   w.state.user = { role: "developer" };
   const r2 = await w.F.handlePostGmContractOwnTemplateReviewed("c1", tid, rq(), w.env);
@@ -161,7 +162,27 @@ function rq() { return { url: "https://x.test/", headers: { get: () => null }, j
 
   w.state.user = { role: "client", client_id: "c1" };
   const rev = await w.F.handlePostGmContractOwnTemplateReviewed("c1", ownList.data.templates[0].id, rq(), w.env);
-  ok(rev.status === 403, "the owner cannot mark their own upload reviewed (developer only)");
+  ok(rev.status === 200, "the owner CAN confirm their own upload matches their contract");
+
+  w.state.user = { role: "client", client_id: "c2" };
+  const revOther = await w.F.handlePostGmContractOwnTemplateReviewed("c1", ownList.data.templates[0].id, rq(), w.env);
+  ok(revOther.status === 403, "the owner of another client cannot confirm c1's upload");
+}
+
+// ── 7. The lawyer question is required and recorded ──
+{
+  const w = world();
+  w.state.claudeReplies = [{ page_count: 1, areas: [{ key: "C01", excerpt: "x" }, { key: "C04", excerpt: "y" }], unmatched: [] }];
+  w.state.user = { role: "client", client_id: "c1" };
+  const none = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload(""), w.env);
+  ok(none.status === 400, "an upload with no lawyer answer is refused");
+  ok(w.state.claudeCallCount === 0, "and Claude is not called (no cost) when the answer is missing");
+  const no = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload("no"), w.env);
+  const yes = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload("yes"), w.env);
+  ok(no.status === 200 && yes.status === 200, "both answers upload");
+  const list = await w.F.handleGetGmContractOwnTemplates("c1", rq(), w.env);
+  const vals = list.data.templates.map((t) => t.lawyer_reviewed).sort();
+  ok(vals.length === 2 && vals[0] === 0 && vals[1] === 1, "the answers are stored as 0 (no) and 1 (yes)");
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

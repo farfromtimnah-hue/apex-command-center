@@ -15897,9 +15897,10 @@ function clientRequestAllowed(path, method, clientId) {
                 // session, so it can never reach more than that GET does.
                 if (gmRest === "pdf-link") { return true; }
                 // "Meu próprio contrato": the owner uploads their own contract PDF
-                // (5 a day, PDF only, 10 MB). "reviewed" stays developer only and
-                // is deliberately NOT listed here.
+                // (5 a day, PDF only, 10 MB). "reviewed"
+                // is the owner's own confirmation that the reading matches their original.
                 if (gmRest === "contract-own-templates") { return true; }
+                if (/^contract-own-templates\/[A-Za-z0-9-]+\/reviewed$/.test(gmRest)) { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
                 // Tap to Pay (owner only): turn it on/off. The connection
@@ -59009,6 +59010,12 @@ async function handlePostGmContractOwnTemplate(clientId, request, env) {
         if (!file || typeof file.arrayBuffer !== "function") { return jsonErr2("Escolha um arquivo PDF.", "Choose a PDF file.", 400); }
         if (file.type && file.type !== "application/pdf") { return jsonErr2("Apenas PDF.", "PDF only.", 400); }
         if (file.size > 10 * 1024 * 1024) { return jsonErr2("Arquivo muito grande. O limite é 10 MB.", "File too large. The limit is 10 MB.", 400); }
+        // Has a lawyer reviewed this contract? Asked on every upload; the answer
+        // decides whether the site later adds its "not reviewed by a lawyer" notice.
+        var lawyerRaw = String(form.get("lawyer_reviewed") || "");
+        if (lawyerRaw !== "yes" && lawyerRaw !== "no") {
+            return jsonErr2("Diga se um advogado já revisou este contrato.", "Say whether a lawyer has reviewed this contract.", 400);
+        }
 
         var bytes = await file.arrayBuffer();
         var id = crypto.randomUUID();
@@ -59035,9 +59042,9 @@ async function handlePostGmContractOwnTemplate(clientId, request, env) {
         };
 
         await env.DB.prepare(
-            "INSERT INTO gm_contract_own_templates (id, client_id, r2_key, original_name, page_count, mapping_json, model, status, uploaded_by) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_review', ?)"
-        ).bind(id, clientId, r2Key, String(file.name || "contrato.pdf").slice(0, 200), mapping.page_count, JSON.stringify(mappingOut), gmContractOwnTemplateModel(env), actorName(a.user)).run();
+            "INSERT INTO gm_contract_own_templates (id, client_id, r2_key, original_name, page_count, mapping_json, model, status, uploaded_by, lawyer_reviewed) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_review', ?, ?)"
+        ).bind(id, clientId, r2Key, String(file.name || "contrato.pdf").slice(0, 200), mapping.page_count, JSON.stringify(mappingOut), gmContractOwnTemplateModel(env), actorName(a.user), lawyerRaw === "yes" ? 1 : 0).run();
 
         await env.DB.prepare(
             "INSERT INTO gm_contract_own_template_counters (client_id, day_key, count) VALUES (?, ?, 1) " +
@@ -59055,7 +59062,7 @@ async function handleGetGmContractOwnTemplates(clientId, request, env) {
         var a = await apxAuthOwnOrStaff(request, env, clientId);
         if (a.err) { return a.err; }
         var rows = (await env.DB.prepare(
-            "SELECT id, original_name, page_count, mapping_json, status, reviewed_by, reviewed_at, uploaded_by, created_at " +
+            "SELECT id, original_name, page_count, mapping_json, status, reviewed_by, reviewed_at, uploaded_by, lawyer_reviewed, created_at " +
             "FROM gm_contract_own_templates WHERE client_id = ? ORDER BY created_at DESC"
         ).bind(clientId).all()).results || [];
         rows.forEach(function(r) { r.mapping = JSON.parse(r.mapping_json || "{}"); delete r.mapping_json; });
@@ -59073,7 +59080,12 @@ async function handlePostGmContractOwnTemplateReviewed(clientId, templateId, req
     try {
         var user = await authenticate(request, env);
         if (!user) { return jsonErr("Unauthorized", 401); }
-        if (user.role !== "developer") { return jsonErr("Forbidden", 403); }
+        // The contract is the business's own, so the OWNER confirms the reading
+        // matches their original (never a seller, never another client). The
+        // developer may also confirm. Other Apex staff may not.
+        var block = gmDocSettingsOwnerOnly(user, clientId);
+        if (block) { return block; }
+        if (user.role !== "developer" && user.role !== "client") { return jsonErr("Forbidden", 403); }
         var res = await env.DB.prepare(
             "UPDATE gm_contract_own_templates SET status = 'reviewed', reviewed_by = ?, reviewed_at = datetime('now') " +
             "WHERE id = ? AND client_id = ? AND status = 'pending_review'"

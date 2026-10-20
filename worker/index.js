@@ -15837,6 +15837,9 @@ function clientRequestAllowed(path, method, clientId) {
                 if (/^seller-profiles\/[^\/]+\/photo$/.test(gmRest)) { return true; }
                 // Estimates (phase 2): list, detail, and the send-message templates.
                 if (gmRest === "estimates" || gmRest === "doc-messages") { return true; }
+                // "Meu próprio contrato": the OWNER's own upload list. The handler
+                // refuses a seller and any other client's id (gmDocSettingsOwnerOnly).
+                if (gmRest === "contract-own-templates") { return true; }
                 if (/^estimates\/[A-Za-z0-9-]+$/.test(gmRest)) { return true; }
                 // Invoices (phase 3): list and detail.
                 if (gmRest === "invoices") { return true; }
@@ -15893,6 +15896,10 @@ function clientRequestAllowed(path, method, clientId) {
                 // The handler replays the document's own GET with this
                 // session, so it can never reach more than that GET does.
                 if (gmRest === "pdf-link") { return true; }
+                // "Meu próprio contrato": the owner uploads their own contract PDF
+                // (5 a day, PDF only, 10 MB). "reviewed" stays developer only and
+                // is deliberately NOT listed here.
+                if (gmRest === "contract-own-templates") { return true; }
                 // Card payments: connect / disconnect the owner's Stripe account.
                 if (gmRest === "stripe/connect" || gmRest === "stripe/disconnect" || gmRest === "stripe/reaccept") { return true; }
                 // Tap to Pay (owner only): turn it on/off. The connection
@@ -58803,6 +58810,14 @@ async function apxAuthStaff(request, env, clientId) {
     if (!client) { return { err: jsonErr("Client not found", 404) }; }
     return { user: user, client: client };
 }
+// Apex staff, or the OWNER of this same client (never a seller, never another
+// client). Used by "Meu próprio contrato", which a client uploads for itself.
+async function apxAuthOwnOrStaff(request, env, clientId) {
+    var user = await authenticate(request, env);
+    var block = gmDocSettingsOwnerOnly(user, clientId);
+    if (block) { return { err: block }; }
+    return { user: user };
+}
 // Only blank lead fields are filled from the contract; nothing typed on the
 // lead is ever overwritten by the contract form.
 async function apxFillLead(env, client, d) {
@@ -58977,7 +58992,7 @@ async function gmContractOwnTemplateAskClaude(env, pdfBase64, areas) {
 
 async function handlePostGmContractOwnTemplate(clientId, request, env) {
     try {
-        var a = await apxAuthStaff(request, env, clientId);
+        var a = await apxAuthOwnOrStaff(request, env, clientId);
         if (a.err) { return a.err; }
         if (!env.CLAUDE_API_KEY) { return jsonErr2("Leitor de contrato não configurado.", "Contract reader not configured.", 503); }
 
@@ -59037,7 +59052,7 @@ async function handlePostGmContractOwnTemplate(clientId, request, env) {
 
 async function handleGetGmContractOwnTemplates(clientId, request, env) {
     try {
-        var a = await apxAuthStaff(request, env, clientId);
+        var a = await apxAuthOwnOrStaff(request, env, clientId);
         if (a.err) { return a.err; }
         var rows = (await env.DB.prepare(
             "SELECT id, original_name, page_count, mapping_json, status, reviewed_by, reviewed_at, uploaded_by, created_at " +

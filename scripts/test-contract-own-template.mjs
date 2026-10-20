@@ -12,7 +12,8 @@ const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (c) { pass
 const FNS = [
   "handlePostGmContractOwnTemplate", "handleGetGmContractOwnTemplates", "handlePostGmContractOwnTemplateReviewed",
   "gmContractOwnTemplateAreas", "gmContractOwnTemplateAskClaude", "gmContractOwnTemplateModel",
-  "apxAuthStaff", "isAdminRole", "actorName", "easternDateStr"
+  "apxAuthStaff", "apxAuthOwnOrStaff", "gmDocSettingsOwnerOnly", "requireClientAccess", "sessionSellerName",
+  "isAdminRole", "actorName", "easternDateStr"
 ];
 const VARS = ["GM_CONTRACT_OWN_TEMPLATE_DAILY_CAP"];
 
@@ -135,6 +136,32 @@ function rq() { return { url: "https://x.test/", headers: { get: () => null }, j
 
   const r3 = await w.F.handlePostGmContractOwnTemplateReviewed("c1", tid, rq(), w.env);
   ok(r3.status === 404, "marking an already-reviewed template again is refused, not a silent no-op success");
+}
+
+// ── 6. The OWNER uploads their own contract (client session), never another client or a seller ──
+{
+  const w = world();
+  w.state.claudeReplies = [{ page_count: 2, areas: [{ key: "C01", excerpt: "x" }, { key: "C04", excerpt: "y" }], unmatched: [] }];
+
+  w.state.user = { role: "client", client_id: "c1" };
+  const own = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload(), w.env);
+  ok(own.status === 200, "the owner of c1 can upload their own contract");
+  const ownList = await w.F.handleGetGmContractOwnTemplates("c1", rq(), w.env);
+  ok(ownList.status === 200 && ownList.data.templates.length === 1, "the owner of c1 sees their own upload list");
+
+  w.state.user = { role: "client", client_id: "c2" };
+  const other = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload(), w.env);
+  ok(other.status === 403, "the owner of ANOTHER client cannot upload to c1");
+  const otherList = await w.F.handleGetGmContractOwnTemplates("c1", rq(), w.env);
+  ok(otherList.status === 403, "the owner of ANOTHER client cannot read c1's list");
+
+  w.state.user = { role: "client", client_id: "c1", login_role: "seller", seller_name: "Pat" };
+  const seller = await w.F.handlePostGmContractOwnTemplate("c1", rqUpload(), w.env);
+  ok(seller.status === 403, "a salesperson login of c1 cannot upload");
+
+  w.state.user = { role: "client", client_id: "c1" };
+  const rev = await w.F.handlePostGmContractOwnTemplateReviewed("c1", ownList.data.templates[0].id, rq(), w.env);
+  ok(rev.status === 403, "the owner cannot mark their own upload reviewed (developer only)");
 }
 
 console.log("\n" + pass + " passed, " + fail + " failed");

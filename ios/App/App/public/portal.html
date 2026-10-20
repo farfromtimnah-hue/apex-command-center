@@ -1108,6 +1108,9 @@
       border-top: 1px solid rgba(255,255,255,0.12);
       margin: 6px 2px;
     }
+    /* Group 1.1 language question: an inline display:flex overrode the hidden
+       attribute and showed the box to everyone. Flex only while not hidden. */
+    #langChoiceCard:not([hidden]) { display: flex; }
   </style>
 </head>
 <body class="lang-pt">
@@ -1157,7 +1160,7 @@
        choice is saved to login_people.language on the server, never
        localStorage. Neither word is gated by .show-pt/.show-en -- the
        person has not chosen a language yet, so both labels always show. -->
-  <div id="langChoiceCard" hidden style="position:fixed; inset:0; z-index:200; background:rgba(26,26,29,0.55); display:flex; align-items:center; justify-content:center; padding:16px;">
+  <div id="langChoiceCard" hidden style="position:fixed; inset:0; z-index:200; background:rgba(26,26,29,0.55); align-items:center; justify-content:center; padding:16px;">
     <div style="background:var(--card); border-radius:var(--radius); max-width:360px; width:100%; padding:28px 24px; text-align:center; box-shadow:var(--shadow);">
       <div style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:18px;">Português ou English?</div>
       <div style="display:flex; gap:10px; justify-content:center;">

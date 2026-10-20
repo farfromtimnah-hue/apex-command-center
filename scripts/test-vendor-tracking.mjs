@@ -12,7 +12,7 @@ const FNS = [
   "vendorPayableIsDue", "vendorPayableIsLate", "vendorPayableIsUpcoming", "vendorPayableDatePasses",
   "vendorApplyToPayables", "vendorAutoApplyToPayables", "vendorDuePayablesForVendor", "vendorDuePayablesForVendorOnDate", "vendorApplyPayment",
   "vendorApplyPaymentOnDate", "vendorApplyManualAllocations", "vendorApplyCredit", "vendorOwedNow", "vendorUpcoming",
-  "vendorIsRmtlyText", "vendorUnmatchedRemitlyRaw", "vendorCandidatesFor", "vendorAutoMatch",
+  "vendorIsRmtlyText", "vendorUnmatchedRemitlyRaw", "vendorCandidatesFor", "vendorAutoMatch", "vendorCleanStaleAutoMatches",
   "vendorLinkSentBatches", "vendorClawBackShortfall", "vendorMarkReviewed",
   "vendorCreateFromContract", "vendorFinishServicesIfDone",
   "vendorQuestionValidateReply", "vendorQuestionAskClaude", "vendorQuestionRateLimited",
@@ -27,7 +27,7 @@ const FNS = [
 ];
 const VARS = ["VENDOR_PACKAGE_PRESETS", "VENDOR_QUESTION_SCHEMAS", "BILL_EMAIL_MODEL"];
 
-const MIGRATIONS = ["migrations/vendors.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql", "migrations/2026-10-15_vendor_matching_round2.sql"];
+const MIGRATIONS = ["migrations/vendors.sql", "migrations/2026-10-15_vendor_tracking_and_club_plus_one.sql", "migrations/2026-10-15_vendor_matching_round2.sql", "migrations/2026-10-19_vendor_name_en.sql"];
 
 function world(stubOverrides) {
   const d = makeDb(MIGRATIONS);

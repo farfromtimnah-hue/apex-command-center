@@ -545,6 +545,9 @@
       <button class="btn btn-gold" style="margin-top:14px;" onclick="submitReallocate()">
         <span class="show-pt">Salvar</span><span class="show-en">Save</span>
       </button>
+      <button class="btn btn-sm" id="reallocateUnassignBtn" hidden style="margin-top:8px;" onclick="window.ApexVendors.unassignAutoMatch()">
+        <span class="show-pt">Desvincular</span><span class="show-en">Unassign</span>
+      </button>
       <button class="btn btn-sm" id="reallocateNotVendorBtn" hidden style="margin-top:8px;" onclick="window.ApexVendors.markReallocateNotVendor()">
         <span class="show-pt">N&atilde;o &eacute; de fornecedor</span><span class="show-en">Not a vendor payment</span>
       </button>
@@ -586,6 +589,8 @@
     <div class="sheet-box" onclick="event.stopPropagation()">
       <button class="sheet-close" onclick="closeSheet('sheetEditVendor')">&times;</button>
       <div class="sheet-title"><span class="show-pt">Editar fornecedor</span><span class="show-en">Edit vendor</span></div>
+      <label class="field-label"><span class="show-pt">Nome em ingl&ecirc;s (opcional)</span><span class="show-en">English name (optional)</span></label>
+      <input type="text" id="evNameEn" class="field-input">
       <label class="field-label"><span class="show-pt">Tipo</span><span class="show-en">Type</span></label>
       <input type="text" id="evType" class="field-input">
       <label class="field-label"><span class="show-pt">Nome do contato</span><span class="show-en">Contact name</span></label>

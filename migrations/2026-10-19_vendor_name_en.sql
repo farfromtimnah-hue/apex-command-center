@@ -1,0 +1,12 @@
+-- Task 7.1(b): a vendor's own name is free text Alice typed, often in
+-- Portuguese, unlike a client's name which the app never translates. In
+-- English mode the Fornecedores page was showing every vendor tile and card
+-- with its untranslated Portuguese name.
+--
+-- name_en is a STORED, OPTIONAL English name, set once by hand on the vendor
+-- edit form -- never machine-translated, same house rule as every other
+-- bilingual label in this app (see vendors.js VND_LABEL_EN). NULL (the
+-- default for every existing row) means "no English name set yet": the
+-- English-mode UI falls back to the Portuguese name exactly as typed,
+-- never blank and never guessed.
+ALTER TABLE vendors ADD COLUMN name_en TEXT;

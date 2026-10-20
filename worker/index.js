@@ -52212,7 +52212,7 @@ async function handlePutFinanceNewVendor(id, request, env) {
 
         var current = await env.DB.prepare(
             "SELECT vendor_type, contact_name, contact_email, contact_phone, payment_method, " +
-            "payment_identifier, notes FROM vendors WHERE id = ?"
+            "payment_identifier, notes, name_en FROM vendors WHERE id = ?"
         ).bind(id).first();
 
         var vendorType   = (body.vendor_type         !== undefined) ? (String(body.vendor_type || "").trim() || null)         : current.vendor_type;
@@ -52222,6 +52222,10 @@ async function handlePutFinanceNewVendor(id, request, env) {
         var payMethod    = (paymentMethod             !== undefined) ? paymentMethod                                          : current.payment_method;
         var payIdent     = (body.payment_identifier  !== undefined) ? (String(body.payment_identifier || "").trim() || null)  : current.payment_identifier;
         var notes        = (body.notes               !== undefined) ? (String(body.notes || "").trim() || null)               : current.notes;
+        // Task 7.1(b): optional, hand-typed English name. NULL (the
+        // migration's default for every row) means "use the Portuguese name"
+        // -- never machine-translated.
+        var nameEn       = (body.name_en              !== undefined) ? (String(body.name_en || "").trim() || null)             : current.name_en;
 
         var infoComplete = vendorInfoIsComplete({
             vendor_type: vendorType,
@@ -52231,11 +52235,11 @@ async function handlePutFinanceNewVendor(id, request, env) {
         });
 
         await env.DB.prepare(
-            "UPDATE vendors SET name = ?, vendor_type = ?, contact_name = ?, contact_email = ?, " +
+            "UPDATE vendors SET name = ?, name_en = ?, vendor_type = ?, contact_name = ?, contact_email = ?, " +
             "contact_phone = ?, payment_method = ?, payment_identifier = ?, info_complete = ?, notes = ? " +
             "WHERE id = ?"
         ).bind(
-            name, vendorType, contactName, contactEmail, contactPhone,
+            name, nameEn, vendorType, contactName, contactEmail, contactPhone,
             payMethod, payIdent, infoComplete ? 1 : 0, notes, id
         ).run();
 
@@ -62088,6 +62092,66 @@ async function vendorClawBackShortfall(env, batchId, shortfallCents) {
     ]);
 }
 
+// Task 7.1(c): an UNCONFIRMED automatic match can go stale. A batch is
+// created against the date rule (vendorPayableDatePasses -- the service's
+// starts_on vs. the transaction date) as it stood at match time, but while
+// the match sits unconfirmed in the tray, the underlying service's starts_on
+// can be edited (a start date corrected, a service re-scheduled). The batch
+// never re-checks itself, so a sitting-unconfirmed match can silently keep
+// an allocation the CURRENT date rule would now refuse.
+//
+// Runs on every vendorAutoMatch call, before new matching: for each
+// unconfirmed auto batch, re-applies vendorPayableDatePasses to every
+// payable it allocated against, using the service's CURRENT starts_on and
+// the batch's own paid_on as the transaction date. Any batch with even one
+// now-failing allocation is undone in full (same effect as the Change
+// dialog's own undo) -- freeing its payables and its bank line so the
+// matching loop right after this can re-evaluate it fresh.
+//
+// The WHERE guard (confirmed_at IS NULL AND auto = 1) is the whole safety
+// story here: a CONFIRMED batch -- auto or manual -- is a person's own
+// decision and this function must never touch it, confirmed or not.
+async function vendorCleanStaleAutoMatches(env) {
+    var stale = (await env.DB.prepare(
+        "SELECT id, vendor_id, paid_on FROM vendor_payment_batches WHERE auto = 1 AND confirmed_at IS NULL"
+    ).all()).results || [];
+    for (var i = 0; i < stale.length; i++) {
+        var b = stale[i];
+        var allocs = (await env.DB.prepare(
+            "SELECT pa.payable_id, p.service_id FROM vendor_payment_allocations pa " +
+            "JOIN vendor_payables p ON p.id = pa.payable_id WHERE pa.batch_id = ?"
+        ).bind(b.id).all()).results || [];
+        if (!allocs.length) { continue; }
+        var stillOk = true;
+        for (var j = 0; j < allocs.length; j++) {
+            var svc = await env.DB.prepare("SELECT starts_on FROM vendor_services WHERE id = ?").bind(allocs[j].service_id).first();
+            if (!vendorPayableDatePasses(svc ? svc.starts_on : null, b.paid_on)) { stillOk = false; break; }
+        }
+        if (stillOk) { continue; }
+        // Same undo as the Change dialog's own "undo" action: release every
+        // allocation back onto its payable, then delete the batch.
+        var undoAllocs = (await env.DB.prepare("SELECT * FROM vendor_payment_allocations WHERE batch_id = ?").bind(b.id).all()).results || [];
+        var stmts = [];
+        for (var k = 0; k < undoAllocs.length; k++) {
+            var al = undoAllocs[k];
+            var p = await env.DB.prepare("SELECT * FROM vendor_payables WHERE id = ?").bind(al.payable_id).first();
+            if (!p) { continue; }
+            var newApplied = Math.max(0, p.applied_cents - al.applied_cents);
+            var status = newApplied <= 0 ? "scheduled" : p.status;
+            if (p.status === "paid") { status = newApplied >= p.planned_cents ? "paid" : "scheduled"; }
+            stmts.push(env.DB.prepare("UPDATE vendor_payables SET applied_cents = ?, status = ?, paid_at = NULL WHERE id = ?")
+                .bind(newApplied, status, al.payable_id));
+        }
+        stmts.push(env.DB.prepare("DELETE FROM vendor_payment_allocations WHERE batch_id = ?").bind(b.id));
+        stmts.push(env.DB.prepare("DELETE FROM vendor_payment_batches WHERE id = ?").bind(b.id));
+        await env.DB.batch(stmts);
+        // Deliberately NO vendor_match_reviews row: unlike a person's undo,
+        // this was never a human decision to stop offering the match, so the
+        // transaction goes straight back into normal auto-matching below
+        // rather than being excluded forever.
+    }
+}
+
 // Part E (sent declarations) runs FIRST, then generic matching for whatever
 // is left -- both automatic, neither waits for a person. Safe to run twice:
 // vendor_match_reviews keeps a confirmed/moved/undone transaction out of
@@ -62096,6 +62160,7 @@ async function vendorClawBackShortfall(env, batchId, shortfallCents) {
 async function vendorAutoMatch(env) {
     try {
         await vendorLinkSentBatches(env);
+        await vendorCleanStaleAutoMatches(env);
 
         var today = gmEasternToday();
         var reviewedRes = await env.DB.prepare("SELECT transaction_id FROM vendor_match_reviews").all();
@@ -62157,7 +62222,7 @@ async function handleGetVendorsOverview(request, env) {
         for (var i = 0; i < vendors.length; i++) { await vendorApplyCredit(env, vendors[i].id); }
 
         var vendorRows = (await env.DB.prepare(
-            "SELECT id, name, vendor_type FROM vendors WHERE active = 1 ORDER BY name"
+            "SELECT id, name, name_en, vendor_type FROM vendors WHERE active = 1 ORDER BY name"
         ).all()).results || [];
 
         var tiles = { total_due_cents: 0, unassigned_remitly_cents: 0, vendors: [] };
@@ -62216,14 +62281,14 @@ async function handleGetVendorsOverview(request, env) {
             }
 
             out.push({
-                id: vd.id, name: vd.name, vendor_type: vd.vendor_type,
+                id: vd.id, name: vd.name, name_en: vd.name_en, vendor_type: vd.vendor_type,
                 due: dueOut, due_total_cents: dueTotal, credit_cents: credit,
                 upcoming: upOut, upcoming_cents: up.cents,
                 paid_this_month_actual_cents: paidThisMonth.s || 0, paid_to_date_cents: paidToDate.s || 0,
                 sent_chip: sentChip
             });
             tiles.total_due_cents += dueTotal;
-            tiles.vendors.push({ id: vd.id, name: vd.name, due_cents: dueTotal, upcoming_cents: up.cents });
+            tiles.vendors.push({ id: vd.id, name: vd.name, name_en: vd.name_en, due_cents: dueTotal, upcoming_cents: up.cents });
         }
 
         var unmatched = await vendorUnmatchedRemitlyRaw(env, 60);
@@ -62245,7 +62310,7 @@ async function handleGetVendorsForecast(request, env) {
         var url = new URL(request.url);
         var months = Math.min(12, Math.max(1, parseInt(url.searchParams.get("months") || "6", 10)));
         var startMonth = vendorMonthOf(gmEasternToday());
-        var vendorRows = (await env.DB.prepare("SELECT id, name FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
+        var vendorRows = (await env.DB.prepare("SELECT id, name, name_en FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
 
         var allPayables = (await env.DB.prepare(
             "SELECT * FROM vendor_payables WHERE status NOT IN ('paid','cancelled')"
@@ -62788,7 +62853,7 @@ async function handleGetVendorsAutoBatches(request, env) {
         var out = [];
         for (var i = 0; i < batches.length; i++) {
             var b = batches[i];
-            var vendor = await env.DB.prepare("SELECT id, name FROM vendors WHERE id = ?").bind(b.vendor_id).first();
+            var vendor = await env.DB.prepare("SELECT id, name, name_en FROM vendors WHERE id = ?").bind(b.vendor_id).first();
             var allocs = (await env.DB.prepare(
                 "SELECT pa.applied_cents, p.label, p.client_id, c.name AS client_name, s.label AS service_label " +
                 "FROM vendor_payment_allocations pa " +
@@ -62799,12 +62864,12 @@ async function handleGetVendorsAutoBatches(request, env) {
             ).bind(b.id).all()).results || [];
             out.push({
                 id: b.id, date: b.paid_on, amount_cents: b.amount_cents,
-                vendor_id: b.vendor_id, vendor_name: vendor ? vendor.name : null, transaction_id: b.transaction_id,
+                vendor_id: b.vendor_id, vendor_name: vendor ? vendor.name : null, vendor_name_en: vendor ? vendor.name_en : null, transaction_id: b.transaction_id,
                 items: allocs.map(function(al) { return { client_id: al.client_id, client_name: al.client_name, service_label: al.service_label, label: al.label, applied_cents: al.applied_cents }; })
             });
         }
 
-        var vendors = (await env.DB.prepare("SELECT id, name FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
+        var vendors = (await env.DB.prepare("SELECT id, name, name_en FROM vendors WHERE active = 1 ORDER BY name").all()).results || [];
         return jsonOk({ batches: out, vendors: vendors });
     } catch (e) {
         return jsonErr("Error loading automatic batches: " + e.message, 500);

@@ -61,6 +61,18 @@
     return str;
   }
 
+  // A vendor's own name is free text Alice typed (often Portuguese), unlike
+  // a client's name which is never translated. name_en is a STORED,
+  // optional English name (migrations/2026-10-19_vendor_name_en.sql) set
+  // once via the edit form -- never machine-translated -- so a vendor with
+  // no English name set falls back to the Portuguese name exactly as typed,
+  // same as every other untranslated proper name in this app.
+  function vendorDisplayName(v) {
+    if (!v) { return ""; }
+    if (window.apexIsEn && window.apexIsEn() && v.name_en) { return v.name_en; }
+    return v.name;
+  }
+
   function openSheet(id) { var s = el(id); if (s) { s.hidden = false; } }
   window.closeSheet = function (id) { var s = el(id); if (s) { s.hidden = true; } };
   window.toggleFold = function (id) {
@@ -81,6 +93,18 @@
     if (input && !input.value) { input.value = currentMonth(); }
     loadOverview();
     loadNextQuestion();
+    // Task 7.1(a): toggling PT/EN in nav.js only flips .show-pt/.show-en on
+    // STATIC markup -- every string this page builds in JS (tiles, vendor
+    // cards, auto-match tray, unassigned list) was baked in at the last
+    // apiFetch and never redrawn until a full page reload. loadOverview()
+    // re-renders all of it from the already-cached OVERVIEW/AUTO_BATCHES
+    // data with no new network call.
+    document.addEventListener("apex:langchange", function () {
+      renderTiles();
+      renderAutoBatches();
+      renderVendorCards();
+      loadUnassigned();
+    });
   }
 
   function loadOverview() {
@@ -112,7 +136,7 @@
     '</div>';
     (OVERVIEW.tiles.vendors || []).forEach(function (v) {
       html += '<button type="button" class="glass-tile glass-tile-btn" onclick="document.getElementById(\'vcard-' + v.id + '\') && document.getElementById(\'vcard-' + v.id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
-        '<div class="glass-tile-label">' + esc(v.name) + '</div>' +
+        '<div class="glass-tile-label">' + esc(vendorDisplayName(v)) + '</div>' +
         '<div class="glass-tile-value' + (v.due_cents ? "" : " is-zero") + '">' + fmtCents(v.due_cents) + '</div>';
       var subParts = [];
       if (v.upcoming_cents) { subParts.push(t("próximos ", "upcoming ") + fmtCents(v.upcoming_cents)); }
@@ -141,7 +165,7 @@
       AUTO_BATCHES.forEach(function (b) {
         var itemsText = b.items.map(function (it) { return esc(it.client_name) + " · " + esc(trLabel(it.service_label || "")) + " · " + esc(trLabel(it.label)); }).join("; ");
         html += '<div class="pay-row">' +
-          '<div class="pay-row-main"><span class="pay-row-label">' + esc(b.date) + ' · ' + esc(b.vendor_name) + ' · ' + itemsText + '</span></div>' +
+          '<div class="pay-row-main"><span class="pay-row-label">' + esc(b.date) + ' · ' + esc((window.apexIsEn && window.apexIsEn() && b.vendor_name_en) ? b.vendor_name_en : b.vendor_name) + ' · ' + itemsText + '</span></div>' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<span class="pay-row-amt">' + fmtCents(b.amount_cents) + '</span>' +
             '<div class="pay-row-actions">' +
@@ -195,11 +219,13 @@
       var otherSel = el("reallocateOtherVendor");
       var otherOpts = '<option value="">' + t("Outro fornecedor...", "Another vendor...") + '</option>';
       AUTO_VENDORS.filter(function (v) { return v.id !== b.vendor_id; }).forEach(function (v) {
-        otherOpts += '<option value="' + v.id + '">' + esc(v.name) + '</option>';
+        otherOpts += '<option value="' + v.id + '">' + esc(vendorDisplayName(v)) + '</option>';
       });
       otherSel.innerHTML = otherOpts;
       otherSel.hidden = false;
       el("reallocateOtherVendorLabel").hidden = false;
+      var unassignBtn = el("reallocateUnassignBtn");
+      if (unassignBtn) { unassignBtn.hidden = false; }
       el("reallocateNotVendorBtn").hidden = false;
       openSheet("sheetReallocate");
     }).catch(function () { el("reallocateStatus").textContent = t("Erro ao carregar itens.", "Error loading items."); });
@@ -230,6 +256,23 @@
     var vendorId = el("reallocateOtherVendor").value;
     if (!vendorId) { return; }
     apiFetch("/api/vendors/payments/" + encodeURIComponent(CURRENT_CHANGE_BATCH.id) + "/move_vendor", { method: "POST", body: { vendor_id: vendorId } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { throw new Error(data.error); }
+        window.closeSheet("sheetReallocate");
+        loadOverview();
+      })
+      .catch(function (e) { el("reallocateStatus").textContent = t("Erro: ", "Error: ") + e.message; });
+  }
+
+  // Plain unassign: undoes the automatic match (same as "Not a vendor
+  // payment") but WITHOUT the extra vendor_ignored_transactions write, so the
+  // bank line goes back to the Unassigned list for a manual quickAssign --
+  // "not a vendor" means "never offer this again", "unassign" means "this
+  // match was wrong, let me reassign it".
+  function unassignAutoMatch() {
+    if (!CURRENT_CHANGE_BATCH) { return; }
+    apiFetch("/api/vendors/payments/" + encodeURIComponent(CURRENT_CHANGE_BATCH.id) + "/undo", { method: "POST", body: {} })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) { throw new Error(data.error); }
@@ -276,7 +319,7 @@
     vendors.forEach(function (v) {
       html += '<div class="card vendor-card" id="vcard-' + v.id + '">' +
         '<div class="vendor-card-head">' +
-          '<div><span class="vendor-card-name" style="cursor:pointer;" onclick="window.ApexVendors.openDetail(\'' + v.id + '\')">' + esc(v.name) + '</span>' +
+          '<div><span class="vendor-card-name" style="cursor:pointer;" onclick="window.ApexVendors.openDetail(\'' + v.id + '\')">' + esc(vendorDisplayName(v)) + '</span>' +
             (v.vendor_type ? ' <span class="vendor-card-type">&mdash; ' + esc(v.vendor_type) + '</span>' : '') + '</div>' +
           '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
             '<div class="vendor-card-owed">' + fmtCents(v.due_total_cents) + '</div>' +
@@ -350,7 +393,7 @@
         var hinted = tx.hint_vendor_id;
         var ordered = vendors.slice().sort(function (a, b) { return (a.id === hinted ? -1 : 0) - (b.id === hinted ? -1 : 0); });
         ordered.forEach(function (v) {
-          vendorBtns += '<button class="btn btn-sm' + (v.id === hinted ? " btn-gold" : "") + '" onclick="window.ApexVendors.quickAssign(\'' + tx.id + '\',\'' + v.id + '\')">' + esc(v.name) + '</button>';
+          vendorBtns += '<button class="btn btn-sm' + (v.id === hinted ? " btn-gold" : "") + '" onclick="window.ApexVendors.quickAssign(\'' + tx.id + '\',\'' + v.id + '\')">' + esc(vendorDisplayName(v)) + '</button>';
         });
         html += '<div class="pay-row">' +
           '<div class="pay-row-main"><span class="pay-row-label">' + esc(tx.date) + ' · ' + esc(tx.description) + '</span></div>' +
@@ -654,7 +697,7 @@
     apiFetch("/api/vendors/forecast?months=6").then(function (r) { return r.json(); }).then(function (data) {
       var body = el("forecastBody");
       var html = '<table class="fc-table"><thead><tr><th>' + t("Mês", "Month") + '</th>';
-      data.vendors.forEach(function (v) { html += "<th>" + esc(v.name) + "</th>"; });
+      data.vendors.forEach(function (v) { html += "<th>" + esc(vendorDisplayName(v)) + "</th>"; });
       html += "<th>" + t("Total", "Total") + "</th></tr></thead><tbody>";
       data.months.forEach(function (m) {
         html += "<tr><td>" + fmtMonthPill(m.month) + "</td>";
@@ -664,7 +707,7 @@
       html += "</tbody></table>";
       var waitingParts = [];
       data.vendors.forEach(function (v) {
-        if (data.waiting_completion[v.id]) { waitingParts.push(esc(v.name) + ": " + fmtCents(data.waiting_completion[v.id])); }
+        if (data.waiting_completion[v.id]) { waitingParts.push(esc(vendorDisplayName(v)) + ": " + fmtCents(data.waiting_completion[v.id])); }
       });
       if (waitingParts.length) {
         html += '<div class="sheet-note" style="margin-top:10px;"><b>' + t("Aguardando conclusão", "Awaiting completion") + ':</b> ' + waitingParts.join(" · ") + "</div>";
@@ -778,6 +821,7 @@
   function openEditVendorModal() {
     var vendorId = el("vndDetail").getAttribute("data-vendor-id");
     var v = VENDORS_BY_ID[vendorId] || {};
+    el("evNameEn").value = v.name_en || "";
     el("evType").value = v.vendor_type || "";
     el("evContactName").value = "";
     el("evContactPhone").value = "";
@@ -791,6 +835,7 @@
     apiFetch("/api/finance-new/vendors/" + encodeURIComponent(vendorId), {
       method: "PUT",
       body: {
+        name_en: el("evNameEn").value.trim() || null,
         vendor_type: el("evType").value.trim() || null,
         contact_name: el("evContactName").value.trim() || null,
         contact_phone: el("evContactPhone").value.trim() || null,
@@ -879,6 +924,7 @@
     confirmAllAuto: confirmAllAuto,
     openChangeAuto: openChangeAuto,
     submitMoveVendor: submitMoveVendor,
+    unassignAutoMatch: unassignAutoMatch,
     markReallocateNotVendor: markReallocateNotVendor,
     openSentPayment: openSentPayment,
     toggleSentItems: toggleSentItems,

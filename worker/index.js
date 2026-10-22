@@ -41851,8 +41851,11 @@ async function applyCategorizationRules(env, opts) {
         if (r.match_type === "merchant_contains") {
             res = await env.DB.prepare(
                 "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
-                "WHERE category_id IS NULL AND merchant_normalized LIKE ?"
-            ).bind(r.category_id, "%" + r.pattern + "%").run();
+                // instr, never LIKE: D1 rejects a LIKE pattern over 50 bytes
+                // ("LIKE or GLOB pattern too complex"), which a long merchant
+                // key reaches easily. instr has no length limit.
+                "WHERE category_id IS NULL AND instr(UPPER(merchant_normalized), UPPER(?)) > 0"
+            ).bind(r.category_id, r.pattern).run();
         } else {
             res = await env.DB.prepare(
                 "UPDATE transactions SET category_id = ?, category_source = 'rule', categorized_at = datetime('now') " +
@@ -41950,8 +41953,12 @@ async function categorizeClientIncome(env) {
     // as "BRAZILIAN INC". Matching the trading name alone left $7,344 of real
     // client revenue uncategorized, which is most of what made the income
     // tiles wrong.
+    // Archived clients are never candidates. Archiving is how a duplicate is
+    // merged (its name is rewritten to "... (duplicado - mesclado em <id>)"),
+    // and an auto-matcher must never post a payment onto a record nobody uses.
     var clients = await env.DB.prepare(
-        "SELECT id, name, legal_entity_name FROM clients WHERE name IS NOT NULL AND TRIM(name) != ''"
+        "SELECT id, name, legal_entity_name FROM clients WHERE name IS NOT NULL AND TRIM(name) != '' " +
+        "AND COALESCE(archived, 0) = 0"
     ).all();
     var rows = clients.results || [];
     var applied = 0;
@@ -41977,8 +41984,11 @@ async function categorizeClientIncome(env) {
             // personal account is not revenue, and those descriptions can carry
             // a client-like name.
             "AND transfer_status NOT IN ('suspected','confirmed') " +
-            "AND UPPER(description) LIKE ?"
-        ).bind("%" + name.toUpperCase() + "%").run();
+            // instr, never LIKE: D1 rejects a LIKE pattern over 50 bytes, and a
+            // client or legal entity name can be longer than that. A client
+            // must never be skipped because of how long its name is.
+            "AND instr(UPPER(description), ?) > 0"
+        ).bind(name.toUpperCase()).run();
         applied += (res.meta && res.meta.changes) || 0;
     }
 

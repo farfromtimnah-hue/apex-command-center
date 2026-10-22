@@ -41230,7 +41230,10 @@ async function syncPlaidTransactions(env) {
     try {
         await applyCategorizationRules(env, null);
     } catch (e) {
-        // Uncategorized is a normal state. Nothing to report.
+        // The sync still finishes, but a failure here is NEVER silent: a client
+        // name that made the matcher throw hid for weeks behind this catch.
+        // Telegram alert plus a ticket, rate limited by apexReportServerError.
+        await apexReportServerError(env, null, "SYNC", "/sync/categorize-rules", 500, e && e.message);
     }
 
     // Owner draws: mark the second leg of a suspected/confirmed transfer
@@ -41240,7 +41243,8 @@ async function syncPlaidTransactions(env) {
     try {
         await mirrorOwnerDrawAcrossPair(env);
     } catch (eDraw) {
-        // Next sync tries again; never fails the sync that pulled the money.
+        // Never fails the sync that pulled the money, and never silent.
+        await apexReportServerError(env, null, "SYNC", "/sync/owner-draw-mirror", 500, eDraw && eDraw.message);
     }
 
     // Apex Club: Zelle confirmation numbers guests sent before the bank feed
@@ -41249,7 +41253,8 @@ async function syncPlaidTransactions(env) {
     try {
         await clubZelleRetry(env, null);
     } catch (eZelle) {
-        // The next sync tries again.
+        // Never fails the sync, and never silent.
+        await apexReportServerError(env, null, "SYNC", "/sync/club-zelle-retry", 500, eZelle && eZelle.message);
     }
 
     return summary;

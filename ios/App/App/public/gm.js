@@ -5746,6 +5746,7 @@ function gmConDraftFromSettings() {
 // source is picked.
 var gmConOwnTemplates = null;
 var gmConOwnTemplateUploading = false;
+var gmConOwnLawyer = null; // 'yes' | 'no' | null (not answered yet; the upload button waits for it)
 function gmConOwnTemplateHtml() {
   if (gmConOwnTemplates === null) {
     gmApi("contract-own-templates").then(function(d) {
@@ -5756,12 +5757,18 @@ function gmConOwnTemplateHtml() {
   }
   var h = '<div class="gm-sheet-section">' +
     '<p class="muted" style="font-size:13px;">' +
-    gmT("Um sistema de inteligência artificial (Claude, da Anthropic) lê este arquivo para organizar as cláusulas. A equipe revisa antes do uso.",
-        "An artificial intelligence system (Claude, by Anthropic) reads this file to organize the clauses. The team reviews it before use.") +
+    gmT("Um sistema de inteligência artificial (Claude, da Anthropic) lê este arquivo para organizar as cláusulas. Você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
+        "An artificial intelligence system (Claude, by Anthropic) reads this file to organize the clauses. You review the result and confirm it matches your original contract.") +
     '</p>' +
+    '<p class="gm-field-label" style="margin-top:10px;">' + gmT("Um advogado já revisou este contrato?", "Has a lawyer reviewed this contract?") + '</p>' +
+    '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+    '<button type="button" class="gm-choice-chip' + (gmConOwnLawyer === "yes" ? " gm-chip-sel" : "") + '" onclick="gmConOwnLawyer = \'yes\'; gmRenderEstimatesTab();">' + gmT("Sim", "Yes") + '</button>' +
+    '<button type="button" class="gm-choice-chip' + (gmConOwnLawyer === "no" ? " gm-chip-sel" : "") + '" onclick="gmConOwnLawyer = \'no\'; gmRenderEstimatesTab();">' + gmT("Não", "No") + '</button>' +
+    '</div>' +
     '<input type="file" id="gmConOwnTemplateFile" accept="application/pdf" style="display:none;" onchange="gmConOwnTemplateUpload(this.files[0])">' +
-    '<button type="button" class="gm-btn-secondary"' + (gmConOwnTemplateUploading ? " disabled" : "") + ' onclick="document.getElementById(\'gmConOwnTemplateFile\').click();">' +
+    '<button type="button" class="gm-btn-secondary"' + ((gmConOwnTemplateUploading || gmConOwnLawyer === null) ? " disabled" : "") + ' onclick="document.getElementById(\'gmConOwnTemplateFile\').click();">' +
     (gmConOwnTemplateUploading ? gmT("Enviando…", "Uploading…") : gmT("Enviar PDF do meu contrato", "Upload my contract PDF")) + '</button>' +
+    (gmConOwnLawyer === null ? '<span class="muted" style="font-size:12px;margin-left:8px;">' + gmT("Responda a pergunta acima primeiro.", "Answer the question above first.") + '</span>' : '') +
     '<div id="gmConOwnTemplateMsg" class="gm-warn" style="margin-top:6px;"></div>';
   (gmConOwnTemplates || []).forEach(function(t) {
     h += gmConOwnTemplateRowHtml(t);
@@ -5786,10 +5793,11 @@ function gmConOwnTemplateRowHtml(t) {
   return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
     '<div><strong>' + escHtml(t.original_name || "") + '</strong> <span class="muted" style="font-size:12px;">' + (m.page_count ? m.page_count + " " + gmT("páginas", "pages") : "") + '</span></div>' +
-    '<span class="gm-pill' + (t.status === "reviewed" ? " gm-chip-sel" : "") + '">' + (t.status === "reviewed" ? gmT("Revisado", "Reviewed") : gmT("Pendente de revisão", "Pending review")) + '</span>' +
-    '</div>' + areaRows + unmatchedHtml +
-    (t.status === "pending_review" && (window.sessionStorage && sessionStorage.getItem("apex_role") === "developer")
-      ? '<button type="button" class="gm-btn-secondary" style="margin-top:8px;" onclick="gmConOwnTemplateMarkReviewed(\'' + escHtml(t.id) + '\')">' + gmT("Marcar como revisado", "Mark reviewed") + '</button>'
+    '<span class="gm-pill' + (t.status === "reviewed" ? " gm-chip-sel" : "") + '">' + (t.status === "reviewed" ? gmT("Confirmado por você", "Confirmed by you") : gmT("Aguardando a sua confirmação", "Waiting for your confirmation")) + '</span>' +
+    '</div>' +
+    '<div class="muted" style="font-size:12px;margin-top:4px;">' + (t.lawyer_reviewed === 1 ? gmT("Revisado por advogado: sim", "Reviewed by a lawyer: yes") : t.lawyer_reviewed === 0 ? gmT("Revisado por advogado: não", "Reviewed by a lawyer: no") : "") + '</div>' + areaRows + unmatchedHtml +
+    (t.status === "pending_review"
+      ? '<button type="button" class="gm-btn-secondary" style="margin-top:8px;" onclick="gmConOwnTemplateMarkReviewed(\'' + escHtml(t.id) + '\')">' + gmT("Confirmar que corresponde ao meu contrato", "Confirm it matches my contract") + '</button>'
       : "") +
     '</div>';
 }
@@ -5805,6 +5813,7 @@ function gmConOwnTemplateUpload(file) {
   if (msgEl2) { msgEl2.textContent = gmT("Lendo o contrato…", "Reading the contract…"); }
   var form = new FormData();
   form.append("file", file);
+  form.append("lawyer_reviewed", gmConOwnLawyer || "");
   gmApi("contract-own-templates", { method: "POST", formData: form }).then(function(d) {
     gmConOwnTemplateUploading = false;
     gmConOwnTemplates = null; // reload with the new row included

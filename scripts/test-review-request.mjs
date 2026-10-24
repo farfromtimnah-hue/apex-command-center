@@ -14,7 +14,7 @@ const gmSrc = readFileSync(new URL("gm.js", root), "utf8");
 const migration = readFileSync(new URL("migrations/google_review_link.sql", root), "utf8");
 
 const FNS = ["gmReviewLinkParse", "gmReviewMessage", "gmReviewLinkColumnReady", "gmReviewLinkRead", "gmReviewLast", "gmReviewJobFor", "gmReviewPayload",
-  "handleGetGmJobReviewRequest", "handlePostGmJobReviewRequest", "gmOwnedRow", "gmInvSellerGuardJob", "gmSellerLeadGuard", "sellerCanActOnLead", "sessionSellerName",
+  "handleGetGmJobReviewRequest", "handlePostGmJobReviewRequest", "gmDocSendEmail", "gmOwnedRow", "gmInvSellerGuardJob", "gmSellerLeadGuard", "sellerCanActOnLead", "sessionSellerName",
   "gmStr", "gmNum", "gmRunUpdate", "gmDocHexColor", "gmDocParseLicenses", "gmDocParsePaymentMethods", "gmDocParseLateFeePct", "gmDocParseSchedulePresets", "gmDocScheduleStepsError",
   "gmDocSettingsOwnerOnly", "handlePutGmDocSettings", "clientRequestAllowed", "sellerRequestAllowed",
   // Job 40: the settings save also reads the license-not-required columns.
@@ -164,9 +164,16 @@ ok(M("en", "   ", "Zeta", L).indexOf("Hi, thank") === 0, "a first name of only s
 {
   user = OWNER;
   const w = world({ link: L });
-  const bad = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "email" }), w.env);
+  const bad = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "telegram" }), w.env);
   const none = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({}), w.env);
-  ok(bad.status === 400 && none.status === 400 && w.d.q("SELECT COUNT(*) AS n FROM gm_send_log")[0].n === 0, "a channel that is not whatsapp / sms / copy is refused and writes nothing");
+  ok(bad.status === 400 && none.status === 400 && w.d.q("SELECT COUNT(*) AS n FROM gm_send_log")[0].n === 0, "a channel that is not whatsapp / sms / copy / email / email_copy is refused and writes nothing");
+  const bad2 = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "Email " }), w.env);
+  const bad3 = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "email_copy2" }), w.env);
+  ok(bad2.status === 400 && bad3.status === 400 && w.d.q("SELECT COUNT(*) AS n FROM gm_send_log")[0].n === 0, "near-miss channel names are refused, not repaired");
+  const em = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "email" }), w.env);
+  const emc = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "email_copy" }), w.env);
+  ok(em.status === 200 && emc.status === 200 && w.d.q("SELECT channel FROM gm_send_log ORDER BY rowid").map((r) => r.channel).join() === "email,email_copy", "email and email_copy presses are logged as their own channels");
+  w.d.raw.prepare("DELETE FROM gm_send_log").run();
   const a = await w.F.handlePostGmJobReviewRequest("c1", "j1", req({ channel: "whatsapp" }), w.env);
   const row = w.d.q("SELECT * FROM gm_send_log")[0];
   ok(a.status === 200 && a.data.logged === true && row.kind === "review_request" && row.channel === "whatsapp" && row.client_id === "c1" && row.project_id === "j1" && row.lead_id === "l1", "a WhatsApp press writes one review_request row for the project and its lead");

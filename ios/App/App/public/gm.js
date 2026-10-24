@@ -1233,6 +1233,7 @@ function gmReviewSheetRender() {
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmReviewPress(\'sms\')">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmReviewPress(\'whatsapp\')">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
+    gmEmailButtonsHtml({ to: s.d.email || (lead && lead.email) || "", subject: gmEmailSubject("review", "", s.d.business_name), text: text, mark: function(ch) { gmReviewPress(ch); } }) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + '</div>' +
     '<p class="gm-derived-note" id="gmReviewPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
@@ -7039,7 +7040,7 @@ function gmConRouteSave() {
   var sel = document.getElementById("gmConRouteTo");
   gmApi("contracts/" + encodeURIComponent(gmConDetail.id) + "/route", { method: "POST", body: { signer_name: sel ? sel.value : null } })
     .then(function(d) {
-      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_route_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmConRouteSave(); });
+      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_route_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmConRouteSave(); }, d.to_email || "", d.business_name || "", "route", gmConDetail.display_number);
       gmLoadJobContracts(gmConDetail.job_id);
     })
     .catch(function(e) {
@@ -7062,7 +7063,7 @@ function gmConSendOpen() {
     var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: c.link });
     gmDocSendSheetRender(gmT("Enviar contrato", "Send contract") + " · " + escHtml(c.display_number), c.send_phone || "", text, "contract_message",
       function() { gmApi("contracts/" + encodeURIComponent(c.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Contrato marcado como enviado", "Contract marked as sent")); gmLoadJobContracts(c.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-      function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); });
+      function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); }, c.send_email || "", c.send_business_name || "", "contract", c.display_number);
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
@@ -7086,7 +7087,7 @@ function gmSignedCopyOpen(kind, id, number) {
     .then(function(d) {
       gmDocSendSheetRender(gmT("Enviar cópia assinada · ", "Send signed copy · ") + escHtml(number), d.phone || "", d.message, null,
         function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Cópia assinada marcada como enviada", "Signed copy marked as sent")); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-        back, function() { gmSignedCopyOpen(kind, id, number); });
+        back, function() { gmSignedCopyOpen(kind, id, number); }, d.email || "", d.business_name || "", "signed", number);
     })
     .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
@@ -7258,7 +7259,7 @@ function gmDSendAck(jobId, kind) {
       gmDLoadJobTools(jobId);
       var title = kind === "completion" ? gmT("Enviar aceite de conclusão", "Send completion sign-off") : gmT("Enviar fotos para reconhecimento", "Send photos for acknowledgment");
       gmSheetOpen(title, "");
-      gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {});
+      gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {}, d.email || "", d.business_name || "", kind === "completion" ? "ack_completion" : "ack_photos", "");
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -7864,7 +7865,7 @@ function gmCOSendOpen() {
     .then(function(d) {
       gmDocSendSheetRender(gmT("Enviar aditivo · ", "Send change order · ") + escHtml(co.number), d.phone || co.send_phone || "", d.message, null,
         function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Aditivo marcado como enviado", "Change order marked as sent")); gmLoadJobChangeOrders(co.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-        function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); });
+        function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); }, d.email || co.send_email || "", d.business_name || co.send_business_name || "", "change_order", co.number);
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -12563,6 +12564,7 @@ function gmEstRenderSendSheet() {
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmEstSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
+    gmEmailButtonsHtml({ to: est.send_email || est.customer_email || "", subject: gmEmailSubject("estimate", est.display_number, est.send_business_name), text: text, mark: function() { gmEstSendMark(); } }) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no orçamento; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
@@ -13983,7 +13985,7 @@ function gmInvSendOpen() {
         var others = ((gmInvList && gmInvList.invoices) || []).filter(function(x) { return x.job_id === inv.job_id && x.id !== inv.id && x.sent_at; });
         if (others.length && !inv.sent_at) { gmContractGuard(inv.job_id, "second_invoice_send", doSend); } else { doSend(); }
       },
-      function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); });
+      function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); }, inv.send_email || "", inv.send_business_name || "", "invoice", inv.number);
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
@@ -13992,14 +13994,120 @@ function gmInvReceiptSendOpen(pid) {
   gmSheetOpen(gmT("Enviar recibo", "Send receipt"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi("payments/" + encodeURIComponent(pid) + "/receipt-message", { method: "POST" })
     .then(function(d) {
-      gmDocSendSheetRender(gmT("Enviar recibo", "Send receipt"), d.phone || inv.customer_phone || "", d.message, "receipt_message", null, function() { gmRenderInvoiceSheet(); }, function() { gmInvReceiptSendOpen(pid); });
+      gmDocSendSheetRender(gmT("Enviar recibo", "Send receipt"), d.phone || inv.customer_phone || "", d.message, "receipt_message", null, function() { gmRenderInvoiceSheet(); }, function() { gmInvReceiptSendOpen(pid); }, d.email || inv.send_email || "", d.business_name || inv.send_business_name || "", "receipt", inv.number);
     })
     .catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
+// ── Email buttons on the customer send screens ──────────────────────────
+// "Open my email app" (a mailto link: the owner's own address sends it) and
+// "Copy to send from a web email" (one block to paste into Gmail or Outlook
+// in a browser). Shared by the document send sheet, the review send sheet and
+// the estimate send sheet. Nothing here is specific to one business.
+var gmEmailCtx = null;
+
+// A plain address or nothing: anything else (a scheme, a space, a second
+// address, query text) is reduced to "" so no other kind of link can be built.
+function gmEmailAddr(s) {
+  var a = String(s === null || s === undefined ? "" : s).replace(/^\s+|\s+$/g, "");
+  if (a.length > 254) { return ""; }
+  return /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(a) ? a : "";
+}
+
+// The name as the customer should read it. A name with no lowercase letter
+// at all (GOLDEN HOME IMPROVEMENT) gets words of 4 or more letters in
+// Title Case; words of 3 letters or fewer (JM, LLC) stay. Any other name is
+// left exactly as stored.
+function gmBizDisplay(name) {
+  var n = String(name === null || name === undefined ? "" : name).replace(/^\s+|\s+$/g, "");
+  if (!n || n !== n.toUpperCase()) { return n; }
+  return n.split(" ").map(function(w) {
+    var letters = 0;
+    for (var i = 0; i < w.length; i++) { if (w.charAt(i).toLowerCase() !== w.charAt(i).toUpperCase()) { letters++; } }
+    if (letters < 4) { return w; }
+    var lower = w.toLowerCase(), done = false, out = "";
+    for (var j = 0; j < lower.length; j++) {
+      var c = lower.charAt(j);
+      if (!done && c.toLowerCase() !== c.toUpperCase()) { out += c.toUpperCase(); done = true; } else { out += c; }
+    }
+    return out;
+  }).join(" ");
+}
+
+// The customer side is English. A missing business or number drops its part.
+function gmEmailSubject(kind, number, biz) {
+  var b = gmBizDisplay(biz), n = String(number || "");
+  var withNum = function(label) { return n ? label + " " + n : label; };
+  switch (kind) {
+    case "estimate": return withNum("Estimate") + (b ? " from " + b : "");
+    case "contract": return withNum("Contract") + (b ? " from " + b : "");
+    case "change_order": return withNum("Change order") + (b ? " from " + b : "");
+    case "invoice": return withNum("Invoice") + (b ? " from " + b : "");
+    case "signed": return (n ? "Signed copy of " + n : "Signed copy") + (b ? ", " + b : "");
+    case "receipt": return (n ? "Receipt for " + n : "Receipt") + (b ? ", " + b : "");
+    case "route": return n ? "Contract " + n + " is waiting for your signature" : "A contract is waiting for your signature";
+    case "review": return "Feedback on your recent job" + (b ? " with " + b : "");
+    case "ack_completion": return "Completion sign-off" + (b ? " from " + b : "");
+    case "ack_photos": return "Photos to review" + (b ? " from " + b : "");
+  }
+  return b ? "Message from " + b : "";
+}
+
+// mailto:address?subject=...&body=... Line breaks become CRLF before the
+// encoding so the email app keeps the lines.
+function gmEmailMailto(to, subject, text) {
+  var addr = encodeURIComponent(gmEmailAddr(to)).replace("%40", "@");
+  var body = String(text === null || text === undefined ? "" : text).replace(/\r\n|\r|\n/g, "\r\n");
+  return "mailto:" + addr + "?subject=" + encodeURIComponent(subject || "") + "&body=" + encodeURIComponent(body);
+}
+
+// The one block for a web email: three short steps, the To and Subject lines,
+// the delete line, then the message exactly as the send screen shows it.
+function gmEmailCopyText(to, subject, text) {
+  var addr = gmEmailAddr(to);
+  var eq = "===============";
+  return gmT("COMO ENVIAR ESTE EMAIL. Leia estes 3 passos e depois apague-os.", "HOW TO SEND THIS EMAIL. Read these 3 steps, then delete them.") + "\n" +
+    gmT("1. Copie o endereço da linha To e cole na caixa Para do seu novo email.", "1. Copy the email address on the To line and paste it into the To box of your new email.") + "\n" +
+    gmT("2. Copie o assunto da linha Subject e cole na caixa Assunto.", "2. Copy the subject on the Subject line and paste it into the Subject box.") + "\n" +
+    gmT("3. Apague tudo, do início deste texto até a linha de sinais de igual, inclusive ela. O que sobrar é a sua mensagem. Depois é só enviar.", "3. Delete everything from the top of this text down to and including the line of equals signs. What is left is your message. Then press Send.") + "\n\n" +
+    "To: " + (addr || gmT("(digite aqui o email do seu cliente)", "(type your customer's email here)")) + "\n" +
+    "Subject: " + (subject || "") + "\n" +
+    eq + " " + gmT("APAGUE TUDO ACIMA DESTA LINHA", "DELETE EVERYTHING ABOVE THIS LINE") + " " + eq + "\n" +
+    String(text === null || text === undefined ? "" : text);
+}
+
+// The two buttons and the hint line. c = { to, subject, text, mark(channel) };
+// mark is the sheet's own mark-as-sent hook (what WhatsApp does too).
+function gmEmailButtonsHtml(c) {
+  gmEmailCtx = { to: gmEmailAddr(c.to), subject: c.subject || "", text: c.text, mark: c.mark };
+  return '<div class="gm-contact-row gm-email-row">' +
+      '<a class="gm-contact-btn gm-email" href="' + escHtml(gmEmailMailto(gmEmailCtx.to, gmEmailCtx.subject, gmEmailCtx.text)) + '" onclick="gmEmailPress(\'email\')">' + gmIcon("mail") + gmT("Abrir meu email", "Open my email app") + '</a>' +
+      '<button type="button" class="gm-contact-btn gm-email" onclick="gmEmailPress(\'email_copy\')">' + gmIcon("mail") + gmT("Copiar para enviar pelo navegador", "Copy to send from a web email") + '</button>' +
+    '</div>' +
+    '<p class="gm-derived-note">' + gmT("Usa Gmail ou Outlook no navegador? Toque em Copiar.", "Use Gmail or Outlook in a browser? Tap Copy.") + '</p>';
+}
+
+// One tap on either email button: the sheet's mark-as-sent hook first, then
+// (for Copy) the clipboard. The mailto link has already gone ahead.
+function gmEmailPress(channel) {
+  var c = gmEmailCtx; if (!c) { return; }
+  if (c.mark) { try { c.mark(channel); } catch (e) { console.error("email send mark: " + (e && e.message)); } }
+  if (channel !== "email_copy") { return; }
+  var block = gmEmailCopyText(c.to, c.subject, c.text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(block).then(function() {
+      gmToast(gmT("Copiado. Cole no seu email.", "Copied. Paste it into your email."));
+    }).catch(function() { gmReviewCopyCard(block); });
+  } else {
+    gmReviewCopyCard(block);
+  }
+}
+
 // One send sheet for invoices and receipts (the estimate one is its twin).
 var gmDocSendMark = null;
-function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender) {
+// email undefined (the contact card) shows no email buttons; null or "" shows
+// them with an empty To. kind and number build the subject.
+function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender, email, bizName, kind, number) {
   var digits = gmWaDigits(phone);
   gmDocSendMark = onSend;
   var body = '<div class="gm-sheet-section">' +
@@ -14007,6 +14115,7 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
+    (email === undefined ? "" : gmEmailButtonsHtml({ to: email, subject: gmEmailSubject(kind, number, bizName), text: text, mark: function() { if (gmDocSendMark) { gmDocSendMark(); } } })) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + (key ? ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button>' : "") + '</div>' +
     '<p class="gm-derived-note" id="gmDocSendPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +

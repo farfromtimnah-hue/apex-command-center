@@ -24593,7 +24593,7 @@ async function handlePostGmLeadContactCard(id, leadId, request, env) {
 var GM_REVIEW_LINK_HOSTS = ["google.com", "g.page", "goo.gl"];
 var GM_REVIEW_LINK_BAD_PT = "Esse n\u00e3o parece um link de avalia\u00e7\u00e3o do Google. Cole o link que come\u00e7a com https:// e vem do Google (por exemplo https://g.page/r/.../review).";
 var GM_REVIEW_LINK_BAD_EN = "That does not look like a Google review link. Paste the link that starts with https:// and comes from Google (for example https://g.page/r/.../review).";
-var GM_SEND_CHANNELS = ["whatsapp", "sms", "copy"];
+var GM_SEND_CHANNELS = ["whatsapp", "sms", "copy", "email", "email_copy"];
 
 // Empty clears it ({ value: null }). Otherwise only an https address whose
 // host is google.com, g.page or goo.gl, or a subdomain of one of them.
@@ -24699,6 +24699,8 @@ async function gmReviewPayload(env, clientId, job) {
         language: lang,
         message: gmReviewMessage(lang, gmFirstName(lead && lead.cliente), company, link),
         phone: (lead && lead.telefone) || null,
+        email: gmDocSendEmail(lead, null),
+        business_name: company,
         last: last
     };
 }
@@ -30503,6 +30505,8 @@ async function handleGetGmEstimate(id, estId, request, env) {
         // The send sheet opens the lead's CURRENT phone (A4) and names the
         // sender the way the server would (C14).
         payload.send_phone = gmDocSendPhone(lead, est.customer_phone);
+        payload.send_email = gmDocSendEmail(lead, est.customer_email);
+        payload.send_business_name = settings.legal_name || (client && client.name) || "";
         payload.sender_name = (await gmDocSenderFirstName(env, user, id, client, settings));
         return jsonOk({ estimate: payload });
     } catch (e) {
@@ -30788,7 +30792,7 @@ async function handlePostGmEstimateSend(id, estId, request, env) {
             seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)),
             link: estLink
         });
-        return jsonOk({ sent: true, message: msg, link: estLink, phone: gmDocSendPhone(lead, est.customer_phone) });
+        return jsonOk({ sent: true, message: msg, link: estLink, phone: gmDocSendPhone(lead, est.customer_phone), email: gmDocSendEmail(lead, est.customer_email), business_name: settings.legal_name || (client && client.name) || "" });
     } catch (e) {
         return jsonErr("Error sending estimate: " + e.message, 500);
     }
@@ -30825,6 +30829,11 @@ async function gmDocSenderFirstName(env, user, clientId, client, doc) {
 // frozen phone as the fallback (A4).
 function gmDocSendPhone(lead, docPhone) {
     return (lead && lead.telefone) || docPhone || null;
+}
+// The address a send opens: the lead's current email first, the document's own
+// as the fallback. Never a guess: nothing found is null.
+function gmDocSendEmail(lead, docEmail) {
+    return (lead && lead.email) || docEmail || null;
 }
 
 function gmDocFillMessage(tpl, vars) {
@@ -31431,6 +31440,14 @@ async function gmInvEstimatePhone(env, inv) {
     return e ? e.customer_phone || null : null;
 }
 
+// The frozen customer email on the invoice's estimate (fallback for sends).
+// Only read when the lead has no email of its own.
+async function gmInvEstimateEmail(env, inv, lead) {
+    if (!inv || !inv.estimate_id || (lead && lead.email)) { return null; }
+    var e = await env.DB.prepare("SELECT customer_email FROM gm_estimates WHERE id = ?").bind(inv.estimate_id).first();
+    return e ? e.customer_email || null : null;
+}
+
 // Seller row-level rule for a job: the job's lead must be theirs.
 async function gmInvSellerGuardJob(env, user, clientId, jobId) {
     var seller = sessionSellerName(user);
@@ -31576,6 +31593,8 @@ async function handleGetGmInvoice(id, invId, request, env) {
         var lead = inv.lead_id ? await gmOwnedRow(env, "gm_leads", inv.lead_id, id) : null;
         out.customer_name = (lead && lead.cliente) || (job && job.obra) || null;
         out.customer_phone = gmDocSendPhone(lead, await gmInvEstimatePhone(env, inv));
+        out.send_email = gmDocSendEmail(lead, await gmInvEstimateEmail(env, inv, lead));
+        out.send_business_name = settings.legal_name || (client && client.name) || "";
         out.vendedor = lead ? lead.vendedor : null;
         out.sender_name = (await gmDocSenderFirstName(env, user, id, client, settings));
         // D3: the completion sign-off, shown on the final invoice.
@@ -31664,7 +31683,7 @@ async function handlePostGmInvoiceSend(id, invId, request, env) {
         if (inv.status === "draft" && inv.lead_id) {
             await gmLogLeadEvents(env, id, inv.lead_id, actorName(user), [{ action: "invoice_sent", field: "invoice", old_value: null, new_value: inv.number }]);
         }
-        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, estPhone) });
+        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, estPhone), email: gmDocSendEmail(lead, await gmInvEstimateEmail(env, inv, lead)), business_name: settings.legal_name || (client && client.name) || "" });
     } catch (e) {
         return jsonErr("Error sending invoice: " + e.message, 500);
     }
@@ -31958,7 +31977,7 @@ async function handlePostGmPaymentReceiptMessage(id, paymentId, request, env) {
             job_name: (job && job.obra) || "", business_name: settings.legal_name || (client && client.name) || "",
             seller_name: (await gmDocSenderFirstName(env, user, id, client, settings)), link: link
         });
-        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, estPhone), customer_name: (lead && lead.cliente) || (job && job.obra) || null });
+        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, estPhone), email: gmDocSendEmail(lead, await gmInvEstimateEmail(env, inv, lead)), business_name: settings.legal_name || (client && client.name) || "", customer_name: (lead && lead.cliente) || (job && job.obra) || null });
     } catch (e) {
         return jsonErr("Error: " + e.message, 500);
     }
@@ -36375,7 +36394,7 @@ async function contractInternalOut(env, id, c, user, request) {
         custom_clauses: c.custom_clauses, offer_expiry_date: c.offer_expiry_date, contract_date: c.contract_date,
         link_disabled_at: c.link_disabled_at || null,
         link: DEFAULT_ORIGIN + "/contract-view?t=" + c.public_token, pdf_link: pub.pdf_link, preview_link: DEFAULT_ORIGIN + "/contract-view?preview=" + c.id,
-        send_phone: gmDocSendPhone(ctx.lead, null), customer_name: pub.customer_name, job_name: pub.job_name,
+        send_phone: gmDocSendPhone(ctx.lead, null), send_email: gmDocSendEmail(ctx.lead, null), send_business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "", customer_name: pub.customer_name, job_name: pub.job_name,
         attorney_question_pending: !isCleaning && comp.requires.cancellation ? "Whether work may start and deposits be spent before the cancellation deadline is pending attorney review (library question 9)." : null,
         // State riders: the job state, the list for its select, the owner's
         // checklist (null in Florida) and the flagged clause options.
@@ -36766,7 +36785,7 @@ async function handlePostGmContractRoute(id, cid, request, env) {
             var pushTo = await gmClientPushTargets(env, id, isOwnerTarget ? { owner: true } : { owner: false, seller_name: target.name });
             if (pushTo.length) { await pushToUsers(env, pushTo, { title: "Contrato aguardando a sua assinatura", body: contractDisplayNumber(c) + " · " + ((ctx.job && ctx.job.obra) || "") + ": abra Projetos > Contrato > Assinar pela empresa", url: "/portal.html?tab=gmjobs" }); }
         } catch (eP) { console.error("route push failed", eP && eP.message); }
-        return jsonOk({ routed: true, to_name: target.name, to_phone: target.phone, message: msg });
+        return jsonOk({ routed: true, to_name: target.name, to_phone: target.phone, to_email: target.email || null, business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "", message: msg });
     } catch (e) {
         return jsonErr("Error routing: " + e.message, 500);
     }
@@ -36836,7 +36855,7 @@ async function handlePostGmContractSend(id, cid, request, env) {
             await contractStateSysStamp(env, id, cid);
             if (c.lead_id) { await gmLogLeadEvents(env, id, c.lead_id, actorName(user), [{ action: "contract_sent", field: "contract", old_value: null, new_value: contractDisplayNumber(c) }]); }
         }
-        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null) });
+        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null), email: gmDocSendEmail(ctx.lead, null), business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "" });
     } catch (e) {
         return jsonErr("Error sending contract: " + e.message, 500);
     }
@@ -36905,7 +36924,7 @@ async function handlePostGmContractSignedCopy(id, cid, request, env) {
             job_name: (ctx.job && ctx.job.obra) || "", business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "",
             seller_name: await gmDocSenderFirstName(env, user, id, ctx.client, ctx.doc), document: "contract " + contractDisplayNumber(c), link: link
         });
-        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null) });
+        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(ctx.lead, null), email: gmDocSendEmail(ctx.lead, null), business_name: ctx.doc.legal_name || (ctx.client && ctx.client.name) || "" });
     } catch (e) {
         return jsonErr2("Erro ao preparar a cópia assinada.", "Error preparing the signed copy: " + e.message, 500);
     }
@@ -38549,6 +38568,8 @@ async function handleGetGmChangeOrder(id, coid, request, env) {
         pub.applied = gmDocParseJsonObject(co.applied_json, null); pub.applied_at = co.applied_at; pub.sent_at = co.sent_at; pub.first_viewed_at = co.first_viewed_at;
         var lead = co.lead_id ? await gmOwnedRow(env, "gm_leads", co.lead_id, id) : null;
         pub.send_phone = gmDocSendPhone(lead, null);
+        pub.send_email = gmDocSendEmail(lead, null);
+        pub.send_business_name = (await gmDocSettingsRow(env, id)).legal_name || (client && client.name) || "";
         // F9: a draft whose contract amount moved since it was created.
         if (co.status === "draft") {
             var job = await gmOwnedRow(env, "gm_jobs", co.job_id, id);
@@ -38644,7 +38665,7 @@ async function handlePostGmChangeOrderSend(id, coid, request, env) {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
             business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
         if (markIt && co.lead_id && co.status === "company_signed") { await gmLogLeadEvents(env, id, co.lead_id, actorName(user), [{ action: "change_order_sent", field: "change_order", old_value: null, new_value: co.number }]); }
-        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, null) });
+        return jsonOk({ sent: true, message: msg, link: link, phone: gmDocSendPhone(lead, null), email: gmDocSendEmail(lead, null), business_name: doc.legal_name || (client && client.name) || "" });
     } catch (e) {
         return jsonErr("Error sending: " + e.message, 500);
     }
@@ -38674,7 +38695,7 @@ async function handlePostGmChangeOrderSignedCopy(id, coid, request, env) {
         var msg = gmDocFillMessage(CONTRACT_SIGNED_COPY_MESSAGE, {
             customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "",
             business_name: doc.legal_name || (client && client.name) || "", seller_name: await gmDocSenderFirstName(env, user, id, client, doc), document: "change order " + co.number, link: link });
-        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, null) });
+        return jsonOk({ message: msg, link: link, phone: gmDocSendPhone(lead, null), email: gmDocSendEmail(lead, null), business_name: doc.legal_name || (client && client.name) || "" });
     } catch (e) {
         return jsonErr2("Erro ao preparar a cópia assinada.", "Error preparing the signed copy: " + e.message, 500);
     }
@@ -39205,7 +39226,7 @@ async function handlePostGmJobAck(id, jobId, request, env) {
                                             : "Hi {customer_first_name}, it's {seller_name} from {business_name}. The work on {job_name} is complete. Please review the walkthrough list and sign the completion acceptance: {link}";
         var msg = gmDocFillMessage(tpl, { customer_first_name: String((lead && lead.cliente) || (job && job.obra) || "").trim().split(/\s+/)[0] || "", job_name: (job && job.obra) || "", business_name: doc.legal_name || (client && client.name) || "", seller_name: (await gmDocSenderFirstName(env, user, id, client, doc)), link: link });
         if (job && job.lead_id) { await gmLogLeadEvents(env, id, job.lead_id, actorName(user), [{ action: kind === "before_photos" ? "conditions_sent" : "completion_sent", field: "acknowledgment", old_value: null, new_value: link }]); }
-        return jsonOk({ ack_id: aid, link: link, message: msg, phone: gmDocSendPhone(lead, null) });
+        return jsonOk({ ack_id: aid, link: link, message: msg, phone: gmDocSendPhone(lead, null), email: gmDocSendEmail(lead, null), business_name: doc.legal_name || (client && client.name) || "" });
     } catch (e) { return jsonErr("Error: " + e.message, 500); }
 }
 async function dAckPayload(env, a, origin) {

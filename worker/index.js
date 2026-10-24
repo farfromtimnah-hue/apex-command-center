@@ -23325,6 +23325,12 @@ async function gmLeadGeocodeIfNeeded(f, existing) {
 var GM_LEAD_COST_FIELDS = ["material", "mao_de_obra", "outros",
                            "custo_administrativo", "comissao", "imposto"];
 
+// A lead email is a plain address (one @, no spaces, a dot in the domain) of
+// 254 characters or fewer. Anything else is refused, never repaired.
+function gmLeadEmailOk(v) {
+    return typeof v === "string" && v.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
+}
+
 // Shared field extraction for lead create/update. Returns { fields, error }.
 // partial=true (PUT) only touches keys present in the body.
 async function gmLeadFields(body, config, partial, env, clientId) {
@@ -23358,7 +23364,7 @@ async function gmLeadFields(body, config, partial, env, clientId) {
     // source data legitimately contains misspellings ("Fort Mayers") that are
     // the client's own record. Both are optional and usually empty early on.
     var strFields = [
-        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 200], ["servico", 400],
+        ["mes_lead", 40], ["data_lead", 40], ["telefone", 60], ["email", 254], ["servico", 400],
         ["observacao", 2000], ["vendedor", 80],
         // Opt-in second seller on a shared visit. Empty/NULL is the normal
         // case and means a single-seller lead -- most leads have one. Setting
@@ -23383,6 +23389,9 @@ async function gmLeadFields(body, config, partial, env, clientId) {
         // it would invent categories nobody agreed to.
         ["servico_desc", 300], ["status_financiamento", 120]
     ];
+    if (has("email") && body.email !== null && !(typeof body.email === "string" && (body.email.trim() === "" || gmLeadEmailOk(body.email.trim())))) {
+        return { error: "Invalid email" };
+    }
     for (var i = 0; i < strFields.length; i++) {
         var k = strFields[i][0];
         if (has(k)) { out[k] = body[k] === null ? null : gmStr(body[k], strFields[i][1]); }

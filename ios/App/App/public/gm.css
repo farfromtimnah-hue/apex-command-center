@@ -582,6 +582,8 @@
 .gm-contact-btn.gm-reason { font-weight: 500; font-size: 12px; }
 /* The two email buttons carry long labels: let them wrap inside the half-width button. */
 .gm-email-row .gm-contact-btn { padding: 8px 10px; text-align: center; line-height: 1.25; font-size: 13px; }
+/* A greyed email button that can add the address stays tappable (the generic disabled rule blocks taps). */
+.gm-contact-btn.gm-email-add[aria-disabled="true"] { pointer-events: auto; }
 
 /* Referral link / QR block — same card treatment, icon buttons */
 .gm-partner-ref-url {

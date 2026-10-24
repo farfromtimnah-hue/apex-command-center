@@ -573,6 +573,7 @@ function gmOpenFieldEditor(label, type, value, options, onSave, extraNoteHtml, o
   } else {
     var inputType = "text", inputMode = "";
     if (type === "tel") { inputType = "tel"; inputMode = ' inputmode="tel" autocomplete="tel"'; }
+    if (type === "email") { inputMode = ' inputmode="email" autocomplete="email" autocapitalize="off"'; }
     if (type === "date") { inputType = "date"; }               // native OS picker
     if (type === "datetime") { inputType = "datetime-local"; } // native OS picker
     if (type === "currency") { inputMode = ' inputmode="decimal"'; }   // NOT type=number: surfaces the locale decimal comma
@@ -647,6 +648,11 @@ function gmEditorCommit(type) {
       if (type === "tel" && !gmLooksLikePhone(value)) {
         var tmsg = document.getElementById("gmEditorMsg");
         if (tmsg) { tmsg.textContent = gmT(GM_PHONE_INVALID[0], GM_PHONE_INVALID[1]); tmsg.hidden = false; }
+        return;
+      }
+      if (type === "email" && value !== null && !gmEmailAddr(value)) {
+        var emsg = document.getElementById("gmEditorMsg");
+        if (emsg) { emsg.textContent = gmT("Email inválido. Use o formato nome@exemplo.com", "Invalid email. Use the form name@example.com"); emsg.hidden = false; }
         return;
       }
     }
@@ -1233,7 +1239,7 @@ function gmReviewSheetRender() {
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmReviewPress(\'sms\')">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmReviewPress(\'whatsapp\')">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    gmEmailButtonsHtml({ to: s.d.email || (lead && lead.email) || "", subject: gmEmailSubject("review", "", s.d.business_name), text: text, mark: function(ch) { gmReviewPress(ch); } }) +
+    gmEmailButtonsHtml({ to: gmEmailResolve(s.d.email || "", row && row.lead_id ? row.lead_id : ""), subject: gmEmailSubject("review", "", s.d.business_name), text: text, leadId: row && row.lead_id ? row.lead_id : "", mark: function(ch) { gmReviewPress(ch); }, redraw: function() { gmReviewSheetRender(); } }) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + '</div>' +
     '<p class="gm-derived-note" id="gmReviewPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
@@ -3792,8 +3798,8 @@ function gmEditLeadField(defIdx) {
   });
 }
 
-function gmSaveLeadField(key, value, after, reason) {
-  var lead = gmDetailLead;
+function gmSaveLeadField(key, value, after, reason, leadOverride) {
+  var lead = leadOverride || gmDetailLead;
   var payload = {};
   payload[key] = value;
   if (reason) { payload._reason = reason; }
@@ -7040,7 +7046,7 @@ function gmConRouteSave() {
   var sel = document.getElementById("gmConRouteTo");
   gmApi("contracts/" + encodeURIComponent(gmConDetail.id) + "/route", { method: "POST", body: { signer_name: sel ? sel.value : null } })
     .then(function(d) {
-      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_route_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmConRouteSave(); }, d.to_email || "", d.business_name || "", "route", gmConDetail.display_number);
+      gmDocSendSheetRender(gmT("Avisar ", "Notify ") + escHtml(d.to_name), d.to_phone || "", d.message, "contract_route_message", null, function() { gmOpenContract(gmConDetail.id); }, function() { gmConRouteSave(); }, d.to_email || "", d.business_name || "", "route", gmConDetail.display_number, "", gmT("Sem email cadastrado para esta pessoa", "No email on file for this person"));
       gmLoadJobContracts(gmConDetail.job_id);
     })
     .catch(function(e) {
@@ -7063,7 +7069,7 @@ function gmConSendOpen() {
     var text = gmDocFillMessage(tpl, { customer_first_name: String(c.customer_name || "").trim().split(/\s+/)[0] || "", job_name: c.job_name || "", business_name: sv.business_name, seller_name: sv.seller_name, link: c.link });
     gmDocSendSheetRender(gmT("Enviar contrato", "Send contract") + " · " + escHtml(c.display_number), c.send_phone || "", text, "contract_message",
       function() { gmApi("contracts/" + encodeURIComponent(c.id) + "/send", { method: "POST" }).then(function() { gmToast(gmT("Contrato marcado como enviado", "Contract marked as sent")); gmLoadJobContracts(c.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-      function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); }, c.send_email || "", c.send_business_name || "", "contract", c.display_number);
+      function() { gmOpenContract(c.id); }, function() { gmConSendOpen(); }, c.send_email || "", c.send_business_name || "", "contract", c.display_number, gmEmailLeadId(c));
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
@@ -7087,7 +7093,7 @@ function gmSignedCopyOpen(kind, id, number) {
     .then(function(d) {
       gmDocSendSheetRender(gmT("Enviar cópia assinada · ", "Send signed copy · ") + escHtml(number), d.phone || "", d.message, null,
         function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Cópia assinada marcada como enviada", "Signed copy marked as sent")); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-        back, function() { gmSignedCopyOpen(kind, id, number); }, d.email || "", d.business_name || "", "signed", number);
+        back, function() { gmSignedCopyOpen(kind, id, number); }, d.email || "", d.business_name || "", "signed", number, gmEmailLeadId((kind === "co" ? gmCODetail : gmConDetail) && (kind === "co" ? gmCODetail : gmConDetail).id === id ? (kind === "co" ? gmCODetail : gmConDetail) : null));
     })
     .catch(function(e) { console.error(e); var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
@@ -7259,7 +7265,7 @@ function gmDSendAck(jobId, kind) {
       gmDLoadJobTools(jobId);
       var title = kind === "completion" ? gmT("Enviar aceite de conclusão", "Send completion sign-off") : gmT("Enviar fotos para reconhecimento", "Send photos for acknowledgment");
       gmSheetOpen(title, "");
-      gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {}, d.email || "", d.business_name || "", kind === "completion" ? "ack_completion" : "ack_photos", "");
+      gmDocSendSheetRender(title, d.phone || "", d.message, null, function() { gmToast(gmT("Enviado", "Sent")); }, function() { gmSheetClose(); }, function() {}, d.email || "", d.business_name || "", kind === "completion" ? "ack_completion" : "ack_photos", "", gmEmailLeadId({ job_id: jobId }));
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -7865,7 +7871,7 @@ function gmCOSendOpen() {
     .then(function(d) {
       gmDocSendSheetRender(gmT("Enviar aditivo · ", "Send change order · ") + escHtml(co.number), d.phone || co.send_phone || "", d.message, null,
         function() { gmApi(base, { method: "POST", body: { mark: true } }).then(function() { gmToast(gmT("Aditivo marcado como enviado", "Change order marked as sent")); gmLoadJobChangeOrders(co.job_id); }).catch(function(e) { gmToast(e.message); console.error(e); }); },
-        function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); }, d.email || co.send_email || "", d.business_name || co.send_business_name || "", "change_order", co.number);
+        function() { gmOpenChangeOrder(co.id); }, function() { gmCOSendOpen(); }, d.email || co.send_email || "", d.business_name || co.send_business_name || "", "change_order", co.number, gmEmailLeadId(co));
     })
     .catch(function(e) { gmToast(e.message); console.error(e); });
 }
@@ -12564,7 +12570,7 @@ function gmEstRenderSendSheet() {
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(phone.replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="gmEstSendMark()">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="gmEstSendMark()">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    gmEmailButtonsHtml({ to: est.send_email || est.customer_email || "", subject: gmEmailSubject("estimate", est.display_number, est.send_business_name), text: text, mark: function() { gmEstSendMark(); } }) +
+    gmEmailButtonsHtml({ to: gmEmailResolve(est.send_email || est.customer_email || "", est.lead_id || ""), subject: gmEmailSubject("estimate", est.display_number, est.send_business_name), text: text, leadId: est.lead_id || "", mark: function() { gmEstSendMark(); }, redraw: function() { gmEstRenderSendSheet(); } }) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead nem no orçamento; edite o lead para adicionar.", "No customer phone on the lead or the estimate; edit the lead to add one.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + ' <button type="button" class="tpl-pencil" id="gmEstMsgPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button></div>' +
     '<p class="gm-derived-note" id="gmEstMsgPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +
@@ -13985,7 +13991,7 @@ function gmInvSendOpen() {
         var others = ((gmInvList && gmInvList.invoices) || []).filter(function(x) { return x.job_id === inv.job_id && x.id !== inv.id && x.sent_at; });
         if (others.length && !inv.sent_at) { gmContractGuard(inv.job_id, "second_invoice_send", doSend); } else { doSend(); }
       },
-      function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); }, inv.send_email || "", inv.send_business_name || "", "invoice", inv.number);
+      function() { gmRenderInvoiceSheet(); }, function() { gmInvSendOpen(); }, inv.send_email || "", inv.send_business_name || "", "invoice", inv.number, gmEmailLeadId(inv));
   }).catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
 
@@ -13994,7 +14000,7 @@ function gmInvReceiptSendOpen(pid) {
   gmSheetOpen(gmT("Enviar recibo", "Send receipt"), '<p class="muted">' + gmT("Carregando…", "Loading…") + '</p>');
   gmApi("payments/" + encodeURIComponent(pid) + "/receipt-message", { method: "POST" })
     .then(function(d) {
-      gmDocSendSheetRender(gmT("Enviar recibo", "Send receipt"), d.phone || inv.customer_phone || "", d.message, "receipt_message", null, function() { gmRenderInvoiceSheet(); }, function() { gmInvReceiptSendOpen(pid); }, d.email || inv.send_email || "", d.business_name || inv.send_business_name || "", "receipt", inv.number);
+      gmDocSendSheetRender(gmT("Enviar recibo", "Send receipt"), d.phone || inv.customer_phone || "", d.message, "receipt_message", null, function() { gmRenderInvoiceSheet(); }, function() { gmInvReceiptSendOpen(pid); }, d.email || inv.send_email || "", d.business_name || inv.send_business_name || "", "receipt", inv.number, gmEmailLeadId(inv));
     })
     .catch(function(e) { var b = document.querySelector(".gm-sheet-body"); if (b) { b.innerHTML = '<p class="gm-warn">' + escHtml(e.message) + '</p>'; } });
 }
@@ -14005,6 +14011,23 @@ function gmInvReceiptSendOpen(pid) {
 // in a browser). Shared by the document send sheet, the review send sheet and
 // the estimate send sheet. Nothing here is specific to one business.
 var gmEmailCtx = null;
+var gmEmailSaved = {};   // lead id -> an address just saved from a send screen
+
+// The address to show: the lead in memory first (the Worker's own rule), then
+// one just saved here, then what the screen's data carried.
+function gmEmailResolve(email, leadId) {
+  var le = leadId ? gmLeadById(leadId) : null;
+  return (le && le.email) || (leadId && gmEmailSaved[leadId]) || email;
+}
+
+// The lead behind a document: its own lead_id, else its project's lead.
+function gmEmailLeadId(o) {
+  if (!o) { return ""; }
+  if (o.lead_id) { return o.lead_id; }
+  var list = (gmJobsData && gmJobsData.jobs) || [];
+  for (var i = 0; o.job_id && i < list.length; i++) { if (list[i].id === o.job_id) { return list[i].lead_id || ""; } }
+  return "";
+}
 
 // A plain address or nothing: anything else (a scheme, a space, a second
 // address, query text) is reduced to "" so no other kind of link can be built.
@@ -14076,10 +14099,25 @@ function gmEmailCopyText(to, subject, text) {
     String(text === null || text === undefined ? "" : text);
 }
 
-// The two buttons and the hint line. c = { to, subject, text, mark(channel) };
-// mark is the sheet's own mark-as-sent hook (what WhatsApp does too).
+// The two buttons and the hint line. c = { to, subject, text, mark(channel),
+// leadId, noAddReason, redraw(addr) }; mark is the sheet's own mark-as-sent
+// hook (what WhatsApp does too). With no address both buttons are greyed: a
+// tap opens the add-email field when there is a customer record to save it
+// on, and otherwise nothing happens and the hint says why.
 function gmEmailButtonsHtml(c) {
-  gmEmailCtx = { to: gmEmailAddr(c.to), subject: c.subject || "", text: c.text, mark: c.mark };
+  gmEmailCtx = { to: gmEmailAddr(c.to), subject: c.subject || "", text: c.text, mark: c.mark, leadId: c.leadId || "", noAddReason: c.noAddReason || "", redraw: c.redraw };
+  if (!gmEmailCtx.to) {
+    var canAdd = !!gmEmailCtx.leadId && !gmEmailCtx.noAddReason;
+    var cls = 'gm-contact-btn gm-email gm-reason' + (canAdd ? ' gm-email-add' : '');
+    var tap = canAdd ? ' onclick="gmEmailAdd()"' : '';
+    var hint = canAdd ? gmT("Sem email cadastrado. Toque para adicionar.", "No email on file. Tap to add.")
+      : (gmEmailCtx.noAddReason || gmT("Sem registro do cliente para salvar o email", "No customer record to save an email on"));
+    return '<div class="gm-contact-row gm-email-row">' +
+        '<button type="button" class="' + cls + '" aria-disabled="true"' + tap + '>' + gmIcon("mail") + gmT("Abrir meu email", "Open my email app") + '</button>' +
+        '<button type="button" class="' + cls + '" aria-disabled="true"' + tap + '>' + gmIcon("mail") + gmT("Copiar para enviar pelo navegador", "Copy to send from a web email") + '</button>' +
+      '</div>' +
+      '<p class="gm-derived-note">' + escHtml(hint) + '</p>';
+  }
   return '<div class="gm-contact-row gm-email-row">' +
       '<a class="gm-contact-btn gm-email" href="' + escHtml(gmEmailMailto(gmEmailCtx.to, gmEmailCtx.subject, gmEmailCtx.text)) + '" onclick="gmEmailPress(\'email\')">' + gmIcon("mail") + gmT("Abrir meu email", "Open my email app") + '</a>' +
       '<button type="button" class="gm-contact-btn gm-email" onclick="gmEmailPress(\'email_copy\')">' + gmIcon("mail") + gmT("Copiar para enviar pelo navegador", "Copy to send from a web email") + '</button>' +
@@ -14087,10 +14125,26 @@ function gmEmailButtonsHtml(c) {
     '<p class="gm-derived-note">' + gmT("Usa Gmail ou Outlook no navegador? Toque em Copiar.", "Use Gmail or Outlook in a browser? Tap Copy.") + '</p>';
 }
 
+// A greyed button was tapped: ask for the address and save it on the
+// customer's lead through the lead page's own save, then redraw the sheet.
+function gmEmailAdd() {
+  var c = gmEmailCtx; if (!c || !c.leadId || c.noAddReason) { return; }
+  var leadId = c.leadId, redraw = c.redraw;
+  gmOpenFieldEditor("Email", "email", "", null, function(addr) {
+    gmSaveLeadField("email", addr, function() {
+      var lead = gmLeadById(leadId);
+      if (lead) { lead.email = addr; }
+      gmEmailSaved[leadId] = addr;
+      gmToast(gmT("Email salvo", "Email saved"));
+      if (redraw) { redraw(addr); }
+    }, undefined, gmLeadById(leadId) || { id: leadId });
+  }, null, function() { if (redraw) { setTimeout(function() { redraw(""); }, 0); } }, ["Digite o email do cliente", "Enter the customer's email"]);
+}
+
 // One tap on either email button: the sheet's mark-as-sent hook first, then
 // (for Copy) the clipboard. The mailto link has already gone ahead.
 function gmEmailPress(channel) {
-  var c = gmEmailCtx; if (!c) { return; }
+  var c = gmEmailCtx; if (!c || !c.to) { return; }
   if (c.mark) { try { c.mark(channel); } catch (e) { console.error("email send mark: " + (e && e.message)); } }
   if (channel !== "email_copy") { return; }
   var block = gmEmailCopyText(c.to, c.subject, c.text);
@@ -14107,7 +14161,7 @@ function gmEmailPress(channel) {
 var gmDocSendMark = null;
 // email undefined (the contact card) shows no email buttons; null or "" shows
 // them with an empty To. kind and number build the subject.
-function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender, email, bizName, kind, number) {
+function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender, email, bizName, kind, number, leadId, noAddReason) {
   var digits = gmWaDigits(phone);
   gmDocSendMark = onSend;
   var body = '<div class="gm-sheet-section">' +
@@ -14115,7 +14169,9 @@ function gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerende
       '<a class="gm-contact-btn gm-sms" href="sms:' + escHtml(String(phone).replace(/[^\d+]/g, "")) + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + 'body=' + encodeURIComponent(text) + '" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("sms") + gmT("Mensagem de texto", "Text message") + '</a>' +
       '<a class="gm-contact-btn gm-wa" href="https://wa.me/' + digits + '?text=' + encodeURIComponent(text) + '" target="_blank" rel="noopener" onclick="if (gmDocSendMark) { gmDocSendMark(); }">' + gmIcon("wa") + 'WhatsApp</a>' +
     '</div>' +
-    (email === undefined ? "" : gmEmailButtonsHtml({ to: email, subject: gmEmailSubject(kind, number, bizName), text: text, mark: function() { if (gmDocSendMark) { gmDocSendMark(); } } })) +
+    (email === undefined ? "" : gmEmailButtonsHtml({ to: noAddReason ? email : gmEmailResolve(email, leadId), subject: gmEmailSubject(kind, number, bizName), text: text, leadId: leadId, noAddReason: noAddReason,
+      mark: function() { if (gmDocSendMark) { gmDocSendMark(); } },
+      redraw: function(addr) { gmDocSendSheetRender(title, phone, text, key, onSend, onBack, onRerender, addr, bizName, kind, number, leadId, noAddReason); } })) +
     (!phone ? '<p class="gm-warn">' + gmT("Sem telefone do cliente no lead.", "No customer phone on the lead.") + '</p>' : gmDocSendPhoneNote(phone)) +
     '<div class="gm-field-label" style="margin-top:12px;">' + gmT("Mensagem", "Message") + (key ? ' <button type="button" class="tpl-pencil" id="gmDocSendPencil" aria-label="' + gmT("Editar esta mensagem", "Edit this message") + '">&#9998;</button>' : "") + '</div>' +
     '<p class="gm-derived-note" id="gmDocSendPreview" style="white-space:pre-wrap;">' + escHtml(text) + '</p>' +

@@ -6458,6 +6458,26 @@ function gmConProblemsHtml(blockers, missingFields) {
   // every other section and never runs into the next heading.
   return '<div class="gm-sheet-section"><div class="gm-warn"><strong>' + gmT("Resolva antes de assinar:", "Fix these before signing:") + '</strong><ul style="margin:6px 0 0 18px;">' + items.map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join("") + '</ul></div></div>';
 }
+// The "fix these before signing" screens used to end in "back to the contract",
+// leaving the person to find the form alone (Nicole, 2026-10-24: "it should
+// give you a form to fill in"). Now one button opens the contract and goes to
+// the first thing still to fill in: the pool safety choice, else the first
+// empty missing field, else the top of the contract questions.
+function gmConGoFill() {
+  gmRenderContractSheet();
+  setTimeout(function() {
+    var el = document.getElementById("gmConSafety");
+    if (!el || el.value) {
+      el = null;
+      var inputs = document.querySelectorAll("[data-con-field]");
+      for (var i = 0; i < inputs.length; i++) { if (!inputs[i].value) { el = inputs[i]; break; } }
+    }
+    if (!el) { el = document.getElementById("gmConFormSection"); }
+    if (!el) { return; }
+    try { el.scrollIntoView({ block: "center" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+    if (el.focus) { try { el.focus({ preventScroll: true }); } catch (e3) {} }
+  }, 80);
+}
 function gmConMissingFieldNames(c) { return (c.missing || []).map(function(m) { return m.field; }); }
 
 function gmRenderContractSheet() {
@@ -6577,7 +6597,7 @@ function gmRenderContractSheet() {
   // does both kinds can switch the kind here until the company signs.
   if (c.kind === "cleaning") { q = gmConCleaningQuestionsHtml(c, ro); }
   else if (!ro && c.contract_kinds) { q = gmConKindChipsHtml(c) + q; }
-  body += '<div class="gm-sheet-section"><p class="gm-sheet-section-title">' + gmT("Este contrato", "This contract") + '</p>' + (ro ? '<div class="gm-sheet-group">' + q + '</div>' : q) + '</div>';
+  body += '<div class="gm-sheet-section" id="gmConFormSection"><p class="gm-sheet-section-title">' + gmT("Este contrato", "This contract") + '</p>' + (ro ? '<div class="gm-sheet-group">' + q + '</div>' : q) + '</div>';
 
   // Locked blocks by rule
   var R = c.rules || {};
@@ -6934,7 +6954,7 @@ function gmConSignOpen() {
   if (!isCo) {
     var problems = gmConProblemsHtml(c.blockers, gmConMissingFieldNames(c));
     if (problems) {
-      gmSheetOpen(gmT("Assinatura da empresa · ", "Company signature · ") + escHtml(c.display_number), '<div class="gm-sheet-section">' + problems + '<button type="button" class="gm-btn-secondary" onclick="gmRenderContractSheet()">' + gmT("Voltar ao contrato", "Back to the contract") + '</button></div>');
+      gmSheetOpen(gmT("Assinatura da empresa · ", "Company signature · ") + escHtml(c.display_number), '<div class="gm-sheet-section">' + problems + '<button type="button" class="gm-btn-primary" onclick="gmConGoFill()">' + gmT("Preencher agora", "Fill in now") + '</button></div>');
       return;
     }
   }
@@ -7025,7 +7045,7 @@ function gmConRouteSave() {
     .catch(function(e) {
       console.error(e);
       var d = e.data || {};
-      if (d.code === "contract_incomplete") { gmSheetOpen(gmT("Encaminhar para assinatura", "Route for signature"), '<div class="gm-sheet-section">' + gmConProblemsHtml(d.blockers, d.missing_fields) + '<button type="button" class="gm-btn-secondary" onclick="gmRenderContractSheet()">' + gmT("Voltar ao contrato", "Back to the contract") + '</button></div>'); return; }
+      if (d.code === "contract_incomplete") { gmSheetOpen(gmT("Encaminhar para assinatura", "Route for signature"), '<div class="gm-sheet-section">' + gmConProblemsHtml(d.blockers, d.missing_fields) + '<button type="button" class="gm-btn-primary" onclick="gmConGoFill()">' + gmT("Preencher agora", "Fill in now") + '</button></div>'); return; }
       gmToast(e.message);
     });
 }

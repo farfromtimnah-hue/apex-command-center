@@ -1,1 +1,1455 @@
-{"version":1,"guides":[],"pages":{}}
+{
+ "version": 1,
+ "guides": [
+  {
+   "id": "contract",
+   "title": {
+    "pt": "Enviar um contrato",
+    "en": "Send a contract"
+   },
+   "summary": {
+    "pt": "Crie o contrato, assine e envie ao cliente para ele assinar.",
+    "en": "Create the contract, sign it, and send it to the customer to sign."
+   },
+   "keywords": {
+    "pt": [
+     "contrato",
+     "assinar",
+     "assinatura",
+     "contrato do cliente",
+     "enviar contrato"
+    ],
+    "en": [
+     "contract",
+     "sign",
+     "signature",
+     "send contract",
+     "customer signs"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "send-contract",
+     "title": {
+      "pt": "Enviar o contrato",
+      "en": "Send the contract"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Negócio e toque em Contratos. A lista \"Sem contrato assinado\" mostra os projetos que ainda não têm contrato assinado.",
+        "en": "Open Negócio and tap Contratos. The list \"Sem contrato assinado\" shows the projects that have no signed contract yet."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-01.jpg",
+        "en": "help/img/guides/contract/send-contract-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque no projeto. Escolha o projeto do cliente cujo orçamento foi aceito.",
+        "en": "Tap the project. Choose the project of the customer whose estimate was accepted."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-02.jpg",
+        "en": "help/img/guides/contract/send-contract-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em Criar contrato a partir do orçamento aceito. Role até a seção Contrato. O contrato é montado a partir do orçamento aceito.",
+        "en": "Tap Criar contrato a partir do orçamento aceito. Scroll to the Contrato section. The contract is built from the accepted estimate."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-03.jpg",
+        "en": "help/img/guides/contract/send-contract-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O contrato aparece como rascunho. Toque em Assinar pela empresa.",
+        "en": "The contract appears as a draft. Tap Assinar pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-04.jpg",
+        "en": "help/img/guides/contract/send-contract-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Veja o que falta e toque em Preencher agora. Se faltar alguma informação, o sistema mostra a lista. O botão Preencher agora leva você direto ao formulário.",
+        "en": "See what is missing and tap Preencher agora. If information is missing, the system shows the list. The Preencher agora button takes you straight to the form."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-05.jpg",
+        "en": "help/img/guides/contract/send-contract-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "O formulário abre no primeiro item que falta. Aqui é a escolha do recurso de segurança da piscina. Escolha uma opção da lista.",
+        "en": "The form opens at the first missing item. Here it is the pool safety feature. Choose one option from the list."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-06.jpg",
+        "en": "help/img/guides/contract/send-contract-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Preencha os dados do cliente. Endereço de correspondência, e-mail, endereço e condado do imóvel, itens excluídos.",
+        "en": "Fill in the customer's details. Mailing address, email, property address and county, excluded items."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-07.jpg",
+        "en": "help/img/guides/contract/send-contract-07.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "Preencha os dados da obra. Duração, largura e caminho de acesso do equipamento, cerca, chaves ou código do portão.",
+        "en": "Fill in the job details. Duration, equipment access width and route, fence, keys or gate code."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-08.jpg",
+        "en": "help/img/guides/contract/send-contract-08.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "Preencha o resto e toque em Salvar dados. Os campos só são salvos quando você toca em Salvar dados.",
+        "en": "Fill in the rest and tap Salvar dados. The fields are only saved when you tap Salvar dados."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-09.jpg",
+        "en": "help/img/guides/contract/send-contract-09.jpg"
+       }
+      },
+      {
+       "n": 10,
+       "text": {
+        "pt": "Pronto: a lista vermelha sumiu. Toque em Assinar pela empresa.",
+        "en": "Done: the red list is gone. Tap Assinar pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-10.jpg",
+        "en": "help/img/guides/contract/send-contract-10.jpg"
+       }
+      },
+      {
+       "n": 11,
+       "text": {
+        "pt": "Marque a caixa e assine pela empresa. Marque a caixa de assinatura eletrônica e toque em Assinar pela empresa.",
+        "en": "Tick the box and sign for the company. Tick the electronic signature box and tap Assinar pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-11.jpg",
+        "en": "help/img/guides/contract/send-contract-11.jpg"
+       }
+      },
+      {
+       "n": 12,
+       "text": {
+        "pt": "Assinado pela empresa: toque em Enviar ao cliente. O status muda para Assinado pela empresa.",
+        "en": "Signed by the company: tap Enviar ao cliente. The status changes to Assinado pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-12.jpg",
+        "en": "help/img/guides/contract/send-contract-12.jpg"
+       }
+      },
+      {
+       "n": 13,
+       "text": {
+        "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
+        "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-13.jpg",
+        "en": "help/img/guides/contract/send-contract-13.jpg"
+       }
+      },
+      {
+       "n": 14,
+       "text": {
+        "pt": "O cliente recebe este link no WhatsApp. A mensagem chega com o link do contrato. (Mensagem do cliente · inglês)",
+        "en": "The customer receives this link on WhatsApp. The message arrives with the contract link. (Customer's message · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-14.jpg",
+        "en": "help/img/guides/contract/send-contract-14.jpg"
+       }
+      },
+      {
+       "n": 15,
+       "text": {
+        "pt": "O cliente abre o contrato. O cliente toca em Go to signature para ir até a assinatura. (Tela do cliente · inglês)",
+        "en": "The customer opens the contract. The customer taps Go to signature to go to the signature. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-15.jpg",
+        "en": "help/img/guides/contract/send-contract-15.jpg"
+       }
+      },
+      {
+       "n": 16,
+       "text": {
+        "pt": "O cliente confirma e escolhe como assinar. Confirma os documentos da piscina, digita o nome e escolhe digitar o nome ou desenhar. (Tela do cliente · inglês)",
+        "en": "The customer confirms and chooses how to sign. Confirms the pool documents, types their name, and chooses to type the name or draw. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-16.jpg",
+        "en": "help/img/guides/contract/send-contract-16.jpg"
+       }
+      },
+      {
+       "n": 17,
+       "text": {
+        "pt": "O cliente assina. Se escolher desenhar, assina com o dedo ou o mouse. (Tela do cliente · inglês)",
+        "en": "The customer signs. If they choose to draw, they sign with a finger or the mouse. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-17.jpg",
+        "en": "help/img/guides/contract/send-contract-17.jpg"
+       }
+      },
+      {
+       "n": 18,
+       "text": {
+        "pt": "O cliente toca em Sign contract. Antes, marca a caixa que aceita assinar por meio eletrônico. (Tela do cliente · inglês)",
+        "en": "The customer taps Sign contract. First, they tick the box that agrees to sign electronically. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-18.jpg",
+        "en": "help/img/guides/contract/send-contract-18.jpg"
+       }
+      },
+      {
+       "n": 19,
+       "text": {
+        "pt": "O cliente vê que o contrato está assinado. A página mostra Signed by both parties. (Tela do cliente · inglês)",
+        "en": "The customer sees the contract is signed. The page shows Signed by both parties. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-19.jpg",
+        "en": "help/img/guides/contract/send-contract-19.jpg"
+       }
+      },
+      {
+       "n": 20,
+       "text": {
+        "pt": "Você vê o contrato em Assinados. Em Negócio, Contratos, abra a seção Assinados.",
+        "en": "You see the contract under Assinados. In Negócio, Contratos, open the Assinados section."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-20.jpg",
+        "en": "help/img/guides/contract/send-contract-20.jpg"
+       }
+      },
+      {
+       "n": 21,
+       "text": {
+        "pt": "O registro mostra quem assinou e quando. Abra o contrato e role até Assinaturas e registro.",
+        "en": "The record shows who signed and when. Open the contract and scroll to Assinaturas e registro."
+       },
+       "image": {
+        "pt": "help/img/guides/contract/send-contract-21.jpg",
+        "en": "help/img/guides/contract/send-contract-21.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Criar contrato a partir do orçamento aceito"
+      ],
+      "en": [
+       "Create contract from the accepted estimate",
+       "Criar contrato a partir do orçamento aceito"
+      ]
+     },
+     "section": "send-contract",
+     "step": 3
+    },
+    {
+     "labels": {
+      "pt": [
+       "Preencher agora"
+      ],
+      "en": [
+       "Fill in now",
+       "Preencher agora"
+      ]
+     },
+     "section": "send-contract",
+     "step": 5
+    },
+    {
+     "labels": {
+      "pt": [
+       "Salvar dados"
+      ],
+      "en": [
+       "Save",
+       "Salvar dados"
+      ]
+     },
+     "section": "send-contract",
+     "step": 9
+    }
+   ]
+  },
+  {
+   "id": "change-order",
+   "title": {
+    "pt": "Enviar um aditivo",
+    "en": "Send a change order"
+   },
+   "summary": {
+    "pt": "Mude o valor ou o serviço de um contrato já assinado com um aditivo.",
+    "en": "Change the price or the work of a signed contract with a change order."
+   },
+   "keywords": {
+    "pt": [
+     "aditivo",
+     "mudança",
+     "alterar contrato",
+     "valor extra",
+     "serviço extra"
+    ],
+    "en": [
+     "change order",
+     "change",
+     "extra work",
+     "extra cost",
+     "amend contract"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "send-change-order",
+     "title": {
+      "pt": "Enviar um aditivo (change order)",
+      "en": "Send a change order (aditivo)"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o contrato assinado e toque em + Aditivo. Um contrato assinado não muda. Qualquer mudança vira um aditivo.",
+        "en": "Open the signed contract and tap + Aditivo. A signed contract does not change. Any change becomes an aditivo."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-01.jpg",
+        "en": "help/img/guides/change-order/send-change-order-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escreva o que muda e escolha o item. Escreva a mudança em uma frase e toque em + no item da tabela de preços.",
+        "en": "Write what changes and choose the item. Write the change in one sentence and tap + on the item from the price list."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-02.jpg",
+        "en": "help/img/guides/change-order/send-change-order-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Confira o preço e toque em Criar aditivo. A mudança no preço aparece antes de você criar.",
+        "en": "Check the price and tap Criar aditivo. The price change shows before you create it."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-03.jpg",
+        "en": "help/img/guides/change-order/send-change-order-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O aditivo foi criado. Toque em Assinar pela empresa.",
+        "en": "The aditivo was created. Tap Assinar pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-04.jpg",
+        "en": "help/img/guides/change-order/send-change-order-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Marque a caixa e assine pela empresa. É o mesmo caminho do contrato.",
+        "en": "Tick the box and sign for the company. It is the same path as the contract."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-05.jpg",
+        "en": "help/img/guides/change-order/send-change-order-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Toque em Enviar ao cliente. O status muda para Assinado pela empresa.",
+        "en": "Tap Enviar ao cliente. The status changes to Assinado pela empresa."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-06.jpg",
+        "en": "help/img/guides/change-order/send-change-order-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
+        "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-07.jpg",
+        "en": "help/img/guides/change-order/send-change-order-07.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "O cliente recebe este link no WhatsApp. A mensagem chega com o link do aditivo. (Mensagem do cliente · inglês)",
+        "en": "The customer receives this link on WhatsApp. The message arrives with the aditivo link. (Customer's message · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-08.jpg",
+        "en": "help/img/guides/change-order/send-change-order-08.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "O cliente assina o aditivo. Marca a caixa de consentimento e toca em Sign change order. (Tela do cliente · inglês)",
+        "en": "The customer signs the aditivo. Ticks the consent box and taps Sign change order. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-09.jpg",
+        "en": "help/img/guides/change-order/send-change-order-09.jpg"
+       }
+      },
+      {
+       "n": 10,
+       "text": {
+        "pt": "O cliente vê que o aditivo está assinado. A página mostra Signed by both parties. (Tela do cliente · inglês)",
+        "en": "The customer sees the aditivo is signed. The page shows Signed by both parties. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-10.jpg",
+        "en": "help/img/guides/change-order/send-change-order-10.jpg"
+       }
+      },
+      {
+       "n": 11,
+       "text": {
+        "pt": "O contrato mostra o novo valor. Valor atual é o novo preço. Valor original continua visível.",
+        "en": "The contract shows the new price. Valor atual is the new price. Valor original stays visible."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-11.jpg",
+        "en": "help/img/guides/change-order/send-change-order-11.jpg"
+       }
+      },
+      {
+       "n": 12,
+       "text": {
+        "pt": "O projeto lista o aditivo e a fatura. Em Aditivos aparece o aditivo assinado. Em Faturas aparece uma fatura em rascunho.",
+        "en": "The project lists the aditivo and the invoice. Under Aditivos you see the signed aditivo. Under Faturas you see a draft invoice."
+       },
+       "image": {
+        "pt": "help/img/guides/change-order/send-change-order-12.jpg",
+        "en": "help/img/guides/change-order/send-change-order-12.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Aditivo"
+      ],
+      "en": [
+       "+ Change order",
+       "+ Aditivo"
+      ]
+     },
+     "section": "send-change-order",
+     "step": 1
+    },
+    {
+     "labels": {
+      "pt": [
+       "Criar aditivo"
+      ],
+      "en": [
+       "Create change order",
+       "Criar aditivo"
+      ]
+     },
+     "section": "send-change-order",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "invoice",
+   "title": {
+    "pt": "Enviar a fatura",
+    "en": "Send an invoice"
+   },
+   "summary": {
+    "pt": "Abra a fatura do projeto e envie ao cliente para ele pagar.",
+    "en": "Open the project invoice and send it to the customer to pay."
+   },
+   "keywords": {
+    "pt": [
+     "fatura",
+     "cobrança",
+     "pagamento",
+     "cobrar",
+     "cartão"
+    ],
+    "en": [
+     "invoice",
+     "bill",
+     "payment",
+     "charge",
+     "card payment"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "send-invoice",
+     "title": {
+      "pt": "Enviar a fatura",
+      "en": "Send the invoice"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Negócio, depois Faturas, e toque na fatura. Neste exemplo é a fatura do aditivo, em rascunho.",
+        "en": "Open Negócio, then Faturas, and tap the invoice. In this example it is the aditivo invoice, as a draft."
+       },
+       "image": {
+        "pt": "help/img/guides/invoice/send-invoice-01.jpg",
+        "en": "help/img/guides/invoice/send-invoice-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque em Enviar fatura. Confira o saldo e o total do contrato antes de enviar.",
+        "en": "Tap Enviar fatura. Check the balance and the contract total before sending."
+       },
+       "image": {
+        "pt": "help/img/guides/invoice/send-invoice-02.jpg",
+        "en": "help/img/guides/invoice/send-invoice-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto.",
+        "en": "Tap WhatsApp. You can also send by Mensagem de texto."
+       },
+       "image": {
+        "pt": "help/img/guides/invoice/send-invoice-03.jpg",
+        "en": "help/img/guides/invoice/send-invoice-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O cliente recebe este link no WhatsApp. A mensagem chega com o link da fatura. (Mensagem do cliente · inglês)",
+        "en": "The customer receives this link on WhatsApp. The message arrives with the invoice link. (Customer's message · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/invoice/send-invoice-04.jpg",
+        "en": "help/img/guides/invoice/send-invoice-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "O cliente vê a fatura. Ele vê o saldo a pagar, como pagar e pode baixar a fatura em PDF. (Tela do cliente · inglês)",
+        "en": "The customer sees the invoice. They see the balance due, how to pay, and can download the invoice as a PDF. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/invoice/send-invoice-05.jpg",
+        "en": "help/img/guides/invoice/send-invoice-05.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Enviar fatura"
+      ],
+      "en": [
+       "Send invoice",
+       "Enviar fatura"
+      ]
+     },
+     "section": "send-invoice",
+     "step": 2
+    }
+   ]
+  },
+  {
+   "id": "estimate",
+   "title": {
+    "pt": "Criar e enviar um orçamento",
+    "en": "Create and send an estimate"
+   },
+   "summary": {
+    "pt": "Monte o orçamento a partir do lead, envie ao cliente e veja como ele aceita.",
+    "en": "Build the estimate from the lead, send it to the customer, and see how they accept it."
+   },
+   "keywords": {
+    "pt": [
+     "orçamento",
+     "proposta",
+     "estimativa",
+     "enviar orçamento",
+     "cliente aceita",
+     "marcar como aceito"
+    ],
+    "en": [
+     "estimate",
+     "quote",
+     "proposal",
+     "send estimate",
+     "customer accepts",
+     "mark accepted"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "create-send",
+     "title": {
+      "pt": "Criar e enviar o orçamento",
+      "en": "Create and send the estimate"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Negócio e toque em Pipeline. Pipeline mostra todos os seus leads.",
+        "en": "Open Negócio and tap Pipeline. Pipeline lists all your leads."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-01.jpg",
+        "en": "help/img/guides/estimate/create-send-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque no lead do cliente. Escolha o lead de quem pediu o orçamento.",
+        "en": "Tap the customer's lead. Choose the lead of the person who asked for the estimate."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-02.jpg",
+        "en": "help/img/guides/estimate/create-send-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "A ficha do lead abre. Role a tela para baixo até a seção Orçamentos.",
+        "en": "The lead sheet opens. Scroll down to the Orçamentos section."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-03.jpg",
+        "en": "help/img/guides/estimate/create-send-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Toque em + Criar orçamento. O botão fica logo abaixo da lista de orçamentos do lead.",
+        "en": "Tap + Criar orçamento. The button sits right below the lead's list of estimates."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-04.jpg",
+        "en": "help/img/guides/estimate/create-send-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Passo 1 de 8: Cliente. Escreva o nome do trabalho. O nome e o telefone do cliente já vêm do lead. Toque em Continuar.",
+        "en": "Step 1 of 8: Cliente. Write the job name. The customer's name and phone already come from the lead. Tap Continuar."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-05.jpg",
+        "en": "help/img/guides/estimate/create-send-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Passo 2 de 8: Único ou em opções. Escolha Único para um preço só, ou Em opções para Best, Better e Good.",
+        "en": "Step 2 of 8: Único or em opções. Choose Único for one price, or Em opções for Best, Better and Good."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-06.jpg",
+        "en": "help/img/guides/estimate/create-send-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Passo 3 de 8: Produtos. Digite a quantidade de cada item da sua lista de preços.",
+        "en": "Step 3 of 8: Produtos. Type the quantity of each item from your price list."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-07.jpg",
+        "en": "help/img/guides/estimate/create-send-07.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "Passo 4 de 8: Adicionais. Itens extras são opcionais. Toque em Continuar para pular.",
+        "en": "Step 4 of 8: Adicionais. Extra items are optional. Tap Continuar to skip."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-08.jpg",
+        "en": "help/img/guides/estimate/create-send-08.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "Passo 5 de 8: Números. Veja o total e escolha um desconto, se quiser. A parte Interno só você vê e não é impressa.",
+        "en": "Step 5 of 8: Números. See the total and choose a discount if you want one. The Interno part is only for you and is never printed."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-09.jpg",
+        "en": "help/img/guides/estimate/create-send-09.jpg"
+       }
+      },
+      {
+       "n": 10,
+       "text": {
+        "pt": "Passo 6 de 8: Parcelas. Escolha o modelo de pagamento, por exemplo sinal de 50% e 50% na conclusão.",
+        "en": "Step 6 of 8: Parcelas. Choose the payment model, for example a 50% deposit and 50% on completion."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-10.jpg",
+        "en": "help/img/guides/estimate/create-send-10.jpg"
+       }
+      },
+      {
+       "n": 11,
+       "text": {
+        "pt": "Passo 7 de 8: Termos. Escreva o que está incluído e o que não está incluído. Você também define até quando o orçamento vale.",
+        "en": "Step 7 of 8: Termos. Write what is included and what is not included. You also set how long the estimate is valid."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-11.jpg",
+        "en": "help/img/guides/estimate/create-send-11.jpg"
+       }
+      },
+      {
+       "n": 12,
+       "text": {
+        "pt": "Passo 8 de 8: Revisar e enviar. Esta é a prévia exata do que o cliente vai ver. Role até o fim da página.",
+        "en": "Step 8 of 8: Revisar e enviar. This is the exact preview of what the customer will see. Scroll to the bottom of the page."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-12.jpg",
+        "en": "help/img/guides/estimate/create-send-12.jpg"
+       }
+      },
+      {
+       "n": 13,
+       "text": {
+        "pt": "Toque em Salvar e enviar. Se preferir terminar depois, toque em Salvar rascunho.",
+        "en": "Tap Salvar e enviar. If you prefer to finish later, tap Salvar rascunho."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-13.jpg",
+        "en": "help/img/guides/estimate/create-send-13.jpg"
+       }
+      },
+      {
+       "n": 14,
+       "text": {
+        "pt": "Toque em WhatsApp. Você também pode enviar por Mensagem de texto. O orçamento fica como enviado.",
+        "en": "Tap WhatsApp. You can also send by Mensagem de texto. The estimate is marked as sent."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/create-send-14.jpg",
+        "en": "help/img/guides/estimate/create-send-14.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "customer-signs",
+     "title": {
+      "pt": "Caminho A: o cliente assina o orçamento",
+      "en": "Path A: the customer signs the estimate"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "O cliente recebe este link no WhatsApp. A mensagem chega com o link do orçamento. (Mensagem do cliente · inglês)",
+        "en": "The customer receives this link on WhatsApp. The message arrives with the estimate link. (Customer's message · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-01.jpg",
+        "en": "help/img/guides/estimate/customer-signs-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "O cliente abre o link e vai até o fim. No fim da página o cliente digita o nome, escolhe como assinar e marca a caixa de consentimento. (Tela do cliente · inglês)",
+        "en": "The customer opens the link and goes to the end. At the end of the page the customer types their name, chooses how to sign, and ticks the consent box. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-02.jpg",
+        "en": "help/img/guides/estimate/customer-signs-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "O cliente assina. Ele pode digitar o nome ou desenhar a assinatura. (Tela do cliente · inglês)",
+        "en": "The customer signs. They can type their name or draw their signature. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-03.jpg",
+        "en": "help/img/guides/estimate/customer-signs-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O cliente toca em Accept and sign. Ele também pode pedir mudanças ou recusar, na mesma página. (Tela do cliente · inglês)",
+        "en": "The customer taps Accept and sign. They can also request changes or decline, on the same page. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-04.jpg",
+        "en": "help/img/guides/estimate/customer-signs-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "O cliente vê que o orçamento foi aceito. A página mostra Accepted e a data. (Tela do cliente · inglês)",
+        "en": "The customer sees the estimate was accepted. The page shows Accepted and the date. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-05.jpg",
+        "en": "help/img/guides/estimate/customer-signs-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Você vê a assinatura na tela inicial. Em Assinados online pelo cliente aparece o orçamento assinado.",
+        "en": "You see the signature on the home page. Under Assinados online pelo cliente you see the signed estimate."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-06.jpg",
+        "en": "help/img/guides/estimate/customer-signs-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "O registro mostra quem assinou e quando. Abra o orçamento e role até Documento assinado.",
+        "en": "The record shows who signed and when. Open the estimate and scroll to Documento assinado."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-07.jpg",
+        "en": "help/img/guides/estimate/customer-signs-07.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "O projeto é criado sozinho. Em Negócio, Projetos, o projeto do cliente já está lá.",
+        "en": "The project is created on its own. In Negócio, Projetos, the customer's project is already there."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-08.jpg",
+        "en": "help/img/guides/estimate/customer-signs-08.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "Agora você pode criar o contrato. Toque em Criar contrato a partir do orçamento aceito. Veja o guia do contrato.",
+        "en": "Now you can create the contract. Tap Criar contrato a partir do orçamento aceito. See the contract guide."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/customer-signs-09.jpg",
+        "en": "help/img/guides/estimate/customer-signs-09.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "mark-accepted",
+     "title": {
+      "pt": "Caminho B: você marca como aceito",
+      "en": "Path B: you mark it as accepted"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o orçamento e toque em Marcar como aceito. Use quando o cliente concorda pessoalmente ou por telefone. Neste exemplo, o orçamento foi copiado com Criar revisão.",
+        "en": "Open the estimate and tap Marcar como aceito. Use it when the customer agrees in person or by phone. In this example, the estimate was copied with Criar revisão."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/mark-accepted-01.jpg",
+        "en": "help/img/guides/estimate/mark-accepted-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Confirme quem aceitou. Fica gravado com o seu nome e a hora. Toque em Confirmar aceite.",
+        "en": "Confirm who accepted. It is recorded with your name and the time. Tap Confirmar aceite."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/mark-accepted-02.jpg",
+        "en": "help/img/guides/estimate/mark-accepted-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Escolha se quer criar o projeto. O app pergunta se move o lead para Fechado e cria o projeto.",
+        "en": "Choose whether to create the project. The app asks whether to move the lead to Fechado and create the project."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/mark-accepted-03.jpg",
+        "en": "help/img/guides/estimate/mark-accepted-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O orçamento aparece como aceito. Agora você pode criar o contrato, igual ao caminho A. O cliente não precisou assinar o orçamento.",
+        "en": "The estimate shows as accepted. Now you can create the contract, same as path A. The customer did not have to sign the estimate."
+       },
+       "image": {
+        "pt": "help/img/guides/estimate/mark-accepted-04.jpg",
+        "en": "help/img/guides/estimate/mark-accepted-04.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Criar orçamento"
+      ],
+      "en": [
+       "+ Create estimate",
+       "+ Criar orçamento"
+      ]
+     },
+     "section": "create-send",
+     "step": 4
+    },
+    {
+     "labels": {
+      "pt": [
+       "Salvar e enviar"
+      ],
+      "en": [
+       "Save and send",
+       "Salvar e enviar"
+      ]
+     },
+     "section": "create-send",
+     "step": 13
+    },
+    {
+     "labels": {
+      "pt": [
+       "Marcar como aceito"
+      ],
+      "en": [
+       "Mark accepted",
+       "Marcar como aceito"
+      ]
+     },
+     "section": "mark-accepted",
+     "step": 1
+    }
+   ]
+  },
+  {
+   "id": "send-by-email",
+   "title": {
+    "pt": "Enviar um documento por email",
+    "en": "Send a document by email"
+   },
+   "summary": {
+    "pt": "Envie um orçamento, contrato ou fatura pelo seu próprio email.",
+    "en": "Send an estimate, contract, or invoice from your own email."
+   },
+   "keywords": {
+    "pt": [
+     "email",
+     "e-mail",
+     "enviar por email",
+     "gmail",
+     "outlook",
+     "copiar"
+    ],
+    "en": [
+     "email",
+     "send by email",
+     "gmail",
+     "outlook",
+     "copy"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "section-s1",
+     "title": {
+      "pt": "Enviar pelo app de email do seu celular ou computador",
+      "en": "Send from your own email app"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o orçamento. Em Negócio, toque em Orçamentos. Toque no orçamento que quer enviar.",
+        "en": "Open the estimate. Under Negócio, tap Orçamentos. Tap the estimate you want to send."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s1-01.jpg",
+        "en": "help/img/guides/send-by-email/section-s1-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque em Enviar. O botão azul escuro, perto do topo, abre a tela de envio.",
+        "en": "Tap Enviar. The dark blue button near the top opens the send screen."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s1-02.jpg",
+        "en": "help/img/guides/send-by-email/section-s1-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em Abrir meu email. Fica na segunda linha de botões, à esquerda. Se o botão estiver cinza, veja a seção 3.",
+        "en": "Tap Abrir meu email. It is on the second row of buttons, on the left. If the button is grey, see section 3."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s1-03.jpg",
+        "en": "help/img/guides/send-by-email/section-s1-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O seu app de email abre com tudo pronto. O endereço do cliente, o assunto e a mensagem com o link já estão preenchidos. O assunto leva o número do documento e o nome da sua empresa.",
+        "en": "Your email app opens with everything ready. The customer's address, the subject and the message with the link are already filled in. The subject has the document number and your company name."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s1-04.jpg",
+        "en": "help/img/guides/send-by-email/section-s1-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Revise e toque em Enviar no seu app de email. O cliente recebe o link para abrir o documento. O documento fica marcado como enviado no Apex.",
+        "en": "Check it and tap Send in your email app. The customer gets the link to open the document. The document is marked as sent in Apex."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s1-05.jpg",
+        "en": "help/img/guides/send-by-email/section-s1-05.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "section-s2",
+     "title": {
+      "pt": "Copiar e colar no email do navegador (Gmail, Outlook)",
+      "en": "Copy and paste into a web browser email (Gmail, Outlook)"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque em Copiar para enviar pelo navegador. Fica na segunda linha de botões, à direita. O texto pronto é copiado.",
+        "en": "Tap Copiar para enviar pelo navegador. It is on the second row of buttons, on the right. The ready text is copied."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-01.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "O texto foi copiado. O documento fica marcado como enviado no Apex. Agora vá para o seu email no navegador.",
+        "en": "The text was copied. The document is marked as sent in Apex. Now go to your email in the browser."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-02.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Abra um email novo e cole o texto. Toque no corpo do email e cole (Command V no Mac, Ctrl V no Windows). Aparecem 3 passos, o endereço, o assunto, uma linha de iguais e a mensagem.",
+        "en": "Open a new email and paste the text. Tap the body of the email and paste (Command V on a Mac, Ctrl V on Windows). You see 3 steps, the address, the subject, a line of equals signs and the message."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-03.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Copie o endereço e o assunto para as caixas. Copie o endereço da linha To e cole na caixa Para. Copie o assunto da linha Subject e cole na caixa Assunto.",
+        "en": "Copy the address and the subject into the boxes. Copy the address from the To line and paste it into the Para (To) box. Copy the subject from the Subject line and paste it into the Assunto (Subject) box."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-04.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Selecione o texto do topo até a linha de iguais. Comece no começo do corpo do email e vá até o fim da linha que diz APAGUE TUDO ACIMA DESTA LINHA, inclusive ela.",
+        "en": "Select the text from the top down to the line of equals signs. Start at the beginning of the email body and go to the end of the line that says APAGUE TUDO ACIMA DESTA LINHA, including that line."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-05.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Apague o texto selecionado. Aperte Delete. Fica só a mensagem para o cliente, com o link.",
+        "en": "Delete the selected text. Press Delete. Only the message for the customer is left, with the link."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-06.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Toque em Enviar. O botão Enviar do seu email, no canto de cima. Neste guia não enviamos: é só um exemplo.",
+        "en": "Tap Send. The Send button of your email, at the top. In this guide we did not send: it is only an example."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s2-07.jpg",
+        "en": "help/img/guides/send-by-email/section-s2-07.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "section-s3",
+     "title": {
+      "pt": "Se o cliente não tem email cadastrado",
+      "en": "If the customer has no email on file"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Os botões de email ficam cinza. Abaixo deles aparece: Sem email cadastrado. Toque para adicionar. Mensagem de texto e WhatsApp continuam funcionando.",
+        "en": "The email buttons are grey. Below them it says: Sem email cadastrado. Toque para adicionar (No email on file. Tap to add). Text message and WhatsApp still work."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s3-01.jpg",
+        "en": "help/img/guides/send-by-email/section-s3-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque em um botão cinza. Abre um campo chamado Email.",
+        "en": "Tap a grey button. A field called Email opens."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s3-02.jpg",
+        "en": "help/img/guides/send-by-email/section-s3-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Digite o email e toque em Salvar. Se o formato estiver errado, aparece um aviso em vermelho: Email inválido. Use o formato nome@exemplo.com.",
+        "en": "Type the email and tap Salvar. If the format is wrong, a red warning shows: Email inválido. Use o formato nome@exemplo.com (Invalid email)."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s3-03.jpg",
+        "en": "help/img/guides/send-by-email/section-s3-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Corrija o email e toque em Salvar. Use o formato nome@exemplo.com.",
+        "en": "Fix the email and tap Salvar. Use the format name@example.com."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s3-04.jpg",
+        "en": "help/img/guides/send-by-email/section-s3-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Email salvo: os botões de email ficam ativos. O email fica salvo no cadastro do cliente. Da próxima vez ele já aparece. Agora siga a seção 1 ou a seção 2.",
+        "en": "Email saved: the email buttons are now active. The email is saved on the customer's record. Next time it is already there. Now follow section 1 or section 2."
+       },
+       "image": {
+        "pt": "help/img/guides/send-by-email/section-s3-05.jpg",
+        "en": "help/img/guides/send-by-email/section-s3-05.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Abrir meu email"
+      ],
+      "en": [
+       "Open my email app",
+       "Abrir meu email"
+      ]
+     },
+     "section": "section-s1",
+     "step": 3
+    },
+    {
+     "labels": {
+      "pt": [
+       "Copiar para enviar pelo navegador"
+      ],
+      "en": [
+       "Copy to send from a web email",
+       "Copiar para enviar pelo navegador"
+      ]
+     },
+     "section": "section-s2",
+     "step": 1
+    }
+   ]
+  },
+  {
+   "id": "receipt",
+   "title": {
+    "pt": "Enviar um recibo",
+    "en": "Send a receipt"
+   },
+   "summary": {
+    "pt": "Envie ao cliente o recibo de um pagamento pelo WhatsApp.",
+    "en": "Send the customer the receipt for a payment by WhatsApp."
+   },
+   "keywords": {
+    "pt": [
+     "recibo",
+     "pagamento",
+     "comprovante",
+     "whatsapp",
+     "enviar recibo"
+    ],
+    "en": [
+     "receipt",
+     "payment",
+     "proof of payment",
+     "whatsapp",
+     "send receipt"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "send-receipt",
+     "title": {
+      "pt": "Enviar um recibo ao cliente por WhatsApp",
+      "en": "Send a receipt to your customer by WhatsApp"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Faturas e toque em Paga. Em Negócio, toque em Faturas. Toque no filtro Paga para ver só as faturas pagas.",
+        "en": "Open Faturas and tap Paga. Under Negócio, tap Faturas. Tap the Paga filter to see only paid invoices."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-01.jpg",
+        "en": "help/img/guides/receipt/send-receipt-01.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque na fatura paga. A fatura abre. Role a tela para baixo até a seção Pagamentos.",
+        "en": "Tap the paid invoice. The invoice opens. Scroll down to the Pagamentos section."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-02.jpg",
+        "en": "help/img/guides/receipt/send-receipt-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Em Pagamentos, toque em Enviar recibo. Ver recibo mostra o recibo para você. Enviar recibo abre a tela de envio.",
+        "en": "Under Pagamentos, tap Enviar recibo. Ver recibo shows you the receipt. Enviar recibo opens the send screen."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-03.jpg",
+        "en": "help/img/guides/receipt/send-receipt-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Toque em WhatsApp. A mensagem já vem pronta, com o link do recibo. O número é o do cliente no cadastro dele.",
+        "en": "Tap WhatsApp. The message is already written, with the receipt link. The number is the customer's number on file."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-04.jpg",
+        "en": "help/img/guides/receipt/send-receipt-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "O WhatsApp abre com a mensagem pronta. Confira a mensagem e toque na seta verde para enviar.",
+        "en": "WhatsApp opens with the message ready. Check the message and tap the green arrow to send."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-05.jpg",
+        "en": "help/img/guides/receipt/send-receipt-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "A mensagem foi enviada. O cliente recebe a mensagem com o link do recibo.",
+        "en": "The message was sent. The customer gets the message with the receipt link."
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-06.jpg",
+        "en": "help/img/guides/receipt/send-receipt-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "O cliente toca no link e vê o recibo. A página mostra o seu logo, os dados do pagamento e PAYMENT RECEIVED. O cliente pode guardar ou imprimir. (Tela do cliente · Inglês)",
+        "en": "The customer taps the link and sees the receipt. The page shows your logo, the payment details and PAYMENT RECEIVED. The customer can keep or print it. (Customer's screen · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/receipt/send-receipt-07.jpg",
+        "en": "help/img/guides/receipt/send-receipt-07.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Enviar recibo"
+      ],
+      "en": [
+       "Send receipt",
+       "Enviar recibo"
+      ]
+     },
+     "section": "send-receipt",
+     "step": 3
+    }
+   ]
+  }
+ ],
+ "pages": {
+  "gmestimates": {
+   "title": {
+    "pt": "Orçamentos",
+    "en": "Estimates"
+   },
+   "guides": [
+    "estimate",
+    "send-by-email"
+   ],
+   "overview": {
+    "pt": "Aqui você cria e envia orçamentos.",
+    "en": "Here you create and send estimates."
+   }
+  },
+  "gminvoices": {
+   "title": {
+    "pt": "Faturas",
+    "en": "Invoices"
+   },
+   "guides": [
+    "invoice",
+    "receipt"
+   ],
+   "overview": {
+    "pt": "Aqui você envia faturas e recibos.",
+    "en": "Here you send invoices and receipts."
+   }
+  }
+ }
+}

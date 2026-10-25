@@ -3,7 +3,7 @@
 // REAL Worker route /api/help/ask cut out of worker/index.js with fetch and the
 // database stubbed. No network, no database, nothing is sent.
 //   node scripts/test-help-system.mjs
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import { build, req } from "./fixtures/d1-shim.mjs";
@@ -17,6 +17,7 @@ function read(rel) { return readFileSync(new URL(rel, root), "utf8"); }
 const core = require("../help-core.js");
 const FIXTURE = JSON.parse(read("scripts/fixtures/help-guides-fixture.json"));
 const REAL = JSON.parse(read("help/guides.json"));
+const EMPTY = { version: 1, guides: [], pages: {} };
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 // ---------------------------------------------------------------- (a) normalizer
@@ -38,7 +39,7 @@ ok(noStep && noStep.guide === "invoice" && noStep.section === "create" && noStep
 ok(core.resolveTarget({ dataHelp: null, texts: ["Botão desconhecido"] }, FIXTURE) === null, "(b) unknown label resolves to nothing");
 ok(core.resolveTarget({ dataHelp: "nope#x#1", texts: [] }, FIXTURE) === null, "(b) data-help naming a guide that does not exist resolves to nothing");
 ok(core.resolveTarget({ dataHelp: "../x#y", texts: [] }, FIXTURE) === null, "(b) data-help that is not plain ids resolves to nothing");
-ok(core.resolveTarget({ dataHelp: null, texts: ["Salvar e enviar"] }, REAL) === null, "(b) the empty shipped library resolves nothing");
+ok(core.resolveTarget({ dataHelp: null, texts: ["Salvar e enviar"] }, EMPTY) === null, "(b) an empty library resolves nothing");
 ok(core.resolveTarget({ dataHelp: null, texts: ["Salvar e enviar"] }, null) === null, "(b) guides not loaded yet resolves nothing");
 
 // ---------------------------------------------------------------- (c) deep links
@@ -67,7 +68,12 @@ ok(core.longPressOutcome([D, { type: "scroll", x: 100, y: 100, t: 200 }], 900).f
 
 // ---------------------------------------------------------------- (f) guides validator
 ok(core.validateGuides(REAL).length === 0, "(f) the real shipped help/guides.json is valid (empty is valid)");
-ok(REAL.version === 1 && Array.isArray(REAL.guides) && REAL.guides.length === 0 && Object.keys(REAL.pages).length === 0, "(f) the shipped file is exactly the empty library");
+ok(REAL.version === 1 && REAL.guides.length >= 1, "(f) the shipped file has guides");
+{ const seen = {}; let dup = 0; REAL.guides.forEach((g) => g.buttons.forEach((b) => b.labels.pt.concat(b.labels.en).forEach((l) => { const k = core.normalize(l); if (seen[k] && seen[k] !== g.id) { dup++; } seen[k] = g.id; })));
+  ok(dup === 0, "(f) no button label points at two different guides"); }
+{ let missing = 0; REAL.guides.forEach((g) => g.sections.forEach((sec) => sec.steps.forEach((st) => { if (st.image) { ["pt", "en"].forEach((l) => { if (!existsSync(new URL(st.image[l], root))) { missing++; } }); } })));
+  ok(missing === 0, "(f) every picture named in the shipped guides exists on disk"); }
+ok(!/[\u2013\u2014]/.test(JSON.stringify(REAL)), "(f) the shipped guides contain no long dash or en dash");
 const fixErrs = core.validateGuides(FIXTURE);
 ok(fixErrs.length === 0, "(f) the two-guide fixture is valid" + (fixErrs.length ? " :: " + fixErrs.join(" | ") : ""));
 let bad = clone(FIXTURE); delete bad.guides[0].sections[0].steps[0].text.en;
@@ -186,7 +192,7 @@ const bigIndex = idxW.helpBuildIndex(big);
 console.log("INFO  index size for a 40 guide fixture: " + bigIndex.text.length + " characters");
 ok(bigIndex.text.length < 30000, "(index) the 40 guide index stays under 30,000 characters (" + bigIndex.text.length + ")");
 ok(bigIndex.text.indexOf("Toque em Salvar e enviar") === -1 && bigIndex.text.indexOf(".jpg") === -1, "(index) the index has no step text and no image paths");
-ok(idxW.helpBuildIndex(REAL).text === "" && Object.keys(idxW.helpBuildIndex(REAL).ids).length === 0, "(index) the empty library gives an empty index");
+ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMPTY).ids).length === 0, "(index) the empty library gives an empty index");
 
 // ---------------------------------------------------------------- (g) the route
 (async function () {
@@ -272,7 +278,7 @@ ok(idxW.helpBuildIndex(REAL).text === "" && Object.keys(idxW.helpBuildIndex(REAL
     ok(errors.length >= 1 && errors.every((e) => e.indexOf("pergunta confidencial") === -1), "(g) the insert failure is logged without the question"); }
 
   // empty library: no model call, gap logged
-  { const { w, calls } = mkWorker({ guides: REAL }); const { env, inserts } = mkEnv();
+  { const { w, calls } = mkWorker({ guides: EMPTY }); const { env, inserts } = mkEnv();
     const r = await w.handlePostHelpAsk(askReq(good), env);
     ok(r.status === 200 && r.data.found === false && calls.length === 0 && inserts.length === 1, "(g) with an empty library the model is not called and the gap is logged"); }
 

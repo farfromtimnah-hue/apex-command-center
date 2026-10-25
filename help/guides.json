@@ -3,6 +3,7 @@
  "guides": [
   {
    "id": "contract",
+   "audience": "client",
    "title": {
     "pt": "Enviar um contrato",
     "en": "Send a contract"
@@ -314,6 +315,7 @@
   },
   {
    "id": "change-order",
+   "audience": "client",
    "title": {
     "pt": "Enviar um aditivo",
     "en": "Send a change order"
@@ -513,6 +515,7 @@
   },
   {
    "id": "invoice",
+   "audience": "client",
    "title": {
     "pt": "Enviar a fatura",
     "en": "Send an invoice"
@@ -622,6 +625,7 @@
   },
   {
    "id": "estimate",
+   "audience": "client",
    "title": {
     "pt": "Criar e enviar um orçamento",
     "en": "Create and send an estimate"
@@ -1025,6 +1029,7 @@
   },
   {
    "id": "send-by-email",
+   "audience": "client",
    "title": {
     "pt": "Enviar um documento por email",
     "en": "Send a document by email"
@@ -1298,6 +1303,7 @@
   },
   {
    "id": "receipt",
+   "audience": "client",
    "title": {
     "pt": "Enviar um recibo",
     "en": "Send a receipt"
@@ -1432,6 +1438,395 @@
      "step": 3
     }
    ]
+  },
+  {
+   "id": "admin-record-payment",
+   "audience": "admin",
+   "title": {
+    "pt": "Registrar um pagamento e enviar o recibo",
+    "en": "Record a payment and send the receipt"
+   },
+   "summary": {
+    "pt": "Registre um pagamento de fatura e envie o recibo ao cliente.",
+    "en": "Record an invoice payment and send the receipt to the client."
+   },
+   "keywords": {
+    "pt": [
+     "pagamento",
+     "registrar pagamento",
+     "recibo",
+     "fatura",
+     "faturas",
+     "dinheiro",
+     "cheque",
+     "zelle",
+     "desfazer",
+     "financeiro"
+    ],
+    "en": [
+     "payment",
+     "record payment",
+     "receipt",
+     "invoice",
+     "invoices",
+     "cash",
+     "check",
+     "zelle",
+     "undo",
+     "finance"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "record",
+     "title": {
+      "pt": "Registrar o pagamento e enviar o recibo",
+      "en": "Record the payment and send the receipt"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Antes de começar. Use Registrar pagamento. Não use Marcar como pago: esse botão é só uma etiqueta de lembrete e não emite recibo. Use quando um cliente paga uma fatura em dinheiro, cheque, Zelle ou outra forma e precisa de um recibo. O dinheiro entra como receita nos livros da Apex.",
+        "en": "Before you start. Use Registrar pagamento (Record payment). Do not use Marcar como pago (Mark as paid): that one is only a reminder note and does not issue a receipt. Use this when a client pays an invoice in cash, by check, Zelle or another method and needs a receipt. Cash counts as income in the Apex books."
+       },
+       "image": null
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Abra Financeiro, toque em Faturas. Abra Financeiro no menu da esquerda. Embaixo dos quatro totais, toque no botão Faturas.",
+        "en": "Open Financeiro, tap Faturas. Open Financeiro in the left menu. Under the four totals, tap the Faturas button."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-02.jpg",
+        "en": "help/img/guides/admin-record-payment/record-02.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em Não Pagas. Toque em Não Pagas. Encontre a fatura do cliente que pagou.",
+        "en": "Tap Não Pagas. Tap Não Pagas (Unpaid). Find the invoice of the client who paid."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-03.jpg",
+        "en": "help/img/guides/admin-record-payment/record-03.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Toque em Registrar pagamento. Na fatura, toque no botão dourado Registrar pagamento.",
+        "en": "Tap Registrar pagamento. On that invoice, tap the gold button Registrar pagamento (Record payment)."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-04.jpg",
+        "en": "help/img/guides/admin-record-payment/record-04.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Preencha o formulário. 1. Valor recebido: digite o valor que você recebeu. 2. Forma de pagamento: escolha Dinheiro. Confira se a data está certa. 3. Toque em Salvar.",
+        "en": "Fill in the form. 1. Valor recebido: type the amount you received. 2. Forma de pagamento: choose Dinheiro (Cash). Check that the date is right. 3. Tap Salvar (Save)."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-05.jpg",
+        "en": "help/img/guides/admin-record-payment/record-05.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Confira a mensagem. Aparece \"Pagamento registrado. Recibo RCT-...\". A fatura sai de Não Pagas e vai para Arquivo como Paga. O dinheiro já conta como receita.",
+        "en": "Check the message. You see \"Pagamento registrado. Recibo RCT-...\" (Payment recorded). The invoice leaves Não Pagas and moves to Arquivo as Paga (Paid). The cash is now counted as income."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-06.jpg",
+        "en": "help/img/guides/admin-record-payment/record-06.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Abra o recibo. Toque em Arquivo. Embaixo da fatura, em Pagamentos, estão os botões do recibo: Ver recibo, Copiar link e Baixar PDF. Se o cliente tem WhatsApp cadastrado, aparece também Enviar por WhatsApp.",
+        "en": "Open the receipt. Tap Arquivo (Archive). Under the invoice, in Pagamentos, are the receipt buttons: Ver recibo (view), Copiar link (copy link) and Baixar PDF (download). If the client has a WhatsApp number on file, Enviar por WhatsApp (Send on WhatsApp) also appears."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-07.jpg",
+        "en": "help/img/guides/admin-record-payment/record-07.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "Envie para o cliente. É isso que o cliente vê: o recibo da Apex com o logo e \"Recebido em dinheiro\". Envie com Enviar por WhatsApp, ou toque em Copiar link e cole o link numa mensagem.",
+        "en": "Send it to the client. This is what the client sees: the Apex receipt with the logo and \"Recebido em dinheiro\" (received in cash). Send it with Enviar por WhatsApp, or tap Copiar link and paste the link into a message."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-08.jpg",
+        "en": "help/img/guides/admin-record-payment/record-08.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "Se você errou. Toque em Desfazer ao lado do pagamento. A fatura volta para Não Pagas, o dinheiro sai dos livros e o recibo fica marcado como anulado. Depois registre de novo, do jeito certo.",
+        "en": "If you made a mistake. Tap Desfazer (Undo) next to the payment. The invoice goes back to Não Pagas, the cash leaves the books, and the receipt shows as voided. Then record it again correctly."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-record-payment/record-09.jpg",
+        "en": "help/img/guides/admin-record-payment/record-09.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Registrar pagamento"
+      ],
+      "en": [
+       "Record payment"
+      ]
+     },
+     "section": "record",
+     "step": 4
+    }
+   ]
+  },
+  {
+   "id": "admin-tasks",
+   "audience": "admin",
+   "title": {
+    "pt": "Tarefas da equipe, passo a passo",
+    "en": "Staff tasks, step by step"
+   },
+   "summary": {
+    "pt": "Adicione, passe, comente e conclua tarefas de Nicole, Rafa e Alice.",
+    "en": "Add, hand over, comment on and finish tasks for Nicole, Rafa and Alice."
+   },
+   "keywords": {
+    "pt": [
+     "tarefas",
+     "tarefa",
+     "adicionar tarefa",
+     "falar minhas tarefas",
+     "nota",
+     "prazo",
+     "etiqueta",
+     "em andamento",
+     "aguardando cliente",
+     "concluídas",
+     "lista"
+    ],
+    "en": [
+     "tasks",
+     "task",
+     "add task",
+     "speak my tasks",
+     "note",
+     "due date",
+     "pill",
+     "working on it",
+     "waiting on client",
+     "done",
+     "list"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "tasks",
+     "title": {
+      "pt": "Tarefas da equipe",
+      "en": "Staff tasks"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "O que é. Uma lista de tarefas para Nicole, Rafa e Alice. Adicione tarefas digitando, colando uma lista ou falando. Passe tarefas uns para os outros, abra cada uma, converse dentro dela, use as etiquetas e o prazo, e marque como feita. O botão do microfone, Falar minhas tarefas, transforma o que você fala em tarefas separadas. No iPhone, toque em Permitir na primeira vez que ele pedir.",
+        "en": "What it is. A task list for Nicole, Rafa and Alice. Add tasks by typing, pasting a list or speaking. Give them to each other, open them, keep a conversation inside each one, set a pill and a due date, and tick them off. The microphone button, Speak my tasks, turns what you say into separate tasks. On the iPhone, tap Allow the first time it asks."
+       },
+       "image": null
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "A página Tarefas. Abra Tarefas no menu da esquerda. Adicionar tarefa é onde você digita ou cola uma tarefa. Falar minhas tarefas transforma o que você fala em tarefas.",
+        "en": "The Tasks page. Open Tasks in the left menu. Add task is where you type or paste a task. Speak my tasks turns what you say into tasks."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-02.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Adicionar tarefa: o formulário. 1. O que precisa ser feito. 2. Para quem: para mim, Rafa ou Alice (a pessoa recebe uma notificação). 3. Cliente, se for de um cliente. 4. Prazo, se tiver. 5. Adicionar.",
+        "en": "Add task: the form. 1. What needs to be done. 2. For whom: for me, Rafa or Alice (they get a notification). 3. Client, if it belongs to one. 4. Due date, if it has one. 5. Add."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-03.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Cole uma lista inteira. Você pode colar uma lista inteira. Caixinhas, marcadores e números funcionam. Um título vai na frente de cada item abaixo dele, e um item com o visto verde já entra como feito.",
+        "en": "Paste a whole list. A list can be pasted into the box. Boxes, bullets and numbers all work. A heading line goes in front of every item under it, and an item with a green check mark is saved as already done."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-04.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Uma tarefa para cada item. A página diz \"4 tarefas adicionadas\". Os três itens abertos são tarefas separadas, cada uma começando com o título. O item marcado foi direto para Concluídas.",
+        "en": "One task for each item. The page says \"4 tasks added.\" The three open items are separate tasks, each starting with the heading. The checked item went straight to Done."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-05.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Abra uma tarefa. Toque nas palavras de qualquer tarefa. 1. Editar muda o texto. 2. Duas etiquetas: Em andamento e Aguardando cliente. 3. Prazo. 4. As notas, uma depois da outra.",
+        "en": "Open a task. Tap the words of any task. 1. Edit changes the words. 2. Two pills: Working on it and Waiting on client. 3. Due date. 4. The notes, one after another."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-06.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-06.en.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Em andamento. Toque em Em andamento. A etiqueta fica escura e a página diz \"Saved\". Não existe botão Salvar: cada mudança salva sozinha.",
+        "en": "Working on it. Tap Working on it. The pill turns dark and the page says \"Saved.\" There is no Save button: every change saves by itself."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-07.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-07.en.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "Adicione uma nota. Escreva uma nota e toque em Adicionar nota. Ela aparece com o nome, a data e a hora. Aqui a etiqueta também foi trocada para Aguardando cliente.",
+        "en": "Add a note. Write a note and tap Add note. It appears with the name, date and time. Here the pill was also switched to Waiting on client."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-08.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-08.en.jpg"
+       }
+      },
+      {
+       "n": 9,
+       "text": {
+        "pt": "Uma conversa dentro da tarefa. As notas ficam em ordem, e todos acompanham o que aconteceu e por quê. Na conta do desenvolvedor toda nota aparece como \"System\". Alice e Rafa aparecem com os próprios nomes e fotos.",
+        "en": "A conversation in the task. Notes stack up in order, so everyone can follow what happened and why. On the developer account every note shows as \"System\". Alice and Rafa show with their own names and photos."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-09.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-09.en.jpg"
+       }
+      },
+      {
+       "n": 10,
+       "text": {
+        "pt": "Defina um prazo. Escolha uma data e ela salva. A data aparece ao lado e o link \"clear\" (limpar) tira o prazo.",
+        "en": "Set a due date. Pick a date and it saves. The date shows next to the box and the \"clear\" link removes it."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-10.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-10.en.jpg"
+       }
+      },
+      {
+       "n": 11,
+       "text": {
+        "pt": "Troque a etiqueta quando quiser. O cliente respondeu? Adicione a nota e toque em Em andamento de novo. O histórico de notas continua.",
+        "en": "Switch the pill any time. Client answered? Add the note, then tap Working on it again. The history of notes stays."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-11.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-11.en.jpg"
+       }
+      },
+      {
+       "n": 12,
+       "text": {
+        "pt": "Corrija o texto. Editar abre o texto numa caixa. Salvar guarda a mudança, Cancelar deixa a tarefa como estava.",
+        "en": "Fix the words. Edit opens the words in a box. Save keeps the change, Cancel leaves the task as it was."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-12.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-12.en.jpg"
+       }
+      },
+      {
+       "n": 13,
+       "text": {
+        "pt": "O que a lista mostra. Sem abrir nada: a última nota e quantas notas existem, o prazo e a etiqueta. Tarefas sem notas ou etiquetas ficam limpas.",
+        "en": "What the list shows. Without opening anything: the latest note and how many notes there are, the due date, and the pill. Tasks with no notes or pills stay clean."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-13.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-13.en.jpg"
+       }
+      },
+      {
+       "n": 14,
+       "text": {
+        "pt": "Marque como feita. Toque no círculo na frente da tarefa. Ela sai da lista aberta e aparece em Concluídas, com dia e hora. Tarefas concluídas não têm etiqueta.",
+        "en": "Tick it off. Tap the circle in front of a task. It leaves your open list and appears in Done, with the day and time. Done tasks carry no pill."
+       },
+       "image": {
+        "pt": "help/img/guides/admin-tasks/tasks-14.pt.jpg",
+        "en": "help/img/guides/admin-tasks/tasks-14.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Adicionar tarefa"
+      ],
+      "en": [
+       "Add task"
+      ]
+     },
+     "section": "tasks",
+     "step": 3
+    },
+    {
+     "labels": {
+      "pt": [
+       "Falar minhas tarefas"
+      ],
+      "en": [
+       "Speak my tasks"
+      ]
+     },
+     "section": "tasks",
+     "step": 2
+    }
+   ]
   }
  ],
  "pages": {
@@ -1461,6 +1856,32 @@
    "overview": {
     "pt": "Aqui você envia faturas e recibos.",
     "en": "Here you send invoices and receipts."
+   }
+  },
+  "tasks": {
+   "title": {
+    "pt": "Tarefas",
+    "en": "Tasks"
+   },
+   "guides": [
+    "admin-tasks"
+   ],
+   "overview": {
+    "pt": "Aqui você vê e cria as tarefas da equipe.",
+    "en": "Here you see and create the team tasks."
+   }
+  },
+  "finance-new": {
+   "title": {
+    "pt": "Financeiro",
+    "en": "Financial"
+   },
+   "guides": [
+    "admin-record-payment"
+   ],
+   "overview": {
+    "pt": "Aqui você acompanha o financeiro e as faturas.",
+    "en": "Here you follow the finances and the invoices."
    }
   }
  }

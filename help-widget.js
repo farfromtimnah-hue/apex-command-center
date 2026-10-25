@@ -44,6 +44,7 @@
   var ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
   var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   var ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
   var guides = null;        // parsed help/guides.json once loaded
@@ -223,6 +224,11 @@
     ".aph-state{font-size:14px;line-height:1.5;margin:12px 0}" +
     ".aph-error{color:#8f2f2f}" +
     ".aph-ok{color:#2f6b3e;font-size:13px;font-weight:600;margin-top:8px}" +
+    ".aph-ok-row{display:flex;align-items:center;gap:6px}" +
+    ".aph-sug{border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);padding:14px;margin:12px 0}" +
+    ".aph-sug-label{font-size:12px;font-weight:700;color:var(--ah-muted);margin:0 0 4px}" +
+    ".aph-sug-q{font-size:15px;line-height:1.5;margin:0 0 6px}" +
+    ".aph-sug .aph-form{margin:6px 0 4px}" +
     ".aph-sec{margin:20px 0 6px;font-size:16px;font-weight:700}" +
     ".aph-step{padding:12px;border-radius:var(--ah-r);margin:0 0 8px}" +
     ".aph-step.aph-hit{background:#f3eee3}" +
@@ -594,7 +600,7 @@
       go.setAttribute("aria-busy", "true");
       goLabel.textContent = t("Buscando...", "Searching...");
       out.appendChild(el("p", "aph-state aph-muted", t("Buscando o guia certo...", "Finding the right guide...")));
-      ask(q, askedSide).then(function (r) { clear(out); renderAnswer(out, r, askedSide); }, function (err) {
+      ask(q, askedSide).then(function (r) { clear(out); renderAnswer(out, r, askedSide, q); }, function (err) {
         clear(out);
         var msg = t("Não foi possível buscar agora. Tente de novo.", "Could not search right now. Try again.");
         if (err && err.status === 429) { msg = t("Muitas perguntas em pouco tempo. Tente de novo em alguns minutos.", "Too many questions in a short time. Try again in a few minutes."); }
@@ -610,12 +616,14 @@
     return wrap;
   }
 
-  function ask(question, audience) {
+  function ask(question, audience, logGap) {
     return getToken().then(function (token) {
+      var payload = { question: question, language: lang(), page_key: screenKey(), audience: audience };
+      if (logGap === true) { payload.log_gap = true; }
       return fetch(workerUrl() + "/api/help/ask", {
         method: "POST",
         headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question, language: lang(), page_key: screenKey(), audience: audience })
+        body: JSON.stringify(payload)
       });
     }).then(function (res) {
       if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
@@ -640,7 +648,203 @@
     return card;
   }
 
-  function renderAnswer(out, r, askedSide) {
+  // The miss messages. missing_guide is today's message, exactly.
+  function renderMissing(out, r) {
+    var msg = t("Ainda não temos um guia para isso.", "We do not have a guide for that yet.");
+    if (r && r.logged === true) { msg += " " + t("Sua pergunta foi anotada.", "Your question was noted."); }
+    out.appendChild(el("p", "aph-state", msg));
+  }
+
+  var GENERIC_ERROR = function () { return t("Algo deu errado. Tente de novo.", "Something went wrong. Try again."); };
+
+  // Apex does not do this: one calm line and two buttons. No thanks only closes the offer.
+  function renderOffer(out, q, askedSide) {
+    var box = el("div");
+    box.appendChild(el("p", "aph-state", t("O Apex ainda não faz isso. Quer nos contar mais para enviarmos uma sugestão?", "Apex does not do that yet. Want to tell us more so we can send a suggestion?")));
+    var row = el("div", "aph-row");
+    var yes = button("aph-primary", t("Sim, contar mais", "Yes, tell more"));
+    var no = button("aph-quiet", t("Não, obrigada", "No thanks"));
+    yes.addEventListener("click", function () {
+      yes.disabled = true;
+      no.disabled = true;
+      suggestFlow(box, q, askedSide);
+    });
+    no.addEventListener("click", function () { if (box.parentNode) { box.parentNode.removeChild(box); } });
+    row.appendChild(yes);
+    row.appendChild(no);
+    box.appendChild(row);
+    out.appendChild(box);
+  }
+
+  // The model could not tell: ask the person which one they mean.
+  function renderClarify(out, q, askedSide) {
+    var box = el("div");
+    box.appendChild(el("p", "aph-state", t("Você quer aprender a fazer isso no Apex, ou quer que o Apex passe a fazer isso?", "Do you want to learn how to do this in Apex, or do you want Apex to start doing it?")));
+    var row = el("div", "aph-row");
+    var learn = button("aph-quiet", t("Aprender", "Learn"));
+    var want = button("aph-primary", t("Quero que o Apex faça", "I want Apex to do it"));
+    learn.addEventListener("click", function () {
+      learn.disabled = true;
+      want.disabled = true;
+      ask(q, askedSide, true).then(function (r) { clear(box); renderMissing(box, r); }, function () {
+        learn.disabled = false;
+        want.disabled = false;
+        var old = box.querySelector ? box.querySelector(".aph-error") : null;
+        if (old && old.parentNode) { old.parentNode.removeChild(old); }
+        box.appendChild(el("p", "aph-state aph-error", GENERIC_ERROR()));
+      });
+    });
+    want.addEventListener("click", function () {
+      learn.disabled = true;
+      want.disabled = true;
+      suggestFlow(box, q, askedSide);
+    });
+    row.appendChild(learn);
+    row.appendChild(want);
+    box.appendChild(row);
+    out.appendChild(box);
+  }
+
+  // The suggestion flow: the transcript lives here and is sent whole each turn.
+  // Nothing is saved until the Worker answers done. All text is set with
+  // textContent; the decisions come from HelpCore (nextSuggestState, canFinish).
+  function suggestFlow(host, q, askedSide) {
+    var transcript = HC.startTranscript(q);
+    var question = "";
+    var busy = false;
+    var closed = false;
+
+    function post(tx, finish) {
+      return getToken().then(function (token) {
+        return fetch(workerUrl() + "/api/help/suggest", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: tx, page_key: screenKey(), language: lang(), finish: finish, audience: askedSide })
+        });
+      }).then(function (res) {
+        if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
+        return res.json();
+      });
+    }
+
+    // Sends tx; onFail runs when the call fails or the answer is not usable.
+    function run(tx, finish, onFail) {
+      post(tx, finish).then(function (data) {
+        if (closed) { return; }
+        var st = HC.nextSuggestState(tx, data);
+        if (st.phase === "asking") { transcript = st.transcript; question = st.question; showAsk(); }
+        else if (st.phase === "done") { showDone(st, tx, finish); }
+        else { onFail(); }
+      }, function () { if (!closed) { onFail(); } });
+    }
+
+    function showLoading() {
+      clear(host);
+      var p = el("p", "aph-state aph-muted", t("Enviando...", "Sending..."));
+      p.setAttribute("aria-busy", "true");
+      host.appendChild(p);
+    }
+
+    function showRetry(tx, finish, lead, isError) {
+      clear(host);
+      if (lead) { host.appendChild(el("p", isError ? "aph-state aph-error" : "aph-p", lead)); }
+      var row = el("div", "aph-row");
+      var again = button("aph-primary", t("Tentar de novo", "Try again"));
+      again.addEventListener("click", function () {
+        again.disabled = true;
+        showLoading();
+        run(tx, finish, function () { showRetry(tx, finish, GENERIC_ERROR(), true); });
+      });
+      row.appendChild(again);
+      host.appendChild(row);
+    }
+
+    function showDone(st, tx, finish) {
+      if (!st.sent && st.retry) { showRetry(tx, finish, st.reply, false); return; }
+      clear(host);
+      if (st.reply) { host.appendChild(el("p", "aph-p", st.reply)); }
+      if (st.sent) {
+        var okRow = el("p", "aph-ok aph-ok-row");
+        var ic = el("span", "aph-ico");
+        ic.innerHTML = ICON_CHECK;
+        okRow.appendChild(ic);
+        okRow.appendChild(el("span", null, t("Sugestão enviada.", "Suggestion sent.")));
+        host.appendChild(okRow);
+      }
+    }
+
+    function showAsk() {
+      busy = false;
+      clear(host);
+      var block = el("div", "aph-sug");
+      block.appendChild(el("p", "aph-sug-label", "Apex"));
+      block.appendChild(el("p", "aph-sug-q", question));
+      var form = el("form", "aph-form");
+      var input = el("input", "aph-input");
+      input.type = "text";
+      input.maxLength = 600;
+      input.setAttribute("autocomplete", "off");
+      input.setAttribute("aria-label", t("Sua resposta", "Your answer"));
+      input.setAttribute("placeholder", t("Sua resposta", "Your answer"));
+      var send = button("aph-primary");
+      send.type = "submit";
+      var sendLabel = el("span", null, t("Enviar", "Send"));
+      send.appendChild(sendLabel);
+      form.appendChild(input);
+      form.appendChild(send);
+      block.appendChild(form);
+      var err = el("div");
+      err.setAttribute("aria-live", "polite");
+      block.appendChild(err);
+      var row = el("div", "aph-row");
+      var fin = HC.canFinish(transcript) ? button("aph-side", t("Enviar assim mesmo", "Send it as it is")) : null;
+      var cancel = button("aph-side", t("Cancelar", "Cancel"));
+      if (fin) { row.appendChild(fin); }
+      row.appendChild(cancel);
+      block.appendChild(row);
+      host.appendChild(block);
+
+      function setBusy(on) {
+        busy = on;
+        input.disabled = on;
+        send.disabled = on;
+        if (fin) { fin.disabled = on; }
+        if (on) { send.setAttribute("aria-busy", "true"); sendLabel.textContent = t("Enviando...", "Sending..."); }
+        else { send.removeAttribute("aria-busy"); sendLabel.textContent = t("Enviar", "Send"); }
+      }
+      function failed() {
+        setBusy(false);
+        clear(err);
+        err.appendChild(el("p", "aph-state aph-error", GENERIC_ERROR()));
+        input.focus();
+      }
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (busy) { return; }
+        var text = String(input.value || "").replace(/^\s+|\s+$/g, "");
+        if (!text) { return; }
+        clear(err);
+        setBusy(true);
+        run(HC.addAnswer(transcript, text), false, failed);
+      });
+      if (fin) {
+        fin.addEventListener("click", function () {
+          if (busy) { return; }
+          var text = String(input.value || "").replace(/^\s+|\s+$/g, "");
+          clear(err);
+          setBusy(true);
+          run(text ? HC.addAnswer(transcript, text) : transcript, true, failed);
+        });
+      }
+      cancel.addEventListener("click", function () { closed = true; clear(host); });
+      input.focus();
+    }
+
+    showLoading();
+    run(transcript, false, function () { showRetry(transcript, false, GENERIC_ERROR(), true); });
+  }
+
+  function renderAnswer(out, r, askedSide, question) {
     var ids = (r && Array.isArray(r.guide_ids)) ? r.guide_ids : [];
     var cards = [];
     ids.forEach(function (id) { var g = (typeof id === "string") ? findGuideOn(id, askedSide) : null; if (g && cards.length < 3) { cards.push(g); } });
@@ -655,9 +859,10 @@
         others.forEach(function (og) { out.appendChild(otherSideCard(og, otherSide)); });
         return;
       }
-      var msg = t("Ainda não temos um guia para isso.", "We do not have a guide for that yet.");
-      if (r && r.logged === true) { msg += " " + t("Sua pergunta foi anotada.", "Your question was noted."); }
-      out.appendChild(el("p", "aph-state", msg));
+      var kind = HC.replyKind(r);
+      if (kind === "new_feature") { renderOffer(out, question, askedSide); return; }
+      if (kind === "unclear") { renderClarify(out, question, askedSide); return; }
+      renderMissing(out, r);
       return;
     }
     if (typeof r.reply === "string" && r.reply) { out.appendChild(el("p", "aph-p", r.reply)); }

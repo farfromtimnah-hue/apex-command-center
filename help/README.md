@@ -123,6 +123,45 @@ sides: no button, no tag, no word.
 - The `help_gaps` table has an `audience` column (`migrations/help_gaps_audience.sql`):
   apply it before the Worker deploy that writes to it.
 
+## When Apex does not do what the person asks
+
+`POST /api/help/ask` also returns a `kind`, from the same model call:
+
+- `answer`: a guide fits (forced whenever `guide_ids` is not empty).
+- `missing_guide`: the feature exists but no guide covers it. The question is
+  noted in `help_gaps` so a writer knows which guide to write.
+- `new_feature`: Apex does not do it. Nothing is written. The page offers to send
+  a suggestion.
+- `unclear`: the model is not sure. Nothing is written. The page asks "learn or
+  want Apex to do it?". "Aprender" posts the question again with `log_gap: true`
+  (no model call) so it is noted as a missing guide.
+
+The model sees the same feature guide the support chat uses (the staff app for
+the admin side, the client portal for the client side) in the same cached system
+block. Any other `kind` value becomes `unclear`.
+
+`POST /api/help/suggest` (any signed in user) holds a short conversation and then
+files one `support_tickets` row with kind `suggestion`:
+
+- Body: `{transcript, page_key, language, finish}` (staff may also send
+  `audience`). The browser keeps the transcript: at most 10 items
+  `{role, text}`, each cut to 600 characters, the first one the person's own
+  question (3 to 300 characters).
+- At most 3 questions. The server forces the end when 3 questions were asked,
+  when `finish` is true and one was asked, or when the person has answered more
+  than 3 times. It never asks a fourth.
+- The answer is `{done, question}` or `{done, reply, logged}`. `logged` is true
+  only when the ticket was saved. The page shows "Sugestão enviada." only then.
+- Identity comes only from the signed in user. The summary starts with
+  `[Admin side]` or `[Client side]`. The ticket appears in the Support list, with
+  the label "Sugestão" / "Suggestion". No alert is sent.
+- Limits: 12 turns per 10 minutes per person and 40 per network address (in
+  memory), and the same daily cap as support tickets (10 per person per day).
+  A saved suggestion counts toward that cap.
+- The pure rules live in `help-core.js` (`cleanTranscript`, `canFinish`,
+  `nextSuggestState`, `validateSuggestTurn`); the Worker has twins, tested
+  against the same cases.
+
 ## A page overview
 
 ```json

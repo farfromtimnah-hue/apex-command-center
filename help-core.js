@@ -285,7 +285,11 @@
   // exist survive, and the reply is plain text, cut and cleaned. index.other
   // ({ ids }) is the other side's list, present only for staff: other_side keeps
   // up to 2 ids from it, and only when no guide on the requested side fits.
-  var NOT_FOUND = function () { return { found: false, guide_ids: [], best: null, reply: "", other_side: [] }; };
+  var NOT_FOUND = function (kind) { return { found: false, guide_ids: [], best: null, reply: "", other_side: [], kind: kind || "unclear" }; };
+
+  // The four kinds of answer. Anything else the model says is unclear.
+  var KINDS = ["answer", "missing_guide", "new_feature", "unclear"];
+  function normalizeKind(k) { return (typeof k === "string" && KINDS.indexOf(k) !== -1) ? k : "unclear"; }
 
   function validateReply(text, index) {
     if (typeof text !== "string" || !index || !isObj(index.ids)) { return NOT_FOUND(); }
@@ -294,6 +298,7 @@
     var obj;
     try { obj = JSON.parse(t); } catch (e) { return NOT_FOUND(); }
     if (!isObj(obj)) { return NOT_FOUND(); }
+    var kind = normalizeKind(obj.kind);
 
     var ids = [];
     if (Array.isArray(obj.guide_ids)) {
@@ -309,18 +314,134 @@
       if (ids.indexOf(best.guide) === -1) { ids.unshift(best.guide); ids = ids.slice(0, 3); }
     }
     if (!ids.length) {
-      var miss = NOT_FOUND();
+      // "answer" with no real guide is the model slipping: the feature exists, the guide does not.
+      var miss = NOT_FOUND(kind === "answer" ? "missing_guide" : kind);
       if (isObj(index.other) && isObj(index.other.ids) && Array.isArray(obj.other_side)) {
         for (var o = 0; o < obj.other_side.length && miss.other_side.length < 2; o++) {
           var oid = obj.other_side[o];
           if (typeof oid === "string" && has(index.other.ids, oid) && miss.other_side.indexOf(oid) === -1) { miss.other_side.push(oid); }
         }
+        // A guide on the other side means the feature exists.
+        if (miss.other_side.length) { miss.kind = "missing_guide"; }
       }
       return miss;
     }
     var reply = "";
     if (typeof obj.reply === "string") { reply = obj.reply.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").replace(/^\s+|\s+$/g, "").slice(0, 400); }
-    return { found: true, guide_ids: ids, best: best, reply: reply, other_side: [] };
+    return { found: true, guide_ids: ids, best: best, reply: reply, other_side: [], kind: "answer" };
+  }
+
+  // What the page does with an answer that has no guide cards. A Worker that
+  // sends no kind (or a kind this page does not know) keeps today's message.
+  function replyKind(r) {
+    var k = (isObj(r) && typeof r.kind === "string") ? r.kind : "";
+    return KINDS.indexOf(k) !== -1 ? k : "missing_guide";
+  }
+
+  // ---- the suggestion flow ----------------------------------------------
+  // The transcript is held by the browser and sent whole each turn. The Worker
+  // has a twin of cleanTranscript and validateSuggestTurn (both are tested
+  // against the same cases). Nothing here is HTML: every text is plain data.
+  var CONTROL_RE = /[\u0000-\u001f\u007f-\u009f]/g;
+  function plainText(v, max) {
+    return String(v).replace(/[\n\r\t]/g, " ").replace(CONTROL_RE, "").replace(/^\s+|\s+$/g, "").slice(0, max);
+  }
+
+  // Returns the cleaned transcript, or null when the body is not acceptable:
+  // not an array, empty or more than 10 items, an item that is not {role, text},
+  // a role other than user or assistant, an empty text, no user item, the first
+  // item not the person's question, or that question not 3 to 300 characters.
+  // Each text is cut to 600 characters, never rejected for length.
+  function cleanTranscript(items) {
+    if (!Array.isArray(items) || !items.length || items.length > 10) { return null; }
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var m = items[i];
+      if (!isObj(m) || (m.role !== "user" && m.role !== "assistant") || typeof m.text !== "string") { return null; }
+      var text = plainText(m.text, 600);
+      if (!text) { return null; }
+      out.push({ role: m.role, text: text });
+    }
+    if (out[0].role !== "user") { return null; }
+    var firstFull = plainText(items[0].text, 100000);
+    if (firstFull.length < 3 || firstFull.length > 300) { return null; }
+    return out;
+  }
+
+  function questionsAsked(transcript) {
+    var n = 0;
+    if (Array.isArray(transcript)) { for (var i = 0; i < transcript.length; i++) { if (transcript[i] && transcript[i].role === "assistant") { n++; } } }
+    return n;
+  }
+
+  // "Send it as it is" is offered once at least one question was asked.
+  function canFinish(transcript) { return questionsAsked(transcript) >= 1; }
+
+  function startTranscript(question) {
+    return [{ role: "user", text: plainText(question, 300) }];
+  }
+
+  function addAnswer(transcript, text) {
+    var out = Array.isArray(transcript) ? transcript.slice() : [];
+    out.push({ role: "user", text: plainText(text, 600) });
+    return out;
+  }
+
+  // The page state after the Worker answered. Never changes the old transcript.
+  //   asking: the Worker asked a question; it is added as an assistant item.
+  //   done:   sent is true ONLY when logged === true; retry only when it was not
+  //           saved and the cause is not the daily cap.
+  //   error:  the reply was not a question and not a final answer.
+  function nextSuggestState(transcript, apiResult) {
+    var base = Array.isArray(transcript) ? transcript.slice() : [];
+    if (!isObj(apiResult)) { return { phase: "error", transcript: base }; }
+    if (apiResult.done === true) {
+      var logged = apiResult.logged === true;
+      return {
+        phase: "done", transcript: base,
+        reply: typeof apiResult.reply === "string" ? plainText(apiResult.reply, 400) : "",
+        sent: logged, retry: !logged && apiResult.capped !== true
+      };
+    }
+    var q = typeof apiResult.question === "string" ? plainText(apiResult.question, 300) : "";
+    if (apiResult.done === false && q) {
+      base.push({ role: "assistant", text: q });
+      return { phase: "asking", transcript: base, question: q };
+    }
+    return { phase: "error", transcript: base };
+  }
+
+  var NEUTRAL_Q = { pt: "Pode me contar um pouco mais sobre o que você precisa?", en: "Can you tell me a little more about what you need?" };
+  var THANKS = { pt: "Agradecemos por nos contar. Enviamos sua sugestão para a equipe.", en: "Thank you for telling us. Your suggestion was sent to the team." };
+
+  // text: the model's answer. state: { asked, finish, first, language }.
+  // asked is how many questions are already in the transcript; finish is true
+  // when the server forces the end. The model's text is never run and never HTML.
+  function validateSuggestTurn(text, state) {
+    var lang = (state && state.language === "en") ? "en" : "pt";
+    var canAsk = !!state && !state.finish && state.asked < 3;
+    function fallback() {
+      if (canAsk) { return { done: false, question: NEUTRAL_Q[lang] }; }
+      return { done: true, summary_en: plainText((state && state.first) || "", 300), reply: THANKS[lang] };
+    }
+    if (typeof text !== "string") { return fallback(); }
+    var t = text.replace(/^\s+|\s+$/g, "");
+    if (t.indexOf("```") === 0) { t = t.replace(/^```[A-Za-z]*\s*/, "").replace(/\s*```$/, ""); }
+    var obj;
+    try { obj = JSON.parse(t); } catch (e) { return fallback(); }
+    if (!isObj(obj)) { return fallback(); }
+    if (obj.done === false) {
+      var q = typeof obj.question === "string" ? plainText(obj.question, 300) : "";
+      if (!q || !canAsk) { return fallback(); }
+      return { done: false, question: q };
+    }
+    if (obj.done === true) {
+      var summary = typeof obj.summary_en === "string" ? plainText(obj.summary_en, 900) : "";
+      if (!summary) { return fallback(); }
+      var reply = typeof obj.reply === "string" ? plainText(obj.reply, 400) : "";
+      return { done: true, summary_en: summary, reply: reply || THANKS[lang] };
+    }
+    return fallback();
   }
 
   // ---- flag guard -------------------------------------------------------
@@ -346,6 +467,15 @@
     effectiveAudience: effectiveAudience,
     isStaffRole: isStaffRole,
     validateReply: validateReply,
+    KINDS: KINDS,
+    replyKind: replyKind,
+    cleanTranscript: cleanTranscript,
+    questionsAsked: questionsAsked,
+    canFinish: canFinish,
+    startTranscript: startTranscript,
+    addAnswer: addAnswer,
+    nextSuggestState: nextSuggestState,
+    validateSuggestTurn: validateSuggestTurn,
     isEnabled: isEnabled
   };
 }));

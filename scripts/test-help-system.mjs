@@ -304,6 +304,9 @@ const NS = "not said";
     { name: "accepts the fifth question (4 asked)", text: JSON.stringify({ done: false, question: "Q5?" }), st: ST({ asked: 4 }), check: (r) => r.done === false && r.question === "Q5?" },
     { name: "accepts a valid done with a full spec", text: okDone, st: ST({ asked: 1 }), check: (r) => r.done === true && r.reply === "Obrigada, enviamos para a equipe." && JSON.stringify(r.spec) === JSON.stringify(SPEC_FULL) },
     { name: "accepts a done on the very first turn", text: okDone, st: ST(), check: (r) => r.done === true },
+    { name: "tolerates a sentence around the JSON (done with a spec)", text: "Here is the result:\n" + okDone + "\nThat is all.", st: ST({ asked: 1 }), check: (r) => r.done === true && r.spec.what === SPEC_FULL.what },
+    { name: "tolerates a sentence around the JSON (a question)", text: "Sure! " + JSON.stringify({ done: false, question: "Qual tela inicia isso?" }) + " Thanks.", st: ST(), check: (r) => r.done === false && r.question === "Qual tela inicia isso?" },
+    { name: "a truncated JSON still falls back safely", text: okDone.slice(0, okDone.length - 40), st: ST({ asked: 1 }), check: (r) => r.done === false && r.question.length > 0 },
     { name: "tolerates a code fence", text: "```json\n" + okDone + "\n```", st: ST({ asked: 1 }), check: (r) => r.done === true && r.spec.what === SPEC_FULL.what },
     { name: "done without a spec asks the neutral question (pt)", text: JSON.stringify({ done: true, reply: "ok" }), st: ST({ asked: 1 }), check: (r) => r.done === false && r.question === PT_Q },
     { name: "done with a spec that is an array falls back", text: JSON.stringify({ done: true, spec: [1], reply: "ok" }), st: ST({ asked: 1 }), check: (r) => r.done === false && r.question === PT_Q },
@@ -773,7 +776,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
       ok(x.r.status === 200 && x.r.data.done === false && x.r.data.question === "Quantas vezes por semana?" && x.r.data.logged === false, "(d) suggest: a first turn returns the question, done false, logged false");
       ok(x.inserts.length === 0, "(d) suggest: nothing is saved until done");
       const body = sentBody(x);
-      ok(x.calls.length === 1 && body.max_tokens === 400 && /^claude-/.test(body.model) && body.system.length === 1 && body.system[0].cache_control.type === "ephemeral" && x.calls[0].init.headers["x-api-key"] === "test-key", "(d) suggest: the model call has max_tokens 400 and one cached system block");
+      ok(x.calls.length === 1 && body.max_tokens === 1000 && /^claude-/.test(body.model) && body.system.length === 1 && body.system[0].cache_control.type === "ephemeral" && x.calls[0].init.headers["x-api-key"] === "test-key", "(d) suggest: the model call has max_tokens 1000 (a full spec needs room) and one cached system block");
       ok(sentSys(x).indexOf("UNTRUSTED") !== -1 && sentSys(x).indexOf("Finish now") === -1, "(d) suggest: the system text says the transcript is untrusted and does not force the end");
       ok(sentMsg(x).indexOf(FIRST) !== -1, "(d) suggest: the transcript is sent to the model as data");
     }

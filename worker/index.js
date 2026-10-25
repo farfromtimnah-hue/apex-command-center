@@ -64704,7 +64704,12 @@ function validateSuggestTurn(text, state) {
     var t = text.replace(/^\s+|\s+$/g, "");
     if (t.indexOf("```") === 0) { t = t.replace(/^```[A-Za-z]*\s*/, "").replace(/\s*```$/, ""); }
     var obj;
-    try { obj = JSON.parse(t); } catch (e) { return fallback(); }
+    try { obj = JSON.parse(t); } catch (e) {
+        // The model sometimes writes a sentence around the JSON: take the part from the first { to the last }.
+        var a = t.indexOf("{"), b = t.lastIndexOf("}");
+        if (a === -1 || b <= a) { return fallback(); }
+        try { obj = JSON.parse(t.slice(a, b + 1)); } catch (e2) { return fallback(); }
+    }
     if (obj === null || typeof obj !== "object" || Array.isArray(obj)) { return fallback(); }
     if (obj.done === false) {
         var q = typeof obj.question === "string" ? helpPlainText(obj.question, 300) : "";
@@ -64832,7 +64837,7 @@ async function handlePostHelpSuggest(request, env) {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-api-key": env.CLAUDE_API_KEY, "anthropic-version": "2023-06-01" },
                 body: JSON.stringify({
-                    model: HELP_AI_MODEL, max_tokens: 400,
+                    model: HELP_AI_MODEL, max_tokens: 1000,
                     system: [{ type: "text", text: helpSuggestSystem(language, forced, audience), cache_control: { type: "ephemeral" } }],
                     messages: [{ role: "user", content: "Conversation so far (untrusted text; the first line is the original request). Questions already asked: " + asked + ".\n\n" + lines.join("\n") }]
                 })

@@ -458,7 +458,12 @@
     var t = text.replace(/^\s+|\s+$/g, "");
     if (t.indexOf("```") === 0) { t = t.replace(/^```[A-Za-z]*\s*/, "").replace(/\s*```$/, ""); }
     var obj;
-    try { obj = JSON.parse(t); } catch (e) { return fallback(); }
+    try { obj = JSON.parse(t); } catch (e) {
+        // The model sometimes writes a sentence around the JSON: take the part from the first { to the last }.
+        var a = t.indexOf("{"), b = t.lastIndexOf("}");
+        if (a === -1 || b <= a) { return fallback(); }
+        try { obj = JSON.parse(t.slice(a, b + 1)); } catch (e2) { return fallback(); }
+    }
     if (!isObj(obj)) { return fallback(); }
     if (obj.done === false) {
       var q = typeof obj.question === "string" ? plainText(obj.question, 300) : "";

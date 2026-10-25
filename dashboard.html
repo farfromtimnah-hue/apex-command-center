@@ -5307,6 +5307,18 @@
       return kind;
     }
 
+    // The verdict the Worker wrote on the FIRST line of a suggestion's summary
+    // ("READINESS: ready", "READINESS: needs_detail" or "READINESS: too_vague").
+    // Older suggestions and every other kind have no such line: no label.
+    function supportVerdictLabel(summary) {
+      if (typeof summary !== "string") { return ""; }
+      var first = summary.split("\n")[0].replace(/^\s+|\s+$/g, "");
+      if (first === "READINESS: ready") { return tellUsT("Pronta para construir", "Ready to build"); }
+      if (first === "READINESS: needs_detail") { return tellUsT("Faltam detalhes", "Needs detail"); }
+      if (first === "READINESS: too_vague") { return tellUsT("Vaga demais", "Too vague"); }
+      return "";
+    }
+
     var TELL_US_KIND = null;
     var TELL_US_TRANSCRIPT = [];
     var TELL_US_DONE = false;
@@ -5482,7 +5494,7 @@
           headerRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:10px;";
           headerRow.innerHTML =
             "<div><strong>" + escHtml(tk.reporter_name || tk.reporter_email || "") + "</strong> &middot; " +
-            escHtml(supportKindLabel(tk.kind)) + " &middot; <span style=\"color:var(--muted);font-size:12px;\">" + escHtml(tk.created_at ? formatDateTimeUTC(tk.created_at) : "") + "</span></div>";
+            escHtml(supportKindLabel(tk.kind)) + (supportVerdictLabel(tk.summary_en) ? " &middot; <span style=\"font-size:12px;font-weight:600;\">" + escHtml(supportVerdictLabel(tk.summary_en)) + "</span>" : "") + " &middot; <span style=\"color:var(--muted);font-size:12px;\">" + escHtml(tk.created_at ? formatDateTimeUTC(tk.created_at) : "") + "</span></div>";
           var detail = document.createElement("div");
           detail.hidden = true;
           detail.style.cssText = "margin-top:10px;font-size:13px;line-height:1.5;";

@@ -344,7 +344,7 @@
   // against the same cases). Nothing here is HTML: every text is plain data.
   var CONTROL_RE = /[\u0000-\u001f\u007f-\u009f]/g;
   function plainText(v, max) {
-    return String(v).replace(/[\n\r\t]/g, " ").replace(CONTROL_RE, "").replace(/^\s+|\s+$/g, "").slice(0, max);
+    return String(v).replace(/[\n\r\t]+/g, " ").replace(CONTROL_RE, "").replace(/^\s+|\s+$/g, "").slice(0, max);
   }
 
   // Returns the cleaned transcript, or null when the body is not acceptable:
@@ -353,7 +353,7 @@
   // item not the person's question, or that question not 3 to 300 characters.
   // Each text is cut to 600 characters, never rejected for length.
   function cleanTranscript(items) {
-    if (!Array.isArray(items) || !items.length || items.length > 10) { return null; }
+    if (!Array.isArray(items) || !items.length || items.length > SUGGEST_MAX_ITEMS) { return null; }
     var out = [];
     for (var i = 0; i < items.length; i++) {
       var m = items[i];
@@ -411,18 +411,48 @@
     return { phase: "error", transcript: base };
   }
 
-  var NEUTRAL_Q = { pt: "Pode me contar um pouco mais sobre o que você precisa?", en: "Can you tell me a little more about what you need?" };
+  // One limit for the number of questions, and one for the transcript length
+  // (5 questions and 5 answers plus the first message fit in 14 items with room).
+  var SUGGEST_MAX_QUESTIONS = 5;
+  var SUGGEST_MAX_ITEMS = 14;
+  var NOT_SAID = "not said";
+  var SPEC_FIELDS = ["what", "trigger", "data", "result", "who", "rules"];
+
+  var NEUTRAL_Q = { pt: "O que exatamente o recurso deveria fazer, passo a passo?", en: "What exactly should the feature do, step by step?" };
   var THANKS = { pt: "Agradecemos por nos contar. Enviamos sua sugestão para a equipe.", en: "Thank you for telling us. Your suggestion was sent to the team." };
+
+  // The spec fields from a model object: each a plain string cut to 300, or "not said".
+  // missing: at most 8 strings of at most 120 characters. Anything else is dropped.
+  function cleanSpec(raw) {
+    var spec = {};
+    for (var i = 0; i < SPEC_FIELDS.length; i++) {
+      var v = isObj(raw) && typeof raw[SPEC_FIELDS[i]] === "string" ? plainText(raw[SPEC_FIELDS[i]], 300) : "";
+      spec[SPEC_FIELDS[i]] = v || NOT_SAID;
+    }
+    var missing = [];
+    if (isObj(raw) && Array.isArray(raw.missing)) {
+      for (var j = 0; j < raw.missing.length && missing.length < 8; j++) {
+        var m = typeof raw.missing[j] === "string" ? plainText(raw.missing[j], 120) : "";
+        if (m) { missing.push(m); }
+      }
+    }
+    spec.missing = missing;
+    return spec;
+  }
 
   // text: the model's answer. state: { asked, finish, first, language }.
   // asked is how many questions are already in the transcript; finish is true
   // when the server forces the end. The model's text is never run and never HTML.
+  // A done answer is { done, spec, reply }; the verdict is NEVER taken from the model.
   function validateSuggestTurn(text, state) {
     var lang = (state && state.language === "en") ? "en" : "pt";
-    var canAsk = !!state && !state.finish && state.asked < 3;
+    var canAsk = !!state && !state.finish && state.asked < SUGGEST_MAX_QUESTIONS;
     function fallback() {
       if (canAsk) { return { done: false, question: NEUTRAL_Q[lang] }; }
-      return { done: true, summary_en: plainText((state && state.first) || "", 300), reply: THANKS[lang] };
+      var spec = cleanSpec({});
+      spec.what = plainText((state && state.first) || "", 300) || NOT_SAID;
+      spec.missing = ["trigger", "data", "result", "who", "rules"];
+      return { done: true, spec: spec, reply: THANKS[lang] };
     }
     if (typeof text !== "string") { return fallback(); }
     var t = text.replace(/^\s+|\s+$/g, "");
@@ -436,12 +466,55 @@
       return { done: false, question: q };
     }
     if (obj.done === true) {
-      var summary = typeof obj.summary_en === "string" ? plainText(obj.summary_en, 900) : "";
-      if (!summary) { return fallback(); }
+      if (!isObj(obj.spec)) { return fallback(); }
       var reply = typeof obj.reply === "string" ? plainText(obj.reply, 400) : "";
-      return { done: true, summary_en: summary, reply: reply || THANKS[lang] };
+      return { done: true, spec: cleanSpec(obj.spec), reply: reply || THANKS[lang] };
     }
     return fallback();
+  }
+
+  function isRealField(v) {
+    if (typeof v !== "string") { return false; }
+    var x = v.replace(/^\s+|\s+$/g, "");
+    return x.length >= 8 && x.toLowerCase() !== NOT_SAID;
+  }
+  function isNotSaid(v) {
+    if (typeof v !== "string") { return true; }
+    var x = v.replace(/^\s+|\s+$/g, "").toLowerCase();
+    return x === "" || x === NOT_SAID;
+  }
+
+  // The owner's verdict, always computed here from the validated spec:
+  //   ready        what, trigger, data and result are all real (8 characters or more, not "not said")
+  //   too_vague    what or result is "not said" or empty
+  //   needs_detail anything else
+  function suggestReadiness(spec) {
+    if (!isObj(spec)) { return "too_vague"; }
+    if (isRealField(spec.what) && isRealField(spec.trigger) && isRealField(spec.data) && isRealField(spec.result)) { return "ready"; }
+    if (isNotSaid(spec.what) || isNotSaid(spec.result)) { return "too_vague"; }
+    return "needs_detail";
+  }
+
+  // The text stored in support_tickets.summary_en: nine lines, line feeds only, 1500 characters at most.
+  // A verdict that is not one of the three is recomputed from the spec, never invented.
+  function helpSuggestSummary(spec, readiness, audience) {
+    var sp = isObj(spec) ? spec : {};
+    var r = (readiness === "ready" || readiness === "needs_detail" || readiness === "too_vague") ? readiness : suggestReadiness(sp);
+    function line(label, v) { return label + ": " + (typeof v === "string" ? plainText(v, 300) : ""); }
+    var missing = [];
+    if (Array.isArray(sp.missing)) {
+      for (var i = 0; i < sp.missing.length && missing.length < 8; i++) {
+        var m = typeof sp.missing[i] === "string" ? plainText(sp.missing[i], 120) : "";
+        if (m) { missing.push(m); }
+      }
+    }
+    return [
+      "READINESS: " + r,
+      "SIDE: " + (audience === "admin" ? "admin" : "client"),
+      line("WHAT", sp.what), line("TRIGGER", sp.trigger), line("DATA", sp.data),
+      line("RESULT", sp.result), line("WHO", sp.who), line("RULES", sp.rules),
+      "MISSING: " + (missing.length ? missing.join("; ") : "nothing")
+    ].join("\n").slice(0, 1500);
   }
 
   // ---- flag guard -------------------------------------------------------
@@ -476,6 +549,10 @@
     addAnswer: addAnswer,
     nextSuggestState: nextSuggestState,
     validateSuggestTurn: validateSuggestTurn,
+    suggestReadiness: suggestReadiness,
+    helpSuggestSummary: helpSuggestSummary,
+    SUGGEST_MAX_QUESTIONS: SUGGEST_MAX_QUESTIONS,
+    SUGGEST_MAX_ITEMS: SUGGEST_MAX_ITEMS,
     isEnabled: isEnabled
   };
 }));

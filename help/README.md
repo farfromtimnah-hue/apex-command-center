@@ -141,26 +141,41 @@ the admin side, the client portal for the client side) in the same cached system
 block. Any other `kind` value becomes `unclear`.
 
 `POST /api/help/suggest` (any signed in user) holds a short conversation and then
-files one `support_tickets` row with kind `suggestion`:
+files one `support_tickets` row with kind `suggestion`. The questions turn the
+wish into a function spec the owner can build from, and every ticket says whether
+there is enough detail:
 
 - Body: `{transcript, page_key, language, finish}` (staff may also send
-  `audience`). The browser keeps the transcript: at most 10 items
+  `audience`). The browser keeps the transcript: at most 14 items
   `{role, text}`, each cut to 600 characters, the first one the person's own
   question (3 to 300 characters).
-- At most 3 questions. The server forces the end when 3 questions were asked,
-  when `finish` is true and one was asked, or when the person has answered more
-  than 3 times. It never asks a fourth.
-- The answer is `{done, question}` or `{done, reply, logged}`. `logged` is true
-  only when the ticket was saved. The page shows "Sugestão enviada." only then.
-- Identity comes only from the signed in user. The summary starts with
-  `[Admin side]` or `[Client side]`. The ticket appears in the Support list, with
-  the label "Sugestão" / "Suggestion". No alert is sent.
-- Limits: 12 turns per 10 minutes per person and 40 per network address (in
+- The model gathers six things: WHAT, TRIGGER, DATA, RESULT, WHO, RULES and
+  limits. It sees the same app feature guide as `/api/help/ask`, chosen by the
+  same audience rule. It does not ask about importance or how often.
+- At most 5 questions (one constant in each file: `HELP_SUGGEST_MAX_QUESTIONS`
+  and `HelpCore.SUGGEST_MAX_QUESTIONS`). The server forces the end when 5
+  questions were asked, when `finish` is true and one was asked, or when the
+  person sent 6 messages. It never asks a sixth.
+- The model's final answer is `{done, spec:{what, trigger, data, result, who,
+  rules, missing}, reply}`. A field the person did not give is `not said`. The
+  server computes the verdict itself (`suggestReadiness`): `ready` when what,
+  trigger, data and result are all real; `too_vague` when what or result is not
+  said; otherwise `needs_detail`. Any readiness the model sends is dropped.
+- `summary_en` holds nine lines: `READINESS`, `SIDE`, `WHAT`, `TRIGGER`, `DATA`,
+  `RESULT`, `WHO`, `RULES`, `MISSING` (`helpSuggestSummary`). The Support list
+  shows a small verdict label from the first line ("Pronta para construir",
+  "Faltam detalhes", "Vaga demais"). Older suggestion tickets have no
+  READINESS line and show no label.
+- The response to the person is only `{done, question}` or `{done, reply,
+  logged}`. It never includes the spec or the verdict. `logged` is true only when
+  the ticket was saved; the page shows "Sugestão enviada." only then.
+- Identity comes only from the signed in user. No alert is sent.
+- Limits: 16 turns per 10 minutes per person and 40 per network address (in
   memory), and the same daily cap as support tickets (10 per person per day).
   A saved suggestion counts toward that cap.
 - The pure rules live in `help-core.js` (`cleanTranscript`, `canFinish`,
-  `nextSuggestState`, `validateSuggestTurn`); the Worker has twins, tested
-  against the same cases.
+  `nextSuggestState`, `validateSuggestTurn`, `suggestReadiness`,
+  `helpSuggestSummary`); the Worker has twins, tested against the same cases.
 
 ## A page overview
 

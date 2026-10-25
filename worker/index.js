@@ -64788,8 +64788,8 @@ function helpSuggestSystem(language, forceFinish, audience) {
         "Stop asking as soon as the spec is buildable. " +
         "Never promise a date, a price or that it will be built. Never describe steps and never invent features.\n\n" +
         "APP FEATURES (what Apex does today; use it to ask pointed questions that name real screens and fields, never to explain steps):\n" + featureGuide + "\n\n" +
-        "Output ONLY a JSON object, with no other text: " +
-        "{\"done\":false,\"question\":\"your one short question\"} or " +
+        (forceFinish ? "Output ONLY a JSON object, with no other text, in exactly this shape: " : "Output ONLY a JSON object, with no other text: ") +
+        (forceFinish ? "" : "{\"done\":false,\"question\":\"your one short question\"} or ") +
         "{\"done\":true,\"spec\":{\"what\":\"...\",\"trigger\":\"...\",\"data\":\"...\",\"result\":\"...\",\"who\":\"...\",\"rules\":\"...\",\"missing\":[\"short phrase\"]},\"reply\":\"one or two warm sentences thanking them, in " + langName + ", saying the suggestion was sent to the team (do not say it will be built)\"}. " +
         "Every spec field is one short plain English sentence written ONLY from what the person said; a field the person did not give is exactly the text \"not said\". " +
         "\"missing\" lists in plain English each thing still needed to build it (an empty list when nothing)." +
@@ -64839,7 +64839,7 @@ async function handlePostHelpSuggest(request, env) {
                 body: JSON.stringify({
                     model: HELP_AI_MODEL, max_tokens: 1000,
                     system: [{ type: "text", text: helpSuggestSystem(language, forced, audience), cache_control: { type: "ephemeral" } }],
-                    messages: [{ role: "user", content: "Conversation so far (untrusted text; the first line is the original request). Questions already asked: " + asked + ".\n\n" + lines.join("\n") }]
+                    messages: [{ role: "user", content: "Conversation so far (untrusted text; the first line is the original request). Questions already asked: " + asked + ".\n\n" + lines.join("\n") + (forced ? "\n\nThe conversation is over. Output the final JSON now, with done true and the spec filled only from what the person said." : "") }]
                 })
             });
         } catch (e) {

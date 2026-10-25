@@ -778,6 +778,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
       const body = sentBody(x);
       ok(x.calls.length === 1 && body.max_tokens === 1000 && /^claude-/.test(body.model) && body.system.length === 1 && body.system[0].cache_control.type === "ephemeral" && x.calls[0].init.headers["x-api-key"] === "test-key", "(d) suggest: the model call has max_tokens 1000 (a full spec needs room) and one cached system block");
       ok(sentSys(x).indexOf("UNTRUSTED") !== -1 && sentSys(x).indexOf("Finish now") === -1, "(d) suggest: the system text says the transcript is untrusted and does not force the end");
+      ok(sentSys(x).indexOf('{"done":false') !== -1 && !/Output the final JSON now/.test(sentBody(x).messages[0].content), "(d) suggest: a normal turn offers both shapes and does not tell the model to finish");
       ok(sentMsg(x).indexOf(FIRST) !== -1, "(d) suggest: the transcript is sent to the model as data");
     }
 
@@ -786,6 +787,8 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
       const x = await sug({ body: { transcript: tx11b, language: "pt" }, model: { done: false, question: "Uma sexta pergunta?" } });
       ok(x.r.status === 200 && x.r.data.done === true && x.r.data.question === undefined, "(d) suggest: with 5 questions already asked the model is never allowed a sixth");
       ok(sentSys(x).indexOf("Finish now") !== -1, "(d) suggest: the forced turn tells the model to finish now");
+      ok(sentSys(x).indexOf('{"done":false') === -1 && sentSys(x).indexOf('"done":true') !== -1, "(d) suggest: the forced turn offers the model only the done shape, never a question shape");
+      ok(/Output the final JSON now/.test(sentBody(x).messages[0].content), "(d) suggest: the forced turn also ends the user message with the finish line");
       ok(tickets(x).length === 1, "(d) suggest: and the forced turn files the ticket");
       const x3 = await sug({ body: { transcript: [U(FIRST), A("Q1?"), U("a1"), A("Q2?"), U("a2"), A("Q3?"), U("a3")], language: "pt" }, model: { done: false, question: "Q4?" } });
       ok(x3.r.data.done === false && x3.r.data.question === "Q4?" && sentSys(x3).indexOf("Finish now") === -1, "(d) suggest: 3 questions no longer end the chat (the fourth is asked)");

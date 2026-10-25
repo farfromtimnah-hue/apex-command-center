@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "guides": [
+    {
+      "id": "estimate",
+      "title": { "pt": "Enviar um orçamento", "en": "Send an estimate" },
+      "summary": { "pt": "Monte o orçamento e envie para o cliente por mensagem ou e-mail.", "en": "Build the estimate and send it to the customer by text or email." },
+      "keywords": { "pt": ["orçamento", "proposta", "enviar", "cliente"], "en": ["estimate", "quote", "proposal", "send"] },
+      "video": { "pt": "https://example.com/video-orcamento-pt", "en": "https://example.com/video-estimate-en" },
+      "sections": [
+        {
+          "id": "create",
+          "title": { "pt": "Criar o orçamento", "en": "Create the estimate" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Abra a aba Orçamentos e toque em Novo orçamento.", "en": "Open the Estimates tab and tap New estimate." }, "image": { "pt": "help/img/guides/estimate/create-01.pt.jpg", "en": "help/img/guides/estimate/create-01.en.jpg" } },
+            { "n": 2, "text": { "pt": "Escolha o cliente e adicione os itens do serviço.", "en": "Pick the customer and add the service items." }, "image": null }
+          ]
+        },
+        {
+          "id": "send",
+          "title": { "pt": "Enviar ao cliente", "en": "Send to the customer" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Confira o total e o endereço do cliente.", "en": "Check the total and the customer address." }, "image": { "pt": "help/img/guides/estimate/send-01.pt.jpg", "en": "help/img/guides/estimate/send-01.en.jpg" } },
+            { "n": 2, "text": { "pt": "Toque em Salvar e enviar.", "en": "Tap Save and send." }, "image": { "pt": "help/img/guides/estimate/send-02.pt.jpg", "en": "help/img/guides/estimate/send-02.en.jpg" } },
+            { "n": 3, "text": { "pt": "Escolha mensagem de texto ou e-mail e confirme.", "en": "Choose text message or email and confirm." }, "image": { "pt": "help/img/guides/estimate/send-03.pt.jpg", "en": "help/img/guides/estimate/send-03.en.jpg" } }
+          ]
+        }
+      ],
+      "buttons": [
+        { "labels": { "pt": ["Novo orçamento"], "en": ["New estimate"] }, "section": "create", "step": 1 },
+        { "labels": { "pt": ["Salvar e enviar"], "en": ["Save and send"] }, "section": "send", "step": 2 }
+      ]
+    },
+    {
+      "id": "invoice",
+      "title": { "pt": "Receber uma fatura", "en": "Collect an invoice" },
+      "summary": { "pt": "Crie a fatura de um serviço pronto e acompanhe o pagamento.", "en": "Create the invoice for a finished job and follow the payment." },
+      "keywords": { "pt": ["fatura", "pagamento", "cobrar"], "en": ["invoice", "payment", "bill"] },
+      "video": null,
+      "sections": [
+        {
+          "id": "create",
+          "title": { "pt": "Criar a fatura", "en": "Create the invoice" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Abra a aba Faturas e toque em Nova fatura.", "en": "Open the Invoices tab and tap New invoice." }, "image": { "pt": "help/img/guides/invoice/create-01.pt.jpg", "en": "help/img/guides/invoice/create-01.en.jpg" } },
+            { "n": 2, "text": { "pt": "Escolha o serviço concluído e confira o valor.", "en": "Pick the finished job and check the amount." }, "image": null }
+          ]
+        },
+        {
+          "id": "paid",
+          "title": { "pt": "Marcar como paga", "en": "Mark as paid" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Abra a fatura e toque em Registrar pagamento.", "en": "Open the invoice and tap Record payment." }, "image": { "pt": "help/img/guides/invoice/paid-01.pt.jpg", "en": "help/img/guides/invoice/paid-01.en.jpg" } }
+          ]
+        }
+      ],
+      "buttons": [
+        { "labels": { "pt": ["Nova fatura"], "en": ["New invoice"] }, "section": "create", "step": 1 },
+        { "labels": { "pt": ["Registrar pagamento"], "en": ["Record payment"] }, "section": "paid", "step": 1 }
+      ]
+    }
+  ],
+  "pages": {
+    "gmestimates": {
+      "title": { "pt": "Orçamentos", "en": "Estimates" },
+      "guides": ["estimate"],
+      "overview": { "pt": "Aqui você cria e envia orçamentos.", "en": "Here you create and send estimates." }
+    }
+  }
+}

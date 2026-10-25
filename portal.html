@@ -4867,6 +4867,13 @@
     // ── Portal ──────────────────────────────────────────────────────────────
     var tabsLoaded = {};
     var currentTab = null;   // last tab switchTab() landed on
+    // Learn (Aprenda): the one small function the help sheet calls to learn which
+    // screen is open, so it can show that screen's overview first. Empty when the
+    // portal itself is not on screen (sign in, password, goals prompt).
+    window.apexHelpScreenKey = function () {
+      var v = document.getElementById("viewPortal");
+      return (v && !v.hidden && currentTab) ? currentTab : "";
+    };
 
     // Desktop tab strip: leads get only the two real tabs. The locked teasers
     // are reachable via "Mais" (the same overflow pattern mobile uses), which
@@ -8342,6 +8349,9 @@
   </script>
   <script src="gm.js?v=1792866258"></script>
   <script src="nav.js"></script>
+  <script src="help-config.js"></script>
+  <script src="help-core.js"></script>
+  <script src="help-widget.js"></script>
   <!-- Mobile dock container: static HTML on purpose, same reasoning as the
        admin pages (see finance.html) — a runtime-injected fixed-position nav
        previously broke desktop layout. mobile.css alone controls visibility/

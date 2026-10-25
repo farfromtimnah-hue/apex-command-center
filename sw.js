@@ -9,7 +9,7 @@
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1792866258";
+var CACHE_NAME = "apex-static-1792955583";
 
 var PRECACHE_URLS = [
   "nav.js",
@@ -54,6 +54,10 @@ function isStaticAsset(url) {
   if (u.origin === self.location.origin) {
     var path = u.pathname.toLowerCase();
     if (path.indexOf("/api/") !== -1) { return false; }
+    // Learn (Aprenda) guides and pictures are live content: a stale copy would
+    // keep an old guide on screen. Never cache-first; let the browser fetch them
+    // (guides.json is no-store, pictures revalidate within five minutes).
+    if (path.indexOf("/help/") !== -1) { return false; }
     // version.json is polled by pwa.js for the self-heal reload; it must never
     // be served from the SW cache or the poll can never observe a change.
     if (endsWith(path, "/version.json")) { return false; }

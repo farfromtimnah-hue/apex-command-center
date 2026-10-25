@@ -18,7 +18,7 @@
 #   ?v= JS / CSS         immutable, 1 year        cache-first
 #   icons / fonts        immutable, 1 year        cache-first
 #
-# Rule count: 10 of the 100-rule limit (verified against the documented cap).
+# Rule count: 12 of the 100-rule limit (verified against the documented cap).
 
 # --- Always-fresh: the three files that control everything else -------------
 # sw.js (the update entry point — if it is cached, no fix can ever ship) and
@@ -85,3 +85,15 @@
 /manifest.json
   ! Cache-Control
   Cache-Control: public, max-age=604800
+
+# --- Learn (Aprenda): guides and pictures ------------------------------------
+# The iPhone app serves its pages from capacitor://localhost and fetches the
+# guide file and the pictures from this site, so /help/ must allow any origin.
+# This is public static content. guides.json stays no-store (from /* above) so a
+# new guide shows at once; the pictures may be kept for five minutes.
+/help/*
+  Access-Control-Allow-Origin: *
+
+/help/img/*
+  ! Cache-Control
+  Cache-Control: public, max-age=300

@@ -648,7 +648,13 @@
      "mark accepted"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/estimate-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/estimate-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "create-send",
@@ -1316,7 +1322,13 @@
      "send receipt"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/receipt-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/receipt-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "send-receipt",

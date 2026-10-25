@@ -68,6 +68,13 @@
     .card-sum { display: block; font-size: 13px; color: var(--muted); }
     .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
+    /* The side button (staff only): a quiet text button above the guide list. */
+    .side-row { margin: 22px 0 -14px; }
+    .side-btn { min-height: 44px; padding: 0 2px; border: none; border-radius: var(--radius); background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform 120ms ease-out; }
+    .side-btn:active { transform: scale(0.97); }
+    .side-btn:disabled { text-decoration: none; }
+    @media (hover: hover) { .side-btn:hover { color: var(--text); } }
+    .stag { margin-left: 6px; }
     .list-title { font-size: 15px; font-weight: 700; margin: 28px 0 10px; }
 
     .back { margin-bottom: 14px; }
@@ -98,7 +105,7 @@
     .light { position: fixed; inset: 0; z-index: 100; background: rgba(20,18,16,0.82); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadein 200ms ease-out; }
     .light img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
     .light .icon-btn { position: absolute; right: 12px; top: 12px; margin: 0; background: var(--card); }
-    @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active, .side-btn:active { transform: none; } }
     @media (max-width: 480px) { .search form { flex-direction: column; } .btn-primary { justify-content: center; } }
   </style>
 </head>
@@ -129,6 +136,7 @@
         <div id="answer" aria-live="polite"></div>
       </section>
 
+      <p class="side-row" id="sideRow" hidden></p>
       <h2 class="list-title" id="listTitle"></h2>
       <div id="guideList"></div>
     </div>
@@ -183,6 +191,8 @@
     var openGuide = null;        // { id, section, step } while a guide is open
     var authUser = null;
     var activePlayer = null;     // the video element in the open guide, if one was started
+    var side = "client";         // the side the list and the search use: "admin" or "client"
+    var sideTouched = false;     // true once staff press the side button; then the page stops choosing for them
 
     function store(key, val) { try { if (val === undefined) { return localStorage.getItem(key); } localStorage.setItem(key, val); } catch (e) { /* works without storage */ } return null; }
     function t(pt, en) { return currentLang === "en" ? en : pt; }
@@ -191,6 +201,53 @@
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text !== undefined && text !== null) { e.textContent = text; } return e; }
     function btn(cls, text) { var b = el("button", cls, text); b.type = "button"; return b; }
     function clear(n) { while (n.firstChild) { n.removeChild(n.firstChild); } }
+
+    // ---- the two sides. Every guide is on the admin side (the staff app) or the client
+    // side (the client portal). Staff may look at either; everyone else is on client.
+    // The role read here only decides whether the button is SHOWN. The Worker decides
+    // what a person may be answered, from the verified sign in.
+    function hasClientToken() {
+      try { return !!(localStorage.getItem("apex_client_token") || sessionStorage.getItem("apex_client_token")); } catch (e) { return false; }
+    }
+    function isStaff() {
+      var role = null;
+      try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
+      // Staff sign in through Firebase; a client carries a portal token instead.
+      return HC.isStaffRole(role) || (!!authUser && !hasClientToken());
+    }
+    function sideLabel(a) { return a === "admin" ? t("Lado administrador", "Admin side") : t("Lado cliente", "Client side"); }
+    // The starting side: a guide link's own side, then ?audience=, then the page default.
+    function chooseSide() {
+      if (sideTouched) { side = HC.effectiveAudience(isStaff(), side); return; }
+      var want = deep.audience || HC.defaultAudienceForPage("help");
+      if (deep.guide && guides) {
+        var dg = findGuide(deep.guide);
+        var da = dg ? HC.guideAudience(dg) : null;
+        if (da) { want = da; }
+      }
+      side = HC.effectiveAudience(isStaff(), want);
+    }
+    function sideTag(g) {
+      if (!isStaff()) { return null; }
+      var a = HC.guideAudience(g);
+      return a ? el("span", "vtag stag", sideLabel(a)) : null;
+    }
+    function renderSideRow() {
+      var row = byId("sideRow");
+      if (!row) { return; }
+      clear(row);
+      if (!isStaff()) { row.hidden = true; return; }
+      row.hidden = false;
+      var b = btn("side-btn", side === "admin" ? t("Ver guias do cliente", "See client guides") : t("Voltar aos guias do administrador", "Back to admin guides"));
+      b.addEventListener("click", function () {
+        side = side === "admin" ? "client" : "admin";
+        sideTouched = true;
+        var out = byId("answer");
+        if (out) { clear(out); }
+        renderList();
+      });
+      row.appendChild(b);
+    }
 
     // ---- language: the portal keeps it as the body class lang-en and, in the tab,
     // sessionStorage "apex_lang". This standalone page reads that, then its own saved choice.
@@ -248,6 +305,7 @@
         if (!data || data.version !== 1 || !Array.isArray(data.guides)) { throw new Error("shape"); }
         guides = data;
         loadState = "ready";
+        chooseSide();
       }, function () {
         loadState = "error";
       }).then(function () { renderList(); renderGuideView(); });
@@ -375,6 +433,7 @@
     function renderList() {
       var box = byId("guideList");
       clear(box);
+      renderSideRow();
       if (loadState === "loading") { box.appendChild(el("p", "state muted", t("Carregando...", "Loading..."))); return; }
       if (loadState === "error") {
         box.appendChild(el("p", "state error", t("Sem conexão. Tente de novo.", "No connection. Try again.")));
@@ -383,8 +442,9 @@
         box.appendChild(retry);
         return;
       }
-      if (!guides.guides.length) { box.appendChild(el("p", "state muted", t("Os guias estão sendo preparados.", "The guides are being prepared."))); return; }
-      guides.guides.forEach(function (g) { box.appendChild(quietCard(g)); });
+      var shown = HC.filterByAudience(guides.guides, side);
+      if (!shown.length) { box.appendChild(el("p", "state muted", isStaff() ? t("Os guias deste lado estão sendo preparados.", "The guides for this side are being prepared.") : t("Os guias estão sendo preparados.", "The guides are being prepared."))); return; }
+      shown.forEach(function (g) { box.appendChild(quietCard(g)); });
     }
     function quietCard(g) {
       var b = btn("card click");
@@ -392,6 +452,8 @@
       b.appendChild(el("span", "card-sum", L(g.summary)));
       var qtag = videoTag(g);
       if (qtag) { b.appendChild(qtag); }
+      var qside = sideTag(g);
+      if (qside) { b.appendChild(qside); }
       b.addEventListener("click", function () { showGuide(g.id, null, null); });
       return b;
     }
@@ -401,6 +463,8 @@
       card.appendChild(el("span", "card-sum", L(g.summary)));
       var gtag = videoTag(g);
       if (gtag) { card.appendChild(gtag); }
+      var gside = sideTag(g);
+      if (gside) { card.appendChild(gside); }
       var row = el("div", "row");
       var open = btn("btn-primary small", t("Ver passo a passo", "See step by step"));
       open.addEventListener("click", function () { showGuide(g.id, section, null); });
@@ -420,23 +484,51 @@
       if (authUser) { return authUser.getIdToken(); }
       return Promise.reject(new Error("no session"));
     }
-    function ask(question) {
+    function ask(question, audience) {
       return getToken().then(function (token) {
         return fetch(WORKER_URL + "/api/help/ask", {
           method: "POST",
           headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ question: question, language: currentLang, page_key: "help" })
+          body: JSON.stringify({ question: question, language: currentLang, page_key: "help", audience: audience })
         });
       }).then(function (res) {
         if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
         return res.json();
       });
     }
-    function renderAnswer(out, r) {
+    // A card for a guide on the other side, for staff: the button flips the side and opens it.
+    function otherSideCard(g, otherSide) {
+      var card = el("div", "card");
+      card.appendChild(el("span", "card-title", L(g.title)));
+      card.appendChild(el("span", "card-sum", L(g.summary)));
+      var tag = sideTag(g);
+      if (tag) { card.appendChild(tag); }
+      var row = el("div", "row");
+      var open = btn("btn-primary small", otherSide === "client" ? t("Ver o guia do cliente", "See the client guide") : t("Ver o guia do administrador", "See the admin guide"));
+      open.addEventListener("click", function () { side = otherSide; sideTouched = true; showGuide(g.id, null, null); renderList(); });
+      row.appendChild(open);
+      card.appendChild(row);
+      return card;
+    }
+    function guideOn(id, audience) {
+      var g = (typeof id === "string") ? findGuide(id) : null;
+      return (g && HC.guideAudience(g) === audience) ? g : null;
+    }
+    function renderAnswer(out, r, askedSide) {
       var ids = (r && Array.isArray(r.guide_ids)) ? r.guide_ids : [];
       var cards = [];
-      ids.forEach(function (id) { var g = (typeof id === "string") ? findGuide(id) : null; if (g && cards.length < 3) { cards.push(g); } });
+      ids.forEach(function (id) { var g = guideOn(id, askedSide); if (g && cards.length < 3) { cards.push(g); } });
       if (!r || !r.found || !cards.length) {
+        var others = [];
+        var otherSide = askedSide === "admin" ? "client" : "admin";
+        if (isStaff() && r && Array.isArray(r.other_side)) {
+          r.other_side.forEach(function (id) { var og = guideOn(id, otherSide); if (og && others.length < 2) { others.push(og); } });
+        }
+        if (others.length) {
+          out.appendChild(el("p", "state", t("Ainda não temos um guia deste lado.", "We do not have a guide for this side yet.")));
+          others.forEach(function (og) { out.appendChild(otherSideCard(og, otherSide)); });
+          return;
+        }
         var msg = t("Ainda não temos um guia para isso.", "We do not have a guide for that yet.");
         if (r && r.logged === true) { msg += " " + t("Sua pergunta foi anotada.", "Your question was noted."); }
         out.appendChild(el("p", "state", msg));
@@ -459,8 +551,11 @@
         go.setAttribute("aria-busy", "true");
         setAskLabel(true);
         out.appendChild(el("p", "state muted", t("Buscando o guia certo...", "Finding the right guide...")));
+        var askedSide = HC.effectiveAudience(isStaff(), side);
+        var sideNow = byId("sideRow") ? byId("sideRow").querySelector("button") : null;
+        if (sideNow) { sideNow.disabled = true; }
         var ready = guides ? Promise.resolve() : loadGuides();
-        ready.then(function () { return ask(q); }).then(function (r) { clear(out); renderAnswer(out, r); }, function (err) {
+        ready.then(function () { return ask(q, askedSide); }).then(function (r) { clear(out); renderAnswer(out, r, askedSide); }, function (err) {
           clear(out);
           var msg = t("Não foi possível buscar agora. Tente de novo.", "Could not search right now. Try again.");
           if (err && err.status === 429) { msg = t("Muitas perguntas em pouco tempo. Tente de novo em alguns minutos.", "Too many questions in a short time. Try again in a few minutes."); }
@@ -468,6 +563,7 @@
           out.appendChild(el("p", "state error", msg));
         }).then(function () {
           go.disabled = false;
+          if (sideNow) { sideNow.disabled = false; }
           go.removeAttribute("aria-busy");
           setAskLabel(false);
         });
@@ -483,7 +579,7 @@
     function closeGuide() {
       openGuide = null;
       stopPlayer();
-      try { window.history.replaceState(null, "", "help.html?lang=" + currentLang); } catch (e) { /* history is a courtesy */ }
+      try { window.history.replaceState(null, "", "help.html?lang=" + currentLang + (isStaff() ? "&audience=" + side : "")); } catch (e) { /* history is a courtesy */ }
       renderGuideView();
     }
     function renderGuideView() {
@@ -513,6 +609,8 @@
       view.classList.add("fade");
       view.appendChild(el("h1", "guide-title", L(g.title)));
       view.appendChild(el("p", "guide-sum", L(g.summary)));
+      var gtag2 = sideTag(g);
+      if (gtag2) { var tagWrap = el("p", "guide-sum"); tagWrap.appendChild(gtag2); view.appendChild(tagWrap); }
       var vblock = videoBlock(g);
       if (vblock) { view.appendChild(vblock); }
       var hit = null;
@@ -584,12 +682,13 @@
         renderGuideView();
         byId("answer").textContent = "";
       });
+      chooseSide();
       if (deep.guide) { openGuide = { id: deep.guide, section: deep.section, step: deep.step }; }
       // The search needs a sign in; staff sign in through Firebase, portal users carry their own token.
       if (enabled && window.firebase && !window.firebase.apps.length) {
         try {
           window.firebase.initializeApp(FIREBASE_CONFIG);
-          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; });
+          window.firebase.auth().onAuthStateChanged(function (u) { authUser = u; chooseSide(); renderList(); });
         } catch (e) { /* the search then says to sign in */ }
       }
       loadGuides();

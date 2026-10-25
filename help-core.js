@@ -96,18 +96,20 @@
   }
 
   // ---- deep links -------------------------------------------------------
-  // help.html?guide=ID&section=SECTION&step=N&lang=pt|en. Anything that is not
-  // a plain id comes back as null, never as a repaired value.
+  // help.html?guide=ID&section=SECTION&step=N&lang=pt|en&audience=admin|client.
+  // Anything that is not a plain id (or one of the listed values) comes back as
+  // null, never as a repaired value.
   function parseDeepLink(search) {
-    var out = { guide: null, section: null, step: null, lang: null };
+    var out = { guide: null, section: null, step: null, lang: null, audience: null };
     if (typeof search !== "string" || !search) { return out; }
     var p;
     try { p = new URLSearchParams(search); } catch (e) { return out; }
-    var g = p.get("guide"), s = p.get("section"), n = p.get("step"), l = p.get("lang");
+    var g = p.get("guide"), s = p.get("section"), n = p.get("step"), l = p.get("lang"), a = p.get("audience");
     if (isId(g)) { out.guide = g; }
     if (isId(s)) { out.section = s; }
     if (typeof n === "string" && /^[1-9][0-9]{0,2}$/.test(n)) { out.step = parseInt(n, 10); }
     if (l === "pt" || l === "en") { out.lang = l; }
+    if (a === "admin" || a === "client") { out.audience = a; }
     return out;
   }
 
@@ -185,6 +187,7 @@
       w = "guide " + g.id;
       checkText(g.title, w + " title");
       checkText(g.summary, w + " summary");
+      if (has(g, "audience") && g.audience !== "admin" && g.audience !== "client") { errs.push(w + ": audience must be \"admin\" or \"client\" (or left out)"); }
       if (!isObj(g.keywords) || !Array.isArray(g.keywords.pt) || !Array.isArray(g.keywords.en)) { errs.push(w + ": keywords needs pt and en arrays"); }
       if (g.video !== null && g.video !== undefined) {
         if (!isObj(g.video)) { errs.push(w + ": video must be null or {pt, en}"); }
@@ -241,11 +244,48 @@
     return errs;
   }
 
+  // ---- the two sides ----------------------------------------------------
+  // A guide belongs to the admin side (the staff app) or the client side (the
+  // client portal). No field means client. A bad value belongs to neither side,
+  // so a typo can never put an admin guide in front of a client.
+  var STAFF_ROLES = ["alice", "rafa", "developer", "seller"];
+
+  function guideAudience(guide) {
+    if (!isObj(guide) || !has(guide, "audience") || guide.audience === undefined) { return isObj(guide) ? "client" : null; }
+    return (guide.audience === "admin" || guide.audience === "client") ? guide.audience : null;
+  }
+
+  function filterByAudience(guides, audience) {
+    var out = [];
+    if (!Array.isArray(guides) || (audience !== "admin" && audience !== "client")) { return out; }
+    for (var i = 0; i < guides.length; i++) { if (guideAudience(guides[i]) === audience) { out.push(guides[i]); } }
+    return out;
+  }
+
+  // pageName: the screen file name, with or without .html. The client portal
+  // starts on the client side; every other screen starts on the admin side.
+  function defaultAudienceForPage(pageName) {
+    var n = typeof pageName === "string" ? pageName.replace(/\.html$/, "") : "";
+    return n === "portal" ? "client" : "admin";
+  }
+
+  // Same four roles the Worker treats as staff (supportStaffAuthed). On a page
+  // this only decides whether to SHOW the side button; the server decides who may
+  // see the other side.
+  function isStaffRole(role) { return typeof role === "string" && STAFF_ROLES.indexOf(role) !== -1; }
+
+  function effectiveAudience(isStaff, requested) {
+    if (!isStaff) { return "client"; }
+    return requested === "client" ? "client" : "admin";
+  }
+
   // ---- model reply validator -------------------------------------------
   // index: { ids: { guideId: { sections: { sectionId: true } } } } (the same
   // shape the Worker builds). The model's text is never trusted: only ids that
-  // exist survive, and the reply is plain text, cut and cleaned.
-  var NOT_FOUND = function () { return { found: false, guide_ids: [], best: null, reply: "" }; };
+  // exist survive, and the reply is plain text, cut and cleaned. index.other
+  // ({ ids }) is the other side's list, present only for staff: other_side keeps
+  // up to 2 ids from it, and only when no guide on the requested side fits.
+  var NOT_FOUND = function () { return { found: false, guide_ids: [], best: null, reply: "", other_side: [] }; };
 
   function validateReply(text, index) {
     if (typeof text !== "string" || !index || !isObj(index.ids)) { return NOT_FOUND(); }
@@ -268,10 +308,19 @@
       best = { guide: obj.best.guide, section: obj.best.section };
       if (ids.indexOf(best.guide) === -1) { ids.unshift(best.guide); ids = ids.slice(0, 3); }
     }
-    if (!ids.length) { return NOT_FOUND(); }
+    if (!ids.length) {
+      var miss = NOT_FOUND();
+      if (isObj(index.other) && isObj(index.other.ids) && Array.isArray(obj.other_side)) {
+        for (var o = 0; o < obj.other_side.length && miss.other_side.length < 2; o++) {
+          var oid = obj.other_side[o];
+          if (typeof oid === "string" && has(index.other.ids, oid) && miss.other_side.indexOf(oid) === -1) { miss.other_side.push(oid); }
+        }
+      }
+      return miss;
+    }
     var reply = "";
     if (typeof obj.reply === "string") { reply = obj.reply.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").replace(/^\s+|\s+$/g, "").slice(0, 400); }
-    return { found: true, guide_ids: ids, best: best, reply: reply };
+    return { found: true, guide_ids: ids, best: best, reply: reply, other_side: [] };
   }
 
   // ---- flag guard -------------------------------------------------------
@@ -291,6 +340,11 @@
     movedTooFar: movedTooFar,
     validateGuides: validateGuides,
     videoFor: videoFor,
+    guideAudience: guideAudience,
+    filterByAudience: filterByAudience,
+    defaultAudienceForPage: defaultAudienceForPage,
+    effectiveAudience: effectiveAudience,
+    isStaffRole: isStaffRole,
     validateReply: validateReply,
     isEnabled: isEnabled
   };

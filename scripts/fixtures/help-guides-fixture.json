@@ -94,6 +94,42 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "admin-invoice",
+      "audience": "admin",
+      "title": { "pt": "Emitir a fatura de um cliente", "en": "Issue a customer invoice" },
+      "summary": { "pt": "Para a equipe: crie e envie a fatura de um cliente.", "en": "For staff: create and send a customer invoice." },
+      "keywords": { "pt": ["fatura", "cobrar", "equipe"], "en": ["invoice", "bill", "staff"] },
+      "video": null,
+      "sections": [
+        {
+          "id": "main",
+          "title": { "pt": "Passo a passo", "en": "Step by step" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Abra a tela e siga as opções.", "en": "Open the screen and follow the options." }, "image": null }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "admin-users",
+      "audience": "admin",
+      "title": { "pt": "Adicionar um usuário da equipe", "en": "Add a staff user" },
+      "summary": { "pt": "Para a equipe: dê acesso a uma pessoa nova.", "en": "For staff: give a new person access." },
+      "keywords": { "pt": ["usuário", "acesso", "equipe"], "en": ["user", "access", "staff"] },
+      "video": null,
+      "sections": [
+        {
+          "id": "main",
+          "title": { "pt": "Passo a passo", "en": "Step by step" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Abra a tela e siga as opções.", "en": "Open the screen and follow the options." }, "image": null }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -101,6 +137,16 @@
       "title": { "pt": "Orçamentos", "en": "Estimates" },
       "guides": ["estimate", "invoice", "receipt", "contract"],
       "overview": { "pt": "Aqui você cria e envia orçamentos.", "en": "Here you create and send estimates." }
+    },
+    "dashboard": {
+      "title": { "pt": "Painel", "en": "Dashboard" },
+      "guides": ["admin-invoice", "invoice"],
+      "overview": { "pt": "Resumo do seu dia.", "en": "Your day at a glance." }
+    },
+    "adminonly": {
+      "title": { "pt": "Só equipe", "en": "Staff only" },
+      "guides": ["admin-users"],
+      "overview": { "pt": "Tela só da equipe.", "en": "Staff only screen." }
     }
   }
 }

@@ -8,7 +8,7 @@ out with a normal push and never needs an iPhone build.
 The feature is switched off. It turns on when `enabled` in `help-config.js`
 changes from `false` to `true` (and the same line in
 `ios/App/App/public/help-config.js`). Before that, apply
-`migrations/help_gaps.sql` once.
+`migrations/help_gaps.sql` and then `migrations/help_gaps_audience.sql`, once each.
 
 ## The file in plain words
 
@@ -26,6 +26,7 @@ use a long dash or an en dash in any text.
 ```json
 {
   "id": "estimate",
+  "audience": "client",
   "title":   { "pt": "", "en": "" },
   "summary": { "pt": "", "en": "" },
   "keywords": { "pt": [], "en": [] },
@@ -53,6 +54,13 @@ use a long dash or an en dash in any text.
 
 - `id`, and every section `id`: letters, digits, dash and underscore only.
   Ids must be unique (section ids only need to be unique inside their guide).
+- `audience`: which side of Apex the guide is for. `"admin"` is the staff app
+  (the people who work at Apex). `"client"` is the client portal (the owners who
+  are Apex clients). The field is optional: a guide with no `audience` counts as
+  `"client"`. Any other value is rejected by the check. Ids stay unique across
+  both sides, so two guides on different sides can never share an id (give a
+  pair on the same topic different ids, for example `invoice` and
+  `admin-invoice`). See "The two sides" below.
 - `title` and `summary`: shown on the cards. Keep the summary to one short line.
 - `keywords`: words a person might type. The search uses them. Write the
   everyday words, in both languages.
@@ -85,6 +93,36 @@ attribute: `data-help="estimate#send#3"` (guide, section, step; step optional).
 That wins over matching by words. A button that must keep its own right click
 can carry `data-no-help`.
 
+## The two sides
+
+Every guide belongs to one side. A person who asks from the admin side gets admin
+guides only. A client gets client guides only, and never sees anything about
+sides: no button, no tag, no word.
+
+- The client portal page (`portal.html`) starts on the client side. Every other
+  page starts on the admin side. Staff who preview the portal through the Dev,
+  Client or Seller views are still on `portal.html`, so they start on the client
+  side.
+- Only staff (the roles alice, rafa, developer and seller, decided by the Worker
+  from the signed in user) get one small button to look at the other side. It
+  reads "Ver guias do cliente" on the admin side and "Voltar aos guias do
+  administrador" on the client side. The choice is not remembered: it starts
+  over every time the sheet opens or help.html loads. Staff also see a small tag
+  on each guide ("Lado administrador" or "Lado cliente").
+- The sheet links to the full library as `help.html?audience=admin` or
+  `help.html?audience=client`. For staff that is the starting side; any other
+  value is ignored, and a person who is not staff always stays on client.
+- A link to one guide (`help.html?guide=ID`) opens that guide on either side, and
+  for staff it also sets the starting side to the guide's own side.
+- The guide files are public. The sides keep people from being shown the wrong
+  help by mistake. They are not a secret.
+- A screen overview (`pages`) shows only its guides that are on the person's
+  current side. If none are left, the overview is left out.
+- A side with no guides shows "Os guias deste lado estão sendo preparados."
+  (staff) or "Os guias estão sendo preparados." (a client).
+- The `help_gaps` table has an `audience` column (`migrations/help_gaps_audience.sql`):
+  apply it before the Worker deploy that writes to it.
+
 ## A page overview
 
 ```json
@@ -106,7 +144,8 @@ and so on). On a staff page it is the file name without `.html` (`dashboard`,
 ## Links to a guide
 
 `help.html?guide=ID&section=SECTION&step=N&lang=pt` opens that guide scrolled to
-that step. `lang` can be `pt` or `en`. Only plain ids are accepted.
+that step. `lang` can be `pt` or `en`. Only plain ids are accepted. For staff,
+`&audience=admin` or `&audience=client` picks the starting side.
 
 ## Check the file
 

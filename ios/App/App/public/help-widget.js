@@ -22,6 +22,14 @@
  * the app bundle. Nothing from guides.json or from the worker is put on the
  * page as markup: text goes in with textContent, so there is nothing to escape
  * and nothing to inject.
+ *
+ * Two sides: every guide belongs to the admin side (the staff app) or the client
+ * side (the client portal). The sheet starts on the side of the page it is on
+ * (portal.html is the client side, every other page is the admin side). Only
+ * staff see a small button to look at the other side, and the choice is not
+ * remembered: it starts over every time the sheet opens. A client sees client
+ * guides only and never a word about sides. The role read here only decides
+ * whether to SHOW that button; the Worker decides what a person may be answered.
  */
 (function () {
   var HC = window.HelpCore;
@@ -45,6 +53,9 @@
   var menuEl = null, lightEl = null;
   var activePlayer = null;  // the video element in the open guide, if one was started
   var openView = null;      // { id, section, step } while the sheet shows a guide
+  var side = "client";      // the side the sheet is showing: "admin" or "client"
+  var sideBtn = null;       // the one side button (staff only), while the home view shows it
+  var sideData = { admin: null, client: null }; // guides.json cut down to one side, built once per load
   var press = null;         // the touch press being timed
   var swallowClick = false;
   var swallowTimer = null;
@@ -58,6 +69,21 @@
   function t(pt, en) { return isEn() ? en : pt; }
   function lang() { return isEn() ? "en" : "pt"; }
   function L(v) { return (v && typeof v === "object") ? (v[lang()] || v.pt || "") : ""; }
+
+  // The screen file name (portal, dashboard, calendar...), used for the default side.
+  function pageName() {
+    var m = /([^\/]+?)(?:\.html)?$/.exec(window.location.pathname || "");
+    return m ? m[1] : "";
+  }
+  // Same role source the app already uses (nav.js keeps it in sessionStorage).
+  // It only decides whether the side button is SHOWN.
+  function isStaff() {
+    var role = null;
+    try { role = sessionStorage.getItem("apex_role"); } catch (e) { role = null; }
+    return HC.isStaffRole(role);
+  }
+  function defaultSide() { return HC.effectiveAudience(isStaff(), HC.defaultAudienceForPage(pageName())); }
+  function sideLabel(a) { return a === "admin" ? t("Lado administrador", "Admin side") : t("Lado cliente", "Client side"); }
 
   function screenKey() {
     var k = "";
@@ -112,6 +138,7 @@
     }).then(function (data) {
       if (!data || data.version !== 1 || !Array.isArray(data.guides)) { throw new Error("shape"); }
       guides = data;
+      sideData = { admin: null, client: null };
       return data;
     });
     guidesPromise["catch"](function () { guidesPromise = null; });
@@ -121,6 +148,23 @@
     var list = guides && guides.guides ? guides.guides : [];
     for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } }
     return null;
+  }
+  // A guide of one side only: null when the id is unknown or belongs to the other side.
+  function findGuideOn(id, audience) {
+    var g = findGuide(id);
+    return (g && HC.guideAudience(g) === audience) ? g : null;
+  }
+  // guides.json with only this side's guides (pages kept). The same object comes
+  // back every time, so the label matching in help-core can cache on it.
+  function dataFor(audience) {
+    if (!guides) { return null; }
+    if (!sideData[audience]) { sideData[audience] = { version: guides.version, guides: HC.filterByAudience(guides.guides, audience), pages: guides.pages }; }
+    return sideData[audience];
+  }
+  function sideTag(g) {
+    if (!isStaff()) { return null; }
+    var a = HC.guideAudience(g);
+    return a ? el("span", "aph-vtag aph-stag", sideLabel(a)) : null;
   }
   function imageUrl(path) {
     if (typeof path !== "string" || !path || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(path) || path.indexOf("..") !== -1 || path.indexOf("//") === 0) { return ""; }
@@ -135,6 +179,9 @@
     if (sectionId) { q += "&section=" + encodeURIComponent(sectionId); }
     if (step) { q += "&step=" + encodeURIComponent(step); }
     return linkOrigin() + "/help.html?" + q + "&lang=" + lang();
+  }
+  function libraryLink() {
+    return linkOrigin() + "/help.html?audience=" + side + "&lang=" + lang();
   }
 
   // ---- styles ----------------------------------------------------------
@@ -194,6 +241,11 @@
     ".aph-video{display:block;width:100%;max-height:70vh;border-radius:var(--ah-r);background:#000}" +
     ".aph-vhint{font-size:13px;color:var(--ah-muted);margin:8px 0 0;line-height:1.45}" +
     ".aph-vtag{display:inline-block;margin-top:8px;padding:1px 8px;border:1px solid var(--ah-line);border-radius:6px;font-size:11px;font-weight:600;color:var(--ah-muted)}" +
+    ".aph-side-row{margin:0 0 4px}" +
+    ".aph-side{min-height:44px;padding:0 2px;border:none;border-radius:var(--ah-r);background:transparent;color:var(--ah-muted);font:600 13px 'Inter',sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer}" +
+    ".aph-side:disabled{text-decoration:none}" +
+    "@media (hover:hover){.aph-side:hover{color:var(--ah-text)}}" +
+    ".aph-stag{margin-left:6px}" +
     ".aph-tip{font-size:13px;color:var(--ah-muted);margin:18px 0 0;line-height:1.45}" +
     ".aphelp-menu{position:fixed;z-index:1300;background:var(--ah-card);border:1px solid var(--ah-line);border-radius:var(--ah-r);padding:4px;min-width:200px;opacity:0;transition:opacity 150ms ease-out}" +
     ".aphelp-menu.aph-in{opacity:1}" +
@@ -291,6 +343,7 @@
   function openSheet(target) {
     if (overlay) { closeSheet(true); }
     lastFocus = doc.activeElement;
+    side = defaultSide();   // never remembered: every opening starts on the page's own side
     overlay = el("div", "aphelp-root aphelp-overlay");
     sheet = el("div", "aphelp-sheet");
     sheet.setAttribute("role", "dialog");
@@ -321,7 +374,7 @@
     if (!overlay) { return; }
     var gone = overlay;
     stopPlayer();
-    overlay = null; sheet = null; bodyEl = null; titleEl = null; closeBtn = null; openView = null;
+    overlay = null; sheet = null; bodyEl = null; titleEl = null; closeBtn = null; openView = null; sideBtn = null;
     doc.body.style.overflow = "";
     closeMenu();
     closeLightbox();
@@ -338,7 +391,7 @@
     bodyEl.appendChild(el("p", "aph-state aph-muted", t("Carregando...", "Loading...")));
     loadGuides().then(function () {
       if (!bodyEl) { return; }
-      if (target.guide && findGuide(target.guide)) { renderGuide(target.guide, target.section, target.step); } else { renderHome(); }
+      if (target.guide && findGuideOn(target.guide, side)) { renderGuide(target.guide, target.section, target.step); } else { renderHome(); }
     }, function () {
       if (!bodyEl) { return; }
       renderOffline(function () { showLoadingThen(target); });
@@ -429,6 +482,8 @@
     card.appendChild(el("p", "aph-card-sum", L(g.summary)));
     var gtag = videoTag(g);
     if (gtag) { card.appendChild(gtag); }
+    var gside = sideTag(g);
+    if (gside) { card.appendChild(gside); }
     var row = el("div", "aph-row");
     var open = button("aph-primary", t("Ver passo a passo", "See step by step"));
     open.addEventListener("click", function () { renderGuide(g.id, section, step); });
@@ -448,27 +503,54 @@
     b.lastChild.style.display = "block";
     var qtag = videoTag(g);
     if (qtag) { b.appendChild(qtag); }
+    var qside = sideTag(g);
+    if (qside) { b.appendChild(qside); }
     b.addEventListener("click", function () { renderGuide(g.id); });
     return b;
+  }
+
+  // The one side button, for staff only: a quiet text button above the search.
+  function buildSideRow() {
+    var row = el("p", "aph-side-row");
+    sideBtn = button("aph-side", side === "admin" ? t("Ver guias do cliente", "See client guides") : t("Voltar aos guias do administrador", "Back to admin guides"));
+    sideBtn.addEventListener("click", function () {
+      side = side === "admin" ? "client" : "admin";
+      renderHome();
+    });
+    row.appendChild(sideBtn);
+    return row;
   }
 
   function renderHome() {
     stopPlayer();
     openView = null;
+    sideBtn = null;
     clear(bodyEl);
-    var key = screenKey();
-    var page = guides && guides.pages && Object.prototype.hasOwnProperty.call(guides.pages, key) ? guides.pages[key] : null;
-    if (page) {
-      bodyEl.appendChild(el("h3", "aph-h", L(page.title)));
-      if (L(page.overview)) { bodyEl.appendChild(el("p", "aph-p", L(page.overview))); }
-      (Array.isArray(page.guides) ? page.guides : []).forEach(function (id) {
-        var g = findGuide(id);
-        if (g) { bodyEl.appendChild(quietCard(g)); }
-      });
+    var staff = isStaff();
+    if (staff) { bodyEl.appendChild(buildSideRow()); }
+    var sideGuides = HC.filterByAudience(guides && guides.guides, side);
+    if (!sideGuides.length) {
+      bodyEl.appendChild(el("p", "aph-state aph-muted", staff ? t("Os guias deste lado estão sendo preparados.", "The guides for this side are being prepared.") : t("Os guias estão sendo preparados.", "The guides are being prepared.")));
+    } else {
+      var key = screenKey();
+      var page = guides && guides.pages && Object.prototype.hasOwnProperty.call(guides.pages, key) ? guides.pages[key] : null;
+      var items = [];
+      if (page) {
+        (Array.isArray(page.guides) ? page.guides : []).forEach(function (id) {
+          var g = findGuideOn(id, side);
+          if (g) { items.push(g); }
+        });
+      }
+      // The overview shows only when at least one of its guides is on this side.
+      if (items.length) {
+        bodyEl.appendChild(el("h3", "aph-h", L(page.title)));
+        if (L(page.overview)) { bodyEl.appendChild(el("p", "aph-p", L(page.overview))); }
+        items.forEach(function (g) { bodyEl.appendChild(quietCard(g)); });
+      }
     }
     bodyEl.appendChild(buildSearch());
     var lib = el("a", "aph-link", t("Abrir a biblioteca completa", "Open the full library"));
-    lib.href = linkOrigin() + "/help.html?lang=" + lang();
+    lib.href = libraryLink();
     lib.setAttribute("target", "_blank");
     lib.setAttribute("rel", "noopener");
     var libWrap = el("p", "aph-p");
@@ -506,11 +588,13 @@
       var q = input.value.replace(/^\s+|\s+$/g, "");
       clear(out);
       if (q.length < 3) { out.appendChild(el("p", "aph-state aph-error", t("Escreva pelo menos 3 letras.", "Write at least 3 letters."))); return; }
+      var askedSide = HC.effectiveAudience(isStaff(), side);
       go.disabled = true;
+      if (sideBtn) { sideBtn.disabled = true; }
       go.setAttribute("aria-busy", "true");
       goLabel.textContent = t("Buscando...", "Searching...");
       out.appendChild(el("p", "aph-state aph-muted", t("Buscando o guia certo...", "Finding the right guide...")));
-      ask(q).then(function (r) { clear(out); renderAnswer(out, r); }, function (err) {
+      ask(q, askedSide).then(function (r) { clear(out); renderAnswer(out, r, askedSide); }, function (err) {
         clear(out);
         var msg = t("Não foi possível buscar agora. Tente de novo.", "Could not search right now. Try again.");
         if (err && err.status === 429) { msg = t("Muitas perguntas em pouco tempo. Tente de novo em alguns minutos.", "Too many questions in a short time. Try again in a few minutes."); }
@@ -518,6 +602,7 @@
         out.appendChild(el("p", "aph-state aph-error", msg));
       }).then(function () {
         go.disabled = false;
+        if (sideBtn) { sideBtn.disabled = false; }
         go.removeAttribute("aria-busy");
         goLabel.textContent = t("Perguntar", "Ask");
       });
@@ -525,12 +610,12 @@
     return wrap;
   }
 
-  function ask(question) {
+  function ask(question, audience) {
     return getToken().then(function (token) {
       return fetch(workerUrl() + "/api/help/ask", {
         method: "POST",
         headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question, language: lang(), page_key: screenKey() })
+        body: JSON.stringify({ question: question, language: lang(), page_key: screenKey(), audience: audience })
       });
     }).then(function (res) {
       if (!res.ok) { var e = new Error("status " + res.status); e.status = res.status; throw e; }
@@ -540,11 +625,36 @@
     });
   }
 
-  function renderAnswer(out, r) {
+  // A card for a guide on the other side, for staff: the button flips the side and opens it.
+  function otherSideCard(g, otherSide) {
+    var card = el("div", "aph-card");
+    card.appendChild(el("p", "aph-card-title", L(g.title)));
+    card.appendChild(el("p", "aph-card-sum", L(g.summary)));
+    var tag = sideTag(g);
+    if (tag) { card.appendChild(tag); }
+    var row = el("div", "aph-row");
+    var open = button("aph-primary", otherSide === "client" ? t("Ver o guia do cliente", "See the client guide") : t("Ver o guia do administrador", "See the admin guide"));
+    open.addEventListener("click", function () { side = otherSide; renderGuide(g.id); });
+    row.appendChild(open);
+    card.appendChild(row);
+    return card;
+  }
+
+  function renderAnswer(out, r, askedSide) {
     var ids = (r && Array.isArray(r.guide_ids)) ? r.guide_ids : [];
     var cards = [];
-    ids.forEach(function (id) { var g = (typeof id === "string") ? findGuide(id) : null; if (g && cards.length < 3) { cards.push(g); } });
+    ids.forEach(function (id) { var g = (typeof id === "string") ? findGuideOn(id, askedSide) : null; if (g && cards.length < 3) { cards.push(g); } });
     if (!r || !r.found || !cards.length) {
+      var others = [];
+      var otherSide = askedSide === "admin" ? "client" : "admin";
+      if (isStaff() && r && Array.isArray(r.other_side)) {
+        r.other_side.forEach(function (id) { var og = (typeof id === "string") ? findGuideOn(id, otherSide) : null; if (og && others.length < 2) { others.push(og); } });
+      }
+      if (others.length) {
+        out.appendChild(el("p", "aph-state", t("Ainda não temos um guia deste lado.", "We do not have a guide for this side yet.")));
+        others.forEach(function (og) { out.appendChild(otherSideCard(og, otherSide)); });
+        return;
+      }
       var msg = t("Ainda não temos um guia para isso.", "We do not have a guide for that yet.");
       if (r && r.logged === true) { msg += " " + t("Sua pergunta foi anotada.", "Your question was noted."); }
       out.appendChild(el("p", "aph-state", msg));
@@ -558,9 +668,10 @@
   }
 
   function renderGuide(id, sectionId, step) {
-    var g = findGuide(id);
+    var g = findGuideOn(id, side);
     if (!g) { renderHome(); return; }
     stopPlayer();
+    sideBtn = null;
     openView = { id: id, section: sectionId, step: step };
     clear(bodyEl);
     var back = button("aph-quiet");
@@ -572,6 +683,8 @@
     bodyEl.appendChild(back);
     bodyEl.appendChild(el("h3", "aph-h", L(g.title)));
     bodyEl.appendChild(el("p", "aph-p aph-muted", L(g.summary)));
+    var gtag2 = sideTag(g);
+    if (gtag2) { var tagWrap = el("p", "aph-p"); tagWrap.appendChild(gtag2); bodyEl.appendChild(tagWrap); }
     var vblock = videoBlock(g);
     if (vblock) { bodyEl.appendChild(vblock); }
     var hitEl = null;
@@ -655,7 +768,8 @@
     if (!dh && !btn) { return null; }
     var texts = [];
     if (btn) { texts.push(visibleText(btn)); texts.push(btn.getAttribute("aria-label")); }
-    var res = HC.resolveTarget({ dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts }, guides);
+    // Only the guides of the side this page starts on can be matched, so a client never lands on an admin guide.
+    var res = HC.resolveTarget({ dataHelp: dh ? dh.getAttribute("data-help") : null, texts: texts }, dataFor(defaultSide()));
     return res ? { res: res, el: btn || dh } : null;
   }
 

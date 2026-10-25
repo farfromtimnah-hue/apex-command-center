@@ -827,7 +827,7 @@
         view.appendChild(el("h2", "sec-title", L(s.title)));
         (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
           var box = el("div", "step");
-          var sp = HC.splitStep(L(st.text));
+          var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(L(st.text)) : { title: L(st.text), body: "" };
           var head = el("div", "step-head");
           head.appendChild(el("span", "step-n", String(st.n)));
           head.appendChild(el("p", "step-title", sp.title));

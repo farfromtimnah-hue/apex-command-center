@@ -901,7 +901,7 @@
       bodyEl.appendChild(el("h4", "aph-sec", L(s.title)));
       (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
         var box = el("div", "aph-step");
-        var sp = HC.splitStep(L(st.text));
+        var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(L(st.text)) : { title: L(st.text), body: "" };
         var head = el("div", "aph-step-head");
         head.appendChild(el("span", "aph-step-n", String(st.n)));
         head.appendChild(el("p", "aph-step-title", sp.title));

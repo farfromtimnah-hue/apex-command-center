@@ -28,7 +28,13 @@
      "customer signs"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/contract-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/contract-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "send-contract",
@@ -540,7 +546,13 @@
      "card payment"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/invoice-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/invoice-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "send-invoice",

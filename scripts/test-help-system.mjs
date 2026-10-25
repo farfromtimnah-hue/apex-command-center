@@ -289,6 +289,16 @@ CASES.forEach(function (c) {
   ok(idxW.validateHelpReply(noIds("new_feature"), INDEX).reply === "" && core.validateReply(noIds("new_feature"), INDEX).reply === "", "(kind) a miss never carries the model's reply text");
 }
 
+// ---------------------------------------------------------------- step layout: the first sentence is the title
+ok(core.splitStep("Open Financeiro, tap Faturas. Open Financeiro in the left menu.").title === "Open Financeiro, tap Faturas", "(layout) splitStep: the first sentence is the title, without its period");
+ok(core.splitStep("Open Financeiro, tap Faturas. Open Financeiro in the left menu.").body === "Open Financeiro in the left menu.", "(layout) splitStep: the rest is the explanation");
+ok(core.splitStep("Tap Salvar").title === "Tap Salvar" && core.splitStep("Tap Salvar").body === "", "(layout) splitStep: a text with no sentence end is all title");
+ok(core.splitStep("Fill in the form. 1. Valor recebido: type the amount. 3. Tap Salvar.").body.indexOf("1. Valor recebido") === 0, "(layout) splitStep: a numbered list stays in the explanation");
+ok(core.splitStep("").title === "" && core.splitStep(null).body === "" && core.splitStep(undefined).title === "", "(layout) splitStep: empty input is safe");
+ok(core.splitStep("Posso fazer isso? Sim, assim.").title === "Posso fazer isso?", "(layout) splitStep: a question mark ends the title and stays");
+ok(/\.step-text\s*\{[^}]*font-size:\s*18px/.test(read("help.html")) && /\.step-title\s*\{[^}]*font-size:\s*20px/.test(read("help.html")), "(layout) help.html: step text 18px and title 20px");
+ok(/aph-step-text\{font-size:17px;line-height:1\.6/.test(read("help-widget.js")), "(layout) the sheet: step text 17px with line height 1.6");
+
 // ---------------------------------------------------------------- (c) validateSuggestTurn, run on both copies (spec shape, 5 questions)
 const SPEC_FULL = { what: "Send a WhatsApp reminder to the customer", trigger: "A button on the estimates screen", data: "Customer phone and estimate total", result: "The customer receives a message", who: "The owner and salespeople", rules: "Only for estimates older than 3 days", missing: [] };
 const NS = "not said";

@@ -86,9 +86,13 @@
     .guide-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
     .guide-sum { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
     .sec-title { font-size: 17px; font-weight: 700; margin: 26px 0 8px; }
-    .step { padding: 12px; border-radius: var(--radius); margin-bottom: 8px; }
+    .step { padding: 22px 14px 26px; border-radius: var(--radius); margin-bottom: 10px; border-bottom: 1px solid var(--border); }
     .step.hit { background: #f3eee3; }
-    .step-text { font-size: 15px; margin-bottom: 10px; }
+    .step-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+    .step-n { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--header); color: #fff; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+    .step-title { font-size: 20px; font-weight: 700; line-height: 1.35; margin: 0; }
+    .step-text { font-size: 18px; line-height: 1.6; margin: 0 0 20px 44px; }
+    .step .pic { margin-top: 18px; }
     .pic { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); cursor: zoom-in; }
     .pic img { display: block; width: 100%; height: auto; }
     .link { color: var(--text); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
@@ -823,7 +827,12 @@
         view.appendChild(el("h2", "sec-title", L(s.title)));
         (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
           var box = el("div", "step");
-          box.appendChild(el("p", "step-text", st.n + ". " + L(st.text)));
+          var sp = HC.splitStep(L(st.text));
+          var head = el("div", "step-head");
+          head.appendChild(el("span", "step-n", String(st.n)));
+          head.appendChild(el("p", "step-title", sp.title));
+          box.appendChild(head);
+          if (sp.body) { box.appendChild(el("p", "step-text", sp.body)); }
           var src = st.image ? imageUrl(L(st.image)) : "";
           if (src) {
             var pb = btn("pic");

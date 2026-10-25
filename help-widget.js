@@ -230,9 +230,13 @@
     ".aph-sug-q{font-size:15px;line-height:1.5;margin:0 0 6px}" +
     ".aph-sug .aph-form{margin:6px 0 4px}" +
     ".aph-sec{margin:20px 0 6px;font-size:16px;font-weight:700}" +
-    ".aph-step{padding:12px;border-radius:var(--ah-r);margin:0 0 8px}" +
+    ".aph-step{padding:20px 12px 24px;border-radius:var(--ah-r);margin:0 0 8px;border-bottom:1px solid var(--ah-line)}" +
     ".aph-step.aph-hit{background:#f3eee3}" +
-    ".aph-step-text{font-size:14px;line-height:1.5;margin:0 0 8px}" +
+    ".aph-step-head{display:flex;align-items:flex-start;gap:10px;margin:0 0 8px}" +
+    ".aph-step-n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#1a1a1d;color:#fff;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}" +
+    ".aph-step-title{font-size:18px;font-weight:700;line-height:1.35;margin:0}" +
+    ".aph-step-text{font-size:17px;line-height:1.6;margin:0 0 18px 40px}" +
+    ".aph-step .aph-img{margin-top:16px}" +
     ".aph-img{display:block;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);overflow:hidden;background:var(--ah-card);cursor:zoom-in}" +
     ".aph-img img{display:block;width:100%;height:auto}" +
     ".aph-link{color:var(--ah-text);font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}" +
@@ -897,7 +901,12 @@
       bodyEl.appendChild(el("h4", "aph-sec", L(s.title)));
       (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
         var box = el("div", "aph-step");
-        box.appendChild(el("p", "aph-step-text", st.n + ". " + L(st.text)));
+        var sp = HC.splitStep(L(st.text));
+        var head = el("div", "aph-step-head");
+        head.appendChild(el("span", "aph-step-n", String(st.n)));
+        head.appendChild(el("p", "aph-step-title", sp.title));
+        box.appendChild(head);
+        if (sp.body) { box.appendChild(el("p", "aph-step-text", sp.body)); }
         var src = st.image ? imageUrl(L(st.image)) : "";
         if (src) {
           var ib = button("aph-img");

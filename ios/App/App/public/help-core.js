@@ -528,6 +528,15 @@
     return !!(win && win.APEX_HELP && win.APEX_HELP.enabled === true);
   }
 
+  // A step's text is one string: its first sentence is the action (shown as the bold
+  // title) and the rest explains it. A text with no sentence end is all title.
+  function splitStep(text) {
+    var t = String(text === undefined || text === null ? "" : text).replace(/^\s+|\s+$/g, "");
+    var m = /^(.+?[.!?])(?:\s+|$)([\s\S]*)$/.exec(t);
+    if (!m) { return { title: t, body: "" }; }
+    return { title: m[1].replace(/\.+$/, ""), body: m[2] };
+  }
+
   return {
     LONG_PRESS_MS: LONG_PRESS_MS,
     MOVE_PX: MOVE_PX,
@@ -558,6 +567,7 @@
     helpSuggestSummary: helpSuggestSummary,
     SUGGEST_MAX_QUESTIONS: SUGGEST_MAX_QUESTIONS,
     SUGGEST_MAX_ITEMS: SUGGEST_MAX_ITEMS,
-    isEnabled: isEnabled
+    isEnabled: isEnabled,
+    splitStep: splitStep
   };
 }));

@@ -569,7 +569,14 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     ok(!/\b(const|let)\s+[A-Za-z_$]/.test(src.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/"(?:[^"\\\n]|\\.)*"/g, '""').replace(/'(?:[^'\\\n]|\\.)*'/g, "''")), "(rules) " + pair[0] + " uses var, not const or let");
     ok(!/=>/.test(src.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/"(?:[^"\\\n]|\\.)*"/g, '""')), "(rules) " + pair[0] + " has no arrow functions");
   });
-  ok(/HELP_BASE\s*=\s*"https:\/\/apex\.resonateai\.online\/"/.test(cfgSrc) && /enabled:\s*false/.test(cfgSrc), "(flag) help-config.js ships enabled false with the live origin as HELP_BASE");
+  ok(/HELP_BASE\s*=\s*"https:\/\/apex\.resonateai\.online\/"/.test(cfgSrc), "(flag) help-config.js uses the live origin as HELP_BASE");
+  function runCfg(storage) { const win = { localStorage: storage }; vm.runInNewContext(cfgSrc, { window: win }); return win.APEX_HELP; }
+  ok(runCfg({ getItem: function () { return null; } }).enabled === false, "(flag) with no preview setting the feature is OFF for everyone");
+  ok(runCfg({ getItem: function () { return "yes"; } }).enabled === false && runCfg({ getItem: function () { return "ON"; } }).enabled === false, "(flag) only the exact value on turns the preview on");
+  ok(runCfg({ getItem: function (k) { return k === "aprenda-preview" ? "on" : null; } }).enabled === true, "(flag) aprenda-preview = on turns it on in that browser only");
+  ok(runCfg({ getItem: function () { throw new Error("blocked"); } }).enabled === false, "(flag) storage that throws leaves the feature OFF");
+  ok(runCfg(undefined).enabled === false, "(flag) no storage at all leaves the feature OFF");
+  ok(read("help-config.js") === read("ios/App/App/public/help-config.js"), "(flag) the iPhone copy of help-config.js is identical");
   ok(read("CNAME").trim() === "apex.resonateai.online", "(flag) HELP_BASE matches the CNAME file");
   ok(widgetSrc.indexOf("navigator.vibrate") === -1 && widgetSrc.indexOf("Haptics") === -1, "(rules) no vibration or haptics code");
 

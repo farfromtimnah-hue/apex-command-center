@@ -528,6 +528,15 @@
     return !!(win && win.APEX_HELP && win.APEX_HELP.enabled === true);
   }
 
+  // A trailing "(Customer's screen · English)" says whose screen the picture shows. It is
+  // shown as a small label, not as part of the sentence.
+  function splitStepTag(text) {
+    var t = String(text === undefined || text === null ? "" : text);
+    var m = /^([\s\S]*?)\s*\(([^()]{2,60}\s\u00b7\s[^()]{2,60})\)\s*$/.exec(t);
+    if (!m) { return { text: t, tag: "" }; }
+    return { text: m[1], tag: m[2] };
+  }
+
   // A step's text is one string: its first sentence is the action (shown as the bold
   // title) and the rest explains it. A text with no sentence end is all title.
   function splitStep(text) {
@@ -568,6 +577,7 @@
     SUGGEST_MAX_QUESTIONS: SUGGEST_MAX_QUESTIONS,
     SUGGEST_MAX_ITEMS: SUGGEST_MAX_ITEMS,
     isEnabled: isEnabled,
-    splitStep: splitStep
+    splitStep: splitStep,
+    splitStepTag: splitStepTag
   };
 }));

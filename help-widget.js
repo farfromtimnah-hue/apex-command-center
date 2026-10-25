@@ -237,8 +237,9 @@
     ".aph-step-title{font-size:18px;font-weight:700;line-height:1.35;margin:0}" +
     ".aph-step-text{font-size:17px;line-height:1.6;margin:0 0 18px 40px}" +
     ".aph-step .aph-img{margin-top:16px}" +
-    ".aph-img{display:block;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);overflow:hidden;background:var(--ah-card);cursor:zoom-in}" +
-    ".aph-img img{display:block;width:100%;height:auto}" +
+    ".aph-img{display:flex;justify-content:center;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);overflow:hidden;background:#f1eee8;cursor:zoom-in;box-shadow:0 1px 2px rgba(26,26,29,0.06)}" +
+    ".aph-img img{display:block;width:auto;max-width:100%;height:auto;max-height:60vh}" +
+    ".aph-step-tag{display:inline-block;margin:0 0 10px 40px;padding:3px 10px;border-radius:999px;background:#efe9dc;color:var(--ah-muted);font-size:12px;font-weight:600}" +
     ".aph-link{color:var(--ah-text);font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}" +
     ".aph-vwrap{margin:0 0 14px}" +
     ".aph-vcard{display:block;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);overflow:hidden;cursor:pointer;text-align:left;font:inherit;color:inherit}" +
@@ -901,12 +902,14 @@
       bodyEl.appendChild(el("h4", "aph-sec", L(s.title)));
       (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
         var box = el("div", "aph-step");
-        var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(L(st.text)) : { title: L(st.text), body: "" };
+        var tg = (HC && typeof HC.splitStepTag === "function") ? HC.splitStepTag(L(st.text)) : { text: L(st.text), tag: "" };
+        var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(tg.text) : { title: tg.text, body: "" };
         var head = el("div", "aph-step-head");
         head.appendChild(el("span", "aph-step-n", String(st.n)));
         head.appendChild(el("p", "aph-step-title", sp.title));
         box.appendChild(head);
         if (sp.body) { box.appendChild(el("p", "aph-step-text", sp.body)); }
+        if (tg.tag) { box.appendChild(el("span", "aph-step-tag", tg.tag)); }
         var src = st.image ? imageUrl(L(st.image)) : "";
         if (src) {
           var ib = button("aph-img");

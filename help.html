@@ -93,8 +93,9 @@
     .step-title { font-size: 20px; font-weight: 700; line-height: 1.35; margin: 0; }
     .step-text { font-size: 18px; line-height: 1.6; margin: 0 0 20px 44px; }
     .step .pic { margin-top: 18px; }
-    .pic { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); cursor: zoom-in; }
-    .pic img { display: block; width: 100%; height: auto; }
+    .pic { display: flex; justify-content: center; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #f1eee8; cursor: zoom-in; box-shadow: 0 1px 2px rgba(26, 26, 29, 0.06); }
+    .pic img { display: block; width: auto; max-width: 100%; height: auto; max-height: 70vh; }
+    .step-tag { display: inline-block; margin: 0 0 10px 44px; padding: 3px 10px; border-radius: 999px; background: #efe9dc; color: var(--muted); font-size: 13px; font-weight: 600; }
     .link { color: var(--text); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
     /* The video: a play card that turns into the player when chosen. */
     .vwrap { margin-bottom: 14px; }
@@ -827,12 +828,14 @@
         view.appendChild(el("h2", "sec-title", L(s.title)));
         (Array.isArray(s.steps) ? s.steps : []).forEach(function (st) {
           var box = el("div", "step");
-          var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(L(st.text)) : { title: L(st.text), body: "" };
+          var tg = (HC && typeof HC.splitStepTag === "function") ? HC.splitStepTag(L(st.text)) : { text: L(st.text), tag: "" };
+          var sp = (HC && typeof HC.splitStep === "function") ? HC.splitStep(tg.text) : { title: tg.text, body: "" };
           var head = el("div", "step-head");
           head.appendChild(el("span", "step-n", String(st.n)));
           head.appendChild(el("p", "step-title", sp.title));
           box.appendChild(head);
           if (sp.body) { box.appendChild(el("p", "step-text", sp.body)); }
+          if (tg.tag) { box.appendChild(el("span", "step-tag", tg.tag)); }
           var src = st.image ? imageUrl(L(st.image)) : "";
           if (src) {
             var pb = btn("pic");

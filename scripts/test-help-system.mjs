@@ -298,6 +298,7 @@ ok(core.splitStep("").title === "" && core.splitStep(null).body === "" && core.s
 ok(core.splitStep("Posso fazer isso? Sim, assim.").title === "Posso fazer isso?", "(layout) splitStep: a question mark ends the title and stays");
 ok(/\.step-text\s*\{[^}]*font-size:\s*18px/.test(read("help.html")) && /\.step-title\s*\{[^}]*font-size:\s*20px/.test(read("help.html")), "(layout) help.html: step text 18px and title 20px");
 ok(/aph-step-text\{font-size:17px;line-height:1\.6/.test(read("help-widget.js")), "(layout) the sheet: step text 17px with line height 1.6");
+ok(/\.step-n\s*\{[^}]*background:\s*var\(--gold\)[^}]*color:\s*var\(--header\)/.test(read("help.html")) && /aph-step-n\{[^}]*background:var\(--ah-gold\);color:#1a1a1d/.test(read("help-widget.js")), "(layout) the step number badge is gold with dark text (readable) on the page and in the sheet");
 ok(/typeof HC\.splitStep === "function"/.test(read("help.html")) && /typeof HC\.splitStep === "function"/.test(read("help-widget.js")), "(layout) both pages still draw the steps when a cached older help-core.js has no splitStep");
 
 // ---------------------------------------------------------------- (c) validateSuggestTurn, run on both copies (spec shape, 5 questions)

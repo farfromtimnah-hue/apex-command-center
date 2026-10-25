@@ -1845,6 +1845,828 @@
      "step": 2
     }
    ]
+  },
+  {
+   "id": "card-payments-setup",
+   "audience": "client",
+   "title": {
+    "pt": "Configurar pagamentos por cartão",
+    "en": "Set up card payments"
+   },
+   "summary": {
+    "pt": "Conecte a sua conta Stripe para o cliente pagar a fatura com cartão.",
+    "en": "Connect your Stripe account so your client can pay the invoice by card."
+   },
+   "keywords": {
+    "pt": [
+     "cartão",
+     "cartao",
+     "pagar com cartão",
+     "stripe",
+     "jobber",
+     "receber pagamentos",
+     "pagamento com cartão",
+     "cartão de crédito",
+     "conectar stripe",
+     "formas de pagamento"
+    ],
+    "en": [
+     "card",
+     "credit card",
+     "pay by card",
+     "stripe",
+     "jobber",
+     "take payments",
+     "card payments",
+     "connect stripe",
+     "payment methods",
+     "receive payments"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "connect",
+     "title": {
+      "pt": "Conectar o Stripe",
+      "en": "Connect Stripe"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Antes de começar. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Se o seu app atual cuidava disso para você, talvez você nunca tenha ouvido o nome Stripe. Isso é normal. No Apex você conecta a sua própria conta Stripe uma vez, e os próximos passos mostram onde.",
+        "en": "Before you start. Already take card payments in Jobber or a similar app? You can do the same in Apex. Your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. If your current app handled this for you, you may never have heard the name Stripe. That is normal. In Apex you connect your own Stripe account once, and the next steps show where."
+       },
+       "image": null
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Abra Negócio, depois Orçamentos. Toque em Negócio no menu de cima e depois em Orçamentos. A configuração do pagamento com cartão fica dentro da aba Orçamentos.",
+        "en": "Open Business, then Estimates. Tap Business in the top menu, then tap Estimates. The card payment setting lives inside the Estimates tab."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-02.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em Configurações. Na aba Orçamentos, toque em Configurações ao lado de Orçamentos. Esta é a página Configurações dos documentos: ela controla o que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
+        "en": "Tap Settings. In the Estimates tab, tap Settings next to Estimates. This is the Document settings page: it controls what appears on your estimates, invoices and receipts for your customers."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-03.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-03.pt.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Ache Formas de pagamento aceitas. Role até Pagamentos e prazos. Em Formas de pagamento aceitas (só as marcadas aparecem nos documentos) você vê as formas de receber: Zelle, Cheque, Dinheiro, Money order, Transferência / ACH, Cartão / Stripe e Outro.",
+        "en": "Find Accepted payment methods. Scroll down to Payments & terms. Under Accepted payment methods (only ticked ones print on documents) you see the ways you can accept payment: Zelle, Check, Cash, Money order, Bank transfer / ACH, Card / Stripe and Other."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-04.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-04.pt.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Marque Cartão / Stripe. Toque na caixa ao lado de Cartão / Stripe. Aparecem embaixo uma explicação curta, uma linha de concordância e o botão Conectar Stripe.",
+        "en": "Tick Card / Stripe. Tap the box next to Card / Stripe. A short explanation, an agreement line and a Connect Stripe button appear under it."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-05.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-05.pt.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Leia o que a conexão faz. A tela diz: Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex e o status da sua conta Stripe, para que as faturas se marquem como pagas.",
+        "en": "Read what connecting does. The screen says: Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices and the status of your Stripe account, so invoices mark themselves paid."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-06.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-06.pt.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Marque a caixa de concordância e toque em Conectar Stripe. Leia a linha que começa com Concordo com os Termos de Uso e a Política de Privacidade e marque a caixa. O botão Conectar Stripe só funciona depois que a caixa está marcada. Depois que você toca nele, as telas do próprio Stripe criam a sua conta. Essas telas são do Stripe, por isso não aparecem neste guia. No app do iPhone, o Stripe abre em uma janela separada: quando terminar, volte para o Apex.",
+        "en": "Tick the agreement box, then tap Connect Stripe. Read the line that starts with I agree to the Terms and the Privacy Policy, and tick its box. The Connect Stripe button only works after the box is ticked. After you tap it, Stripe's own screens set up your account. Those screens belong to Stripe, so they are not shown in this guide. In the iPhone app, Stripe opens in a separate window: when you finish, come back to Apex."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-07.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg"
+       }
+      },
+      {
+       "n": 8,
+       "text": {
+        "pt": "Quando estiver conectado. O Apex mostra: Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente. Aparece o botão Desconectar. A partir daí, as faturas que você envia mostram o botão de cartão.",
+        "en": "When it is connected. Apex shows: Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically. A Disconnect button appears. From then on, the invoices you send show the card button."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-08.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-08.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Conectar Stripe"
+      ],
+      "en": [
+       "Connect Stripe"
+      ]
+     },
+     "section": "connect",
+     "step": 7
+    },
+    {
+     "labels": {
+      "pt": [
+       "Cartão / Stripe"
+      ],
+      "en": [
+       "Card / Stripe"
+      ]
+     },
+     "section": "connect",
+     "step": 5
+    }
+   ]
+  },
+  {
+   "id": "business-setup",
+   "audience": "client",
+   "title": {
+    "pt": "Configurar logo, cores e dados da empresa",
+    "en": "Set up your logo, colors and business details"
+   },
+   "summary": {
+    "pt": "Coloque o logo, as cores e os dados da empresa nos documentos do cliente.",
+    "en": "Put your logo, colors and business details on your customer's documents."
+   },
+   "keywords": {
+    "pt": [
+     "logo",
+     "marca",
+     "cores",
+     "imagem de capa",
+     "dados da empresa",
+     "razão social",
+     "licença",
+     "licenciamento",
+     "configurações dos documentos",
+     "endereço"
+    ],
+    "en": [
+     "logo",
+     "brand",
+     "colors",
+     "cover image",
+     "business details",
+     "legal name",
+     "license",
+     "licensing",
+     "document settings",
+     "address"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "setup",
+     "title": {
+      "pt": "Marca e dados da empresa",
+      "en": "Brand and business details"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra as configurações dos documentos. Toque em Negócio, depois em Orçamentos e depois em Configurações. Esta página se chama Configurações dos documentos: ela controla o que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
+        "en": "Open the document settings. Tap Business, then Estimates, then Settings. This page is called Document settings: it controls what appears on your estimates, invoices and receipts for your customers."
+       },
+       "image": {
+        "en": "help/img/guides/business-setup/setup-01.en.jpg",
+        "pt": "help/img/guides/business-setup/setup-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Coloque o seu logo e a imagem de capa. Em Marca, toque em Trocar logo (ou Enviar logo se ainda não tem) para escolher o seu logo. Embaixo, a Imagem de capa aparece no topo dos documentos que o seu cliente abre: escolha o seu ramo e veja as opções no seu orçamento, ou toque em Enviar a minha própria imagem (JPG, PNG ou WebP, até 5MB).",
+        "en": "Add your logo and cover image. Under Brand, tap Replace logo (or Upload logo if you have none) to choose your logo. Below it, Cover image is shown across the top of the documents your customer opens: pick your industry and see the options on your estimate, or tap Upload my own image (JPG, PNG or WebP, up to 5MB)."
+       },
+       "image": {
+        "en": "help/img/guides/business-setup/setup-02.en.jpg",
+        "pt": "help/img/guides/business-setup/setup-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Escolha as cores da marca. Em Cores da marca, defina uma Cor principal e uma Cor de destaque. Elas são usadas nos documentos do seu cliente. Deixe em branco para usar o padrão neutro, cinza escuro e branco.",
+        "en": "Choose your brand colors. Under Brand colors, set a Primary color and an Accent color. They are used on your customer's documents. Leave a color blank to use the neutral default, dark gray and white."
+       },
+       "image": {
+        "en": "help/img/guides/business-setup/setup-03.en.jpg",
+        "pt": "help/img/guides/business-setup/setup-03.pt.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Preencha os dados da empresa. Em Dados da empresa, preencha Razão social (nome legal), Endereço, Telefone e Email. São esses dados que os seus clientes veem nos seus documentos.",
+        "en": "Fill in your business identity. Under Business identity, fill in Legal business name, Address, Phone and Email. These details are what your customers see on your documents."
+       },
+       "image": {
+        "en": "help/img/guides/business-setup/setup-04.en.jpg",
+        "pt": "help/img/guides/business-setup/setup-04.pt.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Adicione o número da sua licença. Em Licenciamento, digite o(s) Número(s) de licença. A tela explica que a lei da Flórida (§489.119) exige o número da sua licença em toda proposta e contrato. Toque em + Adicionar licença para colocar mais de uma. Se nenhum serviço seu exige licença estadual de contractor, marque O meu trabalho não exige licença estadual de contractor. A tela diz para marcar só se nenhum serviço que você orça exige licença estadual, e para perguntar à agência de licenciamento de contractors do seu estado se você não tiver certeza.",
+        "en": "Add your license number. Under Licensing, type your License number(s). The screen explains that Florida law (§489.119) requires your license number on every bid and contract. Tap + Add license for more than one. If none of your work needs a state contractor license, tick My work does not require a state contractor license. The screen says to tick it only if none of the work you quote needs a state license, and to ask your state's contractor licensing agency if you are not sure."
+       },
+       "image": {
+        "en": "help/img/guides/business-setup/setup-05.en.jpg",
+        "pt": "help/img/guides/business-setup/setup-05.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Trocar logo",
+       "Enviar logo"
+      ],
+      "en": [
+       "Replace logo",
+       "Upload logo"
+      ]
+     },
+     "section": "setup",
+     "step": 2
+    },
+    {
+     "labels": {
+      "pt": [
+       "+ Adicionar licença"
+      ],
+      "en": [
+       "+ Add license"
+      ]
+     },
+     "section": "setup",
+     "step": 5
+    }
+   ]
+  },
+  {
+   "id": "payments-and-terms",
+   "audience": "client",
+   "title": {
+    "pt": "Formas de pagamento, prazos e atraso",
+    "en": "Payment methods, terms and late payment"
+   },
+   "summary": {
+    "pt": "Escolha como você recebe, os prazos dos documentos e as regras de atraso.",
+    "en": "Choose how you get paid, your document terms and your late payment rules."
+   },
+   "keywords": {
+    "pt": [
+     "formas de pagamento",
+     "prazos",
+     "prazo de pagamento",
+     "parcelamento",
+     "modelos de parcelamento",
+     "juros",
+     "atraso",
+     "dias de carência",
+     "zelle",
+     "cheque",
+     "validade do orçamento"
+    ],
+    "en": [
+     "payment methods",
+     "terms",
+     "payment terms",
+     "payment schedule",
+     "presets",
+     "late payment",
+     "interest",
+     "grace days",
+     "zelle",
+     "check",
+     "estimate valid"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "terms",
+     "title": {
+      "pt": "Pagamentos e prazos",
+      "en": "Payments and terms"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra as configurações dos documentos. Toque em Negócio, depois em Orçamentos e depois em Configurações. As seções de pagamentos e prazos ficam mais embaixo, em Pagamentos e prazos.",
+        "en": "Open the document settings. Tap Business, then Estimates, then Settings. The sections for payments and terms are further down the page, under Payments & terms."
+       },
+       "image": {
+        "en": "help/img/guides/payments-and-terms/terms-01.en.jpg",
+        "pt": "help/img/guides/payments-and-terms/terms-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escolha as formas de pagamento que você aceita. Em Formas de pagamento aceitas, marque as formas que você aceita: só as marcadas aparecem nos seus documentos. Algumas têm uma linha para o detalhe, como o número do Zelle ou em nome de quem fazer o cheque. Para pagamento com cartão, veja o guia Configurar pagamentos por cartão.",
+        "en": "Choose the payment methods you accept. Under Accepted payment methods, tick the ways you accept payment: only the ticked ones print on your documents. Some have a line for the detail, such as the Zelle number or who to make the check out to. For card payments, see the guide Set up card payments."
+       },
+       "image": {
+        "en": "help/img/guides/payments-and-terms/terms-02.en.jpg",
+        "pt": "help/img/guides/payments-and-terms/terms-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Defina os prazos. Em Prazos, preencha Validade do orçamento (dias), Prazo de pagamento padrão e, quando escolher a opção personalizada, o número de Dias.",
+        "en": "Set your terms. Under Terms, fill in Estimate valid for (days), Default payment terms and, when you pick a custom option, the number of Days."
+       },
+       "image": {
+        "en": "help/img/guides/payments-and-terms/terms-03.en.jpg",
+        "pt": "help/img/guides/payments-and-terms/terms-03.pt.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Veja os modelos de parcelamento. Em Modelos de parcelamento você vê formas prontas de dividir um pagamento, como Deposit 50% / Completion 50% e Thirds. Cada modelo é uma lista de etapas, e as etapas precisam somar exatamente 100%. A tela mostra Total: 100% quando a soma fecha. Toque em + Etapa para adicionar uma etapa a um modelo.",
+        "en": "Review your payment schedule presets. Under Payment schedule presets you see ready-made ways to split a payment, such as Deposit 50% / Completion 50% and Thirds. Each preset is a list of steps, and the steps must total exactly 100%. The screen shows Total: 100% when it adds up. Tap + Step to add a step to a preset."
+       },
+       "image": {
+        "en": "help/img/guides/payments-and-terms/terms-04.en.jpg",
+        "pt": "help/img/guides/payments-and-terms/terms-04.pt.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Defina as regras de atraso. Em Margem e atraso, a Margem mínima mostra o mesmo valor dos Projetos: o assistente avisa quando um orçamento fica abaixo dela, e você muda em Projetos. Juros por atraso (% ao ano) e Dias de carência são com você. Juros em branco significa sem juros. A tela lembra que a lei da Flórida (§687.03) limita os juros a 18% ao ano (1,5% ao mês).",
+        "en": "Set the late payment rules. Under Margin and late payment, Minimum margin shows the same value as on Projects: the builder warns when an estimate falls below it, and you change it on Projects. Late payment interest (% per year) and Grace days are yours to fill in. A blank interest means no penalty. The screen notes that Florida law (§687.03) caps interest at 18% per year (1.5% per month)."
+       },
+       "image": {
+        "en": "help/img/guides/payments-and-terms/terms-05.en.jpg",
+        "pt": "help/img/guides/payments-and-terms/terms-05.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Etapa"
+      ],
+      "en": [
+       "+ Step"
+      ]
+     },
+     "section": "terms",
+     "step": 4
+    },
+    {
+     "labels": {
+      "pt": [
+       "Ver histórico de alterações"
+      ],
+      "en": [
+       "View change history"
+      ]
+     },
+     "section": "terms",
+     "step": 5
+    }
+   ]
+  },
+  {
+   "id": "pricing-setup",
+   "audience": "client",
+   "title": {
+    "pt": "Configurar os seus preços",
+    "en": "Set up your pricing"
+   },
+   "summary": {
+    "pt": "Veja custo, venda e margem de cada item, adicione itens e importe uma planilha.",
+    "en": "See cost, price and margin for each item, add items and import a spreadsheet."
+   },
+   "keywords": {
+    "pt": [
+     "preços",
+     "tabela de preços",
+     "custos",
+     "margem",
+     "novo item",
+     "importar planilha",
+     "planilha de preços",
+     "faltam dados"
+    ],
+    "en": [
+     "pricing",
+     "prices",
+     "costs",
+     "margin",
+     "new item",
+     "import spreadsheet",
+     "pricing spreadsheet",
+     "needs info"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "pricing",
+     "title": {
+      "pt": "Tabela de preços e custos",
+      "en": "Pricing and costs"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Preços. Toque em Negócio e depois em Preços. A página se chama Tabela de preços e custos: o que cada item custa contra o que você cobra. A linha embaixo conta os seus itens e quantos têm os custos preenchidos.",
+        "en": "Open Pricing. Tap Business, then Pricing. The page is called Pricing & costs: what each item costs against what you charge. The line under it counts your items and how many have their costs filled in."
+       },
+       "image": {
+        "en": "help/img/guides/pricing-setup/pricing-01.en.jpg",
+        "pt": "help/img/guides/pricing-setup/pricing-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Leia a lista. Cada linha mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo, e à direita a margem em dólares e em percentual. Toque em Faltam dados para ver só os itens com essa etiqueta. Toque em Todos para ver todos os itens de novo.",
+        "en": "Read the list. Each row shows the item name, then its category, unit, cost and price, then the cost breakdown, and on the right the margin in dollars and percent. Tap Needs info to see only the items that carry that tag. Tap All to see every item again."
+       },
+       "image": {
+        "en": "help/img/guides/pricing-setup/pricing-02.en.jpg",
+        "pt": "help/img/guides/pricing-setup/pricing-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Adicione itens. No fim da lista, toque em + Novo item para adicionar um item. Toque em Importar planilha para trazer uma planilha de preços. Você configura os preços uma vez e depois os mantém atualizados aqui.",
+        "en": "Add items. At the bottom of the list, tap + New item to add one item. Tap Import spreadsheet to bring in a pricing spreadsheet. You set your prices up once and then keep them up to date here."
+       },
+       "image": {
+        "en": "help/img/guides/pricing-setup/pricing-03.en.jpg",
+        "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Novo item"
+      ],
+      "en": [
+       "+ New item"
+      ]
+     },
+     "section": "pricing",
+     "step": 3
+    },
+    {
+     "labels": {
+      "pt": [
+       "Importar planilha"
+      ],
+      "en": [
+       "Import spreadsheet"
+      ]
+     },
+     "section": "pricing",
+     "step": 3
+    },
+    {
+     "labels": {
+      "pt": [
+       "Faltam dados"
+      ],
+      "en": [
+       "Needs info"
+      ]
+     },
+     "section": "pricing",
+     "step": 2
+    }
+   ]
+  },
+  {
+   "id": "working-days-and-blocked-periods",
+   "audience": "client",
+   "title": {
+    "pt": "Dias de trabalho e períodos bloqueados",
+    "en": "Working days and blocked periods"
+   },
+   "summary": {
+    "pt": "Marque os dias em que você trabalha e bloqueie férias e feriados.",
+    "en": "Set the days you work and block vacation and holidays."
+   },
+   "keywords": {
+    "pt": [
+     "dias de trabalho",
+     "ajustes",
+     "períodos bloqueados",
+     "férias",
+     "feriados",
+     "registro diário",
+     "ritmo"
+    ],
+    "en": [
+     "working days",
+     "settings",
+     "blocked periods",
+     "vacation",
+     "holidays",
+     "daily log",
+     "pace"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "schedule",
+     "title": {
+      "pt": "Dias de trabalho",
+      "en": "Working days"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Ajustes. Toque em Ajustes no canto de cima à direita do portal, ao lado de Ajuda. A seção Dias de trabalho é a primeira da página.",
+        "en": "Open Settings. Tap Settings at the top right of the portal, next to Help. The Working days section is the first thing on the page."
+       },
+       "image": {
+        "en": "help/img/guides/working-days-and-blocked-periods/schedule-01.en.jpg",
+        "pt": "help/img/guides/working-days-and-blocked-periods/schedule-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escolha os seus dias de trabalho. Toque nos dias em que a sua empresa trabalha, de Seg a Dom. A tela diz que o registro diário e os cálculos de ritmo só contam os dias marcados aqui. Depois toque em Salvar dias de trabalho.",
+        "en": "Choose your working days. Tap the days your business works, from Mon to Sun. The screen says the daily log and your pace numbers only count the days selected here. Then tap Save working days."
+       },
+       "image": {
+        "en": "help/img/guides/working-days-and-blocked-periods/schedule-02.en.jpg",
+        "pt": "help/img/guides/working-days-and-blocked-periods/schedule-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Bloqueie períodos. Em Períodos bloqueados, planeje com antecedência férias e feriados: o registro diário não pede preenchimento dentro de um período bloqueado. Escolha as datas De e Até, escreva um Motivo se quiser (opcional) e toque em + Adicionar período bloqueado.",
+        "en": "Block time off. Under Blocked periods, plan ahead for vacation and holidays: the daily log never asks for entries inside a blocked period. Pick the From and To dates, add a Reason if you want one (optional), and tap + Add blocked period."
+       },
+       "image": {
+        "en": "help/img/guides/working-days-and-blocked-periods/schedule-03.en.jpg",
+        "pt": "help/img/guides/working-days-and-blocked-periods/schedule-03.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Salvar dias de trabalho"
+      ],
+      "en": [
+       "Save working days"
+      ]
+     },
+     "section": "schedule",
+     "step": 2
+    },
+    {
+     "labels": {
+      "pt": [
+       "+ Adicionar período bloqueado"
+      ],
+      "en": [
+       "+ Add blocked period"
+      ]
+     },
+     "section": "schedule",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "people-and-access",
+   "audience": "client",
+   "title": {
+    "pt": "Adicionar pessoas e escolher o acesso",
+    "en": "Add people and choose their access"
+   },
+   "summary": {
+    "pt": "Convide a equipe com um link e escolha o que cada pessoa pode ver.",
+    "en": "Invite your team with a link and choose what each person can see."
+   },
+   "keywords": {
+    "pt": [
+     "pessoas",
+     "acesso",
+     "convite",
+     "convidar",
+     "equipe",
+     "vendedor",
+     "sócio",
+     "link de convite",
+     "passkey",
+     "adicionar pessoa"
+    ],
+    "en": [
+     "people",
+     "access",
+     "invite",
+     "team",
+     "staff",
+     "salesperson",
+     "partner",
+     "invite link",
+     "passkey",
+     "add person"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "people",
+     "title": {
+      "pt": "Pessoas e acessos",
+      "en": "People and access"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Ajustes. Toque em Ajustes no canto de cima à direita do portal, ao lado de Ajuda, e role até Pessoas e acessos.",
+        "en": "Open Settings. Tap Settings at the top right of the portal, next to Help, then scroll down to People and access."
+       },
+       "image": {
+        "en": "help/img/guides/people-and-access/people-01.en.jpg",
+        "pt": "help/img/guides/people-and-access/people-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Veja quem tem acesso. Pessoas e acessos mostra as pessoas da sua conta com o papel de cada uma, o último acesso e quantos aparelhos usam. A tela explica que você adiciona alguém e envia um link: a pessoa cria uma passkey no próprio celular ou computador, então não há senha para compartilhar.",
+        "en": "See who has access. People and access shows the people on your account with their role, the last time they signed in and how many devices they use. The screen explains that you add someone and send them a link: they create a passkey on their own phone or laptop, so there is no password to share."
+       },
+       "image": {
+        "en": "help/img/guides/people-and-access/people-02.en.jpg",
+        "pt": "help/img/guides/people-and-access/people-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Adicione uma pessoa. Em Adicionar pessoa, digite o Nome e escolha o Acesso: Sócio(a) ou assistente executivo(a) (pode tudo o que o dono pode, exceto excluir a empresa; só o dono adiciona), Equipe com acesso ao financeiro (vê tudo, exceto ajustes e pessoas), Equipe sem acesso ao financeiro (não vê Financeiro nem Faturas) ou Vendedor(a) (visão mínima: só os próprios leads e projetos). Escolha o país, digite o Celular e toque em Criar link de convite.",
+        "en": "Add a person. Under Add a person, type the Name, then choose the Access: Partner or executive assistant (can do everything the owner can, except delete the business; only the owner can add one), Staff with finance access (sees everything except settings and people), Staff without finance access (cannot see Finance or Invoices) or Salesperson (minimal view: only their own leads and projects). Pick the country, type the Mobile number and tap Create invite link."
+       },
+       "image": {
+        "en": "help/img/guides/people-and-access/people-03.en.jpg",
+        "pt": "help/img/guides/people-and-access/people-03.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Criar link de convite"
+      ],
+      "en": [
+       "Create invite link"
+      ]
+     },
+     "section": "people",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "online-booking-page",
+   "audience": "client",
+   "title": {
+    "pt": "Agendamento online: seu link de agendamento",
+    "en": "Online booking: your booking link"
+   },
+   "summary": {
+    "pt": "Ligue o agendamento online e compartilhe o link para o cliente marcar uma visita.",
+    "en": "Turn on online booking and share the link so customers can book a visit."
+   },
+   "keywords": {
+    "pt": [
+     "agendamento online",
+     "agendar",
+     "marcar visita",
+     "link de agendamento",
+     "horário",
+     "duração da visita",
+     "lead"
+    ],
+    "en": [
+     "online booking",
+     "book",
+     "book a visit",
+     "booking link",
+     "hours",
+     "visit length",
+     "lead"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "booking",
+     "title": {
+      "pt": "Agendamento online",
+      "en": "Online booking"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra Ajustes. Toque em Ajustes no canto de cima à direita do portal, ao lado de Ajuda, e role até Agendamento online.",
+        "en": "Open Settings. Tap Settings at the top right of the portal, next to Help, then scroll down to Online booking."
+       },
+       "image": {
+        "en": "help/img/guides/online-booking-page/booking-01.en.jpg",
+        "pt": "help/img/guides/online-booking-page/booking-01.pt.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Ligue o agendamento online e defina as regras. Seus clientes escolhem o dia e o horário em uma página da sua empresa. Fica desligado até você ligar, então toque em Ligado. Depois defina os Dias de trabalho, o Início e o Fim, a Duração da visita (minutos), o Aviso mínimo (horas), o Máximo de visitas por dia e até quantos dias à frente o cliente pode agendar.",
+        "en": "Turn online booking on and set the rules. Your customers pick a day and time on a page of your company. It stays off until you switch it on, so tap On. Then set the Working days, the Start time and End time, the Visit length (minutes), the Minimum notice (hours), the Most visits per day and how far ahead customers can book (days)."
+       },
+       "image": {
+        "en": "help/img/guides/online-booking-page/booking-02.en.jpg",
+        "pt": "help/img/guides/online-booking-page/booking-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Compartilhe o seu link de agendamento. No fim de Agendamento online, o Link geral é a página para postar no seu site ou nas redes. Quem agendar vira lead. Toque em Copiar para copiar o link e em Salvar para guardar as suas configurações.",
+        "en": "Share your booking link. At the bottom of Online booking, the General link is the page to post on your website or social media. Anyone who books becomes a lead. Tap Copy to copy the link, and tap Save to keep your settings."
+       },
+       "image": {
+        "en": "help/img/guides/online-booking-page/booking-03.en.jpg",
+        "pt": "help/img/guides/online-booking-page/booking-03.pt.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": []
   }
  ],
  "pages": {
@@ -1855,7 +2677,10 @@
    },
    "guides": [
     "estimate",
-    "send-by-email"
+    "send-by-email",
+    "card-payments-setup",
+    "business-setup",
+    "payments-and-terms"
    ],
    "overview": {
     "pt": "Aqui você cria e envia orçamentos.",
@@ -1941,6 +2766,34 @@
    "overview": {
     "pt": "Aqui ficam os seus projetos. O contrato de cada projeto também pode ser aberto dentro dele.",
     "en": "Here are your projects. You can also open each project's contract inside it."
+   }
+  },
+  "gmpricing": {
+   "title": {
+    "pt": "Preços",
+    "en": "Pricing"
+   },
+   "guides": [
+    "pricing-setup"
+   ],
+   "overview": {
+    "pt": "Aqui você vê quanto cada item custa contra o que você cobra, com a margem. Você pode adicionar um item ou importar uma planilha.",
+    "en": "Here you see what each item costs against what you charge, with the margin. You can add an item or import a spreadsheet."
+   }
+  },
+  "worksched": {
+   "title": {
+    "pt": "Ajustes",
+    "en": "Settings"
+   },
+   "guides": [
+    "working-days-and-blocked-periods",
+    "people-and-access",
+    "online-booking-page"
+   ],
+   "overview": {
+    "pt": "Aqui você define os dias de trabalho e os períodos bloqueados, adiciona pessoas e escolhe o acesso delas, e configura o agendamento online.",
+    "en": "Here you set your working days and blocked periods, add people and choose their access, and set up online booking."
    }
   }
  }

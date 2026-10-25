@@ -1895,6 +1895,47 @@
     "pt": "Aqui você acompanha o financeiro e as faturas.",
     "en": "Here you follow the finances and the invoices."
    }
+  },
+  "gmcrm": {
+   "title": {
+    "pt": "Pipeline",
+    "en": "Pipeline"
+   },
+   "guides": [
+    "estimate"
+   ],
+   "overview": {
+    "pt": "Aqui você vê a lista dos seus leads no Pipeline.",
+    "en": "Here you see the list of your leads in the Pipeline."
+   }
+  },
+  "gmcontracts": {
+   "title": {
+    "pt": "Contratos",
+    "en": "Contracts"
+   },
+   "guides": [
+    "contract",
+    "change-order"
+   ],
+   "overview": {
+    "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",
+    "en": "Here you see your contracts. You can also open a contract inside the project."
+   }
+  },
+  "gmjobs": {
+   "title": {
+    "pt": "Projetos",
+    "en": "Projects"
+   },
+   "guides": [
+    "contract",
+    "change-order"
+   ],
+   "overview": {
+    "pt": "Aqui ficam os seus projetos. O contrato de cada projeto também pode ser aberto dentro dele.",
+    "en": "Here are your projects. You can also open each project's contract inside it."
+   }
   }
  }
 }

@@ -596,8 +596,8 @@
       {
        "n": 5,
        "text": {
-        "pt": "O cliente vê a fatura. Ele vê o saldo a pagar, como pagar e pode baixar a fatura em PDF. (Tela do cliente · inglês)",
-        "en": "The customer sees the invoice. They see the balance due, how to pay, and can download the invoice as a PDF. (Customer's screen · English)"
+        "pt": "O cliente vê a fatura. Ele vê o saldo a pagar, como pagar e pode baixar a fatura em PDF. Receba pagamentos por cartão. Se a sua conta da Apex estiver configurada para receber pagamentos por cartão, a fatura do seu cliente mostra um botão para pagar com cartão. O cliente toca no link, paga com o cartão, e o pagamento aparece na fatura. Se você ainda não tem essa opção e quer usar, pergunte à equipe da Apex como ativar. Quem faz a configuração é você, o dono da conta, porque ela usa os dados da sua empresa e da sua conta bancária. Neste exemplo, a conta de teste não está configurada, por isso o botão de cartão não aparece. (Tela do cliente · inglês)",
+        "en": "The customer sees the invoice. They see the balance due, how to pay, and can download the invoice as a PDF. Collect card payments. If your Apex account is set up to collect card payments, your customer's invoice shows a button to pay by card. The customer taps the link, pays with the card, and the payment shows on the invoice. If you do not have this option yet and want it, ask the Apex team how to turn it on. You set it up yourself, as the account owner, because it uses your business and bank details. In this example, the test account is not set up, so the card button does not appear. (Customer's screen · English)"
        },
        "image": {
         "pt": "help/img/guides/invoice/send-invoice-05.jpg",

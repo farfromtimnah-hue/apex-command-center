@@ -58,12 +58,48 @@
         { "labels": { "pt": ["Nova fatura"], "en": ["New invoice"] }, "section": "create", "step": 1 },
         { "labels": { "pt": ["Registrar pagamento"], "en": ["Record payment"] }, "section": "paid", "step": 1 }
       ]
+    },
+    {
+      "id": "receipt",
+      "title": { "pt": "Enviar um recibo", "en": "Send a receipt" },
+      "summary": { "pt": "Guia de teste com vídeo.", "en": "Test guide with video." },
+      "keywords": { "pt": ["enviar um recibo"], "en": ["send a receipt"] },
+      "video": { "pt": { "src": "https://example.com/receipt-pt.mp4", "poster": "https://example.com/receipt-pt.jpg" }, "en": null },
+      "sections": [
+        {
+          "id": "main",
+          "title": { "pt": "Passos", "en": "Steps" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Toque no botão.", "en": "Tap the button." }, "image": null },
+            { "n": 2, "text": { "pt": "Confirme.", "en": "Confirm." }, "image": null }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "contract",
+      "title": { "pt": "Enviar um contrato", "en": "Send a contract" },
+      "summary": { "pt": "Guia de teste com vídeo.", "en": "Test guide with video." },
+      "keywords": { "pt": ["enviar um contrato"], "en": ["send a contract"] },
+      "video": { "pt": "https://example.com/contract-pt.mp4", "en": null },
+      "sections": [
+        {
+          "id": "main",
+          "title": { "pt": "Passos", "en": "Steps" },
+          "steps": [
+            { "n": 1, "text": { "pt": "Toque no botão.", "en": "Tap the button." }, "image": null },
+            { "n": 2, "text": { "pt": "Confirme.", "en": "Confirm." }, "image": null }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
     "gmestimates": {
       "title": { "pt": "Orçamentos", "en": "Estimates" },
-      "guides": ["estimate"],
+      "guides": ["estimate", "invoice", "receipt", "contract"],
       "overview": { "pt": "Aqui você cria e envia orçamentos.", "en": "Here you create and send estimates." }
     }
   }

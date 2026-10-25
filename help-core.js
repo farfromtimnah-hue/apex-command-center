@@ -4,8 +4,8 @@
 // or storage, so every rule can be tested on its own.
 //
 // What lives here: the text normalizer, the button-to-guide resolver, the deep
-// link parser, the long press timing rule, the guide file validator, the model
-// reply validator, and the flag guard.
+// link parser, the long press timing rule, the guide file validator, the video
+// rule (videoFor), the model reply validator, and the flag guard.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) { module.exports = factory(); }
   else { root.HelpCore = factory(); }
@@ -136,6 +136,30 @@
     return Math.sqrt(dx * dx + dy * dy) > MOVE_PX;
   }
 
+  // ---- video ------------------------------------------------------------
+  function isHttps(v) { return typeof v === "string" && /^https:\/\//.test(v); }
+
+  // One language of a guide's video: null (no video), a plain https string
+  // (the old shape, same as {src}), or {src, poster?} with https addresses.
+  function validVideoValue(v) {
+    if (v === null) { return true; }
+    if (typeof v === "string") { return isHttps(v); }
+    if (!isObj(v) || !isHttps(v.src)) { return false; }
+    return v.poster === undefined || isHttps(v.poster);
+  }
+
+  // What the play card needs for this guide in this language: { src, poster }
+  // (poster is null when there is none), or null when there is no video.
+  // The same rules as the validator, so a bad address never reaches the page.
+  function videoFor(guide, lang) {
+    if (lang !== "pt" && lang !== "en") { return null; }
+    if (!isObj(guide) || !isObj(guide.video) || !has(guide.video, lang)) { return null; }
+    var v = guide.video[lang];
+    if (!validVideoValue(v) || v === null) { return null; }
+    if (typeof v === "string") { return { src: v, poster: null }; }
+    return { src: v.src, poster: v.poster === undefined ? null : v.poster };
+  }
+
   // ---- guide file validator --------------------------------------------
   function bi(v) { return isObj(v) && typeof v.pt === "string" && v.pt.replace(/\s/g, "") !== "" && typeof v.en === "string" && v.en.replace(/\s/g, "") !== ""; }
 
@@ -163,7 +187,12 @@
       checkText(g.summary, w + " summary");
       if (!isObj(g.keywords) || !Array.isArray(g.keywords.pt) || !Array.isArray(g.keywords.en)) { errs.push(w + ": keywords needs pt and en arrays"); }
       if (g.video !== null && g.video !== undefined) {
-        if (!isObj(g.video) || typeof g.video.pt !== "string" || typeof g.video.en !== "string") { errs.push(w + ": video must be null or {pt, en}"); }
+        if (!isObj(g.video)) { errs.push(w + ": video must be null or {pt, en}"); }
+        else {
+          ["pt", "en"].forEach(function (lg) {
+            if (has(g.video, lg) && !validVideoValue(g.video[lg])) { errs.push(w + ": video." + lg + " must be null, an https address, or {src, poster?} with https addresses"); }
+          });
+        }
       }
       var secIds = {};
       var stepNums = {};
@@ -261,6 +290,7 @@
     longPressOutcome: longPressOutcome,
     movedTooFar: movedTooFar,
     validateGuides: validateGuides,
+    videoFor: videoFor,
     validateReply: validateReply,
     isEnabled: isEnabled
   };

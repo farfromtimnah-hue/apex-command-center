@@ -96,6 +96,45 @@ bad = clone(FIXTURE); bad.guides[0].id = "has space";
 ok(core.validateGuides(bad).length > 0, "(f) an id that is not plain is caught");
 ok(core.validateGuides(null).length > 0 && core.validateGuides({ version: 2, guides: [], pages: {} }).length > 0, "(f) wrong version or no data is caught");
 
+// ---------------------------------------------------------------- (v) video shapes and videoFor
+function withVideo(v) { const d = clone(FIXTURE); d.guides[1].video = v; return d; }
+const VID = "https://example.com/v.mp4", POS = "https://example.com/p.jpg";
+ok(core.validateGuides(withVideo(null)).length === 0, "(v) validator accepts video null");
+ok(core.validateGuides(withVideo({ pt: { src: VID, poster: POS }, en: null })).length === 0, "(v) validator accepts the object shape for pt with en null");
+ok(core.validateGuides(withVideo({ pt: { src: VID, poster: POS }, en: { src: VID } })).length === 0, "(v) validator accepts the object shape for both languages (poster optional)");
+ok(core.validateGuides(withVideo({ pt: VID, en: VID })).length === 0, "(v) validator accepts the plain https string shape");
+ok(core.validateGuides(withVideo({ pt: { src: VID } })).length === 0, "(v) a missing language is allowed (no video for it)");
+ok(core.validateGuides(withVideo({ pt: { src: "http://example.com/v.mp4" }, en: null })).length > 0, "(v) validator rejects a src with http://");
+ok(core.validateGuides(withVideo({ pt: { src: "javascript:alert(1)" }, en: null })).length > 0, "(v) validator rejects a src with javascript:");
+ok(core.validateGuides(withVideo({ pt: { src: VID, poster: "http://example.com/p.jpg" }, en: null })).length > 0, "(v) validator rejects a poster with http://");
+ok(core.validateGuides(withVideo({ pt: { src: VID, poster: 5 }, en: null })).length > 0, "(v) validator rejects a poster that is not a string");
+ok(core.validateGuides(withVideo({ pt: 5, en: null })).length > 0, "(v) validator rejects a language value that is a number");
+ok(core.validateGuides(withVideo({ pt: { poster: POS }, en: null })).length > 0, "(v) validator rejects an object without src");
+ok(core.validateGuides(withVideo({ pt: "http://example.com/v.mp4", en: null })).length > 0, "(v) validator rejects a plain string that is not https");
+ok(core.validateGuides(withVideo({ pt: [VID], en: null })).length > 0 && core.validateGuides(withVideo({ pt: true, en: null })).length > 0, "(v) validator rejects an array or a boolean as a language value");
+ok(core.validateGuides(withVideo("https://example.com/v.mp4")).length > 0, "(v) validator rejects a video that is a bare string");
+
+ok(typeof core.videoFor === "function", "(v) help-core exports videoFor");
+if (typeof core.videoFor === "function") {
+  const vf = core.videoFor;
+  const both = { video: { pt: { src: VID, poster: POS }, en: { src: VID + "?en" } } };
+  const r1 = vf(both, "pt");
+  ok(r1 && r1.src === VID && r1.poster === POS, "(v) videoFor returns {src, poster} for a language that has a video");
+  const r2 = vf(both, "en");
+  ok(r2 && r2.src === VID + "?en" && !r2.poster, "(v) videoFor returns no poster when the object has none");
+  ok(vf({ video: { pt: { src: VID }, en: null } }, "en") === null, "(v) videoFor returns null for a language that is null");
+  ok(vf({ video: { pt: { src: VID } } }, "en") === null, "(v) videoFor returns null for a missing language");
+  ok(vf({ video: null }, "pt") === null && vf({}, "pt") === null && vf(null, "pt") === null, "(v) videoFor returns null for video null, no video, or no guide");
+  const r3 = vf({ video: { pt: VID, en: null } }, "pt");
+  ok(r3 && r3.src === VID && !r3.poster, "(v) videoFor treats a plain string as {src} with no poster");
+  ok(vf({ video: { pt: "http://example.com/v.mp4" } }, "pt") === null, "(v) videoFor returns null for an http string");
+  ok(vf({ video: { pt: { src: "http://example.com/v.mp4" } } }, "pt") === null, "(v) videoFor returns null for an http src");
+  ok(vf({ video: { pt: { src: "javascript:alert(1)" } } }, "pt") === null, "(v) videoFor returns null for a javascript: src");
+  ok(vf({ video: { pt: { src: VID, poster: "http://example.com/p.jpg" } } }, "pt") === null, "(v) videoFor returns null when the poster is not https");
+  ok(vf({ video: { pt: 5 } }, "pt") === null && vf({ video: { pt: { poster: POS } } }, "pt") === null && vf({ video: { pt: [VID] } }, "pt") === null, "(v) videoFor returns null for a number, an object without src, or an array");
+  ok(vf(both, "fr") === null && vf(both, "__proto__") === null, "(v) videoFor returns null for a language other than pt or en");
+}
+
 // ---------------------------------------------------------------- Worker pieces
 const workerSrc = read("worker/index.js");
 const WORKER_FNS = ["handlePostHelpAsk", "validateHelpReply", "helpBuildIndex", "helpSystemText", "helpPageKey", "publicReadRateLimited"];
@@ -337,6 +376,178 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
   { const p = fakePage({ enabled: true, base: "https://apex.resonateai.online/" });
     vm.runInContext(widgetSrc, p.ctx);
     ok(p.rec.docListeners.indexOf("pointerdown") !== -1 && p.rec.docListeners.indexOf("contextmenu") !== -1, "(h) flag on: the widget registers its press and right click handlers (proves the guard is the only thing holding it back)"); }
+
+  // ------------------------------------------------------------ (d2) the play card and the player, in a fake page
+  function mkNode(tag, rec) {
+    const n = { tag, nodeType: 1, children: [], attrs: {}, listeners: {}, style: {}, parentNode: null, className: "", _text: "", hidden: false, calls: [] };
+    n.classList = {
+      add(c) { if (!n.className.split(" ").includes(c)) { n.className = (n.className + " " + c).trim(); } },
+      remove(c) { n.className = n.className.split(" ").filter((x) => x && x !== c).join(" "); },
+      contains(c) { return n.className.split(" ").includes(c); }
+    };
+    Object.defineProperty(n, "firstChild", { get() { return n.children[0] || null; } });
+    Object.defineProperty(n, "lastChild", { get() { return n.children[n.children.length - 1] || null; } });
+    Object.defineProperty(n, "textContent", {
+      get() { return n._text + n.children.map((c) => c.textContent).join(""); },
+      set(v) { n._text = String(v); n.children.forEach((c) => { c.parentNode = null; }); n.children = []; }
+    });
+    n.setAttribute = (k, v) => { n.attrs[k] = String(v); };
+    n.getAttribute = (k) => (n.attrs[k] === undefined ? null : n.attrs[k]);
+    n.removeAttribute = (k) => { delete n.attrs[k]; };
+    n.hasAttribute = (k) => n.attrs[k] !== undefined;
+    n.appendChild = (c) => { if (c.parentNode) { c.parentNode.removeChild(c); } c.parentNode = n; n.children.push(c); return c; };
+    n.insertBefore = (c, ref) => { if (c.parentNode) { c.parentNode.removeChild(c); } c.parentNode = n; const i = ref ? n.children.indexOf(ref) : -1; if (i < 0) { n.children.push(c); } else { n.children.splice(i, 0, c); } return c; };
+    n.replaceChild = (c, old) => { const i = n.children.indexOf(old); if (i < 0) { return old; } if (c.parentNode) { c.parentNode.removeChild(c); } n.children[i] = c; c.parentNode = n; old.parentNode = null; return old; };
+    n.removeChild = (c) => { const i = n.children.indexOf(c); if (i >= 0) { n.children.splice(i, 1); c.parentNode = null; } return c; };
+    n.contains = (c) => { for (let x = c; x; x = x.parentNode) { if (x === n) { return true; } } return false; };
+    n.addEventListener = (t, fn) => { (n.listeners[t] = n.listeners[t] || []).push(fn); };
+    n.fire = (t, ev) => { (n.listeners[t] || []).slice().forEach((fn) => fn(Object.assign({ target: n, preventDefault() {}, stopPropagation() {} }, ev || {}))); };
+    n.closest = () => null;
+    n.focus = () => {};
+    n.querySelector = () => null;
+    n.querySelectorAll = () => [];
+    n.pause = () => { n.calls.push("pause"); };
+    n.load = () => { n.calls.push("load"); };
+    n.play = () => { n.calls.push("play"); return Promise.resolve(); };
+    return n;
+  }
+  function walk(node, out) { out = out || []; out.push(node); node.children.forEach((c) => { if (c.nodeType === 1) { walk(c, out); } }); return out; }
+  function textOf(n) { return n.textContent; }
+
+  async function learnPage(startLang) {
+    const state = { en: startLang === "en" };
+    const body = mkNode("body"), head = mkNode("head");
+    const host = mkNode("div");
+    const docL = {};
+    const doc = {
+      readyState: "complete", body, head, activeElement: null,
+      addEventListener(t, fn) { (docL[t] = docL[t] || []).push(fn); }, removeEventListener() {},
+      createElement: (tag) => mkNode(tag),
+      createTextNode: (s) => ({ nodeType: 3, textContent: String(s), parentNode: null }),
+      getElementById() { return null; },
+      querySelector(sel) { return sel === "#appHeader .header-right" ? host : null; },
+      querySelectorAll() { return []; }
+    };
+    body.classList = { contains() { return false; }, add() {}, remove() {} };
+    const win = {
+      APEX_HELP: { enabled: true, base: "https://apex.resonateai.online/" }, HelpCore: core,
+      isEn() { return state.en; },
+      addEventListener() {}, removeEventListener() {},
+      location: { pathname: "/gmestimates.html", search: "", origin: "https://apex.resonateai.online" },
+      setTimeout() { return 1; }, clearTimeout() {},
+      fetch() { return Promise.resolve({ ok: true, json: () => Promise.resolve(clone(FIXTURE)) }); },
+      matchMedia() { return { matches: true }; }
+    };
+    win.window = win; win.document = doc;
+    const ctx = vm.createContext({ window: win, document: doc, console, setTimeout: win.setTimeout, clearTimeout: win.clearTimeout, fetch: win.fetch, Promise, JSON, Date, Math, Object, Array, String, Number, RegExp, encodeURIComponent, decodeURIComponent, URL });
+    vm.runInContext(widgetSrc, ctx);
+    const tick = async () => { for (let i = 0; i < 8; i++) { await new Promise((r) => setImmediate(r)); } };
+    const page = {
+      body, state, tick,
+      all: () => walk(body),
+      cards: () => page.all().filter((n) => n.className.split(" ").includes("aph-vcard")),
+      videos: () => page.all().filter((n) => n.tag === "video"),
+      byText: (tag, txt) => page.all().filter((n) => n.tag === tag && textOf(n).indexOf(txt) !== -1),
+      docFire(t) { (docL[t] || []).forEach((fn) => fn({})); },
+      async openSheet() { host.children[0].fire("click"); await tick(); },
+      async openGuide(title) { page.byText("button", title)[0].fire("click"); await tick(); },
+      async setLang(l) { state.en = l === "en"; page.docFire("apex:langchange"); await tick(); }
+    };
+    await tick();
+    return page;
+  }
+  const attrOrProp = (n, k) => (n.getAttribute(k) !== null ? n.getAttribute(k) : (n[k] === undefined ? null : n[k]));
+
+  { const p = await learnPage("pt");
+    await p.openSheet();
+    // (f) the list tag
+    const tags = (title) => p.byText("button", title)[0].children.filter((c) => c.className.indexOf("aph-vtag") !== -1);
+    ok(tags("Enviar um recibo").length === 1 && textOf(tags("Enviar um recibo")[0]) === "Vídeo", "(f) pt list: a guide with a pt video shows the tag Vídeo");
+    ok(tags("Enviar um contrato").length === 1, "(f) pt list: the plain string shape shows the tag too");
+    ok(tags("Receber uma fatura").length === 0, "(f) pt list: a guide with video null shows no tag");
+
+    await p.openGuide("Enviar um recibo");
+    ok(p.cards().length === 1 && p.videos().length === 0, "(d) opening a guide with a video in the language shows one play card and no video element");
+    const card = p.cards()[0];
+    ok(card.tag === "button" && (card.type === "button" || card.attrs.type === "button"), "(d) the play card is a real button");
+    ok(textOf(card).indexOf("Assistir ao vídeo") !== -1, "(d) the play card says Assistir ao vídeo");
+    ok(p.all().some((n) => textOf(n) === "Ou siga os passos abaixo."), "(d) the line Ou siga os passos abaixo. sits under the card");
+    ok(p.all().some((n) => n.className.indexOf("aph-step") !== -1), "(d) the steps are on the page with the card");
+    const posterImg = p.all().filter((n) => n.tag === "img" && n.className.indexOf("aph-vposter") !== -1);
+    ok(posterImg.length === 1 && attrOrProp(posterImg[0], "src") === "https://example.com/receipt-pt.jpg", "(d) the card shows the poster picture");
+
+    card.fire("click");
+    await p.tick();
+    ok(p.cards().length === 0 && p.videos().length === 1, "(d) activating the card replaces it with exactly one video element");
+    const v = p.videos()[0];
+    ok(v.hasAttribute("playsinline") && v.hasAttribute("controls"), "(d) the video has playsinline and controls");
+    ok(v.getAttribute("preload") === "none", "(d) the video has preload none");
+    ok(attrOrProp(v, "src") === "https://example.com/receipt-pt.mp4" && attrOrProp(v, "poster") === "https://example.com/receipt-pt.jpg", "(d) the video has the right src and poster");
+    ok(!v.hasAttribute("autoplay") && v.calls.indexOf("play") !== -1, "(d) play is started by the tap, not by an autoplay attribute");
+    ok(p.all().some((n) => n.className.indexOf("aph-step") !== -1), "(d) the steps stay on the page under the player");
+
+    // language switch to one with no video
+    await p.setLang("en");
+    ok(p.videos().length === 0 && p.cards().length === 0, "(d) switching to a language with no video removes the card and the player");
+    ok(v.getAttribute("src") === null && v.calls.indexOf("pause") !== -1 && v.calls.indexOf("load") !== -1, "(d) the player is stopped on a language switch (paused, src removed, load called)");
+    // and back to one with a video: a fresh card, not a player
+    await p.setLang("pt");
+    ok(p.cards().length === 1 && p.videos().length === 0, "(d) switching back to a language with a video shows a fresh card");
+
+    // Back to the list stops it
+    p.cards()[0].fire("click"); await p.tick();
+    const v2 = p.videos()[0];
+    ok(!!v2, "(d) a second tap makes a new player");
+    p.byText("button", "Voltar")[0].fire("click"); await p.tick();
+    ok(p.videos().length === 0 && v2.getAttribute("src") === null && v2.calls.indexOf("pause") !== -1, "(d) Back to the list stops and removes the player");
+
+    // opening another guide stops it
+    await p.openGuide("Enviar um recibo");
+    p.cards()[0].fire("click"); await p.tick();
+    const v3 = p.videos()[0];
+    p.byText("button", "Voltar")[0].fire("click"); await p.tick();
+    await p.openGuide("Enviar um contrato");
+    ok(v3.getAttribute("src") === null && p.videos().length === 0 && p.cards().length === 1, "(d) opening another guide stops the old player and shows the new card");
+
+    // the load error state
+    p.cards()[0].fire("click"); await p.tick();
+    const v4 = p.videos()[0];
+    ok(attrOrProp(v4, "src") === "https://example.com/contract-pt.mp4" && !attrOrProp(v4, "poster"), "(d) the plain string shape plays with no poster");
+    v4.fire("error");
+    ok(p.videos().length === 0 && p.all().some((n) => textOf(n) === "Não foi possível carregar o vídeo agora. Siga os passos abaixo."), "(d) a video error shows the message in place of the player");
+    ok(v4.getAttribute("src") === null && p.all().some((n) => n.className.indexOf("aph-step") !== -1), "(d) after an error the player is stopped and the steps stay");
+
+    // closing the sheet stops it
+    p.byText("button", "Voltar")[0].fire("click"); await p.tick();
+    await p.openGuide("Enviar um recibo");
+    p.cards()[0].fire("click"); await p.tick();
+    const v5 = p.videos()[0];
+    p.byText("button", "").filter((b) => b.getAttribute("aria-label") === "Fechar")[0].fire("click");
+    ok(p.videos().length === 0 && v5.getAttribute("src") === null && v5.calls.indexOf("pause") !== -1, "(d) closing the sheet removes the player and clears its src");
+  }
+  { const p = await learnPage("en");
+    await p.openSheet();
+    const tags = (title) => p.byText("button", title)[0].children.filter((c) => c.className.indexOf("aph-vtag") !== -1);
+    ok(tags("Send a receipt").length === 0 && tags("Send a contract").length === 0 && tags("Collect an invoice").length === 0, "(f) en list: no tag for guides whose English video is null or missing");
+    ok(tags("Send an estimate").length === 1 && textOf(tags("Send an estimate")[0]) === "Video", "(f) en list: the guide with an English video shows the tag Video");
+    await p.openGuide("Send a receipt");
+    ok(p.cards().length === 0 && p.videos().length === 0, "(d) in English the receipt guide has no play card");
+  }
+  { const p = await learnPage("en");
+    await p.openSheet();
+    await p.openGuide("Send an estimate");
+    ok(p.cards().length === 1 && textOf(p.cards()[0]).indexOf("Watch the video") !== -1 && p.all().some((n) => textOf(n) === "Or follow the steps below."), "(d) in English the card and the line are in English");
+  }
+
+  // ------------------------------------------------------------ (e) video source guards
+  [["help-widget.js", widgetSrc], ["help.html", read("help.html")]].forEach(function (pair) {
+    const name = pair[0], src = pair[1];
+    ok(!/\.innerHTML\s*\+?=[^;\n]*(src|poster|video)/i.test(src), "(e) " + name + " never builds markup from a video or poster value");
+    ok(!/(^|[^A-Za-z0-9_.$])(window\.)?(alert|confirm|prompt)\(/m.test(src), "(e) " + name + " has no alert(, confirm( or prompt(");
+    ok(!/autoplay/i.test(src), "(e) " + name + " has no autoplay attribute");
+    ok(src.indexOf("videoFor") !== -1, "(e) " + name + " decides what to show with HelpCore.videoFor");
+    ok(src.indexOf("playsinline") !== -1 && src.indexOf('"none"') !== -1, "(e) " + name + " sets playsinline and preload none");
+  });
 
   // ------------------------------------------------------------ (i) and (j) source guards
   const helpHtml = read("help.html");

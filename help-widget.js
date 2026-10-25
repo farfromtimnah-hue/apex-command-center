@@ -35,6 +35,7 @@
   var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
   var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
   var ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
   var guides = null;        // parsed help/guides.json once loaded
@@ -42,6 +43,8 @@
   var overlay = null, sheet = null, bodyEl = null, titleEl = null, closeBtn = null;
   var lastFocus = null;
   var menuEl = null, lightEl = null;
+  var activePlayer = null;  // the video element in the open guide, if one was started
+  var openView = null;      // { id, section, step } while the sheet shows a guide
   var press = null;         // the touch press being timed
   var swallowClick = false;
   var swallowTimer = null;
@@ -180,6 +183,17 @@
     ".aph-img{display:block;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);overflow:hidden;background:var(--ah-card);cursor:zoom-in}" +
     ".aph-img img{display:block;width:100%;height:auto}" +
     ".aph-link{color:var(--ah-text);font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}" +
+    ".aph-vwrap{margin:0 0 14px}" +
+    ".aph-vcard{display:block;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);overflow:hidden;cursor:pointer;text-align:left;font:inherit;color:inherit}" +
+    ".aph-vmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1a1a1d;overflow:hidden}" +
+    ".aph-vposter{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:block}" +
+    ".aph-vplay{position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:var(--ah-gold);color:#1a1a1d;display:flex;align-items:center;justify-content:center}" +
+    ".aph-vplay svg{width:28px;height:28px;margin-left:3px}" +
+    ".aph-vlabel{display:block;padding:12px 14px;font-size:15px;font-weight:700}" +
+    "@media (hover:hover){.aph-vcard:hover .aph-vlabel{background:#f3eee3}}" +
+    ".aph-video{display:block;width:100%;max-height:70vh;border-radius:var(--ah-r);background:#000}" +
+    ".aph-vhint{font-size:13px;color:var(--ah-muted);margin:8px 0 0;line-height:1.45}" +
+    ".aph-vtag{display:inline-block;margin-top:8px;padding:1px 8px;border:1px solid var(--ah-line);border-radius:6px;font-size:11px;font-weight:600;color:var(--ah-muted)}" +
     ".aph-tip{font-size:13px;color:var(--ah-muted);margin:18px 0 0;line-height:1.45}" +
     ".aphelp-menu{position:fixed;z-index:1300;background:var(--ah-card);border:1px solid var(--ah-line);border-radius:var(--ah-r);padding:4px;min-width:200px;opacity:0;transition:opacity 150ms ease-out}" +
     ".aphelp-menu.aph-in{opacity:1}" +
@@ -216,6 +230,12 @@
     b.addEventListener("click", function () { openSheet({}); });
     var before = host.querySelector(".lang-btn");
     if (before && before.parentNode === host) { host.insertBefore(b, before); } else { host.appendChild(b); }
+  }
+  // A language switch redraws an open guide, so its video card and the player
+  // follow the language (the old player is stopped by renderGuide).
+  function onLangChange() {
+    refreshLabels();
+    if (sheet && bodyEl && openView) { renderGuide(openView.id, openView.section, openView.step); }
   }
   function refreshLabels() {
     var b = doc.getElementById("aphelpBtn");
@@ -300,7 +320,8 @@
   function closeSheet(immediate) {
     if (!overlay) { return; }
     var gone = overlay;
-    overlay = null; sheet = null; bodyEl = null; titleEl = null; closeBtn = null;
+    stopPlayer();
+    overlay = null; sheet = null; bodyEl = null; titleEl = null; closeBtn = null; openView = null;
     doc.body.style.overflow = "";
     closeMenu();
     closeLightbox();
@@ -332,10 +353,82 @@
     bodyEl.appendChild(b);
   }
 
+  // ---- the video: tag on the list, play card and player in a guide -------
+  function videoTag(g) {
+    return HC.videoFor(g, lang()) ? el("span", "aph-vtag", t("Vídeo", "Video")) : null;
+  }
+
+  // Pause it, drop its address and reload, so nothing keeps downloading or
+  // playing once the person has left the guide.
+  function stopPlayer() {
+    var v = activePlayer;
+    activePlayer = null;
+    if (!v) { return; }
+    v.pause();
+    v.removeAttribute("src");
+    v.load();
+  }
+
+  function showVideoError(wrap, v) {
+    if (activePlayer !== v) { return; }
+    stopPlayer();
+    clear(wrap);
+    var msg = el("p", "aph-state aph-error", t("Não foi possível carregar o vídeo agora. Siga os passos abaixo.", "The video could not load right now. Follow the steps below."));
+    msg.setAttribute("role", "status");
+    wrap.appendChild(msg);
+  }
+
+  // The tap that chose the video also starts it, which is what lets a phone
+  // browser play it. The addresses are only ever set as attributes.
+  function startPlayer(wrap, card, vid) {
+    stopPlayer();
+    var v = el("video", "aph-video");
+    v.setAttribute("controls", "");
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+    v.setAttribute("preload", "none");
+    if (vid.poster) { v.setAttribute("poster", vid.poster); }
+    v.setAttribute("src", vid.src);
+    v.addEventListener("error", function () { showVideoError(wrap, v); });
+    wrap.replaceChild(v, card);
+    activePlayer = v;
+    var started = v.play();
+    if (started && started.then) { started.then(null, function () { if (v.error) { showVideoError(wrap, v); } }); }
+    try { v.focus(); } catch (e) { /* focus is a courtesy */ }
+  }
+
+  function videoBlock(g) {
+    var vid = HC.videoFor(g, lang());
+    if (!vid) { return null; }
+    var wrap = el("div", "aph-vwrap");
+    var card = button("aph-vcard");
+    var media = el("span", "aph-vmedia");
+    if (vid.poster) {
+      var pic = el("img", "aph-vposter");
+      pic.alt = "";
+      pic.src = vid.poster;
+      // A poster that does not load leaves the calm dark panel.
+      pic.addEventListener("error", function () { if (pic.parentNode) { pic.parentNode.removeChild(pic); } });
+      media.appendChild(pic);
+    }
+    var play = el("span", "aph-vplay");
+    play.setAttribute("aria-hidden", "true");
+    play.innerHTML = ICON_PLAY;
+    media.appendChild(play);
+    card.appendChild(media);
+    card.appendChild(el("span", "aph-vlabel", t("Assistir ao vídeo", "Watch the video")));
+    card.addEventListener("click", function () { startPlayer(wrap, card, vid); });
+    wrap.appendChild(card);
+    wrap.appendChild(el("p", "aph-vhint", t("Ou siga os passos abaixo.", "Or follow the steps below.")));
+    return wrap;
+  }
+
   function guideCard(g, section, step) {
     var card = el("div", "aph-card");
     card.appendChild(el("p", "aph-card-title", L(g.title)));
     card.appendChild(el("p", "aph-card-sum", L(g.summary)));
+    var gtag = videoTag(g);
+    if (gtag) { card.appendChild(gtag); }
     var row = el("div", "aph-row");
     var open = button("aph-primary", t("Ver passo a passo", "See step by step"));
     open.addEventListener("click", function () { renderGuide(g.id, section, step); });
@@ -353,11 +446,15 @@
     b.appendChild(el("span", "aph-card-sum", L(g.summary)));
     b.firstChild.style.display = "block";
     b.lastChild.style.display = "block";
+    var qtag = videoTag(g);
+    if (qtag) { b.appendChild(qtag); }
     b.addEventListener("click", function () { renderGuide(g.id); });
     return b;
   }
 
   function renderHome() {
+    stopPlayer();
+    openView = null;
     clear(bodyEl);
     var key = screenKey();
     var page = guides && guides.pages && Object.prototype.hasOwnProperty.call(guides.pages, key) ? guides.pages[key] : null;
@@ -463,6 +560,8 @@
   function renderGuide(id, sectionId, step) {
     var g = findGuide(id);
     if (!g) { renderHome(); return; }
+    stopPlayer();
+    openView = { id: id, section: sectionId, step: step };
     clear(bodyEl);
     var back = button("aph-quiet");
     var bi = el("span", "aph-ico");
@@ -473,16 +572,8 @@
     bodyEl.appendChild(back);
     bodyEl.appendChild(el("h3", "aph-h", L(g.title)));
     bodyEl.appendChild(el("p", "aph-p aph-muted", L(g.summary)));
-    var video = g.video && L(g.video);
-    if (typeof video === "string" && /^https:\/\//.test(video)) {
-      var v = el("a", "aph-link", t("Ver o vídeo", "Watch the video"));
-      v.href = video;
-      v.setAttribute("target", "_blank");
-      v.setAttribute("rel", "noopener");
-      var vp = el("p", "aph-p");
-      vp.appendChild(v);
-      bodyEl.appendChild(vp);
-    }
+    var vblock = videoBlock(g);
+    if (vblock) { bodyEl.appendChild(vblock); }
     var hitEl = null;
     (Array.isArray(g.sections) ? g.sections : []).forEach(function (s) {
       bodyEl.appendChild(el("h4", "aph-sec", L(s.title)));
@@ -688,7 +779,7 @@
     doc.addEventListener("click", onClickCapture, true);
     doc.addEventListener("contextmenu", onContextMenu, false);
     doc.addEventListener("keydown", onKeyDown, true);
-    doc.addEventListener("apex:langchange", refreshLabels);
+    doc.addEventListener("apex:langchange", onLangChange);
     window.addEventListener("resize", closeMenu);
     // The guide file is needed before a press can be matched to a guide.
     loadGuides()["catch"](function () { /* the sheet shows the offline state when opened */ });

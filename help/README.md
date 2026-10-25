@@ -56,8 +56,21 @@ use a long dash or an en dash in any text.
 - `title` and `summary`: shown on the cards. Keep the summary to one short line.
 - `keywords`: words a person might type. The search uses them. Write the
   everyday words, in both languages.
-- `video`: `null`, or `{ "pt": "https://...", "en": "https://..." }`. Only
-  https addresses are shown.
+- `video`: `null` (no video at all), or one entry per language:
+  `{ "pt": { "src": "https://.../receipt-pt.mp4", "poster": "https://.../receipt-pt.jpg" }, "en": null }`.
+  A language is `null` when it has no video. A language that is missing counts
+  as no video too. The "Assistir ao vídeo" / "Watch the video" button shows only
+  in a language that has a video.
+  - `src`: the video file. Required, and it must start with `https://`. Use a
+    short `.mp4`. It plays right inside the page (the person taps the button and
+    it starts), never in a new window.
+  - `poster`: the still picture shown on the button before the video starts.
+    Optional. If you give one it must start with `https://`. With no poster the
+    button shows a plain dark panel.
+  - The old plain form still works: a language can be just an `https://` text,
+    which means `{ "src": that text }` with no poster.
+  - An address that does not start with `https://` is rejected by the check, and
+    the page never uses it.
 - `steps`: `n` starts at 1 and counts up inside the section. Label a step with
   the action ("Tap Save and send"), not "Step 1".
 - `image`: `null` for a step with no picture. Paths are relative to the site

@@ -52,7 +52,7 @@
     .btn-quiet { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: transform 120ms ease-out, background-color 120ms ease-out; }
     .btn-primary:active, .btn-quiet:active { transform: scale(0.97); }
     .btn-primary.small { min-height: 44px; padding: 0 16px; font-size: 14px; }
-    @media (hover: hover) { .btn-quiet:hover, .icon-btn:hover { background: #f3eee3; } .btn-primary:hover { background: #2b2b30; } .lang-btn:hover { background: rgba(201,164,58,0.14); } .card.click:hover { background: #fbf9f5; } }
+    @media (hover: hover) { .btn-quiet:hover, .icon-btn:hover { background: #f3eee3; } .vcard:hover .vlabel { background: #f3eee3; } .btn-primary:hover { background: #2b2b30; } .lang-btn:hover { background: rgba(201,164,58,0.14); } .card.click:hover { background: #fbf9f5; } }
 
     .state { font-size: 14px; margin: 14px 0; }
     .state.muted { color: var(--muted); }
@@ -80,13 +80,25 @@
     .pic { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); cursor: zoom-in; }
     .pic img { display: block; width: 100%; height: auto; }
     .link { color: var(--text); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+    /* The video: a play card that turns into the player when chosen. */
+    .vwrap { margin-bottom: 14px; }
+    .vcard { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow: hidden; cursor: pointer; text-align: left; font: inherit; transition: transform 120ms ease-out; }
+    .vcard:active { transform: scale(0.97); }
+    .vmedia { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--header); overflow: hidden; }
+    .vposter { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vplay { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: var(--gold); color: var(--header); display: flex; align-items: center; justify-content: center; }
+    .vplay svg { width: 28px; height: 28px; margin-left: 3px; }
+    .vlabel { display: block; padding: 12px 14px; font-size: 15px; font-weight: 700; transition: background-color 120ms ease-out; }
+    .video { display: block; width: 100%; max-height: 70vh; border-radius: var(--radius); background: #000; }
+    .vhint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .vtag { display: inline-block; margin-top: 8px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
     .fade { animation: fadein 200ms ease-out; }
     @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
     .light { position: fixed; inset: 0; z-index: 100; background: rgba(20,18,16,0.82); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadein 200ms ease-out; }
     .light img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
     .light .icon-btn { position: absolute; right: 12px; top: 12px; margin: 0; background: var(--card); }
-    @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active { transform: none; } }
     @media (max-width: 480px) { .search form { flex-direction: column; } .btn-primary { justify-content: center; } }
   </style>
 </head>
@@ -150,6 +162,7 @@
     var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     var ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
     var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
     var ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
     var cfg = window.APEX_HELP || { enabled: false, base: "https://apex.resonateai.online/" };
@@ -169,6 +182,7 @@
     var loadState = "loading";   // loading, ready, error
     var openGuide = null;        // { id, section, step } while a guide is open
     var authUser = null;
+    var activePlayer = null;     // the video element in the open guide, if one was started
 
     function store(key, val) { try { if (val === undefined) { return localStorage.getItem(key); } localStorage.setItem(key, val); } catch (e) { /* works without storage */ } return null; }
     function t(pt, en) { return currentLang === "en" ? en : pt; }
@@ -291,6 +305,72 @@
       return { button: b, note: note };
     }
 
+    // ---- the video: tag on the list, play card and player in a guide
+    function videoTag(g) {
+      return HC.videoFor(g, currentLang) ? el("span", "vtag", t("Vídeo", "Video")) : null;
+    }
+    // Pause it, drop its address and reload, so nothing keeps downloading or
+    // playing once the person has left the guide.
+    function stopPlayer() {
+      var v = activePlayer;
+      activePlayer = null;
+      if (!v) { return; }
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    }
+    function showVideoError(wrap, v) {
+      if (activePlayer !== v) { return; }
+      stopPlayer();
+      clear(wrap);
+      var msg = el("p", "state error", t("Não foi possível carregar o vídeo agora. Siga os passos abaixo.", "The video could not load right now. Follow the steps below."));
+      msg.setAttribute("role", "status");
+      wrap.appendChild(msg);
+    }
+    // The tap that chose the video also starts it, which is what lets a phone
+    // browser play it. The addresses are only ever set as attributes.
+    function startPlayer(wrap, card, vid) {
+      stopPlayer();
+      var v = el("video", "video");
+      v.setAttribute("controls", "");
+      v.setAttribute("playsinline", "");
+      v.setAttribute("webkit-playsinline", "");
+      v.setAttribute("preload", "none");
+      if (vid.poster) { v.setAttribute("poster", vid.poster); }
+      v.setAttribute("src", vid.src);
+      v.addEventListener("error", function () { showVideoError(wrap, v); });
+      wrap.replaceChild(v, card);
+      activePlayer = v;
+      var started = v.play();
+      if (started && started.then) { started.then(null, function () { if (v.error) { showVideoError(wrap, v); } }); }
+      try { v.focus(); } catch (e) { /* focus is a courtesy */ }
+    }
+    function videoBlock(g) {
+      var vid = HC.videoFor(g, currentLang);
+      if (!vid) { return null; }
+      var wrap = el("div", "vwrap");
+      var card = btn("vcard");
+      var media = el("span", "vmedia");
+      if (vid.poster) {
+        var pic = el("img", "vposter");
+        pic.alt = "";
+        pic.src = vid.poster;
+        // A poster that does not load leaves the calm dark panel.
+        pic.addEventListener("error", function () { if (pic.parentNode) { pic.parentNode.removeChild(pic); } });
+        media.appendChild(pic);
+      }
+      var play = el("span", "vplay");
+      play.setAttribute("aria-hidden", "true");
+      play.innerHTML = ICON_PLAY;
+      media.appendChild(play);
+      card.appendChild(media);
+      card.appendChild(el("span", "vlabel", t("Assistir ao vídeo", "Watch the video")));
+      card.addEventListener("click", function () { startPlayer(wrap, card, vid); });
+      wrap.appendChild(card);
+      wrap.appendChild(el("p", "vhint", t("Ou siga os passos abaixo.", "Or follow the steps below.")));
+      return wrap;
+    }
+
     // ---- the library list
     function renderList() {
       var box = byId("guideList");
@@ -310,6 +390,8 @@
       var b = btn("card click");
       b.appendChild(el("span", "card-title", L(g.title)));
       b.appendChild(el("span", "card-sum", L(g.summary)));
+      var qtag = videoTag(g);
+      if (qtag) { b.appendChild(qtag); }
       b.addEventListener("click", function () { showGuide(g.id, null, null); });
       return b;
     }
@@ -317,6 +399,8 @@
       var card = el("div", "card");
       card.appendChild(el("span", "card-title", L(g.title)));
       card.appendChild(el("span", "card-sum", L(g.summary)));
+      var gtag = videoTag(g);
+      if (gtag) { card.appendChild(gtag); }
       var row = el("div", "row");
       var open = btn("btn-primary small", t("Ver passo a passo", "See step by step"));
       open.addEventListener("click", function () { showGuide(g.id, section, null); });
@@ -398,11 +482,14 @@
     }
     function closeGuide() {
       openGuide = null;
+      stopPlayer();
       try { window.history.replaceState(null, "", "help.html?lang=" + currentLang); } catch (e) { /* history is a courtesy */ }
       renderGuideView();
     }
     function renderGuideView() {
       var view = byId("guideView"), lib = byId("libraryView");
+      if (!view || !lib) { return; }
+      stopPlayer();
       var g = (openGuide && guides) ? findGuide(openGuide.id) : null;
       if (!openGuide) { view.hidden = true; lib.hidden = false; return; }
       lib.hidden = true; view.hidden = false;
@@ -426,14 +513,8 @@
       view.classList.add("fade");
       view.appendChild(el("h1", "guide-title", L(g.title)));
       view.appendChild(el("p", "guide-sum", L(g.summary)));
-      var video = g.video ? L(g.video) : "";
-      if (typeof video === "string" && /^https:\/\//.test(video)) {
-        var v = el("a", "link", t("Ver o vídeo", "Watch the video"));
-        v.href = video; v.target = "_blank"; v.rel = "noopener";
-        var vp = el("p", "state");
-        vp.appendChild(v);
-        view.appendChild(vp);
-      }
+      var vblock = videoBlock(g);
+      if (vblock) { view.appendChild(vblock); }
       var hit = null;
       (Array.isArray(g.sections) ? g.sections : []).forEach(function (s) {
         view.appendChild(el("h2", "sec-title", L(s.title)));

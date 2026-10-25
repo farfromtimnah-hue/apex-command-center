@@ -3325,6 +3325,618 @@
      "step": 6
     }
    ]
+  },
+  {
+   "id": "finances",
+   "audience": "client",
+   "title": {
+    "pt": "Financeiro: lançamentos e relatório",
+    "en": "Finances: entries and reports"
+   },
+   "summary": {
+    "pt": "Veja entradas, saídas e resultado de cada mês, adicione um lançamento e abra um relatório.",
+    "en": "See money in, money out and the result of each month, add an entry and open a report."
+   },
+   "keywords": {
+    "pt": [
+     "financeiro",
+     "finanças",
+     "entradas",
+     "saídas",
+     "lançamento",
+     "novo lançamento",
+     "relatório",
+     "margem líquida",
+     "resultado",
+     "período",
+     "mês",
+     "dinheiro que entrou",
+     "despesas"
+    ],
+    "en": [
+     "finances",
+     "financial",
+     "money in",
+     "money out",
+     "entry",
+     "new entry",
+     "report",
+     "net margin",
+     "result",
+     "period",
+     "month",
+     "expenses",
+     "income"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "finances",
+     "title": {
+      "pt": "O seu financeiro, passo a passo",
+      "en": "Your finances, step by step"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o Financeiro. Toque em Negócio no menu de cima e depois em Financeiro (1). Ele fica entre Faturas e Preços.",
+        "en": "Open Finances. Tap Business in the top menu, then tap Finances (1). It sits between Invoices and Pricing."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-01.pt.jpg",
+        "en": "help/img/guides/finances/finances-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escolha o período. O cartão Período define quais datas a página mostra. Toque em Este mês, Mês passado, Este ano ou Tudo (1). Ou abra Escolher mês e escolha um mês da lista (2); o número entre parênteses é quantos lançamentos aquele mês tem. Ou defina você mesmo as datas De e Até (3). O botão Relatório (4) é explicado no passo 6.",
+        "en": "Choose the period. The Period card sets which dates the page shows. Tap This month, Last month, This year or All time (1). Or open Pick a month and choose a month from the list (2); the number in brackets is how many entries that month has. Or set the From and To dates yourself (3). The Report button (4) is explained in step 6."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-02.pt.jpg",
+        "en": "help/img/guides/finances/finances-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Leia o resumo mensal. O cartão Resumo mensal mostra o mês no alto, com duas barras (1): a barra verde com seta para cima é o dinheiro que entrou, e a barra vermelha com seta para baixo é o dinheiro que saiu. Embaixo, a tabela (2) mostra Entradas, Saídas, Resultado e Margem líquida. O Resultado é o que sobra: Entradas menos Saídas. A Margem líquida mostra esse resultado em percentual.",
+        "en": "Read the monthly summary. The Monthly summary card shows the month at the top with two bars (1): the green bar with an up arrow is the money that came in, and the red bar with a down arrow is the money that went out. Under it, the table (2) shows In, Out, Net and Net margin. Net is what is left: In minus Out. Net margin shows that result as a percent."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-03.pt.jpg",
+        "en": "help/img/guides/finances/finances-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Veja os seus lançamentos. O cartão Lançamentos lista cada lançamento do período (1). Cada linha mostra a descrição, a data, a categoria, o valor, e a palavra Entrada, para dinheiro que entrou, ou Saída, para dinheiro que saiu. Uma linha embaixo da lista conta os lançamentos, por exemplo 1 lançamento. Toque em + Novo lançamento (2) para adicionar um.",
+        "en": "Check your entries. The Entries card lists every entry of the period (1). Each row shows the description, the date, the category, the amount, and the word Entrada for money in or Saída for money out. A line under the list counts the entries, for example 1 entry. Tap + New entry (2) to add one."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-04.pt.jpg",
+        "en": "help/img/guides/finances/finances-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Preencha um novo lançamento. O formulário Novo lançamento pede três coisas, cada uma marcada com asterisco: Descrição (1), Valor ($) (2) e Categoria (3). O tipo, Entrada ou Saída, é definido sozinho pela categoria que você escolher. Os demais campos podem ser preenchidos depois de salvar. Toque em Salvar (4) quando terminar, ou em Cancelar para sair sem salvar.",
+        "en": "Fill in a new entry. The New entry form asks for three things, each marked with a star: Description (1), Amount ($) (2) and Category (3). The type, Entrada or Saída, is set by itself from the category you pick. The other fields can be filled in after saving. Tap Save (4) when you are done, or Cancel to leave without saving. The names in the Category menu are written in Portuguese."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-05.pt.jpg",
+        "en": "help/img/guides/finances/finances-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Abra um relatório. Toque em Relatório, embaixo do cartão Período ou embaixo da lista de lançamentos. Abre um formulário, e ele fica em inglês mesmo com o portal em português. Toque em This month, Last month, This year ou Last year (Este mês, Mês passado, Este ano ou Ano passado) para preencher as datas (1), ou digite você mesmo as datas From e To (De e Até) (2). Prepared for, Title e Opening balance (Preparado para, Título e Saldo inicial) (3) não têm asterisco, então podem ficar vazios; o Title sugere Financial report e o Opening balance sugere 0.00. Toque em Open report (Abrir relatório) (4) para ver o relatório.",
+        "en": "Open a report. Tap Report, under the Period card or under the list of entries. A form opens, and it is in English even when the portal is in Portuguese. Tap This month, Last month, This year or Last year to fill the dates (1), or type your own From and To dates (2). Prepared for, Title and Opening balance (3) have no star, so you can leave them empty; Title suggests Financial report and Opening balance suggests 0.00. Tap Open report (4) to see the report."
+       },
+       "image": {
+        "pt": "help/img/guides/finances/finances-06.pt.jpg",
+        "en": "help/img/guides/finances/finances-06.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Novo lançamento"
+      ],
+      "en": [
+       "+ New entry"
+      ]
+     },
+     "section": "finances",
+     "step": 4
+    },
+    {
+     "labels": {
+      "pt": [
+       "Abrir relatório"
+      ],
+      "en": [
+       "Open report"
+      ]
+     },
+     "section": "finances",
+     "step": 6
+    }
+   ]
+  },
+  {
+   "id": "analytics",
+   "audience": "client",
+   "title": {
+    "pt": "Analytics: como você está indo",
+    "en": "Analytics: how you are doing"
+   },
+   "summary": {
+    "pt": "Veja cada número do mês contra a meta, o gráfico mês a mês e o que precisa de atenção.",
+    "en": "See each number of the month against its goal, the month by month chart and what needs attention."
+   },
+   "keywords": {
+    "pt": [
+     "analytics",
+     "como estou indo",
+     "números",
+     "metas",
+     "meta do mês",
+     "gráfico",
+     "receita",
+     "lucro",
+     "margem",
+     "vendas fechadas",
+     "precisa de atenção",
+     "destaques",
+     "realizado",
+     "falta"
+    ],
+    "en": [
+     "analytics",
+     "how am i doing",
+     "numbers",
+     "goals",
+     "monthly goal",
+     "chart",
+     "revenue",
+     "profit",
+     "margin",
+     "closed sales",
+     "needs attention",
+     "your wins",
+     "achieved",
+     "left"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "analytics",
+     "title": {
+      "pt": "Os seus números, passo a passo",
+      "en": "Your numbers, step by step"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o Analytics. Toque em Analytics na fileira de abas no alto (1). A página se chama Como estou indo? e começa com uma frase que resume o seu mês, por exemplo Você está indo bem este mês (2).",
+        "en": "Open Analytics. Tap Analytics in the row of tabs at the top (1). The page is called How am I doing? and starts with one line that sums up your month, for example You are doing well this month (2)."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-01.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escolha um número. Os botões redondos (1) são os seus números: Receita do Dia, Saída do Dia, Lucro Líquido, Margem de Lucro %, Vendas Fechadas e outros. Deslize a fileira para o lado para ver todos. O dourado é o número que você está vendo. Embaixo dele, Hoje e Média por dia (2) dizem quanto você precisa por dia útil para bater a meta e qual foi o seu ritmo até agora.",
+        "en": "Pick a number. The round buttons (1) are your numbers: Revenue Today, Expenses Today, Net Profit, Profit Margin %, Closed Sales and more. Slide the row sideways to see all of them. The gold one is the number you are looking at. Under it, Today and Average per day (2) tell you how much you need per working day to hit the goal and what your pace has been so far."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-02.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Leia o seu progresso. Uma etiqueta pequena (3) diz como você está indo, por exemplo Precisa acelerar um pouco. Realizado e Falta (4) mostram o que você já fez e o que ainda falta. A linha embaixo deles (5) mostra a meta do mês e o número de dias úteis. O botão dourado (6), Pedir ajuda com esta área, serve para quando você quer ajuda com o número que escolheu. Esta é a mesma imagem do passo anterior.",
+        "en": "Read your progress. A small label (3) tells you how you are doing, for example Needs a little push. Achieved and Left (4) show what you have done and what is still missing. The line under them (5) gives the monthly goal and the number of working days. The gold button (6), Ask for help with this area, is there for when you want help with the number you picked. This is the same picture as the step before."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-03.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Leia o gráfico. Embaixo dos números, o gráfico (1) mostra o número que você escolheu, mês a mês. A linha dourada é o que você fez, e a linha tracejada é a meta (2). A frase embaixo (3) compara este mês com o mês anterior, por exemplo Caiu 17% em relação ao mês anterior, abaixo da meta. Mais para baixo na página, o cartão Evolução mês a mês tem um menu próprio onde você escolhe qualquer outro número e vê o gráfico dele.",
+        "en": "Read the chart. Under the numbers, the chart (1) shows the number you picked, month by month. The gold line is what you did, and the dashed line is the goal (2). The sentence under it (3) compares this month with last month, for example Down 17% vs last month, below target. Further down the page, the card Month-over-month trend has its own menu where you can pick any other number and see its chart."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-04.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Veja o mês e a sua pontuação. As setas dos dois lados do nome do mês (1) mudam para outro mês. Uma linha diz quantos dias do mês estão completos. A pontuação (2) diz quantas metas estão no caminho certo, por exemplo 13 de 27 metas no caminho certo, com uma barra e um percentual geral. Embaixo, Seus destaques mostra os números que mais passaram da meta.",
+        "en": "Check the month and your score. The arrows on each side of the month name (1) move to another month. A line says how many days of the month are completed. The score (2) says how many goals are on track, for example 13 of 27 goals on track, with a bar and an overall percent. Under it, Your wins shows the numbers that went furthest past their goal."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-05.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Leia os números por área. Os números ficam agrupados em áreas: Financeiro, Clientes e mercado, Processos, Crescimento e Rotina. O nome de cada área (1) mostra o percentual dela à direita. Cada cartão (2) mostra o número, uma etiqueta com o percentual da meta, e Meta e Falta. Verde quer dizer que a meta foi batida ou superada, amarelo quer dizer a caminho, e vermelho quer dizer longe da meta. Se uma área tiver mais cartões do que cabem, toque em Ver todos (3).",
+        "en": "Read the numbers by area. The numbers are grouped in areas: Financial, Clients and market, Processes, Growth and Routine. Each area name (1) shows its own percent on the right. Each card (2) shows the number, a tag with the percent of the goal, and Target and Left. Green means the goal was reached or beaten, yellow means on the way, and red means far from the goal. If an area has more cards than fit, tap Show all (3)."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-06.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-06.en.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Veja o que precisa de atenção. Perto do fim, a lista Precisa de atenção (1) diz Foque aqui primeiro. Ela mostra os números mais longe da meta (2), cada um com uma barra, o percentual, e Meta e Falta. Comece pelo primeiro.",
+        "en": "See what needs attention. Near the bottom, the Needs attention list (1) says Focus here first. It lists the numbers that are furthest from their goal (2), each with a bar, the percent and Target and Left. Start with the first one."
+       },
+       "image": {
+        "pt": "help/img/guides/analytics/analytics-07.pt.jpg",
+        "en": "help/img/guides/analytics/analytics-07.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Pedir ajuda com esta área"
+      ],
+      "en": [
+       "Ask for help with this area"
+      ]
+     },
+     "section": "analytics",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "monthly-goals",
+   "audience": "client",
+   "title": {
+    "pt": "Ritmo: as metas do seu mês",
+    "en": "Pace: your goals for the month"
+   },
+   "summary": {
+    "pt": "Veja as metas do mês, defina as metas do próximo mês e confira o registro diário.",
+    "en": "See the goals of the month, set the goals of the next month and check your daily log."
+   },
+   "keywords": {
+    "pt": [
+     "ritmo",
+     "metas",
+     "metas mensais",
+     "definir metas",
+     "editar metas",
+     "registro diário",
+     "meta do mês",
+     "próximo mês"
+    ],
+    "en": [
+     "pace",
+     "goals",
+     "monthly goals",
+     "set goals",
+     "edit goals",
+     "daily log",
+     "monthly goal",
+     "next month"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "goals",
+     "title": {
+      "pt": "Metas e registro diário, passo a passo",
+      "en": "Goals and daily log, step by step"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o Ritmo. Toque em Apex na fileira de abas no alto. Abre um menu com Atribuídos, Ritmo, Execução, Tarefas e Documentos. Toque em Ritmo (1).",
+        "en": "Open Pace. Tap Apex in the row of tabs at the top. A menu opens with Assigned, Pace, Execution, Tasks and Documents. Tap Pace (1)."
+       },
+       "image": {
+        "pt": "help/img/guides/monthly-goals/goals-01.pt.jpg",
+        "en": "help/img/guides/monthly-goals/goals-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Veja o registro diário e o mês. No alto, o cartão Registro diário (1) mostra como você está; quando nada está atrasado, ele diz All caught up, no pending days (tudo em dia, nenhum dia pendente), em inglês mesmo com o portal em português. Embaixo, Suas metas mensais (2) mostra o mês com uma seta de cada lado para trocar de mês. Quando o mês seguinte ainda não tem metas, uma barra clara (3) avisa e tem um botão para definir as metas, por exemplo Definir metas de November 2026.",
+        "en": "Check the daily log and the month. At the top, the Daily Log card (1) says where you are; when nothing is late it reads All caught up, no pending days. Under it, Your monthly goals (2) shows the month with an arrow on each side to change the month. When the next month has no goals yet, a light bar (3) says so and has a button to set them, for example Set November 2026 goals. The daily log message is in English even when the portal is in Portuguese."
+       },
+       "image": {
+        "pt": "help/img/guides/monthly-goals/goals-02.pt.jpg",
+        "en": "help/img/guides/monthly-goals/goals-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Leia a lista de metas. As metas são divididas em quatro áreas: Financial (1), Clients and market (3), Processes e Growth. Cada linha (2) tem o nome de um número e a meta do mês, por exemplo Revenue Today com meta de $50,000. Nesta página os nomes das áreas e dos números ficam em inglês nos dois idiomas.",
+        "en": "Read the list of goals. The goals are split into four areas: Financial (1), Clients and market (3), Processes and Growth. Each row (2) has the name of a number and the goal for the month, for example Revenue Today with a goal of $50,000. On this page the names of the areas and numbers are in English in both languages."
+       },
+       "image": {
+        "pt": "help/img/guides/monthly-goals/goals-03.pt.jpg",
+        "en": "help/img/guides/monthly-goals/goals-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Abra o formulário de metas. Role até o fim da lista e toque em Definir / editar metas deste mês (1). É o mesmo botão para metas que você define pela primeira vez e para metas que você quer mudar.",
+        "en": "Open the goals form. Scroll to the end of the list and tap Set / edit this month's goals (1). It is the same button for goals you are setting for the first time and for goals you want to change."
+       },
+       "image": {
+        "pt": "help/img/guides/monthly-goals/goals-04.pt.jpg",
+        "en": "help/img/guides/monthly-goals/goals-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Preencha as metas, uma área de cada vez. O formulário diz Seção 1 de 4 no alto (1). A seção 1 é Financeiro (2): cada caixa guarda a meta de um número, e as caixas já mostram as suas metas atuais. Toque em Continuar (3) para ir para a próxima seção. Toque em Sair (4) para sair do formulário. As quatro seções seguem as mesmas quatro áreas da lista.",
+        "en": "Fill in the goals, one area at a time. The form says Section 1 of 4 at the top (1). Section 1 is Financial (2): each box holds the goal for one number, and the boxes already show your current goals. Tap Continue (3) to go to the next section. Tap Exit (4) to leave the form. The four sections follow the same four areas as the list."
+       },
+       "image": {
+        "pt": "help/img/guides/monthly-goals/goals-05.pt.jpg",
+        "en": "help/img/guides/monthly-goals/goals-05.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Definir / editar metas deste mês"
+      ],
+      "en": [
+       "Set / edit this month's goals"
+      ]
+     },
+     "section": "goals",
+     "step": 4
+    }
+   ]
+  },
+  {
+   "id": "documents",
+   "audience": "client",
+   "title": {
+    "pt": "Documentos: seus arquivos e relatórios",
+    "en": "Documents: your files and reports"
+   },
+   "summary": {
+    "pt": "Abra os seus arquivos e os relatórios que já estão prontos.",
+    "en": "Open your files and the reports that are finished."
+   },
+   "keywords": {
+    "pt": [
+     "documentos",
+     "arquivos",
+     "relatório",
+     "relatórios concluídos",
+     "ver relatório",
+     "contrato assinado",
+     "raio x"
+    ],
+    "en": [
+     "documents",
+     "files",
+     "report",
+     "completed reports",
+     "view report",
+     "signed contract",
+     "x-ray"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "documents",
+     "title": {
+      "pt": "Os seus documentos, passo a passo",
+      "en": "Your documents, step by step"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra os Documentos. Toque em Apex na fileira de abas no alto. Abre um menu com Atribuídos, Ritmo, Execução, Tarefas e Documentos. Toque em Documentos (1).",
+        "en": "Open Documents. Tap Apex in the row of tabs at the top. A menu opens with Assigned, Pace, Execution, Tasks and Documents. Tap Documents (1)."
+       },
+       "image": {
+        "pt": "help/img/guides/documents/documents-01.pt.jpg",
+        "en": "help/img/guides/documents/documents-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Abra um dos seus arquivos. A página se chama Seus documentos. Embaixo (1) ficam os seus arquivos, cada um com o nome, a data e a palavra Arquivo (2). Toque em View (3) para abrir o arquivo. O botão View fica em inglês mesmo com o portal em português.",
+        "en": "Open one of your files. The page is called Your documents. Under it (1) are your files, each with its name, its date and the word File (2). Tap View (3) to open the file. The View button is in English even when the portal is in Portuguese."
+       },
+       "image": {
+        "pt": "help/img/guides/documents/documents-02.pt.jpg",
+        "en": "help/img/guides/documents/documents-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Abra um relatório pronto. Role até Diagnósticos e relatórios concluídos (1). Cada linha (2) é um relatório que já está pronto, com o nome, a data e a palavra Concluído. Toque em Ver relatório (3) para abrir.",
+        "en": "Open a finished report. Scroll down to Completed assessments and reports (1). Each row (2) is a report that is ready, with its name, its date and the word Completed. Tap View report (3) to open it."
+       },
+       "image": {
+        "pt": "help/img/guides/documents/documents-03.pt.jpg",
+        "en": "help/img/guides/documents/documents-03.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Ver relatório"
+      ],
+      "en": [
+       "View report"
+      ]
+     },
+     "section": "documents",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "home-alerts",
+   "audience": "client",
+   "title": {
+    "pt": "Início: avisos para você",
+    "en": "Home: what needs your attention"
+   },
+   "summary": {
+    "pt": "Veja os documentos de subempreiteiros que estão vencendo e os orçamentos que o cliente assinou online.",
+    "en": "See the subcontractor documents that are expiring and the estimates your customer signed online."
+   },
+   "keywords": {
+    "pt": [
+     "início",
+     "avisos",
+     "subempreiteiro",
+     "seguro vencido",
+     "certificado de seguro",
+     "COI",
+     "workers comp",
+     "licença",
+     "assinado online",
+     "orçamento assinado"
+    ],
+    "en": [
+     "home",
+     "alerts",
+     "subcontractor",
+     "expired insurance",
+     "certificate of insurance",
+     "COI",
+     "workers comp",
+     "license",
+     "signed online",
+     "signed estimate"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "home",
+     "title": {
+      "pt": "O Início, passo a passo",
+      "en": "The Home screen, step by step"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Abra o Início. Toque em Início, a primeira aba da fileira no alto (1). O Início mostra duas listas: Documentos de subempreiteiros vencendo (2) e Assinados online pelo cliente. Cada linha de subempreiteiro tem o nome, qual documento está com problema, por exemplo seguro (COI) venceu em uma data, e uma etiqueta vermelha. COI quer dizer certificado de seguro.",
+        "en": "Open Home. Tap Home, the first tab in the row at the top (1). Home shows two lists: Subcontractor documents expiring (2) and Signed online by the customer. Each subcontractor row has the name, which document is the problem, for example insurance (COI) expired on a date, and a red tag. COI means certificate of insurance."
+       },
+       "image": {
+        "pt": "help/img/guides/home-alerts/home-01.pt.jpg",
+        "en": "help/img/guides/home-alerts/home-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Veja o que falta para um subempreiteiro. Toque em um subempreiteiro para abrir os dados: Nome, Ofício, Número da licença, Endereço, Telefone, Seguro (COI) vence em, Workers' comp e Workers' comp vence em. Toque em uma linha que diz toque para preencher para preenchê-la. A linha com a data do COI (1) é a que está vencida. As linhas vermelhas (2) dizem o que falta, por exemplo sem número de licença. Toque em Enviar COI (foto ou PDF) ou Enviar workers' comp (foto ou PDF) (3) para adicionar o documento. Ver COI abre o que já está guardado.",
+        "en": "See what is missing for a subcontractor. Tap a subcontractor to open the details: Name, Trade, License number, Address, Telephone, Insurance certificate (COI) expires, Workers' comp and Workers' comp expires. Tap a row that says tap to fill to fill it in. The row with the COI date (1) is the one that is expired. Red lines (2) say what is missing, for example no license number on file. Tap Upload COI (photo or PDF) or Upload workers' comp (photo or PDF) (3) to add the document. View COI opens the one on file."
+       },
+       "image": {
+        "pt": "help/img/guides/home-alerts/home-02.pt.jpg",
+        "en": "help/img/guides/home-alerts/home-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Veja o que os seus clientes assinaram. Em Assinados online pelo cliente (1), cada linha diz quem assinou qual orçamento, o valor, a data e a hora, e uma etiqueta verde aceito. Os nomes dos clientes estão borrados nesta imagem. Toque em uma linha para abrir esse orçamento.",
+        "en": "Check what your customers signed. Under Signed online by the customer (1), each row says who signed which estimate, the amount, the date and time, and a green accepted tag. The customers' names are blurred in this picture. Tap a row to open that estimate."
+       },
+       "image": {
+        "pt": "help/img/guides/home-alerts/home-03.pt.jpg",
+        "en": "help/img/guides/home-alerts/home-03.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Enviar COI (foto ou PDF)"
+      ],
+      "en": [
+       "Upload COI (photo or PDF)"
+      ]
+     },
+     "section": "home",
+     "step": 2
+    },
+    {
+     "labels": {
+      "pt": [
+       "Enviar workers' comp (foto ou PDF)"
+      ],
+      "en": [
+       "Upload workers' comp (photo or PDF)"
+      ]
+     },
+     "section": "home",
+     "step": 2
+    }
+   ]
   }
  ],
  "pages": {
@@ -3467,6 +4079,58 @@
    "overview": {
     "pt": "Aqui você vê o mês, a semana e o dia, e cria novos eventos.",
     "en": "Here you see the month, week and day, and create new events."
+   }
+  },
+  "gmfinance": {
+   "title": {
+    "pt": "Financeiro",
+    "en": "Finances"
+   },
+   "guides": [
+    "finances"
+   ],
+   "overview": {
+    "pt": "Aqui você escolhe o período, vê o resumo do mês com entradas, saídas e resultado, adiciona lançamentos e abre um relatório.",
+    "en": "Here you choose the period, see the month's summary with money in, money out and the result, add entries and open a report."
+   }
+  },
+  "analytics": {
+   "title": {
+    "pt": "Analytics",
+    "en": "Analytics"
+   },
+   "guides": [
+    "analytics"
+   ],
+   "overview": {
+    "pt": "Aqui você vê como cada número do mês está contra a meta, o gráfico mês a mês e o que precisa de atenção.",
+    "en": "Here you see how each number of the month is doing against its goal, the month by month chart and what needs attention."
+   }
+  },
+  "goals": {
+   "title": {
+    "pt": "Ritmo",
+    "en": "Pace"
+   },
+   "guides": [
+    "monthly-goals"
+   ],
+   "overview": {
+    "pt": "Aqui você vê o registro diário e as metas do mês, e define as metas.",
+    "en": "Here you see your daily log and the goals of the month, and set the goals."
+   }
+  },
+  "documents": {
+   "title": {
+    "pt": "Documentos",
+    "en": "Documents"
+   },
+   "guides": [
+    "documents"
+   ],
+   "overview": {
+    "pt": "Aqui você abre os seus arquivos e os relatórios que já estão prontos.",
+    "en": "Here you open your files and the reports that are finished."
    }
   }
  }

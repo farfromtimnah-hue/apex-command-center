@@ -2667,6 +2667,664 @@
     }
    ],
    "buttons": []
+  },
+  {
+   "id": "pipeline",
+   "audience": "client",
+   "title": {
+    "pt": "Leads e pipeline",
+    "en": "Leads and the pipeline"
+   },
+   "summary": {
+    "pt": "Veja seus leads, filtre por estágio, abra um lead e cadastre um novo.",
+    "en": "See your leads, filter by stage, open a lead, and add a new one."
+   },
+   "keywords": {
+    "pt": [
+     "lead",
+     "leads",
+     "pipeline",
+     "funil",
+     "novo lead",
+     "cadastrar lead",
+     "estágio",
+     "vendedor",
+     "buscar",
+     "contato",
+     "cliente em potencial"
+    ],
+    "en": [
+     "lead",
+     "leads",
+     "pipeline",
+     "new lead",
+     "add a lead",
+     "stage",
+     "salesperson",
+     "search",
+     "prospect",
+     "contact"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "see-leads",
+     "title": {
+      "pt": "Ver e filtrar os leads",
+      "en": "See and filter your leads"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque em Negócio. Negócio fica na fileira de abas no alto: Início, Negócio, Agenda, Analytics, Apex.",
+        "en": "Tap Business. Business is in the row of tabs at the top: Home, Business, Calendar, Analytics, Apex."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-01.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Toque em Pipeline. O menu Negócio mostra Pipeline, Orçamentos, Contratos, Projetos, Faturas, Financeiro e Preços. Toque em Pipeline.",
+        "en": "Tap Pipeline. The Business menu lists Pipeline, Estimates, Contracts, Projects, Invoices, Finances and Pricing. Tap Pipeline."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-02.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "O Pipeline abre em Leads. Leads é a primeira de três abas: Leads, Parceiros e Base de Ouro.",
+        "en": "The Pipeline opens on Leads. Leads is the first of three tabs: Leads, Partners and Golden Base."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-03.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Veja os números no alto. Leads totais, Pipeline ativo ($) (Orçamento + Follow-up + Negociação), Receita fechada ($), Conversão, Fora do SLA 5 min (1º contato) (contato em até 5 minutos) e Fora do SLA 24h (orçamento) (orçamento em até 24 horas).",
+        "en": "Read the numbers at the top. Total leads, Active pipeline ($) (Estimate + Follow-up + Negotiation), Closed revenue ($), Conversion, Outside 5-min SLA (1st contact) (first contact under 5 minutes) and Outside 24h SLA (estimate) (estimate within 24 hours)."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-04.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Toque em um estágio para filtrar. Toque em um estágio para ver só os leads dele: Novo Lead, Contato Feito, Visita Agendada, Orçamento Enviado, Follow-up, Negociação, Fechado e Perdido. O número em cada estágio é quantos leads ele tem.",
+        "en": "Tap a stage to filter. Tap a stage to see only the leads in it: New Lead, Contacted, Visit Scheduled, Estimate Sent, Follow-up, Negotiation, Closed and Lost. The number on each stage is how many leads it has."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-05.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Busque e reduza a lista. Digite um nome, telefone ou cidade na caixa de busca (Buscar por nome, telefone, cidade...). Use Todos os meses e Todos os vendedores para reduzir a lista.",
+        "en": "Search and narrow the list. Type a name, phone or city in the search box (Search by name, phone, city...). Use All months and All salespeople to narrow the list."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-06.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-06.en.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Toque em um lead. Cada linha mostra o nome do lead, há quantos dias ele está no estágio e o estágio. Toque na linha para abrir o lead.",
+        "en": "Tap a lead. Each row shows the lead's name, how many days it has been in the stage, and the stage. Tap a row to open that lead."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",
+        "en": "help/img/guides/pipeline/see-leads-07.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "lead-sheet",
+     "title": {
+      "pt": "A ficha do lead",
+      "en": "The lead sheet"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Entre em contato com o lead. No alto da ficha do lead ficam os botões de contato: Ligar e WhatsApp (1), Enviar cartão de contato (2) e Enviar link de agendamento (3). Mais formas de contato fica logo abaixo.",
+        "en": "Reach the lead. At the top of the lead sheet are the contact buttons: Call and WhatsApp (1), Send contact card (2) and Send booking link (3). More ways to reach out is just under them."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-01.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Estágio e valor do orçamento. Estágio (1) mostra o estágio atual e há quantos dias o lead está nele, e diz Toque para mudar. Valor do orçamento (2) mostra o valor, ou A definir. + Criar orçamento (3) é como um orçamento começa: o guia Criar e enviar um orçamento mostra os passos.",
+        "en": "Stage and estimate value. Stage (1) shows the current stage and how many days the lead has been in it, and says Tap to change. Estimate value (2) shows the value, or Not set. + Create estimate (3) is how an estimate starts: the guide Create and send an estimate shows the steps."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-02.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Preencha a próxima ação e os valores. Toda linha que diz Toque para preencher pode ser preenchida ao tocar nela. Próxima ação (1). Em Valores (2): Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($).",
+        "en": "Fill in the next action and the costs. Every row that says Tap to fill in can be filled by tapping it. Next action (1). Under Costs (2): Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($)."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-03.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Atividade de contato e dados do lead. Nº follow-ups (1) mostra quantos follow-ups foram registrados, e diz Toque para ver o histórico. A atividade de contato diz que é registrada automaticamente. Em Dados do lead (2): Serviço(s), Vendedor, Origem e Parceiro.",
+        "en": "Contact activity and lead details. # follow-ups (1) shows how many follow-ups were logged, and says Tap to see the history. Contact activity says it is tracked automatically. Under Lead details (2): Service(s), Salesperson, Source and Partner."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-04.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Campos de contato e endereço. Abaixo ficam Telefone, Email, Endereço (antigo), Rua / Endereço, Cidade, Estado e CEP / ZIP. Toque na linha para preencher.",
+        "en": "Contact and address fields. Below are Phone, Email, Address (legacy), Street, City, State and ZIP. Tap a row to fill it in."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-05.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Feche o lead. Toque no X no canto superior direito para fechar a ficha do lead.",
+        "en": "Close the lead. Tap the X at the top right to close the lead sheet."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/lead-sheet-06.pt.jpg",
+        "en": "help/img/guides/pipeline/lead-sheet-06.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "new-lead",
+     "title": {
+      "pt": "Cadastrar um novo lead",
+      "en": "Add a new lead"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque no botão +. O botão redondo dourado +, no canto inferior direito do Pipeline, abre o formulário Novo lead.",
+        "en": "Tap the + button. The round gold + button, at the bottom right of the Pipeline, opens the New lead form."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/new-lead-01.pt.jpg",
+        "en": "help/img/guides/pipeline/new-lead-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Preencha o novo lead. Preencha Nome * (1) (o * marca um campo obrigatório), Telefone (2), Endereço (3) e Cidade (4), e escolha o Serviço (5). O formulário avisa: Estágio: Novo Lead · Data: agora. Depois de salvar você pode adicionar os detalhes. Toque em Salvar lead (6) para adicionar, ou em Cancelar para fechar sem salvar.",
+        "en": "Fill in the new lead. Fill Name * (1) (the * marks a required field), Phone (2), Address (3) and City (4), and pick the Service (5). The form says: Stage: New Lead · Date: now. You can add details after saving. Tap Save lead (6) to add it, or Cancel to close without saving."
+       },
+       "image": {
+        "pt": "help/img/guides/pipeline/new-lead-02.pt.jpg",
+        "en": "help/img/guides/pipeline/new-lead-02.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Enviar link de agendamento"
+      ],
+      "en": [
+       "Send booking link"
+      ]
+     },
+     "section": "lead-sheet",
+     "step": 1
+    },
+    {
+     "labels": {
+      "pt": [
+       "Mais formas de contato"
+      ],
+      "en": [
+       "More ways to reach out"
+      ]
+     },
+     "section": "lead-sheet",
+     "step": 1
+    },
+    {
+     "labels": {
+      "pt": [
+       "Salvar lead"
+      ],
+      "en": [
+       "Save lead"
+      ]
+     },
+     "section": "new-lead",
+     "step": 2
+    }
+   ]
+  },
+  {
+   "id": "calendar",
+   "audience": "client",
+   "title": {
+    "pt": "Agenda e eventos",
+    "en": "Calendar and events"
+   },
+   "summary": {
+    "pt": "Veja o mês, a semana e o dia e crie um novo evento.",
+    "en": "See the month, week and day, and create a new event."
+   },
+   "keywords": {
+    "pt": [
+     "agenda",
+     "calendário",
+     "evento",
+     "novo evento",
+     "visita",
+     "reunião",
+     "compromisso",
+     "mês",
+     "semana",
+     "dia"
+    ],
+    "en": [
+     "calendar",
+     "event",
+     "new event",
+     "appointment",
+     "visit",
+     "meeting",
+     "month",
+     "week",
+     "day",
+     "schedule"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "view",
+     "title": {
+      "pt": "Ver a agenda",
+      "en": "See the calendar"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque em Agenda. Agenda fica na fileira de abas no alto.",
+        "en": "Tap Calendar. Calendar is in the row of tabs at the top."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/view-01.pt.jpg",
+        "en": "help/img/guides/calendar/view-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Navegue pelo mês. A visão do mês mostra o nome do mês no alto. Use as setas (1 e 2) para ir ao mês anterior ou seguinte, Hoje (3) para voltar para hoje, e Mês, Semana e Dia (4) para mudar a visão.",
+        "en": "Move around the month. The month view shows the month name at the top. Use the arrows (1 and 2) to go to the previous or next month, Today (3) to come back to today, and Month, Week and Day (4) to change the view."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/view-02.pt.jpg",
+        "en": "help/img/guides/calendar/view-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Visão da semana. Toque em Semana para ver sete dias com os horários. Os nomes dos itens estão borrados nestas imagens.",
+        "en": "Week view. Tap Week to see seven days with the hours. The names of the entries are blurred in these pictures."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/view-03.pt.jpg",
+        "en": "help/img/guides/calendar/view-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Visão do dia. Toque em Dia para ver um dia. Acima dos horários, um cartão lista os projetos do dia com uma nota sobre chuva para cada um (borrado aqui).",
+        "en": "Day view. Tap Day to see one day. Above the hours, a card lists the day's projects with a rain note for each (blurred here)."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/view-04.pt.jpg",
+        "en": "help/img/guides/calendar/view-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Entenda as cores. A legenda embaixo da agenda explica as cores: Meus eventos, Projetos, Projeto em andamento, Apex Club, Orçamentos e Reunião com a Apex.",
+        "en": "Read the colors. The legend under the calendar explains the colors: My events, Projects, Job in progress, Apex Club, Estimates and Meeting with Apex."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/view-05.pt.jpg",
+        "en": "help/img/guides/calendar/view-05.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "new-event",
+     "title": {
+      "pt": "Criar um evento",
+      "en": "Create an event"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque em + Novo evento. O botão dourado + Novo evento fica embaixo da agenda. Você também pode tocar em um dia da grade para começar um evento nesse dia.",
+        "en": "Tap + New event. The gold + New event button is under the calendar. You can also tap a day on the grid to start an event on that day."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/new-event-01.pt.jpg",
+        "en": "help/img/guides/calendar/new-event-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Escolha o tipo, os vínculos e a data. Escolha o Tipo de evento * (1): Visita, Reunião, Serviço, Entrega ou Outro. Projeto (2), Lead / cliente (3) e Responsável (4) são menus que mostram a palavra nenhum até você escolher. Defina a Data * (5).",
+        "en": "Choose the type, the links and the date. Pick the Event type * (1): Visit, Meeting, Service, Delivery or Other. Project (2), Lead / customer (3) and Assigned to (4) are menus that show the word none until you choose. Set the Date * (5)."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/new-event-02.pt.jpg",
+        "en": "help/img/guides/calendar/new-event-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Adicione o horário e os detalhes, e crie o evento. Dia inteiro, Início e Fim (1), Local (2), Título (gerado) (3) (ele diz que é gerado a partir das escolhas acima, e você pode editar) e Notas (4). Toque em Criar evento (5) para criar, ou feche o formulário com o X no alto.",
+        "en": "Add the time and details, then create it. All day, Start and End (1), Location (2), Title (generated) (3) (it says it is generated from the choices above, and you can edit it) and Notes (4). Tap Create event (5) to create it, or close the form with the X at the top."
+       },
+       "image": {
+        "pt": "help/img/guides/calendar/new-event-03.pt.jpg",
+        "en": "help/img/guides/calendar/new-event-03.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "+ Novo evento"
+      ],
+      "en": [
+       "+ New event"
+      ]
+     },
+     "section": "new-event",
+     "step": 1
+    },
+    {
+     "labels": {
+      "pt": [
+       "Criar evento"
+      ],
+      "en": [
+       "Create event"
+      ]
+     },
+     "section": "new-event",
+     "step": 3
+    }
+   ]
+  },
+  {
+   "id": "projects",
+   "audience": "client",
+   "title": {
+    "pt": "Projetos",
+    "en": "Projects"
+   },
+   "summary": {
+    "pt": "Veja seus projetos, os números de margem e abra a ficha de cada projeto.",
+    "en": "See your projects, the margin numbers, and open the sheet of each project."
+   },
+   "keywords": {
+    "pt": [
+     "projeto",
+     "projetos",
+     "margem",
+     "custos",
+     "material",
+     "mão de obra",
+     "lucro",
+     "prazo",
+     "fotos",
+     "subempreiteiro",
+     "fornecedor",
+     "obra",
+     "arquivos"
+    ],
+    "en": [
+     "project",
+     "projects",
+     "margin",
+     "costs",
+     "materials",
+     "labor",
+     "profit",
+     "schedule",
+     "photos",
+     "subcontractor",
+     "supplier",
+     "job",
+     "files"
+    ]
+   },
+   "video": null,
+   "sections": [
+    {
+     "id": "overview",
+     "title": {
+      "pt": "Ver os projetos",
+      "en": "See your projects"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Toque em Negócio, depois em Projetos. Toque em Negócio e escolha Projetos no menu.",
+        "en": "Tap Business, then Projects. Tap Business, then choose Projects in the menu."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/overview-01.pt.jpg",
+        "en": "help/img/guides/projects/overview-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Veja os números de margem. O cartão Projetos e margem diz que a margem mínima é opcional: o assistente avisa abaixo dela, nada é bloqueado. Escolha um mês no filtro de mês (2) e veja os números (1): Projetos, Projeto médio ($), Material médio ($), Mão de obra média ($), Margem e Lucro médio ($).",
+        "en": "Read the margin numbers. The Projects & margin card says the minimum margin is optional: the assistant warns below it, nothing is blocked. Pick a month with the month filter (2), and read the numbers (1): Projects, Average job ($), Average materials ($), Average labor ($), Margin and Average profit ($)."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/overview-02.pt.jpg",
+        "en": "help/img/guides/projects/overview-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Encontre um projeto na lista. Cada linha é um projeto: o nome do cliente, o total, uma nota de margem em relação à meta e um status como Em andamento. Os nomes estão borrados nesta imagem. Toque na linha para abrir o projeto.",
+        "en": "Find a project in the list. Each row is a project: the client's name, the total, a margin note against the target, and a status such as In progress. The names are blurred in this picture. Tap a row to open the project."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/overview-03.pt.jpg",
+        "en": "help/img/guides/projects/overview-03.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "project",
+     "title": {
+      "pt": "A ficha do projeto",
+      "en": "The project sheet"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Veja o cliente, o status e os preços. No alto: Cliente / projeto (1) e Status (2), que diz Toque para mudar. Preços (3): Preço do orçamento (orçamentos aceitos), Preço do contrato (negociado no contrato) e Total final (contrato + aditivos). Abaixo ficam Enviar cartão de contato e o botão para pedir uma avaliação.",
+        "en": "Check the client, status and prices. At the top: Client / project (1) and Status (2), which says Tap to change. Prices (3): Estimate price (accepted estimates), Contract price (negotiated on the contract) and Final total (contract + change orders). Below are Send contact card and Ask for a Google review."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-01.pt.jpg",
+        "en": "help/img/guides/projects/project-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Nome do trabalho e valores. Trabalho (1) mostra o Nome do trabalho. Valores (2): Valor ($), Material ($), Mão de obra ($), Outros ($), Custo administrativo ($), Comissão vendedor ($) e Imposto ($).",
+        "en": "Job name and costs. Job (1) shows the Job name. Costs (2): Value ($), Materials ($), Labor ($), Other ($), Administrative cost ($), Sales commission ($) and Tax ($)."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-02.pt.jpg",
+        "en": "help/img/guides/projects/project-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Histórico de valores, prazos e resultado. Histórico de valores (1) lista as mudanças de valor; aqui diz Nenhuma alteração registrada ainda. Prazos (2): Início, Prazo previsto e Entrega real. O Resultado (3) é calculado automaticamente: Custo total, Comissão (%) e mais linhas.",
+        "en": "Value history, schedule and result. Value history (1) lists changes to the value; here it says No changes recorded yet. Schedule (2): Start, Deadline and Actual delivery. Result (3) is calculated automatically: Total cost, Commission (%), Profit, Margin and On time?"
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-03.pt.jpg",
+        "en": "help/img/guides/projects/project-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Faturas, contrato e aditivos. Faturas (1) lista as faturas, com o botão Criar faturas a partir do orçamento. Contrato (2) mostra o número do contrato, o status e o valor. Aditivos (change orders) (3) lista os aditivos, com + Aditivo para adicionar um. Os guias Enviar um contrato, Enviar um aditivo e Enviar a fatura mostram esses passos.",
+        "en": "Invoices, contract and change orders. Invoices (1) lists the invoices, with the button Create invoices from estimate. Contract (2) shows the contract number, its status and the amount. Change orders (3) lists change orders, with + Change order to add one. The guides Send a contract, Send a change order and Send an invoice show those steps."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-04.pt.jpg",
+        "en": "help/img/guides/projects/project-04.en.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Fotos, vistoria e avisos. Fotos de antes (condições existentes) (1): fotografe rachaduras, manchas, calçadas, grama e cercas antes de começar; o cliente confirma que já estavam assim. Vistoria final e pendências (2): ande pela obra com o cliente e anote cada pendência; quando tudo estiver feito, envie o aceite de conclusão. Notices to Owner e liberações (3): quando um fornecedor ou subempreiteiro mandar um Notice to Owner, registre aqui; antes do pagamento final, peça a liberação (release) de cada um.",
+        "en": "Photos, walkthrough and notices. Before-work photos (existing conditions) (1): photograph cracks, stains, driveways, lawn and fences before starting; the homeowner confirms they were already like this. Completion walkthrough and punch list (2): walk the job with the homeowner and note each item; when everything is done, send the completion sign-off. Notices to Owner and lien releases (3): when a supplier or subcontractor serves a Notice to Owner, record it here; before the final payment, get a release from each one."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-05.pt.jpg",
+        "en": "help/img/guides/projects/project-05.en.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Subempreiteiros, fornecedores e arquivos. Subempreiteiros (1) e Fornecedores (2) listam quem está neste projeto; os botões Adicionar subempreiteiro ao projeto e Adicionar fornecedor ao projeto adicionam. Arquivos do projeto (3) tem + Adicionar foto ou PDF, e diz que o cliente vê estes arquivos no portal dele.",
+        "en": "Subcontractors, suppliers and project files. Subcontractors (1) and Suppliers (2) list who is on this project; the buttons Add a subcontractor to this project and Add a supplier to this project add them. Project files (3) has + Add photo or PDF, and says your client sees these files in their portal."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-06.pt.jpg",
+        "en": "help/img/guides/projects/project-06.en.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Feche o projeto. Toque no X no canto superior direito para fechar a ficha do projeto.",
+        "en": "Close the project. Tap the X at the top right to close the project sheet."
+       },
+       "image": {
+        "pt": "help/img/guides/projects/project-07.pt.jpg",
+        "en": "help/img/guides/projects/project-07.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": [
+    {
+     "labels": {
+      "pt": [
+       "Criar faturas a partir do orçamento"
+      ],
+      "en": [
+       "Create invoices from estimate"
+      ]
+     },
+     "section": "project",
+     "step": 4
+    },
+    {
+     "labels": {
+      "pt": [
+       "Adicionar fotos"
+      ],
+      "en": [
+       "Add photos"
+      ]
+     },
+     "section": "project",
+     "step": 5
+    },
+    {
+     "labels": {
+      "pt": [
+       "+ Adicionar foto ou PDF"
+      ],
+      "en": [
+       "+ Add photo or PDF"
+      ]
+     },
+     "section": "project",
+     "step": 6
+    }
+   ]
   }
  ],
  "pages": {
@@ -2733,11 +3391,12 @@
     "en": "Pipeline"
    },
    "guides": [
+    "pipeline",
     "estimate"
    ],
    "overview": {
-    "pt": "Aqui você vê a lista dos seus leads no Pipeline.",
-    "en": "Here you see the list of your leads in the Pipeline."
+    "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",
+    "en": "Here you see the list of your leads in the Pipeline, filter by stage, and add a new lead."
    }
   },
   "gmcontracts": {
@@ -2760,12 +3419,13 @@
     "en": "Projects"
    },
    "guides": [
+    "projects",
     "contract",
     "change-order"
    ],
    "overview": {
-    "pt": "Aqui ficam os seus projetos. O contrato de cada projeto também pode ser aberto dentro dele.",
-    "en": "Here are your projects. You can also open each project's contract inside it."
+    "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",
+    "en": "Here are your projects, with the margin numbers. Tap a project to open its sheet."
    }
   },
   "gmpricing": {
@@ -2794,6 +3454,19 @@
    "overview": {
     "pt": "Aqui você define os dias de trabalho e os períodos bloqueados, adiciona pessoas e escolhe o acesso delas, e configura o agendamento online.",
     "en": "Here you set your working days and blocked periods, add people and choose their access, and set up online booking."
+   }
+  },
+  "gmcalendar": {
+   "title": {
+    "pt": "Agenda",
+    "en": "Calendar"
+   },
+   "guides": [
+    "calendar"
+   ],
+   "overview": {
+    "pt": "Aqui você vê o mês, a semana e o dia, e cria novos eventos.",
+    "en": "Here you see the month, week and day, and create new events."
    }
   }
  }

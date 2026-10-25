@@ -346,7 +346,13 @@
      "amend contract"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/change-order-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/change-order-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "send-change-order",

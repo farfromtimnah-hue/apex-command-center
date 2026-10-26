@@ -12960,177 +12960,6 @@
       ]
     },
     {
-      "id": "services-list",
-      "audience": "client",
-      "title": {
-        "pt": "Sua lista de serviços",
-        "en": "Your list of services"
-      },
-      "summary": {
-        "pt": "Edite os serviços que aparecem no lead, na página de indicação e na página de link na bio.",
-        "en": "Edit the services that show on the lead, the referral page and the link in bio page."
-      },
-      "keywords": {
-        "pt": [
-          "serviços",
-          "lista de serviços",
-          "adicionar serviço",
-          "remover serviço",
-          "serviços da página de indicação"
-        ],
-        "en": [
-          "services",
-          "service list",
-          "add service",
-          "remove service",
-          "referral page services",
-          "services checkboxes"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "services",
-          "title": {
-            "pt": "Sua lista de serviços",
-            "en": "Your list of services"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços. Uma linha curta diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço é uma linha da lista. Se a lista estiver vazia, a tela diz Vazio: este campo fica desligado.",
-                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services. A short line says these are the options on your public referral page and your link in bio page. Each service is one line in the list. If the list is empty, the screen says Empty: this field is turned off."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Adicione, mude ou remova um serviço. Toque em + Adicionar para ter uma linha vazia nova, e digite o nome do serviço. Você muda o nome de uma linha digitando nela. Toque em × à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva. Depois role até o fim da página e toque em Salvar configurações. Nada muda até você salvar.",
-                "en": "Add, change or remove a service. Tap + Add to get a new empty line, and type the name of the service. You can change the name of a line by typing in it. Tap × at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save. Then scroll to the end of the page and tap Save settings. Nothing changes until you save."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1, 2). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (3) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um. Estas imagens são do nosso cliente de teste, cuja lista tem seis serviços.",
-                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1, 2). Tap one or more: each one you tap turns gold. Tap Save (3) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one. These pictures come from our test client, whose list has six services."
-              },
-              "image": {
-                "pt": "help/img/guides/services-list/services-03.pt.jpg",
-                "en": "help/img/guides/services-list/services-03.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": []
-    },
-    {
-      "id": "lead-fields",
-      "audience": "client",
-      "title": {
-        "pt": "Os campos de um lead",
-        "en": "The fields of a lead"
-      },
-      "summary": {
-        "pt": "Mais de um serviço, endereço e instruções de acesso, data do orçamento, financiamento, quem indicou o lead e a visão do pipeline.",
-        "en": "More than one service, address and access notes, estimate date, financing, who referred the lead, and the pipeline view."
-      },
-      "keywords": {
-        "pt": [
-          "campos do lead",
-          "serviços",
-          "instruções de acesso",
-          "código do portão",
-          "financiamento",
-          "data do orçamento",
-          "indicado por",
-          "indicação de uma indicação",
-          "mês lead",
-          "mês fechamento",
-          "ver tudo empilhado"
-        ],
-        "en": [
-          "lead fields",
-          "services",
-          "access notes",
-          "gate code",
-          "financing",
-          "estimate date",
-          "referred by",
-          "referral of a referral",
-          "lead month",
-          "closing month",
-          "view stacked"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "fields",
-          "title": {
-            "pt": "Todos os campos de um lead",
-            "en": "All the fields of a lead"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em qualquer linha que diga Toque para preencher. O telefone e o email da imagem estão cobertos.",
-                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap any row that says Tap to fill in. The phone and email in the picture are covered."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-01.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há vendedor secundário (opcional), Observação do trabalho e o nome do cliente. Se você preencher Meses do ciclo em Suas listas, nas Configurações, mais duas linhas aparecem aqui: Mês lead e Mês fechamento. Com a lista vazia, elas ficam escondidas.",
-                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also a second salesperson (optional), Job notes and the customer name. If you fill in Cycle months in Your lists in Settings, two more rows appear here: Lead month and Closing month. With an empty list they stay hidden."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-02.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link ou recomendação trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando o novo lead disse que não foi essa pessoa que indicou. Toque e digite quem indicou de verdade.",
-                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link or recommendation brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the new lead said it was not that person who referred them. Tap it and type who really referred them."
-              },
-              "image": {
-                "pt": "help/img/guides/lead-fields/fields-03.pt.jpg",
-                "en": "help/img/guides/lead-fields/fields-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 3 leads · $12,000.00 fechado. Embaixo há uma linha para cada lead, com o estágio e o valor. Toque em uma linha para abrir esse lead. Este passo vem do código do aplicativo: o nosso teste não tem um lead com indicações.",
-                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 3 leads · $12,000.00 closed. Under it is one row for each lead, with its stage and value. Tap a row to open that lead. This step comes from the app's code: our test has no lead with referrals."
-              },
-              "image": null
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Mude como a lista de leads aparece. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado, você está na visão por estágio: toque em um estágio para ver só os leads dele. Toque em Ver tudo empilhado para ver todos os estágios um embaixo do outro, em uma rolagem só. Nessa visão o botão diz Ver por estágio. O Apex lembra da sua escolha. Se você nunca escolher, o Apex usa a visão por estágio quando você tem muitos leads.",
-                "en": "Change how the list of leads looks. In the Pipeline, one button sits at the right under the numbers. When it says View stacked, you are in the by-stage view: tap a stage to see only its leads. Tap View stacked to see every stage one under the other in one scroll. In that view the button says View by stage. Apex remembers your choice. If you never choose, Apex picks the by-stage view when you have many leads."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": []
-    },
-    {
       "id": "contracts-that-need-you",
       "audience": "client",
       "title": {
@@ -13693,6 +13522,177 @@
               "text": {
                 "pt": "Leia os avisos de limpeza. A parte chamada Avisos de limpeza inseridos por regra lista sete avisos, LC1 a LC7, cada um marcado como entra ou não entra, com o motivo. São, por exemplo, o aviso de cancelamento de serviços contínuos, o aviso e o formulário de cancelamento em três dias, a declaração de venda em domicílio da Flórida, o painel de renovação automática e o seu lembrete, a frase de imposto sobre vendas, e a regra sobre seguro, fiança e triagem. Você não pode editá-los. Eles entram ou não por regra, de acordo com as suas respostas. Avisos de construção não fazem parte de um contrato de limpeza.",
                 "en": "Read the cleaning notices. The part called Cleaning notices inserted by rule lists seven notices, LC1 to LC7, each marked in or out, with the reason. They are, for example, the continuing-services cancellation notice, the three-day cancellation notice and form, the Florida home solicitation statement, the automatic renewal panel and its reminder, the sales tax sentence, and the insurance, bonding and screening rule. You cannot edit them. They are in or out by rule, according to your answers. Construction notices are not part of a cleaning agreement."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "services-list",
+      "audience": "client",
+      "title": {
+        "pt": "Sua lista de serviços",
+        "en": "Your list of services"
+      },
+      "summary": {
+        "pt": "Edite os serviços que aparecem no lead, na página de indicação e na página de link na bio.",
+        "en": "Edit the services that show on the lead, the referral page and the link in bio page."
+      },
+      "keywords": {
+        "pt": [
+          "serviços",
+          "lista de serviços",
+          "adicionar serviço",
+          "remover serviço",
+          "serviços da página de indicação"
+        ],
+        "en": [
+          "services",
+          "service list",
+          "add service",
+          "remove service",
+          "referral page services",
+          "services checkboxes"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "services",
+          "title": {
+            "pt": "Sua lista de serviços",
+            "en": "Your list of services"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços. Uma linha curta diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço é uma linha da lista. Se a lista estiver vazia, a tela diz Vazio: este campo fica desligado.",
+                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services. A short line says these are the options on your public referral page and your link in bio page. Each service is one line in the list. If the list is empty, the screen says Empty: this field is turned off."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione, mude ou remova um serviço. Toque em + Adicionar para ter uma linha vazia nova, e digite o nome do serviço. Você muda o nome de uma linha digitando nela. Toque em × à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva. Depois role até o fim da página e toque em Salvar configurações. Nada muda até você salvar.",
+                "en": "Add, change or remove a service. Tap + Add to get a new empty line, and type the name of the service. You can change the name of a line by typing in it. Tap × at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save. Then scroll to the end of the page and tap Save settings. Nothing changes until you save."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1, 2). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (3) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um. Estas imagens são do nosso cliente de teste, cuja lista tem seis serviços.",
+                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1, 2). Tap one or more: each one you tap turns gold. Tap Save (3) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one. These pictures come from our test client, whose list has six services."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-03.pt.jpg",
+                "en": "help/img/guides/services-list/services-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "lead-fields",
+      "audience": "client",
+      "title": {
+        "pt": "Os campos de um lead",
+        "en": "The fields of a lead"
+      },
+      "summary": {
+        "pt": "Mais de um serviço, endereço e instruções de acesso, data do orçamento, financiamento, quem indicou o lead e a visão do pipeline.",
+        "en": "More than one service, address and access notes, estimate date, financing, who referred the lead, and the pipeline view."
+      },
+      "keywords": {
+        "pt": [
+          "campos do lead",
+          "serviços",
+          "instruções de acesso",
+          "código do portão",
+          "financiamento",
+          "data do orçamento",
+          "indicado por",
+          "indicação de uma indicação",
+          "mês lead",
+          "mês fechamento",
+          "ver tudo empilhado"
+        ],
+        "en": [
+          "lead fields",
+          "services",
+          "access notes",
+          "gate code",
+          "financing",
+          "estimate date",
+          "referred by",
+          "referral of a referral",
+          "lead month",
+          "closing month",
+          "view stacked"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "fields",
+          "title": {
+            "pt": "Todos os campos de um lead",
+            "en": "All the fields of a lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em qualquer linha que diga Toque para preencher. O telefone e o email da imagem estão cobertos.",
+                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap any row that says Tap to fill in. The phone and email in the picture are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-01.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há vendedor secundário (opcional), Observação do trabalho e o nome do cliente. Se você preencher Meses do ciclo em Suas listas, nas Configurações, mais duas linhas aparecem aqui: Mês lead e Mês fechamento. Com a lista vazia, elas ficam escondidas.",
+                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also a second salesperson (optional), Job notes and the customer name. If you fill in Cycle months in Your lists in Settings, two more rows appear here: Lead month and Closing month. With an empty list they stay hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-02.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link ou recomendação trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando o novo lead disse que não foi essa pessoa que indicou. Toque e digite quem indicou de verdade.",
+                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link or recommendation brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the new lead said it was not that person who referred them. Tap it and type who really referred them."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-03.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 3 leads · $12,000.00 fechado. Embaixo há uma linha para cada lead, com o estágio e o valor. Toque em uma linha para abrir esse lead. Este passo vem do código do aplicativo: o nosso teste não tem um lead com indicações.",
+                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 3 leads · $12,000.00 closed. Under it is one row for each lead, with its stage and value. Tap a row to open that lead. This step comes from the app's code: our test has no lead with referrals."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Mude como a lista de leads aparece. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado, você está na visão por estágio: toque em um estágio para ver só os leads dele. Toque em Ver tudo empilhado para ver todos os estágios um embaixo do outro, em uma rolagem só. Nessa visão o botão diz Ver por estágio. O Apex lembra da sua escolha. Se você nunca escolher, o Apex usa a visão por estágio quando você tem muitos leads.",
+                "en": "Change how the list of leads looks. In the Pipeline, one button sits at the right under the numbers. When it says View stacked, you are in the by-stage view: tap a stage to see only its leads. Tap View stacked to see every stage one under the other in one scroll. In that view the button says View by stage. Apex remembers your choice. If you never choose, Apex picks the by-stage view when you have many leads."
               },
               "image": null
             }

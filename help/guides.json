@@ -5057,32 +5057,7 @@
           ]
         }
       ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Criar revisão"
-            ],
-            "en": [
-              "Create revision"
-            ]
-          },
-          "section": "manage",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Desativar link"
-            ],
-            "en": [
-              "Disable link"
-            ]
-          },
-          "section": "manage",
-          "step": 5
-        }
-      ]
+      "buttons": []
     },
     {
       "id": "daily-log",
@@ -5249,6 +5224,671 @@
           "step": 5
         }
       ]
+    },
+    {
+      "id": "contracts-tab",
+      "audience": "client",
+      "title": {
+        "pt": "Seus contratos: ache, revise ou anule",
+        "en": "Your contracts: find, revise or void"
+      },
+      "summary": {
+        "pt": "Veja todos os contratos por estágio, abra um contrato assinado e revise ou anule um que não foi assinado.",
+        "en": "See all contracts by stage, open a signed contract and revise or void one that was not signed."
+      },
+      "keywords": {
+        "pt": [
+          "contratos",
+          "lista de contratos",
+          "contrato assinado",
+          "assinado pelos dois",
+          "aguardando a empresa",
+          "aguardando o cliente",
+          "sem contrato assinado",
+          "precisa de ação",
+          "recusado",
+          "revisar contrato",
+          "anular contrato",
+          "enviar cópia assinada",
+          "baixar contrato",
+          "pdf do contrato"
+        ],
+        "en": [
+          "contracts",
+          "contract list",
+          "signed contract",
+          "fully signed",
+          "waiting on the company",
+          "waiting on the customer",
+          "no signed contract",
+          "needs action",
+          "declined",
+          "revise contract",
+          "void contract",
+          "send signed copy",
+          "download contract",
+          "contract pdf"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "contracts",
+          "title": {
+            "pt": "Seus contratos, passo a passo",
+            "en": "Your contracts, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Contratos. Toque em Negócio e depois em Contratos. Cada contrato fica em um grupo, por estágio: Precisa de ação, Sem contrato assinado (projetos que ainda não têm contrato assinado), Rascunho, Aguardando a empresa (1 a 3), Aguardando o cliente (4) e Assinados (5). Toque no título de um grupo para abrir ou fechar. O número ao lado do título conta o que tem dentro.",
+                "en": "Open Contracts. Tap Business, then Contracts. Every contract sits in a group by stage: Needs action, No signed contract (projects with no signed contract yet), Draft, Waiting on the company (1 to 3), Waiting on the customer (4) and Signed (5). Tap the title of a group to open or close it. The number next to the title counts what is inside."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-01.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abra um contrato assinado. Toque no contrato. A ficha mostra o status e o valor atual. Você pode ver o contrato como o cliente vê (1), baixar o PDF (2), desligar o link do cliente (3) e enviar a cópia assinada ao cliente (4). Um contrato assinado pelos dois lados não muda: para mudar, crie um aditivo (5). O guia Enviar um aditivo mostra como.",
+                "en": "Open a signed contract. Tap the contract. The sheet shows the status and the current amount. You can preview the contract as the customer sees it (1), download the PDF (2), turn off the customer's link (3) and send the signed copy to the customer (4). A contract signed by both sides does not change: to change it, add a change order (5). The Send a change order guide shows how."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-02.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Corrija ou cancele um contrato que não foi assinado. Abra um contrato com status (1) Recusado, ou que foi alterado ou expirou. Toque em Criar revisão (2) para fazer uma nova versão que você pode mudar e enviar de novo. Toque em Anular (3) para cancelar: o Apex pede o motivo e guarda o contrato como anulado, nada é apagado.",
+                "en": "Fix or cancel a contract that was not signed. Open a contract whose status (1) is Declined, or one that was changed or expired. Tap Create revision (2) to make a new version you can change and send again. Tap Void (3) to cancel it: Apex asks for the reason and keeps the contract as void, nothing is deleted."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-tab/contracts-03.pt.jpg",
+                "en": "help/img/guides/contracts-tab/contracts-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ache um contrato pelo projeto. Você também pode abrir um projeto (Negócio e depois Projetos) e olhar a seção Contrato. Para fazer um contrato novo a partir de um orçamento aceito, veja o guia Enviar um contrato.",
+                "en": "Find a contract from its project. You can also open a project (Business, then Projects) and look at the Contract section. To make a new contract from an accepted estimate, see the Send a contract guide."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "lead-notes-files-history",
+      "audience": "client",
+      "title": {
+        "pt": "Notas, arquivos e histórico do lead",
+        "en": "Notes, files and history of a lead"
+      },
+      "summary": {
+        "pt": "Guarde um PDF ou foto, escreva notas e veja quem fez o quê no lead.",
+        "en": "Keep a PDF or photo, write notes and see who did what on the lead."
+      },
+      "keywords": {
+        "pt": [
+          "notas",
+          "nota",
+          "anotação",
+          "adicionar nota",
+          "arquivos",
+          "anexar",
+          "anexar pdf",
+          "foto do lead",
+          "adicionar pdf ou foto",
+          "histórico",
+          "histórico do lead",
+          "quem mudou",
+          "o que mudou",
+          "auditoria",
+          "registro de alterações"
+        ],
+        "en": [
+          "notes",
+          "note",
+          "add a note",
+          "files",
+          "attach",
+          "attach pdf",
+          "lead photo",
+          "add pdf or photo",
+          "history",
+          "lead history",
+          "who changed",
+          "what changed",
+          "audit",
+          "change log"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "lead",
+          "title": {
+            "pt": "No fim da ficha do lead",
+            "en": "At the bottom of the lead sheet"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o lead e role até o fim. Toque em + Adicionar PDF ou foto (1) para guardar um arquivo no lead, por exemplo um orçamento assinado, uma licença ou fotos do local. Um arquivo pode ter até 15 MB e você pode remover depois. Em Notas, escreva o que quer lembrar na caixa (2) e toque em Adicionar (3). Em Histórico (4) você vê o que aconteceu com o lead.",
+                "en": "Open the lead and scroll to the bottom. Tap + Add PDF or photo (1) to keep a file on the lead, for example a signed estimate, a permit or site photos. A file can be up to 15 MB and you can remove it later. Under Notes, write what you want to remember in the box (2) and tap Add (3). Under History (4) you see what happened to the lead."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-notes-files-history/lead-01.pt.jpg",
+                "en": "help/img/guides/lead-notes-files-history/lead-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Entenda como funcionam as notas e o histórico. Cada nota mostra a data e quem escreveu, a mais nova primeiro. Você só pode editar ou apagar as suas próprias notas. O Histórico lista quem fez o quê e quando: o lead criado, mudanças de estágio, mudanças em um campo (o valor antigo e o novo) e cada evento de orçamento. Leads mais antigos podem dizer que ainda não há nada registrado.",
+                "en": "Know how notes and history work. Each note shows the date and who wrote it, newest first. You can edit or delete only your own notes. History lists who did what and when: the lead created, stage moves, changes to a field (the old value and the new one) and every estimate event. Older leads may say that nothing was recorded yet."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Adicionar PDF ou foto"
+            ],
+            "en": [
+              "+ Add PDF or photo"
+            ]
+          },
+          "section": "lead",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "invoice-late-fee-credit-void",
+      "audience": "client",
+      "title": {
+        "pt": "Fatura: juros de atraso, crédito, reembolso e anular",
+        "en": "Invoice: late fee, credit, refund and void"
+      },
+      "summary": {
+        "pt": "Cobre juros de uma fatura vencida, reduza o valor com um crédito, devolva dinheiro ou anule a fatura.",
+        "en": "Charge a late fee on an overdue invoice, lower what is owed with a credit, return money or void the invoice."
+      },
+      "keywords": {
+        "pt": [
+          "juros de atraso",
+          "adicionar juros",
+          "fatura vencida",
+          "multa",
+          "crédito",
+          "dar crédito",
+          "desconto na fatura",
+          "allowance",
+          "reembolso",
+          "devolver dinheiro",
+          "anular fatura",
+          "cancelar fatura",
+          "estornar pagamento",
+          "estornar",
+          "motivo"
+        ],
+        "en": [
+          "late fee",
+          "add late fee",
+          "overdue invoice",
+          "penalty",
+          "interest",
+          "credit",
+          "give a credit",
+          "discount on invoice",
+          "allowance",
+          "refund",
+          "return money",
+          "void invoice",
+          "cancel invoice",
+          "reverse payment",
+          "reverse",
+          "reason"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "adjust",
+          "title": {
+            "pt": "Ajustar uma fatura, passo a passo",
+            "en": "Adjust an invoice, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a fatura. Toque em Negócio e depois em Faturas, e toque na fatura. Role a ficha para baixo. Em uma fatura vencida você vê Adicionar juros de atraso (1), Crédito (2), Reembolso (3) e Anular fatura (4). Cada um pede um motivo e deixa um registro: nada é apagado.",
+                "en": "Open the invoice. Tap Business, then Invoices, and tap the invoice. Scroll down the sheet. For an overdue invoice you see Add late fee (1), Credit (2), Refund (3) and Void invoice (4). Every one of them asks for a reason and keeps a record: nothing is deleted."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-01.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione juros de atraso. O botão mostra o valor, por exemplo $189.58. Toque nele. O Apex preenche o motivo para você (1) e explica como contou (2): juros simples sobre o valor em aberto, contados a partir do vencimento, só nos dias que ainda não foram cobrados. Toque em Salvar (3) para adicionar. O Apex nunca adiciona juros sozinho. O percentual vem das regras de atraso nas configurações dos documentos (veja o guia Formas de pagamento, prazos e atraso).",
+                "en": "Add a late fee. The button shows the amount, for example $189.58. Tap it. Apex fills in the reason for you (1) and explains how it counted (2): simple interest on the unpaid amount, counted from the due date, only for days not charged before. Tap Save (3) to add it. Apex never adds a late fee by itself. The percent comes from the late payment rules in your document settings (see the Payment methods, terms and late payment guide)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-02.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Dê um crédito. Um crédito diminui o que o cliente deve, por exemplo quando um allowance custou menos do que o planejado. Digite o Valor (1) e o Motivo (2), que é obrigatório, e toque em Salvar (3).",
+                "en": "Give a credit. A credit lowers what the customer owes, for example when an allowance cost less than planned. Type the Amount (1) and the Reason (2), which is required, then tap Save (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-03.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Reembolse dinheiro. Um reembolso registra dinheiro que você devolveu ao cliente. Digite o Valor (1), escolha o Pagamento de onde ele sai (2), escreva o Motivo (3) e toque em Salvar (4). A lista mostra só pagamentos que já foram verificados.",
+                "en": "Refund money. A refund records money you returned to the customer. Type the Amount (1), choose the Payment it comes from (2), write the Reason (3) and tap Save (4). The list shows only payments that were already verified."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-04.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Anule uma fatura. Toque em Anular fatura. Se a fatura já tem pagamentos, o Apex avisa Estorne os pagamentos primeiro. Estorne cada pagamento com o botão Estornar ao lado dele, com um motivo, e depois anule a fatura. A fatura fica guardada como anulada.",
+                "en": "Void an invoice. Tap Void invoice. If the invoice already has payments, Apex stops you and says Reverse the payments first. Reverse each payment with the Reverse button next to it, with a reason, and then void the invoice. The invoice is kept as void."
+              },
+              "image": {
+                "pt": "help/img/guides/invoice-late-fee-credit-void/adjust-05.pt.jpg",
+                "en": "help/img/guides/invoice-late-fee-credit-void/adjust-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Reembolso"
+            ],
+            "en": [
+              "Refund"
+            ]
+          },
+          "section": "adjust",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Anular fatura"
+            ],
+            "en": [
+              "Void invoice"
+            ]
+          },
+          "section": "adjust",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "referral-partners",
+      "audience": "client",
+      "title": {
+        "pt": "Parceiros de indicação: link e QR code",
+        "en": "Referral partners: link and QR code"
+      },
+      "summary": {
+        "pt": "Cadastre um parceiro, envie o link ou o QR code dele e veja quantos leads ele trouxe.",
+        "en": "Add a partner, send their link or QR code and see how many leads they brought."
+      },
+      "keywords": {
+        "pt": [
+          "parceiros",
+          "parceiro",
+          "novo parceiro",
+          "indicação",
+          "link de indicação",
+          "qr code",
+          "código qr",
+          "baixar qr",
+          "compartilhar link",
+          "leads indicados",
+          "receita gerada",
+          "quem indicou",
+          "prospectando",
+          "ativo",
+          "personalizar aparência",
+          "página de indicação"
+        ],
+        "en": [
+          "partners",
+          "partner",
+          "new partner",
+          "referral",
+          "referral link",
+          "qr code",
+          "download qr",
+          "share link",
+          "referrals sent",
+          "revenue generated",
+          "who referred",
+          "prospecting",
+          "active",
+          "customize appearance",
+          "referral page"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "partners",
+          "title": {
+            "pt": "Parceiros, passo a passo",
+            "en": "Partners, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Parceiros. Toque em Negócio e depois em Parceiros (1), ao lado de Leads. Cada cartão (2) é um parceiro. Ele mostra o status do parceiro, quantos leads ele indicou e quanta receita esses leads trouxeram. Os números são contados pelo Apex a partir dos seus leads, você nunca digita. Na primeira vez, o Apex pode pedir para você conferir a sua página de indicação: toque em Configurar agora, ou em Depois.",
+                "en": "Open Partners. Tap Business, then tap Partners (1) next to Leads. Each card (2) is one partner. It shows the partner's status, how many leads they referred and how much revenue those leads brought. The numbers are counted by Apex from your leads, you never type them. The first time, Apex may ask you to check your referral page: tap Set up now, or Later."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-01.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione um parceiro. Toque no botão dourado redondo + (3 na imagem anterior). O menu Criar abre. Toque em Novo parceiro (1).",
+                "en": "Add a partner. Tap the round gold + button (3 in the picture before). The Create menu opens. Tap New partner (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-02.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Digite o nome do parceiro (1) e toque em Salvar (2). Só o nome é obrigatório. Você preenche os outros campos depois de salvar.",
+                "en": "Type the partner's name (1) and tap Save (2). Only the name is required. You fill in the other fields after saving."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-03.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Preencha os dados do parceiro. Toque no parceiro para abrir a ficha. Toque em uma linha para mudar: o telefone de contato (1), o Tipo (2) e o Status (3): Prospectando, Ativo ou Inativo. Próxima ação (5) ajuda você a lembrar o que fazer em seguida. Leads indicados e Receita gerada (4) são calculados pelo Apex.",
+                "en": "Fill in the partner's details. Tap the partner to open the sheet. Tap a row to change it: the contact phone (1), the Type (2) and the Status (3): Prospecting, Active or Inactive. Next action (5) helps you remember what to do next. Referrals sent and Revenue generated (4) are calculated by Apex."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-04.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Envie o link do parceiro. No fim da ficha, Link de indicação (1) é o link próprio do parceiro. Quem preencher o formulário desse link vira um lead no seu pipeline, já ligado a esse parceiro, sem conferir à mão. Toque em Copiar (2) ou Compartilhar (3). O QR code (4) abre o mesmo link: toque em Baixar QR (PNG) (5) para salvar a imagem e imprimir ou postar. Toque em Personalizar aparência (6) para mudar como a página fica.",
+                "en": "Send the partner's link. At the bottom of the sheet, Referral link (1) is the partner's own link. Anyone who fills in the form on this link becomes a lead in your pipeline, already tied to this partner, with no matching by hand. Tap Copy (2) or Share (3). The QR code (4) opens the same link: tap Download QR (PNG) (5) to save the picture and print it or post it. Tap Customize appearance (6) to change how the page looks."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-partners/partners-05.pt.jpg",
+                "en": "help/img/guides/referral-partners/partners-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Novo parceiro"
+            ],
+            "en": [
+              "New partner"
+            ]
+          },
+          "section": "partners",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Baixar QR (PNG)"
+            ],
+            "en": [
+              "Download QR (PNG)"
+            ]
+          },
+          "section": "partners",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Personalizar aparência"
+            ],
+            "en": [
+              "Customize appearance"
+            ]
+          },
+          "section": "partners",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "referral-page-settings",
+      "audience": "client",
+      "title": {
+        "pt": "Sua página de indicação: idioma e cores",
+        "en": "Your referral page: language and colors"
+      },
+      "summary": {
+        "pt": "Escolha o idioma inicial e as cores da página que os links de indicação abrem.",
+        "en": "Choose the starting language and the colors of the page your referral links open."
+      },
+      "keywords": {
+        "pt": [
+          "página de indicação",
+          "idioma inicial",
+          "cor de fundo",
+          "cor de destaque",
+          "cores da página",
+          "logo na página",
+          "salvar ajustes",
+          "ajustes",
+          "configurações",
+          "personalizar aparência"
+        ],
+        "en": [
+          "referral page",
+          "starting language",
+          "background color",
+          "accent color",
+          "page colors",
+          "logo on the page",
+          "save settings",
+          "settings",
+          "customize appearance"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "page",
+          "title": {
+            "pt": "A página de indicação, passo a passo",
+            "en": "The referral page, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra os ajustes da página de indicação. Toque em Ajustes no alto à direita e role até Página de indicação. É a página pública que os links dos seus parceiros abrem. Os ajustes só mudam como ela aparece para os seus clientes. Escolha o Idioma inicial (1): quem abrir ainda pode trocar o idioma, isto só define em qual ele abre. Defina a Cor de fundo (2) e a Cor de destaque (3). Deixe uma cor vazia para voltar ao padrão. O seu logo (4) aparece na página: para trocar, toque no logo no topo da aba Início.",
+                "en": "Open the referral page settings. Tap Settings at the top right, then scroll to Referral page. This is the public page your partners' links open. The settings only change how it looks to your customers. Choose the Starting language (1): the visitor can still switch language, this only sets which one it opens in. Set the Background color (2) and the Accent color (3). Leave a color empty to go back to the default. Your logo (4) appears on the page: to change it, tap the logo at the top of the Home tab."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-01.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Salve. Role até o fim de Suas listas e toque em Salvar ajustes (3). O mesmo botão salva as suas listas e a margem mínima.",
+                "en": "Save. Scroll down to the end of Your lists and tap Save settings (3). The same button saves your lists and the minimum margin."
+              },
+              "image": {
+                "pt": "help/img/guides/referral-page-settings/page-02.pt.jpg",
+                "en": "help/img/guides/referral-page-settings/page-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "salespeople-and-lists",
+      "audience": "client",
+      "title": {
+        "pt": "Vendedores e listas do seu negócio",
+        "en": "Salespeople and your business lists"
+      },
+      "summary": {
+        "pt": "Cadastre vendedores, peça o login deles, ajuste o cartão de cada um e mantenha as suas listas.",
+        "en": "Add salespeople, request their login, set up each one's card and keep your lists."
+      },
+      "keywords": {
+        "pt": [
+          "vendedores",
+          "vendedor",
+          "adicionar vendedor",
+          "solicitar login",
+          "login do vendedor",
+          "cartão do vendedor",
+          "cartão",
+          "foto do vendedor",
+          "cargo",
+          "tipos de parceiro",
+          "meses do ciclo",
+          "margem mínima",
+          "suas listas",
+          "salvar ajustes"
+        ],
+        "en": [
+          "salespeople",
+          "salesperson",
+          "add salesperson",
+          "request login",
+          "salesperson login",
+          "salesperson card",
+          "card",
+          "salesperson photo",
+          "title",
+          "partner types",
+          "cycle months",
+          "minimum margin",
+          "your lists",
+          "save settings"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "lists",
+          "title": {
+            "pt": "Vendedores e listas, passo a passo",
+            "en": "Salespeople and lists, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Suas listas. Toque em Ajustes no alto à direita e role até Suas listas. Em Vendedores, digite cada nome. Um nome com Login ativo (1) já tem o seu próprio login. Toque em Solicitar Login (2) para pedir ao Apex um login do portal para um vendedor: o Apex analisa o pedido antes, ele não cria o login sozinho. Um vendedor com login vê só os leads que ele cria ou que são dados a ele, nunca o seu financeiro, os projetos ou as metas. Toque em Cartão (3) para preparar o cartão de contato da pessoa. Toque em × (4) para remover um nome. Toque em + Adicionar (5) para colocar outro. Se a lista estiver vazia, a linha Vendedor não aparece nos leads.",
+                "en": "Open Your lists. Tap Settings at the top right and scroll to Your lists. Under Salespeople, type each name. A name with Login active (1) already has its own login. Tap Request Login (2) to ask Apex for a portal login for a salesperson: Apex reviews the request first, it does not create the login by itself. A salesperson with a login sees only the leads they create or that are given to them, never your finances, projects or goals. Tap Card (3) to set up the person's contact card. Tap × (4) to remove a name. Tap + Add (5) to add another. If the list is empty, the Salesperson line does not appear on leads."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-01.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Prepare o cartão do vendedor. Na ficha Cartão do vendedor, toque em Trocar foto (1) para colocar uma foto. Preencha o Telefone (2), o Email (3) e o Cargo (4), que fica escrito em inglês no cartão. Toque em Salvar. O que você deixar em branco usa o telefone, o email e o logo da empresa.",
+                "en": "Set up the salesperson's card. In the Card sheet, tap Change photo (1) to add a photo. Fill in the Phone (2), the Email (3) and the Title (4), which is written in English on the card. Tap Save. Anything you leave blank is filled with the business phone, email and logo."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-02.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mantenha as outras listas e salve. Abaixo de Vendedores ficam os Tipos de parceiro, com as opções que você usa na aba Parceiros, e os Meses do ciclo (1), que você pode deixar vazio se trabalha o ano todo. A Margem mínima (2) é a menor margem que você aceita: o montador de orçamentos avisa abaixo dela, e nada é bloqueado. Toque em Salvar ajustes (3) quando terminar.",
+                "en": "Keep your other lists and save. Below Salespeople there are Partner types, with the choices you use on the Partners tab, and Cycle months (1), which you can leave empty if you work all year. Minimum margin (2) is the lowest margin you accept: the estimate builder warns you below it, and nothing is blocked. Tap Save settings (3) when you finish."
+              },
+              "image": {
+                "pt": "help/img/guides/salespeople-and-lists/lists-03.pt.jpg",
+                "en": "help/img/guides/salespeople-and-lists/lists-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Solicitar Login"
+            ],
+            "en": [
+              "Request Login"
+            ]
+          },
+          "section": "lists",
+          "step": 1
+        }
+      ]
     }
   ],
   "pages": {
@@ -5281,7 +5921,8 @@
         "invoice",
         "receipt",
         "invoices-and-payments",
-        "edit-send-messages"
+        "edit-send-messages",
+        "invoice-late-fee-credit-void"
       ],
       "overview": {
         "pt": "Aqui você envia faturas e recibos.",
@@ -5322,7 +5963,11 @@
       "guides": [
         "pipeline",
         "estimate",
-        "contact-a-lead"
+        "contact-a-lead",
+        "lead-notes-files-history",
+        "referral-partners",
+        "referral-page-settings",
+        "salespeople-and-lists"
       ],
       "overview": {
         "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",
@@ -5336,7 +5981,8 @@
       },
       "guides": [
         "contract",
-        "change-order"
+        "change-order",
+        "contracts-tab"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",

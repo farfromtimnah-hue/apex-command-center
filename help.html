@@ -68,7 +68,12 @@
     .banner-ico svg { width: 26px; height: 26px; }
     .banner-body { flex: 1; min-width: 0; }
     .banner-title { font-family: var(--serif); font-size: 24px; font-weight: 500; line-height: 1.2; color: #fff; margin: 2px 0 6px; }
-    .banner-body p#bannerText { font-size: 16px; line-height: 1.55; color: #ddd8cd; }
+    .banner-intro { font-size: 16px; line-height: 1.5; color: #ddd8cd; margin: 0 0 12px; }
+    .banner-ways { display: grid; gap: 8px; }
+    .way { display: flex; align-items: baseline; gap: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.09); }
+    .way-where { flex: none; min-width: 124px; font-size: 14px; font-weight: 700; color: var(--gold); }
+    .way-what { font-size: 16px; line-height: 1.45; color: #fff; }
+    @media (max-width: 480px) { .way { flex-direction: column; gap: 2px; } .way-where { min-width: 0; } }
     .banner .icon-btn { margin: -8px 0 0 0; color: #fff; }
     @media (hover: hover) { .banner .icon-btn:hover { background: rgba(255,255,255,0.14); } }
     .icon-btn { width: 44px; height: 44px; margin: -10px -10px -10px 0; flex: none; border: none; background: transparent; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 120ms ease-out, background-color 120ms ease-out; }
@@ -183,7 +188,8 @@
         <span class="banner-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="10" opacity="0.5"/></svg></span>
         <div class="banner-body">
           <p class="banner-title" id="bannerTitle"></p>
-          <p id="bannerText"></p>
+          <p class="banner-intro" id="bannerIntro"></p>
+          <div class="banner-ways" id="bannerText"></div>
         </div>
         <button type="button" class="icon-btn" id="bannerClose"></button>
       </div>
@@ -337,9 +343,16 @@
       document.title = t("Aprenda", "Learn");
       byId("pageTitle").textContent = t("Aprenda", "Learn");
       byId("bannerTitle").textContent = t("Dica: aprenda sem sair da tela", "Tip: learn without leaving the screen");
-      byId("bannerText").textContent = t(
-        "Em qualquer tela do Apex, toque e segure um botão para aprender sobre ele. No computador, clique nele com o botão direito.",
-        "On any Apex screen, press and hold a button to learn about it. On a computer, right click it.");
+      byId("bannerIntro").textContent = t("Em qualquer botão do Apex, faça isto para aprender sobre ele:", "On any button in Apex, do this to learn about it:");
+      var ways = byId("bannerText");
+      clear(ways);
+      [[t("No app do celular", "In the phone app"), t("Toque e segure o botão.", "Press and hold the button.")],
+       [t("No computador", "On a computer"), t("Clique no botão com o botão direito do mouse.", "Right click the button.")]].forEach(function (w) {
+        var row = el("div", "way");
+        row.appendChild(el("span", "way-where", w[0]));
+        row.appendChild(el("span", "way-what", w[1]));
+        ways.appendChild(row);
+      });
       byId("heroSub").textContent = enabled
         ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
         : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");

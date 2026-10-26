@@ -200,8 +200,9 @@
     ".aphelp-overlay.aph-in .aphelp-sheet{transform:translateY(0)}" +
     "@media (min-width:700px){.aphelp-overlay{align-items:center}.aphelp-sheet{height:auto;max-height:80vh;min-height:320px;border-radius:16px;transform:scale(0.98);opacity:0;transition:transform 200ms ease-out,opacity 200ms ease-out}.aphelp-overlay.aph-in .aphelp-sheet{transform:scale(1);opacity:1}}" +
     "@media (prefers-reduced-motion:reduce){.aphelp-sheet,.aphelp-overlay.aph-in .aphelp-sheet{transform:none}.aphelp-btn:active,.aphelp-root button:active{transform:none}}" +
-    ".aphelp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 8px 20px;flex:none}" +
-    ".aphelp-title{font-size:18px;font-weight:700;margin:0}" +
+    ".aphelp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 14px 20px;flex:none;background:#111112;color:#f6f3ec;border-radius:16px 16px 0 0}" +
+    ".aphelp-title{font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:400;letter-spacing:-0.01em;margin:0}" +
+    ".aphelp-head .aphelp-x{background:transparent;border-color:rgba(246,243,236,0.45);color:#f6f3ec}" +
     ".aphelp-x{width:44px;height:44px;border-radius:var(--ah-r);border:1px solid var(--ah-line);background:var(--ah-card);color:var(--ah-text);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}" +
     ".aphelp-x svg,.aph-ico{width:18px;height:18px;flex:none}" +
     ".aphelp-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 20px calc(24px + env(safe-area-inset-bottom));flex:1;min-height:0}" +
@@ -212,13 +213,19 @@
     ".aph-p{font-size:14px;line-height:1.5;margin:0 0 10px}" +
     ".aph-muted{color:var(--ah-muted);font-size:13px;line-height:1.45}" +
     ".aph-form{display:flex;gap:8px;margin:10px 0 6px}" +
+    ".aph-ask{align-items:center;gap:4px;margin:16px 0 8px;padding:4px 4px 4px 42px;border:2px solid #1a1a1d;border-radius:16px;background:#fff url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a665f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E\") no-repeat 14px center/20px 20px}" +
+    ".aph-ask:focus-within{border-color:#C9A43A}" +
+    ".aph-ask .aph-input{border:none;outline:none;background:transparent;padding:0 6px 0 0;min-height:48px;font-size:16px}" +
+    ".aph-ask .aph-primary{border-radius:11px}" +
+    ".aph-ask .aph-ico{display:none}" +
     ".aph-input{flex:1;min-width:0;min-height:48px;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);padding:0 14px;font:500 15px 'Inter',sans-serif;color:var(--ah-text)}" +
     ".aph-primary{min-height:48px;padding:0 16px;border:none;border-radius:var(--ah-r);background:#1a1a1d;color:#fff;font:600 14px 'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}" +
     ".aph-quiet{min-height:44px;padding:0 14px;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);color:var(--ah-text);font:600 13px 'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:7px}" +
-    "@media (hover:hover){.aph-quiet:hover{background:#f3eee3}.aph-primary:hover{background:#2b2b30}.aphelp-x:hover{background:#f3eee3}}" +
-    ".aph-card{border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);padding:14px;margin:0 0 10px;text-align:left;width:100%}" +
+    "@media (hover:hover){.aph-quiet:hover{background:#f3eee3}.aph-primary:hover{background:#2b2b30}.aphelp-x:hover{background:#f3eee3}.aphelp-head .aphelp-x:hover{background:rgba(246,243,236,0.14)}}" +
+    ".aph-card{position:relative;border:none;border-top:1px solid var(--ah-line);border-radius:0;background:transparent;padding:18px 30px 18px 0;margin:0;text-align:left;width:100%}" +
+    "button.aph-card::after{content:\"\";position:absolute;right:6px;top:50%;width:8px;height:8px;margin-top:-5px;border-right:2px solid #1a1a1d;border-top:2px solid #1a1a1d;transform:rotate(45deg)}" +
     "button.aph-card{cursor:pointer;display:block;font:inherit;color:inherit}" +
-    ".aph-card-title{font-size:15px;font-weight:700;margin:0 0 3px}" +
+    ".aph-card-title{font-family:'Newsreader',Georgia,serif;font-size:21px;font-weight:500;line-height:1.25;margin:0 0 3px}" +
     ".aph-card-sum{font-size:13px;line-height:1.45;color:var(--ah-muted);margin:0}" +
     ".aph-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}" +
     ".aph-state{font-size:14px;line-height:1.5;margin:12px 0}" +
@@ -229,12 +236,12 @@
     ".aph-sug-label{font-size:12px;font-weight:700;color:var(--ah-muted);margin:0 0 4px}" +
     ".aph-sug-q{font-size:15px;line-height:1.5;margin:0 0 6px}" +
     ".aph-sug .aph-form{margin:6px 0 4px}" +
-    ".aph-sec{margin:20px 0 6px;font-size:16px;font-weight:700}" +
+    ".aph-sec{margin:26px 0 6px;font-family:'Newsreader',Georgia,serif;font-size:23px;font-weight:500;padding-top:18px;border-top:2px solid #1a1a1d}" +
     ".aph-step{padding:20px 12px 24px;border-radius:var(--ah-r);margin:0 0 8px;border-bottom:1px solid var(--ah-line)}" +
     ".aph-step.aph-hit{background:#f3eee3}" +
     ".aph-step-head{display:flex;align-items:flex-start;gap:10px;margin:0 0 8px}" +
     ".aph-step-n{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--ah-gold);color:#1a1a1d;font-size:15px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}" +
-    ".aph-step-title{font-size:18px;font-weight:700;line-height:1.35;margin:0}" +
+    ".aph-step-title{font-family:'Newsreader',Georgia,serif;font-size:21px;font-weight:500;line-height:1.3;margin:0}" +
     ".aph-step-text{font-size:17px;line-height:1.6;margin:0 0 18px 40px}" +
     ".aph-step .aph-img{margin-top:16px}" +
     ".aph-img{display:flex;justify-content:center;width:100%;padding:0;border:1px solid var(--ah-line);border-radius:var(--ah-r);overflow:hidden;background:#f1eee8;cursor:zoom-in;box-shadow:0 1px 2px rgba(26,26,29,0.06)}" +
@@ -274,6 +281,13 @@
     st.id = "aphelp-style";
     st.textContent = CSS;
     (doc.head || doc.body).appendChild(st);
+    if (!doc.getElementById("aphelp-font")) {
+      var fl = doc.createElement("link");
+      fl.id = "aphelp-font";
+      fl.rel = "stylesheet";
+      fl.href = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap";
+      (doc.head || doc.body).appendChild(fl);
+    }
   }
 
   // ---- the "?" button in the existing top bar ---------------------------
@@ -574,13 +588,13 @@
   // The same ask flow help.html uses.
   function buildSearch() {
     var wrap = el("div");
-    var form = el("form", "aph-form");
+    var form = el("form", "aph-form aph-ask");
     var input = el("input", "aph-input");
     input.type = "text";
     input.maxLength = 300;
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("placeholder", t("Pergunte: como envio um orçamento?", "Ask: how do I send an estimate?"));
-    input.setAttribute("aria-label", t("Pergunte: como envio um orçamento?", "Ask: how do I send an estimate?"));
+    input.setAttribute("placeholder", t("O que você quer fazer?", "What do you want to do?"));
+    input.setAttribute("aria-label", t("O que você quer fazer?", "What do you want to do?"));
     var go = button("aph-primary");
     go.type = "submit";
     var gi = el("span", "aph-ico");

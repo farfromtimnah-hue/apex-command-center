@@ -6,23 +6,28 @@
   <title>Aprenda</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
   <style>
-    /* Same palette and type as the portal (gm.css and portal.html :root). */
+    /* Aprenda. One hero: the question box, on a black band. Under it a quiet ruled index.
+       Palette: off-black, warm white, one gold accent (the portal's own). Serif titles, sans text. */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --surface: #f9f7f4;
-      --header: #1a1a1d;
+      --header: #111112;
       --gold: #C9A43A;
       --text: #1a1a1d;
-      --muted: #6b6660;
-      --border: #e8e2d9;
+      --muted: #5f5b55;
+      --border: #ddd7cc;
+      --soft: #f1ede5;
       --card: #ffffff;
       --red: #8f2f2f;
       --green: #2f6b3e;
+      --on-dark: #f6f3ec;
+      --on-dark-muted: #aaa59b;
       --radius: 12px;
+      --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
     }
-    body { font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; line-height: 1.5; }
+    body { font-family: 'Inter', sans-serif; background: var(--surface); color: var(--text); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; }
     body.lang-pt .show-en { display: none; }
     body.lang-en .show-pt { display: none; }
     [hidden] { display: none !important; }
@@ -35,88 +40,101 @@
     .lang-btn { background: transparent; border: 1.5px solid var(--gold); color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 0.8px; padding: 6px 12px; min-height: 32px; border-radius: 20px; cursor: pointer; transition: transform 120ms ease-out, background-color 120ms ease-out; }
     .lang-btn:active { transform: scale(0.97); }
 
-    main { max-width: 720px; margin: 0 auto; padding: 24px 20px calc(48px + env(safe-area-inset-bottom)); }
-    .page-title { font-size: 22px; font-weight: 700; margin-bottom: 14px; }
+    /* The hero: a black band, a serif line and the question box. */
+    .hero { background: var(--header); color: var(--on-dark); padding: 40px 20px 52px; }
+    .hero-in { max-width: 760px; margin: 0 auto; }
+    .page-title { font-family: var(--serif); font-size: 46px; font-weight: 400; line-height: 1.08; letter-spacing: -0.015em; margin-bottom: 10px; }
+    .hero-sub { font-size: 17px; line-height: 1.5; color: var(--on-dark-muted); margin-bottom: 28px; max-width: 34em; }
+    .search { margin: 0; }
+    .ask { display: flex; align-items: center; gap: 6px; min-height: 64px; padding: 6px 6px 6px 18px; border-radius: 16px; background: #fff; border: 2px solid #fff; }
+    .ask:focus-within { border-color: var(--gold); }
+    .ask-ico { width: 22px; height: 22px; flex: none; color: #6a665f; display: inline-flex; }
+    .ask-ico svg { width: 22px; height: 22px; }
+    .ask input { flex: 1; min-width: 0; min-height: 50px; border: none; outline: none; background: transparent; padding: 0 8px 0 4px; font: 500 17px 'Inter', sans-serif; color: var(--text); }
+    .ask input::placeholder { color: #77726a; opacity: 1; }
+    .ask .btn-primary { min-height: 50px; border-radius: 11px; }
+    .ask .btn-primary .ico { display: none; }
+    .hero #answer { color: var(--text); }
 
-    .banner { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px 12px 12px 16px; margin-bottom: 22px; }
-    .banner p { flex: 1; font-size: 14px; color: var(--muted); }
-    .icon-btn { width: 44px; height: 44px; margin: -6px -4px -6px 0; flex: none; border: none; background: transparent; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px calc(72px + env(safe-area-inset-bottom)); }
+    .banner { display: flex; align-items: flex-start; gap: 10px; padding: 0 0 18px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .banner p { flex: 1; font-size: 15px; line-height: 1.55; color: var(--muted); }
+    .icon-btn { width: 44px; height: 44px; margin: -10px -10px -10px 0; flex: none; border: none; background: transparent; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 120ms ease-out, background-color 120ms ease-out; }
     .icon-btn:active { transform: scale(0.97); }
     .icon-btn svg, .ico { width: 18px; height: 18px; flex: none; }
 
-    /* The one hero: the search box. */
-    .search { margin: 8px 0 14px; }
-    .search form { display: flex; gap: 10px; }
-    .search input { flex: 1; min-width: 0; min-height: 56px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 0 16px; font: 500 16px 'Inter', sans-serif; color: var(--text); }
-    .btn-primary { min-height: 56px; padding: 0 20px; border: none; border-radius: var(--radius); background: var(--header); color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: transform 120ms ease-out, background-color 120ms ease-out; }
-    .btn-quiet { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .btn-primary { min-height: 52px; padding: 0 22px; border: none; border-radius: var(--radius); background: var(--header); color: #fff; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; transition: transform 120ms ease-out, background-color 120ms ease-out; }
+    .btn-quiet { min-height: 44px; padding: 0 14px; border: 1px solid var(--text); border-radius: var(--radius); background: var(--card); font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: transform 120ms ease-out, background-color 120ms ease-out; }
     .btn-primary:active, .btn-quiet:active { transform: scale(0.97); }
     .btn-primary.small { min-height: 44px; padding: 0 16px; font-size: 14px; }
-    @media (hover: hover) { .btn-quiet:hover, .icon-btn:hover { background: #f3eee3; } .vcard:hover .vlabel { background: #f3eee3; } .btn-primary:hover { background: #2b2b30; } .lang-btn:hover { background: rgba(201,164,58,0.14); } .card.click:hover { background: #fbf9f5; } }
+    @media (hover: hover) { .btn-quiet:hover, .icon-btn:hover { background: var(--soft); } .vcard:hover .vlabel { background: var(--soft); } .btn-primary:hover { background: #2e2e32; } .lang-btn:hover { background: rgba(201,164,58,0.14); } .card.click:hover { background: #f3efe7; } }
 
-    .state { font-size: 14px; margin: 14px 0; }
+    .state { font-size: 15px; margin: 14px 0; }
     .state.muted { color: var(--muted); }
     .state.error { color: var(--red); }
-    .ok { color: var(--green); font-size: 13px; font-weight: 600; margin-top: 8px; }
+    .ok { color: var(--green); font-size: 14px; font-weight: 600; margin-top: 8px; }
     .ok.error { color: var(--red); }
     .ok-row { display: flex; align-items: center; gap: 6px; }
-    .sug { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 14px 16px; margin: 12px 0; }
-    .sug-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
-    .sug-q { font-size: 15px; margin-bottom: 8px; }
+    .sug { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 16px 18px; margin: 14px 0; }
+    .sug-label { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+    .sug-q { font-size: 16px; margin-bottom: 8px; }
     .sug form { margin: 6px 0 4px; }
-    .reply { font-size: 15px; margin: 6px 0 14px; }
+    .reply { font-size: 17px; line-height: 1.55; margin: 6px 0 16px; }
+    #answer:empty { display: none; }
+    #answer { margin: 0 0 8px; }
 
-    .card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 14px 16px; margin-bottom: 10px; width: 100%; text-align: left; display: block; }
-    .card.click { cursor: pointer; font: inherit; }
-    .card.click:active { transform: scale(0.99); }
-    .card-title { display: block; font-size: 15px; font-weight: 700; margin-bottom: 3px; }
-    .card-sum { display: block; font-size: 13px; color: var(--muted); }
+    /* The guide list: a ruled index with serif titles, no boxes. */
+    .card { position: relative; border: none; border-top: 1px solid var(--border); border-radius: 0; background: transparent; padding: 22px 38px 22px 0; margin: 0; width: 100%; text-align: left; display: block; }
+    .card.click { cursor: pointer; font: inherit; color: inherit; transition: background-color 120ms ease-out; }
+    .card.click::after { content: ""; position: absolute; right: 8px; top: 50%; width: 9px; height: 9px; margin-top: -6px; border-right: 2px solid var(--text); border-top: 2px solid var(--text); transform: rotate(45deg); }
+    .card.click:active { background: #f3efe7; }
+    .card-title { display: block; font-family: var(--serif); font-size: 24px; font-weight: 500; line-height: 1.22; margin-bottom: 4px; }
+    .card-sum { display: block; font-size: 15px; line-height: 1.5; color: var(--muted); }
     .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    #guideList { border-bottom: 1px solid var(--border); }
 
-    /* The side button (staff only): a quiet text button above the guide list. */
-    .side-row { margin: 22px 0 -14px; }
-    .side-btn { min-height: 44px; padding: 0 2px; border: none; border-radius: var(--radius); background: transparent; color: var(--muted); font-weight: 600; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform 120ms ease-out; }
+    .side-row { margin: 18px 0 -10px; }
+    .side-btn { min-height: 44px; padding: 0 2px; border: none; border-radius: var(--radius); background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: transform 120ms ease-out; }
     .side-btn:active { transform: scale(0.97); }
     .side-btn:disabled { text-decoration: none; }
     @media (hover: hover) { .side-btn:hover { color: var(--text); } }
     .stag { margin-left: 6px; }
-    .list-title { font-size: 15px; font-weight: 700; margin: 28px 0 10px; }
+    .list-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 26px 0 12px; }
 
-    .back { margin-bottom: 14px; }
-    .guide-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-    .guide-sum { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
-    .sec-title { font-size: 17px; font-weight: 700; margin: 26px 0 8px; }
-    .step { padding: 22px 14px 26px; border-radius: var(--radius); margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .back { margin-bottom: 20px; }
+    .guide-title { font-family: var(--serif); font-size: 38px; font-weight: 400; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .guide-sum { font-size: 17px; line-height: 1.55; color: var(--muted); margin-bottom: 20px; }
+    .sec-title { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.25; margin: 40px 0 6px; padding-top: 26px; border-top: 2px solid var(--text); }
+    .step { padding: 30px 14px 34px; margin: 0 -14px; border-radius: var(--radius); border-bottom: 1px solid var(--border); }
     .step.hit { background: #f3eee3; }
     .step-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-    .step-n { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: var(--header); font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
-    .step-title { font-size: 20px; font-weight: 700; line-height: 1.35; margin: 0; }
-    .step-text { font-size: 18px; line-height: 1.6; margin: 0 0 20px 44px; }
-    .step .pic { margin-top: 18px; }
-    .pic { display: flex; justify-content: center; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #f1eee8; cursor: zoom-in; box-shadow: 0 1px 2px rgba(26, 26, 29, 0.06); }
+    .step-n { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: var(--header); font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; }
+    .step-title { font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.3; margin: 0; }
+    .step-text { font-size: 18px; line-height: 1.65; margin: 0 0 20px 44px; }
+    .step .pic { margin-top: 20px; }
+    .pic { display: flex; justify-content: center; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #f1eee8; cursor: zoom-in; }
     .pic img { display: block; width: auto; max-width: 100%; height: auto; max-height: 70vh; }
-    .step-tag { display: inline-block; margin: 0 0 10px 44px; padding: 3px 10px; border-radius: 999px; background: #efe9dc; color: var(--muted); font-size: 13px; font-weight: 600; }
-    .link { color: var(--text); font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
-    /* The video: a play card that turns into the player when chosen. */
-    .vwrap { margin-bottom: 14px; }
-    .vcard { display: block; width: 100%; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow: hidden; cursor: pointer; text-align: left; font: inherit; transition: transform 120ms ease-out; }
+    .step-tag { display: inline-block; margin: 0 0 10px 44px; padding: 3px 10px; border-radius: 999px; background: #ece6d8; color: var(--muted); font-size: 13px; font-weight: 600; }
+    .link { color: var(--text); font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; }
+    .vwrap { margin-bottom: 20px; }
+    .vcard { display: block; width: 100%; padding: 0; border: 1px solid var(--text); border-radius: var(--radius); background: var(--card); overflow: hidden; cursor: pointer; text-align: left; font: inherit; transition: transform 120ms ease-out; }
     .vcard:active { transform: scale(0.97); }
     .vmedia { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--header); overflow: hidden; }
     .vposter { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
     .vplay { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: var(--gold); color: var(--header); display: flex; align-items: center; justify-content: center; }
     .vplay svg { width: 28px; height: 28px; margin-left: 3px; }
-    .vlabel { display: block; padding: 12px 14px; font-size: 15px; font-weight: 700; transition: background-color 120ms ease-out; }
+    .vlabel { display: block; padding: 14px 16px; font-size: 16px; font-weight: 600; transition: background-color 120ms ease-out; }
     .video { display: block; width: 100%; max-height: 70vh; border-radius: var(--radius); background: #000; }
-    .vhint { font-size: 13px; color: var(--muted); margin-top: 8px; }
-    .vtag { display: inline-block; margin-top: 8px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+    .vhint { font-size: 14px; color: var(--muted); margin-top: 8px; }
+    .vtag { display: inline-block; margin-top: 10px; padding: 2px 10px; border: 1px solid var(--text); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--text); }
     .fade { animation: fadein 200ms ease-out; }
     @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
-    .light { position: fixed; inset: 0; z-index: 100; background: rgba(20,18,16,0.82); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadein 200ms ease-out; }
+    .light { position: fixed; inset: 0; z-index: 100; background: rgba(17,17,18,0.9); display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadein 200ms ease-out; }
     .light img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
     .light .icon-btn { position: absolute; right: 12px; top: 12px; margin: 0; background: var(--card); }
     @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active, .side-btn:active { transform: none; } }
-    @media (max-width: 480px) { .search form { flex-direction: column; } .btn-primary { justify-content: center; } }
+    @media (max-width: 480px) { .hero { padding: 28px 16px 36px; } .page-title { font-size: 36px; } .hero-sub { font-size: 16px; margin-bottom: 22px; } .ask { padding-left: 14px; min-height: 60px; } .ask input { font-size: 16px; } .ask .btn-primary { padding: 0 16px; } .guide-title { font-size: 31px; } .step-title { font-size: 21px; } .card-title { font-size: 22px; } }
   </style>
 </head>
 <body class="lang-pt">
@@ -129,30 +147,35 @@
     </button>
   </header>
 
-  <main>
-    <div id="libraryView">
-      <h1 class="page-title" id="pageTitle">Aprenda</h1>
+  <div id="libraryView">
+    <section class="hero">
+      <div class="hero-in">
+        <h1 class="page-title" id="pageTitle">Aprenda</h1>
+        <p class="hero-sub" id="heroSub"></p>
+        <section class="search" id="searchBox" hidden>
+          <form id="askForm" class="ask" autocomplete="off" role="search">
+            <span class="ask-ico" aria-hidden="true" id="askIco"></span>
+            <input type="text" id="askInput" maxlength="300">
+            <button type="submit" class="btn-primary" id="askBtn"></button>
+          </form>
+        </section>
+      </div>
+    </section>
 
+    <main class="wrap">
+      <div id="answer" aria-live="polite"></div>
       <div class="banner" id="banner">
         <p id="bannerText"></p>
         <button type="button" class="icon-btn" id="bannerClose"></button>
       </div>
 
-      <section class="search" id="searchBox" hidden>
-        <form id="askForm" autocomplete="off">
-          <input type="text" id="askInput" maxlength="300">
-          <button type="submit" class="btn-primary" id="askBtn"></button>
-        </form>
-        <div id="answer" aria-live="polite"></div>
-      </section>
-
       <p class="side-row" id="sideRow" hidden></p>
       <h2 class="list-title" id="listTitle"></h2>
       <div id="guideList"></div>
-    </div>
+    </main>
+  </div>
 
-    <div id="guideView" hidden></div>
-  </main>
+  <main class="wrap" id="guideView" hidden></main>
 
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>
@@ -279,9 +302,13 @@
       byId("bannerText").textContent = t(
         "Não sabe como fazer algo? Pergunte aqui. Ou, em qualquer tela do Apex, toque e segure um botão (no computador, clique com o botão direito) para aprender sobre ele.",
         "Not sure how to do something? Ask here. Or, on any Apex screen, press and hold a button (on a computer, right click it) to learn about it.");
+      byId("heroSub").textContent = enabled
+        ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
+        : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
+      byId("askIco").innerHTML = ICON_SEARCH;
       byId("bannerClose").setAttribute("aria-label", t("Fechar", "Close"));
       byId("bannerClose").setAttribute("title", t("Fechar", "Close"));
-      var ph = t("Pergunte: como envio um orçamento?", "Ask: how do I send an estimate?");
+      var ph = t("O que você quer fazer?", "What do you want to do?");
       byId("askInput").setAttribute("placeholder", ph);
       byId("askInput").setAttribute("aria-label", ph);
       if (!byId("askBtn").disabled) { setAskLabel(false); }

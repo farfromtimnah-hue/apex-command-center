@@ -296,7 +296,7 @@ ok(core.splitStep("Tap Salvar").title === "Tap Salvar" && core.splitStep("Tap Sa
 ok(core.splitStep("Fill in the form. 1. Valor recebido: type the amount. 3. Tap Salvar.").body.indexOf("1. Valor recebido") === 0, "(layout) splitStep: a numbered list stays in the explanation");
 ok(core.splitStep("").title === "" && core.splitStep(null).body === "" && core.splitStep(undefined).title === "", "(layout) splitStep: empty input is safe");
 ok(core.splitStep("Posso fazer isso? Sim, assim.").title === "Posso fazer isso?", "(layout) splitStep: a question mark ends the title and stays");
-ok(/\.step-text\s*\{[^}]*font-size:\s*18px/.test(read("help.html")) && /\.step-title\s*\{[^}]*font-size:\s*20px/.test(read("help.html")), "(layout) help.html: step text 18px and title 20px");
+ok(/\.step-text\s*\{[^}]*font-size:\s*18px/.test(read("help.html")) && /\.step-title\s*\{[^}]*font-size:\s*22px/.test(read("help.html")), "(layout) help.html: step text 18px and title 22px");
 ok(/aph-step-text\{font-size:17px;line-height:1\.6/.test(read("help-widget.js")), "(layout) the sheet: step text 17px with line height 1.6");
 ok(core.splitStepTag("They see the invoice. (Customer's screen · English)").tag === "Customer's screen · English" && core.splitStepTag("They see the invoice. (Customer's screen · English)").text === "They see the invoice.", "(layout) splitStepTag: the screen label is taken off the end of the text");
 ok(core.splitStepTag("Eles veem a fatura. (Tela do cliente · inglês)").tag === "Tela do cliente · inglês", "(layout) splitStepTag: works in Portuguese");

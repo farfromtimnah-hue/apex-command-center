@@ -11815,16 +11815,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o passo Produtos. Comece um orçamento a partir de um lead (o guia Criar e enviar um orçamento mostra como). O passo 3 de 8 se chama Produtos. A sua tabela de preços aparece por categoria. Digite uma quantidade na caixa ao lado de um item. Cada item preenchido vira uma linha escolhida, embaixo da lista. Deixe a quantidade vazia ou zero para tirar a linha.",
-                "en": "Open the Products step. Start an estimate from a lead (the guide Create and send an estimate shows how). Step 3 of 8 is called Products. Your price list is grouped by category. Type a quantity in the box next to an item. Every item you fill in becomes a chosen line under the list. Make the quantity empty or zero to take the line out."
+                "pt": "Abra a etapa Produtos. Comece um orçamento a partir de um lead (o guia Criar e enviar um orçamento mostra como). A etapa 3 de 8 se chama Produtos. A tabela de preços aparece por categoria. O Apex já marca com quantidade 1 os itens que combinam com o serviço do lead, e mostra essas categorias primeiro. Para mudar, digite a quantidade (1) na caixa ao lado do item. Se você deixar a caixa vazia ou digitar 0, a linha sai do orçamento.",
+                "en": "Open the Products step. Start an estimate from a lead (the guide Create and send an estimate shows how). Step 3 of 8 is called Products. Your price list is grouped by category. Apex already fills in a quantity of 1 for the items that match the lead's service, and shows those categories first. To change it, type the quantity (1) in the box next to the item. If you leave the box empty or type 0, the line comes out of the estimate."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-01.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Leia uma linha escolhida. Cada linha mostra o nome do item, a quantidade, o preço de uma unidade (1) e o tipo da linha (2). A linha pequena embaixo dos números faz a conta para você, por exemplo 400 sq ft × $18.50 = $7,400.00. A caixa (3) é a Descrição para o cliente. Ela começa com a descrição da sua tabela de preços. O que você escrever ali é impresso embaixo da linha, no orçamento que o seu cliente abre.",
-                "en": "Read a chosen line. Each chosen line shows the item name, the quantity, the price of one unit (1) and the line type (2). The small line under the numbers does the math for you, for example 400 sq ft × $18.50 = $7,400.00. The box (3) is the Customer description. It starts with the description from your price list. What you write there is printed under the line on the estimate your customer opens."
+                "pt": "Leia uma linha escolhida. Embaixo da tabela, em Linhas escolhidas, cada linha mostra o nome, a quantidade, o preço de uma unidade (1) e o tipo da linha (2). A linha pequena embaixo faz a conta, por exemplo 400 sq ft × $18.50 = $7,400.00. A caixa (3) é a descrição para o cliente. Ela começa com a descrição da sua tabela de preços e você pode escrever outra. O que está nela aparece embaixo da linha no orçamento que o seu cliente abre.",
+                "en": "Read a chosen line. Under the list, in Chosen lines, each line shows the name, the quantity, the price of one unit (1) and the line type (2). The small line under the numbers does the math, for example 400 sq ft × $18.50 = $7,400.00. The box (3) is the customer description. It starts with the description from your price list and you can write another one. What is in it appears under the line on the estimate your customer opens."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-02.pt.jpg",
@@ -11834,8 +11837,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude o preço de uma linha. Digite outro preço na caixa do preço unitário. O Apex pergunta Por que o preço mudou? e mostra o preço da tabela ao lado do novo preço. Escreva o motivo na caixa (1) e toque em Salvar (2). O motivo fica guardado no histórico do lead. Só este orçamento muda. Se você tocar em Cancelar, ou salvar sem motivo, o preço volta ao da tabela.",
-                "en": "Change the price of a line. Type a different price in the unit price box. Apex asks Why did the rate change? and shows the price list price next to the new price. Write the reason in the box (1) and tap Save (2). The reason is kept in the lead history. Only this estimate changes. If you tap Cancel, or you save without a reason, the price goes back to the price list price."
+                "pt": "Mude o preço de uma linha. Digite outro preço na caixa do preço da unidade. O Apex pergunta Por que o preço mudou? e mostra o preço da tabela ao lado do novo, por exemplo $18.50 → $19.50. Escreva o motivo na caixa (1) e toque em Salvar (2). Só este orçamento muda. Se você tocar em Cancelar, ou salvar sem motivo, o preço volta ao da tabela e o Apex avisa. O motivo aparece só para você, no orçamento salvo, em Preços alterados.",
+                "en": "Change the price of a line. Type a different price in the unit price box. Apex asks Why did the rate change? and shows the price list price next to the new price, for example $18.50 → $19.50. Write the reason in the box (1) and tap Save (2). Only this estimate changes. If you tap Cancel, or save without a reason, the price goes back to the price list price and Apex tells you. The reason shows only to you, on the saved estimate, under Rate overrides."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-03.pt.jpg",
@@ -11845,8 +11848,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Adicione uma linha que não está na tabela de preços. Embaixo da lista, toque em + Linha avulsa. Uma linha nova abre. Digite o nome (1), a quantidade e o preço. O menu do tipo da linha (2) tem três opções. Normal é uma linha comum. Incluído imprime a palavra Incluído e não tem preço: conta $0 no total. Allowance conta o valor no total e imprime a palavra Allowance, para o cliente ver que é uma verba. Use a caixa de descrição (3) para explicar a linha. Uma linha avulsa não tem custo, então conta como $0 na sua margem.",
-                "en": "Add a line that is not on your price list. Under the list, tap + Custom line. A new line opens. Type the name (1), the quantity and the price. The line type menu (2) has three choices. Standard (Normal) is a regular line. Included prints the word Included and has no price: it counts $0 in the total. Allowance counts its amount in the total and prints the word Allowance, so your customer sees it is an allowance. Use the description box (3) to explain the line. A custom line has no cost, so it counts as $0 in your margin."
+                "pt": "Adicione uma linha que não está na tabela. Embaixo da lista, toque em + Linha avulsa. Uma linha nova abre. Digite o nome (1), a quantidade e o preço. O menu do tipo (2) tem três opções. Normal é uma linha comum. Incluído mostra a palavra Incluído e nenhum preço, e conta $0 no total. Allowance conta o valor no total e mostra a palavra Allowance, então o cliente vê que é uma verba. No orçamento do cliente, uma linha Allowance também diz Valor final acertado na fatura. Use a caixa (3) para explicar a linha.",
+                "en": "Add a line that is not on your price list. Under the list, tap + Custom line. A new line opens. Type the name (1), the quantity and the price. The line type menu (2) has three choices. Standard is a regular line. Included shows the word Included and no price, and counts $0 in the total. Allowance counts its amount in the total and shows the word Allowance, so your customer sees it is an allowance. On the customer's estimate, an Allowance line also says Final amount reconciled on the invoice. Use the box (3) to explain the line."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-04.pt.jpg",
@@ -11856,8 +11859,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Adicionais. O passo 4 de 8 é Adicionais: itens extras que o cliente pode somar. Ele mostra só os itens da tabela de preços com o Tipo Adicional, e só das categorias que você já usou no passo 3. Você define o Tipo de um item em Preços. Se a tela disser Nenhum adicional para as categorias escolhidas (1), não há o que escolher. Você ainda pode tocar em + Linha avulsa (2) para pôr um extra à mão. Este passo é opcional: toque em Continuar para pular.",
-                "en": "Add-ons. Step 4 of 8 is Add-ons: extra items your customer can add. It lists only the price list items whose Type is Add-on, and only from the categories you already used in step 3. You set the Type of an item in Pricing. If the screen says No add-ons for the chosen categories (1), there is nothing to pick. You can still tap + Custom line (2) to add an extra by hand. This step is optional: tap Continue to skip it."
+                "pt": "Adicionais. A etapa 4 de 8 é Adicionais: extras que o seu cliente pode somar. Ela lista só os itens da tabela de preços cujo Tipo é Adicional (add-on), e só das categorias que você já usou na etapa 3. Digite a quantidade (1) ao lado de um item. Se não houver adicionais para as categorias escolhidas, a tela diz isso. Você ainda pode tocar em + Linha avulsa (2) para um extra feito na hora. Esta etapa é opcional: toque em Continuar para pular.",
+                "en": "Add-ons. Step 4 of 8 is Add-ons: extra items your customer can add. It lists only the price list items whose Type is Add-on, and only from the categories you already used in step 3. Type the quantity (1) next to an item. If there are no add-ons for the chosen categories, the screen says so. You can still tap + Custom line (2) to add an extra by hand. This step is optional: tap Continue to skip it."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/lines-05.pt.jpg",
@@ -11876,8 +11879,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia os números. O passo 5 de 8 se chama Números. Ele mostra um subtotal por categoria, o Desconto (um desconto para a opção inteira, nunca um por linha) e o Total. Embaixo fica a parte Interno (não impresso) (1). Ela mostra o Custo dividido em material, mão de obra e outros, a Comissão e a Margem. Margem é o que sobra do total depois dos custos e da comissão. Só você vê esta parte. Ela nunca é impressa, e um vendedor nunca a vê.",
-                "en": "Read the numbers. Step 5 of 8 is called Numbers. It shows a subtotal for each category, the Discount (one discount for the whole option, never one per line) and the Total. Under them is the part called Internal (never printed) (1). It shows Cost split into materials, labor and other, the Commission and the Margin. Margin is what is left of the total after costs and commission. Only you see this part. It is never printed, and a salesperson never sees it."
+                "pt": "Leia os números. A etapa 5 de 8 se chama Números. Ela mostra um subtotal para cada categoria (1), o Desconto (2), que é um só para a opção inteira e nunca um por linha, e o Total (3). Embaixo fica a parte Interno (não impresso) (4). Ela mostra o Custo dividido em material, mão de obra e outros, a Comissão e a Margem. Margem é o que sobra do total depois dos custos e da comissão. Só você vê essa parte. Ela nunca é impressa.",
+                "en": "Read the numbers. Step 5 of 8 is called Numbers. It shows a subtotal for each category (1), the Discount (2), which is one for the whole option and never one per line, and the Total (3). Below it is the part called Internal (never printed) (4). It shows Cost split into materials, labor and other, the Commission and the Margin. Margin is what is left of the total after costs and commission. Only you see this part. It is never printed."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-01.pt.jpg",
@@ -11887,8 +11890,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Entenda o aviso de margem. Um sinal vermelho aparece ao lado da Margem (1) quando o total é $0, quando a margem fica abaixo de zero (margem negativa), ou quando a margem é menor do que a margem mínima que você definiu nas Configurações. A linha embaixo do número diz qual é o caso. Uma linha avulsa sem custo tem um aviso vermelho próprio, porque conta como $0 na margem. O aviso nunca impede nada: você ainda pode salvar e enviar.",
-                "en": "Understand the margin warning. A red warning sign shows next to the Margin (1) when the total is $0, when the margin is below zero (negative margin), or when the margin is lower than the minimum margin you set in Settings. The line under the number says which one it is. A custom line with no cost gets its own red note, because it counts as $0 in the margin. The warning never stops you: you can still save and send."
+                "pt": "Entenda os avisos de margem. Um sinal vermelho aparece perto da Margem (1) quando o total é $0.00 ou quando a margem fica abaixo da margem mínima que você definiu (por exemplo abaixo da margem mínima de 30%). A linha embaixo do número diz qual é o caso. Uma linha avulsa sem custo ganha um aviso vermelho próprio (2), porque ela conta $0 de custo na margem. O aviso nunca impede nada: você ainda pode salvar e enviar.",
+                "en": "Understand the margin warnings. A red warning sign shows next to the Margin (1) when the total is $0.00 or when the margin is lower than the minimum margin you set (for example below the minimum margin of 30%). The line under the number says which one it is. A custom line with no cost gets its own red note (2), because it counts as $0 cost in the margin. The warning never stops you: you can still save and send."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-02.pt.jpg",
@@ -11898,8 +11901,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Escreva os termos e as notas. O passo 7 de 8 é Termos. Válido até é o último dia do orçamento. Incluído e Não incluído dizem o que o preço cobre e o que não cobre. Notas ao cliente (1) é impresso no orçamento, então o cliente lê. Notas internas (2) nunca é impresso: serve só para você e a sua equipe.",
-                "en": "Write the terms and the notes. Step 7 of 8 is Terms. Valid until is the last day of the estimate. Included and Not included list what the price covers and what it does not. Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
+                "pt": "Escreva os termos e as notas. A etapa 7 de 8 é Termos. Válido até é o último dia do orçamento. Incluído e Não incluído dizem o que o preço cobre e o que não cobre. Notas ao cliente (1) é impressa no orçamento, então o cliente lê. Notas internas (2) nunca é impressa: é só para você e a sua equipe.",
+                "en": "Write the terms and the notes. Step 7 of 8 is Terms. Valid until is the last day of the estimate. Included and Excluded say what the price covers and what it does not. Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-03.pt.jpg",
@@ -11909,18 +11912,54 @@
             {
               "n": 4,
               "text": {
-                "pt": "Veja os mesmos números no orçamento salvo. Abra o orçamento (Negócio, depois Orçamentos, e toque nele). Role até Interno (não impresso) (2): Custo, Comissão e Margem (1), com o mesmo aviso, por exemplo abaixo da margem mínima de 30%. Mais abaixo, em Pagamento e termos, você vê Incluído, Não incluído, Notas ao cliente e Notas internas.",
-                "en": "See the same numbers on the saved estimate. Open the estimate (Business, then Estimates, then tap it). Scroll to Internal (never printed) (2): Cost, Commission and Margin (1), with the same warning, for example below the minimum margin of 30%. Below it, under Payment and terms, you see Included, Not included, Notes to customer and Internal notes."
+                "pt": "Veja os mesmos números no orçamento salvo. Abra o orçamento (Negócio, Orçamentos, e toque nele) e role até Interno (não impresso). Você vê Custo, Comissão e Margem (1), com o mesmo aviso, a nota vermelha da linha sem custo (3) e Preços alterados (2), com o preço da tabela, o novo preço e o motivo que você escreveu.",
+                "en": "See the same numbers on the saved estimate. Open the estimate (Business, then Estimates, then tap it) and scroll to Internal (never printed). You see Cost, Commission and Margin (1), with the same warning, the red note about the line with no cost (3) and Rate overrides (2), with the price list price, the new price and the reason you wrote."
               },
               "image": {
                 "pt": "help/img/guides/estimate-line-details/numbers-04.pt.jpg",
                 "en": "help/img/guides/estimate-line-details/numbers-04.en.jpg"
               }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja as notas no orçamento salvo. Mais embaixo, em Pagamento e termos, você vê as parcelas, Incluído, Não incluído, Notas ao cliente (1) e Notas internas (2), com a marca nunca impressas.",
+                "en": "See the notes on the saved estimate. Further down, under Payment and terms, you see the schedule, Included, Excluded, Notes to customer (1) and Internal notes (2), marked never printed."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-05.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-05.en.jpg"
+              }
             }
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Linha avulsa"
+            ],
+            "en": [
+              "+ Custom line"
+            ]
+          },
+          "section": "lines",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Por que o preço mudou?"
+            ],
+            "en": [
+              "Why did the rate change?"
+            ]
+          },
+          "section": "lines",
+          "step": 3
+        }
+      ]
     },
     {
       "id": "estimate-three-options",
@@ -11963,16 +12002,19 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha três opções. No passo 2 de 8, toque em Em opções: Best / Better / Good em vez de Único. O seu cliente vai ver três preços para o mesmo serviço. Elas aparecem sempre nesta ordem: Best (o preço mais alto), Better e depois Good.",
-                "en": "Choose three options. In step 2 of 8, tap Tiered: Best / Better / Good instead of Single. Your customer will see three prices for the same job. The three always show in this order: Best (the highest price), Better, then Good."
+                "pt": "Escolha três opções. Na etapa 2 de 8, toque em Em opções: Best / Better / Good (1) em vez de Único. O seu cliente vai ver três preços para o mesmo trabalho. As três sempre aparecem nesta ordem: Best (o preço mais alto), Better e Good.",
+                "en": "Choose three options. In step 2 of 8, tap Tiered: Best / Better / Good (1) instead of Single. Your customer will see three prices for the same job. The three always show in this order: Best (the highest price), Better, then Good."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-01.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Monte a primeira opção e depois copie. No passo Produtos, as três abas (1) são Best, Better e Good. O número em cada aba é quantas linhas ela tem. Preencha a opção que você está vendo. Depois toque em Duplicar esta opção nas outras (2). O Apex copia todas as linhas desta opção para as outras duas e avisa Copiado para as outras opções. Isso substitui o que as outras duas tinham.",
-                "en": "Build the first option, then copy it. In the Products step, the three tabs (1) are Best, Better and Good. The number on each tab is how many lines it has. Fill in the option you are looking at. Then tap Duplicate this option into the others (2). Apex copies every line of this option into the other two and says Copied into the other options. It replaces what the other two options had."
+                "pt": "Monte a primeira opção e copie. Nas etapas de produtos e adicionais, as três abas (1) são Best, Better e Good. O número em cada aba é quantas linhas ela tem. Monte a opção que está aberta. Depois toque em Duplicar esta opção nas outras (2). O Apex copia todas as linhas dessa opção, produtos e adicionais, para as outras duas e avisa Copiado para as outras opções. Isso substitui o que as outras duas tinham.",
+                "en": "Build the first option, then copy it. In the products and add-ons steps, the three tabs (1) are Best, Better and Good. The number on each tab is how many lines it has. Fill in the option you are looking at. Then tap Duplicate this option into the others (2). Apex copies every line of this option, products and add-ons, into the other two and says Copied into the other options. It replaces what the other two options had."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-02.pt.jpg",
@@ -11982,16 +12024,19 @@
             {
               "n": 3,
               "text": {
-                "pt": "Mude as outras duas opções. Toque na aba Better e depois na aba Good, e mude as quantidades, tire linhas ou ponha linhas. Cada opção guarda as suas próprias linhas. O passo Adicionais também tem as três abas e o mesmo botão Duplicar.",
-                "en": "Change the other two options. Tap the Better tab, then the Good tab, and change the quantities, take lines out or add lines. Each option keeps its own lines. The Add-ons step also has the three tabs and the same Duplicate button."
+                "pt": "Mude as outras duas opções. Toque na aba Better, depois na aba Good, e mude as quantidades, tire linhas ou some linhas. Cada opção guarda as suas próprias linhas. Para tirar uma linha, deixe a quantidade vazia ou digite 0.",
+                "en": "Change the other two options. Tap the Better tab, then the Good tab, and change the quantities, take lines out or add lines. Each option keeps its own lines. To take a line out, leave the quantity empty or type 0."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-03.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Dê a cada opção o seu próprio desconto. No passo 5 de 8, o título do Desconto mostra a opção que você está vendo, por exemplo Desconto · Better. Escolha Sem desconto, $ ou %, e digite o valor (2). O desconto vale para a opção inteira, nunca para uma linha. Um % vai de 0 a 100. Um valor em $ não pode passar do subtotal da opção. Quando você troca entre $ e %, o número é apagado. A Margem (1) e o Total são da opção que você está vendo, então toque em cada aba para conferir as três.",
-                "en": "Give each option its own discount. In step 5 of 8, the Discount title shows the option you are looking at, for example Discount · Better. Choose No discount, $ or %, and type the value (2). A discount is for that whole option, never for one line. A % goes from 0 to 100. A $ amount cannot be more than the option subtotal. When you change between $ and %, the number is cleared. The Margin (1) and the Total belong to the option you are looking at, so tap each tab to check all three."
+                "pt": "Dê um desconto para cada opção. Na etapa 5 de 8, o título Desconto mostra a opção que está aberta, por exemplo Desconto · Better. Escolha Sem desconto, $ ou % e digite o valor. O desconto é da opção inteira, nunca de uma linha. A Margem e o Total também são da opção que está aberta, então toque em cada aba para conferir as três. No exemplo, 5% de $79,950.00 dá um desconto de $3,997.50 e um total de $75,952.50.",
+                "en": "Give each option its own discount. In step 5 of 8, the Discount title shows the option you are looking at, for example Discount · Better. Choose No discount, $ or %, and type the value. A discount is for that whole option, never for one line. The Margin and the Total also belong to the option you are looking at, so tap each tab to check all three. In the example, 5% of $79,950.00 gives a discount of $3,997.50 and a total of $75,952.50."
               },
               "image": {
                 "pt": "help/img/guides/estimate-three-options/options-04.pt.jpg",
@@ -12001,18 +12046,35 @@
             {
               "n": 5,
               "text": {
-                "pt": "Confira as parcelas. As parcelas de pagamento são uma lista só para o orçamento inteiro. Na prévia do final (passo 8 de 8), os valores em dólar das parcelas são calculados sobre a opção Better, e a prévia avisa isso.",
-                "en": "Check the payment schedule. The payment steps are one list for the whole estimate. In the preview at the end (step 8 of 8), the dollar amounts of the payment schedule are calculated on the Better option, and the preview says so."
+                "pt": "Confira a tabela de pagamento. As etapas de pagamento são uma lista só para o orçamento inteiro. No orçamento que o cliente abre, os valores em dólar das parcelas são calculados sobre a opção Better, e a página diz Valores mostrados para a opção Better (1). Na etapa 6 do assistente, os valores mostrados podem seguir a aba que está aberta: confira na prévia da etapa 8.",
+                "en": "Check the payment schedule. The payment steps are one list for the whole estimate. On the estimate your customer opens, the dollar amounts of the payment schedule are calculated on the Better option, and the page says Amounts shown for the Better option (1). In step 6 of the wizard, the amounts shown may follow the tab that is open: check them in the preview of step 8."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-05.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-05.en.jpg"
+              }
             },
             {
               "n": 6,
               "text": {
-                "pt": "O que o seu cliente faz. O cliente abre o link do orçamento e vê as três opções. Embaixo da opção que ele quer, ele toca em Select (o botão passa a dizer Selected). Perto da assinatura, um aviso diz Select an option above first até ele escolher uma. Depois o cliente assina, como no guia Criar e enviar um orçamento. Este passo vem do código do aplicativo: não enviamos um orçamento com três opções no nosso teste.",
-                "en": "What your customer does. The customer opens the estimate link and sees the three options. Under the option they want, they tap Select (the button then reads Selected). Near the signature, a note reads Select an option above first until one is picked. Then the customer signs, as in the guide Create and send an estimate. This step comes from the app's code: we did not send a tiered estimate in our test."
+                "pt": "O que o seu cliente faz. O cliente abre o link e vê as três opções. Embaixo da opção que ele quer, toca em Select. O botão passa a dizer Selected (1), e a opção ganha uma borda. A tela do cliente é em inglês.",
+                "en": "What your customer does. The customer opens the link and sees the three options. Under the option they want, they tap Select. The button then reads Selected (1), and the option gets a border. The customer's screen is in English."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-06.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Assinar. Quando o cliente escolhe, a página rola até Accept this estimate e mostra Option selected: Better (1). O cliente confere o nome, escolhe digitar ou desenhar a assinatura, marca a caixa de consentimento e toca em Accept and sign. Antes de escolher uma opção, essa parte diz Select an option above first. Depois de assinar, o orçamento fica Aceito e mostra o total da opção aceita.",
+                "en": "Sign. When the customer picks, the page scrolls to Accept this estimate and shows Option selected: Better (1). The customer checks the name, chooses to type or draw the signature, ticks the consent box and taps Accept and sign. Before an option is picked, this part says Select an option above first. After signing, the estimate shows Accepted and the total of the accepted option."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-07.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-07.en.jpg"
+              }
             }
           ]
         }
@@ -12081,8 +12143,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Leia a cor do selo. Abra Negócio, depois Orçamentos. Cada orçamento tem um selo à direita. Amarelo quer dizer Enviado, esperando. Ele fica laranja depois de 24 horas sem resposta, e vermelho depois de 48 horas (1). Verde quer dizer Aceito (5). Cinza quer dizer Rascunho, Substituído, Mudanças pedidas, Recusado ou Expirado. O olho (4) quer dizer que o seu cliente abriu o orçamento. Abrir não é uma resposta, então um selo Aberto (3) mantém a cor. As abas no alto da lista filtram por status. Uma aba para Mudanças pedidas, Recusado ou Expirado só aparece quando você tem pelo menos um.",
-                "en": "Read the color of the pill. Open Business, then Estimates. Each estimate has a pill at the right. Yellow means Sent and waiting. It turns orange after 24 hours with no answer, and red after 48 hours (1). Green means Accepted (5). Grey means Draft, Superseded, Changes requested, Declined or Expired. The eye (4) means your customer opened the estimate. Opening it is not an answer, so a Viewed pill (3) keeps its color. The chips at the top of the list filter by status. A chip for Changes requested, Declined or Expired shows up only when you have at least one."
+                "pt": "Leia a cor da etiqueta. Abra Negócio, depois Orçamentos. Cada orçamento tem uma etiqueta à direita. Amarelo (1) quer dizer Enviado há menos de 24 horas. Laranja (2) quer dizer 24 horas sem resposta. Vermelho (3) quer dizer 48 horas ou mais sem resposta. Verde quer dizer Aceito. Cinza quer dizer Rascunho, Substituído, Mudanças pedidas, Recusado ou Expirado. O olho quer dizer que o cliente abriu o orçamento. Abrir não é resposta, então a etiqueta de um orçamento aberto mantém a cor. Os botões no alto filtram por situação. Um botão de Mudanças pedidas, Recusado ou Expirado só aparece quando você tem pelo menos um.",
+                "en": "Read the color of the pill. Open Business, then Estimates. Each estimate has a pill at the right. Yellow (1) means Sent less than 24 hours ago. Orange (2) means 24 hours with no answer. Red (3) means 48 hours or more with no answer. Green means Accepted. Grey means Draft, Superseded, Changes requested, Declined or Expired. The eye means your customer opened the estimate. Opening it is not an answer, so the pill of an opened estimate keeps its color. The chips at the top filter by status. A chip for Changes requested, Declined or Expired shows up only when you have at least one."
               },
               "image": {
                 "pt": "help/img/guides/customer-answers-to-estimates/colors-01.pt.jpg",
@@ -12092,8 +12154,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Leia os lembretes. Abra um orçamento. Embaixo do total pode aparecer uma linha vermelha (2). Não aberto há 2 dias quer dizer que passaram 48 horas e o cliente ainda não abriu. Expira em 48 horas quer dizer que a data Válido até está perto. As mesmas linhas aparecem na lista e na parte Orçamentos da ficha do lead. A cor do selo (1) é a mesma que você viu na lista.",
-                "en": "Read the reminders. Open an estimate. Under the total, a red line can appear (2). Not opened after 2 days means 48 hours passed and your customer has not opened it. Expires in 48 hours means the Valid until date is close. The same lines show in the list and in the Estimates part of the lead sheet. The color of the pill (1) is the one you saw in the list."
+                "pt": "Leia os lembretes. Abra um orçamento. Abaixo do total, uma linha vermelha (2) pode aparecer. Não aberto há 2 dias quer dizer que passaram 48 horas e o cliente ainda não abriu. Expira em 48 horas quer dizer que a data de Válido até está perto. As mesmas linhas aparecem na lista de orçamentos. A cor da etiqueta (1) é a que você viu na lista.",
+                "en": "Read the reminders. Open an estimate. Under the total, a red line (2) can appear. Not opened after 2 days means 48 hours passed and your customer has not opened it. Expires in 48 hours means the Valid until date is close. The same lines show in the list of estimates. The color of the pill (1) is the one you saw in the list."
               },
               "image": {
                 "pt": "help/img/guides/customer-answers-to-estimates/colors-02.pt.jpg",
@@ -12103,8 +12165,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Confira o que o seu cliente vê. Toque em Ver como o cliente (3): o orçamento abre do jeito que o seu cliente vê, para você conferir antes ou depois de enviar. Toque em Baixar PDF (4) para pegar uma cópia em PDF do orçamento.",
-                "en": "Check what your customer sees. Tap Preview as customer (3): the estimate opens the way your customer sees it, so you can check it before or after sending. Tap Download PDF (4) to get a PDF copy of the estimate."
+                "pt": "Veja o que o cliente vê. Toque em Ver como o cliente (3). O orçamento abre em uma aba nova, do jeito que o cliente vê. Atenção: o Apex conta isso como o cliente abrindo o orçamento. A etiqueta ganha o olho (Aberto) e o lembrete Não aberto sai.",
+                "en": "Check what your customer sees. Tap Preview as customer (3). The estimate opens in a new tab, the way your customer sees it. Careful: Apex counts this as your customer opening the estimate. The pill gets the eye (Viewed) and the reminder Not opened goes away."
               },
               "image": {
                 "pt": "help/img/guides/customer-answers-to-estimates/colors-03.pt.jpg",
@@ -12123,42 +12185,79 @@
             {
               "n": 1,
               "text": {
-                "pt": "O cliente pede mudanças ou recusa. Na página do orçamento, o cliente pode escrever o que quer mudar (Request changes) ou tocar em Decline this estimate e dar um motivo, se quiser. O orçamento passa para Mudanças pedidas ou Recusado (selo cinza). Na parte Orçamentos da ficha do lead você lê as palavras dele, por exemplo Pediu mudanças: e o texto. O histórico do lead também registra. Este passo vem do código do aplicativo: o nosso cliente de teste não tem uma resposta assim.",
-                "en": "Your customer asks for changes or declines. On the estimate page, the customer can write what they want changed (Request changes) or tap Decline this estimate and give a reason if they want. The estimate changes to Changes requested or Declined (grey pill). In the Estimates part of the lead sheet you read their words, for example Requested changes: and the text. The lead history records it too. This step comes from the app's code: our test client has no such answer."
+                "pt": "O cliente pede mudanças ou recusa. Na página do orçamento, embaixo, o cliente pode escrever o que quer mudar e tocar em Send change request (1), ou tocar em Decline this estimate (3), com um motivo se quiser (2). A tela do cliente é em inglês.",
+                "en": "Your customer asks for changes or declines. At the bottom of the estimate page, the customer can write what they want changed and tap Send change request (1), or tap Decline this estimate (3), with a reason if they want (2). The customer's screen is in English."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-01.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Você recebe um aviso. Quando o cliente pede mudanças ou recusa, o Apex manda uma notificação para o celular do dono, se as notificações estiverem ligadas (veja o guia Notificações push). Ela diz quem respondeu, qual documento e as primeiras palavras da mensagem. Toque nela para abrir o lead.",
-                "en": "You get a notification. When your customer asks for changes or declines, Apex sends a notification to the owner's phone, if notifications are on (see the guide Push notifications). It says who answered, which document and the first words of the message. The text of the notification is in Portuguese. Tap it to open the lead."
+                "pt": "O que o cliente vê depois de pedir mudanças. A página mostra um cartão Changes requested (1) com as palavras do cliente e a frase de que ele ainda pode aceitar esta versão.",
+                "en": "What the customer sees after asking for changes. The page shows a card Changes requested (1) with the customer's words and a line that they can still accept this version."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-02.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja na tela Início. Um cartão chamado Respostas dos clientes, com um número, aparece em Início. Cada linha diz quem pediu mudanças ou recusou, qual documento, as palavras do cliente (ou sem motivo escrito), o projeto e a hora. O mesmo cartão também mostra respostas a um contrato, a um aditivo, às fotos de antes e ao aceite de conclusão. Toque em Marcar como visto quando tiver lido: a linha some. Toque em Abrir o projeto, quando a linha tiver o botão, para ir ao projeto. Só o dono vê este cartão, nunca um vendedor. Você só o vê quando Contratos está ligado para o seu negócio.",
-                "en": "See it on Home. A card called Customer responses, with a number, shows on Home. Each row says who asked for changes or declined, which document, their words (or no reason given), the project and the time. The same card also shows answers to a contract, a change order, the before photos and the completion sign-off. Tap Mark as seen when you have read it: the row goes away. Tap Open the project, when the row has one, to go to the project. Only the owner sees this card, never a salesperson. You see it only when Contracts is on for your business."
+                "pt": "Quando o cliente recusa. Ele pode escrever um motivo (1) e toca em Decline this estimate (2). A página passa a dizer Declined.",
+                "en": "When the customer declines. They can write a reason (1) and tap Decline this estimate (2). The page then says Declined."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-03.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "O cliente pede um orçamento atualizado. Depois da data Válido até, o link do cliente diz This estimate has expired e mostra um botão, Request an updated estimate. Quando o cliente toca nele, o Apex escreve no histórico do lead e na lista de orçamentos: Customer requested an updated estimate after expiry. O status continua Expirado. Você não recebe notificação neste caso, então olhe a lista de vez em quando. Para responder, abra o orçamento e toque em Criar revisão (veja o guia Revise ou anule um orçamento). Mude o que for preciso, com uma nova data Válido até, e envie de novo.",
-                "en": "Your customer asks for an updated estimate. After the Valid until date, the customer link says This estimate has expired and shows a button, Request an updated estimate. When the customer taps it, Apex writes it in the lead history and in the estimate list: Customer requested an updated estimate after expiry. The status stays Expired. You do not get a notification for this one, so look at the list from time to time. To answer, open the estimate and tap Create revision (see the guide Revise or void an estimate). Change what you need, with a new Valid until date, and send it again."
+                "pt": "Veja a resposta no lead. Na parte Orçamentos da ficha do lead, o orçamento mostra a etiqueta cinza Mudanças pedidas (ou Recusado) e uma linha vermelha: Pediu mudanças: e o texto do cliente. A mesma linha aparece na lista de orçamentos, e o histórico do lead registra a resposta.",
+                "en": "See the answer on the lead. In the Estimates part of the lead sheet, the estimate shows the grey pill Changes requested (or Declined) and a red line: Requested changes: and the customer's text. The same line shows in the list of estimates, and the lead history records the answer."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-04.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Links antigos param sozinhos. O link do cliente de um orçamento deixa de funcionar 90 dias depois da data Válido até. O cliente então vê que o link não é válido. Para trazê-lo de volta, abra o orçamento e toque em Ativar link (veja o guia Desativar ou ativar o link do cliente). O orçamento abre de novo em um endereço novo, então envie o link ao seu cliente outra vez.",
-                "en": "Old links stop by themselves. The customer link of an estimate stops working 90 days after its Valid until date. The customer then sees that the link is not valid. To bring it back, open the estimate and tap Enable link (see the guide Turn a customer link off or on). The estimate opens again at a new address, so send the link to your customer again."
+                "pt": "Veja no Início. Um cartão chamado Respostas dos clientes (1), com um número, aparece no Início. Cada linha diz quem pediu mudanças ou recusou, o orçamento, as palavras do cliente (ou sem motivo escrito) e a hora. Toque em Marcar como visto (2) quando ler: a linha some. Só o dono vê esse cartão, nunca um vendedor.",
+                "en": "See it on Home. A card called Customer responses (1), with a number, shows on Home. Each row says who asked for changes or declined, which estimate, the customer's words (or no reason given) and the time. Tap Mark as seen (2) when you have read it: the row goes away. Only the owner sees this card, never a salesperson."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-05.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O cliente pede um orçamento novo. Depois da data de Válido até, o link do cliente diz This estimate has expired e mostra o botão Request an updated estimate (1). Quando o cliente toca, o botão passa a dizer Request sent.",
+                "en": "Your customer asks for an updated estimate. After the Valid until date, the customer link says This estimate has expired and shows a button, Request an updated estimate (1). When the customer taps it, the button reads Request sent."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-06.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja o pedido de novo orçamento. Abra o orçamento expirado. Em Dados, a linha Pedido de mudança (1) diz que o cliente pediu um orçamento novo depois de vencer. O status continua Expirado. Para responder, toque em Criar revisão: o assistente abre com os dados do cliente. Mude o que precisar, ponha uma data nova em Válido até e envie de novo.",
+                "en": "See the request for a new estimate. Open the expired estimate. In Details, the row Change request (1) says the customer requested an updated estimate after expiry. The status stays Expired. To answer, tap Create revision: the wizard opens with the customer's details. Change what you need, set a new Valid until date and send it again."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/answers-07.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/answers-07.en.jpg"
+              }
             }
           ]
         }
@@ -12174,7 +12273,7 @@
             ]
           },
           "section": "answers",
-          "step": 3
+          "step": 5
         }
       ]
     },

@@ -1054,6 +1054,54 @@
           },
           "section": "mark-accepted",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Único"
+            ],
+            "en": [
+              "Single"
+            ]
+          },
+          "section": "create-send",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Em opções: Best / Better / Good"
+            ],
+            "en": [
+              "Tiered: Best / Better / Good"
+            ]
+          },
+          "section": "create-send",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sem desconto"
+            ],
+            "en": [
+              "No discount"
+            ]
+          },
+          "section": "create-send",
+          "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar rascunho"
+            ],
+            "en": [
+              "Save draft"
+            ]
+          },
+          "section": "create-send",
+          "step": 13
         }
       ]
     },
@@ -5442,6 +5490,14 @@
                 "en": "Know how notes and history work. Each note shows the date and who wrote it, newest first. You can edit or delete only your own notes. History lists who did what and when: the lead created, stage moves, changes to a field (the old value and the new one) and every estimate event. Older leads may say that nothing was recorded yet."
               },
               "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "en": "Delete a lead. At the very bottom of the lead sheet, tap Delete lead. Apex asks you to confirm and warns that this cannot be undone. Tap Keep the lead if you are not sure. Use it only for a lead that was created by mistake: to close a real lead that did not buy, move it to the Lost stage instead.",
+                "pt": "Exclua um lead. No final da ficha do lead, toque em Excluir lead. O Apex pede a confirmação e avisa que essa ação não pode ser desfeita. Toque em Manter o lead se não tiver certeza. Use só para um lead criado por engano: para encerrar um lead de verdade que não comprou, mude o estágio para Perdido."
+              },
+              "image": null
             }
           ]
         }
@@ -5458,6 +5514,18 @@
           },
           "section": "lead",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Excluir lead"
+            ],
+            "en": [
+              "Delete lead"
+            ]
+          },
+          "section": "lead",
+          "step": 3
         }
       ]
     },

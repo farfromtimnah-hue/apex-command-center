@@ -6280,6 +6280,578 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "get-help",
+      "audience": "client",
+      "title": {
+        "pt": "Peça ajuda dentro do Apex",
+        "en": "Ask for help inside Apex"
+      },
+      "summary": {
+        "pt": "Conte o que deu errado ou peça ajuda com o seu negócio, e o Apex manda junto os dados da sua tela.",
+        "en": "Tell us what went wrong or ask for help with your business, and Apex sends the details of your screen along."
+      },
+      "keywords": {
+        "pt": [
+          "ajuda",
+          "precisa de ajuda",
+          "algo não está funcionando",
+          "erro",
+          "tela em branco",
+          "botão não responde",
+          "preciso de ajuda com o meu negócio",
+          "consultoria",
+          "enviar pelo whatsapp",
+          "problema",
+          "suporte",
+          "falar com o apex"
+        ],
+        "en": [
+          "help",
+          "need help",
+          "something isn't working",
+          "error",
+          "blank screen",
+          "button does nothing",
+          "i need help with my business",
+          "consulting",
+          "send via whatsapp",
+          "problem",
+          "support",
+          "talk to apex"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "help",
+          "title": {
+            "pt": "Pedir ajuda, passo a passo",
+            "en": "Asking for help, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a Ajuda. Toque em Ajuda no topo do portal. Escolha o tipo de problema (1): Algo não está funcionando, para um erro, tela em branco ou botão que não responde, ou Preciso de ajuda com o meu negócio, para uma dúvida de consultoria sobre metas ou estratégia. Descreva o que aconteceu na caixa (2): o que você estava fazendo e o que deu errado. A caixa cinza (3) mostra o que o Apex manda junto com a sua mensagem: o seu negócio, a aba em que você estava, o seu aparelho e a hora. Toque em Enviar pelo WhatsApp (4). O botão liga depois que você escolhe um tipo e escreve a mensagem.",
+                "en": "Open Help. Tap Help at the top of the portal. Choose the kind of problem (1): Something isn't working, for an error, a blank screen or a button that does nothing, or I need help with my business, for a consulting question about goals or strategy. Describe what happened in the box (2): what you were doing and what went wrong. The gray box (3) shows what Apex sends along with your message: your business, the tab you were on, your device and the time. Tap Send via WhatsApp (4). The button turns on after you choose a type and write your message."
+              },
+              "image": {
+                "pt": "help/img/guides/get-help/help-01.pt.jpg",
+                "en": "help/img/guides/get-help/help-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Aprenda antes de perguntar. Toque e segure qualquer botão, ou clique nele com o botão direito do mouse no computador, para abrir o guia daquele botão. A interrogação no topo abre o Aprenda com uma caixa de busca.",
+                "en": "Learn before you ask. Press and hold any button, or right click it on a computer, to open the guide for that button. The question mark at the top opens Learn with a search box."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar pelo WhatsApp"
+            ],
+            "en": [
+              "Send via WhatsApp"
+            ]
+          },
+          "section": "help",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "my-devices",
+      "audience": "client",
+      "title": {
+        "pt": "Seus aparelhos e a entrada com passkey",
+        "en": "Your devices and passkey sign in"
+      },
+      "summary": {
+        "pt": "Veja em quais aparelhos você entra com passkey, adicione um aparelho ou remova um que não usa mais.",
+        "en": "See which devices sign in with a passkey, add a device or remove one you no longer use."
+      },
+      "keywords": {
+        "pt": [
+          "aparelhos",
+          "meus aparelhos",
+          "passkey",
+          "entrar",
+          "login",
+          "senha",
+          "adicionar este aparelho",
+          "remover aparelho",
+          "icloud",
+          "windows",
+          "celular novo",
+          "face id"
+        ],
+        "en": [
+          "devices",
+          "my devices",
+          "passkey",
+          "sign in",
+          "login",
+          "password",
+          "add this device",
+          "remove device",
+          "icloud",
+          "windows",
+          "new phone",
+          "face id"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "devices",
+          "title": {
+            "pt": "Meus aparelhos, passo a passo",
+            "en": "My devices, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Meus aparelhos. Toque em Ajustes no alto à direita e role até Meus aparelhos. A nota (1) explica: no iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque. Cada aparelho que você usa aparece na lista (2) com o nome e a data em que foi adicionado. Toque em Remover para tirar um da lista, por exemplo um celular antigo. Para usar um computador novo, abra o Apex nele e toque em Adicionar este aparelho (3).",
+                "en": "Open My devices. Tap Settings at the top right and scroll to My devices. The note (1) explains it: on iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap. Each device you use is listed (2) with its name and the date it was added. Tap Remove to take one off the list, for example an old phone. To use a new computer, open Apex on it and tap Add this device (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/my-devices/devices-01.pt.jpg",
+                "en": "help/img/guides/my-devices/devices-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Convide outra pessoa. Um novo membro da equipe recebe o próprio link e cria uma passkey no próprio celular ou computador, então não existe senha para compartilhar. Veja o guia Adicionar pessoas e escolher o acesso.",
+                "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. See the Add people and choose their access guide."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Adicionar este aparelho"
+            ],
+            "en": [
+              "Add this device"
+            ]
+          },
+          "section": "devices",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "execution-and-tasks",
+      "audience": "client",
+      "title": {
+        "pt": "Execução do plano e tarefas",
+        "en": "Plan execution and tasks"
+      },
+      "summary": {
+        "pt": "Acompanhe as ações do seu plano com o Apex e veja as tarefas que foram dadas a você.",
+        "en": "Follow the actions of your plan with Apex and see the tasks given to you."
+      },
+      "keywords": {
+        "pt": [
+          "execução",
+          "execução do plano",
+          "plano",
+          "ações",
+          "ações realizadas",
+          "pendente",
+          "em andamento",
+          "atrasado",
+          "tarefas",
+          "suas tarefas",
+          "prazo",
+          "apex",
+          "progresso"
+        ],
+        "en": [
+          "execution",
+          "plan execution",
+          "plan",
+          "actions",
+          "actions done",
+          "pending",
+          "in progress",
+          "late",
+          "tasks",
+          "your tasks",
+          "due date",
+          "apex",
+          "progress"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "plan",
+          "title": {
+            "pt": "Plano e tarefas, passo a passo",
+            "en": "Plan and tasks, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Acompanhe o seu plano. Toque em Apex na fileira de abas no alto e depois em Execução. A página se chama Execução do plano. Uma barra de progresso no topo mostra quantas ações estão feitas, por exemplo 1 de 17, e o percentual. Cada linha abaixo é uma ação do seu plano com o Apex. Ela mostra a ação, a área e a pessoa responsável, e uma etiqueta de status: Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Você pode atualizar o status das suas ações.",
+                "en": "Follow your plan. Tap Apex in the row of tabs at the top, then Execution. The page is called Execution of the plan. A progress bar at the top shows how many actions are done, for example 1 of 17, and the percent. Each line below is one action of your plan with Apex. It shows the action, the area and the person in charge, and a status tag: Pending, In progress, Done, Late or Cancelled. You can update the status of your own actions."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja as suas tarefas. Toque em Apex e depois em Tarefas. A página, Suas tarefas, lista o que o Apex pediu para você fazer. Cada tarefa (1) mostra o título e o prazo, e uma etiqueta com o status. A lista é só para ler: você não muda tarefas aqui.",
+                "en": "See your tasks. Tap Apex, then Tasks. The page, Your tasks, lists what Apex asked you to do. Each task (1) shows the title and the due date, and a tag with its status. The list is only for reading: you do not change tasks here."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-02.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "project-from-scratch",
+      "audience": "client",
+      "title": {
+        "pt": "Crie um projeto sem lead",
+        "en": "Create a project without a lead"
+      },
+      "summary": {
+        "pt": "Cadastre um projeto que você já fechou e transforme em lead para fazer orçamento, contrato e fatura.",
+        "en": "Add a project you already won and turn it into a lead to make an estimate, contract and invoices."
+      },
+      "keywords": {
+        "pt": [
+          "novo projeto",
+          "criar projeto",
+          "projeto sem lead",
+          "projeto antigo",
+          "criar lead deste projeto",
+          "cliente / projeto",
+          "projeto digitado à mão",
+          "transformar em lead"
+        ],
+        "en": [
+          "new project",
+          "create project",
+          "project without lead",
+          "old project",
+          "make this project a lead",
+          "client / project",
+          "hand made project",
+          "turn into lead"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "newproject",
+          "title": {
+            "pt": "Projeto novo, passo a passo",
+            "en": "New project, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Adicione o projeto. Toque em Negócio e depois em Projetos, e role até o fim da lista. Toque em + Novo projeto (1). Digite o nome em Cliente / projeto (2) e toque em Salvar (3). Só o nome é obrigatório. Você preenche os outros campos depois de salvar. Use para uma obra que você já tem, quando não existe um lead para ela.",
+                "en": "Add the project. Tap Business, then Projects, and scroll to the end of the list. Tap + New project (1). Type the Client / project name (2) and tap Save (3). Only the name is required. You fill in the other fields after saving. Use this for a job you already have, when there is no lead for it."
+              },
+              "image": {
+                "pt": "help/img/guides/project-from-scratch/newproject-01.pt.jpg",
+                "en": "help/img/guides/project-from-scratch/newproject-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Transforme em lead quando precisar de documentos. Abra o projeto. Um projeto digitado à mão não pode ter orçamento, contrato nem faturas até ser ligado a um lead. Toque em Criar lead deste projeto. O Apex cria o lead a partir do projeto, então você não digita o cliente de novo. Depois siga os guias do orçamento, do contrato e das faturas.",
+                "en": "Turn it into a lead when you need documents. Open the project. A project typed by hand cannot get an estimate, a contract or invoices until it is tied to a lead. Tap Make this project a lead. Apex creates the lead from the project, so you do not type the customer again. Then follow the guides for the estimate, the contract and the invoices."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Novo projeto"
+            ],
+            "en": [
+              "+ New project"
+            ]
+          },
+          "section": "newproject",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Criar lead deste projeto"
+            ],
+            "en": [
+              "Make this project a lead"
+            ]
+          },
+          "section": "newproject",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "subcontractors",
+      "audience": "client",
+      "title": {
+        "pt": "Subempreiteiros no projeto",
+        "en": "Subcontractors on a project"
+      },
+      "summary": {
+        "pt": "Escolha um subempreiteiro para o projeto ou cadastre um novo, com licença e seguro.",
+        "en": "Pick a subcontractor for the project or register a new one, with license and insurance."
+      },
+      "keywords": {
+        "pt": [
+          "subempreiteiro",
+          "subempreiteiros",
+          "terceirizado",
+          "adicionar subempreiteiro ao projeto",
+          "cadastrar novo",
+          "licença",
+          "seguro",
+          "coi",
+          "seguro de acidentes de trabalho",
+          "documentos vencendo",
+          "equipe externa"
+        ],
+        "en": [
+          "subcontractor",
+          "subcontractors",
+          "sub",
+          "add a subcontractor to this project",
+          "add new",
+          "license",
+          "insurance",
+          "coi",
+          "workers comp",
+          "expiring documents",
+          "outside crew"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "subs",
+          "title": {
+            "pt": "Subempreiteiros, passo a passo",
+            "en": "Subcontractors, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a seção Subempreiteiros. Toque em Negócio e depois em Projetos, toque no projeto e role para baixo. A seção Subempreiteiros (1) lista quem trabalha neste projeto. Para adicionar um, toque em Adicionar subempreiteiro ao projeto (2).",
+                "en": "Open the Subcontractors section. Tap Business, then Projects, tap the project and scroll down. The Subcontractors section (1) lists who works on this project. To add one, tap Add a subcontractor to this project (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/subcontractors/subs-01.pt.jpg",
+                "en": "help/img/guides/subcontractors/subs-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha ou cadastre. Os subempreiteiros que você já cadastrou aparecem como botões (1). Toque em um para escolher. Se a pessoa não está lá, toque em + Cadastrar novo (2) para cadastrar. Depois toque em Salvar (3).",
+                "en": "Pick or register. The subcontractors you already registered show as buttons (1). Tap one to choose it. If the person is not there, tap + Add new (2) to register them. Then tap Save (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/subcontractors/subs-02.pt.jpg",
+                "en": "help/img/guides/subcontractors/subs-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mantenha os documentos em dia. Todos os subempreiteiros ficam em um só cadastro: toque em Negócio, depois em Orçamentos, depois em Configurações, e role até o fim, em Subempreiteiros (licença e seguro). Cada linha (1) mostra o nome e um número vermelho com os problemas que o Apex achou, por exemplo sem número de licença, certificado de seguro (COI) vencido ou sem certificado de seguro de acidentes de trabalho. Toque em uma linha para abrir e corrigir. Toque em Cadastrar subempreiteiro (2) para registrar um novo. Os documentos vencidos em obras ativas também aparecem primeiro na tela Início: veja o guia Início: avisos para você.",
+                "en": "Keep the papers current. All subcontractors are kept in one register: tap Business, then Estimates, then Settings, and scroll to the end, to Subcontractors (license and insurance). Each line (1) shows the name and a red number with the problems Apex found, for example no license number on file, an expired insurance certificate (COI) or no workers' compensation certificate. Tap a line to open it and fix it. Tap Add subcontractor (2) to register a new one. Expired documents on active jobs also show on the Home screen first: see the guide Home: what needs your attention."
+              },
+              "image": {
+                "pt": "help/img/guides/subcontractors/subs-03.pt.jpg",
+                "en": "help/img/guides/subcontractors/subs-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Adicionar subempreiteiro ao projeto"
+            ],
+            "en": [
+              "Add a subcontractor to this project"
+            ]
+          },
+          "section": "subs",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "contract-settings",
+      "audience": "client",
+      "title": {
+        "pt": "Configure o seu contrato uma vez",
+        "en": "Set up your contract once"
+      },
+      "summary": {
+        "pt": "Escolha os seus ofícios, as cláusulas padrão, quem assina pela empresa e os seus valores fixos.",
+        "en": "Choose your trades, the default clauses, who signs for the company and your standard values."
+      },
+      "keywords": {
+        "pt": [
+          "configurar contrato",
+          "configurações do contrato",
+          "ofícios da empresa",
+          "opção padrão por área",
+          "cláusulas",
+          "quem assina pela empresa",
+          "dono assina por padrão",
+          "pessoa autorizada",
+          "origem do contrato",
+          "modelo padrão apex",
+          "meu próprio contrato",
+          "valores fixos da empresa",
+          "salvar contrato",
+          "seguro",
+          "licença",
+          "qualificador"
+        ],
+        "en": [
+          "contract settings",
+          "set up contract",
+          "trades the business does",
+          "default option per clause area",
+          "clauses",
+          "authorized signers",
+          "owner default signer",
+          "authorized person",
+          "contract source",
+          "apex standard template",
+          "my own contract",
+          "your standard values",
+          "save contract settings",
+          "insurance",
+          "license",
+          "qualifying agent"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "csettings",
+          "title": {
+            "pt": "O contrato, passo a passo",
+            "en": "The contract, step by step"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra as configurações do Contrato. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Contrato (1). A marca, o logo, a licença, o nome legal e as formas de pagamento vêm das configurações dos documentos acima, então nada é pedido duas vezes. Escolha os Ofícios da empresa (2). Marque a caixa (3) se a empresa constrói piscinas ou spas. Em Opção padrão por área (4), escolha a cláusula com que cada contrato começa. Cada contrato ainda pode trocar. A biblioteca de cláusulas é um rascunho que um advogado ainda não revisou, e todo contrato diz isso até a revisão ser registrada.",
+                "en": "Open the Contract settings. Tap Business, then Estimates, then Settings, and scroll to Contract (1). The brand, logo, license, legal name and payment methods come from the document settings above, so nothing is asked twice. Choose the Trades the business does (2). Tick the box (3) if you build pools or spas. Under Default option per clause area (4), pick the clause you want each contract to start with. Each contract can still switch it. The clause library is a draft that an attorney has not reviewed yet, and every contract says so until a review is recorded."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-settings/csettings-01.pt.jpg",
+                "en": "help/img/guides/contract-settings/csettings-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Diga quem assina pela empresa. Em Quem assina pela empresa, digite o Dono, que assina por padrão, e o telefone (1). Preencha o Cargo de quem assina pela empresa (2) se quiser que apareça na declaração de pagamento final; em branco, sai Authorized Representative. Para um vendedor poder assinar, escolha a pessoa na linha (3) e digite o telefone: o telefone é obrigatório, porque quando o contrato precisa da assinatura dessa pessoa, quem envia abre uma mensagem para esse número. Toque em + Pessoa autorizada (4) para adicionar outra. Em Origem do contrato (5), escolha Modelo padrão Apex, ou Meu próprio contrato, que o Apex converte uma vez em um modelo limpo.",
+                "en": "Say who signs for the company. Under Authorized signers, type the Owner, the default signer, and the phone (1). Add the Title of the company signer (2) if you want it on the final payment affidavit; left blank, it prints Authorized Representative. To let a salesperson sign, choose the person in the line (3) and type the phone: the phone is required, because when the contract needs that person's signature the sender opens a message to this number. Tap + Authorized person (4) to add another. Under Contract source (5), choose Apex standard template, or My own contract, which Apex converts once into a clean template."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-settings/csettings-02.pt.jpg",
+                "en": "help/img/guides/contract-settings/csettings-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Preencha os seus valores fixos. Eles são usados pelas cláusulas. O que você deixar em branco é perguntado no contrato. Escolha o estado onde a empresa está registrada (1) e responda as duas perguntas de seguro (2): responsabilidade civil geral e acidentes de trabalho. Alguns estados exigem uma declaração sobre o seguro, e o contrato imprime a que vale para você. Depois preencha o Tipo de empresa (3), o Tipo de licença (4), o Qualificador, o horário de trabalho e os outros valores abaixo.",
+                "en": "Fill in your standard values. These are used by the clauses. Anything you leave blank is asked on the contract. Choose the state where your business is registered (1) and answer the two insurance questions (2): general liability and workers' compensation. Some states require a statement about insurance, and the contract prints the one that is true for you. Then fill in the Entity type (3), the License type (4), the Qualifying agent, the work hours and the other values below."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-settings/csettings-03.pt.jpg",
+                "en": "help/img/guides/contract-settings/csettings-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Salve. No fim da seção Contrato, depois dos valores de dias, entulho e aditivo, toque em Salvar contrato (1). Daí em diante cada contrato novo começa com estas escolhas.",
+                "en": "Save. At the end of the Contract section, after the days, debris and change order values, tap Save contract settings (1). From now on each new contract starts from these choices."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-settings/csettings-04.pt.jpg",
+                "en": "help/img/guides/contract-settings/csettings-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Salvar contrato"
+            ],
+            "en": [
+              "Save contract settings"
+            ]
+          },
+          "section": "csettings",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Pessoa autorizada"
+            ],
+            "en": [
+              "+ Authorized person"
+            ]
+          },
+          "section": "csettings",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -6297,7 +6869,8 @@
         "payments-and-terms",
         "edit-send-messages",
         "revise-or-void-estimate",
-        "link-in-bio-page"
+        "link-in-bio-page",
+        "contract-settings"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",
@@ -6327,7 +6900,8 @@
         "en": "Tasks"
       },
       "guides": [
-        "admin-tasks"
+        "admin-tasks",
+        "execution-and-tasks"
       ],
       "overview": {
         "pt": "Aqui você vê e cria as tarefas da equipe.",
@@ -6377,7 +6951,8 @@
       "guides": [
         "contract",
         "change-order",
-        "contracts-tab"
+        "contracts-tab",
+        "contract-settings"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",
@@ -6394,7 +6969,9 @@
         "contract",
         "change-order",
         "ask-for-google-review",
-        "contact-card"
+        "contact-card",
+        "subcontractors",
+        "project-from-scratch"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",

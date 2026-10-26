@@ -1712,11 +1712,11 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
   });
   ok(/HELP_BASE\s*=\s*"https:\/\/apex\.resonateai\.online\/"/.test(cfgSrc), "(flag) help-config.js uses the live origin as HELP_BASE");
   function runCfg(storage) { const win = { localStorage: storage }; vm.runInNewContext(cfgSrc, { window: win }); return win.APEX_HELP; }
-  ok(runCfg({ getItem: function () { return null; } }).enabled === false, "(flag) with no preview setting the feature is OFF for everyone");
-  ok(runCfg({ getItem: function () { return "yes"; } }).enabled === false && runCfg({ getItem: function () { return "ON"; } }).enabled === false, "(flag) only the exact value on turns the preview on");
+  ok(runCfg({ getItem: function () { return null; } }).enabled === true, "(flag) since 2026-10-26 the feature is ON for everyone, with no setting needed");
+  ok(runCfg({ getItem: function () { return "yes"; } }).enabled === true && runCfg({ getItem: function () { return "ON"; } }).enabled === true, "(flag) any stored value leaves the feature ON");
   ok(runCfg({ getItem: function (k) { return k === "aprenda-preview" ? "on" : null; } }).enabled === true, "(flag) aprenda-preview = on turns it on in that browser only");
-  ok(runCfg({ getItem: function () { throw new Error("blocked"); } }).enabled === false, "(flag) storage that throws leaves the feature OFF");
-  ok(runCfg(undefined).enabled === false, "(flag) no storage at all leaves the feature OFF");
+  ok(runCfg({ getItem: function () { throw new Error("blocked"); } }).enabled === true, "(flag) storage that throws leaves the feature ON");
+  ok(runCfg(undefined).enabled === true, "(flag) no storage at all leaves the feature ON");
   ok(read("help-config.js") === read("ios/App/App/public/help-config.js"), "(flag) the iPhone copy of help-config.js is identical");
   ok(read("CNAME").trim() === "apex.resonateai.online", "(flag) HELP_BASE matches the CNAME file");
   ok(widgetSrc.indexOf("navigator.vibrate") === -1 && widgetSrc.indexOf("Haptics") === -1, "(rules) no vibration or haptics code");

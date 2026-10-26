@@ -1,5 +1,5 @@
 // Learn (Aprenda): the switch and the address.
-// enabled is OFF. While it is false the "?" button is not added, long press and
+// enabled is ON for everyone since 2026-10-26. While it is false the "?" button is not added, long press and
 // right click do nothing, and the widget makes no network call. Turn it on by
 // changing false to true here (and in ios/App/App/public/help-config.js).
 // Guides and pictures are fetched from the live site, never from the app
@@ -15,5 +15,7 @@
     if (m) { if (m[1] === "on") { window.localStorage.setItem("aprenda-preview", "on"); } else { window.localStorage.removeItem("aprenda-preview"); } }
   } catch (e) { /* works without storage */ }
   try { preview = window.localStorage.getItem("aprenda-preview") === "on"; } catch (e) { preview = false; }
-  window.APEX_HELP = { enabled: preview, base: HELP_BASE };
+  // 2026-10-26: switched ON for everyone (Nicole: "Website live now and test flight").
+  // preview stays read so a browser can still be inspected, but it no longer gates the feature.
+  window.APEX_HELP = { enabled: true, base: HELP_BASE };
 }());

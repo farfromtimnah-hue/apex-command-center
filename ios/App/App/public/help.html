@@ -186,6 +186,16 @@
 
   <main class="wrap" id="guideView" hidden></main>
 
+  <script>
+    // ?aprenda=on / ?aprenda=off sets the preview switch here, before help-config.js reads it,
+    // so a browser holding an old cached help-config.js still gets it.
+    (function () {
+      try {
+        var m = /[?&]aprenda=(on|off)(&|$)/.exec(window.location.search);
+        if (m) { if (m[1] === "on") { window.localStorage.setItem("aprenda-preview", "on"); } else { window.localStorage.removeItem("aprenda-preview"); } }
+      } catch (e) { /* works without storage */ }
+    }());
+  </script>
   <script src="help-config.js"></script>
   <script src="help-core.js"></script>
   <script

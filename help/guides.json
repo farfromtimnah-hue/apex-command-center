@@ -6153,40 +6153,68 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Histórico de registros. Toque em Analytics na fileira de abas no alto e role até o fim da página. O cartão Histórico de registros lista os dias que você preencheu. Ele fica na aba Analytics, não na aba Ritmo (Pace).",
-                "en": "Open Entry history. Tap Analytics in the row of tabs at the top, then scroll to the bottom of the page. The card called Entry history lists the days you filled in. It is on the Analytics tab, not on the Pace tab."
+                "pt": "Abra o Histórico de registros. Toque em Analytics na linha de abas no topo e role para baixo. O cartão Histórico de registros (1) lista os dias que você preencheu. Ele fica na aba Analytics, não na aba Ritmo.",
+                "en": "Open Entry history. Tap Analytics in the row of tabs at the top, then scroll down. The card called Entry history (1) lists the days you filled in. It is on the Analytics tab, not on the Pace tab."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/daily-log/history-01.pt.jpg",
+                "en": "help/img/guides/daily-log/history-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Escolha o mês e o status. As setas (1) vão para o mês anterior ou o seguinte. O menu (2) filtra a lista: Todos os status, Completo, Parcial, Preenchido depois e Folga. Parcial quer dizer que você começou o dia e não terminou. Preenchido depois é um dia que você perdeu e preencheu mais tarde. Uma folga mostra o motivo que você escreveu. Cada dia tem um botão detalhes (3).",
-                "en": "Pick the month and the status. The arrows (1) go to the month before or after. The menu (2) filters the list: All statuses, Completed, Partial, Filled late and Day off. Partial means you started the day and did not finish it. Filled late means a day you missed and filled in later. A day off shows the reason you wrote. Each day has a details button (3)."
+                "pt": "Escolha o mês e o status. As setas (1) vão para o mês anterior ou o seguinte. O menu (2) filtra a lista: Todos os status, Completo, Parcial, Preenchido depois e Folga. Parcial é um dia que você começou e não terminou. Preenchido depois é um dia que você perdeu e preencheu mais tarde. Cada dia tem um botão detalhes (3).",
+                "en": "Pick the month and the status. The arrows (1) go to the month before or after. The menu (2) filters the list: All statuses, Completed, Partial, Filled late and Day off. Partial means you started the day and did not finish it. Filled late means a day you missed and filled in later. Each day has a details button (3)."
               },
               "image": {
-                "en": "help/img/guides/daily-log/history-02.en.jpg",
-                "pt": "help/img/guides/daily-log/history-02.pt.jpg"
+                "pt": "help/img/guides/daily-log/history-02.pt.jpg",
+                "en": "help/img/guides/daily-log/history-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja os números de um dia. Toque em detalhes (1). A caixa (2) abre embaixo do dia e lista todos os números que você digitou nesse dia. Toque em detalhes de novo para fechar.",
-                "en": "See the numbers of one day. Tap details (1). The box (2) opens under the day and lists every number you typed that day. Tap details again to close it."
+                "pt": "Veja os números de um dia. Toque em detalhes (1). A caixa (2) abre embaixo do dia e lista todos os números que você digitou naquele dia. Toque em detalhes de novo para fechar. Ao lado de detalhes fica o botão editar.",
+                "en": "See the numbers of one day. Tap details (1). The box (2) opens under the day and lists every number you typed that day. Tap details again to close it. Next to details is the button edit."
               },
               "image": {
-                "en": "help/img/guides/daily-log/history-03.en.jpg",
-                "pt": "help/img/guides/daily-log/history-03.pt.jpg"
+                "pt": "help/img/guides/daily-log/history-03.pt.jpg",
+                "en": "help/img/guides/daily-log/history-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Corrija um dia que já passou. Toque em editar, ao lado de detalhes. Abre o mesmo formulário do registro diário, com uma linha no alto que diz Editando um dia já registrado e a data. Ele mostra só as seções que aquele dia teve. Mude os números e toque em Continuar. Na última seção o botão diz Salvar. Toque em Cancelar edição para sair. Se você mudou um número e não salvou essa seção, o Apex pergunta Descartar alterações? Toque em Continuar editando para voltar, ou em Descartar alterações para jogar fora os números novos. Não conseguimos tocar no botão editar no nosso teste, então este passo vem do código do app.",
-                "en": "Fix a past day. Tap edit, next to details. The same form as the daily log opens, with a line at the top that says Editing a past day and the date. It shows only the sections that day had. Change the numbers, then tap Continue. In the last section the button reads Save. Tap Cancel editing to leave. If you typed over a number and did not save that section, Apex asks Discard changes? Tap Keep editing to go back, or Discard changes to throw the new numbers away. We could not click the edit button in our test, so this step comes from the app's code."
+                "pt": "Corrija um dia passado. Toque em editar. Abre o mesmo formulário do registro diário. Uma linha vermelha no topo (1) diz Editando um dia já registrado e a data. As seções são as do registro diário (aqui 5). Mude um número e toque em Continuar (2). Cada vez que você toca em Continuar, aquela seção é salva. Cancelar edição (3) sai do formulário.",
+                "en": "Fix a past day. Tap edit. The same form as the daily log opens. A red line at the top (1) says Editing a past day and the date. The sections are the ones of the daily log (here 5). Change a number, then tap Continue (2). Each time you tap Continue, that section is saved. Cancel editing (3) leaves the form."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/daily-log/history-04.pt.jpg",
+                "en": "help/img/guides/daily-log/history-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Saia sem salvar. Se você digitou por cima de um número e toca em Cancelar edição, o Apex pergunta Descartar alterações? Ele diz que você mudou valores e ainda não salvou esta seção. Toque em Continuar editando (1) para voltar, ou em Descartar alterações (2) para jogar fora os números novos.",
+                "en": "Leave without saving. If you typed over a number and tap Cancel editing, Apex asks Discard changes? It says you changed values and have not saved this section yet. Tap Keep editing (1) to go back, or Discard changes (2) to throw the new numbers away."
+              },
+              "image": {
+                "pt": "help/img/guides/daily-log/history-05.pt.jpg",
+                "en": "help/img/guides/daily-log/history-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Salve o dia. Na última seção o botão diz Salvar (1). Toque nele. Você volta para a tela Início, e o dia no Histórico de registros passa a mostrar os números novos. Cancelar edição (2) continua ali se você mudar de ideia. A linha (3) diz qual dia você está editando.",
+                "en": "Save the day. In the last section the button reads Save (1). Tap it. You go back to the Home screen, and the day in Entry history now shows the new numbers. Cancel editing (2) is still there if you change your mind. The line (3) tells you which day you are editing."
+              },
+              "image": {
+                "pt": "help/img/guides/daily-log/history-06.pt.jpg",
+                "en": "help/img/guides/daily-log/history-06.en.jpg"
+              }
             }
           ]
         }
@@ -8607,8 +8635,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha o vendedor do lead. Abra o lead e role até Dados do lead. A linha Vendedor (1) mostra quem cuida desse lead. Toque nela e escolha um nome na lista dos seus vendedores. Um lead criado por um vendedor fica sempre com esse vendedor. Um lead sem ninguém escolhido aparece como Sem vendedor, e o Apex nunca escolhe alguém por você.",
-                "en": "Choose the salesperson of a lead. Open the lead and scroll to Lead details. The row Salesperson (1) shows who is in charge of this lead. Tap it and pick a name from the list of your salespeople. A lead that a salesperson creates is always set to that salesperson. A lead with nobody chosen shows as Unassigned, and Apex never picks someone for you."
+                "pt": "Escolha o vendedor do lead. Abra o lead e role até Dados do lead. Toque na linha Vendedor. Aparece uma lista com os nomes dos seus vendedores (1). Toque em um nome e depois em Salvar (2). Um lead criado por um vendedor fica sempre com esse vendedor. Um lead sem ninguém escolhido aparece como Sem vendedor, e o Apex nunca escolhe alguém por você.",
+                "en": "Choose the salesperson of a lead. Open the lead and scroll to Lead details. Tap the Salesperson row. A list shows the names of your salespeople (1). Tap a name, then tap Save (2). A lead that a salesperson creates is always set to that salesperson. A lead with nobody chosen shows as Unassigned, and Apex never picks someone for you."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-01.pt.jpg",
@@ -8618,8 +8646,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Divida com um segundo vendedor. Quando duas pessoas fizeram a visita juntas, role até Outros campos e toque em Vendedor secundário (opcional) (1). Escolha o segundo nome. A comissão passa a ser dividida 50 por cento para cada um, só para leitura, e o lead também abre para a segunda pessoa.",
-                "en": "Split with a second salesperson. When two people did the visit together, scroll to Other fields and tap Second salesperson (optional) (1). Pick the second name. The commission is then split 50/50 between the two, shown for reading only, and the lead also opens for the second person."
+                "pt": "Escolha um segundo vendedor. Quando duas pessoas fizeram a visita juntas, role até Outros campos e toque em Vendedor secundário (opcional) (1). Escolha o segundo nome e salve.",
+                "en": "Choose a second salesperson. When two people did the visit together, scroll to Other fields and tap Second salesperson (optional) (1). Pick the second name and save."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-02.pt.jpg",
@@ -8629,12 +8657,34 @@
             {
               "n": 3,
               "text": {
-                "pt": "Filtre o Pipeline por vendedor. Na lista de Leads, toque no filtro de vendedor (1). Ele mostra cada nome com o número de leads, e Sem vendedor para os leads sem ninguém escolhido. Um vendedor que saiu continua na lista marcado como ex-vendedor, então os leads dele continuam fáceis de achar.",
-                "en": "Filter the Pipeline by salesperson. In the Leads list, tap the salesperson filter (1). It shows each name with the number of leads, plus Unassigned for leads with nobody chosen. A salesperson who left stays on the list marked as former, so their leads are still easy to find."
+                "pt": "Veja a comissão dividida. Quando o lead tem uma comissão (por exemplo $400.00 em Comissão vendedor) e um segundo vendedor, aparece uma linha só para leitura em Valores: Dividida 50/50 (1), com o valor de cada um, por exemplo $200.00 para cada vendedor. Se você ainda não digitou a comissão, a linha não aparece. Se o lead já estava aberto quando você escolheu o segundo vendedor, feche e abra o lead de novo para ver a linha.",
+                "en": "See the split commission. When the lead has a commission (for example $400.00 in Sales commission) and a second salesperson, a read only row appears in Costs: Split 50/50 (1), with the amount for each person, for example $200.00 to each salesperson. If you have not typed the commission yet, the row does not show. If the lead was already open when you chose the second salesperson, close it and open it again to see the row."
               },
               "image": {
                 "pt": "help/img/guides/lead-salesperson-and-filter/seller-03.pt.jpg",
                 "en": "help/img/guides/lead-salesperson-and-filter/seller-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Filtre o Pipeline por vendedor. Na lista de Leads, toque no filtro de vendedor (1). Ele mostra cada nome com o número de leads, e Sem vendedor para os leads sem ninguém escolhido. Escolha um nome e a lista mostra só os leads dele. Toque no x para voltar a Todos os vendedores.",
+                "en": "Filter the Pipeline by salesperson. In the Leads list, tap the salesperson filter (1). It shows each name with the number of leads, and Unassigned for leads with nobody chosen. Pick a name and the list shows only that person's leads. Tap the x to go back to All salespeople."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-04.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Vendedor que saiu. Se você tira um nome da lista de vendedores (Ajustes, depois Suas listas, depois Vendedores), os leads dele continuam no Pipeline. O filtro mostra o nome com a marca ex-vendedor (1), então os leads dele continuam fáceis de achar.",
+                "en": "A salesperson who left. If you remove a name from your list of salespeople (Settings, then Your lists, then Salespeople), their leads stay in the Pipeline. The filter shows the name marked former (1), so their leads are still easy to find."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-05.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-05.en.jpg"
               }
             }
           ]
@@ -8769,8 +8819,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quem mandou a pessoa. Alguém abre o link de indicação de um dos seus parceiros ou clientes (veja o guia de parceiros de indicação). A página mostra o seu logo e o seu nome, e uma linha Indicado por com o nome de quem indicou (1). Se a pessoa veio por outro nome, ela toca em Não foi essa pessoa (2) para corrigir.",
-                "en": "Know who sent the person. Someone opens the referral link of one of your partners or customers (see the guide on referral partners). The page shows your logo and name, and a line saying Referred by and the name of the person (1). If the visitor was sent by someone else, they tap Not that person (2) to correct it."
+                "pt": "Saiba quem mandou a pessoa. Alguém abre o link de indicação de um dos seus parceiros ou clientes (veja o guia de parceiros de indicação). A página mostra o seu logo e o seu nome, e uma linha Indicado por, com o primeiro nome de quem indicou (1). Se a pessoa veio por outro nome, ela toca em Não foi (o nome) (2).",
+                "en": "Know who sent the person. Someone opens the referral link of one of your partners or customers (see the guide on referral partners). The page shows your logo and your name, and a line Referred by with the first name of who referred them (1). If the visitor was sent by someone else, they tap Not (the name) (2)."
               },
               "image": {
                 "pt": "help/img/guides/what-a-referred-person-sees/referral-01.pt.jpg",
@@ -8780,8 +8830,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja o que a pessoa preenche. A pessoa escreve o nome (1) e, se quiser, o telefone (2), toca nos serviços que procura (3) e toca em Enviar (4). Os serviços são os que você definiu nas configurações da página de indicação. A página abre no seu idioma e a pessoa pode trocar no botão do alto.",
-                "en": "See what the visitor fills in. The visitor writes their name (1) and, if they want, a phone (2), taps the services they are looking for (3), and taps Send (4). The services are the ones you set up in the referral page settings. The page opens in your language and the visitor can switch with the button at the top."
+                "pt": "Veja o que a pessoa preenche. A pessoa escreve o nome (1) e, se quiser, o telefone (2), toca nos serviços que procura, pode marcar mais de um (3), e toca em Enviar (4). Os serviços são os da sua lista de serviços. A página abre no idioma que você escolheu e a pessoa pode trocar no botão do alto.",
+                "en": "See what the person fills in. The visitor writes their name (1) and, if they want, a phone (2), taps the services they are looking for, more than one if they want (3), and taps Send (4). The services are the ones in your list of services. The page opens in the language you chose and the visitor can switch with the button at the top."
               },
               "image": {
                 "pt": "help/img/guides/what-a-referred-person-sees/referral-02.pt.jpg",
@@ -8791,20 +8841,56 @@
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe o novo lead. A pessoa chega ao seu Pipeline como Novo Lead, já ligada ao parceiro ou cliente que indicou, e o vendedor desse parceiro recebe o crédito. Se a pessoa tocou em Não foi essa pessoa, o lead mostra uma etiqueta dourada pedindo que você confirme quem realmente indicou, e você registra o nome certo no lead.",
-                "en": "Follow the new lead. The person lands in your Pipeline as a New lead, already linked to the partner or customer who referred them, and the salesperson of that partner gets the credit. If the visitor tapped Not that person, the lead shows a gold tag asking you to confirm who really referred them, and you record the right name on the lead."
+                "pt": "O que a pessoa vê depois de enviar. A página mostra um visto verde e Recebido!, com a frase de que a sua empresa recebeu os dados e vai entrar em contato.",
+                "en": "What the person sees after sending. The page shows a green check and Received!, with a line that your company received their details and will reach out."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-03.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Veja o que um cliente mandou para você. Abra o lead do cliente que indicou pessoas. Uma seção (1) diz Indicações, quantos leads e quanto foi fechado, por exemplo 2 leads e o total fechado. Embaixo há uma linha para cada lead que veio desse cliente, com o estágio e o valor. Toque numa linha para abrir esse lead. Uma linha que diz indicação de uma indicação pede que você confirme quem realmente mandou essa pessoa.",
-                "en": "See what a customer sent you. Open the lead of the customer who referred people. A section (1) says Referrals, how many leads and how much was closed, for example 2 leads and the closed total. Under it is one row for each lead that came from this customer, with its stage and value. Tap a row to open that lead. A row that says referral of a referral needs you to confirm who really sent that person."
+                "pt": "Acompanhe o novo lead. Em Negócio, Pipeline, o lead aparece como Novo Lead. No alto da ficha, a parte Indicação mostra Indicado por (1) com o nome de quem indicou. O vendedor desse cliente recebe o lead.",
+                "en": "Follow the new lead. In Business, Pipeline, the lead shows as New Lead. At the top of the sheet, the part called Referral shows Referred by (1) with the name of who referred them. The salesperson of that customer gets the lead."
               },
               "image": {
-                "en": "help/img/guides/what-a-referred-person-sees/referral-04.en.jpg",
-                "pt": "help/img/guides/what-a-referred-person-sees/referral-04.pt.jpg"
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-04.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Quando a pessoa toca em Não foi. O texto da linha passa a dizer Outra pessoa indicou você. A pessoa preenche e envia do mesmo jeito. No Pipeline, o lead continua ligado a quem tinha o link, mas ganha a linha Indicação de uma indicação com a etiqueta confirmar quem indicou.",
+                "en": "When the person taps Not (the name). The text of the line changes to Someone else referred you. The person fills in and sends the same way. In the Pipeline, the lead stays linked to whoever had the link, but gets the row Referral of a referral with the tag referrer to confirm."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-05.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Registre quem indicou de verdade. Na ficha desse lead, toque na linha Indicação de uma indicação. Abre uma janela, Quem indicou de verdade, com uma caixa para o nome. Digite o nome e toque em Salvar.",
+                "en": "Record who really referred them. On that lead's sheet, tap the row Referral of a referral. A window opens, Who actually referred them, with a box for the name. Type the name and tap Save."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-06.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja o que um cliente mandou para você. Abra o lead do cliente que indicou pessoas. Uma seção (1) diz Indicações, quantos leads e quanto foi fechado, por exemplo 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead que veio desse cliente, com o estágio. Toque numa linha para abrir esse lead.",
+                "en": "See what a customer sent you. Open the lead of the customer who referred people. A section (1) says Referrals, how many leads and how much was closed, for example 2 leads · $0.00 closed. Under it is one row for each lead that came from this customer, with its stage. Tap a row to open that lead."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-07.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-07.en.jpg"
               }
             }
           ]
@@ -12947,8 +13033,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em qualquer linha que diga Toque para preencher. O telefone e o email da imagem estão cobertos.",
-                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap any row that says Tap to fill in. The phone and email in the picture are covered."
+                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em uma linha, digite e salve. Uma linha vazia diz Toque para preencher.",
+                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap a row, type and save. An empty row says Tap to fill in."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-01.pt.jpg",
@@ -12958,8 +13044,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há vendedor secundário (opcional), Observação do trabalho e o nome do cliente. Se você preencher Meses do ciclo em Suas listas, nas Configurações, mais duas linhas aparecem aqui: Mês lead e Mês fechamento. Com a lista vazia, elas ficam escondidas.",
-                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also a second salesperson (optional), Job notes and the customer name. If you fill in Cycle months in Your lists in Settings, two more rows appear here: Lead month and Closing month. With an empty list they stay hidden."
+                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há Vendedor secundário (opcional), Observação do trabalho e o nome do cliente.",
+                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also Second salesperson (optional), Job notes and the customer name."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-02.pt.jpg",
@@ -12969,8 +13055,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link ou recomendação trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando o novo lead disse que não foi essa pessoa que indicou. Toque e digite quem indicou de verdade.",
-                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link or recommendation brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the new lead said it was not that person who referred them. Tap it and type who really referred them."
+                "pt": "Os campos de mês. Se a sua empresa trabalha por temporada, toque em Ajustes (no alto, à direita), role até Suas listas e, em Meses do ciclo, toque em + Adicionar e digite o mês, por exemplo Outubro. Depois toque em Salvar ajustes. Agora a ficha do lead mostra duas linhas a mais em Outros campos: Mês fechamento (1) e Mês lead (2). Se a lista de Meses do ciclo estiver vazia, essas duas linhas ficam escondidas.",
+                "en": "The month fields. If your business works by season, tap Settings (top right), scroll to Your lists and, under Cycle months, tap + Add and type the month, for example Outubro (the month names are in Portuguese). Then tap Save settings. Now the lead sheet shows two more rows in Other fields: Closing month (1) and Lead month (2). If the Cycle months list is empty, these two rows stay hidden."
               },
               "image": {
                 "pt": "help/img/guides/lead-fields/fields-03.pt.jpg",
@@ -12980,18 +13066,46 @@
             {
               "n": 4,
               "text": {
-                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 3 leads · $12,000.00 fechado. Embaixo há uma linha para cada lead, com o estágio e o valor. Toque em uma linha para abrir esse lead. Este passo vem do código do aplicativo: o nosso teste não tem um lead com indicações.",
-                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 3 leads · $12,000.00 closed. Under it is one row for each lead, with its stage and value. Tap a row to open that lead. This step comes from the app's code: our test has no lead with referrals."
+                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando a pessoa tocou em Não foi essa pessoa na página de indicação. Toque na linha, digite quem indicou de verdade e salve.",
+                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the person tapped Not (the name) on the referral page. Tap the row, type who really referred them and save."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-04.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Mude como a lista de leads aparece. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado, você está na visão por estágio: toque em um estágio para ver só os leads dele. Toque em Ver tudo empilhado para ver todos os estágios um embaixo do outro, em uma rolagem só. Nessa visão o botão diz Ver por estágio. O Apex lembra da sua escolha. Se você nunca escolher, o Apex usa a visão por estágio quando você tem muitos leads.",
-                "en": "Change how the list of leads looks. In the Pipeline, one button sits at the right under the numbers. When it says View stacked, you are in the by-stage view: tap a stage to see only its leads. Tap View stacked to see every stage one under the other in one scroll. In that view the button says View by stage. Apex remembers your choice. If you never choose, Apex picks the by-stage view when you have many leads."
+                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 2 leads · $0.00 fechado. Embaixo há uma linha para cada lead, com o estágio. Toque em uma linha para abrir esse lead.",
+                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 2 leads · $0.00 closed. Under it is one row for each lead, with its stage. Tap a row to open that lead."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-05.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Veja os leads por estágio. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado (1), você está na visão por estágio: toque em um estágio para ver só os leads dele.",
+                "en": "See the leads by stage. In the Pipeline, one button sits at the right under the numbers. When it says View stacked (1), you are in the by-stage view: tap a stage to see only its leads."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-06.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja todos os estágios juntos. Toque em Ver tudo empilhado. Todos os estágios aparecem um embaixo do outro, em uma rolagem só, e o botão passa a dizer Ver por estágio (1). Toque nele para voltar.",
+                "en": "See every stage together. Tap View stacked. Every stage shows one under the other in one scroll, and the button now says View by stage (1). Tap it to go back."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-07.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-07.en.jpg"
+              }
             }
           ]
         }

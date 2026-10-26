@@ -316,6 +316,18 @@
           },
           "section": "send-contract",
           "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Assinar pela empresa"
+            ],
+            "en": [
+              "Sign as company"
+            ]
+          },
+          "section": "send-contract",
+          "step": 4
         }
       ]
     },
@@ -2756,6 +2768,18 @@
           },
           "section": "setup",
           "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Como encontrar"
+            ],
+            "en": [
+              "How to find it"
+            ]
+          },
+          "section": "setup",
+          "step": 5
         }
       ]
     },
@@ -3701,6 +3725,14 @@
                 "pt": "help/img/guides/calendar/new-event-03.pt.jpg",
                 "en": "help/img/guides/calendar/new-event-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "en": "Change or delete an event. Tap the event on the calendar to open it. Change the type, the links, the date or the details, then tap Save. To remove it, tap Delete event.",
+                "pt": "Mude ou exclua um evento. Toque no evento no calendário para abrir. Mude o tipo, os vínculos, a data ou os detalhes e toque em Salvar. Para remover, toque em Excluir evento."
+              },
+              "image": null
             }
           ]
         }
@@ -3729,6 +3761,18 @@
           },
           "section": "new-event",
           "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Excluir evento"
+            ],
+            "en": [
+              "Delete event"
+            ]
+          },
+          "section": "new-event",
+          "step": 4
         }
       ]
     },
@@ -5556,6 +5600,18 @@
           },
           "section": "adjust",
           "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Crédito"
+            ],
+            "en": [
+              "Credit"
+            ]
+          },
+          "section": "adjust",
+          "step": 3
         }
       ]
     },
@@ -5710,6 +5766,18 @@
           },
           "section": "partners",
           "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Novo parceiro"
+            ],
+            "en": [
+              "+ New partner"
+            ]
+          },
+          "section": "partners",
+          "step": 2
         }
       ]
     },
@@ -6718,6 +6786,18 @@
           },
           "section": "subs",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cadastrar subempreiteiro"
+            ],
+            "en": [
+              "Add subcontractor"
+            ]
+          },
+          "section": "subs",
+          "step": 3
         }
       ]
     },
@@ -6850,6 +6930,18 @@
           },
           "section": "csettings",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Configurações de contrato"
+            ],
+            "en": [
+              "Contract settings"
+            ]
+          },
+          "section": "csettings",
+          "step": 1
         }
       ]
     },
@@ -7628,6 +7720,18 @@
             ],
             "en": [
               "Upload my own image"
+            ]
+          },
+          "section": "cover",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver a minha imagem enviada"
+            ],
+            "en": [
+              "See my uploaded image"
             ]
           },
           "section": "cover",

@@ -11774,8 +11774,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "No site não há botão para isso. No portal do dono, em um computador ou pelo ícone da tela de início, hoje não existe um botão para ligar notificações push. As notificações push chegam pelo app do iPhone.",
-                "en": "On the website there is no switch. In the owner portal on a computer, or from a home screen icon, there is no push notification switch today. Push notifications come through the iPhone app."
+                "pt": "No site não existe essa opção. As notificações push funcionam só no app Apex do iPhone. O site no computador ou no navegador do celular não envia notificações.",
+                "en": "On the website there is no switch. Push notifications work only in the Apex iPhone app. The website on a computer or in a phone browser does not send them."
               },
               "image": null
             }
@@ -11792,8 +11792,8 @@
         "en": "Get Apex on your iPhone"
       },
       "summary": {
-        "pt": "Instale o app Apex, ou ponha o site na tela de início.",
-        "en": "Install the Apex app, or add the website to your home screen."
+        "en": "Install the Apex app on your iPhone, sign in and allow notifications.",
+        "pt": "Instale o app Apex no seu iPhone, entre e permita as notificações."
       },
       "keywords": {
         "pt": [
@@ -11801,9 +11801,6 @@
           "app store",
           "app do iphone",
           "baixar o app",
-          "tela de início",
-          "adicionar à tela de início",
-          "safari",
           "face id",
           "app"
         ],
@@ -11812,9 +11809,6 @@
           "app store",
           "iphone app",
           "download app",
-          "home screen",
-          "add to home screen",
-          "safari",
           "face id",
           "app"
         ]
@@ -11857,23 +11851,6 @@
               "text": {
                 "pt": "Permita as notificações. Na primeira vez que você desbloqueia, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir. Veja o guia Notificações push.",
                 "en": "Allow notifications. The first time you unlock, the iPhone asks if Apex may send you notifications. Tap Allow. See the guide Push notifications."
-              },
-              "image": null
-            }
-          ]
-        },
-        {
-          "id": "homescreen",
-          "title": {
-            "pt": "Ou ponha o site na tela de início",
-            "en": "Or add the website to your home screen"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Ponha o site na tela de início. Isso funciona sem a App Store. No seu iPhone, abra apex.resonateai.online no Safari. Toque no botão Compartilhar, depois em Adicionar à Tela de Início, depois em Adicionar. O Apex passa a abrir por um ícone próprio, como um app. As notificações push não funcionam assim. Para elas, use o app.",
-                "en": "Add the site to your home screen. This works without the App Store. On your iPhone, open apex.resonateai.online in Safari. Tap the Share button, then tap Add to Home Screen, then tap Add. Apex now opens from its own icon, like an app. Push notifications are not available this way. For those, use the app."
               },
               "image": null
             }

@@ -2474,23 +2474,6 @@
               }
             }
           ]
-        },
-        {
-          "id": "reaccept",
-          "title": {
-            "pt": "Concordar de novo quando os Termos do Stripe mudam",
-            "en": "Agree again when the Stripe Terms change"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Procure a linha amarela. Quando o Stripe muda os Termos, uma linha aparece onde você conectou o Stripe, na parte de pagamentos por cartão em Orçamentos, depois Configurações: Os Termos foram atualizados. Revise e concorde novamente. Marque a caixa, que traz os Termos, e toque em Concordo. Uma mensagem diz Registrado. Obrigado. A linha só aparece quando existe uma versão nova dos Termos, então na maior parte do tempo você não a verá. Este passo vem do código do app.",
-                "en": "Look for the yellow line. When Stripe changes its Terms, a line shows where you connected Stripe, in the card payments part of Estimates, then Settings: The Terms were updated. Please review and agree again. Tick the box, which holds the Terms, and tap I agree. A message says Recorded. Thank you. The line shows only when there is a new version of the Terms, so most of the time you will not see it. This step comes from the app's code."
-              },
-              "image": null
-            }
-          ]
         }
       ],
       "buttons": [
@@ -3788,6 +3771,17 @@
             {
               "n": 2,
               "text": {
+                "pt": "Quando você manda a página para um lead, ela abre com Olá e o primeiro nome do lead. O Apex já preencheu o nome, o telefone e o email que conhece. Cada linha tem um botão Editar (1) caso o cliente queira mudar. O cliente ainda precisa digitar o Endereço da visita (2).",
+                "en": "When you send the page to one lead, it opens with Hi and the lead's first name. Apex already filled in the name, phone and email it knows. Each line has an Edit button (1) in case the customer wants to change it. The customer still has to type the Address for the visit (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-02.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
                 "pt": "O cliente responde às suas perguntas. O cartão Sobre o serviço (1) mostra as perguntas que você escolheu. Abaixo dele, o botão Escolher dia e horário leva para a próxima tela.",
                 "en": "The customer answers your questions. The card About the job (1) shows the questions you chose. Below it, the button Choose a day and time goes to the next screen."
               },
@@ -3797,21 +3791,21 @@
               }
             },
             {
-              "n": 3,
+              "n": 4,
               "text": {
-                "pt": "O cliente escolhe um dia. A lista (1) mostra só os dias que você permite: os seus Dias de trabalho, dentro do número de dias que você definiu para agendar com antecedência. Voltar (2) retorna aos dados. No nosso cliente de teste só o domingo é dia de trabalho, então só aparecem domingos.",
-                "en": "The customer picks a day. The list (1) shows only days you allow: your Working days, inside the number of days you set for how far ahead customers can book. Back (2) returns to the details. In our test client only Sundays are working days, so only Sundays show."
+                "pt": "O cliente escolhe um dia. A lista (1) mostra só os dias que você permite: seus Dias de trabalho, dentro do número de dias que você definiu para marcar com antecedência. Voltar (2) retorna. No nosso cliente de teste só os domingos são dias de trabalho, então só aparecem domingos.",
+                "en": "The customer picks a day. The list (1) shows only days you allow: your Working days, inside the number of days you set for how far ahead customers can book. Back (2) returns. In our test client only Sundays are working days, so only Sundays show."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/customer-03.en.jpg",
-                "pt": "help/img/guides/online-booking-page/customer-03.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/customer-04.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-04.en.jpg"
               }
             },
             {
-              "n": 4,
+              "n": 5,
               "text": {
-                "pt": "O cliente escolhe um horário e confirma. A grade (1) mostra os horários livres, no fuso do próprio cliente. Um horário ocupado, ou perto demais para o seu aviso mínimo, não aparece. Quando o cliente toca em um, o botão Confirmar liga, embaixo da grade. Outro dia volta para os dias. Se duas pessoas escolherem o mesmo horário, a segunda vê que ele acabou de ser ocupado e escolhe outro. Não tocamos em Confirmar no nosso teste, então nada foi agendado.",
-                "en": "The customer picks a time and confirms. The grid (1) shows the free times, in the customer's own time zone. A time that is taken, or too soon for your minimum notice, is not shown. When the customer taps one, the button Confirm turns on, under the grid. Another day goes back to the days. If two people choose the same time, the second one sees that it was just taken and picks another. We did not tap Confirm in our test, so nothing was booked."
+                "pt": "O cliente escolhe um horário e confirma. A grade mostra os horários livres, no fuso do próprio cliente. Um horário ocupado, ou perto demais para o seu aviso mínimo, não aparece. Quando o cliente toca em um, ele fica escuro, e o botão Confirmar embaixo da grade fica pronto. Outro dia volta para os dias.",
+                "en": "The customer picks a time and confirms. The grid shows the free times, in the customer's own time zone. A time that is taken, or too soon for your minimum notice, is not shown. When the customer taps one, it turns dark, and the button Confirm under the grid is ready. Another day goes back to the days."
               },
               "image": {
                 "en": "help/img/guides/online-booking-page/customer-04.en.jpg",
@@ -3819,10 +3813,43 @@
               }
             },
             {
-              "n": 5,
+              "n": 6,
               "text": {
-                "pt": "O que acontece depois de Confirmar. O cliente vê Visita agendada! com a data, o horário e o endereço, e um botão Adicionar ao calendário. O cliente pode tocar em Escolher outro horário, ou Cancelar a visita (o Apex pergunta mais uma vez: Sim, cancelar minha visita ou Manter minha visita). Do seu lado, três coisas acontecem sozinhas. Primeiro, se o agendamento veio do Link geral, nasce um lead novo com a origem Site, na etapa Novo Lead. Segundo, um evento entra na sua agenda, com o nome do cliente como título, o endereço como local e as respostas nas notas. O tipo é o que você escolheu. Terceiro, o dono recebe uma notificação no celular, se as notificações estiverem ligadas. Você não precisa digitar nada. Este passo vem do código do app, porque não agendamos nada no nosso teste.",
-                "en": "What happens after Confirm. The customer sees Your visit is booked with the date, time and address, and a button Add to calendar. The customer can tap Pick a different time, or Cancel the visit (Apex asks once more: Yes, cancel my visit or Keep my visit). On your side, three things happen by themselves. First, if the booking came from the General link, a new lead is made with the source Site, in the stage New Lead. Second, an entry is put on your calendar, with the customer's name as the title, the address as the location, and the answers in the notes. Its type is the one you chose. Third, the owner gets a push notification on the phone, if notifications are on. You do not have to enter anything. This step comes from the app's code, because we did not book in our test."
+                "pt": "Depois de Confirmar, o cliente vê Visita agendada! com a data, o horário e o endereço. O botão Adicionar ao calendário (1) salva na agenda do cliente. Em Precisa mudar?, o cliente pode tocar em Escolher outro horário (2) ou Cancelar a visita (3).",
+                "en": "After Confirm, the customer sees Your visit is booked! with the date, time and address. The button Add to calendar (1) saves it to the customer's calendar. Under Need to change it?, the customer can tap Pick a different time (2) or Cancel the visit (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-06.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Se o cliente toca em Cancelar a visita, o Apex pergunta mais uma vez: Cancelar esta visita? Sim, cancelar minha visita (1) cancela. Manter minha visita (2) mantém.",
+                "en": "If the customer taps Cancel the visit, Apex asks once more: Cancel this visit? Yes, cancel my visit (1) cancels. Keep my visit (2) keeps it."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-07.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Depois que uma visita é cancelada, o mesmo link deixa de funcionar. Ele diz Este link não está mais ativo. Fale com a empresa. Para marcar de novo, mande um novo link de agendamento.",
+                "en": "After a visit is cancelled, the same link no longer works. It says This link is no longer active. Please contact the business. To book again, send a new booking link."
+              },
+              "image": {
+                "pt": "help/img/guides/online-booking-page/customer-08.pt.jpg",
+                "en": "help/img/guides/online-booking-page/customer-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "en": "What happens on your side. When the customer confirms, the lead keeps its name and shows Booked for the day and time. An entry is put on your calendar with the title Visit and the customer's name, and the address as the location (see Calendar). If the booking came from the General link, a new lead is made with the source Site. Apex also sends a push to the owner, if push is on for that login. In our test no phone had push, so we did not see the push.",
+                "pt": "O que acontece do seu lado. Quando o cliente confirma, o lead mantém o nome e mostra Agendado para o dia e o horário. Uma entrada vai para a sua agenda com o título Visita e o nome do cliente, e o endereço como local (veja Agenda). Se a marcação veio do link Geral, um lead novo é criado com a origem Site. O Apex também manda um push para o dono, se o push estiver ligado naquele login. No nosso teste nenhum telefone tinha push, então não vimos o push."
               },
               "image": null
             }
@@ -3838,29 +3865,35 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache o botão. Abra um lead. Embaixo de Enviar cartão de contato está Enviar link de agendamento (1). Ele só aparece quando o Agendamento online está Ligado nas Configurações. Se você não o vê, ligue o agendamento primeiro.",
+                "pt": "Ache o botão. Abra um lead. Embaixo de Enviar cartão de contato fica Enviar link de agendamento (1). Ele só aparece quando o Agendamento online está ligado em Ajustes. Se você não vê, ligue o agendamento primeiro.",
                 "en": "Find the button. Open a lead. Under Send contact card there is Send booking link (1). It shows only when Online booking is switched On in Settings. If you do not see it, turn booking on first."
               },
               "image": {
-                "en": "help/img/guides/online-booking-page/send-one-01.en.jpg",
-                "pt": "help/img/guides/online-booking-page/send-one-01.pt.jpg"
+                "pt": "help/img/guides/online-booking-page/send-one-01.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Use a tela de envio. Ao tocar no botão, o Apex cria um link só para esse lead e abre uma tela. Mensagem de texto e WhatsApp abrem o app de mensagens do seu telefone com o texto e o link prontos. A mensagem diz Oi e o primeiro nome, e depois que esse é o link para escolher o melhor dia e horário da visita. Copiar link copia o link. Voltar retorna ao lead. O Apex não envia nada sozinho: você aperta enviar no seu app de mensagens. Se o lead não tem telefone, a tela avisa. Coloque um telefone no lead, ou copie o link. Este passo vem do código do app. Não abrimos a tela no nosso teste, porque abrir cria um link de verdade.",
-                "en": "Use the send screen. Tapping the button makes a link just for this lead and opens a screen. Text message and WhatsApp open your phone's messaging app with the words and the link ready. The message says Hi and the first name, then that this is the link to choose the best day and time for the visit. Copy link copies it. Back returns to the lead. Apex sends nothing by itself: you press send in your messaging app. If the lead has no phone number, the screen says so. Add a phone to the lead, or copy the link. This step comes from the app's code. We did not open the screen in our test, because opening it makes a real link."
+                "pt": "Use a tela de envio. Tocar no botão cria um link só para este lead e abre uma tela. Mensagem de texto (1) e WhatsApp (2) abrem o app de mensagens do seu telefone com as palavras e o link prontos. A mensagem é escrita no idioma do lead. Copiar link (3) copia. Voltar (4) volta ao lead. O Apex não envia nada sozinho: você aperta enviar no seu app de mensagens. A tela também mostra o telefone que vai usar.",
+                "en": "Use the send screen. Tapping the button makes a link just for this lead and opens a screen. Text message (1) and WhatsApp (2) open your phone's messaging app with the words and the link ready. The message is written in the language of the lead. Copy link (3) copies it. Back (4) returns to the lead. Apex sends nothing by itself: you press send in your messaging app. The screen also shows the phone number it will use."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/online-booking-page/send-one-02.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe o agendamento no lead. Depois de enviar o link, a ficha do lead mostra uma seção chamada Agendamento. Ela diz Link criado, ainda não enviado, ou Link enviado em uma data, depois Agendado para um dia e horário, ou Cancelado, ou Expirado. Ela também lista as respostas do cliente. Se o cliente mudou um dado, por exemplo o endereço ou o telefone, uma linha amarela diz O cliente atualizou e mostra o valor novo ao lado do que você tem. Confira e corrija o lead se o valor novo estiver certo.",
-                "en": "Follow the booking on the lead. After you send the link, the lead sheet shows a section called Booking. It reads Link created, not sent yet, or Link sent on a date, then Booked for a day and time, or Cancelled, or Expired. It also lists the customer's answers. If the customer changed a detail, for example the address or the phone, a yellow line says Customer updated and shows the new value next to the one you have. Check it and fix the lead if the new value is right."
+                "pt": "Acompanhe o agendamento no lead. Depois que você abre a tela de envio, o lead mostra uma seção chamada Agendamento (1). Primeiro ela diz Link criado, ainda não enviado. Depois que o cliente marca, diz Agendado para o dia e o horário.",
+                "en": "Follow the booking on the lead. After you open the send screen, the lead shows a section called Booking (1). First it reads Link created, not sent yet. After the customer books, it reads Booked for the day and time."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/online-booking-page/send-one-03.pt.jpg",
+                "en": "help/img/guides/online-booking-page/send-one-03.en.jpg"
+              }
             }
           ]
         }
@@ -7929,14 +7962,6 @@
                 "pt": "help/img/guides/subcontractors/subs-03.pt.jpg",
                 "en": "help/img/guides/subcontractors/subs-03.en.jpg"
               }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Leia o aviso quando você atribui alguém. Quando você adiciona um subempreiteiro a um projeto, o Apex confere os documentos. Se algo estiver errado, uma mensagem começa com Atenção e lista os problemas. Eles são: sem número de licença, sem certificado de seguro (COI), seguro vencido em uma data, sem certificado ou isenção de workers' comp, ou workers' comp vencido em uma data. O aviso não impede você. O subempreiteiro é adicionado de qualquer jeito. Corrija os documentos no cadastro, como no passo anterior. Este passo vem do código do app.",
-                "en": "Read the warning when you assign someone. When you add a subcontractor to a project, Apex checks the papers. If something is wrong, a message starts with Warning and lists the problems. They are: no license number on file, no certificate of insurance (COI), insurance expired on a date, no workers' compensation certificate or exemption, or workers' compensation expired on a date. The warning does not stop you. The subcontractor is added anyway. Fix the papers in the register, as in the step before. This step comes from the app's code."
-              },
-              "image": null
             }
           ]
         }
@@ -8205,26 +8230,46 @@
             {
               "n": 1,
               "text": {
-                "pt": "Tire as fotos de antes primeiro. Abra o projeto e role até Fotos de antes (condições existentes). Toque em Adicionar fotos e escolha as imagens. Você pode escrever uma nota que vale para todas. O botão para o cliente só aparece depois que há pelo menos uma foto no projeto.",
-                "en": "Take the before photos first. Open the project and scroll to Before-work photos (existing conditions). Tap Add photos and pick your pictures. You can add a note that applies to all of them. The button for the customer shows only after at least one photo is on the project."
+                "pt": "Tire as fotos de antes primeiro. Abra o projeto e role até Fotos de antes (condições existentes). Toque em Adicionar fotos e escolha uma imagem. Uma caixa pergunta What does this photo show? (optional) (em inglês). Digite uma nota curta (1) e toque em Save (2). Cancel (3) descarta a foto.",
+                "en": "Take the before photos first. Open the project and scroll to Before-work photos (existing conditions). Tap Add photos and pick a picture. A box asks What does this photo show? (optional). Type a short note (1) and tap Save (2). Cancel (3) drops the photo."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-01.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Envie. Toque em Enviar para o cliente reconhecer. Abre uma tela de envio, a mesma dos outros documentos (veja o guia Enviar por e-mail, e os guias de texto e WhatsApp). A mensagem vem do Apex, então leia antes de enviar. O Apex não envia sozinho: você aperta enviar na tela.",
-                "en": "Send them. Tap Send for acknowledgment. A send screen opens, the same as for other documents (see the guide Send by email, and the text and WhatsApp guides). The message comes from Apex, so read it before you send. Apex does not send by itself: you press send in the screen."
+                "pt": "Veja a foto e o botão. A foto aparece com a sua nota embaixo. O botão Enviar para o cliente reconhecer (2) só aparece depois que há pelo menos uma foto no projeto. Adicionar fotos (1) adiciona mais.",
+                "en": "See the photo and the button. The photo shows with your note under it. The button Send for acknowledgment (2) shows only after at least one photo is on the project. Add photos (1) adds more."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-02.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Acompanhe a resposta. Uma linha chamada Reconhecimento do cliente aparece embaixo das fotos, com o status. Toque na linha para abrir o que o cliente vê, ou a cópia assinada quando já estiver assinada. Quando o cliente assina, o botão de enviar desaparece. Este passo vem do código do app, porque não enviamos nada no nosso teste.",
-                "en": "Follow the answer. A row called Homeowner acknowledgment shows under the photos, with its status. Tap the row to open what the customer sees, or the signed copy once it is signed. When the customer has signed, the Send button goes away. This step comes from the app's code, because we did not send anything in our test."
+                "pt": "Abra a tela de envio. Toque em Enviar para o cliente reconhecer. Abre uma tela de envio, como a dos outros documentos: Mensagem de texto (1), WhatsApp (2), Abrir meu email (3), Marcar como enviada sem abrir mensagem (4) e Voltar (5). A mensagem vem do Apex com o link, então leia antes de enviar. No nosso teste o lead não tinha telefone, e a tela avisou. O Apex não envia sozinho: você aperta enviar no seu app de mensagens.",
+                "en": "Open the send screen. Tap Send for acknowledgment. A send screen opens, like the one for other documents: Text message (1), WhatsApp (2), Open my email app (3), Mark as sent without opening a message (4) and Back (5). The message comes from Apex with the link, so read it before you send. In our test the lead had no phone, so the screen said so. Apex does not send by itself: you press send in your messaging app."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-03.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Acompanhe a resposta. Uma linha chamada Reconhecimento do cliente (1) aparece embaixo das fotos, com uma etiqueta e a hora. Abrir a tela de envio já marca como Enviado, mesmo que você não tenha enviado nada. Se você enviar de novo, a linha mais antiga mostra Anulado. Toque na linha para abrir.",
+                "en": "Follow the answer. A row called Homeowner acknowledgment (1) shows under the photos, with a tag and the time. Opening the send screen already marks it as Sent, even if you did not send anything. If you send again, the older row shows Void. Tap the row to open it."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/ack-04.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/ack-04.en.jpg"
+              }
             }
           ]
         }
@@ -11072,10 +11117,24 @@
             {
               "n": 4,
               "text": {
-                "pt": "Ative de novo. Em um documento com o link desativado, o mesmo botão diz Ativar link. Toque nele e confirme com Sim, ativar o link. O documento volta a abrir, mas em um endereço novo. A mensagem antiga que você enviou não funciona, então envie o link outra vez ao cliente. Uma mensagem diz Link ativado. O nosso teste só abriu a pergunta, porque não quisemos mudar um documento de verdade, então o passo Ativar link vem do código do app.",
-                "en": "Turn it on again. On a document whose link is off, the same button reads Enable link. Tap it and confirm with Yes, enable the link. The document opens again, but at a new address. The old message you sent will not work, so send the link to the customer again. A message says Link enabled. Our test only opened the question, because we did not want to change a real document, so the Enable link step comes from the app's code."
+                "pt": "Ligue de novo. Em um documento cujo link está desligado, o mesmo botão diz Ativar link (1). Toque nele.",
+                "en": "Turn it on again. On a document whose link is off, the same button reads Enable link (1). Tap it."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-04.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Confirme. O Apex pergunta Ativar o link deste documento? Ele diz que o documento volta a abrir, em um endereço novo, e que você deve enviar o link outra vez ao cliente. Toque em Sim, ativar o link (1), ou em Manter desativado (2). Depois de confirmar, o botão volta a dizer Desativar link.",
+                "en": "Confirm. Apex asks Enable this document's link? It says the document opens again, at a new address, and you must send the link to the customer again. Tap Yes, enable the link (1), or Keep it disabled (2). After you confirm, the button goes back to Disable link."
+              },
+              "image": {
+                "pt": "help/img/guides/turn-customer-link-off/link-05.pt.jpg",
+                "en": "help/img/guides/turn-customer-link-off/link-05.en.jpg"
+              }
             }
           ]
         }

@@ -1943,6 +1943,7 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
   // help.html: Back on the library page, only when the person came from a menu.
   const helpSrcH = read("help.html");
   ok(/id="returnBtn"/.test(helpSrcH) && /HC\.safeReturn\(/.test(helpSrcH) && /apex_learn_return/.test(helpSrcH), "(h) help.html has a Voltar / Back button on the library, driven by the remembered page");
+  ok(/#returnBtn \{ color: var\(--text\); \}/.test(helpSrcH), "(h) the library Back button has dark text, so it is readable on the dark photo");
   ok(/history\.back\(\)/.test(helpSrcH.slice(helpSrcH.indexOf("returnBtn"))), "(h) the library Back goes back in history, so it returns to the screen the person came from");
   ["portal.html", "nav.js", "help.html", "help-core.js", "help-widget.js", "sw.js"].forEach(function (f) {
     ok(read(f) === read("ios/App/App/public/" + f), "(h) the iPhone copy of " + f + " is identical to the root copy");

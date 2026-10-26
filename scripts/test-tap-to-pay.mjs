@@ -9,7 +9,7 @@ let fail = 0;
 const ok = (c, m) => { console.log((c ? "PASS  " : "FAIL  ") + m); if (!c) fail++; };
 
 const FNS = [
-  "gmStripeRow", "gmStripeOwnerGuard", "stripeAvailableFor",
+  "stripeEnvFor", "stripeSandboxWebhookGate", "gmStripeRow", "gmStripeOwnerGuard", "stripeAvailableFor",
   "gmTapMigrationMissing", "gmTapNotAvailable", "gmTapRoleGate", "gmStripeTapOwnerGuard", "gmStripeTapActorGuard",
   "handleGetGmStripeTap", "handlePostGmStripeTapEnable", "handlePostGmStripeTapDisable",
   "handlePostGmStripeTapConnectionToken", "handlePostGmStripeTapPaymentIntent",

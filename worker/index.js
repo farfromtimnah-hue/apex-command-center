@@ -32074,6 +32074,15 @@ async function gmInvPublicPayload(env, inv, origin) {
 // payment as verified, so the invoice marks itself paid (Nicole's decision).
 // Secrets: STRIPE_SECRET_KEY (the platform key) and STRIPE_WEBHOOK_SECRET.
 function stripeConfigured(env) { return !!((env.STRIPE_SECRET_KEY || "").trim()); }
+// The test client alone can run against Stripe's SANDBOX: when the secret
+// STRIPE_SANDBOX_SECRET_KEY exists, every Stripe call made for the test client
+// uses it; every other client keeps the live key. Without that secret nothing
+// changes. Returns a copy of env (the original is never modified).
+function stripeEnvFor(env, clientId) {
+    var sk = String((env && env.STRIPE_SANDBOX_SECRET_KEY) || "").trim();
+    if (clientId !== STRIPE_SANDBOX_CLIENT_ID || !/^sk_test_/.test(sk)) { return env; }
+    return Object.assign({}, env, { STRIPE_SECRET_KEY: sk });
+}
 // While the platform key is a TEST key (Stripe sandbox), card payments exist
 // for the test client only, so no real business can connect a pretend account
 // or show its customers a button that takes no real money.
@@ -32152,6 +32161,7 @@ function gmStripeOwnerGuard(user, clientId) {
 }
 
 async function gmStripeRefresh(env, row) {
+    env = stripeEnvFor(env, row.client_id);
     var acct = await stripeApiV2(env, "GET", "/v2/core/accounts/" + encodeURIComponent(row.stripe_account_id) + "?include=configuration.merchant&include=requirements");
     var cp = acct.configuration && acct.configuration.merchant && acct.configuration.merchant.capabilities && acct.configuration.merchant.capabilities.card_payments;
     var ce = (cp && cp.status === "active") ? 1 : 0, ds = ce;
@@ -32306,6 +32316,7 @@ async function handlePostGmStripeConnect(id, request, env) {
         var user = await authenticate(request, env);
         var guard = gmStripeOwnerGuard(user, id);
         if (guard) { return guard; }
+        env = stripeEnvFor(env, id);
         if (!stripeAvailableFor(env, id)) { return jsonErr2("O pagamento por cartão ainda não está disponível.", "Card payments are not available yet.", 503); }
         var row = await gmStripeRow(env, id);
         if (!row) {
@@ -32402,7 +32413,7 @@ async function handlePostPublicInvoicePay(token, request, env) {
         };
         var email = customer && customer.email ? String(customer.email).trim() : "";
         if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { params.customer_email = email; }
-        var session = await stripeApi(env, "POST", "/v1/checkout/sessions", params, sa.stripe_account_id);
+        var session = await stripeApi(stripeEnvFor(env, rowInv.client_id), "POST", "/v1/checkout/sessions", params, sa.stripe_account_id);
         return jsonOk({ url: session.url });
     } catch (e) {
         console.error("[stripe pay] " + e.message);
@@ -32460,6 +32471,18 @@ async function stripeWebhookGate(env, event) {
     if (!event.account) { return { status: 200, reason: "no connected account on the event" }; }
     var known = await env.DB.prepare("SELECT 1 AS x FROM gm_stripe_accounts WHERE stripe_account_id = ?").bind(String(event.account)).first();
     if (!known) { return { status: 200, reason: "unknown account" }; }
+    return null;
+}
+
+// The sandbox webhook: only test mode events (livemode false) for the test
+// client's own sandbox connected account are acted on; anything else is
+// acknowledged and ignored.
+async function stripeSandboxWebhookGate(env, event) {
+    if (!event || typeof event !== "object" || !event.id || !event.type) { return { status: 400, reason: "malformed event" }; }
+    if (event.livemode !== false) { return { status: 400, reason: "sandbox webhook got a live event" }; }
+    if (!event.account) { return { status: 200, reason: "no connected account on the event" }; }
+    var known = await env.DB.prepare("SELECT 1 AS x FROM gm_stripe_accounts WHERE stripe_account_id = ? AND client_id = ?").bind(String(event.account), STRIPE_SANDBOX_CLIENT_ID).first();
+    if (!known) { return { status: 200, reason: "unknown sandbox account" }; }
     return null;
 }
 
@@ -32641,7 +32664,7 @@ async function handlePostGmStripeTapEnable(id, request, env) {
                     "Fill in the company address in document settings before turning on Tap to Pay.", 409);
             }
             var displayName = String(settings.legal_name || (client && client.name) || "Business").slice(0, 100);
-            var created = await stripeApi(env, "POST", "/v1/terminal/locations", {
+            var created = await stripeApi(stripeEnvFor(env, id), "POST", "/v1/terminal/locations", {
                 display_name: displayName,
                 address: { line1: addr.slice(0, 500), country: "US" }
             }, sa.stripe_account_id);
@@ -32692,7 +32715,7 @@ async function handlePostGmStripeTapConnectionToken(id, request, env) {
             loc = sa ? await env.DB.prepare("SELECT * FROM gm_stripe_terminal_locations WHERE client_id = ?").bind(id).first() : null;
         } catch (e) { if (gmTapMigrationMissing(e)) { return gmTapNotAvailable(); } throw e; }
         if (!sa || !sa.tap_enabled || !loc) { return gmTapNotAvailable(); }
-        var token = await stripeApi(env, "POST", "/v1/terminal/connection_tokens", { location: loc.location_id }, sa.stripe_account_id);
+        var token = await stripeApi(stripeEnvFor(env, id), "POST", "/v1/terminal/connection_tokens", { location: loc.location_id }, sa.stripe_account_id);
         // Never log the secret.
         return jsonOk({ secret: token.secret, location_id: loc.location_id });
     } catch (e) {
@@ -32729,7 +32752,7 @@ async function handlePostGmStripeTapPaymentIntent(id, request, env) {
         if (!(d.balance_cents > 0)) { return jsonErr2("Esta fatura não tem saldo devedor.", "This invoice has no balance due.", 409); }
         var meta = { apex_invoice_id: inv.id, apex_client_id: id, apex_invoice_number: inv.number, apex_source: "tap_to_pay" };
         var label = "Invoice " + inv.number;
-        var pi = await stripeApi(env, "POST", "/v1/payment_intents", {
+        var pi = await stripeApi(stripeEnvFor(env, id), "POST", "/v1/payment_intents", {
             amount: d.balance_cents,
             currency: "usd",
             payment_method_types: { 0: "card_present" },
@@ -32846,10 +32869,16 @@ async function handleStripeWebhook(request, env) {
     try {
         var rawBody = await request.text();
         var ok = await stripeVerifySignature(env, rawBody, request.headers.get("Stripe-Signature"));
+        // A second, SANDBOX webhook (its own signing secret) is accepted only for the test client's sandbox account.
+        var sandboxHook = false;
+        if (!ok && String(env.STRIPE_SANDBOX_WEBHOOK_SECRET || "").trim()) {
+            ok = await stripeVerifySignature({ STRIPE_WEBHOOK_SECRET: env.STRIPE_SANDBOX_WEBHOOK_SECRET }, rawBody, request.headers.get("Stripe-Signature"));
+            sandboxHook = ok;
+        }
         if (!ok) { console.log("[stripe webhook] bad signature"); return jsonErr("Invalid signature", 400); }
         var event = null;
         try { event = JSON.parse(rawBody); } catch (parseErr) { return jsonErr("Invalid payload", 400); }
-        var gate = await stripeWebhookGate(env, event);
+        var gate = sandboxHook ? await stripeSandboxWebhookGate(env, event) : await stripeWebhookGate(env, event);
         if (gate) {
             console.log("[stripe webhook] " + (event && event.type) + " " + (event && event.id) + ": " + gate.reason);
             if (gate.status !== 200) { return jsonErr("Rejected: " + gate.reason, gate.status); }

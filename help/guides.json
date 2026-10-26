@@ -5395,8 +5395,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Início. Toque em Início, a primeira aba da fileira no alto (1). O Início mostra duas listas: Documentos de subempreiteiros vencendo (2) e Assinados online pelo cliente. Cada linha de subempreiteiro tem o nome, qual documento está com problema, por exemplo seguro (COI) venceu em uma data, e uma etiqueta vermelha. COI quer dizer certificado de seguro.",
-                "en": "Open Home. Tap Home, the first tab in the row at the top (1). Home shows two lists: Subcontractor documents expiring (2) and Signed online by the customer. Each subcontractor row has the name, which document is the problem, for example insurance (COI) expired on a date, and a red tag. COI means certificate of insurance."
+                "pt": "Abra o Início. Toque em Início, a primeira aba da fileira no alto (1). O Início mostra listas do que pede a sua atenção. Duas delas são Documentos de subempreiteiros vencendo (2) e Assinados online pelo cliente. Cada linha de subempreiteiro tem o nome, qual documento está com problema, por exemplo seguro (COI) venceu em uma data, e uma etiqueta vermelha. COI quer dizer certificado de seguro.",
+                "en": "Open Home. Tap Home, the first tab in the row at the top (1). Home shows lists of what needs your attention. Two of them are Subcontractor documents expiring (2) and Signed online by the customer. Each subcontractor row has the name, which document is the problem, for example insurance (COI) expired on a date, and a red tag. COI means certificate of insurance."
               },
               "image": {
                 "pt": "help/img/guides/home-alerts/home-01.pt.jpg",

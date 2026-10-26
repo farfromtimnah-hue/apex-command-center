@@ -275,6 +275,39 @@
               }
             }
           ]
+        },
+        {
+          "id": "more",
+          "title": {
+            "pt": "Mais jeitos de montar e enviar um contrato",
+            "en": "More ways to build and send a contract"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Mais de um orçamento aceito. Se o lead tem mais de um orçamento aceito, tocar em Criar contrato a partir do orçamento aceito abre uma janela com os orçamentos, cada um com uma caixa. Marque os que entram neste contrato. O Total do contrato, embaixo da lista, soma os marcados. Toque em Criar contrato. Se você não marcar nenhum, o Apex pede pelo menos um. Este passo vem do código do aplicativo: o nosso projeto de teste tem um orçamento aceito.",
+                "en": "More than one accepted estimate. If the lead has more than one accepted estimate, tapping Create contract from the accepted estimate opens a window with the estimates, each with a tick box. Tick the ones this contract includes. The Contract total under the list adds them up. Tap Create contract. If you tick none, Apex asks for at least one. This step comes from the app's code: our test project has one accepted estimate."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Envie também por email. A tela onde você envia o contrato tem quatro botões: Mensagem de texto, WhatsApp, Abrir meu email e Copiar para enviar pelo navegador. O guia Enviar um documento por email mostra os botões de email passo a passo. Eles funcionam do mesmo jeito para o contrato, o aditivo e os outros documentos.",
+                "en": "Send by email too. The screen where you send the contract has four buttons: Text message, WhatsApp, Open my email app and Copy to send from a web email. The guide Send a document by email shows the email buttons step by step. They work the same for the contract, the change order and the other documents."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Envie a cópia assinada. Quando os dois lados assinaram, abra o contrato e toque em Enviar cópia assinada. Abre a mesma tela de envio, com a mensagem da cópia assinada. Envie por Mensagem de texto, WhatsApp ou email, ou toque no botão para marcar como enviada sem abrir uma mensagem. Este passo vem do código do aplicativo: a prévia do teste não conseguiu abrir a tela de envio.",
+                "en": "Send the signed copy. When both sides signed, open the contract and tap Send signed copy. It opens the same send screen, with the message for the signed copy. Send it with Text message, WhatsApp or email, or tap the button to mark it as sent without opening a message. This step comes from the app's code: the test preview could not open the send screen."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -503,6 +536,118 @@
               "image": {
                 "pt": "help/img/guides/change-order/send-change-order-12.jpg",
                 "en": "help/img/guides/change-order/send-change-order-12.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "builder",
+          "title": {
+            "pt": "Um aditivo maior",
+            "en": "A bigger change order"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o construtor e escolha as linhas. Abra o contrato assinado e toque em + Aditivo. A tela se chama Novo aditivo. Escreva o que muda em uma frase, na primeira caixa. Se o orçamento aceito tem linhas, a parte Remover do orçamento aceito (1) lista as linhas com quantidade e preço. Toque no botão de menos (2) à direita de uma linha para tirá-la: ela vira um crédito pelo preço que foi cobrado. Em Itens da tabela de preços, toque em + (3) para somar um item, ou em − (4) para tirar um, pelo preço da tabela. A caixa de busca (5) acha um item pelo nome.",
+                "en": "Open the builder and pick the lines. Open the signed contract and tap + Change order. The sheet is called New change order. Write what changes in one sentence in the first box. If the accepted estimate has lines, the part Remove from the accepted estimate (1) lists them with quantity and price. Tap the minus button (2) at the right of a line to take it out: it becomes a credit at the price that was charged. Under Items from the price list, tap + (3) to add an item, or − (4) to remove one, at the price list price. The search box (5) finds an item by name."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/builder-01.pt.jpg",
+                "en": "help/img/guides/change-order/builder-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Confira e mude as linhas. Em Linhas do aditivo (remoção vira crédito), cada linha mostra o nome, a quantidade × o preço, e um menu, Adicionar ou Remover (1). Uma linha removida conta como menos. Uma linha do orçamento aceito diz do orçamento aceito, pelo valor cobrado. Uma linha que você põe à mão com + Linha avulsa tem caixas para Material (2), Mão de obra e Outros (3). Só você vê esses custos. Eles mantêm os custos do projeto certos. Toque em × à direita de uma linha para tirá-la do aditivo.",
+                "en": "Check and change the lines. Under Change order lines (a removal is a credit), each line shows the name, the quantity × the price, and a menu, Add or Remove (1). A removed line counts as a minus. A line from the accepted estimate says from the accepted estimate, at the rate charged. A line you add by hand with + Custom line has boxes for Materials (2), Labor and Other (3). Only you see these costs. They keep the costs of the project right. Tap × at the right of a line to delete the line from the change order."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/builder-02.pt.jpg",
+                "en": "help/img/guides/change-order/builder-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Defina o preço, os dias e o pagamento. Mudança no preço (1) soma todas as linhas, e uma remoção conta como menos. Impacto no prazo (dias úteis; negativo encurta) (2): digite quantos dias úteis a mudança soma. Um número negativo encurta o serviço. Em Parcelas, escolha Ajustar as faturas em aberto (3), ou Nova parcela só para o aditivo (4), que cria uma fatura só para este aditivo. Toque em Criar aditivo (5). Cancelar fecha a tela sem salvar.",
+                "en": "Set the price, the days and the payment. Change in price (1) adds up all the lines, and a removal counts as minus. Schedule impact (working days; negative shortens) (2): type how many working days the change adds. A negative number shortens the job. Under Payment schedule, choose Adjust the unpaid invoices (3), or New invoice step for the change (4), which adds one invoice only for this change order. Tap Create change order (5). Cancel closes the sheet without saving."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/builder-03.pt.jpg",
+                "en": "help/img/guides/change-order/builder-03.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "read",
+          "title": {
+            "pt": "Leia um aditivo",
+            "en": "Read a change order"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia o Resumo. Na tela do aditivo, o Resumo mostra o Contrato, o Preço antes (1), a Mudança, o Novo preço (2), o Prazo em dias úteis (3) e as Parcelas (4): faturas em aberto ajustadas, ou uma nova parcela. Embaixo, Linhas lista cada linha, e Assinaturas mostra quem assinou e quando. Se o preço do contrato mudou depois que você criou o aditivo, uma nota vermelha avisa e mostra os novos preços de antes e depois.",
+                "en": "Read the Summary. On the change order sheet, the Summary shows the Contract, Price before (1), Change, New price (2), Schedule in working days (3) and Payments (4): unpaid invoices adjusted, or a new invoice step. Under it, Lines lists each line, and Signatures shows who signed and when. If the price of the contract changed after you created the change order, a red note says so and shows the new before and after prices."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/read-01.pt.jpg",
+                "en": "help/img/guides/change-order/read-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use os botões de um aditivo assinado. Quando os dois lados assinaram, a tela tem Ver como o cliente, Baixar PDF, Desativar link (1, veja o guia Desativar ou ativar o link do cliente) e Enviar cópia assinada (2). Enviar cópia assinada abre a mesma tela de envio dos outros documentos, com os botões Mensagem de texto, WhatsApp, Abrir meu email e Copiar para enviar pelo navegador, e um botão para marcar como enviada sem abrir uma mensagem. O nosso teste não conseguiu abrir essa tela, então esta parte vem do código do aplicativo.",
+                "en": "Use the buttons of a signed change order. When both sides signed, the sheet has Preview as customer, Download PDF, Disable link (1, see the guide Turn a customer link off or on) and Send signed copy (2). Send signed copy opens the same send screen as the other documents, with the buttons Text message, WhatsApp, Open my email app and Copy to send from a web email, and a button to mark it as sent without opening a message. Our test could not open that screen, so this part comes from the app's code."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/read-02.pt.jpg",
+                "en": "help/img/guides/change-order/read-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja o efeito nas faturas. Quando um aditivo assinado muda uma fatura que o seu cliente já recebeu, a fatura mostra uma etiqueta vermelha, Alterada depois de enviada: reenviar, e a tela do aditivo cita a fatura em uma nota vermelha. Envie essa fatura ao cliente de novo (veja o guia Faturas e pagamentos: crie e registre).",
+                "en": "See the effect on the invoices. When a signed change order changes an invoice that your customer already received, the invoice shows a red tag, Changed after sending: resend, and the change order sheet names the invoice in a red note. Send that invoice to the customer again (see the guide Invoices and payments)."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "void",
+          "title": {
+            "pt": "Anule um aditivo",
+            "en": "Void a change order"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache o botão Anular. Abra um aditivo que ainda não está assinado pelos dois. Embaixo do status você vê Assinar pela empresa (1), Ver como o cliente (2) e Anular (3). Anular é só para o dono. O botão não aparece quando o aditivo já está assinado pelos dois, ou já está anulado.",
+                "en": "Find the Void button. Open a change order that is not fully signed. Under the status you see Sign as company (1), Preview as customer (2) and Void (3). Void is only for the owner. It does not show when the change order is already fully signed, or already void."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/void-01.pt.jpg",
+                "en": "help/img/guides/change-order/void-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escreva o motivo. Uma caixa chamada Motivo da anulação (1) abre. Digite por que você cancela e toque em Salvar. O motivo é obrigatório: sem ele, o Apex pede. O aditivo continua na lista com o status Anulado. Toque em Cancelar para sair sem anular. No nosso teste não tocamos em Salvar.",
+                "en": "Write the reason. A box called Void reason (1) opens. Type why you cancel it, and tap Save. A reason is required: without one, Apex asks for it. The change order stays in the list with the status Void. Tap Cancel to leave without voiding. We did not tap Save in our test."
+              },
+              "image": {
+                "pt": "help/img/guides/change-order/void-02.pt.jpg",
+                "en": "help/img/guides/change-order/void-02.en.jpg"
               }
             }
           ]
@@ -3056,8 +3201,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Adicione itens. No fim da lista, toque em + Novo item para adicionar um item. Toque em Importar planilha para trazer uma planilha de preços. Você configura os preços uma vez e depois os mantém atualizados aqui.",
-                "en": "Add items. At the bottom of the list, tap + New item to add one item. Tap Import spreadsheet to bring in a pricing spreadsheet. You set your prices up once and then keep them up to date here."
+                "pt": "Adicione itens. No fim da lista, toque em + Novo item para adicionar um item. Toque em Importar planilha para trazer uma planilha de preços. Você configura os preços uma vez e depois os mantém atualizados aqui. O guia Tabela de preços: adicione um item e importe uma planilha mostra cada tela do item novo e da importação.",
+                "en": "Add items. At the bottom of the list, tap + New item to add one item. Tap Import spreadsheet to bring in a pricing spreadsheet. You set your prices up once and then keep them up to date here. The guide Price list: add an item and import a spreadsheet shows every screen of the new item form and of the import."
               },
               "image": {
                 "en": "help/img/guides/pricing-setup/pricing-03.en.jpg",
@@ -6739,6 +6884,23 @@
               }
             }
           ]
+        },
+        {
+          "id": "services",
+          "title": {
+            "pt": "Os serviços da página",
+            "en": "The services on the page"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "A services list also appears as options on this page. You edit it in a different place: Business, then Estimates, then Settings, then Services. The guide Your list of services shows how to add and remove a service.",
+                "en": "Uma lista de serviços também aparece como opções nesta página. Você a edita em outro lugar: Negócio, depois Orçamentos, depois Configurações, depois Serviços. O guia Sua lista de serviços mostra como adicionar e remover um serviço."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": []
@@ -7237,8 +7399,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a origem Link da bio. Ninguém é creditado como quem indicou. Os serviços da sua lista nas configurações são os que aparecem como botões.",
-                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the source Link da bio. No one is credited as the referrer. The services you list in your settings are the ones that appear as buttons."
+                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a origem Link da bio. Ninguém é creditado como quem indicou. Os serviços da sua lista nas configurações são os que aparecem como botões. O guia Sua lista de serviços mostra onde editar essa lista.",
+                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the source Link da bio. No one is credited as the referrer. The services you list in your settings are the ones that appear as buttons. The guide Your list of services shows where to edit that list."
               },
               "image": null
             }
@@ -12191,6 +12353,1353 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "estimate-line-details",
+      "audience": "client",
+      "title": {
+        "pt": "Linhas do orçamento, adicionais, margem e notas",
+        "en": "Estimate lines, add-ons, margin and notes"
+      },
+      "summary": {
+        "pt": "Linhas avulsas, Incluído e Allowance, descrição das linhas, mudança de preço, adicionais, aviso de margem e notas.",
+        "en": "Custom lines, Included and Allowance, line descriptions, price changes, add-ons, margin warnings and notes."
+      },
+      "keywords": {
+        "pt": [
+          "linha avulsa",
+          "linha incluída",
+          "allowance",
+          "descrição da linha",
+          "mudar preço",
+          "adicional",
+          "aviso de margem",
+          "notas ao cliente",
+          "notas internas",
+          "custo e margem"
+        ],
+        "en": [
+          "custom line",
+          "included line",
+          "allowance",
+          "line description",
+          "change price",
+          "add-on",
+          "margin warning",
+          "notes to customer",
+          "internal notes",
+          "cost and margin"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "lines",
+          "title": {
+            "pt": "Linhas, preços e adicionais",
+            "en": "Lines, prices and add-ons"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o passo Produtos. Comece um orçamento a partir de um lead (o guia Criar e enviar um orçamento mostra como). O passo 3 de 8 se chama Produtos. A sua tabela de preços aparece por categoria. Digite uma quantidade na caixa ao lado de um item. Cada item preenchido vira uma linha escolhida, embaixo da lista. Deixe a quantidade vazia ou zero para tirar a linha.",
+                "en": "Open the Products step. Start an estimate from a lead (the guide Create and send an estimate shows how). Step 3 of 8 is called Products. Your price list is grouped by category. Type a quantity in the box next to an item. Every item you fill in becomes a chosen line under the list. Make the quantity empty or zero to take the line out."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia uma linha escolhida. Cada linha mostra o nome do item, a quantidade, o preço de uma unidade (1) e o tipo da linha (2). A linha pequena embaixo dos números faz a conta para você, por exemplo 400 sq ft × $18.50 = $7,400.00. A caixa (3) é a Descrição para o cliente. Ela começa com a descrição da sua tabela de preços. O que você escrever ali é impresso embaixo da linha, no orçamento que o seu cliente abre.",
+                "en": "Read a chosen line. Each chosen line shows the item name, the quantity, the price of one unit (1) and the line type (2). The small line under the numbers does the math for you, for example 400 sq ft × $18.50 = $7,400.00. The box (3) is the Customer description. It starts with the description from your price list. What you write there is printed under the line on the estimate your customer opens."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-02.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mude o preço de uma linha. Digite outro preço na caixa do preço unitário. O Apex pergunta Por que o preço mudou? e mostra o preço da tabela ao lado do novo preço. Escreva o motivo na caixa (1) e toque em Salvar (2). O motivo fica guardado no histórico do lead. Só este orçamento muda. Se você tocar em Cancelar, ou salvar sem motivo, o preço volta ao da tabela.",
+                "en": "Change the price of a line. Type a different price in the unit price box. Apex asks Why did the rate change? and shows the price list price next to the new price. Write the reason in the box (1) and tap Save (2). The reason is kept in the lead history. Only this estimate changes. If you tap Cancel, or you save without a reason, the price goes back to the price list price."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-03.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Adicione uma linha que não está na tabela de preços. Embaixo da lista, toque em + Linha avulsa. Uma linha nova abre. Digite o nome (1), a quantidade e o preço. O menu do tipo da linha (2) tem três opções. Normal é uma linha comum. Incluído imprime a palavra Incluído e não tem preço: conta $0 no total. Allowance conta o valor no total e imprime a palavra Allowance, para o cliente ver que é uma verba. Use a caixa de descrição (3) para explicar a linha. Uma linha avulsa não tem custo, então conta como $0 na sua margem.",
+                "en": "Add a line that is not on your price list. Under the list, tap + Custom line. A new line opens. Type the name (1), the quantity and the price. The line type menu (2) has three choices. Standard (Normal) is a regular line. Included prints the word Included and has no price: it counts $0 in the total. Allowance counts its amount in the total and prints the word Allowance, so your customer sees it is an allowance. Use the description box (3) to explain the line. A custom line has no cost, so it counts as $0 in your margin."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-04.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Adicionais. O passo 4 de 8 é Adicionais: itens extras que o cliente pode somar. Ele mostra só os itens da tabela de preços com o Tipo Adicional, e só das categorias que você já usou no passo 3. Você define o Tipo de um item em Preços. Se a tela disser Nenhum adicional para as categorias escolhidas (1), não há o que escolher. Você ainda pode tocar em + Linha avulsa (2) para pôr um extra à mão. Este passo é opcional: toque em Continuar para pular.",
+                "en": "Add-ons. Step 4 of 8 is Add-ons: extra items your customer can add. It lists only the price list items whose Type is Add-on, and only from the categories you already used in step 3. You set the Type of an item in Pricing. If the screen says No add-ons for the chosen categories (1), there is nothing to pick. You can still tap + Custom line (2) to add an extra by hand. This step is optional: tap Continue to skip it."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/lines-05.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/lines-05.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "numbers",
+          "title": {
+            "pt": "Margem, notas e avisos",
+            "en": "Margin, notes and warnings"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia os números. O passo 5 de 8 se chama Números. Ele mostra um subtotal por categoria, o Desconto (um desconto para a opção inteira, nunca um por linha) e o Total. Embaixo fica a parte Interno (não impresso) (1). Ela mostra o Custo dividido em material, mão de obra e outros, a Comissão e a Margem. Margem é o que sobra do total depois dos custos e da comissão. Só você vê esta parte. Ela nunca é impressa, e um vendedor nunca a vê.",
+                "en": "Read the numbers. Step 5 of 8 is called Numbers. It shows a subtotal for each category, the Discount (one discount for the whole option, never one per line) and the Total. Under them is the part called Internal (never printed) (1). It shows Cost split into materials, labor and other, the Commission and the Margin. Margin is what is left of the total after costs and commission. Only you see this part. It is never printed, and a salesperson never sees it."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-01.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Entenda o aviso de margem. Um sinal vermelho aparece ao lado da Margem (1) quando o total é $0, quando a margem fica abaixo de zero (margem negativa), ou quando a margem é menor do que a margem mínima que você definiu nas Configurações. A linha embaixo do número diz qual é o caso. Uma linha avulsa sem custo tem um aviso vermelho próprio, porque conta como $0 na margem. O aviso nunca impede nada: você ainda pode salvar e enviar.",
+                "en": "Understand the margin warning. A red warning sign shows next to the Margin (1) when the total is $0, when the margin is below zero (negative margin), or when the margin is lower than the minimum margin you set in Settings. The line under the number says which one it is. A custom line with no cost gets its own red note, because it counts as $0 in the margin. The warning never stops you: you can still save and send."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-02.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Escreva os termos e as notas. O passo 7 de 8 é Termos. Válido até é o último dia do orçamento. Incluído e Não incluído dizem o que o preço cobre e o que não cobre. Notas ao cliente (1) é impresso no orçamento, então o cliente lê. Notas internas (2) nunca é impresso: serve só para você e a sua equipe.",
+                "en": "Write the terms and the notes. Step 7 of 8 is Terms. Valid until is the last day of the estimate. Included and Not included list what the price covers and what it does not. Notes to customer (1) is printed on the estimate, so your customer reads it. Internal notes (2) is never printed: it is only for you and your team."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-03.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Veja os mesmos números no orçamento salvo. Abra o orçamento (Negócio, depois Orçamentos, e toque nele). Role até Interno (não impresso) (2): Custo, Comissão e Margem (1), com o mesmo aviso, por exemplo abaixo da margem mínima de 30%. Mais abaixo, em Pagamento e termos, você vê Incluído, Não incluído, Notas ao cliente e Notas internas.",
+                "en": "See the same numbers on the saved estimate. Open the estimate (Business, then Estimates, then tap it). Scroll to Internal (never printed) (2): Cost, Commission and Margin (1), with the same warning, for example below the minimum margin of 30%. Below it, under Payment and terms, you see Included, Not included, Notes to customer and Internal notes."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-line-details/numbers-04.pt.jpg",
+                "en": "help/img/guides/estimate-line-details/numbers-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "estimate-three-options",
+      "audience": "client",
+      "title": {
+        "pt": "Orçamento com três opções: Best, Better, Good",
+        "en": "Estimate with three options: Best, Better, Good"
+      },
+      "summary": {
+        "pt": "Preencher três opções, copiar uma nas outras, dar um desconto a cada uma e ver o que o cliente escolhe.",
+        "en": "Fill three options, copy one into the others, give each its own discount, and see what the customer picks."
+      },
+      "keywords": {
+        "pt": [
+          "três opções",
+          "good better best",
+          "duplicar opção",
+          "desconto por opção",
+          "escolher opção",
+          "orçamento em opções"
+        ],
+        "en": [
+          "tiered",
+          "good better best",
+          "three options",
+          "duplicate option",
+          "discount per option",
+          "select option"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "options",
+          "title": {
+            "pt": "Best, Better e Good",
+            "en": "Best, Better and Good"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha três opções. No passo 2 de 8, toque em Em opções: Best / Better / Good em vez de Único. O seu cliente vai ver três preços para o mesmo serviço. Elas aparecem sempre nesta ordem: Best (o preço mais alto), Better e depois Good.",
+                "en": "Choose three options. In step 2 of 8, tap Tiered: Best / Better / Good instead of Single. Your customer will see three prices for the same job. The three always show in this order: Best (the highest price), Better, then Good."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Monte a primeira opção e depois copie. No passo Produtos, as três abas (1) são Best, Better e Good. O número em cada aba é quantas linhas ela tem. Preencha a opção que você está vendo. Depois toque em Duplicar esta opção nas outras (2). O Apex copia todas as linhas desta opção para as outras duas e avisa Copiado para as outras opções. Isso substitui o que as outras duas tinham.",
+                "en": "Build the first option, then copy it. In the Products step, the three tabs (1) are Best, Better and Good. The number on each tab is how many lines it has. Fill in the option you are looking at. Then tap Duplicate this option into the others (2). Apex copies every line of this option into the other two and says Copied into the other options. It replaces what the other two options had."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-02.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mude as outras duas opções. Toque na aba Better e depois na aba Good, e mude as quantidades, tire linhas ou ponha linhas. Cada opção guarda as suas próprias linhas. O passo Adicionais também tem as três abas e o mesmo botão Duplicar.",
+                "en": "Change the other two options. Tap the Better tab, then the Good tab, and change the quantities, take lines out or add lines. Each option keeps its own lines. The Add-ons step also has the three tabs and the same Duplicate button."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Dê a cada opção o seu próprio desconto. No passo 5 de 8, o título do Desconto mostra a opção que você está vendo, por exemplo Desconto · Better. Escolha Sem desconto, $ ou %, e digite o valor (2). O desconto vale para a opção inteira, nunca para uma linha. Um % vai de 0 a 100. Um valor em $ não pode passar do subtotal da opção. Quando você troca entre $ e %, o número é apagado. A Margem (1) e o Total são da opção que você está vendo, então toque em cada aba para conferir as três.",
+                "en": "Give each option its own discount. In step 5 of 8, the Discount title shows the option you are looking at, for example Discount · Better. Choose No discount, $ or %, and type the value (2). A discount is for that whole option, never for one line. A % goes from 0 to 100. A $ amount cannot be more than the option subtotal. When you change between $ and %, the number is cleared. The Margin (1) and the Total belong to the option you are looking at, so tap each tab to check all three."
+              },
+              "image": {
+                "pt": "help/img/guides/estimate-three-options/options-04.pt.jpg",
+                "en": "help/img/guides/estimate-three-options/options-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Confira as parcelas. As parcelas de pagamento são uma lista só para o orçamento inteiro. Na prévia do final (passo 8 de 8), os valores em dólar das parcelas são calculados sobre a opção Better, e a prévia avisa isso.",
+                "en": "Check the payment schedule. The payment steps are one list for the whole estimate. In the preview at the end (step 8 of 8), the dollar amounts of the payment schedule are calculated on the Better option, and the preview says so."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "O que o seu cliente faz. O cliente abre o link do orçamento e vê as três opções. Embaixo da opção que ele quer, ele toca em Select (o botão passa a dizer Selected). Perto da assinatura, um aviso diz Select an option above first até ele escolher uma. Depois o cliente assina, como no guia Criar e enviar um orçamento. Este passo vem do código do aplicativo: não enviamos um orçamento com três opções no nosso teste.",
+                "en": "What your customer does. The customer opens the estimate link and sees the three options. Under the option they want, they tap Select (the button then reads Selected). Near the signature, a note reads Select an option above first until one is picked. Then the customer signs, as in the guide Create and send an estimate. This step comes from the app's code: we did not send a tiered estimate in our test."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Duplicar esta opção nas outras"
+            ],
+            "en": [
+              "Duplicate this option into the others"
+            ]
+          },
+          "section": "options",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "customer-answers-to-estimates",
+      "audience": "client",
+      "title": {
+        "pt": "Depois de enviar um orçamento: cores, lembretes e respostas",
+        "en": "After you send an estimate: colors, reminders and answers"
+      },
+      "summary": {
+        "pt": "O que as cores do selo querem dizer, o que os lembretes dizem e o que fazer quando o cliente pede mudanças, recusa ou pede uma atualização.",
+        "en": "What the pill colors mean, what the reminders say, and what to do when a customer asks for changes, declines or asks for an update."
+      },
+      "keywords": {
+        "pt": [
+          "status do orçamento",
+          "cor do selo",
+          "não aberto",
+          "lembrete",
+          "cliente recusou",
+          "pediu mudanças",
+          "respostas dos clientes",
+          "orçamento atualizado",
+          "orçamento expirado",
+          "link expirado"
+        ],
+        "en": [
+          "estimate status",
+          "pill color",
+          "not opened",
+          "reminder",
+          "customer declined",
+          "request changes",
+          "customer responses",
+          "updated estimate",
+          "expired estimate",
+          "estimate expired"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "colors",
+          "title": {
+            "pt": "Depois de enviar: cores e lembretes",
+            "en": "After you send: colors and reminders"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia a cor do selo. Abra Negócio, depois Orçamentos. Cada orçamento tem um selo à direita. Amarelo quer dizer Enviado, esperando. Ele fica laranja depois de 24 horas sem resposta, e vermelho depois de 48 horas (1). Verde quer dizer Aceito (5). Cinza quer dizer Rascunho, Substituído, Mudanças pedidas, Recusado ou Expirado. O olho (4) quer dizer que o seu cliente abriu o orçamento. Abrir não é uma resposta, então um selo Aberto (3) mantém a cor. As abas no alto da lista filtram por status. Uma aba para Mudanças pedidas, Recusado ou Expirado só aparece quando você tem pelo menos um.",
+                "en": "Read the color of the pill. Open Business, then Estimates. Each estimate has a pill at the right. Yellow means Sent and waiting. It turns orange after 24 hours with no answer, and red after 48 hours (1). Green means Accepted (5). Grey means Draft, Superseded, Changes requested, Declined or Expired. The eye (4) means your customer opened the estimate. Opening it is not an answer, so a Viewed pill (3) keeps its color. The chips at the top of the list filter by status. A chip for Changes requested, Declined or Expired shows up only when you have at least one."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-01.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia os lembretes. Abra um orçamento. Embaixo do total pode aparecer uma linha vermelha (2). Não aberto há 2 dias quer dizer que passaram 48 horas e o cliente ainda não abriu. Expira em 48 horas quer dizer que a data Válido até está perto. As mesmas linhas aparecem na lista e na parte Orçamentos da ficha do lead. A cor do selo (1) é a mesma que você viu na lista.",
+                "en": "Read the reminders. Open an estimate. Under the total, a red line can appear (2). Not opened after 2 days means 48 hours passed and your customer has not opened it. Expires in 48 hours means the Valid until date is close. The same lines show in the list and in the Estimates part of the lead sheet. The color of the pill (1) is the one you saw in the list."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-02.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Confira o que o seu cliente vê. Toque em Ver como o cliente (3): o orçamento abre do jeito que o seu cliente vê, para você conferir antes ou depois de enviar. Toque em Baixar PDF (4) para pegar uma cópia em PDF do orçamento.",
+                "en": "Check what your customer sees. Tap Preview as customer (3): the estimate opens the way your customer sees it, so you can check it before or after sending. Tap Download PDF (4) to get a PDF copy of the estimate."
+              },
+              "image": {
+                "pt": "help/img/guides/customer-answers-to-estimates/colors-03.pt.jpg",
+                "en": "help/img/guides/customer-answers-to-estimates/colors-03.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "answers",
+          "title": {
+            "pt": "Quando o cliente responde",
+            "en": "When the customer answers"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O cliente pede mudanças ou recusa. Na página do orçamento, o cliente pode escrever o que quer mudar (Request changes) ou tocar em Decline this estimate e dar um motivo, se quiser. O orçamento passa para Mudanças pedidas ou Recusado (selo cinza). Na parte Orçamentos da ficha do lead você lê as palavras dele, por exemplo Pediu mudanças: e o texto. O histórico do lead também registra. Este passo vem do código do aplicativo: o nosso cliente de teste não tem uma resposta assim.",
+                "en": "Your customer asks for changes or declines. On the estimate page, the customer can write what they want changed (Request changes) or tap Decline this estimate and give a reason if they want. The estimate changes to Changes requested or Declined (grey pill). In the Estimates part of the lead sheet you read their words, for example Requested changes: and the text. The lead history records it too. This step comes from the app's code: our test client has no such answer."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Você recebe um aviso. Quando o cliente pede mudanças ou recusa, o Apex manda uma notificação para o celular do dono, se as notificações estiverem ligadas (veja o guia Notificações push). Ela diz quem respondeu, qual documento e as primeiras palavras da mensagem. Toque nela para abrir o lead.",
+                "en": "You get a notification. When your customer asks for changes or declines, Apex sends a notification to the owner's phone, if notifications are on (see the guide Push notifications). It says who answered, which document and the first words of the message. The text of the notification is in Portuguese. Tap it to open the lead."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja na tela Início. Um cartão chamado Respostas dos clientes, com um número, aparece em Início. Cada linha diz quem pediu mudanças ou recusou, qual documento, as palavras do cliente (ou sem motivo escrito), o projeto e a hora. O mesmo cartão também mostra respostas a um contrato, a um aditivo, às fotos de antes e ao aceite de conclusão. Toque em Marcar como visto quando tiver lido: a linha some. Toque em Abrir o projeto, quando a linha tiver o botão, para ir ao projeto. Só o dono vê este cartão, nunca um vendedor. Você só o vê quando Contratos está ligado para o seu negócio.",
+                "en": "See it on Home. A card called Customer responses, with a number, shows on Home. Each row says who asked for changes or declined, which document, their words (or no reason given), the project and the time. The same card also shows answers to a contract, a change order, the before photos and the completion sign-off. Tap Mark as seen when you have read it: the row goes away. Tap Open the project, when the row has one, to go to the project. Only the owner sees this card, never a salesperson. You see it only when Contracts is on for your business."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O cliente pede um orçamento atualizado. Depois da data Válido até, o link do cliente diz This estimate has expired e mostra um botão, Request an updated estimate. Quando o cliente toca nele, o Apex escreve no histórico do lead e na lista de orçamentos: Customer requested an updated estimate after expiry. O status continua Expirado. Você não recebe notificação neste caso, então olhe a lista de vez em quando. Para responder, abra o orçamento e toque em Criar revisão (veja o guia Revise ou anule um orçamento). Mude o que for preciso, com uma nova data Válido até, e envie de novo.",
+                "en": "Your customer asks for an updated estimate. After the Valid until date, the customer link says This estimate has expired and shows a button, Request an updated estimate. When the customer taps it, Apex writes it in the lead history and in the estimate list: Customer requested an updated estimate after expiry. The status stays Expired. You do not get a notification for this one, so look at the list from time to time. To answer, open the estimate and tap Create revision (see the guide Revise or void an estimate). Change what you need, with a new Valid until date, and send it again."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Links antigos param sozinhos. O link do cliente de um orçamento deixa de funcionar 90 dias depois da data Válido até. O cliente então vê que o link não é válido. Para trazê-lo de volta, abra o orçamento e toque em Ativar link (veja o guia Desativar ou ativar o link do cliente). O orçamento abre de novo em um endereço novo, então envie o link ao seu cliente outra vez.",
+                "en": "Old links stop by themselves. The customer link of an estimate stops working 90 days after its Valid until date. The customer then sees that the link is not valid. To bring it back, open the estimate and tap Enable link (see the guide Turn a customer link off or on). The estimate opens again at a new address, so send the link to your customer again."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Marcar como visto"
+            ],
+            "en": [
+              "Mark as seen"
+            ]
+          },
+          "section": "answers",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "pricing-item-and-import",
+      "audience": "client",
+      "title": {
+        "pt": "Tabela de preços: adicione um item e importe uma planilha",
+        "en": "Price list: add an item and import a spreadsheet"
+      },
+      "summary": {
+        "pt": "Categoria, tipo, unidade, linhas de custo e margem de um item, e os passos para importar uma planilha.",
+        "en": "Category, type, unit, cost lines and margin for one item, and the steps to import a spreadsheet."
+      },
+      "keywords": {
+        "pt": [
+          "novo item",
+          "item da tabela de preços",
+          "adicionar item",
+          "linhas de custo",
+          "margem",
+          "adicional",
+          "importar",
+          "planilha",
+          "excel",
+          "csv",
+          "combinar colunas"
+        ],
+        "en": [
+          "new item",
+          "price list item",
+          "add item",
+          "cost lines",
+          "margin",
+          "add-on",
+          "import",
+          "spreadsheet",
+          "excel",
+          "csv",
+          "map columns"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "item",
+          "title": {
+            "pt": "Adicione um item à tabela de preços",
+            "en": "Add one item to your price list"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra um item novo. Toque em Negócio, depois Preços, depois + Novo item no fim da lista. Digite o nome do Item. A Categoria (1) agrupa o item: no orçamento, a sua tabela de preços aparece por categoria. O Tipo (2) é Produto ou Adicional. Produto é um item principal. Adicional é um extra que o cliente pode somar, e aparece no passo Adicionais de um orçamento. A Unidade (3) é como você conta, por exemplo ea, sq ft ou hora. A Descrição para o cliente (4) é impressa embaixo da linha, no orçamento do seu cliente.",
+                "en": "Open a new item. Tap Business, then Pricing, then + New item at the bottom of the list. Type the Item name. The Category (1) groups the item: in the estimate, your price list is shown by category. Type (2) is Product or Add-on. A Product is a main item. An Add-on is an extra your customer can add, and it shows in the Add-ons step of an estimate. Unit (3) is how you count it, for example each, sq ft or hour. Customer description (4) is printed under the line on your customer's estimate."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-01.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ponha os custos e o preço. Embaixo de Custos, toque em + Adicionar custo (2). Uma linha de custo abre: um nome (1), um valor e um tipo: Material, Mão de obra ou Outros. Ponha uma linha para cada custo. Depois digite o Preço de venda (3), o preço que o seu cliente paga por uma unidade. Embaixo, o Apex mostra os números enquanto você digita: Material, Mão de obra, Outros, Custo total, Margem e Margem (%). Margem é o preço de venda menos o custo total. No nosso exemplo o preço é $300.00 e o custo é $200.00, então a margem é $100.00, ou 33.3%. Uma margem negativa mostra um aviso vermelho.",
+                "en": "Add the costs and the price. Under Costs, tap + Add cost (2). A cost line opens: a name (1), an amount and a type: Material, Labor or Other. Add one line for each cost. Then type the Sale price (3), the price your customer pays for one unit. Under it, Apex shows the numbers while you type: Materials, Labor, Other, Total cost, Margin and Margin (%). Margin is the sale price minus the total cost. In our example the price is $300.00, the cost is $200.00, so the margin is $100.00, or 33.3%. A negative margin shows a red warning."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-02.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Salve e encontre os itens que precisam de mais dados. Ponha uma observação, se quiser, e toque em Salvar no fim do formulário. Um item com dados faltando, por exemplo categoria, unidade, descrição ou custos, mostra uma etiqueta dourada Faltam dados nas listas. No alto da tabela de preços, toque em Faltam dados para ver só esses itens, e toque em Todos para ver todos de novo.",
+                "en": "Save, and find items that need more. Add a note if you want, and tap Save at the bottom of the form. An item that is missing details, for example a category, a unit, a description or its costs, shows a gold Needs info tag in the lists. At the top of the price list, tap Needs info to see only those items, and tap All to see every item again."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "import",
+          "title": {
+            "pt": "Traga uma planilha",
+            "en": "Bring in a spreadsheet"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Comece a importação. Em Preços, toque em Importar planilha. Abre uma tela chamada Importar tabela de preços. Toque em Escolher arquivo (1) e escolha um arquivo Excel (.xlsx ou .xls) ou um arquivo CSV. Se a sua lista está no Numbers ou no Google Sheets, exporte primeiro: Arquivo, depois Exportar, depois Excel ou CSV.",
+                "en": "Start the import. In Pricing, tap Import spreadsheet. A screen called Import pricing table opens. Tap Choose file (1) and pick an Excel file (.xlsx or .xls) or a CSV file. If your list is in Numbers or Google Sheets, export it first: File, then Export, then Excel or CSV."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-01.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Só no Excel: escolha a aba e a linha do cabeçalho. Se o arquivo Excel tem mais de uma aba, o Apex pergunta qual tem a tabela de preços: escolha e toque em Continuar. Depois o Apex diz qual linha está usando como cabeçalho, por exemplo Linha de cabeçalho usada: linha 1, e pergunta Errado? Se estiver errado, digite o Número da linha do cabeçalho, toque em Usar essa linha e depois em Continuar. Este passo vem do código do aplicativo: no nosso teste usamos um arquivo CSV.",
+                "en": "Excel only: choose the sheet and the header row. If the Excel file has more than one sheet, Apex asks which one has the price list: choose it and tap Continue. Then Apex says which row it is using as the header, for example Header row used: row 1, and asks Wrong? If it is wrong, type the Header row number, tap Use this row and then Continue. This step comes from the app's code: we used a CSV file in our test."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Combine as colunas. O Apex mostra um menu para cada campo. Item (1) e Preço (2) são obrigatórios, têm uma estrela. Unidade, Categoria, Tipo (produto / adicional) e Descrição para o cliente são opcionais: escolha Não está nesta planilha se você não tem. Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex preenche um menu sozinho só quando o nome da coluna é exatamente igual. Confira todos os menus. No nosso exemplo as colunas eram Item, Category, Unit, Price, Stone e Installer.",
+                "en": "Match the columns. Apex shows a menu for each field. Item (1) and Price (2) are required, they have a star. Unit, Category, Type (product or add-on) and Customer description are optional: choose Not on this spreadsheet if you do not have them. Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu. In our example the columns were Item, Category, Unit, Price, Stone and Installer."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-03.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Diga quais colunas são custos. Em Colunas de custo (1), cada coluna que você não usou pode virar uma linha de custo. Para cada uma, escolha Material, Mão de obra ou Outros, ou escolha Ignorar para pular. Depois toque em Ver o que será importado (2). Nada foi salvo ainda.",
+                "en": "Say which columns are costs. Under Cost columns (1), every column you did not use becomes a possible cost line. For each one, choose Material, Labor or Other, or choose Ignore to skip it. Then tap Preview the import (2). Nothing is saved yet."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-04.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia a prévia e importe. A primeira linha conta os itens: por exemplo 1 a criar e 1 a atualizar. Um item com o mesmo nome de um que já está na sua lista é atualizado (2), um nome novo é criado (1). Cada linha mostra categoria, unidade, custo, venda e margem, e as linhas de custo. Uma linha sem preço ou sem nome de item é ignorada, e o Apex diz quais linhas. Uma etiqueta dourada Faltam dados quer dizer que a linha não tem categoria, unidade ou descrição. Se estiver certo, toque em Importar (3). Para mudar um menu, toque em Voltar às colunas. Neste guia a prévia foi preenchida com dados de exemplo, porque o nosso teste não conseguiu ler um arquivo.",
+                "en": "Read the preview and import. The first line counts the items: for example 1 to create and 1 to update. An item with the same name as one already in your list is updated (2), a new name is created (1). Each row shows category, unit, cost, price and margin, and the cost lines. A row without a price or without an item name is skipped, and Apex says which lines. A gold Needs info tag means the row has no category, unit or description. If it looks right, tap Import (3). To change a menu, tap Back to the columns. In this guide the preview was filled with sample data, because our test could not read a file."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-05.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Adicionar custo"
+            ],
+            "en": [
+              "+ Add cost"
+            ]
+          },
+          "section": "item",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Escolher arquivo"
+            ],
+            "en": [
+              "Choose file"
+            ]
+          },
+          "section": "import",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver o que será importado"
+            ],
+            "en": [
+              "Preview the import"
+            ]
+          },
+          "section": "import",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Voltar às colunas"
+            ],
+            "en": [
+              "Back to the columns"
+            ]
+          },
+          "section": "import",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "services-list",
+      "audience": "client",
+      "title": {
+        "pt": "Sua lista de serviços",
+        "en": "Your list of services"
+      },
+      "summary": {
+        "pt": "Edite os serviços que aparecem no lead, na página de indicação e na página de link na bio.",
+        "en": "Edit the services that show on the lead, the referral page and the link in bio page."
+      },
+      "keywords": {
+        "pt": [
+          "serviços",
+          "lista de serviços",
+          "adicionar serviço",
+          "remover serviço",
+          "serviços da página de indicação"
+        ],
+        "en": [
+          "services",
+          "service list",
+          "add service",
+          "remove service",
+          "referral page services",
+          "services checkboxes"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "services",
+          "title": {
+            "pt": "Sua lista de serviços",
+            "en": "Your list of services"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços. Uma linha curta diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço é uma linha da lista. Se a lista estiver vazia, a tela diz Vazio: este campo fica desligado.",
+                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services. A short line says these are the options on your public referral page and your link in bio page. Each service is one line in the list. If the list is empty, the screen says Empty: this field is turned off."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione, mude ou remova um serviço. Toque em + Adicionar para ter uma linha vazia nova, e digite o nome do serviço. Você muda o nome de uma linha digitando nela. Toque em × à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva. Depois role até o fim da página e toque em Salvar configurações. Nada muda até você salvar.",
+                "en": "Add, change or remove a service. Tap + Add to get a new empty line, and type the name of the service. You can change the name of a line by typing in it. Tap × at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save. Then scroll to the end of the page and tap Save settings. Nothing changes until you save."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1, 2). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (3) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um. Estas imagens são do nosso cliente de teste, cuja lista tem seis serviços.",
+                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1, 2). Tap one or more: each one you tap turns gold. Tap Save (3) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one. These pictures come from our test client, whose list has six services."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-03.pt.jpg",
+                "en": "help/img/guides/services-list/services-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "lead-fields",
+      "audience": "client",
+      "title": {
+        "pt": "Os campos de um lead",
+        "en": "The fields of a lead"
+      },
+      "summary": {
+        "pt": "Mais de um serviço, endereço e instruções de acesso, data do orçamento, financiamento, quem indicou o lead e a visão do pipeline.",
+        "en": "More than one service, address and access notes, estimate date, financing, who referred the lead, and the pipeline view."
+      },
+      "keywords": {
+        "pt": [
+          "campos do lead",
+          "serviços",
+          "instruções de acesso",
+          "código do portão",
+          "financiamento",
+          "data do orçamento",
+          "indicado por",
+          "indicação de uma indicação",
+          "mês lead",
+          "mês fechamento",
+          "ver tudo empilhado"
+        ],
+        "en": [
+          "lead fields",
+          "services",
+          "access notes",
+          "gate code",
+          "financing",
+          "estimate date",
+          "referred by",
+          "referral of a referral",
+          "lead month",
+          "closing month",
+          "view stacked"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "fields",
+          "title": {
+            "pt": "Todos os campos de um lead",
+            "en": "All the fields of a lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Preencha os dados do lead. Abra um lead (Negócio, depois Pipeline, e toque no lead) e role até Dados do lead. Serviço(s) (1) pode ter mais de um serviço: toque e marque todos os que valem (veja o guia Sua lista de serviços). Depois vêm Vendedor, Origem, Parceiro, Telefone, Email, Rua, Cidade, Estado e CEP. Instruções de acesso (2) é para dizer como entrar, por exemplo o código do portão. Toque em qualquer linha que diga Toque para preencher. O telefone e o email da imagem estão cobertos.",
+                "en": "Fill in the lead details. Open a lead (Business, then Pipeline, then tap the lead) and scroll to Lead details. Service(s) (1) can hold more than one service: tap it and tick all that apply (see the guide Your list of services). Then come Salesperson, Source, Partner, Phone, Email, Street, City, State and ZIP. Access notes (2) is for how to get in, for example a gate code. Tap any row that says Tap to fill in. The phone and email in the picture are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-01.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use os outros campos. Embaixo de Dados do lead fica a parte Outros campos. Data/hora do orçamento (1) é o dia e a hora da visita do orçamento. O que o cliente quer (2) é onde você escreve o que o seu cliente pediu. Status financiamento (3) é onde você anota se o cliente precisa de financiamento. Data/hora lead (4) é quando o lead chegou. Também há vendedor secundário (opcional), Observação do trabalho e o nome do cliente. Se você preencher Meses do ciclo em Suas listas, nas Configurações, mais duas linhas aparecem aqui: Mês lead e Mês fechamento. Com a lista vazia, elas ficam escondidas.",
+                "en": "Use the other fields. Below Lead details is a part called Other fields. Estimate date/time (1) is the day and hour of the estimate visit. What the client wants (2) is where you write what your customer asked for. Financing status (3) is where you note if the customer needs financing. Lead date/time (4) is when the lead came in. There are also a second salesperson (optional), Job notes and the customer name. If you fill in Cycle months in Your lists in Settings, two more rows appear here: Lead month and Closing month. With an empty list they stay hidden."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-02.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja quem indicou o lead. No alto da ficha do lead, a parte Indicação pode ter duas linhas. Indicado por (1) mostra o cliente ou parceiro cujo link ou recomendação trouxe este lead. Toque para abrir o lead dessa pessoa. Indicação de uma indicação (2) mostra uma etiqueta dourada, confirmar quem indicou, quando o novo lead disse que não foi essa pessoa que indicou. Toque e digite quem indicou de verdade.",
+                "en": "Read who referred the lead. At the top of the lead sheet, the part called Referral can show two rows. Referred by (1) names the customer or partner whose link or recommendation brought this lead. Tap it to open that person's lead. Referral of a referral (2) shows a gold tag, referrer to confirm, when the new lead said it was not that person who referred them. Tap it and type who really referred them."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-fields/fields-03.pt.jpg",
+                "en": "help/img/guides/lead-fields/fields-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Veja o que um cliente mandou para você. No lead de quem indicou outros, uma parte chamada Indicações mostra quantos leads essa pessoa mandou e quanto fechou, por exemplo Indicações: 3 leads · $12,000.00 fechado. Embaixo há uma linha para cada lead, com o estágio e o valor. Toque em uma linha para abrir esse lead. Este passo vem do código do aplicativo: o nosso teste não tem um lead com indicações.",
+                "en": "See what a customer sent you. On the lead of the person who referred others, a part called Referrals shows how many leads that person sent and how much of it closed, for example Referrals: 3 leads · $12,000.00 closed. Under it is one row for each lead, with its stage and value. Tap a row to open that lead. This step comes from the app's code: our test has no lead with referrals."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Mude como a lista de leads aparece. No Pipeline, um botão fica à direita, embaixo dos números. Quando ele diz Ver tudo empilhado, você está na visão por estágio: toque em um estágio para ver só os leads dele. Toque em Ver tudo empilhado para ver todos os estágios um embaixo do outro, em uma rolagem só. Nessa visão o botão diz Ver por estágio. O Apex lembra da sua escolha. Se você nunca escolher, o Apex usa a visão por estágio quando você tem muitos leads.",
+                "en": "Change how the list of leads looks. In the Pipeline, one button sits at the right under the numbers. When it says View stacked, you are in the by-stage view: tap a stage to see only its leads. Tap View stacked to see every stage one under the other in one scroll. In that view the button says View by stage. Apex remembers your choice. If you never choose, Apex picks the by-stage view when you have many leads."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "contracts-that-need-you",
+      "audience": "client",
+      "title": {
+        "pt": "Contratos que precisam de você: o aviso e os cartões do Início",
+        "en": "Contracts that need you: the warning and the Home cards"
+      },
+      "summary": {
+        "pt": "O aviso Sem contrato assinado, o cartão Projetos sem contrato assinado e o cartão Contratos aguardando a sua assinatura.",
+        "en": "The No signed contract warning, the Projects without a signed contract card and the Contracts awaiting your signature card."
+      },
+      "keywords": {
+        "pt": [
+          "sem contrato assinado",
+          "continuar sem contrato",
+          "acima de $2,500",
+          "aguardando a sua assinatura",
+          "projetos sem contrato",
+          "aviso de contrato",
+          "cartão do início"
+        ],
+        "en": [
+          "no signed contract",
+          "continue without contract",
+          "over $2,500",
+          "awaiting your signature",
+          "projects without contract",
+          "contract warning",
+          "home card"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "cards",
+          "title": {
+            "pt": "O aviso e os cartões do Início",
+            "en": "The warning and the Home cards"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia o aviso Sem contrato assinado. Quando um projeto não tem contrato assinado, o Apex mostra uma janela chamada Sem contrato assinado antes de três coisas: pôr uma foto no projeto, mudar o status do projeto para Em andamento ou Atrasada e enviar uma segunda fatura do projeto (quando outra fatura dele já foi enviada). Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Para um serviço em outro estado, o texto cita esse estado. Para um contrato de limpeza, ele diz que o projeto não tem contrato de serviço assinado. Toque em Enviar contrato (2) para ir fazer o contrato (veja o guia Enviar um contrato). Toque em Continuar sem contrato (3) para seguir sem ele: o Apex registra com o seu nome e a hora. Se você fechar a janela, a ação não é feita, e o Apex avisa.",
+                "en": "Read the No signed contract warning. When a project has no signed contract, Apex shows a window called No signed contract before three things: adding a project photo, changing the project status to In progress or Late, and sending a second invoice of the project (when another invoice of it was already sent). In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. For a job in another state, the text names that state. For a cleaning agreement, it says the project has no signed service agreement. Tap Send contract (2) to go and make the contract (see the guide Send a contract). Tap Continue without contract (3) to go on without one: Apex logs it with your name and the time. If you close the window, the action is not done, and Apex tells you so."
+              },
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-01.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O vendedor vê uma janela diferente. O vendedor não pode continuar sozinho. A janela diz para avisar o dono, e oferece os botões Mensagem de texto e WhatsApp, que abrem uma mensagem com palavras fixas. Se o dono não tem telefone salvo, a mensagem abre sem número. Este passo vem do código do aplicativo.",
+                "en": "A salesperson sees a different window. A salesperson cannot continue alone. The window says to tell the owner, and offers Text message and WhatsApp buttons that open a message with fixed words. If the owner has no phone number saved, the message opens without a number. This step comes from the app's code."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Ache os projetos sem contrato assinado. Depois do aviso, o Apex guarda uma pendência. Na aba Início, um cartão chamado Projetos sem contrato assinado mostra um número. Cada linha tem o nome do projeto, o valor, e quando a pendência foi aberta e por quem. Toque em Enviar contrato para ir ao projeto e fazer o contrato. Se o projeto não veio de um lead com orçamento aceito, a linha diz isso, porque o contrato é montado a partir do orçamento. Toque em Continuar sem contrato para seguir sem ele: fica registrado com o seu nome e a hora. Este passo vem do código do aplicativo: o nosso cliente de teste não tem pendência aberta.",
+                "en": "Find the projects without a signed contract. After the warning, Apex keeps a notice. On the Home tab, a card called Projects without a signed contract shows a number. Each row has the project name, the value, and when the notice was opened and by whom. Tap Send contract to go to the project and make the contract. If the project did not come from a lead with an accepted estimate, the row says so instead, because the contract is built from the estimate. Tap Continue without contract to go on without one: it is logged with your name and time. This step comes from the app's code: our test client has no notice open."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ache os contratos esperando uma assinatura. Um cartão chamado Contratos aguardando a sua assinatura lista os contratos que alguém pediu para você assinar pela empresa (veja o guia Pedir a assinatura de outra pessoa). Cada linha tem o número do contrato, o projeto e quando foi encaminhado a você. Toque em uma linha para abrir o contrato e assinar. Como dono, você também vê um segundo cartão, Contratos aguardando assinatura de outra pessoa, em que cada linha diz Aguardando assinatura de e o nome da pessoa. Um vendedor que foi chamado para assinar vê este cartão no alto do Pipeline e dos Projetos. Este passo vem do código do aplicativo: o nosso cliente de teste não tem contrato esperando.",
+                "en": "Find the contracts waiting for a signature. A card called Contracts awaiting your signature lists the contracts that someone asked you to sign for the company (see the guide Ask another person to sign for the company). Each row has the contract number, the project and when it was sent to you. Tap a row to open the contract and sign it. As the owner, you also see a second card, Contracts awaiting someone else's signature, where each row says Awaiting the signature of the person's name. A salesperson who was asked to sign sees this card at the top of the Pipeline and of the Projects. This step comes from the app's code: our test client has no contract waiting."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Continuar sem contrato"
+            ],
+            "en": [
+              "Continue without contract"
+            ]
+          },
+          "section": "cards",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "contract-price-values-and-clauses",
+      "audience": "client",
+      "title": {
+        "pt": "Contrato: preço, perguntas, valores e cláusulas",
+        "en": "Contract: price, questions, values and clauses"
+      },
+      "summary": {
+        "pt": "Mude o preço depois de um novo acordo, veja de onde veio cada valor, troque uma cláusula e escreva a sua própria cláusula com revisão do advogado.",
+        "en": "Change the price after a new deal, check where each value came from, switch a clause, and write your own clause with attorney review."
+      },
+      "keywords": {
+        "pt": [
+          "preço negociado",
+          "preço do contrato",
+          "mudar valor",
+          "cláusula própria",
+          "revisão do advogado",
+          "cláusula",
+          "perguntas do contrato",
+          "homestead",
+          "origem do valor",
+          "escrever cláusula"
+        ],
+        "en": [
+          "negotiated price",
+          "contract price",
+          "override value",
+          "custom clause",
+          "attorney review",
+          "clause",
+          "contract questions",
+          "homestead",
+          "source of value",
+          "write your own clause"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "price",
+          "title": {
+            "pt": "O preço e as perguntas",
+            "en": "The price and the questions"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Mude o preço do contrato se você renegociou. Abra o contrato enquanto ainda é rascunho (Negócio, depois Contratos, e toque nele). O Preço do contrato ($) (1) começa com o preço do orçamento aceito. A linha embaixo diz Preço do orçamento e avisa para mudar só se você renegociou depois do orçamento. As parcelas seguem este preço. Digite o preço novo e toque em Salvar preço (2). O Valor atual, no alto, mostra o preço em uso. Depois que os dois lados assinam, o preço não muda mais: faça um aditivo (veja o guia Enviar um aditivo).",
+                "en": "Change the contract price if you renegotiated. Open the contract while it is still a draft (Business, then Contracts, then tap it). Contract price ($) (1) starts with the price of the accepted estimate. The line under it says Estimate price and tells you to change it only if you renegotiated after the estimate. The payment schedule follows this price. Type the new price and tap Save price (2). Current amount at the top shows the price in use. After both sides sign, the price no longer changes: add a change order (see the guide Send a change order)."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Responda às perguntas sobre este contrato. Na parte chamada Este contrato (1), toque em Sim ou Não em Vendido durante uma visita à casa do cliente? Dependendo do estado, vêm mais perguntas: o imóvel é o homestead do cliente (a casa própria onde ele mora), o cliente é casado, subempreiteiros ou fornecedores vão participar do serviço, e a venda foi feita em inglês. Algumas têm Não sei. Depois escolha o Estado onde o serviço será feito. O Apex sugere pelo endereço da obra ou pelo estado da sua empresa, e mostra o aviso Confira o estado até você escolher na lista. Tipo do imóvel, Obra de piscina e Proposta válida até vêm em seguida. Uma nota dá o prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar. Sábado conta, domingo e feriados federais não. O Apex calcula quando o cliente assina.",
+                "en": "Answer the questions about this contract. In the part called This contract (1), tap Yes or No for Sold during a visit to the customer's home? Depending on the state, more questions follow: is this the customer's homestead (the home they own and live in), is the customer married, will subcontractors or suppliers work on the job, and was the sale made in English. Some have Not sure. Then choose the State where the work is done. Apex suggests it from the job address or from your company's state, and shows a warning, Check the state, until you pick it from the list. Property type, Pool job and Offer valid until come next. A note gives the cancellation deadline: midnight of the 3rd business day after the customer signs. Saturday counts, Sunday and federal holidays do not. Apex calculates it when the customer signs."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/price-02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/price-02.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "values",
+          "title": {
+            "pt": "Cada valor e a sua origem",
+            "en": "Every value and its source"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Veja de onde veio cada valor. A parte chamada Dados deste contrato (toque para mudar só neste contrato) lista cada valor que entra no contrato. A linha pequena embaixo do valor diz de onde ele veio: das configurações, do lead, do orçamento, calculado, ou deste contrato. Os códigos depois, por exemplo L4 ou C01-A, são as áreas de cláusula que usam o valor. Toque em uma linha para mudar aquele valor só neste contrato. A mudança não mexe nas suas configurações. Deixe a caixa em branco para voltar ao valor original. Um valor que foi mudado diz que substitui o valor das configurações. Uma linha que diz Toque para preencher (2) está vazia, e o contrato pede esse dado. O número da licença, o qualificador e o telefone da imagem estão cobertos.",
+                "en": "See where each value came from. The part called This contract's details (tap to change for this contract only) lists every value that goes into the contract. The small line under a value says where it came from: from the settings, from the lead, from the estimate, calculated, or this contract. The codes after it, for example L4 or C01-A, name the clause areas that use that value. Tap a row to change that value for this contract only. The change does not touch your settings. Leave the box blank to go back to the original value. A value that was changed says it overrides the value from the settings. A row that says Tap to fill in (2) is empty, and the contract asks for it. The license number, the qualifier and the phone in the picture are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-01.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "clauses",
+          "title": {
+            "pt": "Cláusulas e a sua própria cláusula",
+            "en": "Clauses and your own clause"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha uma cláusula para uma área. Na parte chamada Cláusulas (padrão das configurações; troque só neste contrato), cada área tem um menu (1), por exemplo C01 Partes, imóvel e descrição da obra. O menu começa com a opção que você escolheu nas configurações do contrato (veja o guia Configure o seu contrato uma vez). Escolha outra opção para usá-la só neste contrato. O texto embaixo do menu explica a opção em palavras simples. Embaixo dele, Escrever cláusula própria nesta área (2) serve para uma cláusula sua. Uma nota pode dizer que uma regra do estado vale, por exemplo que no Texas uma opção é impressa sem o texto da Flórida. Ver como o cliente mostra o resultado.",
+                "en": "Choose a clause for one area. In the part called Clauses (defaults from settings; switch for this contract only), each area has a menu (1), for example C01 Parties, property and project description. The menu starts with the option you chose in your contract settings (see the guide Set up your contract once). Pick another option to use it in this contract only. The text under the menu explains the option in plain words. Under it, Write a custom clause for this area (2) is for a clause of your own. A note can say that a state rule applies, for example that in Texas an option is printed without its Florida wording. Preview as customer shows the result."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-01.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escreva a sua própria cláusula. Toque em Escrever cláusula própria nesta área. Um aviso vermelho (1) diz que este contrato vai dizer que a cláusula personalizada não foi revisada por advogado e deixa de trazer a linha revisado por, e que a Apex será avisada. Digite a cláusula em inglês, do jeito que vai no contrato, na caixa (2). Marque Entendi o aviso acima e toque em Salvar cláusula. O Apex responde Cláusula salva; a Apex foi avisada. Cancelar volta e não salva nada.",
+                "en": "Write your own clause. Tap Write a custom clause for this area. A red warning (1) says that this contract will say the custom clause was not reviewed by an attorney and will drop the reviewed by line, and that Apex will be notified. Type the clause in English, the way it goes in the contract, in the box (2). Tick I understand the warning above and tap Save clause. Apex answers Clause saved; Apex was notified. Cancel goes back and saves nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Registre a revisão do seu advogado. Depois de salvar uma cláusula própria, ela mostra uma etiqueta dourada, aguardando o seu advogado. Dois botões ficam embaixo: Baixar PDF para o seu advogado dá uma página com a cláusula para entregar, e Registrar revisão do advogado abre esta tela. Escolha a Decisão (1): Aprovada, Aprovada com edições ou Não aprovada. Com Aprovada com edições, uma caixa aparece para o texto revisado pelo advogado, e esse texto passa a ser o texto usado. Digite o Nome do advogado (2), o Florida Bar # (3) e a Data da revisão (4). Toque em Salvar revisão. Uma cláusula aprovada fica salva palavra por palavra na sua biblioteca privada. Este passo vem do código do aplicativo: o nosso contrato de teste não tem cláusula própria, então a imagem abre a tela com a própria função do aplicativo.",
+                "en": "Record your attorney's review. After you save a custom clause, it shows a gold tag, awaiting your attorney. Two buttons sit under it: Download PDF for your attorney gives a page with the clause to hand over, and Record attorney review opens this sheet. Choose the Decision (1): Approved, Approved with edits or Not approved. With Approved with edits, a box appears for the attorney's revised text, and that text becomes the text used. Type the Attorney name (2), the Florida Bar # (3) and the Review date (4). Tap Save review. An approved clause is saved word for word in your private library. This step comes from the app's code: our test contract has no custom clause, so the picture opens the sheet with the app's own function."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-03.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Salvar preço"
+            ],
+            "en": [
+              "Save price"
+            ]
+          },
+          "section": "price",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Escrever cláusula própria nesta área"
+            ],
+            "en": [
+              "Write a custom clause for this area"
+            ]
+          },
+          "section": "clauses",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar cláusula"
+            ],
+            "en": [
+              "Save clause"
+            ]
+          },
+          "section": "clauses",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Registrar revisão do advogado"
+            ],
+            "en": [
+              "Record attorney review"
+            ]
+          },
+          "section": "clauses",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Baixar PDF para o seu advogado"
+            ],
+            "en": [
+              "Download PDF for your attorney"
+            ]
+          },
+          "section": "clauses",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar revisão"
+            ],
+            "en": [
+              "Save review"
+            ]
+          },
+          "section": "clauses",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "contract-other-states",
+      "audience": "client",
+      "title": {
+        "pt": "Contrato fora da Flórida: a lista Antes de enviar e as perguntas do estado",
+        "en": "Contract outside Florida: the Before you send list and state questions"
+      },
+      "summary": {
+        "pt": "Escolha o estado, marque as linhas de Antes de enviar e responda às perguntas Sim, Não e Não sei.",
+        "en": "Choose the state, tick the Before you send lines, and answer the Yes, No and Not sure questions."
+      },
+      "keywords": {
+        "pt": [
+          "antes de enviar",
+          "lista",
+          "estado",
+          "texas",
+          "fora da flórida",
+          "outro estado",
+          "perguntas do estado",
+          "sim não não sei",
+          "homestead",
+          "avisos por regra"
+        ],
+        "en": [
+          "before you send",
+          "checklist",
+          "state",
+          "texas",
+          "not florida",
+          "other state",
+          "state questions",
+          "yes no not sure",
+          "homestead",
+          "notices by rule"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "state",
+          "title": {
+            "pt": "Contrato para um serviço fora da Flórida",
+            "en": "A contract for a job outside Florida"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha o estado do serviço. Em um rascunho de contrato, em Este contrato (1), escolha Estado onde o serviço será feito. O Apex sugere o estado pelo endereço da obra ou pelo estado da sua empresa. Até você escolher na lista, um aviso diz Confira o estado. Quando o estado não é a Flórida, o contrato muda: as perguntas são as que aquele estado pede (a imagem mostra o Texas), e a parte chamada Avisos inseridos por regra lista cada aviso com entra ou não entra e o motivo. Você não pode editar esses avisos. Eles entram ou não por regra.",
+                "en": "Choose the state of the job. In a contract draft, under This contract (1), choose State where the work is done. Apex suggests the state from the job address or from your company's state. Until you pick it from the list, a warning says Check the state. When the state is not Florida, the contract changes: the questions are the ones that state needs (the picture shows Texas), and the part called Notices inserted by rule lists each notice with in or out and the reason. You cannot edit those notices. They are in or out by rule."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-01.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use a lista Antes de enviar. Para um serviço fora da Flórida, uma parte chamada Antes de enviar (1) aparece, por exemplo Antes de enviar: Texas (3 de 11 feitos). Cada linha é algo a fazer ou conferir, com uma caixa e a lei de onde vem, em azul (3). Toque no texto azul para abrir a explicação completa e o link Abrir o texto oficial. Quando você fez a coisa, marque a caixa (2). O Apex guarda quem marcou e quando. Uma linha com Feito pelo sistema marca sozinha, e você não pode marcar nem desmarcar. As palavras ao lado do título dizem que nada aqui impede o envio: a lista é um registro para o seu negócio, e nunca bloqueia o contrato. No fim, Mais sobre o estado é uma linha fechada com o resto do que a pesquisa achou. Os dados legais vêm de uma pesquisa e nenhum advogado revisou. O nome de quem marcou está coberto na imagem.",
+                "en": "Use the Before you send list. For a job outside Florida, a part called Before you send (1) shows, for example Before you send: Texas (3 of 11 done). Each line is something to do or to check, with a box and the law it comes from in blue (3). Tap the blue text to open the full explanation, and the link Open the official source. When you did the thing, tick the box (2). Apex saves who ticked it and when. A line marked Done by the system ticks itself, and you cannot tick or untick it. The words next to the title say nothing here stops you from sending: the list is a record for your business, and it never blocks the contract. At the end, More about the state is a closed line with the rest of what the research found. The legal facts come from research on file, and no lawyer has reviewed them. The name of the person who ticked is covered in the picture."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-other-states/state-02.pt.jpg",
+                "en": "help/img/guides/contract-other-states/state-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda às perguntas do estado. Algumas linhas da lista dependem de um fato. O Apex pergunta em Este contrato, com três botões: Sim, Não ou Não sei. Um fato que o seu projeto já registra mostra a resposta e as palavras O projeto já registra isto, e não é perguntado. Alguns formulários de estado também pedem um valor que o Apex não guarda, por exemplo um nome ou um número. O Apex pergunta uma vez, em uma caixa, e depois preenche o espaço sozinho. Uma linha sem resposta diz Sem resposta. As perguntas Sim, Não e Não sei estão na imagem do primeiro passo. As caixas de valores do formulário do estado vêm do código do aplicativo: o nosso contrato de teste não mostrou nenhuma.",
+                "en": "Answer the state questions. Some lines of the list depend on a fact. Apex asks it in This contract with three buttons: Yes, No or Not sure. A fact your project already records shows its answer and the words The project already records this, and is not asked. A few state forms also need a value that Apex does not keep, for example a name or a number. Apex asks for it once, in a box, and then fills the blank by itself. A line without an answer says Not answered. The Yes, No and Not sure questions are in the picture of the first step. The boxes for state form values come from the app's code: our test contract did not show one."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "own-contract-upload",
+      "audience": "client",
+      "title": {
+        "pt": "Use o seu próprio contrato",
+        "en": "Use your own contract"
+      },
+      "summary": {
+        "pt": "Envie o seu contrato em PDF, diga se um advogado revisou, leia o que o Apex achou e confirme.",
+        "en": "Upload your contract as a PDF, say if a lawyer reviewed it, read what Apex found and confirm."
+      },
+      "keywords": {
+        "pt": [
+          "meu próprio contrato",
+          "enviar contrato",
+          "contrato em pdf",
+          "advogado revisou",
+          "confirmar que corresponde"
+        ],
+        "en": [
+          "own contract",
+          "my own contract",
+          "upload contract",
+          "pdf contract",
+          "lawyer reviewed",
+          "confirm it matches"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "upload",
+          "title": {
+            "pt": "Use o seu próprio contrato",
+            "en": "Use your own contract"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha Meu próprio contrato. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Contrato, depois Origem do contrato. Há dois botões: Modelo padrão Apex e Meu próprio contrato. Toque em Meu próprio contrato. Uma linha explica que a Apex converte o seu contrato uma vez em um modelo limpo, e que o texto nunca é editado aqui. Outra linha diz que um sistema de inteligência artificial (Claude, da Anthropic) lê o arquivo para organizar as cláusulas, e que você revisa o resultado e confirma que ele corresponde ao seu contrato original.",
+                "en": "Choose My own contract. Tap Business, then Estimates, then Settings, and scroll to Contract, then Contract source. There are two buttons: Apex standard template and My own contract. Tap My own contract. A line explains that Apex converts your own contract once into a clean template, and that the text is never edited here. Another line says an artificial intelligence system (Claude, by Anthropic) reads the file to organize the clauses, and that you review the result and confirm it matches your original contract."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Diga se um advogado revisou, depois envie o PDF. Primeiro responda Um advogado já revisou este contrato? com Sim ou Não (1). O botão de envio fica desligado, e uma nota diz Responda a pergunta acima primeiro, até você responder. Depois toque em Enviar PDF do meu contrato (2) e escolha um arquivo PDF. O limite é 10 MB. Enquanto o Apex lê, o botão diz Enviando e uma linha diz Lendo o contrato. O nosso teste não enviou um arquivo novo. A imagem mostra um contrato que já tinha sido enviado ao cliente de teste.",
+                "en": "Say if a lawyer reviewed it, then upload the PDF. First answer Has a lawyer reviewed this contract? with Yes or No (1). The upload button stays off, and a note says Answer the question above first, until you answer. Then tap Upload my contract PDF (2) and pick a PDF file. The limit is 10 MB. While Apex reads it, the button says Uploading and a line says Reading the contract. Our test did not upload a new file. The picture shows a contract that was already uploaded to the test client."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-02.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Leia o resultado. Embaixo do botão você vê o nome do arquivo, o número de páginas e Revisado por advogado: sim ou não. Depois vem um bloco para cada área de um contrato, por exemplo Scope of work and exclusions ou Contract price. Ele mostra o texto que o Apex achou no seu arquivo para aquela área, ou Não encontrado em vermelho quando o seu arquivo não tem nada para ela. Uma parte chamada Cláusulas sem área correspondente lista o texto que não coube em nenhuma área. Confira se cada bloco corresponde ao seu contrato original.",
+                "en": "Read the result. Under the button you see the file name, the number of pages, and Reviewed by a lawyer: yes or no. Then comes one block for each area of a contract, for example Scope of work and exclusions or Contract price. It shows the text Apex found in your file for that area, or Not found in red when your file has nothing for it. A part called Clauses with no matching area lists text that did not fit any area. Check that each block matches your original contract."
+              },
+              "image": {
+                "pt": "help/img/guides/own-contract-upload/upload-03.pt.jpg",
+                "en": "help/img/guides/own-contract-upload/upload-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Confirme que corresponde. Enquanto o arquivo espera, uma etiqueta diz Aguardando a sua confirmação e um botão diz Confirmar que corresponde ao meu contrato. Toque nele quando tiver conferido todos os blocos. A etiqueta passa a dizer Confirmado por você (3 na imagem). Você pode enviar outro arquivo quando quiser. Este passo vem do código do aplicativo, e a etiqueta Confirmado por você é a que aparece na imagem.",
+                "en": "Confirm it matches. While the file is waiting, a tag says Waiting for your confirmation and a button reads Confirm it matches my contract. Tap it when you checked every block. The tag then says Confirmed by you (3 in the picture). You can upload another file at any time. This step comes from the app's code, and the tag Confirmed by you is the one in the picture."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar PDF do meu contrato"
+            ],
+            "en": [
+              "Upload my contract PDF"
+            ]
+          },
+          "section": "upload",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Confirmar que corresponde ao meu contrato"
+            ],
+            "en": [
+              "Confirm it matches my contract"
+            ]
+          },
+          "section": "upload",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "id": "cleaning-agreement",
+      "audience": "client",
+      "title": {
+        "pt": "Contrato de serviço de limpeza",
+        "en": "Cleaning service agreement"
+      },
+      "summary": {
+        "pt": "Ligue o ofício de limpeza, preencha o registro de seguro e triagem, crie o contrato e leia os avisos.",
+        "en": "Switch on the cleaning trade, fill in your insurance and screening record, create the agreement and read its notices."
+      },
+      "keywords": {
+        "pt": [
+          "limpeza",
+          "contrato de limpeza",
+          "contrato de serviço de limpeza",
+          "modelo de limpeza",
+          "seguro fiança triagem",
+          "limpeza recorrente"
+        ],
+        "en": [
+          "cleaning",
+          "cleaning agreement",
+          "cleaning contract",
+          "house cleaning",
+          "cleaning template",
+          "insurance bonded screened",
+          "recurring cleaning"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "cleaning",
+          "title": {
+            "pt": "Um contrato de serviço de limpeza",
+            "en": "A cleaning service agreement"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ligue o ofício de limpeza. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Contrato. Em Ofícios da empresa, toque em Limpeza para ficar selecionado. Você pode selecionar Limpeza e o ofício de construção juntos. Contratos de limpeza só aparecem para um negócio que tem Limpeza selecionado aqui e que tem a biblioteca de cláusulas de limpeza carregada pela Apex. Se você não os vê, esta é a primeira coisa a conferir. Este guia vem do código do aplicativo, porque o nosso cliente de teste não faz limpeza.",
+                "en": "Switch on the cleaning trade. Tap Business, then Estimates, then Settings, and scroll to Contract. Under Trades the business does, tap Cleaning so it is selected. You can select Cleaning and the construction trade together. Cleaning agreements only show for a business that has Cleaning selected here and has the cleaning clause library loaded by Apex. If you do not see them, this is the first thing to check. This guide comes from the app's code, because our test client does not do cleaning."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Preencha o que a sua empresa pode dizer sobre si mesma. Com Limpeza selecionado, as configurações do Contrato mostram uma parte chamada Limpeza: o que o contrato pode dizer sobre a empresa. O contrato diz que a sua empresa tem seguro, fiança ou triagem só enquanto o registro aqui estiver em dia. Marque Tenho um certificado de seguro válido em arquivo e ponha a validade. Ponha um resumo do seguro, como está no certificado. Marque O certificado mostra os limites de cobertura, Tenho apólice ou isenção de workers' compensation em arquivo (com a validade) e Tenho um documento de fiança (bond) em arquivo. Descreva a triagem da sua equipe, por exemplo identity check e criminal background check, e marque que ela foi feita para as pessoas que vão atender. Embaixo, Limpeza: valores fixos da empresa tem caixas para os seus números padrão, por exemplo o aviso de cancelamento grátis em horas e a taxa de cancelamento tardio. O que ficar em branco é perguntado em cada contrato. Toque em Salvar contrato quando terminar.",
+                "en": "Fill in what your company can say about itself. With Cleaning selected, the Contract settings show a part called Cleaning: what the agreement may say about your company. The agreement says your company is insured, bonded or screened only while the record here is current. Tick I have a current certificate of insurance on file and set its expiry date. Add an insurance summary, as the certificate shows it. Tick The certificate shows the coverage limits, I have a workers' compensation policy or exemption on file (with its expiry date) and I have a bond document on file. Describe the screening of your staff, for example identity check and criminal background check, and tick that it was completed for the people who will be assigned. Below, Cleaning: your standard values has boxes for your standard numbers, for example the free cancellation notice in hours and the late cancellation fee. What you leave blank is asked on each contract. Tap Save contract settings when you finish."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Crie o contrato. No projeto, toque em Criar contrato a partir do orçamento aceito. Uma janela chamada Criar contrato abre. Se o seu negócio faz os dois tipos de serviço, primeiro escolha Que tipo de contrato é este?: Contrato de obra ou Contrato de serviço de limpeza. Para um contrato de limpeza, escolha o Modelo do contrato de limpeza (obrigatório): Residencial recorrente, Limpeza única ou de mudança, Temporada (turnover de aluguel curto) ou Escritório pequeno. Se o lead tem mais de um orçamento aceito, marque os que entram neste contrato. Toque em Criar contrato.",
+                "en": "Create the agreement. On the project, tap Create contract from the accepted estimate. A window called Create contract opens. If your business does both kinds of work, first choose What kind of contract is this?: Construction contract or Cleaning service agreement. For a cleaning agreement, choose the Cleaning agreement template (required): Residential recurring, One-time or move-out, Short-term-rental turnover or Small commercial office. If the lead has more than one accepted estimate, tick the ones this contract includes. Tap Create contract."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Responda às perguntas do contrato. No contrato, a parte chamada Este contrato tem as perguntas que o modelo precisa. Elas dependem do modelo. Exemplos: O cliente é uma pessoa comprando para uso pessoal, familiar ou doméstico? Vendido durante uma visita à casa do cliente? O contrato também promete outras visitas depois desta? O prazo inicial é de 12 meses ou mais? É limpeza pós-obra ou para uma construtora? O imóvel tem mais de um uso? A empresa está registrada para recolher o imposto sobre vendas da Flórida? Como o contrato chama quem paga. Marque Eu disse ao cliente em voz alta que ele pode cancelar em até três dias úteis quando valer. Se o cliente agendou online, uma parte chamada Do agendamento online mostra as respostas já dadas. O Tipo de contrato e o modelo podem mudar até a empresa assinar. Trocar o tipo recomeça as cláusulas.",
+                "en": "Answer the questions of the agreement. In the contract, the part called This contract has the questions the template needs. They depend on the template. Examples: Is the customer an individual buying for personal, family or household use? Was this sold during a visit to the customer's home? Does the agreement also promise more visits after this one? Is the initial term 12 months or more? Is this a post-construction or builder clean? Does the property have more than one use? Is the company registered to collect Florida sales tax? What the agreement calls the paying party. Tick I told the customer out loud that they may cancel within three business days when it applies. If the customer booked online, a part called From the online booking shows the answers already given. The Kind of contract and the template can change until the company signs. Changing the kind starts the clauses over."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia os avisos de limpeza. A parte chamada Avisos de limpeza inseridos por regra lista sete avisos, LC1 a LC7, cada um marcado como entra ou não entra, com o motivo. São, por exemplo, o aviso de cancelamento de serviços contínuos, o aviso e o formulário de cancelamento em três dias, a declaração de venda em domicílio da Flórida, o painel de renovação automática e o seu lembrete, a frase de imposto sobre vendas, e a regra sobre seguro, fiança e triagem. Você não pode editá-los. Eles entram ou não por regra, de acordo com as suas respostas. Avisos de construção não fazem parte de um contrato de limpeza.",
+                "en": "Read the cleaning notices. The part called Cleaning notices inserted by rule lists seven notices, LC1 to LC7, each marked in or out, with the reason. They are, for example, the continuing-services cancellation notice, the three-day cancellation notice and form, the Florida home solicitation statement, the automatic renewal panel and its reminder, the sales tax sentence, and the insurance, bonding and screening rule. You cannot edit them. They are in or out by rule, according to your answers. Construction notices are not part of a cleaning agreement."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -12211,7 +13720,13 @@
         "link-in-bio-page",
         "contract-settings",
         "cover-image",
-        "turn-customer-link-off"
+        "turn-customer-link-off",
+        "estimate-line-details",
+        "estimate-three-options",
+        "customer-answers-to-estimates",
+        "services-list",
+        "own-contract-upload",
+        "cleaning-agreement"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",
@@ -12282,7 +13797,12 @@
         "contact-card",
         "link-in-bio-page",
         "lead-salesperson-and-filter",
-        "what-a-referred-person-sees"
+        "what-a-referred-person-sees",
+        "estimate-line-details",
+        "estimate-three-options",
+        "customer-answers-to-estimates",
+        "services-list",
+        "lead-fields"
       ],
       "overview": {
         "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",
@@ -12300,7 +13820,11 @@
         "contracts-tab",
         "contract-settings",
         "ask-another-signer",
-        "turn-customer-link-off"
+        "turn-customer-link-off",
+        "contracts-that-need-you",
+        "contract-price-values-and-clauses",
+        "contract-other-states",
+        "cleaning-agreement"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",
@@ -12322,7 +13846,10 @@
         "project-from-scratch",
         "punch-list-and-completion",
         "liens-and-final-affidavit",
-        "job-notes"
+        "job-notes",
+        "contracts-that-need-you",
+        "contract-price-values-and-clauses",
+        "contract-other-states"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",
@@ -12335,7 +13862,8 @@
         "en": "Pricing"
       },
       "guides": [
-        "pricing-setup"
+        "pricing-setup",
+        "pricing-item-and-import"
       ],
       "overview": {
         "pt": "Aqui você vê quanto cada item custa contra o que você cobra, com a margem. Você pode adicionar um item ou importar uma planilha.",

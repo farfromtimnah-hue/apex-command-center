@@ -7806,6 +7806,632 @@
           "step": 3
         }
       ]
+    },
+    {
+      "id": "admin-clients-roster",
+      "audience": "admin",
+      "title": {
+        "pt": "Clientes: ver a lista, abrir e cadastrar um cliente ou lead",
+        "en": "Clients: see the list, open and add a client or lead"
+      },
+      "summary": {
+        "pt": "Veja os clientes, cadastre um novo e abra o registro dele.",
+        "en": "See your clients, add a new one and open its record."
+      },
+      "keywords": {
+        "pt": [
+          "clientes",
+          "cliente",
+          "lead",
+          "novo cliente",
+          "cadastrar",
+          "adicionar cliente",
+          "arquivar",
+          "arquivados",
+          "clientes a revisar",
+          "lista"
+        ],
+        "en": [
+          "clients",
+          "client",
+          "lead",
+          "new client",
+          "add client",
+          "register",
+          "archive",
+          "archived",
+          "clients to review",
+          "list"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "roster",
+          "title": {
+            "pt": "A lista de clientes",
+            "en": "The client list"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. A página Clientes é a lista de todos os clientes e leads da Apex. Alice e Rafa usam para cadastrar um cliente, encontrar alguém, abrir o registro e arquivar quem saiu. Abra Clientes no menu da esquerda.",
+                "en": "What it is. The Clients page is the roster of every client and lead of Apex. Alice and Rafa use it to add a client, find one, open the client record and archive someone who left. Open Clients in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja primeiro Clientes a revisar. Esta caixa mostra clientes marcados como ativos, mas sem termos, faturas, sessões ou avaliações. Alguns podem ser leads cadastrados como clientes por engano. É só uma lista: toque em Abrir na linha para corrigir esse cliente.",
+                "en": "Look at Clients to review first. This box lists clients marked as active that have no terms, invoices, sessions or assessments. Some may be leads added as clients by mistake. It is a list only: tap Open on a line to go and fix that client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-02.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Encontre o grupo certo. 1. + Novo Cliente cadastra uma pessoa. 2. Ver arquivados mostra os clientes que você arquivou antes. 3. As abas dividem a lista: Leads, Ativos, Consolidados e Parceiros. 4. Arquivar tira um cliente da lista. Toque no nome do cliente para abrir o registro.",
+                "en": "Find the right group. 1. + Novo Cliente (Add New Client) adds someone. 2. Ver arquivados (Show archived) shows the clients you archived before. 3. The tabs split the list: Leads, Ativos (Active), Consolidados (Consolidated) and Parceiros (Partners). 4. Arquivar (Archive) takes a client off the list. Tap a client name to open the record."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-03.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Cadastre um cliente ou lead. Toque em + Novo Cliente e preencha. 1. Nome da empresa: o único campo obrigatório. 2. Pacote, se o cliente já tem um. 3. O status: Lead para quem ainda é prospecto. 4. O nome, o cargo, o WhatsApp e o email do contato principal. Dá para adicionar um segundo contato. 5. Toque em Salvar Cliente.",
+                "en": "Add a client or lead. Tap + Novo Cliente and fill in. 1. Nome da empresa (Company name): the only required field. 2. Pacote (Package), if the client already has one. 3. The status: Lead for a prospect. 4. The main contact name, role, WhatsApp and email. You can add a second contact. 5. Tap Salvar Cliente (Save Client)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-clients-roster/roster-04.pt.jpg",
+                "en": "help/img/guides/admin-clients-roster/roster-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Arquive com cuidado. Arquivar esconde o cliente das listas, mas guarda todos os registros. Use Ver arquivados para encontrar o cliente de novo. Nunca arquive o cliente de teste.",
+                "en": "Archive with care. Arquivar hides a client from the lists but keeps all the records. Use Ver arquivados to find the client again. Never archive the testing client."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Novo Cliente"
+            ],
+            "en": [
+              "+ Add New Client",
+              "+ New Client"
+            ]
+          },
+          "section": "roster",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver arquivados"
+            ],
+            "en": [
+              "Show archived"
+            ]
+          },
+          "section": "roster",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "admin-client-record",
+      "audience": "admin",
+      "title": {
+        "pt": "O registro de um cliente: contatos, notas, acesso ao portal e abas",
+        "en": "A client record: contacts, notes, portal access and tabs"
+      },
+      "summary": {
+        "pt": "Abra um cliente e use as abas, os contatos, as notas e o acesso ao portal.",
+        "en": "Open a client and use the tabs, contacts, notes and portal access."
+      },
+      "keywords": {
+        "pt": [
+          "cliente",
+          "registro do cliente",
+          "portal do cliente",
+          "redefinir senha",
+          "enviar login",
+          "link do app",
+          "contato",
+          "nota",
+          "logo",
+          "abas",
+          "preparação da reunião",
+          "ver portal"
+        ],
+        "en": [
+          "client",
+          "client record",
+          "client portal",
+          "reset password",
+          "send login",
+          "app link",
+          "contact",
+          "note",
+          "logo",
+          "tabs",
+          "meeting prep",
+          "view portal"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "open",
+          "title": {
+            "pt": "Abrir o registro e conhecer a tela",
+            "en": "Open the record and know the screen"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Cada cliente tem um registro com tudo sobre ele. Abra pela página Clientes: toque no nome do cliente na lista. Use este guia para se orientar na tela.",
+                "en": "What it is. Each client has one record with everything about them. Open it from Clients: tap the client name in the list. Use this guide to find your way around."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O topo do registro. 1. As setas vão para o cliente anterior ou o próximo, e o nome fica entre elas. 2. As duas etiquetas mostram o pacote (Sprint, por exemplo) e o status. O lápis ao lado de cada uma edita. 3. Preparação da reunião abre a página da próxima reunião com este cliente. 4. As abas: Visão geral, Financeiro, Trabalho Apex, Resultados e Ferramentas do cliente. Cada aba abre um pequeno menu de seções.",
+                "en": "The top of the record. 1. The arrows move to the previous or next client, and the name sits between them. 2. The two pills show the package (Sprint, for example) and the status. The pencil next to each one edits it. 3. Meeting prep opens the page for the next meeting with this client. 4. The tabs: Overview, Money, Apex work, Results and Client tools. Each tab opens a small menu of sections."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O cartão Visão geral. 1. Alterar Logo envia o logo do cliente. Os dados da empresa aparecem abaixo. 2. Contatos: toque em + Adicionar para incluir uma pessoa com nome, cargo, WhatsApp e email. 3. Notas: toque em + Adicionar Nota e escreva o que todos precisam lembrar.",
+                "en": "The Overview card. 1. Change Logo uploads the client logo. The business facts are listed below it. 2. Contacts: tap + Add to add a person with name, role, WhatsApp and email. 3. Notes: tap + Add Note and write what you want everyone to remember."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-03.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-03.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "portal",
+          "title": {
+            "pt": "Acesso do cliente ao portal",
+            "en": "The client's access to the portal"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Acesso ao portal. O cartão Portal do Cliente mostra o nome de login (escondido aqui), se há senha definida e o último acesso. 1. Ver portal do cliente abre o portal exatamente como o cliente vê. É só para ler: você não consegue mudar nada lá. 2. Redefinir Senha cria uma nova senha temporária. 3. Enviar link do app envia o link para instalar o app. 4. Enviar novo login (link) envia ao cliente um novo link de acesso pelo WhatsApp. Os botões abaixo ligam ou desligam o Registro diário e as Metas deste cliente. Abaixo do cartão, Logins de Vendedor lista os pedidos deste cliente para dar um login do portal a um vendedor.",
+                "en": "Portal access. The Client Portal card shows the login name (hidden here), whether a password is set and the last login. 1. View client portal opens the portal exactly as the client sees it. It is read only: you cannot change anything there. 2. Reset Password makes a new temporary password. 3. Send app link sends the link to install the app. 4. Send new login (link) sends the client a fresh login link on WhatsApp. The switches below turn the Daily log and Goals on or off for this client. Below the card, Salesperson Logins lists the requests from this client to give a salesperson a portal login."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/portal-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record/portal-01.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tabs",
+          "title": {
+            "pt": "As abas e seus menus",
+            "en": "The tabs and their menus"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Aba Financeiro. O menu leva a: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para criar um novo), Status do contrato, Faturas (Não Pagas e Arquivo), Metodo de Pagamento com o plano de pagamento (Definir) e Fornecedores.",
+                "en": "Money tab. The menu jumps to: APEX contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Aba Trabalho Apex. O menu leva a: Sessões, Tarefas do Cliente, Tarefas do Consultor, Avaliações, Recursos e Documentos. Use + Adicionar nos cartões de tarefas para dar uma tarefa ao cliente ou a um consultor.",
+                "en": "Apex work tab. The menu jumps to: Sessions, Client Tasks, Consultant Tasks, Assessments, Resources and Documents. Use + Add on the tasks cards to give a task to the client or to a consultant."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "As outras duas abas. Resultados tem Crescimento, a Semana de Registro do registro diário, Presença Digital e Análise do Cliente. Ferramentas do cliente abre as ferramentas do próprio negócio do cliente (Pipeline, Orçamentos, Projetos, Preços e Financeiro) para você ver uma visão geral.",
+                "en": "The other two tabs. Results holds Growth, the Entry Week of the daily log, Digital Presence and Client Analytics. Client tools opens this client's own business tools (Pipeline, Estimates, Projects, Pricing and Finance) so you can see them as an overview."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Ver portal do cliente"
+            ],
+            "en": [
+              "View client portal"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Redefinir Senha"
+            ],
+            "en": [
+              "Reset Password"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar link do app"
+            ],
+            "en": [
+              "Send app link"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar novo login (link)"
+            ],
+            "en": [
+              "Send new login (link)"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Alterar Logo"
+            ],
+            "en": [
+              "Change Logo"
+            ]
+          },
+          "section": "open",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Adicionar Nota"
+            ],
+            "en": [
+              "+ Add Note"
+            ]
+          },
+          "section": "open",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Preparação da reunião"
+            ],
+            "en": [
+              "Meeting prep"
+            ]
+          },
+          "section": "open",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "admin-calendar-sessions",
+      "audience": "admin",
+      "title": {
+        "pt": "Calendário: ver as reuniões e criar uma nova sessão",
+        "en": "Calendar: see the meetings and add a new session"
+      },
+      "summary": {
+        "pt": "Veja o mês, a semana ou o dia e agende uma sessão com um cliente.",
+        "en": "See the month, week or day and book a session with a client."
+      },
+      "keywords": {
+        "pt": [
+          "calendário",
+          "calendario",
+          "sessão",
+          "sessao",
+          "nova sessão",
+          "agendar",
+          "reunião",
+          "google meet",
+          "presencial",
+          "repetir",
+          "sincronizar",
+          "evento"
+        ],
+        "en": [
+          "calendar",
+          "session",
+          "new session",
+          "schedule",
+          "book",
+          "meeting",
+          "google meet",
+          "in person",
+          "repeat",
+          "sync",
+          "event"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "calendar",
+          "title": {
+            "pt": "O calendário e a nova sessão",
+            "en": "The calendar and the new session"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. O Calendário mostra todas as sessões da Apex num só lugar. Ele acompanha o Google Calendar do Pr. Rafa: uma sessão que você cria aqui aparece lá, e os eventos do Google aparecem aqui só para leitura. Abra Calendário no menu da esquerda.",
+                "en": "What it is. The Calendar shows every Apex session in one place. It stays in step with Pr. Rafa's Google Calendar: a session you add here appears there, and the events in Google show here for reading. Open Calendar in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O topo da página. 1. + Nova Sessão marca uma reunião. 2. Enviar horários deixa o cliente escolher um horário. 3. Mês, Semana e Dia mudam quanto você vê. 4. Sincronizar pede ao Google os eventos mais recentes. 5. As setas vão para o período anterior ou o próximo. Os quatro cartões acima mostram os totais de sessões. Se a sincronização achar duas reuniões que se sobrepõem, aparece uma caixa com os problemas e o link Entendi, dispensar (escondida nesta imagem).",
+                "en": "The top of the page. 1. + Nova Sessão (New Session) books a meeting. 2. Enviar horários (Send times) lets the client choose a time. 3. Mês, Semana and Dia (Month, Week, Day) change how much you see. 4. Sincronizar (Sync Now) asks Google for the latest events. 5. The arrows move to the previous or next period. The four tiles above show the totals of sessions. If the sync finds two meetings that overlap, a box appears with the problems and a Got it, dismiss link (hidden in this picture)."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-02.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Nova sessão: a primeira parte. Toque em + Nova Sessão e preencha. 1. Tipo de reunião: o padrão é reunião com cliente. 2. Cliente: escolha o cliente na lista. 3. Categoria: Cliente ou Cliente Potencial (um prospecto). 4. Data: o dia. 5. Hora: o horário, escolhido na lista. Você também pode marcar Enviar lembrete por texto, para mandar um lembrete por mensagem.",
+                "en": "New session: the first part. Tap + Nova Sessão and fill in. 1. Tipo de reunião (Meeting type): the default is a client meeting. 2. Cliente: choose the client from the list. 3. Categoria: Cliente or Cliente Potencial (a prospect). 4. Data: the day. 5. Hora: the time, picked from the list. You can also tick Enviar lembrete por texto, to send a text reminder."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-03.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Nova sessão: a segunda parte. Role para baixo. 1. Tipo: Google Meet cria o link do Meet sozinho, ou Presencial para uma reunião ao vivo. 2. Repetir repete a sessão, por exemplo toda semana. 3. Toque em Agendar para salvar. Cancelar fecha o formulário sem salvar. Se o horário bater com outra reunião, aparece um aviso, mas ele nunca bloqueia.",
+                "en": "New session: the second part. Scroll down. 1. Tipo: Google Meet makes a Meet link by itself, or Presencial for a meeting in person. 2. Repetir repeats the session, for example every week. 3. Tap Agendar (Schedule) to save. Cancelar closes the form without saving. If the time clashes with another meeting, you get a warning, but it never blocks you."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-04.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Mude ou cancele uma sessão. Toque na sessão no calendário para abrir. A janela que abre tem Reagendar, Editar e Cancelar reuniao. Cancelar reuniao pergunta uma coisa: 1. Esta reunião foi cancelada guarda o registro como Cancelado no seu histórico e tira a reunião do calendário do cliente. 2. Foi um erro apaga o registro para sempre, então use só para uma sessão criada por engano. Nenhuma das duas pode ser desfeita.",
+                "en": "Change or cancel a session. Tap a session in the calendar to open it. The sheet that opens has Reschedule, Edit and Cancel meeting. Cancel meeting asks one thing: 1. This meeting was cancelled keeps the record as Cancelled in your history and takes the meeting off the client's calendar. 2. This was a mistake deletes the record for good, so use it only for a session made by error. Neither can be undone."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-calendar-sessions/calendar-05.pt.jpg",
+                "en": "help/img/guides/admin-calendar-sessions/calendar-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Nova Sessao",
+              "+ Nova Sessão"
+            ],
+            "en": [
+              "+ New Session"
+            ]
+          },
+          "section": "calendar",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sincronizar"
+            ],
+            "en": [
+              "Sync Now"
+            ]
+          },
+          "section": "calendar",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cancelar reuniao",
+              "Cancelar reunião"
+            ],
+            "en": [
+              "Cancel meeting"
+            ]
+          },
+          "section": "calendar",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Esta reunião foi cancelada"
+            ],
+            "en": [
+              "This meeting was cancelled"
+            ]
+          },
+          "section": "calendar",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Foi um erro"
+            ],
+            "en": [
+              "This was a mistake"
+            ]
+          },
+          "section": "calendar",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "admin-send-times",
+      "audience": "admin",
+      "title": {
+        "pt": "Enviar horários: o cliente escolhe o dia da reunião",
+        "en": "Send times: let the client choose the meeting time"
+      },
+      "summary": {
+        "pt": "Crie um link com os horários livres e envie ao cliente pelo WhatsApp.",
+        "en": "Make a link with the open times and send it to the client on WhatsApp."
+      },
+      "keywords": {
+        "pt": [
+          "enviar horários",
+          "horarios",
+          "link de agendamento",
+          "escolher horário",
+          "cobrar",
+          "reagendar",
+          "pular semana",
+          "calendário",
+          "cliente escolhe"
+        ],
+        "en": [
+          "send times",
+          "times",
+          "scheduling link",
+          "choose a time",
+          "follow up",
+          "reschedule",
+          "skip week",
+          "calendar",
+          "client picks"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "send",
+          "title": {
+            "pt": "Criar o link de horários",
+            "en": "Make the times link"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Em vez de ficar indo e voltando no WhatsApp, você envia um link ao cliente. O cliente abre, vê só os horários realmente livres e escolhe um. A reunião fica salva na Apex e no Google Calendar sozinha. O cliente também pode sugerir outro horário ou dizer que nenhum serve.",
+                "en": "What it is. Instead of going back and forth on WhatsApp, you send the client a link. The client opens it, sees only the really free times and picks one. The meeting is then saved in Apex and in Google Calendar by itself. The client can also suggest another time or say that none works."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Crie o link. Abra Calendário e toque em Enviar horários. 1. Cliente: escolha quem recebe. 2. Tipo de reunião: Google Meet ou Presencial. 3. Reservar 15 min extras depois deixa um intervalo depois da reunião. Embaixo, Personalizar duração muda o tamanho (começa em 1 hora). 4. Toque em Criar link.",
+                "en": "Make the link. Open Calendar and tap Enviar horários. 1. Cliente: choose who gets it. 2. Tipo de reunião: Google Meet or Presencial. 3. Reservar 15 min extras depois (Hold 15 extra minutes after) keeps a gap after the meeting. Below it, Personalizar duração changes the length (it starts at 1 hour). 4. Tap Criar link."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-02.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Envie e acompanhe. Depois de criado, o link é enviado ao cliente pelo WhatsApp. Na fila de pedidos você pode editar um pedido, adicionar um horário, enviar, cobrar quando o cliente demora, reagendar ou pular a semana. Quanto mais antigo o pedido, mais forte ele aparece.",
+                "en": "Send and follow up. After the link is made you send it to the client on WhatsApp. In the queue of requests you can edit a request, add a time, send it, follow up with Cobrar when the client is slow, reschedule, or skip the week. The older a request is, the bolder it shows."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar horarios",
+              "Enviar horários"
+            ],
+            "en": [
+              "Send times"
+            ]
+          },
+          "section": "send",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Criar link"
+            ],
+            "en": [
+              "Create link"
+            ]
+          },
+          "section": "send",
+          "step": 2
+        }
+      ]
     }
   ],
   "pages": {
@@ -8031,6 +8657,46 @@
       "overview": {
         "pt": "Aqui você abre os seus arquivos e os relatórios que já estão prontos.",
         "en": "Here you open your files and the reports that are finished."
+      }
+    },
+    "clients": {
+      "title": {
+        "pt": "Clientes",
+        "en": "Clients"
+      },
+      "guides": [
+        "admin-clients-roster"
+      ],
+      "overview": {
+        "pt": "Aqui você vê todos os clientes e leads da Apex, cadastra um novo e abre o registro dele.",
+        "en": "Here you see every Apex client and lead, add a new one and open its record."
+      }
+    },
+    "client": {
+      "title": {
+        "pt": "Registro do cliente",
+        "en": "Client record"
+      },
+      "guides": [
+        "admin-client-record"
+      ],
+      "overview": {
+        "pt": "Aqui está tudo sobre um cliente: contatos, notas, acesso ao portal, financeiro e trabalho da Apex.",
+        "en": "Everything about one client is here: contacts, notes, portal access, money and Apex work."
+      }
+    },
+    "calendar": {
+      "title": {
+        "pt": "Calendário",
+        "en": "Calendar"
+      },
+      "guides": [
+        "admin-calendar-sessions",
+        "admin-send-times"
+      ],
+      "overview": {
+        "pt": "Aqui estão todas as sessões da Apex. Veja o mês, a semana ou o dia, marque uma sessão ou envie horários ao cliente.",
+        "en": "Here are all the Apex sessions. See the month, week or day, book a session or send times to a client."
       }
     }
   }

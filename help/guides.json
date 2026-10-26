@@ -7934,235 +7934,6 @@
       ]
     },
     {
-      "id": "admin-client-record",
-      "audience": "admin",
-      "title": {
-        "pt": "O registro de um cliente: contatos, notas, acesso ao portal e abas",
-        "en": "A client record: contacts, notes, portal access and tabs"
-      },
-      "summary": {
-        "pt": "Abra um cliente e use as abas, os contatos, as notas e o acesso ao portal.",
-        "en": "Open a client and use the tabs, contacts, notes and portal access."
-      },
-      "keywords": {
-        "pt": [
-          "cliente",
-          "registro do cliente",
-          "portal do cliente",
-          "redefinir senha",
-          "enviar login",
-          "link do app",
-          "contato",
-          "nota",
-          "logo",
-          "abas",
-          "preparação da reunião",
-          "ver portal"
-        ],
-        "en": [
-          "client",
-          "client record",
-          "client portal",
-          "reset password",
-          "send login",
-          "app link",
-          "contact",
-          "note",
-          "logo",
-          "tabs",
-          "meeting prep",
-          "view portal"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "open",
-          "title": {
-            "pt": "Abrir o registro e conhecer a tela",
-            "en": "Open the record and know the screen"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "O que é. Cada cliente tem um registro com tudo sobre ele. Abra pela página Clientes: toque no nome do cliente na lista. Use este guia para se orientar na tela.",
-                "en": "What it is. Each client has one record with everything about them. Open it from Clients: tap the client name in the list. Use this guide to find your way around."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "O topo do registro. 1. As setas vão para o cliente anterior ou o próximo, e o nome fica entre elas. 2. As duas etiquetas mostram o pacote (Sprint, por exemplo) e o status. O lápis ao lado de cada uma edita. 3. Preparação da reunião abre a página da próxima reunião com este cliente. 4. As abas: Visão geral, Financeiro, Trabalho Apex, Resultados e Ferramentas do cliente. Cada aba abre um pequeno menu de seções.",
-                "en": "The top of the record. 1. The arrows move to the previous or next client, and the name sits between them. 2. The two pills show the package (Sprint, for example) and the status. The pencil next to each one edits it. 3. Meeting prep opens the page for the next meeting with this client. 4. The tabs: Overview, Money, Apex work, Results and Client tools. Each tab opens a small menu of sections."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-client-record/open-02.pt.jpg",
-                "en": "help/img/guides/admin-client-record/open-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "O cartão Visão geral. 1. Alterar Logo envia o logo do cliente. Os dados da empresa aparecem abaixo. 2. Contatos: toque em + Adicionar para incluir uma pessoa com nome, cargo, WhatsApp e email. 3. Notas: toque em + Adicionar Nota e escreva o que todos precisam lembrar.",
-                "en": "The Overview card. 1. Change Logo uploads the client logo. The business facts are listed below it. 2. Contacts: tap + Add to add a person with name, role, WhatsApp and email. 3. Notes: tap + Add Note and write what you want everyone to remember."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-client-record/open-03.pt.jpg",
-                "en": "help/img/guides/admin-client-record/open-03.en.jpg"
-              }
-            }
-          ]
-        },
-        {
-          "id": "portal",
-          "title": {
-            "pt": "Acesso do cliente ao portal",
-            "en": "The client's access to the portal"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Acesso ao portal. O cartão Portal do Cliente mostra o nome de login (escondido aqui), se há senha definida e o último acesso. 1. Ver portal do cliente abre o portal exatamente como o cliente vê. É só para ler: você não consegue mudar nada lá. 2. Redefinir Senha cria uma nova senha temporária. 3. Enviar link do app envia o link para instalar o app. 4. Enviar novo login (link) envia ao cliente um novo link de acesso pelo WhatsApp. Os botões abaixo ligam ou desligam o Registro diário e as Metas deste cliente. Abaixo do cartão, Logins de Vendedor lista os pedidos deste cliente para dar um login do portal a um vendedor.",
-                "en": "Portal access. The Client Portal card shows the login name (hidden here), whether a password is set and the last login. 1. View client portal opens the portal exactly as the client sees it. It is read only: you cannot change anything there. 2. Reset Password makes a new temporary password. 3. Send app link sends the link to install the app. 4. Send new login (link) sends the client a fresh login link on WhatsApp. The switches below turn the Daily log and Goals on or off for this client. Below the card, Salesperson Logins lists the requests from this client to give a salesperson a portal login."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-client-record/portal-01.pt.jpg",
-                "en": "help/img/guides/admin-client-record/portal-01.en.jpg"
-              }
-            }
-          ]
-        },
-        {
-          "id": "tabs",
-          "title": {
-            "pt": "As abas e seus menus",
-            "en": "The tabs and their menus"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Aba Financeiro. O menu leva a: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para criar um novo), Status do contrato, Faturas (Não Pagas e Arquivo), Metodo de Pagamento com o plano de pagamento (Definir) e Fornecedores.",
-                "en": "Money tab. The menu jumps to: APEX contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-client-record/tabs-01.pt.jpg",
-                "en": "help/img/guides/admin-client-record/tabs-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Aba Trabalho Apex. O menu leva a: Sessões, Tarefas do Cliente, Tarefas do Consultor, Avaliações, Recursos e Documentos. Use + Adicionar nos cartões de tarefas para dar uma tarefa ao cliente ou a um consultor.",
-                "en": "Apex work tab. The menu jumps to: Sessions, Client Tasks, Consultant Tasks, Assessments, Resources and Documents. Use + Add on the tasks cards to give a task to the client or to a consultant."
-              },
-              "image": {
-                "pt": "help/img/guides/admin-client-record/tabs-02.pt.jpg",
-                "en": "help/img/guides/admin-client-record/tabs-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "As outras duas abas. Resultados tem Crescimento, a Semana de Registro do registro diário, Presença Digital e Análise do Cliente. Ferramentas do cliente abre as ferramentas do próprio negócio do cliente (Pipeline, Orçamentos, Projetos, Preços e Financeiro) para você ver uma visão geral.",
-                "en": "The other two tabs. Results holds Growth, the Entry Week of the daily log, Digital Presence and Client Analytics. Client tools opens this client's own business tools (Pipeline, Estimates, Projects, Pricing and Finance) so you can see them as an overview."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Ver portal do cliente"
-            ],
-            "en": [
-              "View client portal"
-            ]
-          },
-          "section": "portal",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Redefinir Senha"
-            ],
-            "en": [
-              "Reset Password"
-            ]
-          },
-          "section": "portal",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Enviar link do app"
-            ],
-            "en": [
-              "Send app link"
-            ]
-          },
-          "section": "portal",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Enviar novo login (link)"
-            ],
-            "en": [
-              "Send new login (link)"
-            ]
-          },
-          "section": "portal",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Alterar Logo"
-            ],
-            "en": [
-              "Change Logo"
-            ]
-          },
-          "section": "open",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "+ Adicionar Nota"
-            ],
-            "en": [
-              "+ Add Note"
-            ]
-          },
-          "section": "open",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Preparação da reunião"
-            ],
-            "en": [
-              "Meeting prep"
-            ]
-          },
-          "section": "open",
-          "step": 2
-        }
-      ]
-    },
-    {
       "id": "admin-sessions-summary",
       "audience": "admin",
       "title": {
@@ -9099,6 +8870,737 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "admin-message-templates",
+      "audience": "admin",
+      "title": {
+        "pt": "Configurações: mudar o texto das mensagens de WhatsApp",
+        "en": "Settings: change the words of the WhatsApp messages"
+      },
+      "summary": {
+        "pt": "Edite os modelos de mensagem que a Apex envia aos clientes.",
+        "en": "Edit the message templates that Apex sends to clients."
+      },
+      "keywords": {
+        "pt": [
+          "configurações",
+          "modelos de mensagem",
+          "mensagem",
+          "whatsapp",
+          "modelo",
+          "lápis",
+          "editar mensagem",
+          "variável",
+          "pacotes",
+          "pagamento",
+          "disponibilidade",
+          "notificações"
+        ],
+        "en": [
+          "settings",
+          "message templates",
+          "message",
+          "whatsapp",
+          "template",
+          "pencil",
+          "edit message",
+          "token",
+          "packages",
+          "payment",
+          "availability",
+          "notifications"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "templates",
+          "title": {
+            "pt": "Os modelos de mensagem",
+            "en": "The message templates"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Toda mensagem que a Apex envia a um cliente pelo WhatsApp parte de um modelo: a confirmação da sessão, os lembretes, os links de horário, a fatura, o login do portal e outros. Em Configurações você muda o texto uma vez, e todas as próximas mensagens usam o texto novo. Abra Configurações no menu da esquerda. As abas do alto são Fotos de Perfil, Modelos WhatsApp, Pacotes, Pagamento, Disponibilidade e Notificações.",
+                "en": "What it is. Every message that Apex sends to a client on WhatsApp starts from a template: the session confirmation, the reminders, the time links, the invoice, the portal login and more. In Settings you can change the words once, and every next message uses the new words. Open Configurações in the left menu. The tabs at the top are Profile Pictures, WhatsApp Templates, Packages, Payment, Availability and Notifications."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Edite um modelo. Toque na aba dos modelos. Cada modelo é um cartão com um nome. 1. Mude as palavras dentro da caixa. 2. A linha Variável disponível lista as partes que a Apex preenche sozinha, escritas entre chaves, por exemplo {appUrl}. Deixe do jeito que estão, ou a mensagem perde essa parte. 3. Toque em Salvar naquele cartão. Embaixo da caixa aparece quem mudou por último e quando. Os nomes das pessoas estão escondidos nesta imagem.",
+                "en": "Edit a template. Tap the tab of the templates. Each template is a card with a name. 1. Change the words inside the box. 2. The line Variável disponível (Available token) lists the pieces that Apex fills in by itself, written between curly brackets, for example {appUrl}. Leave them exactly as they are, or the message loses that piece. 3. Tap Salvar (Save) on that card. Under the box you see who changed it last and when. The names of people are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-message-templates/templates-02.pt.jpg",
+                "en": "help/img/guides/admin-message-templates/templates-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Um jeito mais rápido. Ao lado de muitos botões de enviar do app da equipe há um lápis pequeno. Toque nele, ou clique com o botão direito no botão, e o mesmo modelo abre ali mesmo, para você corrigir o texto sem ir às Configurações.",
+                "en": "A faster way. Next to many send buttons in the staff app there is a small pencil. Tap it, or right click the button, and the same template opens right there, so you can fix the words without going to Settings."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "As outras abas. Pacotes é o catálogo de pacotes com preços e descrições. Pagamento guarda os dados de pagamento que aparecem nas faturas (o link de pagamento por cartão e o Zelle). Disponibilidade guarda os horários em que você está livre, usados nos links de horário. Notificações liga os alertas neste aparelho e envia um teste.",
+                "en": "The other tabs. Pacotes is the catalog of packages with prices and descriptions. Pagamento holds the payment details that appear on invoices (the card payment link and the Zelle handle). Disponibilidade holds the times you are free, used by the time links. Notificações turns on the alerts on this device and sends a test."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "admin-apex-club",
+      "audience": "admin",
+      "title": {
+        "pt": "Apex Club: criar o evento e acompanhar os convidados",
+        "en": "Apex Club: create the event and follow the guests"
+      },
+      "summary": {
+        "pt": "Crie o jantar do mês, veja quem confirmou e marque quem veio.",
+        "en": "Create the monthly dinner, see who confirmed and mark who came."
+      },
+      "keywords": {
+        "pt": [
+          "apex club",
+          "evento",
+          "jantar",
+          "novo evento",
+          "convidados",
+          "inscrições",
+          "confirmados",
+          "acompanhante",
+          "mais um",
+          "veio",
+          "não veio",
+          "whatsapp"
+        ],
+        "en": [
+          "apex club",
+          "event",
+          "dinner",
+          "new event",
+          "guests",
+          "registrations",
+          "confirmed",
+          "plus one",
+          "came",
+          "did not come",
+          "whatsapp"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "club",
+          "title": {
+            "pt": "O evento do mês",
+            "en": "The event of the month"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. O Apex Club é o jantar com um palestrante, mais ou menos uma vez por mês. Esta página mostra um evento de cada vez: a imagem, o nome, a data, o local e a lista de convidados. Os dois cartões do alto contam as pessoas confirmadas e as inscrições. A caixa no canto direito do alto escolhe o mês. As pessoas se inscrevem numa página pública que qualquer um pode repassar, sem precisar de login. Abra Apex Club no menu da esquerda.",
+                "en": "What it is. Apex Club is the dinner with a speaker, about once a month. This page shows one event at a time: the picture, the name, the date, the place and the guest list. The two tiles at the top count the people confirmed and the registrations. The box in the top right chooses the month. People sign up on a public page that anyone can forward, so no login is needed. Open Apex Club in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Crie um evento. Role até o fim da página e toque em Novo evento. Só o nome e a data são obrigatórios. 1. Nome do evento. 2. Data. 3. Horário. 4. Local. Abaixo, Convidados lista quem palestra. 5. Valor por pessoa: deixe vazio quando a Apex não cobra por este evento. Valor por casal é o preço de um casal, e Aceitar cartão neste evento liga o pagamento por cartão com preços próprios. Tudo o que você preencher aparece na página de inscrição. O local e os convidados estão escondidos nesta imagem. Role para baixo dentro da caixa e salve.",
+                "en": "Create an event. Scroll to the bottom of the page and tap Novo evento. Only the name and the date are required. 1. Nome do evento (Event name). 2. Data (Date). 3. Horário (Start time). 4. Local (Venue). Below it, Convidados (Speakers) lists who speaks. 5. Valor por pessoa (Price per person): leave it empty when Apex does not charge for this event. Valor por casal is the price for a couple, and Aceitar cartão neste evento turns on card payment with its own prices. Everything you fill in shows on the registration page. The place and the speakers are hidden in this picture. Scroll down in the box and save."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-apex-club/club-02.pt.jpg",
+                "en": "help/img/guides/admin-apex-club/club-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mude o evento. No cartão do evento, toque em Editar para abrir o mesmo formulário com os valores salvos.",
+                "en": "Change the event. On the event card, tap Editar to open the same form again with the saved values."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "A lista de convidados. Embaixo do evento você vê quantas pessoas estão confirmadas, quantas se inscreveram e um link para esconder ou mostrar a lista. Cada convidado tem botões. WhatsApp abre o WhatsApp com a mensagem de confirmação daquele convidado, e Editar msg muda o texto dessa mensagem. +1 diz que o convidado traz mais uma pessoa, e isso conta dois lugares. A seta diz que o convidado não vem desta vez, mas vem no próximo. O visto diz que o convidado veio, e o x diz que não veio. Há também um cartão para adicionar um convidado à mão, com o botão Adicionar e uma caixa para o acompanhante.",
+                "en": "The guest list. Under the event you see how many people are confirmed and how many registered, and a link to hide or show the list. Each guest has buttons. WhatsApp opens WhatsApp with the confirmation message for that guest, and Editar msg changes the words of that message. +1 says that the guest brings one more person, which counts two seats. The arrow says that the guest does not come this time but will come to the next one. The check mark says that the guest came, and the cross says that the guest did not show up. There is also a card to add a guest by hand, with its Adicionar button and a box for a plus-one."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Novo evento"
+            ],
+            "en": [
+              "New event"
+            ]
+          },
+          "section": "club",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Editar msg"
+            ],
+            "en": [
+              "Edit msg"
+            ]
+          },
+          "section": "club",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "id": "admin-sales-growth",
+      "audience": "admin",
+      "title": {
+        "pt": "Vendas: ver o crescimento de cada cliente no mês",
+        "en": "Sales: see the growth of each client in the month"
+      },
+      "summary": {
+        "pt": "Compare o crescimento mensal dos clientes e veja quem não registrou.",
+        "en": "Compare the monthly growth of the clients and see who did not enter a number."
+      },
+      "keywords": {
+        "pt": [
+          "vendas",
+          "crescimento",
+          "ranking",
+          "ranking de crescimento",
+          "mês",
+          "registrados",
+          "maior",
+          "menor",
+          "sem registro"
+        ],
+        "en": [
+          "sales",
+          "growth",
+          "ranking",
+          "growth ranking",
+          "month",
+          "entered",
+          "highest",
+          "lowest",
+          "no entry"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "sales",
+          "title": {
+            "pt": "O ranking de crescimento",
+            "en": "The growth ranking"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. A página Vendas ordena os seus clientes pelo quanto o negócio cresceu num mês, para o Rafa ver quem está avançando e quem está parado. O número de crescimento é o que foi lançado para cada cliente no registro do cliente (Resultados, Crescimento). Abra Vendas no menu da esquerda.",
+                "en": "What it is. The Sales page ranks your clients by how much their business grew in a month, so Rafa can see who is moving and who is stuck. The growth number is the one entered for each client on the client record (Results, Growth). Open Vendas in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia a página. 1. Os quatro cartões: Crescimento médio dos clientes que têm um número, Maior, Menor e Registrados, que conta quantos clientes ativos têm um número no mês. 2. Mês escolhe o mês para olhar. 3. Ranking de Crescimento lista os clientes. Um cliente sem número no mês mostra sem registro. Os nomes dos clientes estão escondidos nesta imagem.",
+                "en": "Read the page. 1. The four tiles: Crescimento médio (Average growth) of the clients that have a number, Maior (Highest), Menor (Lowest) and Registrados (Entered), which counts how many active clients have a number for the month. 2. Mês (Month) chooses the month to look at. 3. Ranking de Crescimento lists the clients. A client with no number for the month shows sem registro (no entry). Client names are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sales-growth/sales-02.pt.jpg",
+                "en": "help/img/guides/admin-sales-growth/sales-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "admin-add-user",
+      "audience": "admin",
+      "title": {
+        "pt": "Adicionar Usuário: dar acesso a uma pessoa da equipe",
+        "en": "Add User: give a team member access"
+      },
+      "summary": {
+        "pt": "Aprove o email Google de uma pessoa e escolha a função dela.",
+        "en": "Approve a person's Google email and choose the role."
+      },
+      "keywords": {
+        "pt": [
+          "adicionar usuário",
+          "usuário",
+          "acesso",
+          "função",
+          "email google",
+          "aprovar",
+          "alice",
+          "rafa",
+          "desenvolvedor"
+        ],
+        "en": [
+          "add user",
+          "user",
+          "access",
+          "role",
+          "google email",
+          "approve",
+          "alice",
+          "rafa",
+          "developer"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "users",
+          "title": {
+            "pt": "Aprovar um usuário",
+            "en": "Approve a user"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Só entram no app da equipe as pessoas cujo email Google está na lista de usuários aprovados. Esta página é para o desenvolvedor. Abra Adicionar Usuário no menu da esquerda. A página em si está escrita em inglês.",
+                "en": "What it is. Only people whose Google email is on the list of approved users can sign in to the staff app. This page is for the developer. Open Adicionar Usuário in the left menu. The page itself is written in English."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione ou mude um usuário. 1. Google Email: digite o endereço Gmail com o qual a pessoa entra. 2. Role (função): escolha Alice, Rafa, Developer e assim por diante. A função decide quais páginas a pessoa vê. 3. Toque em Save. Se o email já estiver na lista, Save muda a função dele. 4. Approved Users é a lista de todos que têm acesso, cada um com sua função. Os emails estão escondidos nesta imagem.",
+                "en": "Add or change a user. 1. Google Email: type the Gmail address the person signs in with. 2. Role: choose Alice, Rafa, Developer and so on. The role decides which pages the person sees. 3. Tap Save. If the email is already on the list, Save changes its role. 4. Approved Users is the list of everyone who has access, each with a role. The emails are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-add-user/users-02.pt.jpg",
+                "en": "help/img/guides/admin-add-user/users-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "admin-client-analytics",
+      "audience": "admin",
+      "title": {
+        "pt": "Análise de Clientes: a média de todos e um cliente de cada vez",
+        "en": "Client Analytics: the average of all and one client at a time"
+      },
+      "summary": {
+        "pt": "Veja os indicadores que o cliente vê, com a média de todos os clientes.",
+        "en": "See the indicators your clients see, with the average of all clients."
+      },
+      "keywords": {
+        "pt": [
+          "análise de clientes",
+          "média dos clientes",
+          "por cliente",
+          "indicadores",
+          "mês",
+          "média geral",
+          "financeiro",
+          "processos",
+          "crescimento"
+        ],
+        "en": [
+          "client analytics",
+          "client average",
+          "per client",
+          "indicators",
+          "month",
+          "overall average",
+          "financial",
+          "processes",
+          "growth"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "analytics",
+          "title": {
+            "pt": "Ler os indicadores",
+            "en": "Read the indicators"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Análise de Clientes mostra os mesmos números que os seus clientes veem na própria aba de análise, mais uma camada só sua. O Rafa usa antes de uma reunião para ver quem está no caminho certo. Abra Análise de Clientes no menu da esquerda.",
+                "en": "What it is. Client Analytics shows the same numbers that your clients see in their own Analytics tab, plus a layer only you get. Rafa uses it before a meeting to see who is on track. Open Análise de Clientes in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A média de todos os clientes. 1. Média dos clientes mostra a média de todos os clientes juntos. Por cliente deixa você escolher um cliente numa lista e ver só aquele cliente. 2. Mês escolhe o mês. 3. Média geral (composto) é a porcentagem geral. A linha pequena embaixo diz quantos clientes lançaram números e quantos não lançaram nada. Mais abaixo, cada área (por exemplo Financeiro, Clientes & Mercado, Processos e Crescimento) tem a sua porcentagem e o número de clientes que acompanham aquela área. Esta imagem mostra só médias: nenhum nome de cliente aparece.",
+                "en": "The average of all clients. 1. Média dos clientes shows the average of every client together. Por cliente lets you choose one client from a list and see only that client. 2. Mês chooses the month. 3. Média geral (composto) is the overall percentage. The small line under it says how many clients entered numbers and how many logged nothing. Under it, each area (for example Financeiro, Clientes & Mercado, Processos and Crescimento) has its own percentage and the number of clients that track that area. This picture shows only averages: no client name is shown."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-analytics/analytics-02.pt.jpg",
+                "en": "help/img/guides/admin-client-analytics/analytics-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Um cliente. Toque em Por cliente, escolha o cliente na lista e leia os números dele no mês. A página diz Escolha um cliente acima até você escolher.",
+                "en": "One client. Tap Por cliente, choose the client in the list and read that client's numbers for the month. The page will say Escolha um cliente acima until you choose."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "admin-client-record",
+      "audience": "admin",
+      "title": {
+        "pt": "O registro de um cliente: contatos, notas, acesso ao portal e abas",
+        "en": "A client record: contacts, notes, portal access and tabs"
+      },
+      "summary": {
+        "pt": "Abra um cliente e use as abas, os contatos, as notas e o acesso ao portal.",
+        "en": "Open a client and use the tabs, contacts, notes and portal access."
+      },
+      "keywords": {
+        "pt": [
+          "cliente",
+          "registro do cliente",
+          "portal do cliente",
+          "redefinir senha",
+          "enviar login",
+          "link do app",
+          "contato",
+          "nota",
+          "logo",
+          "abas",
+          "preparação da reunião",
+          "ver portal"
+        ],
+        "en": [
+          "client",
+          "client record",
+          "client portal",
+          "reset password",
+          "send login",
+          "app link",
+          "contact",
+          "note",
+          "logo",
+          "tabs",
+          "meeting prep",
+          "view portal"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "open",
+          "title": {
+            "pt": "Abrir o registro e conhecer a tela",
+            "en": "Open the record and know the screen"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. Cada cliente tem um registro com tudo sobre ele. Abra pela página Clientes: toque no nome do cliente na lista. Use este guia para se orientar na tela.",
+                "en": "What it is. Each client has one record with everything about them. Open it from Clients: tap the client name in the list. Use this guide to find your way around."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O topo do registro. 1. As setas vão para o cliente anterior ou o próximo, e o nome fica entre elas. 2. As duas etiquetas mostram o pacote (Sprint, por exemplo) e o status. O lápis ao lado de cada uma edita. 3. Preparação da reunião abre a página da próxima reunião com este cliente. 4. As abas: Visão geral, Financeiro, Trabalho Apex, Resultados e Ferramentas do cliente. Cada aba abre um pequeno menu de seções.",
+                "en": "The top of the record. 1. The arrows move to the previous or next client, and the name sits between them. 2. The two pills show the package (Sprint, for example) and the status. The pencil next to each one edits it. 3. Meeting prep opens the page for the next meeting with this client. 4. The tabs: Overview, Money, Apex work, Results and Client tools. Each tab opens a small menu of sections."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O cartão Visão geral. 1. Alterar Logo envia o logo do cliente. Os dados da empresa aparecem abaixo. 2. Contatos: toque em + Adicionar para incluir uma pessoa com nome, cargo, WhatsApp e email. 3. Notas: toque em + Adicionar Nota e escreva o que todos precisam lembrar.",
+                "en": "The Overview card. 1. Change Logo uploads the client logo. The business facts are listed below it. 2. Contacts: tap + Add to add a person with name, role, WhatsApp and email. 3. Notes: tap + Add Note and write what you want everyone to remember."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/open-03.pt.jpg",
+                "en": "help/img/guides/admin-client-record/open-03.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "portal",
+          "title": {
+            "pt": "Acesso do cliente ao portal",
+            "en": "The client's access to the portal"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Acesso ao portal. O cartão Portal do Cliente mostra o nome de login (escondido aqui), se há senha definida e o último acesso. 1. Ver portal do cliente abre o portal exatamente como o cliente vê. É só para ler: você não consegue mudar nada lá. 2. Redefinir Senha cria uma nova senha temporária. 3. Enviar link do app envia o link para instalar o app. 4. Enviar novo login (link) envia ao cliente um novo link de acesso pelo WhatsApp. Os botões abaixo ligam ou desligam o Registro diário e as Metas deste cliente. Abaixo do cartão, Logins de Vendedor lista os pedidos deste cliente para dar um login do portal a um vendedor.",
+                "en": "Portal access. The Client Portal card shows the login name (hidden here), whether a password is set and the last login. 1. View client portal opens the portal exactly as the client sees it. It is read only: you cannot change anything there. 2. Reset Password makes a new temporary password. 3. Send app link sends the link to install the app. 4. Send new login (link) sends the client a fresh login link on WhatsApp. The switches below turn the Daily log and Goals on or off for this client. Below the card, Salesperson Logins lists the requests from this client to give a salesperson a portal login."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/portal-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record/portal-01.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "tabs",
+          "title": {
+            "pt": "As abas e seus menus",
+            "en": "The tabs and their menus"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Aba Financeiro. O menu leva a: Contrato APEX (os contratos deste cliente com a Apex, e Montar contrato para criar um novo), Status do contrato, Faturas (Não Pagas e Arquivo), Método de Pagamento com o plano de pagamento (Definir plano) e Fornecedores.",
+                "en": "Money tab. The menu jumps to: APEX contract (the contracts of this client with Apex, and Montar contrato to build a new one), Contract status, Invoices (Unpaid and Archive), Payment Method with the payment plan (Set plan), and Vendors."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-01.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Aba Trabalho Apex. O menu leva a: Sessões, Tarefas do Cliente, Tarefas do Consultor, Avaliações, Recursos e Documentos. Use + Adicionar nos cartões de tarefas para dar uma tarefa ao cliente ou a um consultor.",
+                "en": "Apex work tab. The menu jumps to: Sessions, Client Tasks, Consultant Tasks, Assessments, Resources and Documents. Use + Add on the tasks cards to give a task to the client or to a consultant."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-client-record/tabs-02.pt.jpg",
+                "en": "help/img/guides/admin-client-record/tabs-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "As outras duas abas. Resultados tem Crescimento, a Semana de Registro do registro diário, Presença Digital e Análise do Cliente. Ferramentas do cliente abre as ferramentas do próprio negócio do cliente (Pipeline, Orçamentos, Projetos, Preços e Financeiro) para você ver uma visão geral.",
+                "en": "The other two tabs. Results holds Growth, the Entry Week of the daily log, Digital Presence and Client Analytics. Client tools opens this client's own business tools (Pipeline, Estimates, Projects, Pricing and Finance) so you can see them as an overview."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Ver portal do cliente"
+            ],
+            "en": [
+              "View client portal"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Redefinir Senha"
+            ],
+            "en": [
+              "Reset Password"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar link do app"
+            ],
+            "en": [
+              "Send app link"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar novo login (link)"
+            ],
+            "en": [
+              "Send new login (link)"
+            ]
+          },
+          "section": "portal",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Alterar Logo"
+            ],
+            "en": [
+              "Change Logo"
+            ]
+          },
+          "section": "open",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Adicionar Nota"
+            ],
+            "en": [
+              "+ Add Note"
+            ]
+          },
+          "section": "open",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "admin-meeting-prep",
+      "audience": "admin",
+      "title": {
+        "pt": "Preparação da reunião: escolher o tipo e seguir o roteiro",
+        "en": "Meeting prep: choose the type and follow the script"
+      },
+      "summary": {
+        "pt": "Abra a página do consultor para a reunião com um cliente.",
+        "en": "Open the consultant page for a meeting with a client."
+      },
+      "keywords": {
+        "pt": [
+          "preparação da reunião",
+          "reunião",
+          "kickoff",
+          "raio-x",
+          "rde semanal",
+          "fechamento de ciclo",
+          "outra reunião",
+          "roteiro",
+          "ver exemplo",
+          "consultor"
+        ],
+        "en": [
+          "meeting prep",
+          "meeting",
+          "kickoff",
+          "x-ray",
+          "weekly rde",
+          "cycle close",
+          "another meeting",
+          "script",
+          "see example",
+          "consultant"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "prep",
+          "title": {
+            "pt": "Antes e durante a reunião",
+            "en": "Before and during the meeting"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra e escolha a reunião. No registro do cliente, toque em Preparação da reunião, o botão dourado do alto. A Apex pergunta Qual é esta reunião?. 1. Escolha o tipo: Raio-X - Resultados, Kickoff, RDE semanal, Fechamento de ciclo ou Outra reunião. 2. Ver exemplo abre um exemplo, para a reunião de resultados do Raio-X.",
+                "en": "Open it and choose the meeting. On the client record, tap Preparação da reunião (Meeting prep), the gold button at the top. Apex asks Qual é esta reunião? (Which meeting is this?). 1. Choose the type: Raio-X - Resultados (X-Ray results), Kickoff, RDE semanal (Weekly RDE), Fechamento de ciclo (Cycle close) or Outra reunião (Another meeting). 2. Ver exemplo (See example) opens a sample, for the X-Ray results meeting."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-01.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A página da reunião (aqui, Kickoff). É só para o consultor: o que você quiser mostrar ao cliente abre separado. 1. O topo diz o cliente, o dono e a reunião. 2. O que o sistema já responde: números que a Apex já tem, como as metas do mês, o dinheiro que entrou e saiu hoje, os leads de hoje e o pipeline aberto, para você não precisar perguntar ao cliente. 3. O que o sistema já sabe: o pacote, os donos e o Raio-X. 4. A reunião, passo a passo é o roteiro, um passo numerado de cada vez. Estas imagens usam o cliente de teste.",
+                "en": "The page for the meeting (here, Kickoff). It is for the consultant only: anything you want to show the client opens separately. 1. The top names the client, the owner and the meeting. 2. O que o sistema já responde (What the system already answers): numbers Apex already has, like the targets for the month, money in and out today, leads today and the open pipeline, so you do not need to ask the client. 3. O que o sistema já sabe (What the system already knows): the package, the owners and the X-Ray. 4. A reunião, passo a passo (The meeting, step by step) is the script, one numbered step at a time. These pictures use the test client."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-meeting-prep/prep-02.pt.jpg",
+                "en": "help/img/guides/admin-meeting-prep/prep-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Preparação da reunião"
+            ],
+            "en": [
+              "Meeting prep"
+            ]
+          },
+          "section": "prep",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver exemplo"
+            ],
+            "en": [
+              "See example"
+            ]
+          },
+          "section": "prep",
+          "step": 1
+        }
+      ]
     }
   ],
   "pages": {
@@ -9392,6 +9894,84 @@
       "overview": {
         "pt": "Aqui você vê o que precisa de você hoje: lembretes de reunião, faturas, tarefas e horários esperando o cliente.",
         "en": "Here you see what needs you today: meeting reminders, invoices, tasks and times waiting on a client."
+      }
+    },
+    "settings": {
+      "title": {
+        "pt": "Configurações",
+        "en": "Settings"
+      },
+      "guides": [
+        "admin-message-templates"
+      ],
+      "overview": {
+        "pt": "Aqui você muda os textos das mensagens de WhatsApp, os pacotes, os dados de pagamento e a disponibilidade.",
+        "en": "Here you change the WhatsApp message texts, the packages, the payment details and your availability."
+      }
+    },
+    "apex-club": {
+      "title": {
+        "pt": "Apex Club",
+        "en": "Apex Club"
+      },
+      "guides": [
+        "admin-apex-club"
+      ],
+      "overview": {
+        "pt": "Aqui você cria o jantar do mês e acompanha os convidados.",
+        "en": "Here you create the monthly dinner and follow the guests."
+      }
+    },
+    "sales": {
+      "title": {
+        "pt": "Vendas",
+        "en": "Sales"
+      },
+      "guides": [
+        "admin-sales-growth"
+      ],
+      "overview": {
+        "pt": "Aqui você compara o crescimento mensal dos clientes.",
+        "en": "Here you compare the monthly growth of the clients."
+      }
+    },
+    "add-user": {
+      "title": {
+        "pt": "Adicionar Usuário",
+        "en": "Add User"
+      },
+      "guides": [
+        "admin-add-user"
+      ],
+      "overview": {
+        "pt": "Aqui o desenvolvedor aprova quem pode entrar no app da equipe.",
+        "en": "Here the developer approves who can sign in to the staff app."
+      }
+    },
+    "client-analytics": {
+      "title": {
+        "pt": "Análise de Clientes",
+        "en": "Client Analytics"
+      },
+      "guides": [
+        "admin-client-analytics"
+      ],
+      "overview": {
+        "pt": "Aqui você vê os indicadores dos clientes e a média de todos.",
+        "en": "Here you see the client indicators and the average of all."
+      }
+    },
+    "meeting-prep": {
+      "title": {
+        "pt": "Preparação da reunião",
+        "en": "Meeting prep"
+      },
+      "guides": [
+        "admin-meeting-prep"
+      ],
+      "overview": {
+        "pt": "Aqui o consultor se prepara para a reunião com um cliente.",
+        "en": "Here the consultant prepares for the meeting with a client."
       }
     }
   }

@@ -2950,6 +2950,14 @@
                 "en": "help/img/guides/payments-and-terms/terms-05.en.jpg",
                 "pt": "help/img/guides/payments-and-terms/terms-05.pt.jpg"
               }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Veja o histórico de alterações. Em Mensagens de envio, toque em Ver histórico de alterações. Uma folha chamada Histórico de alterações lista cada mudança nestes ajustes: o nome do ajuste, o valor antigo, uma seta, o valor novo, quem mudou e quando. Quando nada foi mudado ainda, ela diz Nenhuma alteração ainda.",
+                "en": "See the change history. Under Send messages, tap View change history. A sheet called Change history lists each change to these settings: the name of the setting, the old value, an arrow, the new value, who changed it and when. When nothing was changed yet, it says No changes yet."
+              },
+              "image": null
             }
           ]
         }
@@ -2977,7 +2985,7 @@
             ]
           },
           "section": "terms",
-          "step": 5
+          "step": 6
         }
       ]
     },
@@ -3214,28 +3222,48 @@
       },
       "keywords": {
         "pt": [
-          "pessoas",
           "acesso",
-          "convite",
+          "acesso ao financeiro",
+          "adicionar pessoa",
+          "ativar",
+          "celular novo",
+          "celular perdido",
           "convidar",
+          "convite",
+          "copiar link",
+          "desativar",
+          "em análise pela apex",
+          "enviar pelo whatsapp",
           "equipe",
-          "vendedor",
-          "sócio",
           "link de convite",
+          "novo aparelho",
           "passkey",
-          "adicionar pessoa"
+          "pessoas",
+          "saiu da empresa",
+          "sócio",
+          "vendedor"
         ],
         "en": [
-          "people",
           "access",
+          "add a device",
+          "add person",
+          "copy link",
+          "disable",
+          "enable",
+          "finance access",
           "invite",
-          "team",
-          "staff",
-          "salesperson",
-          "partner",
           "invite link",
+          "left the company",
+          "lost phone",
+          "new phone",
+          "partner",
           "passkey",
-          "add person"
+          "people",
+          "salesperson",
+          "send on whatsapp",
+          "staff",
+          "team",
+          "under apex review"
         ]
       },
       "video": null,
@@ -3279,6 +3307,102 @@
                 "en": "help/img/guides/people-and-access/people-03.en.jpg",
                 "pt": "help/img/guides/people-and-access/people-03.pt.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Envie o link de convite. Depois que você toca em Criar link de convite, um card mostra o link da pessoa (1). Ele vale por 72 horas (4). Toque em Copiar link (2) para copiar a mensagem com o link e cole onde quiser. Ou toque em Enviar pelo WhatsApp (3): o WhatsApp abre com a mensagem e o link prontos. Escolha a pessoa e aperte enviar lá você mesmo. A Apex não envia nada sozinha. Depois a pessoa abre o link e cria uma passkey. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar. Veja o guia Você recebeu um link de convite. (A figura mostra um link de exemplo.)",
+                "en": "Send the invite link. After you tap Create invite link, a card shows the link for the person (1). It is valid for 72 hours (4). Tap Copy link (2) to copy the message with the link, then paste it where you like. Or tap Send on WhatsApp (3): WhatsApp opens with the message and the link ready. Choose the person and press send there yourself. Apex does not send anything on its own. The person then opens the link and creates a passkey. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password. See the guide You got an invite link."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-04.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Leia a lista. Cada pessoa da lista tem uma etiqueta ao lado do nome: Convidado (o link foi enviado e ainda não foi usado), Ativo ou Desativado. Embaixo do nome você vê o tipo de acesso, o celular com o meio escondido, a data do último acesso (ou a data até quando o link vale, ou Nunca entrou) e o número de aparelhos. A sua linha, como dono, não tem botões. A linha de um sócio só tem botões para o dono. A figura mostra uma pessoa de exemplo.",
+                "en": "Read the list. Each person in the list has a tag by the name: Invited (the link was sent and not used yet), Active or Disabled. Under the name you see the type of access, the mobile number with the middle hidden, the date of the last sign in (or the date the link is valid until, or Never signed in) and the number of devices. Your own row, as the owner, has no buttons. A partner's row has buttons only for the owner. The picture shows a sample person."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-05.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Mude o acesso ao financeiro depois. Para uma pessoa com acesso de Equipe, uma caixa chamada Acesso ao financeiro (4) fica embaixo do nome. Marque a caixa para a pessoa ver o Financeiro e as Faturas, por exemplo o cônjuge que cuida da contabilidade. Desmarque para esconder. A Apex pede que você confirme: ela diz que a pessoa passará a ver o Financeiro e as Faturas, ou deixará de ver. Toque em Confirmar, ou em Cancelar para não mudar nada.",
+                "en": "Change finance access later. For a person with Staff access, a box called Finance access (4) sits under the name. Tick it to let the person see Finance and Invoices, for example a spouse who does the books. Untick it to hide them. Apex asks you to confirm: it says the person will now see Finance and Invoices, or will no longer see them. Tap Confirm, or Cancel to change nothing."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Desative uma pessoa. Toque em Desativar (1) na linha da pessoa. A Apex pergunta: Desativar esta pessoa? A pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo. Toque em Desativar (2) para confirmar, ou em Manter acesso (3) para parar. Use quando alguém sai e você não precisa explicar o motivo.",
+                "en": "Disable a person. Tap Disable (1) on the person's row. Apex asks: Disable this person? They are signed out everywhere right away and cannot sign in until enabled again. Tap Disable (2) to confirm, or Keep access (3) to stop. Use this when someone leaves and you do not need to explain why."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-07.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Ative uma pessoa de novo. Uma pessoa desativada tem a etiqueta Desativado (1) e um botão, Ativar (2). Toque em Ativar. Não pede confirmação. A pessoa pode entrar de novo com uma passkey que já existe.",
+                "en": "Enable a person again. A disabled person has the tag Disabled (1) and one button, Enable (2). Tap Enable. It needs no confirmation. The person can sign in again with a passkey that already exists."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-08.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Adicione um aparelho para a mesma pessoa. Toque em Novo aparelho (manter os atuais) (1) na linha da pessoa. A Apex cria um novo link para a mesma pessoa, por exemplo para um computador novo, e os aparelhos que ela já tem continuam funcionando. Envie o link como no passo 4. A pessoa abre e cria uma passkey no aparelho novo. Este botão fica escondido para uma pessoa desativada.",
+                "en": "Add a device for the same person. Tap Add a device (keep current ones) (1) on the person's row. Apex makes a new link for the same person, for example for a new computer, and the devices they already have keep working. Send the link as in step 4. The person opens it and creates a passkey on the new device. This button is hidden for a disabled person."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-09.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-09.en.jpg"
+              }
+            },
+            {
+              "n": 10,
+              "text": {
+                "pt": "Avise de aparelho perdido, trocado, ou de uma pessoa que saiu. Toque em Aparelho perdido, trocado ou saída (2) na linha da pessoa. Escolha o motivo: Saiu da empresa (1), Comprei um celular novo (2) ou Perdido ou roubado (3). Use Perdido ou roubado quando um celular pode estar em mãos erradas, porque isso também pede que a Apex revise o que aconteceu.",
+                "en": "Report a lost or replaced device, or a person who left. Tap Lost, replaced or leaving (2) on the person's row. Pick the reason: Left the company (1), Got a new phone (2) or Lost or stolen (3). Use Lost or stolen when a phone could be in the wrong hands, because it also asks Apex to review what happened."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-10.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-10.en.jpg"
+              }
+            },
+            {
+              "n": 11,
+              "text": {
+                "pt": "Diga quando foi. Se você escolheu Perdido ou roubado, a Apex pergunta: Quando foi? Toque em Agora (1), Hoje (2), Neste fim de semana, a partir de sexta-feira (3) ou Em uma data específica (4). Para uma data, escolha o dia, ponha uma hora aproximada se souber e toque em Continuar. Depois a Apex diz o que vai acontecer e pede que você confirme. Para Saiu da empresa: o acesso da pessoa será desligado agora. Para Comprei um celular novo: as sessões atuais são encerradas agora e um novo link de aparelho é criado para você enviar. Para Perdido ou roubado: o acesso é desligado agora e a Apex revisa a atividade desde a hora que você informou. Toque em Confirmar, ou em Cancelar. Depois de um aviso de perda, a linha da pessoa mostra a etiqueta Em análise pela Apex, e depois Revisado.",
+                "en": "Say when it was lost. If you chose Lost or stolen, Apex asks: When was it? Tap Now (1), Today (2), This weekend, from Friday (3) or On a specific date (4). For a date, pick the day, add an approximate time if you know it and tap Continue. Then Apex says what will happen and asks you to confirm. For Left the company: this person's access will be turned off now. For Got a new phone: the current sessions end now and a new device link is created for you to send. For Lost or stolen: access is turned off now and Apex reviews activity since the time you gave. Tap Confirm, or Cancel. After a lost report, the person's row shows the tag Under Apex review, and later Reviewed."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-11.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-11.en.jpg"
+              }
+            },
+            {
+              "n": 12,
+              "text": {
+                "pt": "Escolha o jeito certo para um vendedor. Há dois jeitos de dar um login a um vendedor. O jeito 1 é este card, Pessoas e acessos: escolha o acesso Vendedor(a), digite o nome e o celular, e envie o link de convite. Você mesmo faz, e fica pronto na hora. A pessoa cria uma passkey, então não há senha. O card só aparece se o login por passkey estiver ligado para a sua empresa. O jeito 2 é Solicitar Login em Suas listas (veja o guia Vendedores e as listas do seu negócio): você pede à Apex, a Apex analisa o pedido e cria um login com usuário e senha. Use o jeito 1 quando você vê Pessoas e acessos em Ajustes. Use o jeito 2 quando não vê. Dê a cada pessoa um dos dois, não os dois. Se você adicionar uma pessoa com um nome que um login da sua empresa já usa, a Apex diz: Já existe um acesso com este nome nesta empresa. Use um nome diferente, por exemplo com o sobrenome.",
+                "en": "Choose the right way for a salesperson. There are two ways to give a salesperson a login. Way 1 is this card, People and access: choose the access Salesperson, type the name and the mobile number, and send the invite link. You do it yourself and it is done at once. The person creates a passkey, so there is no password. The card shows only if passkey sign in is turned on for your business. Way 2 is Request Login in Your lists (see the guide Salespeople and your business lists): you ask Apex, Apex reviews the request, and Apex creates a login with a username and a password. Use way 1 when you see People and access in Settings. Use way 2 when you do not. Give each person one of the two, not both. If you add a person with a name that a login at your business already uses, Apex says: An access with this name already exists at this business. Use a different name, for example with the last name."
+              },
+              "image": null
             }
           ]
         }
@@ -3295,6 +3419,66 @@
           },
           "section": "people",
           "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Copiar link"
+            ],
+            "en": [
+              "Copy link"
+            ]
+          },
+          "section": "people",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Novo aparelho (manter os atuais)"
+            ],
+            "en": [
+              "Add a device (keep current ones)"
+            ]
+          },
+          "section": "people",
+          "step": 9
+        },
+        {
+          "labels": {
+            "pt": [
+              "Aparelho perdido, trocado ou saída"
+            ],
+            "en": [
+              "Lost, replaced or leaving"
+            ]
+          },
+          "section": "people",
+          "step": 10
+        },
+        {
+          "labels": {
+            "pt": [
+              "Manter acesso"
+            ],
+            "en": [
+              "Keep access"
+            ]
+          },
+          "section": "people",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Acesso ao financeiro"
+            ],
+            "en": [
+              "Finance access"
+            ]
+          },
+          "section": "people",
+          "step": 6
         }
       ]
     },
@@ -4618,8 +4802,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Leia o seu progresso. Uma etiqueta pequena (3) diz como você está indo, por exemplo Precisa acelerar um pouco. Realizado e Falta (4) mostram o que você já fez e o que ainda falta. A linha embaixo deles (5) mostra a meta do mês e o número de dias úteis. O botão dourado (6), Pedir ajuda com esta área, serve para quando você quer ajuda com o número que escolheu. Esta é a mesma imagem do passo anterior.",
-                "en": "Read your progress. A small label (3) tells you how you are doing, for example Needs a little push. Achieved and Left (4) show what you have done and what is still missing. The line under them (5) gives the monthly goal and the number of working days. The gold button (6), Ask for help with this area, is there for when you want help with the number you picked. This is the same picture as the step before."
+                "pt": "Leia o seu progresso. Uma etiqueta pequena (3) diz como você está indo, por exemplo Precisa acelerar um pouco. Realizado e Falta (4) mostram o que você já fez e o que ainda falta. A linha embaixo deles (5) mostra a meta do mês e o número de dias úteis. O botão dourado (6), Pedir ajuda com esta área, serve para quando você quer ajuda com o número que escolheu. Esta é a mesma imagem do passo anterior. Quando você toca, o WhatsApp abre com uma mensagem para o Rafa, o consultor, que diz qual é o número. A mensagem não leva número de telefone, então você escolhe o contato no WhatsApp e aperta enviar lá. Ao mesmo tempo a Apex salva uma tarefa de ajuda para o Rafa com os seus números e avisa ele, para ele ver o que você viu.",
+                "en": "Read your progress. A small label (3) tells you how you are doing, for example Needs a little push. Achieved and Left (4) show what you have done and what is still missing. The line under them (5) gives the monthly goal and the number of working days. The gold button (6), Ask for help with this area, is there for when you want help with the number you picked. This is the same picture as the step before. When you tap it, WhatsApp opens with a message to Rafa, the consultant, that names the number. The message has no phone number in it, so you choose the contact in WhatsApp and press send there. At the same time Apex saves a help task for Rafa with your numbers and tells him, so he can see what you saw."
               },
               "image": {
                 "pt": "help/img/guides/analytics/analytics-03.pt.jpg",
@@ -5075,6 +5259,30 @@
                 "pt": "help/img/guides/home-alerts/home-03.pt.jpg",
                 "en": "help/img/guides/home-alerts/home-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Preencha os registros diários pendentes. Quando você tem dias sem registro diário, o Início mostra um card: Você tem dias pendentes de registro. Toque em Preencher agora para abrir o registro diário e preencher os dias que faltam. Veja o guia Registro diário.",
+                "en": "Fill in your pending daily entries. When you have days without a daily entry, Home shows a card: You have pending daily entries. Tap Fill in now to open the daily entry and fill in the days you missed. See the guide Daily log."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja as suas reuniões. Se a Apex deu a você um link de agendamento, ou se você tem uma reunião marcada, o Início mostra um card de reuniões. Nele você escolhe o horário, entra na reunião ou muda. Veja o guia Sua reunião com a Apex.",
+                "en": "Check your meetings. If Apex gave you a booking link, or you have a meeting booked, Home shows a meetings card. It lets you pick a time, join the meeting or move it. See the guide Your meeting with Apex."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Saiba quando não há nada esperando. Quando não há nada a fazer, o Início diz: Nada precisa da sua atenção agora.",
+                "en": "Know when nothing is waiting. When there is nothing to do, Home says: Nothing needs your attention right now."
+              },
+              "image": null
             }
           ]
         }
@@ -6621,6 +6829,14 @@
                 "pt": "help/img/guides/salespeople-and-lists/lists-03.pt.jpg",
                 "en": "help/img/guides/salespeople-and-lists/lists-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Escolha entre Solicitar Login e Pessoas e acessos. Solicitar Login (passo 1) pede à Apex que crie um login com usuário e senha para um vendedor, depois que a Apex analisa. O outro jeito é o card Pessoas e acessos em Ajustes: escolha o acesso Vendedor(a), digite o nome e o celular, e envie o link de convite. A pessoa cria uma passkey, então não há senha, e você mesmo faz na hora. Use Pessoas e acessos quando você o vê em Ajustes. Use Solicitar Login quando não vê. Dê a cada vendedor um dos dois. Veja o guia Adicionar pessoas e escolher o acesso.",
+                "en": "Choose Request Login or People and access. Request Login (step 1) asks Apex to create a login with a username and a password for a salesperson, after Apex reviews it. The other way is the card People and access in Settings: choose the access Salesperson, type the name and the mobile number, and send the invite link. The person creates a passkey, so there is no password, and you do it yourself at once. Use People and access when you see it in Settings. Use Request Login when you do not. Give each salesperson one of the two. See the guide Add people and choose their access."
+              },
+              "image": null
             }
           ]
         }
@@ -7186,6 +7402,14 @@
                 "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. See the Add people and choose their access guide."
               },
               "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Celular novo ou aparelho perdido de alguém da equipe. Se uma pessoa da sua equipe ganha um celular ou computador novo, ou perde um aparelho, você resolve em Pessoas e acessos: Novo aparelho (manter os atuais) cria um novo link, e Aparelho perdido, trocado ou saída desliga o acesso ou cria um novo link. Veja o guia Adicionar pessoas e escolher o acesso, passos 9 a 11.",
+                "en": "New phone or lost device for a team member. If a person on your team gets a new phone or computer, or loses a device, you handle it in People and access: Add a device (keep current ones) makes a new link, and Lost, replaced or leaving turns the access off or makes a new link. See the guide Add people and choose their access, steps 9 to 11."
+              },
+              "image": null
             }
           ]
         }
@@ -7275,11 +7499,46 @@
                 "pt": "help/img/guides/execution-and-tasks/plan-02.pt.jpg",
                 "en": "help/img/guides/execution-and-tasks/plan-02.en.jpg"
               }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Mude o status de uma ação. Volte para Apex, depois Execução. A barra (1) mostra quantas ações já foram feitas. Cada linha é uma ação com a sua etiqueta de status (2). Toque em uma linha para abrir. A folha lista Ação, Frente, Responsável, Status e Observações. Toque em Status para escolher Pendente, Em andamento, Realizado, Atrasado ou Cancelado. Os nomes da figura estão cobertos.",
+                "en": "Change the status of an action. Go back to Apex, then Execution. The bar (1) shows how many actions are done. Each row is one action with its status tag (2). Tap a row to open it. The sheet lists Action, Front, Owner, Status and Notes. Tap Status to pick Pending, In progress, Done, Late or Cancelled. The names in the picture are covered."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-03.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Adicione uma nova ação. No fim da lista, toque em + Nova ação. Escreva a ação na caixa (os outros campos podem ser preenchidos depois de salvar). Toque em Salvar, ou em Cancelar para sair. Para tirar uma ação, abra-a e toque em Excluir.",
+                "en": "Add a new action. At the bottom of the list, tap + New action. Type the action in the box (the other fields can be filled in after saving). Tap Save, or Cancel to leave. To remove an action, open it and tap Delete."
+              },
+              "image": {
+                "pt": "help/img/guides/execution-and-tasks/plan-04.pt.jpg",
+                "en": "help/img/guides/execution-and-tasks/plan-04.en.jpg"
+              }
             }
           ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Nova ação"
+            ],
+            "en": [
+              "+ New action"
+            ]
+          },
+          "section": "plan",
+          "step": 4
+        }
+      ]
     },
     {
       "id": "project-from-scratch",
@@ -8027,6 +8286,22 @@
                 "pt": "help/img/guides/use-learn-and-language/learn-05.pt.jpg",
                 "en": "help/img/guides/use-learn-and-language/learn-05.en.jpg"
               }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Veja um vídeo. Alguns guias têm vídeo. Na biblioteca, uma etiqueta pequena Vídeo aparece no card desse guia. Quando você abre o guia, um card no alto diz Assistir ao vídeo. Toque nele e o vídeo toca ali mesmo, na página. Embaixo a página diz: Ou siga os passos abaixo. Se o vídeo não carregar, a página avisa e você segue os passos. Por enquanto os vídeos estão só em português. Quando um guia não tem vídeo no seu idioma, você não vê card nem etiqueta.",
+                "en": "Watch a video. Some guides have a video. In the library, a small tag Video shows on the card of that guide. When you open the guide, a card at the top says Watch the video. Tap it and the video plays right there, on the page. Under it the page says: Or follow the steps below. If the video cannot load, the page says so and you follow the steps. For now the videos are in Portuguese only. When a guide has no video in your language, you see no card and no tag."
+              },
+              "image": null
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Quando a Apex não faz o que você pediu. Se você pede algo que a Apex ainda não faz, ela avisa: O Apex ainda não faz isso. Quer nos contar mais para enviarmos uma sugestão? Toque em Sim, contar mais, ou em Não, obrigada. Se você toca em Sim, a Apex faz algumas perguntas curtas, uma de cada vez, até cinco, sobre o que você quer, quando deve acontecer, que informação precisa e que resultado você espera. Toque em Enviar para responder cada uma. Você pode tocar em Enviar assim mesmo para parar antes. Quando termina, a página diz Sugestão enviada. Se a Apex não tiver certeza, ela pergunta: você quer aprender a fazer isso no Apex, ou quer que o Apex passe a fazer isso? Toque em Aprender, ou em Quero que o Apex faça.",
+                "en": "When Apex does not do what you asked. If you ask for something Apex does not do yet, Apex says so: Apex does not do that yet. Want to tell us more so we can send a suggestion? Tap Yes, tell more, or No thanks. If you tap Yes, Apex asks you a few short questions, one at a time, up to five, about what you want, when it should happen, what information it needs and what result you expect. Tap Send to answer each one. You can tap Send it as it is to stop early. When it is done, the page says Suggestion sent. If Apex is not sure, it asks: do you want to learn how to do this in Apex, or do you want Apex to start doing it? Tap Learn, or I want Apex to do it."
+              },
+              "image": null
             }
           ]
         }
@@ -8442,6 +8717,14 @@
                 "en": "Use your own photo instead. Tap Upload my own image (3) and choose a JPG, PNG or WebP file up to 5 MB. Tap See my uploaded image (4) to look at it again later. Your photo can be adjusted so the part you want shows at the top."
               },
               "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ajuste a sua foto. Depois que você envia a sua foto, a pré-visualização tem ferramentas. Tom dos quadros: escolha Escuro ou Claro. As setas para cima, para baixo, esquerda e direita movem a foto um pouco a cada toque, para aparecer a parte que você quer. Espelhar vira a foto como um espelho. Aproximar deixa maior, aos poucos, até 200 por cento, e mostra a porcentagem. Redefinir volta a foto ao começo. Quando estiver bom, toque em Usar a minha imagem assim.",
+                "en": "Adjust your own photo. After you upload your photo, the preview has tools. Tile tone: pick Dark or Light. The arrows Up, Down, Left and Right move the photo a little each time you tap, so the part you want shows. Flip mirrors the photo. Zoom in makes it bigger, in steps, up to 200 percent, and shows the percent. Reset puts the photo back as it was. When it looks right, tap Use my image like this."
+              },
+              "image": null
             }
           ]
         }
@@ -8482,6 +8765,18 @@
           },
           "section": "cover",
           "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Usar a minha imagem assim"
+            ],
+            "en": [
+              "Use my image like this"
+            ]
+          },
+          "section": "cover",
+          "step": 4
         }
       ]
     },
@@ -11799,6 +12094,103 @@
         }
       ],
       "buttons": []
+    },
+    {
+      "id": "what-a-salesperson-sees",
+      "audience": "client",
+      "title": {
+        "pt": "O que um vendedor vê e faz",
+        "en": "What a salesperson sees and does"
+      },
+      "summary": {
+        "pt": "Suas abas, os seus leads, o material de vendas e o aviso de falta de contrato.",
+        "en": "Your tabs, your leads, sales material and the no contract warning."
+      },
+      "keywords": {
+        "pt": [
+          "vendedor",
+          "login de vendedor",
+          "material de vendas",
+          "sem contrato assinado",
+          "avisar o dono",
+          "meus leads",
+          "pipeline"
+        ],
+        "en": [
+          "salesperson",
+          "seller",
+          "salesperson login",
+          "sales material",
+          "no signed contract",
+          "notify owner",
+          "my leads",
+          "pipeline"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "seller",
+          "title": {
+            "pt": "Seu portal de vendedor",
+            "en": "Your salesperson portal"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Conheça as suas abas. O login de vendedor tem três abas: Negócio (1), Agenda e Apex (2). Negócio tem as suas ferramentas de leads, projetos, preços, orçamentos e contratos. Apex tem Documentos. Você não vê Financeiro, Faturas, metas, analytics nem Ajustes.",
+                "en": "Know your tabs. A salesperson login has three tabs: Business (1), Calendar and Apex (2). Business holds your tools for leads, projects, pricing, estimates and contracts. Apex holds Documents. You do not see Finance, Invoices, goals, analytics or Settings."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-salesperson-sees/seller-01.pt.jpg",
+                "en": "help/img/guides/what-a-salesperson-sees/seller-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Saiba o que cada uma mostra. O Pipeline mostra só os leads que você cria ou que o dono dá a você. Os Projetos são só para ler. Os Preços aparecem sem os custos. A agenda mostra menos detalhes do que o dono vê. Orçamentos e Contratos estão aí para você trabalhar.",
+                "en": "Know what each one shows. Pipeline shows only the leads you create or that the owner gives to you. Projects are for reading only. Pricing is shown without the costs. The calendar shows less detail than the owner sees. Estimates and Contracts are there for you to work with."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Leia o material de vendas. Toque em Apex, depois em Documentos. A seção Material de Vendas (2) tem os arquivos que o dono compartilha com os vendedores. Você pode abrir, não mudar. Quando não há nenhum, a página diz Nenhum material de vendas ainda.",
+                "en": "Read the sales material. Tap Apex, then Documents. The section Sales material (2) holds the files the owner shares for salespeople. You can open them, not change them. When there are none, the page says Nenhum material de vendas ainda, which means there is no sales material yet."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-salesperson-sees/seller-03.pt.jpg",
+                "en": "help/img/guides/what-a-salesperson-sees/seller-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Resolva o aviso de falta de contrato. Se um projeto passa de $2,500 e não tem contrato assinado, abre uma janela chamada Sem contrato assinado quando você tenta mudar o status do projeto, adicionar uma foto de andamento ou enviar uma segunda fatura. Você não pode continuar sozinho. Toque em Avisar o dono e continuar, ou em WhatsApp. O seu telefone abre uma mensagem para o dono com um texto fixo. Envie, e depois você pode continuar. Toque em Voltar para parar.",
+                "en": "Handle the no contract warning. If a project is over $2,500 and has no signed contract, a window called No signed contract opens when you try to change the project status, add a progress photo or send a second invoice. You cannot go on alone. Tap Notify owner and continue, or WhatsApp. Your phone opens a message to the owner with a fixed text. Send it, and then you can continue. Tap Back to stop."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Avisar o dono e continuar"
+            ],
+            "en": [
+              "Notify owner and continue"
+            ]
+          },
+          "section": "seller",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {

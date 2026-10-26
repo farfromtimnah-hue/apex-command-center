@@ -2329,6 +2329,23 @@
               }
             }
           ]
+        },
+        {
+          "id": "reaccept",
+          "title": {
+            "pt": "Concordar de novo quando os Termos do Stripe mudam",
+            "en": "Agree again when the Stripe Terms change"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Procure a linha amarela. Quando o Stripe muda os Termos, uma linha aparece onde você conectou o Stripe, na parte de pagamentos por cartão em Orçamentos, depois Configurações: Os Termos foram atualizados. Revise e concorde novamente. Marque a caixa, que traz os Termos, e toque em Concordo. Uma mensagem diz Registrado. Obrigado. A linha só aparece quando existe uma versão nova dos Termos, então na maior parte do tempo você não a verá. Este passo vem do código do app.",
+                "en": "Look for the yellow line. When Stripe changes its Terms, a line shows where you connected Stripe, in the card payments part of Estimates, then Settings: The Terms were updated. Please review and agree again. Tick the box, which holds the Terms, and tap I agree. A message says Recorded. Thank you. The line shows only when there is a new version of the Terms, so most of the time you will not see it. This step comes from the app's code."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -3300,7 +3317,14 @@
           "link de agendamento",
           "horário",
           "duração da visita",
-          "lead"
+          "lead",
+          "página de agendamento",
+          "cliente agenda uma visita",
+          "link de agendamento",
+          "enviar link de agendamento",
+          "perguntas do agendamento",
+          "tipo do evento",
+          "limpeza residencial"
         ],
         "en": [
           "online booking",
@@ -3309,7 +3333,14 @@
           "booking link",
           "hours",
           "visit length",
-          "lead"
+          "lead",
+          "booking page",
+          "customer books a visit",
+          "booking link",
+          "send booking link",
+          "booking questions",
+          "calendar entry type",
+          "house cleaning"
         ]
       },
       "video": null,
@@ -3355,9 +3386,162 @@
               }
             }
           ]
+        },
+        {
+          "id": "questions",
+          "title": {
+            "pt": "Perguntas e tipo do evento no calendário",
+            "en": "Questions and the calendar entry type"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha o tipo do evento no calendário. Em Agendamento online, role até Tipo do evento no calendário (1). Toda visita que um cliente agenda vira um evento na sua agenda. O menu tem Automático, Visita, Reunião, Serviço, Entrega ou Outro. Automático escolhe o tipo visita para você. Depois escolha um Modelo de perguntas (2): Limpeza residencial ou Geral. O modelo troca as perguntas que você tem agora. O Apex mostra Desfazer por um instante para você voltar atrás. Nada é salvo até você tocar em Salvar. Cada pergunta tem uma caixa de marcar (3) para mostrar ou esconder, e Remover (4) para apagar.",
+                "en": "Choose the calendar entry type. In Online booking, scroll to Calendar entry type (1). Every visit a customer books becomes an entry on your calendar. The menu is Automatic, Visit, Meeting, Service, Delivery or Other. Automatic picks the visit type for you. Then pick a Question preset (2): House cleaning or General. A preset replaces the questions you have now. Apex shows Undo for a moment so you can go back. Nothing is saved until you tap Save. Each question has a tick box (3) to show or hide it, and Remove (4) to delete it."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/questions-01.en.jpg",
+                "pt": "help/img/guides/online-booking-page/questions-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione a sua própria pergunta e salve. Digite a pergunta na caixa (1). Escolha o tipo de resposta (2): Resposta curta, Número, ou Sim ou não. Toque em Adicionar (3). A sua pergunta vai para o fim da lista. Toque em Salvar (5) quando terminar. Em Link geral, Copiar (4) copia o link da sua página de agendamento. O link aparece depois que você liga o agendamento e salva.",
+                "en": "Add your own question and save. Type the question in the box (1). Pick the kind of answer (2): Short answer, Number, or Yes or no. Tap Add (3). Your question goes to the end of the list. Tap Save (5) when you are done. Under General link, Copy (4) copies the link of your booking page. The link appears after you turn booking On and save."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/questions-02.en.jpg",
+                "pt": "help/img/guides/online-booking-page/questions-02.pt.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "customer",
+          "title": {
+            "pt": "O que o seu cliente vê na página de agendamento",
+            "en": "What your customer sees on the booking page"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a página de agendamento como o seu cliente. Ela mostra o nome e o logo da sua empresa, e nada da Apex. O cliente pode trocar entre PT e EN no alto. No Link geral o cliente preenche Nome (1) e Telefone (2). E-mail (3) é opcional. Endereço da visita (4) é sempre obrigatório. Quando você manda a página para um lead, o Apex já preenche o que sabe e mostra um botão Editar ao lado de cada linha.",
+                "en": "Open the booking page as your customer. It carries your company name and logo, and nothing from Apex. The customer can switch between PT and EN at the top. On the General link the customer fills in Name (1) and Phone (2). Email (3) is optional. Address for the visit (4) is always required. When you send the page to one lead, Apex already fills in what it knows and shows an Edit button next to each line."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/customer-01.en.jpg",
+                "pt": "help/img/guides/online-booking-page/customer-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O cliente responde às suas perguntas. O cartão Sobre o serviço (1) mostra as perguntas que você escolheu. Abaixo dele, o botão Escolher dia e horário leva para a próxima tela.",
+                "en": "The customer answers your questions. The card About the job (1) shows the questions you chose. Below it, the button Choose a day and time goes to the next screen."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/customer-02.en.jpg",
+                "pt": "help/img/guides/online-booking-page/customer-02.pt.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "O cliente escolhe um dia. A lista (1) mostra só os dias que você permite: os seus Dias de trabalho, dentro do número de dias que você definiu para agendar com antecedência. Voltar (2) retorna aos dados. No nosso cliente de teste só o domingo é dia de trabalho, então só aparecem domingos.",
+                "en": "The customer picks a day. The list (1) shows only days you allow: your Working days, inside the number of days you set for how far ahead customers can book. Back (2) returns to the details. In our test client only Sundays are working days, so only Sundays show."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/customer-03.en.jpg",
+                "pt": "help/img/guides/online-booking-page/customer-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "O cliente escolhe um horário e confirma. A grade (1) mostra os horários livres, no fuso do próprio cliente. Um horário ocupado, ou perto demais para o seu aviso mínimo, não aparece. Quando o cliente toca em um, o botão Confirmar liga, embaixo da grade. Outro dia volta para os dias. Se duas pessoas escolherem o mesmo horário, a segunda vê que ele acabou de ser ocupado e escolhe outro. Não tocamos em Confirmar no nosso teste, então nada foi agendado.",
+                "en": "The customer picks a time and confirms. The grid (1) shows the free times, in the customer's own time zone. A time that is taken, or too soon for your minimum notice, is not shown. When the customer taps one, the button Confirm turns on, under the grid. Another day goes back to the days. If two people choose the same time, the second one sees that it was just taken and picks another. We did not tap Confirm in our test, so nothing was booked."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/customer-04.en.jpg",
+                "pt": "help/img/guides/online-booking-page/customer-04.pt.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "O que acontece depois de Confirmar. O cliente vê Visita agendada! com a data, o horário e o endereço, e um botão Adicionar ao calendário. O cliente pode tocar em Escolher outro horário, ou Cancelar a visita (o Apex pergunta mais uma vez: Sim, cancelar minha visita ou Manter minha visita). Do seu lado, três coisas acontecem sozinhas. Primeiro, se o agendamento veio do Link geral, nasce um lead novo com a origem Site, na etapa Novo Lead. Segundo, um evento entra na sua agenda, com o nome do cliente como título, o endereço como local e as respostas nas notas. O tipo é o que você escolheu. Terceiro, o dono recebe uma notificação no celular, se as notificações estiverem ligadas. Você não precisa digitar nada. Este passo vem do código do app, porque não agendamos nada no nosso teste.",
+                "en": "What happens after Confirm. The customer sees Your visit is booked with the date, time and address, and a button Add to calendar. The customer can tap Pick a different time, or Cancel the visit (Apex asks once more: Yes, cancel my visit or Keep my visit). On your side, three things happen by themselves. First, if the booking came from the General link, a new lead is made with the source Site, in the stage New Lead. Second, an entry is put on your calendar, with the customer's name as the title, the address as the location, and the answers in the notes. Its type is the one you chose. Third, the owner gets a push notification on the phone, if notifications are on. You do not have to enter anything. This step comes from the app's code, because we did not book in our test."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "send-one",
+          "title": {
+            "pt": "Enviar o link de agendamento para um lead",
+            "en": "Send the booking link to one lead"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache o botão. Abra um lead. Embaixo de Enviar cartão de contato está Enviar link de agendamento (1). Ele só aparece quando o Agendamento online está Ligado nas Configurações. Se você não o vê, ligue o agendamento primeiro.",
+                "en": "Find the button. Open a lead. Under Send contact card there is Send booking link (1). It shows only when Online booking is switched On in Settings. If you do not see it, turn booking on first."
+              },
+              "image": {
+                "en": "help/img/guides/online-booking-page/send-one-01.en.jpg",
+                "pt": "help/img/guides/online-booking-page/send-one-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Use a tela de envio. Ao tocar no botão, o Apex cria um link só para esse lead e abre uma tela. Mensagem de texto e WhatsApp abrem o app de mensagens do seu telefone com o texto e o link prontos. A mensagem diz Oi e o primeiro nome, e depois que esse é o link para escolher o melhor dia e horário da visita. Copiar link copia o link. Voltar retorna ao lead. O Apex não envia nada sozinho: você aperta enviar no seu app de mensagens. Se o lead não tem telefone, a tela avisa. Coloque um telefone no lead, ou copie o link. Este passo vem do código do app. Não abrimos a tela no nosso teste, porque abrir cria um link de verdade.",
+                "en": "Use the send screen. Tapping the button makes a link just for this lead and opens a screen. Text message and WhatsApp open your phone's messaging app with the words and the link ready. The message says Hi and the first name, then that this is the link to choose the best day and time for the visit. Copy link copies it. Back returns to the lead. Apex sends nothing by itself: you press send in your messaging app. If the lead has no phone number, the screen says so. Add a phone to the lead, or copy the link. This step comes from the app's code. We did not open the screen in our test, because opening it makes a real link."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Acompanhe o agendamento no lead. Depois de enviar o link, a ficha do lead mostra uma seção chamada Agendamento. Ela diz Link criado, ainda não enviado, ou Link enviado em uma data, depois Agendado para um dia e horário, ou Cancelado, ou Expirado. Ela também lista as respostas do cliente. Se o cliente mudou um dado, por exemplo o endereço ou o telefone, uma linha amarela diz O cliente atualizou e mostra o valor novo ao lado do que você tem. Confira e corrija o lead se o valor novo estiver certo.",
+                "en": "Follow the booking on the lead. After you send the link, the lead sheet shows a section called Booking. It reads Link created, not sent yet, or Link sent on a date, then Booked for a day and time, or Cancelled, or Expired. It also lists the customer's answers. If the customer changed a detail, for example the address or the phone, a yellow line says Customer updated and shows the new value next to the one you have. Check it and fix the lead if the new value is right."
+              },
+              "image": null
+            }
+          ]
         }
       ],
-      "buttons": []
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar link de agendamento"
+            ],
+            "en": [
+              "Send booking link"
+            ]
+          },
+          "section": "send-one",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Escolher dia e horário"
+            ],
+            "en": [
+              "Choose a day and time"
+            ]
+          },
+          "section": "customer",
+          "step": 2
+        }
+      ]
     },
     {
       "id": "pipeline",
@@ -3482,6 +3666,17 @@
                 "pt": "help/img/guides/pipeline/see-leads-07.pt.jpg",
                 "en": "help/img/guides/pipeline/see-leads-07.en.jpg"
               }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Os números seguem os seus filtros. Escolha um mês (1) e as caixas do alto mudam para esse mês. Se você escolher também um vendedor, elas seguem o vendedor. Uma linha acima das caixas (2) diz o que você está vendo, por exemplo Outubro 2026. As caixas (3) contam só os leads desse mês. A caixa de busca não muda esses números. Toque no X do filtro para voltar a todos os meses.",
+                "en": "The numbers follow your filters. Pick a month (1) and the boxes at the top change to match it. If you also pick a salesperson, they follow that too. A line above the boxes (2) names what you are looking at, for example October 2026. The boxes (3) then count only the leads of that month. The search box does not change them. Tap the X in the filter to go back to all months."
+              },
+              "image": {
+                "en": "help/img/guides/pipeline/see-leads-08.en.jpg",
+                "pt": "help/img/guides/pipeline/see-leads-08.pt.jpg"
+              }
             }
           ]
         },
@@ -3557,6 +3752,25 @@
                 "pt": "help/img/guides/pipeline/lead-sheet-06.pt.jpg",
                 "en": "help/img/guides/pipeline/lead-sheet-06.en.jpg"
               }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Leia o Resultado. A seção Resultado (1) é calculada pelo Apex. Você nunca digita nela. Ela mostra Custo total, Comissão (%), Lucro e Margem. A margem mostra um aviso quando fica abaixo da margem mínima que você definiu. A ficha do projeto tem o mesmo bloco. A comissão tem uma linha de percentual (2). Toque nela e digite um percentual (de 0 a 100). O Apex transforma em dólares na linha Comissão vendedor ($), usando o Valor do orçamento. Você também pode digitar os dólares em Comissão vendedor ($) e o Apex mostra o percentual. Se o Valor do orçamento estiver vazio, a linha pede para você preenchê-lo primeiro.",
+                "en": "Read the Result. The Result section (1) is calculated by Apex. You never type in it. It shows Total cost, Commission (%), Profit and Margin. The margin shows a warning when it is under the minimum margin you set. The project sheet has the same block. The commission has its own percent row (2). Tap it and type a percent (from 0 to 100). Apex turns it into dollars for Sales commission ($), using the Estimate value. You can also type the dollars in Sales commission ($) and Apex shows the percent. If the Estimate value is empty, this row asks you to fill it in first."
+              },
+              "image": {
+                "en": "help/img/guides/pipeline/lead-sheet-07.en.jpg",
+                "pt": "help/img/guides/pipeline/lead-sheet-07.pt.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Revise a comissão quando o valor muda. Às vezes um orçamento muda o valor de um lead depois que você definiu a comissão. Aí aparece uma linha vermelha na seção Orçamentos da ficha do lead: O valor mudou de um número para outro depois de a comissão ter sido definida. Revise a comissão. O Apex não muda a comissão por você. Confira, corrija se precisar e toque em Dispensar ao lado da linha (o dono vê esse botão, o vendedor não). Se você mesmo mudar a comissão, a linha some. Não conseguimos mostrar essa linha no nosso teste, porque o cliente de teste não tinha nenhum lead nesse estado, então este passo vem do código do app.",
+                "en": "Review the commission when the value changes. Sometimes an estimate changes the value of a lead after you set its commission. Then a red line appears in the Estimates section of the lead sheet: Value changed from one amount to another after commission was set. Review commission. Apex does not change the commission for you. Check it, fix it if you need to, and tap Dismiss next to the line (the owner sees this button, a salesperson does not). If you change the commission yourself, the line goes away. We could not show this line in our test, because the test client had no lead in this state, so this step comes from the app's code."
+              },
+              "image": null
             }
           ]
         },
@@ -3593,18 +3807,6 @@
         }
       ],
       "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Enviar link de agendamento"
-            ],
-            "en": [
-              "Send booking link"
-            ]
-          },
-          "section": "lead-sheet",
-          "step": 1
-        },
         {
           "labels": {
             "pt": [
@@ -3783,6 +3985,47 @@
               "image": null
             }
           ]
+        },
+        {
+          "id": "more",
+          "title": {
+            "pt": "Tocar em um item, eventos da Apex e chuva",
+            "en": "Tap an item, Apex events and rain"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Toque em um item para abri-lo. Um item de projeto abre esse projeto. Uma visita de orçamento abre o lead dela. Os seus próprios eventos abrem o formulário do evento, como em Criar um evento. Itens que parecem apagados são de leads Fechados ou Perdidos. Eles ficam na agenda como histórico, para não competir com os leads que você ainda está trabalhando. Se você é vendedor, as reservas de outras pessoas aparecem só como Horário reservado, e você não consegue abri-las. Este passo vem do código do app.",
+                "en": "Tap an item to open it. A project item opens that project. An estimate visit opens its lead. Your own events open the event form, as in Create an event. Items that look faded belong to leads that are Closed or Lost. They stay on the calendar as history, so they do not compete with the leads you are still working. If you are a salesperson, other people's bookings show only as Booked, and you cannot open them. This step comes from the app's code."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abra uma reunião com a Apex. Toque em um item chamado Reunião com a Apex. Uma ficha mostra a data, a hora e o local. Se a reunião tem um link de vídeo, o botão Entrar no Google Meet abre o link. Se a reunião foi agendada pelo portal, o botão Reagendar deixa você escolher outro horário. Se não foi, a ficha manda você falar com a Alice para mudar. Este passo vem do código do app. O nosso cliente de teste não tinha nenhuma reunião com a Apex na agenda.",
+                "en": "Open a meeting with Apex. Tap an item called Meeting with Apex. A sheet shows the date, the time and the place. If the meeting has a video link, the button Join Google Meet opens it. If the meeting was booked through the portal, the button Reschedule lets you pick another time. If it was not, the sheet tells you to contact Alice to move it. This step comes from the app's code. Our test client had no meeting with Apex on its calendar."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Inscreva-se em um evento do Apex Club. Um evento do Apex Club tem uma estrela na frente do nome. Toque nele para ver o cartaz, a data, o local e os palestrantes. O botão Confirmar presença abre a página onde você se inscreve. O evento é organizado pela Apex. Este passo vem do código do app. O nosso cliente de teste não tinha nenhum evento do Apex Club na agenda.",
+                "en": "Register for an Apex Club event. An Apex Club event has a star in front of its name. Tap it to see the flyer, the date, the place and the speakers. The button Register opens the page where you sign up. The event is held by Apex. This step comes from the app's code. Our test client had no Apex Club event on its calendar."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Leia o cartão de chuva na visão do Dia. Na visão do Dia, um cartão chamado Chuva por obra hoje lista cada projeto em andamento nesse dia. Um ponto verde com Sem chuva quer dizer que não é esperada chuva. Um ponto vermelho com Chuva e as horas quer dizer que chuva é provável nesse horário. Um ponto cinza com Sem previsão quer dizer que o Apex não tem previsão: o endereço não foi achado no mapa, ou o dia está longe demais.",
+                "en": "Read the rain card in Day view. In Day view, a card called Rain by site today lists each project that is in progress on that day. A green dot with No rain means no rain is expected. A red dot with Rain and the hours means rain is likely then. A grey dot with No forecast means Apex has no forecast for it: the address was not found on the map, or the day is too far ahead."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -3821,6 +4064,18 @@
           },
           "section": "new-event",
           "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Entrar no Google Meet"
+            ],
+            "en": [
+              "Join Google Meet"
+            ]
+          },
+          "section": "more",
+          "step": 2
         }
       ]
     },
@@ -3849,7 +4104,14 @@
           "subempreiteiro",
           "fornecedor",
           "obra",
-          "arquivos"
+          "arquivos",
+          "previsão do tempo",
+          "chuva",
+          "fornecedores",
+          "adicionar fornecedor",
+          "arquivos do projeto",
+          "valor travado",
+          "lead ganho"
         ],
         "en": [
           "project",
@@ -3864,7 +4126,14 @@
           "subcontractor",
           "supplier",
           "job",
-          "files"
+          "files",
+          "weather",
+          "rain",
+          "suppliers",
+          "add supplier",
+          "project files",
+          "value locked",
+          "won lead"
         ]
       },
       "video": null,
@@ -3996,6 +4265,67 @@
               }
             }
           ]
+        },
+        {
+          "id": "weather",
+          "title": {
+            "pt": "Previsão do tempo e fornecedores",
+            "en": "Weather and suppliers"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia o cartão de previsão do tempo. Em um projeto Em andamento, role até Previsão do tempo. A linha (1) diz Chuva provável, com as horas, ou Sem chuva hoje. A faixa (2) mostra as próximas horas de hoje: a hora, a temperatura em graus Fahrenheit e a chance de chuva. Uma chance de 40 por cento ou mais aparece destacada. A linha (3) diz se é esperada chuva amanhã. O cartão só aparece em um projeto Em andamento cujo lead tem um endereço que o Apex achou no mapa. O vendedor não o vê.",
+                "en": "Read the weather card. On a project that is In progress, scroll down to Weather outlook. The line (1) says Rain likely, with the hours, or No rain today. The strip (2) shows the next hours of today: the time, the temperature in degrees Fahrenheit, and the chance of rain. A chance of 40 percent or more is highlighted. The line (3) says if rain is expected tomorrow. The card shows only for a project that is In progress and whose lead has an address that Apex found on the map. A salesperson does not see it."
+              },
+              "image": {
+                "en": "help/img/guides/projects/weather-01.en.jpg",
+                "pt": "help/img/guides/projects/weather-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione fornecedores ao projeto. Role até Fornecedores. Toque em Adicionar fornecedor ao projeto, digite o nome do fornecedor e salve. Depois toque no fornecedor na lista para preencher O que fornece, Endereço e Telefone. Cada linha abre uma caixa pequena para digitar. Uma marca dourada com um número quer dizer que falta o endereço ou o telefone. Um visto verde quer dizer que os dois estão preenchidos. Para tirar um, abra o fornecedor e toque em Tirar deste projeto, depois em Sim, tirar do projeto. O Apex usa os fornecedores e os subempreiteiros do projeto para montar a lista de nomes que vai no link do contrato do seu cliente. Ela acompanha o projeto: se você mudar a lista aqui, o link do contrato mostra a mudança. A parte dos fornecedores deste passo vem do código do app, porque o projeto de teste não tinha fornecedor.",
+                "en": "Add suppliers to the project. Scroll to Suppliers. Tap Add a supplier to this project, type the name of the supplier and save it. Then tap the supplier in the list to fill in What they supply, Address and Telephone. Each row opens a small box to type in. A gold mark with a number means the address or the telephone is missing. A green check means both are filled in. To take one off, open the supplier and tap Remove from this project, then Yes, remove from the project. Apex uses the suppliers and the subcontractors of the project to build the list of names that goes on your customer's contract link. It follows the project: if you change the list here, the contract link shows the change. The suppliers part of this step comes from the app's code, because the test project had no supplier."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "more",
+          "title": {
+            "pt": "Valor travado, arquivos e como nasce um projeto",
+            "en": "Locked value, files and how a project is made"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Saiba quando o valor fica travado. Depois que o cliente assina o contrato, a linha Valor ($) não aceita mais digitação. Ela mostra Valor do contrato + aditivos, e muda sozinha quando um aditivo é assinado. Para mudar o preço depois disso, use um aditivo (veja o guia sobre aditivos).",
+                "en": "Know when the value is locked. Once the customer signs the contract, the Value ($) row can no longer be typed in. It shows Contract + change orders, and it moves by itself when a change order is signed. To change the price after that, use a change order (see the guide on change orders)."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Abra ou remova um arquivo do projeto. Em Arquivos do projeto, toque em uma foto para abrir grande. Um PDF aparece com o nome do arquivo: toque na linha para abrir. Para apagar um arquivo, toque no x pequeno da foto, ou no botão de remover da linha do PDF. O Apex pergunta Remover esta foto? Toque em Sim, remover, ou em Manter. Esses arquivos ficam no projeto, para as pessoas que entram no portal da sua empresa. O seu cliente não os recebe por aqui. Não apagamos um arquivo no nosso teste, então este passo vem do código do app.",
+                "en": "Open or remove a project file. In Project files, tap a photo to open it big. A PDF is listed with its file name: tap the row to open it. To delete a file, tap the small x on the photo, or the remove button on the PDF row. Apex asks Remove this photo? Tap Yes, remove, or Keep it. These files stay on the project, for the people who sign in for your business. Your customer does not get them from here. We did not delete a file in our test, so this step comes from the app's code."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja como um lead vira projeto. Quando você move um lead para a etapa Fechado, o Apex cria o projeto dele. Uma mensagem diz Lead ganho virou projeto, com um botão Ver projeto. Toque nele para ir à sua lista de Projetos. Isso acontece só uma vez para cada lead. Se o Apex não conseguiu criar, a mensagem diz Lead salvo, mas o projeto não foi criado. Marcar um orçamento como aceito faz o mesmo, veja o guia sobre marcar um orçamento como aceito. Este passo vem do código do app.",
+                "en": "See how a lead becomes a project. When you move a lead to the stage Closed, Apex makes the project for it. A message says Won lead is now a project, with a button View project. Tap it to go to your Projects list. This happens only once for each lead. If Apex could not make it, the message says Lead saved, but the project was not created. Marking an estimate as accepted does the same, see the guide on marking an estimate accepted. This step comes from the app's code."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -4034,6 +4364,30 @@
           },
           "section": "project",
           "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar fornecedor ao projeto"
+            ],
+            "en": [
+              "Add a supplier to this project"
+            ]
+          },
+          "section": "weather",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Tirar deste projeto"
+            ],
+            "en": [
+              "Remove from this project"
+            ]
+          },
+          "section": "weather",
+          "step": 2
         }
       ]
     },
@@ -4317,6 +4671,34 @@
               }
             }
           ]
+        },
+        {
+          "id": "pace",
+          "title": {
+            "pt": "Os números por dia: Hoje e Média por dia",
+            "en": "The per day numbers: Today and Average per day"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Leia as duas caixas grandes. Hoje (1) é quanto você precisa fazer em cada dia útil que ainda resta para bater a meta do mês. O Apex calcula assim: o que Falta, dividido pelos dias úteis que restam. Média por dia (2) é o que você realmente fez, em média, em cada dia útil até agora. O Apex calcula assim: o que você Realizou, dividido pelos dias úteis que já passaram. A linha pequena embaixo de cada uma diz quantos dias úteis foram usados.",
+                "en": "Read the two big boxes. Today (1) is how much you need to do on each working day that is left to reach the monthly goal. Apex counts it as what is Left, divided by the working days left. Average per day (2) is what you have really done, on average, on each working day so far. Apex counts it as what you Achieved, divided by the working days that have passed. The small line under each one tells you how many working days it used."
+              },
+              "image": {
+                "en": "help/img/guides/analytics/pace-01.en.jpg",
+                "pt": "help/img/guides/analytics/pace-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia o veredito. A etiqueta embaixo das duas caixas (3) compara uma com a outra. No ritmo certo quer dizer que a sua média é igual ou maior do que você precisa por dia. Precisa acelerar um pouco quer dizer que a sua média é menor, então você precisa fazer mais nos dias que restam. Meta batida! quer dizer que a meta do mês já foi alcançada. Aí a caixa Hoje mostra um sinal de visto. Se não restar nenhum dia útil, a caixa avisa. Os dias úteis vêm das suas configurações de Dias de trabalho: veja o guia sobre dias de trabalho e períodos bloqueados.",
+                "en": "Read the verdict. The label under the two boxes (3) compares them. On pace means your average is the same as, or higher than, what you need each day. Needs a little push means your average is lower, so you must do more on the days left. Goal hit! means the monthly goal is already reached. Then Today shows a check mark. If no working day is left, the box says so. The working days come from your Working days settings: see the guide on working days and blocked periods."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -4354,7 +4736,12 @@
           "editar metas",
           "registro diário",
           "meta do mês",
-          "próximo mês"
+          "próximo mês",
+          "aprovação da meta",
+          "meta proposta",
+          "aguardando aprovação",
+          "aviso de metas",
+          "sem metas este mês"
         ],
         "en": [
           "pace",
@@ -4364,7 +4751,12 @@
           "edit goals",
           "daily log",
           "monthly goal",
-          "next month"
+          "next month",
+          "goal approval",
+          "proposed goal",
+          "awaiting approval",
+          "goal prompt",
+          "no goals this month"
         ]
       },
       "video": null,
@@ -4432,6 +4824,59 @@
               }
             }
           ]
+        },
+        {
+          "id": "approval",
+          "title": {
+            "pt": "Mudar uma meta: a aprovação da Apex",
+            "en": "Change a goal: Apex approves it"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define uma meta, ela é salva e já começa a valer. Se você mantém o mesmo número, também é salva na hora. Nesses dois casos nada espera aprovação.",
+                "en": "Know which changes are saved at once. The first time you set a goal, it is saved and starts counting right away. If you keep the same number, it is also saved at once. Nothing waits for approval in these two cases."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Mude uma meta que você já definiu. Abra o formulário com Definir / editar as metas deste mês e digite um número novo. O Apex ainda não usa esse número. A meta que você tinha antes continua valendo. Na lista da aba Ritmo, embaixo dessa meta, aparece Proposto e o número novo, com as palavras aguardando aprovação. No formulário, uma linha embaixo da caixa diz o mesmo. A equipe da Apex olha o pedido e aprova ou rejeita. Quando aprovam, o número novo vira a sua meta. Quando rejeitam, a meta antiga continua. Não conseguimos fazer uma mudança no nosso teste, então este passo vem do código do app.",
+                "en": "Change a goal you already set. Open the form with Set / edit this month's goals and type a new number. Apex does not use it yet. The goal you had before keeps counting. In the list on the Pace tab, under that goal, you see Proposed and the new number, with the words awaiting approval. In the form, a line under the box says the same. The Apex team looks at it and approves or rejects it. When they approve, the new number becomes your goal. When they reject, the old goal stays. We could not make a change ourselves in our test, so this step comes from the app's code."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "login",
+          "title": {
+            "pt": "O aviso de metas quando você entra",
+            "en": "The goals prompt when you sign in"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O mês que vem está sem metas. Nos últimos dias do mês (faltando menos de 8 dias), se o mês seguinte ainda não tem metas, este cartão aparece quando você abre o portal. Definir metas agora (1) abre o formulário de metas do mês que vem. Deixar para depois (2) esconde o cartão nesta visita e leva você ao registro diário. Ele pode voltar na próxima vez que você entrar.",
+                "en": "Next month has no goals. In the last days of the month (fewer than 8 days left), if the next month has no goals yet, this card appears when you open the portal. Set goals now (1) opens the goals form for the next month. Later (2) hides the card for this visit and takes you on to the daily log. It can come back the next time you sign in."
+              },
+              "image": {
+                "en": "help/img/guides/monthly-goals/login-01.en.jpg",
+                "pt": "help/img/guides/monthly-goals/login-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Este mês está sem metas. Se o mês em que você está não tem nenhuma meta, o formulário de metas abre sozinho quando você entra, com um botão Deixar para depois. Esse botão deixa você pular por hoje. Ele volta amanhã, até as metas serem definidas. Tudo isso só aparece quando as metas estão ligadas para a sua empresa. A equipe da Apex pode desligá-las. Aí o formulário e o cartão não aparecem. De qualquer jeito, as suas metas ficam na aba Ritmo.",
+                "en": "This month has no goals. If the month you are in has no goals at all, the goals form opens by itself when you sign in, with a Later button. Later lets you skip it for today. It comes back tomorrow, until the goals are set. All of this shows only when goals are switched on for your company. The Apex team can switch them off. Then the form and the card do not appear. Your goals stay on the Pace tab either way."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -4446,6 +4891,18 @@
           },
           "section": "goals",
           "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Definir metas agora"
+            ],
+            "en": [
+              "Set goals now"
+            ]
+          },
+          "section": "login",
+          "step": 1
         }
       ]
     },
@@ -4857,7 +5314,14 @@
           "rascunho",
           "saldo",
           "recibo",
-          "quanto falta receber"
+          "quanto falta receber",
+          "alterada depois de enviada",
+          "reenviar fatura",
+          "fatura enviada",
+          "aberta pelo cliente",
+          "valores",
+          "total do contrato",
+          "saldo"
         ],
         "en": [
           "invoices",
@@ -4877,7 +5341,14 @@
           "draft",
           "balance",
           "receipt",
-          "how much is owed"
+          "how much is owed",
+          "changed after sending",
+          "resend invoice",
+          "invoice sent",
+          "opened by customer",
+          "amounts",
+          "contract total",
+          "balance due"
         ]
       },
       "video": null,
@@ -4935,6 +5406,56 @@
               "text": {
                 "pt": "Depois de salvar. O pagamento é somado à fatura, o saldo diminui e um número de recibo é criado. Um pagamento parcial deixa a fatura aberta para o restante. Quando o saldo chega a zero, a fatura passa a Paga. Para enviar o recibo ao seu cliente, veja o guia Enviar um recibo.",
                 "en": "After you save. The payment is added to the invoice, the balance goes down, and a receipt number is created. A part payment leaves the invoice open for the rest. When the balance reaches zero the invoice becomes Paid. To send the receipt to your customer, see the Send a receipt guide."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "read",
+          "title": {
+            "pt": "Ler a ficha da fatura",
+            "en": "Read the invoice sheet"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Olhe as etiquetas de status. No alto (1) o Status mostra etiquetas. Vencida é vermelha. Se você também vê uma etiqueta vermelha, Alterada depois de enviada: reenviar, quer dizer que um aditivo assinado mudou o valor desta fatura depois que você a enviou. O seu cliente ainda tem o valor antigo. Toque em Enviar fatura e envie de novo. Quando você envia, a etiqueta some. Embaixo, Saldo desta fatura é o que falta pagar nesta fatura.",
+                "en": "Look at the status tags. At the top (1) the Status shows tags. Overdue is red. If you also see a red tag, Changed after sending: resend, it means a signed change order changed the amount of this invoice after you sent it. Your customer still holds the old amount. Tap Send invoice and send it again. When you send it, the tag goes away. Under it, Balance due now is what is left to pay on this invoice."
+              },
+              "image": {
+                "en": "help/img/guides/invoices-and-payments/read-01.en.jpg",
+                "pt": "help/img/guides/invoices-and-payments/read-01.pt.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja quando foi enviada e aberta. Role até a seção Dados. Enviada (1) é o dia e a hora em que você enviou a fatura. Aberta pelo cliente (2) é a primeira vez que o cliente abriu o link. Se você não vê Aberta pelo cliente, o cliente ainda não abriu.",
+                "en": "See when it was sent and opened. Scroll to the section Details. Sent (1) is the day and time you sent the invoice. Opened by customer (2) is the first time the customer opened the link. If you do not see Opened by customer, the customer has not opened it yet."
+              },
+              "image": {
+                "en": "help/img/guides/invoices-and-payments/read-02.en.jpg",
+                "pt": "help/img/guides/invoices-and-payments/read-02.pt.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Leia os Valores. A seção Valores (1) é calculada pelo Apex. Total do contrato é o trabalho todo. Recebido até agora (verificado) é o dinheiro que você recebeu e conferiu. Esta fatura é a parte do contrato que esta fatura cobra, com a etapa e o percentual, por exemplo Conclusão 50%. Saldo desta fatura é só o que falta desta fatura. Saldo restante do contrato é o que falta do contrato inteiro. Assim um trabalho grande não parece vencido quando só uma etapa está. Juros por atraso e Créditos e reembolsos também ganham uma linha aqui quando você tem.",
+                "en": "Read the Amounts. The section Amounts (1) is worked out by Apex. Contract total is the whole job. Paid to date (verified) is the money you received and checked. This invoice is the part of the contract this invoice asks for, with its step and percent, for example Completion 50%. Balance due now for this invoice is only what is left of this one. Remaining contract balance is what is left of the whole contract. So a big job does not look overdue when only one step is. Late fees and Credits and refunds also get a line here when you have them."
+              },
+              "image": {
+                "en": "help/img/guides/invoices-and-payments/read-03.en.jpg",
+                "pt": "help/img/guides/invoices-and-payments/read-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Desative o link do cliente. Para impedir que o cliente abra esta fatura, use Desativar link. Veja o guia Desativar ou ativar o link do cliente.",
+                "en": "Turn the customer link off. To stop the customer opening this invoice, use Disable link. See the guide Turn a customer link off or on."
               },
               "image": null
             }
@@ -5178,7 +5699,12 @@
           "receita do dia",
           "o pipeline indica",
           "seções",
-          "preencher hoje"
+          "preencher hoje",
+          "histórico de registros",
+          "dia passado",
+          "editar um dia",
+          "corrigir registro",
+          "número errado"
         ],
         "en": [
           "daily log",
@@ -5194,7 +5720,12 @@
           "revenue today",
           "pipeline says",
           "sections",
-          "fill in today"
+          "fill in today",
+          "entry history",
+          "past day",
+          "edit a past day",
+          "fix a daily entry",
+          "wrong number"
         ]
       },
       "video": null,
@@ -5262,6 +5793,53 @@
               }
             }
           ]
+        },
+        {
+          "id": "history",
+          "title": {
+            "pt": "Histórico de registros: veja e corrija um dia",
+            "en": "Entry history: look back and fix a day"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Histórico de registros. Toque em Analytics na fileira de abas no alto e role até o fim da página. O cartão Histórico de registros lista os dias que você preencheu. Ele fica na aba Analytics, não na aba Ritmo (Pace).",
+                "en": "Open Entry history. Tap Analytics in the row of tabs at the top, then scroll to the bottom of the page. The card called Entry history lists the days you filled in. It is on the Analytics tab, not on the Pace tab."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha o mês e o status. As setas (1) vão para o mês anterior ou o seguinte. O menu (2) filtra a lista: Todos os status, Completo, Parcial, Preenchido depois e Folga. Parcial quer dizer que você começou o dia e não terminou. Preenchido depois é um dia que você perdeu e preencheu mais tarde. Uma folga mostra o motivo que você escreveu. Cada dia tem um botão detalhes (3).",
+                "en": "Pick the month and the status. The arrows (1) go to the month before or after. The menu (2) filters the list: All statuses, Completed, Partial, Filled late and Day off. Partial means you started the day and did not finish it. Filled late means a day you missed and filled in later. A day off shows the reason you wrote. Each day has a details button (3)."
+              },
+              "image": {
+                "en": "help/img/guides/daily-log/history-02.en.jpg",
+                "pt": "help/img/guides/daily-log/history-02.pt.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja os números de um dia. Toque em detalhes (1). A caixa (2) abre embaixo do dia e lista todos os números que você digitou nesse dia. Toque em detalhes de novo para fechar.",
+                "en": "See the numbers of one day. Tap details (1). The box (2) opens under the day and lists every number you typed that day. Tap details again to close it."
+              },
+              "image": {
+                "en": "help/img/guides/daily-log/history-03.en.jpg",
+                "pt": "help/img/guides/daily-log/history-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Corrija um dia que já passou. Toque em editar, ao lado de detalhes. Abre o mesmo formulário do registro diário, com uma linha no alto que diz Editando um dia já registrado e a data. Ele mostra só as seções que aquele dia teve. Mude os números e toque em Continuar. Na última seção o botão diz Salvar. Toque em Cancelar edição para sair. Se você mudou um número e não salvou essa seção, o Apex pergunta Descartar alterações? Toque em Continuar editando para voltar, ou em Descartar alterações para jogar fora os números novos. Não conseguimos tocar no botão editar no nosso teste, então este passo vem do código do app.",
+                "en": "Fix a past day. Tap edit, next to details. The same form as the daily log opens, with a line at the top that says Editing a past day and the date. It shows only the sections that day had. Change the numbers, then tap Continue. In the last section the button reads Save. Tap Cancel editing to leave. If you typed over a number and did not save that section, Apex asks Discard changes? Tap Keep editing to go back, or Discard changes to throw the new numbers away. We could not click the edit button in our test, so this step comes from the app's code."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -5314,6 +5892,42 @@
           },
           "section": "log",
           "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cancelar edição"
+            ],
+            "en": [
+              "Cancel editing"
+            ]
+          },
+          "section": "history",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Descartar alterações"
+            ],
+            "en": [
+              "Discard changes"
+            ]
+          },
+          "section": "history",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Continuar editando"
+            ],
+            "en": [
+              "Keep editing"
+            ]
+          },
+          "section": "history",
+          "step": 4
         }
       ]
     },
@@ -6838,6 +7452,14 @@
                 "pt": "help/img/guides/subcontractors/subs-03.pt.jpg",
                 "en": "help/img/guides/subcontractors/subs-03.en.jpg"
               }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Leia o aviso quando você atribui alguém. Quando você adiciona um subempreiteiro a um projeto, o Apex confere os documentos. Se algo estiver errado, uma mensagem começa com Atenção e lista os problemas. Eles são: sem número de licença, sem certificado de seguro (COI), seguro vencido em uma data, sem certificado ou isenção de workers' comp, ou workers' comp vencido em uma data. O aviso não impede você. O subempreiteiro é adicionado de qualquer jeito. Corrija os documentos no cadastro, como no passo anterior. Este passo vem do código do app.",
+                "en": "Read the warning when you assign someone. When you add a subcontractor to a project, Apex checks the papers. If something is wrong, a message starts with Warning and lists the problems. They are: no license number on file, no certificate of insurance (COI), insurance expired on a date, no workers' compensation certificate or exemption, or workers' compensation expired on a date. The warning does not stop you. The subcontractor is added anyway. Fix the papers in the register, as in the step before. This step comes from the app's code."
+              },
+              "image": null
             }
           ]
         }
@@ -7095,6 +7717,39 @@
               "image": null
             }
           ]
+        },
+        {
+          "id": "ack",
+          "title": {
+            "pt": "Enviar as fotos de antes para o cliente reconhecer",
+            "en": "Send the before photos for the customer to acknowledge"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Tire as fotos de antes primeiro. Abra o projeto e role até Fotos de antes (condições existentes). Toque em Adicionar fotos e escolha as imagens. Você pode escrever uma nota que vale para todas. O botão para o cliente só aparece depois que há pelo menos uma foto no projeto.",
+                "en": "Take the before photos first. Open the project and scroll to Before-work photos (existing conditions). Tap Add photos and pick your pictures. You can add a note that applies to all of them. The button for the customer shows only after at least one photo is on the project."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Envie. Toque em Enviar para o cliente reconhecer. Abre uma tela de envio, a mesma dos outros documentos (veja o guia Enviar por e-mail, e os guias de texto e WhatsApp). A mensagem vem do Apex, então leia antes de enviar. O Apex não envia sozinho: você aperta enviar na tela.",
+                "en": "Send them. Tap Send for acknowledgment. A send screen opens, the same as for other documents (see the guide Send by email, and the text and WhatsApp guides). The message comes from Apex, so read it before you send. Apex does not send by itself: you press send in the screen."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Acompanhe a resposta. Uma linha chamada Reconhecimento do cliente aparece embaixo das fotos, com o status. Toque na linha para abrir o que o cliente vê, ou a cópia assinada quando já estiver assinada. Quando o cliente assina, o botão de enviar desaparece. Este passo vem do código do app, porque não enviamos nada no nosso teste.",
+                "en": "Follow the answer. A row called Homeowner acknowledgment shows under the photos, with its status. Tap the row to open what the customer sees, or the signed copy once it is signed. When the customer has signed, the Send button goes away. This step comes from the app's code, because we did not send anything in our test."
+              },
+              "image": null
+            }
+          ]
         }
       ],
       "buttons": [
@@ -7123,6 +7778,18 @@
           },
           "section": "completion",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar para o cliente reconhecer"
+            ],
+            "en": [
+              "Send for acknowledgment"
+            ]
+          },
+          "section": "ack",
+          "step": 2
         }
       ]
     },
@@ -7683,6 +8350,17 @@
                 "en": "Follow the new lead. The person lands in your Pipeline as a New lead, already linked to the partner or customer who referred them, and the salesperson of that partner gets the credit. If the visitor tapped Not that person, the lead shows a gold tag asking you to confirm who really referred them, and you record the right name on the lead."
               },
               "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Veja o que um cliente mandou para você. Abra o lead do cliente que indicou pessoas. Uma seção (1) diz Indicações, quantos leads e quanto foi fechado, por exemplo 2 leads e o total fechado. Embaixo há uma linha para cada lead que veio desse cliente, com o estágio e o valor. Toque numa linha para abrir esse lead. Uma linha que diz indicação de uma indicação pede que você confirme quem realmente mandou essa pessoa.",
+                "en": "See what a customer sent you. Open the lead of the customer who referred people. A section (1) says Referrals, how many leads and how much was closed, for example 2 leads and the closed total. Under it is one row for each lead that came from this customer, with its stage and value. Tap a row to open that lead. A row that says referral of a referral needs you to confirm who really sent that person."
+              },
+              "image": {
+                "en": "help/img/guides/what-a-referred-person-sees/referral-04.en.jpg",
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-04.pt.jpg"
+              }
             }
           ]
         }
@@ -9601,6 +10279,1526 @@
           "step": 1
         }
       ]
+    },
+    {
+      "id": "reported-payments",
+      "audience": "client",
+      "title": {
+        "pt": "Pagamento informado por um vendedor: verificar ou rejeitar",
+        "en": "A salesperson reports a payment: verify or reject"
+      },
+      "summary": {
+        "pt": "O vendedor informa um pagamento e o dono confirma antes de ele contar.",
+        "en": "A salesperson reports a payment and the owner confirms it before it counts."
+      },
+      "keywords": {
+        "en": [
+          "report payment",
+          "verify payment",
+          "reject payment",
+          "awaiting verification",
+          "salesperson payment",
+          "reverse payment",
+          "payment not counted"
+        ],
+        "pt": [
+          "informar pagamento",
+          "verificar pagamento",
+          "rejeitar pagamento",
+          "aguardando verificação",
+          "pagamento do vendedor",
+          "estornar pagamento",
+          "pagamento não contou"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "seller",
+          "title": {
+            "pt": "O que o vendedor faz",
+            "en": "What the salesperson does"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Informe o pagamento. O vendedor abre a fatura (Negócio, depois Faturas) e toca em Informar pagamento. O dono e o escritório veem esse mesmo botão como Registrar pagamento. A tela diz: Você informa o pagamento; o dono verifica antes de contar como recebido. Preencha o valor, a data e a forma de pagamento, e coloque uma referência se tiver. Depois toque em Informar pagamento. Uma mensagem diz Pagamento informado; aguarda verificação do dono. Este passo vem do código do app. Nosso teste não pôde usar um login de vendedor.",
+                "en": "Report the payment. A salesperson opens the invoice (Business, then Invoices) and taps Report payment. The owner and the office see this same button as Record payment. The screen says: You report the payment; the owner verifies it before it counts as paid. Fill in the amount, the date and the method, and add a reference if you have one. Then tap Report payment. A message says Payment reported; awaiting owner verification. This step comes from the app's code. Our test could not use a salesperson login."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Saiba que ainda não conta. Até o dono verificar, o saldo da fatura não diminui. A fatura mostra uma etiqueta dourada, aguardando verificação. Embaixo do saldo aparece mais o valor informado, aguardando verificação. O cliente ainda não recebe recibo.",
+                "en": "Know that it does not count yet. Until the owner verifies it, the invoice balance does not go down. The invoice shows a gold tag, awaiting verification. Under the balance it says plus the amount reported, awaiting verification. The customer gets no receipt yet."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "owner",
+          "title": {
+            "pt": "O que o dono faz",
+            "en": "What the owner does"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache os pagamentos que esperam por você. Um cartão chamado Pagamentos aguardando verificação aparece no alto da aba Faturas e na aba Início, com um número. Cada linha diz o nome de quem informou, diz que isto foi pago, e o valor. Embaixo estão o número da fatura, a forma de pagamento, a referência e a data. A etiqueta dourada diz verificar. Toque numa linha para abrir essa fatura.",
+                "en": "Find the payments waiting for you. A card called Payments awaiting verification shows at the top of the Invoices tab and on the Home tab, with a number. Each row says the name of the person who reported, says this is paid, and the amount. Under it are the invoice number, the method, the reference and the date. The gold tag says verify. Tap a row to open that invoice."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Verifique. Na seção Pagamentos da fatura, o pagamento informado tem a etiqueta aguardando. Confira se o dinheiro realmente chegou. Depois toque em Verificar. O pagamento passa a contar: o saldo diminui, um número de recibo é criado, e o pagamento é lançado nas suas Finanças. Depois você pode enviar o recibo ao cliente (veja o guia sobre enviar um recibo). Verificar não pede motivo.",
+                "en": "Verify it. In the Payments section of the invoice, the reported payment has the tag pending. Check that the money really arrived. Then tap Verify. The payment now counts: the balance goes down, a receipt number is made, and the payment is posted to your Finances. You can then send the receipt to the customer (see the guide on sending a receipt). Verify asks for no reason."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Rejeite. Se o dinheiro não chegou, toque em Rejeitar. O Apex pede o motivo. Ele é obrigatório. O pagamento aparece como rejeitado, com o seu motivo, e nunca conta. A fatura fica como estava.",
+                "en": "Reject it. If the money did not arrive, tap Reject. Apex asks for the reason. It is required. The payment shows rejected, with your reason, and it never counts. The invoice stays as it was."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Estorne um pagamento que você verificou por engano. Abra a fatura. Em um pagamento verificado, toque em Estornar e escreva o motivo. O motivo é obrigatório e é impresso no recibo do cliente com a data do estorno. O recibo mantém os números antigos. Você não pode estornar um pagamento que tem reembolso. Estorne o reembolso primeiro. Para anular uma fatura, veja o guia sobre juros de atraso, créditos, reembolsos e anulação. Os passos deste guia vêm do código do app. Nosso teste não pôde informar um pagamento, então não vimos os botões Verificar e Rejeitar na tela.",
+                "en": "Reverse a payment you verified by mistake. Open the invoice. On a verified payment, tap Reverse and write the reason. The reason is required, and it is printed on the customer's receipt with the date of the reversal. The receipt keeps its old numbers. You cannot reverse a payment that has a refund. Reverse the refund first. For the steps to void an invoice, see the guide on late fees, credits, refunds and voiding. The steps in this guide come from the app's code. Our test could not report a payment, so we did not see the Verify and Reject buttons on screen."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Informar pagamento"
+            ],
+            "en": [
+              "Report payment"
+            ]
+          },
+          "section": "seller",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Verificar"
+            ],
+            "en": [
+              "Verify"
+            ]
+          },
+          "section": "owner",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Rejeitar"
+            ],
+            "en": [
+              "Reject"
+            ]
+          },
+          "section": "owner",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "turn-customer-link-off",
+      "audience": "client",
+      "title": {
+        "pt": "Desativar ou ativar o link do cliente",
+        "en": "Turn a customer link off or on"
+      },
+      "summary": {
+        "pt": "Pare de deixar um cliente abrir um orçamento, fatura, contrato ou aditivo.",
+        "en": "Stop a customer opening an estimate, invoice, contract or change order."
+      },
+      "keywords": {
+        "en": [
+          "disable link",
+          "enable link",
+          "turn link off",
+          "sent by mistake",
+          "wrong document",
+          "cancel link",
+          "link not valid"
+        ],
+        "pt": [
+          "desativar link",
+          "ativar link",
+          "desligar link",
+          "enviado por engano",
+          "documento errado",
+          "cancelar link",
+          "link inválido"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "link",
+          "title": {
+            "pt": "Desativar e ativar um link",
+            "en": "Turn a link off and on"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Saiba quando usar. Use quando você mandou um documento para a pessoa errada, ou com um valor errado, e não quer que o cliente o abra. Funciona para quatro documentos: um orçamento, uma fatura, um contrato e um aditivo.",
+                "en": "Know when to use it. Use it when you sent a document to the wrong person, or with a wrong amount, and you do not want the customer to open it. It works for four documents: an estimate, an invoice, a contract and a change order."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ache o botão. Abra o documento, por exemplo uma fatura (Negócio, depois Faturas, e toque na fatura). Toque em Desativar link (2) na lista de botões. O botão não aparece em um rascunho nem em um documento anulado, porque um rascunho nunca foi enviado. O dono vê o botão. O vendedor não. Em uma fatura, a etiqueta vermelha no alto (1) é outra coisa: quer dizer que a fatura precisa ser enviada de novo, veja o guia de faturas e pagamentos.",
+                "en": "Find the button. Open the document, for example an invoice (Business, then Invoices, then tap the invoice). Tap Disable link (2) in the list of buttons. The button is not there for a draft or a void document, because a draft was never sent. The owner sees it. A salesperson does not. For an invoice, the red tag at the top (1) is a different thing: it means the invoice must be sent again, see the guide on invoices and payments."
+              },
+              "image": {
+                "en": "help/img/guides/turn-customer-link-off/link-02.en.jpg",
+                "pt": "help/img/guides/turn-customer-link-off/link-02.pt.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Confirme. O Apex pergunta Desativar o link deste documento? Ele explica que, enquanto o link estiver desativado, quem o abrir vê que não é válido e não consegue ver, assinar nem pagar. Também diz que o endereço antigo do documento deixa de funcionar para sempre. Toque em Sim, desativar o link (1) para desligar, ou em Manter ativo (2) para deixar como está. Uma mensagem diz Link desativado.",
+                "en": "Confirm. Apex asks Disable this document's link? It explains that while the link is off, anyone who opens it sees that it is not valid, and cannot view, sign or pay. It also says the old address of the document stops working for good. Tap Yes, disable the link (1) to turn it off, or Keep it enabled (2) to stay as it is. A message says Link disabled."
+              },
+              "image": {
+                "en": "help/img/guides/turn-customer-link-off/link-03.en.jpg",
+                "pt": "help/img/guides/turn-customer-link-off/link-03.pt.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ative de novo. Em um documento com o link desativado, o mesmo botão diz Ativar link. Toque nele e confirme com Sim, ativar o link. O documento volta a abrir, mas em um endereço novo. A mensagem antiga que você enviou não funciona, então envie o link outra vez ao cliente. Uma mensagem diz Link ativado. O nosso teste só abriu a pergunta, porque não quisemos mudar um documento de verdade, então o passo Ativar link vem do código do app.",
+                "en": "Turn it on again. On a document whose link is off, the same button reads Enable link. Tap it and confirm with Yes, enable the link. The document opens again, but at a new address. The old message you sent will not work, so send the link to the customer again. A message says Link enabled. Our test only opened the question, because we did not want to change a real document, so the Enable link step comes from the app's code."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Desativar link"
+            ],
+            "en": [
+              "Disable link"
+            ]
+          },
+          "section": "link",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ativar link"
+            ],
+            "en": [
+              "Enable link"
+            ]
+          },
+          "section": "link",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, desativar o link"
+            ],
+            "en": [
+              "Yes, disable the link"
+            ]
+          },
+          "section": "link",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Manter ativo"
+            ],
+            "en": [
+              "Keep it enabled"
+            ]
+          },
+          "section": "link",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "assigned-tools",
+      "audience": "client",
+      "title": {
+        "pt": "Suas ferramentas: as avaliações que a Apex liberou",
+        "en": "Your tools: the assessments Apex gave you"
+      },
+      "summary": {
+        "pt": "Encontre as avaliações que a Apex liberou e abra uma.",
+        "en": "Find the assessments Apex gave you and open one."
+      },
+      "keywords": {
+        "pt": [
+          "atribuídos",
+          "suas ferramentas",
+          "avaliação",
+          "raio x",
+          "questionário",
+          "diagnóstico",
+          "ponto vermelho",
+          "aba apex"
+        ],
+        "en": [
+          "assigned",
+          "your tools",
+          "assessment",
+          "x-ray",
+          "questionnaire",
+          "diagnostic",
+          "red dot",
+          "apex tab"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "assigned",
+          "title": {
+            "pt": "Abrir uma avaliação",
+            "en": "Open an assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra Atribuídos. Toque em Apex na fileira de abas no alto (1). Um pontinho vermelho nela quer dizer que tem uma avaliação esperando por você. Depois toque em Atribuídos. A página se chama Suas ferramentas. Avaliação é um conjunto curto de perguntas sobre a sua empresa que a Apex libera para você. Toque em Abrir (2) na que você quer responder.",
+                "en": "Open Assigned. Tap Apex in the row of tabs at the top (1). A small red dot on it means an assessment is waiting for you. Then tap Assigned. The page is called Your tools. An assessment is a short set of questions about your business that Apex gives you. Tap Open (2) on the one you want to answer."
+              },
+              "image": {
+                "pt": "help/img/guides/assigned-tools/assigned-01.pt.jpg",
+                "en": "help/img/guides/assigned-tools/assigned-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Entenda o que a página mostra. Ela lista só as avaliações que você ainda não terminou. Quando você termina uma, ela sai da lista. Quando não sobra nenhuma, a aba Atribuídos e o pontinho vermelho somem. Se a Apex ainda não liberou nada, a página diz: Nenhuma ferramenta liberada ainda. A Apex avisa você assim que houver novidade.",
+                "en": "Know what the page shows. It lists only the assessments you have not finished. When you finish one, it leaves the list. When none is left, the Assigned tab and the red dot disappear. If Apex has not given you anything yet, the page says: No tools unlocked yet. Apex will let you know as soon as there is something new."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Seu primeiro acesso. Se você ainda não definiu metas mensais e tem uma avaliação esperando, a Apex abre a avaliação para você logo depois que você entra. Se você tem o Raio X Empresarial e outras, o Raio X Empresarial abre primeiro. Suas avaliações terminadas e os relatórios ficam em Documentos.",
+                "en": "Your first sign in. If you have not set any monthly goals yet and an assessment is waiting, Apex opens the assessment for you right after you sign in. If you have the Business X-Ray and others, the Business X-Ray opens first. Your finished assessments and their reports are kept in Documents."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Atribuídos"
+            ],
+            "en": [
+              "Assigned"
+            ]
+          },
+          "section": "assigned",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "business-xray",
+      "audience": "client",
+      "title": {
+        "pt": "Raio X Empresarial: responda e leia o seu resultado",
+        "en": "Business X-Ray: answer and read your result"
+      },
+      "summary": {
+        "pt": "Responda as perguntas do Raio X Empresarial e leia o resultado.",
+        "en": "Answer the Business X-Ray questions and read the result."
+      },
+      "keywords": {
+        "pt": [
+          "raio x empresarial",
+          "raio x",
+          "xray",
+          "perguntas sim não",
+          "diagnóstico",
+          "maturidade",
+          "pontuação",
+          "seções de prática",
+          "relatório"
+        ],
+        "en": [
+          "business x-ray",
+          "x-ray",
+          "xray",
+          "yes no questions",
+          "diagnostic",
+          "maturity",
+          "score",
+          "practice sections",
+          "report"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "xray",
+          "title": {
+            "pt": "Responder o Raio X Empresarial",
+            "en": "Answer the Business X-Ray"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Raio X. Toque em Apex, depois em Atribuídos, depois em Abrir no Raio X Empresarial. Ele faz perguntas de Sim ou Não sobre a sua empresa: 62 perguntas com nota, em 6 áreas, e depois 36 campos de prática em duas seções no final. A linha no alto (1) conta o que você já preencheu, por exemplo 0 de 98. Cada linha é uma seção com a sua própria contagem: a primeira (2) e a última (3). Toque em Começar (4). Se você já começou, o botão diz Continuar.",
+                "en": "Open the X-Ray. Tap Apex, then Assigned, then Open on Business X-Ray. It asks Yes or No questions about your business: 62 scored questions in 6 areas, then 36 practice fields in two last sections. The line at the top (1) counts what you filled in, for example 0 of 98. Each row is one section with its own count: the first (2) and the last (3). Tap Start (4). If you already began, the button says Continue."
+              },
+              "image": {
+                "pt": "help/img/guides/business-xray/xray-01.pt.jpg",
+                "en": "help/img/guides/business-xray/xray-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Responda Sim ou Não. Embaixo de cada pergunta, toque em Sim ou Não (2). A resposta é salva sozinha. Se uma palavra não estiver clara, toque no i pequeno (1) ao lado da pergunta. Abre uma explicação curta (3). Toque no i de novo para fechar.",
+                "en": "Answer Yes or No. Under each question, tap Yes or No (2). Your answer is saved by itself. If a word is not clear, tap the small i (1) next to the question. A short explanation opens (3). Tap the i again to close it."
+              },
+              "image": {
+                "pt": "help/img/guides/business-xray/xray-02.pt.jpg",
+                "en": "help/img/guides/business-xray/xray-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Vá de uma seção para outra. No fim de cada seção há três botões. Na primeira seção o botão da esquerda (1) é Visão geral, que leva você de volta à lista de seções. Nas outras seções ele é Anterior. O botão dourado (2) é Próxima. Salvar e continuar depois (3) deixa você parar. Suas respostas são salvas enquanto você vai, então você volta e continua de onde parou.",
+                "en": "Move between sections. At the bottom of each section there are three buttons. On the first section the left button (1) is Overview, which takes you back to the list of sections. On the other sections it is Back. The gold button (2) is Next. Save and continue later (3) lets you stop. Your answers are saved as you go, so you can come back and pick up where you stopped."
+              },
+              "image": {
+                "pt": "help/img/guides/business-xray/xray-03.pt.jpg",
+                "en": "help/img/guides/business-xray/xray-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Preencha as seções de prática. As duas últimas seções, Marketing na Prática e Sistemas e IA, perguntam como as coisas funcionam na prática hoje. Elas mostram como você trabalha e não entram na nota. Mesmo assim, precisam estar preenchidas para você poder concluir.",
+                "en": "Fill in the practice sections. The last two sections, Marketing in Practice and Business Systems and AI, ask how things work in practice today. They are a picture of how you work and are not part of the score. They still have to be filled in before you can finish."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Conclua. Na última seção o botão dourado diz Concluir. Toque nele. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas, ou em Continuar editando. Se faltar alguma coisa, a Apex diz quantas perguntas ou campos faltam e leva você de volta à visão geral para você achar a seção.",
+                "en": "Finish. In the last section the gold button says Finish. Tap it. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers, or Keep editing. If something is missing, Apex tells you how many questions or fields are left and takes you back to the overview so you can find the section."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Leia o seu resultado. Depois de concluir, a página de resultado mostra a sua nota de 62 (1), por exemplo 17 de 62, a porcentagem e o nível de maturidade. Maturidade quer dizer o quanto a empresa está organizada hoje. Cada área tem a sua linha (2) com os pontos, a porcentagem e uma etiqueta (3): Bom, Moderado, Atenção ou Crítico. Toque em Ver relatório completo (4) para abrir o relatório completo em uma página própria. Seu consultor apresenta o relatório e o plano de ação prioritário. Você pode abrir o relatório de novo depois, em Documentos.",
+                "en": "Read your result. After you finish, the result page shows your score out of 62 (1), for example 17 of 62, the percent and the maturity level. Maturity means how well organized the business is today. Each area has its own row (2) with the points, the percent and a tag (3): Good, Moderate, Attention or Critical. Tap View full report (4) to open the full report on its own page. Your consultant walks you through it and through the priority action plan. You can open the report again later from Documents."
+              },
+              "image": {
+                "pt": "help/img/guides/business-xray/xray-06.pt.jpg",
+                "en": "help/img/guides/business-xray/xray-06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Visão geral"
+            ],
+            "en": [
+              "Overview"
+            ]
+          },
+          "section": "xray",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar e continuar depois"
+            ],
+            "en": [
+              "Save and continue later"
+            ]
+          },
+          "section": "xray",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ver relatório completo"
+            ],
+            "en": [
+              "View full report"
+            ]
+          },
+          "section": "xray",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Sim, enviar minhas respostas"
+            ],
+            "en": [
+              "Yes, submit my answers"
+            ]
+          },
+          "section": "xray",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "other-assessments",
+      "audience": "client",
+      "title": {
+        "pt": "As outras avaliações: liderança, gestão, 360 e mais",
+        "en": "The other assessments: leadership, management, 360 and more"
+      },
+      "summary": {
+        "pt": "Responda as avaliações de Sim ou Não e de 0 a 10 que a Apex liberou.",
+        "en": "Answer the Yes or No and 0 to 10 assessments Apex gave you."
+      },
+      "keywords": {
+        "pt": [
+          "raio x liderança",
+          "raio x gestão",
+          "permissividade",
+          "raio x falhas",
+          "feedback 360",
+          "pilares de crescimento",
+          "avaliação",
+          "de 0 a 10",
+          "nota",
+          "questionário"
+        ],
+        "en": [
+          "leadership x-ray",
+          "management x-ray",
+          "permissiveness",
+          "failures x-ray",
+          "360 feedback",
+          "growth pillars",
+          "assessment",
+          "0 to 10",
+          "score",
+          "questionnaire"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "others",
+          "title": {
+            "pt": "Responder uma avaliação",
+            "en": "Answer an assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Conheça as seis avaliações. A Apex pode liberar qualquer uma destas. Raio X de Gestão: 11 categorias de gestão, respondidas em uma escala de maturidade. Raio X Nível de Liderança: 10 competências de liderança, com nota de 0 a 10. Raio X de Permissividade: 4 indicadores, com nota de 0 a 10. Raio X Falhas: 27 falhas, avaliadas pela intensidade com que aparecem. Feedback 360: 7 perguntas de Sim ou Não sobre como as finanças são vistas. Pilares de Crescimento: 7 perguntas de Sim ou Não. Você só vê as que a Apex liberou. Elas ficam em Atribuídos. Veja o guia Suas ferramentas.",
+                "en": "Know the six assessments. Apex can give you any of these. Management X-Ray: 11 management categories, answered on a maturity scale. Leadership Level X-Ray: 10 leadership skills, scored from 0 to 10. Permissiveness X-Ray: 4 indicators, scored from 0 to 10. Failures X-Ray: 27 failures, rated by how strongly each one shows up. 360 Feedback: 7 Yes or No questions on how the finances are seen. Growth Pillars: 7 Yes or No questions. You only see the ones Apex gave you. They are listed under Assigned. See the guide Your tools."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece. Abra a avaliação em Atribuídos. A primeira página diz quantas perguntas há e que as suas respostas são salvas sozinhas. A linha (1) conta as suas respostas, por exemplo 0 de 7. Toque em Começar (2). Se você já começou, o botão diz Continuar. Se você respondeu tudo mas não concluiu, ele diz Revisar e concluir.",
+                "en": "Start. Open the assessment from Assigned. The first page says how many questions there are and that your answers are saved by themselves. The line (1) counts your answers, for example 0 of 7. Tap Start (2). If you already began, the button says Continue. If you answered everything but did not finish, it says Review and finish."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-02.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda as perguntas de Sim ou Não. Todas as perguntas ficam em uma só página. Toque em Não ou Sim (2) embaixo de cada uma. Cada toque é salvo sozinho, e a contagem no alto (1) sobe. Role para baixo até a próxima pergunta.",
+                "en": "Answer the Yes or No questions. All the questions are on one page. Tap No or Yes (2) under each one. Each tap is saved by itself, and the count at the top (1) goes up. Scroll down to the next question."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-03.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Responda as perguntas de 0 a 10. Nas avaliações de Liderança, Permissividade e Falhas, toque em um número de 0 a 10 (1) embaixo de cada pergunta. 0 é o mais baixo e 10 é o mais alto. As cores pequenas embaixo da pergunta (2) dizem o que o número significa: 0 a 3 é Crítico (vermelho), 4 a 7 é Atenção (amarelo) e 8 a 10 é Adequado (verde). O Raio X Falhas junta as suas 27 perguntas em grupos com título.",
+                "en": "Answer the 0 to 10 questions. For the Leadership, Permissiveness and Failures assessments, tap one number from 0 to 10 (1) under each question. 0 is the lowest and 10 is the highest. The small colors under the question (2) tell what the number means: 0 to 3 is Critical (red), 4 to 7 is Attention (yellow) and 8 to 10 is Adequate (green). The Failures X-Ray groups its 27 questions under headings."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-04.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Responda o Raio X de Gestão. Cada uma das 11 categorias tem uma pergunta e algumas opções. Toque na opção que melhor descreve a sua empresa hoje. Cada opção tem uma bolinha colorida que mostra o quanto aquela resposta é madura.",
+                "en": "Answer the Management X-Ray. Each of the 11 categories has one question and a few choices. Tap the choice that best describes your company today. Each choice has a colored dot that shows how mature that answer is."
+              },
+              "image": null
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Conclua, ou volte depois. No fim há dois botões: Concluir (1) e Salvar e continuar depois (2). Você pode sair a qualquer hora, porque cada toque é salvo. Quando tudo estiver respondido, toque em Concluir. Se faltar alguma coisa, a Apex diz quantas perguntas faltam e leva você até a primeira. Depois a Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas, ou em Continuar editando.",
+                "en": "Finish, or come back later. At the bottom there are two buttons: Finish (1) and Save and continue later (2). You can leave at any time, because every tap is saved. When everything is answered, tap Finish. If something is missing, Apex says how many questions are left and takes you to the first one. Then Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers, or Keep editing."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-06.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Leia o seu resultado. A página de resultado mostra a sua nota (1) e uma etiqueta com o veredito, por exemplo Liderança de Alta Performance. Embaixo, cada pergunta ou categoria tem a sua linha (2) com o número e uma etiqueta colorida. A avaliação de Permissividade mostra pontos em vez de porcentagem. Toque em Ver relatório completo para abrir o relatório completo. Seu consultor apresenta o relatório e o plano de ação prioritário. Você pode abrir o relatório de novo depois, em Documentos.",
+                "en": "Read your result. The result page shows your score (1) and a tag with the verdict, for example High-Performance Leadership. Under it, each question or category has its own row (2) with its number and a colored tag. The Permissiveness assessment shows points instead of a percent. Tap View full report to open the full report. Your consultant walks you through it and through the priority action plan. You can open the report again later from Documents."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-07.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-07.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Revisar e concluir"
+            ],
+            "en": [
+              "Review and finish"
+            ]
+          },
+          "section": "others",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "sign-in-screens",
+      "audience": "client",
+      "title": {
+        "pt": "Entrar no Apex: passkey, senha ou Google",
+        "en": "Sign in to Apex: passkey, password or Google"
+      },
+      "summary": {
+        "pt": "Entre com passkey, com usuário e senha, ou com o Google.",
+        "en": "Sign in with a passkey, a username and password, or Google."
+      },
+      "keywords": {
+        "pt": [
+          "entrar",
+          "login",
+          "passkey",
+          "senha",
+          "usuário",
+          "google",
+          "nova senha",
+          "primeira senha",
+          "qr code",
+          "face id"
+        ],
+        "en": [
+          "sign in",
+          "log in",
+          "login",
+          "passkey",
+          "password",
+          "username",
+          "google",
+          "new password",
+          "first password",
+          "forgot",
+          "qr code",
+          "face id"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "signin",
+          "title": {
+            "pt": "Entrar no Apex",
+            "en": "Sign in to Apex"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra a página de entrada. Vá para apex.resonateai.online, ou abra o app Apex no seu iPhone. A página mostra o logo da Apex e as formas de entrar. No canto de cima à direita, um botão pequeno troca o idioma: ele mostra EN para mudar para inglês e PT para mudar para português.",
+                "en": "Open the sign in page. Go to apex.resonateai.online, or open the Apex app on your iPhone. The page shows the Apex logo and the ways to sign in. At the top right, a small button switches the language: it shows EN to change to English and PT to change to Portuguese."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Entre com uma passkey. Passkey é uma forma de entrar com o seu rosto, a sua digital ou a senha de desbloqueio do seu celular ou computador. Você não digita nem precisa lembrar de nada. Se a sua empresa tem passkeys ligadas, você vê o botão Entrar com passkey. Toque nele e faça o que o seu aparelho pedir. Em um computador novo, toque no botão e escolha usar um celular, depois leia o QR code da tela com a câmera do celular. Se aparecer a mensagem Nenhuma passkey neste aparelho, peça um novo link de convite. Se você não vê o botão, o seu navegador pode não aceitar passkeys. Use o Safari ou o Chrome atualizado.",
+                "en": "Sign in with a passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your phone or computer. You do not type or remember anything. If your business has passkeys turned on, you see the button Sign in with passkey. Tap it and do what your device asks. On a new computer, tap the button and choose to use a phone, then scan the QR code on the screen with your phone camera. If you see the message No passkey on this device, ask for a new invite link. If you do not see the button, your browser may not support passkeys. Use an up to date Safari or Chrome."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Entre com usuário e senha. Se você recebeu um usuário e uma senha, digite nas caixas Usuário e Senha e toque em Entrar. Se alguma caixa estiver vazia, a Apex diz: Informe usuário e senha.",
+                "en": "Sign in with a username and password. If you were given a username and a password, type them in the boxes Username and Password, then tap Sign in. If a box is empty, Apex says: Enter your username and password."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Entre com o Google. Toque em Entrar com Google no alto e escolha a sua conta Google. No app do iPhone, a tela do Google abre dentro do app.",
+                "en": "Sign in with Google. Tap Sign in with Google at the top and choose your Google account. In the iPhone app, the Google screen opens inside the app."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Defina a sua própria senha. Na primeira vez que você entra com uma senha que recebeu, a Apex pede que você crie uma senha pessoal: Defina sua nova senha. Digite na primeira caixa (1) e de novo na segunda caixa (2). Ela precisa ter pelo menos 10 caracteres. A Apex também recusa senhas muito comuns e uma senha igual ao seu usuário. Toque em Salvar nova senha (3).",
+                "en": "Set your own password. The first time you sign in with a password you were given, Apex asks you to set a personal one: Set your new password. Type it in the first box (1) and again in the second box (2). It needs at least 10 characters. Apex also refuses very common passwords and a password that is the same as your username. Tap Save new password (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Vincule o Google, ou pule. Logo depois, a Apex oferece vincular a sua conta Google, para você também poder entrar com um toque. Toque em Vincular conta Google (1), ou toque em Pular por enquanto (2). Você pode pular esta etapa a qualquer momento.",
+                "en": "Link Google, or skip. Right after, Apex offers to link your Google account, so you can also sign in with one tap. Tap Link Google account (1), or tap Skip for now (2). You can skip this step at any time."
+              },
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-06.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-06.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Entrar com passkey"
+            ],
+            "en": [
+              "Sign in with passkey"
+            ]
+          },
+          "section": "signin",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Entrar com Google"
+            ],
+            "en": [
+              "Sign in with Google"
+            ]
+          },
+          "section": "signin",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar nova senha"
+            ],
+            "en": [
+              "Save new password"
+            ]
+          },
+          "section": "signin",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Vincular conta Google"
+            ],
+            "en": [
+              "Link Google account"
+            ]
+          },
+          "section": "signin",
+          "step": 6
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pular por enquanto"
+            ],
+            "en": [
+              "Skip for now"
+            ]
+          },
+          "section": "signin",
+          "step": 6
+        }
+      ]
+    },
+    {
+      "id": "invited-person-sign-in",
+      "audience": "client",
+      "title": {
+        "pt": "Você recebeu um link de convite: crie a sua passkey",
+        "en": "You got an invite link: create your passkey"
+      },
+      "summary": {
+        "pt": "Abra o link, digite o código e crie a sua passkey.",
+        "en": "Open the link, enter the code and create your passkey."
+      },
+      "keywords": {
+        "pt": [
+          "link de convite",
+          "convite",
+          "convidado",
+          "convite de acesso",
+          "código por sms",
+          "criar passkey",
+          "novo aparelho",
+          "link indisponível",
+          "link expirado"
+        ],
+        "en": [
+          "invite link",
+          "invite",
+          "invited",
+          "access invite",
+          "code by text",
+          "sms code",
+          "create passkey",
+          "new device",
+          "link unavailable",
+          "expired link"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "invite",
+          "title": {
+            "pt": "Criar a sua passkey pelo link",
+            "en": "Create your passkey from the link"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o link. O dono da empresa manda um link para você, pelo WhatsApp ou de outro jeito. Abra no Safari ou no Chrome, no celular ou no computador. A página diz Olá, com o seu nome, depois o nome da empresa e o seu tipo de acesso. O link funciona uma vez e por 72 horas. Se a página disser Link indisponível, o link expirou ou já foi usado. Peça um novo link para quem convidou você. Se disser Este navegador não aceita passkeys, abra o mesmo link no Safari ou no Chrome.",
+                "en": "Open the link. The owner of the business sends you a link, on WhatsApp or another way. Open it in Safari or Chrome, on your phone or computer. The page says Hi, with your name, then the name of the business and your type of access. The link works once and for 72 hours. If the page says Link unavailable, the link expired or was already used. Ask the person who invited you for a new link. If it says This browser does not support passkeys, open the same link in Safari or Chrome."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Receba um código. O passo 1 é Código por SMS. A página mostra o seu celular com o meio escondido. Toque em Enviar código. A Apex manda um código de 6 números para esse número, por mensagem de texto. Para alguns números a página diz que vai mandar o código pelo WhatsApp.",
+                "en": "Get a code. Step 1 is Code by text. The page shows your mobile number with the middle hidden. Tap Send code. Apex sends a code with 6 numbers to that number, by text message. For some numbers the page says it will send the code on WhatsApp instead."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Digite o código. O passo 2 é Digite o código. Digite os 6 números e toque em Confirmar código. O código vale por 5 minutos. Se ele não chegar, espere a contagem (Reenviar em alguns segundos) e toque em Reenviar código.",
+                "en": "Enter the code. Step 2 is Enter the code. Type the 6 numbers and tap Confirm code. The code is valid for 5 minutes. If it does not arrive, wait for the countdown (Resend in some seconds) and tap Resend code."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Crie a sua passkey. O passo 3 é Criar sua passkey. Passkey é uma forma de entrar com o seu rosto, a sua digital ou a senha de desbloqueio do aparelho, sem senha para lembrar. Toque em Criar sua passkey. O seu aparelho pede Face ID, digital ou a senha do aparelho. Depois a Apex deixa você entrar. Se você cancelar, toque no botão de novo para tentar outra vez.",
+                "en": "Create your passkey. Step 3 is Create your passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your device, with no password. Tap Create your passkey. Your device asks for Face ID, fingerprint or the device passcode. Then Apex signs you in. If you cancel, tap the button again to try again."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Entre da próxima vez. Vá para a página de entrada e toque em Entrar com passkey. Veja o guia Entrar no Apex. Se você trocar de celular ou de computador, peça um novo link de aparelho ao dono. O dono encontra isso em Pessoas e acessos.",
+                "en": "Sign in next time. Go to the sign in page and tap Sign in with passkey. See the guide Sign in to Apex. If you get a new phone or computer, ask the owner for a new device link. The owner finds it in People and access."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar código"
+            ],
+            "en": [
+              "Send code"
+            ]
+          },
+          "section": "invite",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Confirmar código"
+            ],
+            "en": [
+              "Confirm code"
+            ]
+          },
+          "section": "invite",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Reenviar código"
+            ],
+            "en": [
+              "Resend code"
+            ]
+          },
+          "section": "invite",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Criar sua passkey"
+            ],
+            "en": [
+              "Create your passkey"
+            ]
+          },
+          "section": "invite",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "id": "push-notifications",
+      "audience": "client",
+      "title": {
+        "pt": "Notificações push: o que você recebe e como ligar ou desligar",
+        "en": "Push notifications: what you get and how to switch them on or off"
+      },
+      "summary": {
+        "pt": "Veja quais avisos a Apex manda para o seu iPhone e como controlá-los.",
+        "en": "See which alerts Apex sends to your iPhone and how to control them."
+      },
+      "keywords": {
+        "pt": [
+          "push",
+          "notificação push",
+          "notificações",
+          "avisos",
+          "lembrete",
+          "iphone",
+          "permitir notificações",
+          "desligar notificações",
+          "aviso de agendamento"
+        ],
+        "en": [
+          "push",
+          "push notification",
+          "notifications",
+          "alerts",
+          "reminder",
+          "iphone",
+          "allow notifications",
+          "turn off notifications",
+          "booking alert"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "push",
+          "title": {
+            "pt": "Receber avisos no iPhone",
+            "en": "Get alerts on your iPhone"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Entenda o que é uma notificação push. Notificação push é uma mensagem curta que aparece na tela do seu celular, mesmo com o Apex fechado. Ao tocar nela, abre a tela de que ela fala.",
+                "en": "Know what a push notification is. A push notification is a short message that shows on your phone screen, even when Apex is closed. Tapping it opens the screen it is about."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Ligue. Instale o app Apex no seu iPhone (veja o guia Instalar o Apex no seu iPhone). Na primeira vez que você desbloqueia o app, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir. O iPhone pergunta só uma vez.",
+                "en": "Switch it on. Install the Apex app on your iPhone (see the guide Get Apex on your iPhone). The first time you unlock the app, your iPhone asks if Apex may send you notifications. Tap Allow. The iPhone asks only once."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Saiba o que você recebe. A Apex manda uma notificação push quando: um cliente marca, muda ou cancela uma visita na sua página de agendamento; um contrato está esperando a sua assinatura; um cliente recusa ou pede mudanças; chega um novo lead pela sua página de indicação; e uma hora antes de um compromisso da sua agenda, como lembrete de tempo sensível. O texto de alguns avisos está só em português por enquanto.",
+                "en": "Know what you get. Apex sends you a push when: a customer books, changes or cancels a visit on your booking page; a contract is waiting for your signature; a customer declines or asks for changes; a new lead arrives from your referral page; and one hour before an appointment on your calendar, as a time sensitive reminder. The wording of a few alerts is only in Portuguese for now."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Desligue, ou ligue de novo. Abra o app Ajustes do seu iPhone, toque em Notificações, ache o Apex e desligue ou ligue Permitir Notificações. Se você tocou em Não Permitir antes, este é o único jeito de ligar, porque o iPhone não pergunta de novo.",
+                "en": "Switch it off, or on again. Open the Settings app of your iPhone, tap Notifications, find Apex and turn Allow Notifications off or on. If you tapped Don't Allow before, this is the only way to turn it on, because the iPhone does not ask again."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "No site não há botão para isso. No portal do dono, em um computador ou pelo ícone da tela de início, hoje não existe um botão para ligar notificações push. As notificações push chegam pelo app do iPhone.",
+                "en": "On the website there is no switch. In the owner portal on a computer, or from a home screen icon, there is no push notification switch today. Push notifications come through the iPhone app."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "install-the-app",
+      "audience": "client",
+      "title": {
+        "pt": "Instalar o Apex no seu iPhone",
+        "en": "Get Apex on your iPhone"
+      },
+      "summary": {
+        "pt": "Instale o app Apex, ou ponha o site na tela de início.",
+        "en": "Install the Apex app, or add the website to your home screen."
+      },
+      "keywords": {
+        "pt": [
+          "instalar",
+          "app store",
+          "app do iphone",
+          "baixar o app",
+          "tela de início",
+          "adicionar à tela de início",
+          "safari",
+          "face id",
+          "app"
+        ],
+        "en": [
+          "install",
+          "app store",
+          "iphone app",
+          "download app",
+          "home screen",
+          "add to home screen",
+          "safari",
+          "face id",
+          "app"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "install",
+          "title": {
+            "pt": "Instalar o app",
+            "en": "Install the app"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Baixe o app. No seu iPhone, abra este link: https://apps.apple.com/us/app/apex-business-leadership/id6808500506 . O app se chama Apex Business and Leadership. Procurar Apex na App Store pode não achar, então use o link. Toque em Obter. O app é grátis.",
+                "en": "Get the app. On your iPhone, open this link: https://apps.apple.com/us/app/apex-business-leadership/id6808500506 . The app is called Apex Business and Leadership. Searching the App Store for Apex may not find it, so use the link. Tap Get. The app is free."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Entre. Abra o app e entre com o mesmo usuário e senha que você já usa no site, ou com a sua passkey. O app não tem cadastro: a Apex cria as contas dos seus clientes. Veja o guia Entrar no Apex.",
+                "en": "Sign in. Open the app and sign in with the username and password you already use on the website, or with your passkey. The app has no sign up: Apex creates the accounts for its clients. See the guide Sign in to Apex."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Desbloqueie o app. O app pede Face ID ou a senha do seu celular quando você abre. Isso protege os números da sua empresa se outra pessoa pegar o seu celular. Depois que você desbloqueia uma vez, você continua conectado.",
+                "en": "Unlock the app. The app asks for Face ID or your passcode when you open it. This keeps your business numbers safe if someone else holds your phone. After you unlock it once, you stay signed in."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Permita as notificações. Na primeira vez que você desbloqueia, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir. Veja o guia Notificações push.",
+                "en": "Allow notifications. The first time you unlock, the iPhone asks if Apex may send you notifications. Tap Allow. See the guide Push notifications."
+              },
+              "image": null
+            }
+          ]
+        },
+        {
+          "id": "homescreen",
+          "title": {
+            "pt": "Ou ponha o site na tela de início",
+            "en": "Or add the website to your home screen"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ponha o site na tela de início. Isso funciona sem a App Store. No seu iPhone, abra apex.resonateai.online no Safari. Toque no botão Compartilhar, depois em Adicionar à Tela de Início, depois em Adicionar. O Apex passa a abrir por um ícone próprio, como um app. As notificações push não funcionam assim. Para elas, use o app.",
+                "en": "Add the site to your home screen. This works without the App Store. On your iPhone, open apex.resonateai.online in Safari. Tap the Share button, then tap Add to Home Screen, then tap Add. Apex now opens from its own icon, like an app. Push notifications are not available this way. For those, use the app."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "delete-my-account",
+      "audience": "client",
+      "title": {
+        "pt": "Pedir para excluir a sua conta",
+        "en": "Ask to delete your account"
+      },
+      "summary": {
+        "pt": "Como pedir à Apex que exclua a sua conta e os dados da sua empresa.",
+        "en": "How to ask Apex to delete your account and your company's data."
+      },
+      "keywords": {
+        "pt": [
+          "excluir conta",
+          "excluir minha conta",
+          "apagar conta",
+          "apagar dados",
+          "encerrar conta",
+          "pedido de exclusão",
+          "privacidade"
+        ],
+        "en": [
+          "delete account",
+          "delete my account",
+          "remove account",
+          "erase data",
+          "close account",
+          "deletion request",
+          "privacy"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "delete",
+          "title": {
+            "pt": "Enviar o pedido de exclusão",
+            "en": "Send the deletion request"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache o link. Role até o final de qualquer página do portal. Toque em Excluir minha conta (1). Ele fica no rodapé, ao lado de Política de Privacidade e Termos de Uso.",
+                "en": "Find the link. Scroll to the very bottom of any page in the portal. Tap Delete my account (1). It sits at the bottom, next to Privacy Policy and Terms of Use."
+              },
+              "image": {
+                "pt": "help/img/guides/delete-my-account/delete-01.pt.jpg",
+                "en": "help/img/guides/delete-my-account/delete-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Leia, depois envie. A janela diz que a sua conta e os dados da sua empresa serão excluídos em até 30 dias, e que a Apex confirma por escrito quando estiver concluído. Ela também diz que o pedido passa antes por uma confirmação, para que ninguém apague sozinho os registros de uma empresa. Toque em Enviar pedido de exclusão (1) para continuar. Toque em Cancelar (2) para parar.",
+                "en": "Read it, then send. The window says your account and your company's data will be deleted within 30 days, and that Apex confirms in writing when it is done. It also says the request is confirmed first, so that no single person can erase a company's records alone. Tap Send deletion request (1) to go on. Tap Cancel (2) to stop."
+              },
+              "image": {
+                "pt": "help/img/guides/delete-my-account/delete-02.pt.jpg",
+                "en": "help/img/guides/delete-my-account/delete-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Envie pelo WhatsApp. Depois que você toca em Enviar pedido de exclusão, o WhatsApp abre com uma mensagem pronta, com o nome da sua empresa. Nada foi excluído e nada foi enviado ainda. Aperte enviar no WhatsApp para fazer o pedido. A Apex analisa o pedido e confirma com você.",
+                "en": "Send it in WhatsApp. After you tap Send deletion request, WhatsApp opens with a message ready, with your business name. Nothing is deleted yet and nothing is sent yet. Press send in WhatsApp to ask. Apex reviews the request and confirms it with you."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Excluir minha conta"
+            ],
+            "en": [
+              "Delete my account"
+            ]
+          },
+          "section": "delete",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar pedido de exclusão"
+            ],
+            "en": [
+              "Send deletion request"
+            ]
+          },
+          "section": "delete",
+          "step": 2
+        }
+      ]
+    },
+    {
+      "id": "apex-invoice-and-receipt",
+      "audience": "client",
+      "title": {
+        "pt": "Uma fatura ou um recibo da Apex",
+        "en": "An invoice or receipt from Apex"
+      },
+      "summary": {
+        "pt": "Abra, pague e guarde a fatura e o recibo que a Apex envia para você.",
+        "en": "Open, pay and save the invoice and receipt Apex sends you."
+      },
+      "keywords": {
+        "pt": [
+          "fatura da apex",
+          "recibo da apex",
+          "pagar a apex",
+          "zelle",
+          "ach",
+          "pagar com cartão",
+          "baixar pdf",
+          "saldo a pagar"
+        ],
+        "en": [
+          "apex invoice",
+          "apex receipt",
+          "invoice from apex",
+          "pay apex",
+          "zelle",
+          "ach",
+          "pay by card",
+          "download pdf",
+          "balance due"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "apexbill",
+          "title": {
+            "pt": "Abrir e pagar a fatura da Apex",
+            "en": "Open and pay an Apex invoice"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o link. Quando a Apex cobra pelos seus serviços, você recebe um link da fatura. Ele abre uma página com a cara da Apex. Você não precisa entrar: o próprio link é a sua chave, então guarde com cuidado. A página mostra Faturado para, Data da fatura, Vencimento, as linhas da fatura, o Total, o que você Pagou e o Saldo. Um botão no alto troca a página entre português e inglês.",
+                "en": "Open the link. When Apex bills you for its services, you get a link to the invoice. It opens a page with the Apex look. You do not sign in: the link itself is your key, so keep it private. The page shows Billed to, Invoice date, Due date, the lines of the invoice, the Total, what you Paid and the Balance. A button at the top switches the page between Portuguese and English."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Pague. Em Formas de pagamento você vê só as formas que a Apex ligou. Zelle: toque em Copiar valor, cole na tela do Zelle do seu banco, envie para o contato mostrado e escreva o número da fatura na mensagem. Você também pode tocar em Copiar contato do Zelle. Transferência ACH: toque em Pagar por transferência ACH. Pode levar até 4 dias úteis para compensar. Cartão: toque em Pagar com cartão. Depois de pagar com cartão você volta para a página, e ela diz Pagamento recebido. Obrigado! ou Pagamento em processamento.",
+                "en": "Pay. Under Ways to pay you see only the ways Apex turned on. Zelle: tap Copy amount, then paste it in your bank's Zelle screen, send it to the contact shown and write the invoice number in the message. You can also tap Copy Zelle contact. ACH bank transfer: tap Pay by ACH bank transfer. It can take up to 4 business days to clear. Card: tap Pay by card. After a card payment you come back to the page, and it says Payment received. Thank you! or Payment processing."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Guarde uma cópia. Toque em Baixar fatura (PDF) para pegar um PDF. Se o PDF não carregar, a página avisa e você pode tocar em Imprimir.",
+                "en": "Save a copy. Tap Download your invoice (PDF) to get a PDF. If the PDF does not load, the page says so and you can tap Print."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Abra o seu recibo. Depois de um pagamento, a Apex pode enviar um link de recibo com a mesma cara. Ele mostra Recebido de, o Número do recibo, a Fatura, a Data do recebimento, o Valor recebido, a Forma de pagamento, e o saldo da fatura antes e depois deste pagamento. Toque em Baixar o recibo (PDF) para guardar. Se um pagamento foi desfeito, o recibo diz ANULADO e deixa de ser prova de pagamento.",
+                "en": "Open your receipt. After a payment, Apex can send you a receipt link with the same look. It shows Received from, the Receipt number, the Invoice, the Date received, the Amount received, the Payment method, and the invoice balance before and after this payment. Tap Download the receipt (PDF) to save it. If a payment was undone, the receipt says VOIDED and is no longer proof of payment."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "meetings-and-booking",
+      "audience": "client",
+      "title": {
+        "pt": "Sua reunião com a Apex: escolha o horário e remarque",
+        "en": "Your meeting with Apex: pick a time and reschedule"
+      },
+      "summary": {
+        "pt": "Escolha o horário da sua reunião com a Apex, entre nela ou mude.",
+        "en": "Pick a time for your meeting with Apex, join it or move it."
+      },
+      "keywords": {
+        "pt": [
+          "reunião",
+          "card de reuniões",
+          "escolher horário",
+          "reagendar",
+          "entrar",
+          "como chegar",
+          "página de agendamento",
+          "agendar reunião",
+          "google meet"
+        ],
+        "en": [
+          "meeting",
+          "meetings card",
+          "pick a time",
+          "choose time",
+          "reschedule",
+          "join",
+          "directions",
+          "booking page",
+          "schedule meeting",
+          "google meet"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "meeting",
+          "title": {
+            "pt": "Escolher, entrar e remarcar",
+            "en": "Pick, join and reschedule"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Ache o card no Início. Quando a Apex dá a você um link de agendamento e você ainda não escolheu o horário, a aba Início mostra um card chamado Sua reunião desta semana. Ele diz: Você ainda não escolheu um horário. Toque em Escolher horário. Se a Apex não deu nenhum link e você não tem reunião, não aparece card.",
+                "en": "Find the card on Home. When Apex gives you a booking link and you have not picked a time yet, the Home tab shows a card called Your meeting this week. It says: You have not picked a time yet. Tap Pick a time. If Apex gave you no link and you have no meeting, there is no card."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha o dia. Abre a página de agendamento da Apex. Ela é só em português. Diz Vamos marcar nossa reunião, e o tempo da reunião, por exemplo 60 minutos. Em Que dia funciona melhor? toque em um ou mais dias. Depois toque em Ver horários.",
+                "en": "Choose the day. The Apex booking page opens. It is only in Portuguese. It says Vamos marcar nossa reunião, which means Let's schedule our meeting, and the length of the meeting, for example 60 minutes. Under Que dia funciona melhor? (Which day works best?) tap one or more days. Then tap Ver horários (See times)."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Escolha o horário. A página Escolha o horário lista os horários livres mais próximos do seu costume. Toque no horário que você quer. Se nenhum servir, toque em Mais cedo? ou Mais tarde? para ver outros, ou em Voltar aos dias. Se nenhum horário funcionar, toque em Nenhum destes funciona. A equipe da Apex então fala com você pelo WhatsApp para achar um horário melhor.",
+                "en": "Choose the time. The page Escolha o horário (Choose the time) lists the free times closest to your usual. Tap the time you want. If none is good, tap Mais cedo? (Earlier?) or Mais tarde? (Later?) to see others, or Voltar aos dias (Back to the days). If none of the times works, tap Nenhum destes funciona (None of these work). The Apex team then contacts you on WhatsApp to find a better time."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Confira a confirmação. A página diz Reunião confirmada, com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
+                "en": "Check the confirmation. The page says Reunião confirmada (Meeting confirmed) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Entre ou mude. De volta ao Início, o card agora mostra a sua reunião como Agendada, com o dia e o horário, e um botão Reagendar. Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial.",
+                "en": "Join or move it. Back on Home, the card now shows your meeting as Scheduled, with the day and the time, and a Reschedule button. Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Escolher horário"
+            ],
+            "en": [
+              "Pick a time"
+            ]
+          },
+          "section": "meeting",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Reagendar"
+            ],
+            "en": [
+              "Reschedule"
+            ]
+          },
+          "section": "meeting",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Como chegar"
+            ],
+            "en": [
+              "Directions"
+            ]
+          },
+          "section": "meeting",
+          "step": 5
+        }
+      ]
+    },
+    {
+      "id": "siri-shortcuts",
+      "audience": "client",
+      "title": {
+        "pt": "Pergunte à Siri sobre faturas e a sua agenda",
+        "en": "Ask Siri about invoices and your schedule"
+      },
+      "summary": {
+        "pt": "Use a voz para perguntar o que está em aberto e o que tem hoje.",
+        "en": "Use your voice to ask what is outstanding and what is on today."
+      },
+      "keywords": {
+        "pt": [
+          "siri",
+          "atalhos",
+          "voz",
+          "em aberto",
+          "agenda de hoje",
+          "perguntar à siri"
+        ],
+        "en": [
+          "siri",
+          "shortcuts",
+          "voice",
+          "outstanding",
+          "today's schedule",
+          "ask siri",
+          "hey siri"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "siri",
+          "title": {
+            "pt": "Falar com a Siri",
+            "en": "Talk to Siri"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Pergunte sobre o dinheiro. Use o app Apex no seu iPhone. Diga à Siri: How much is outstanding in Apex, ou What's outstanding in Apex, ou Check Apex invoices. A Siri responde em voz alta com o total que você faturou e ainda não recebeu, e quantas faturas são. Se tudo foi recebido, a Siri diz isso. Os comandos são em inglês.",
+                "en": "Ask about money. Use the Apex app on your iPhone. Say to Siri: How much is outstanding in Apex, or What's outstanding in Apex, or Check Apex invoices. Siri answers out loud with the total that you invoiced and have not collected yet, and how many invoices that is. If everything is collected, Siri says so."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Pergunte sobre o seu dia. Diga: What's on my Apex schedule, ou What's today in Apex, ou Check my Apex calendar. A Siri diz o que tem na sua agenda hoje, com o primeiro horário. Se nada estiver marcado, a Siri diz isso. Isso não funciona para o login de vendedor.",
+                "en": "Ask about your day. Say: What's on my Apex schedule, or What's today in Apex, or Check my Apex calendar. Siri tells you what is on your calendar today, with the first time. If nothing is booked, Siri says so. This does not work for a salesperson login."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Entre primeiro. Se você ainda não entrou no app, a Siri diz: Open Apex and sign in first, then ask me again. Diga o nome do app como ele aparece embaixo do ícone na sua tela de início.",
+                "en": "Sign in first. If you have not signed in to the app, Siri says: Open Apex and sign in first, then ask me again. Say the name of the app as it shows under its icon on your home screen."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
     }
   ],
   "pages": {
@@ -9620,7 +11818,8 @@
         "revise-or-void-estimate",
         "link-in-bio-page",
         "contract-settings",
-        "cover-image"
+        "cover-image",
+        "turn-customer-link-off"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",
@@ -9637,7 +11836,9 @@
         "receipt",
         "invoices-and-payments",
         "edit-send-messages",
-        "invoice-late-fee-credit-void"
+        "invoice-late-fee-credit-void",
+        "reported-payments",
+        "turn-customer-link-off"
       ],
       "overview": {
         "pt": "Aqui você envia faturas e recibos.",
@@ -9706,7 +11907,8 @@
         "change-order",
         "contracts-tab",
         "contract-settings",
-        "ask-another-signer"
+        "ask-another-signer",
+        "turn-customer-link-off"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",

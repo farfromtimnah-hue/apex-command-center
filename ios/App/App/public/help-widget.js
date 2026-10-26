@@ -217,7 +217,7 @@
     ".aph-ask:focus-within{border-color:#C9A43A}" +
     ".aph-ask .aph-input{border:none;outline:none;background:transparent;padding:0 6px 0 0;min-height:48px;font-size:16px}" +
     ".aph-ask .aph-primary{border-radius:11px}" +
-    ".aph-ask .aph-ico{display:none}" +
+    ".aph-ask .aph-ico{display:inline-flex}" +
     ".aph-input{flex:1;min-width:0;min-height:48px;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);padding:0 14px;font:500 15px 'Inter',sans-serif;color:var(--ah-text)}" +
     ".aph-primary{min-height:48px;padding:0 16px;border:none;border-radius:var(--ah-r);background:#1a1a1d;color:#fff;font:600 14px 'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}" +
     ".aph-quiet{min-height:44px;padding:0 14px;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);color:var(--ah-text);font:600 13px 'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:7px}" +
@@ -375,6 +375,7 @@
     sheet.setAttribute("aria-modal", "true");
     sheet.setAttribute("aria-label", t("Aprenda", "Learn"));
     var head = el("div", "aphelp-head");
+    if (BASE) { head.style.backgroundImage = "linear-gradient(rgba(17,17,18,0.58),rgba(17,17,18,0.72)),url(" + BASE + "help/img/hero.jpg)"; head.style.backgroundSize = "cover"; head.style.backgroundPosition = "30% 40%"; }
     titleEl = el("h2", "aphelp-title", t("Aprenda", "Learn"));
     closeBtn = button("aphelp-x");
     closeBtn.innerHTML = ICON_CLOSE;
@@ -590,17 +591,18 @@
     var wrap = el("div");
     var form = el("form", "aph-form aph-ask");
     var input = el("input", "aph-input");
-    input.type = "text";
+    input.type = "search";
+    input.setAttribute("enterkeyhint", "search");
     input.maxLength = 300;
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("placeholder", t("O que você quer fazer?", "What do you want to do?"));
-    input.setAttribute("aria-label", t("O que você quer fazer?", "What do you want to do?"));
+    input.setAttribute("placeholder", t("Ex.: orçamento", "Ex.: estimate"));
+    input.setAttribute("aria-label", t("Ex.: orçamento", "Ex.: estimate"));
     var go = button("aph-primary");
     go.type = "submit";
     var gi = el("span", "aph-ico");
     gi.innerHTML = ICON_SEARCH;
     go.appendChild(gi);
-    var goLabel = el("span", null, t("Perguntar", "Ask"));
+    var goLabel = el("span", null, t("Buscar", "Search"));
     go.appendChild(goLabel);
     form.appendChild(input);
     form.appendChild(go);
@@ -629,7 +631,7 @@
         go.disabled = false;
         if (sideBtn) { sideBtn.disabled = false; }
         go.removeAttribute("aria-busy");
-        goLabel.textContent = t("Perguntar", "Ask");
+        goLabel.textContent = t("Buscar", "Search");
       });
     });
     return wrap;

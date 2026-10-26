@@ -41,19 +41,26 @@
     .lang-btn:active { transform: scale(0.97); }
 
     /* The hero: a black band, a serif line and the question box. */
-    .hero { background: var(--header); color: var(--on-dark); padding: 40px 20px 52px; }
-    .hero-in { max-width: 760px; margin: 0 auto; }
-    .page-title { font-family: var(--serif); font-size: 46px; font-weight: 400; line-height: 1.08; letter-spacing: -0.015em; margin-bottom: 10px; }
-    .hero-sub { font-size: 17px; line-height: 1.5; color: var(--on-dark-muted); margin-bottom: 28px; max-width: 34em; }
+    .hero { position: relative; overflow: hidden; background: var(--header); color: var(--on-dark); padding: 64px 20px 72px; }
+    .hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: 30% 40%; opacity: 0; transition: opacity 400ms ease-out; }
+    .hero-bg.on { opacity: 1; }
+    .hero-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(17,17,18,0.55) 0%, rgba(17,17,18,0.62) 55%, rgba(17,17,18,0.82) 100%); }
+    .hero-in { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; }
+    .page-title { font-family: var(--serif); font-size: 52px; font-weight: 400; line-height: 1.08; letter-spacing: -0.015em; margin-bottom: 10px; }
+    .hero-sub { font-size: 18px; line-height: 1.5; color: #e4dfd5; margin-bottom: 30px; max-width: 34em; }
     .search { margin: 0; }
-    .ask { display: flex; align-items: center; gap: 6px; min-height: 64px; padding: 6px 6px 6px 18px; border-radius: 16px; background: #fff; border: 2px solid #fff; }
+    .ask-label { display: block; font-size: 15px; font-weight: 600; color: #fff; margin: 0 0 10px; }
+    .ask { display: flex; align-items: center; gap: 6px; min-height: 68px; padding: 7px 7px 7px 18px; border-radius: 14px; background: #fff; border: 2px solid #fff; box-shadow: 0 8px 28px rgba(0,0,0,0.35); }
     .ask:focus-within { border-color: var(--gold); }
     .ask-ico { width: 22px; height: 22px; flex: none; color: #6a665f; display: inline-flex; }
     .ask-ico svg { width: 22px; height: 22px; }
     .ask input { flex: 1; min-width: 0; min-height: 50px; border: none; outline: none; background: transparent; padding: 0 8px 0 4px; font: 500 17px 'Inter', sans-serif; color: var(--text); }
     .ask input::placeholder { color: #77726a; opacity: 1; }
-    .ask .btn-primary { min-height: 50px; border-radius: 11px; }
-    .ask .btn-primary .ico { display: none; }
+    .ask .btn-primary { min-height: 52px; border-radius: 10px; font-size: 16px; }
+    .ask .btn-primary { min-width: 118px; justify-content: center; }
+    .ask .btn-primary .ico { width: 20px; height: 20px; }
+    .ask input[type="search"] { -webkit-appearance: none; appearance: none; }
+    .ask input::-webkit-search-cancel-button { -webkit-appearance: none; }
     .hero #answer { color: var(--text); }
 
     .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px calc(72px + env(safe-area-inset-bottom)); }
@@ -134,7 +141,7 @@
     .light img { max-width: 100%; max-height: 100%; border-radius: var(--radius); }
     .light .icon-btn { position: absolute; right: 12px; top: 12px; margin: 0; background: var(--card); }
     @media (prefers-reduced-motion: reduce) { .lang-btn:active, .icon-btn:active, .btn-primary:active, .btn-quiet:active, .card.click:active, .vcard:active, .side-btn:active { transform: none; } }
-    @media (max-width: 480px) { .hero { padding: 28px 16px 36px; } .page-title { font-size: 36px; } .hero-sub { font-size: 16px; margin-bottom: 22px; } .ask { padding-left: 14px; min-height: 60px; } .ask input { font-size: 16px; } .ask .btn-primary { padding: 0 16px; } .guide-title { font-size: 31px; } .step-title { font-size: 21px; } .card-title { font-size: 22px; } }
+    @media (max-width: 480px) { .hero { padding: 36px 16px 44px; } .page-title { font-size: 40px; } .hero-sub { font-size: 16px; margin-bottom: 22px; } .ask { padding-left: 14px; min-height: 60px; } .ask input { font-size: 16px; } .ask .btn-primary { padding: 0 14px; min-width: 0; } .guide-title { font-size: 31px; } .step-title { font-size: 21px; } .card-title { font-size: 22px; } }
   </style>
 </head>
 <body class="lang-pt">
@@ -149,13 +156,16 @@
 
   <div id="libraryView">
     <section class="hero">
+      <div class="hero-bg" id="heroBg"></div>
+      <div class="hero-scrim"></div>
       <div class="hero-in">
         <h1 class="page-title" id="pageTitle">Aprenda</h1>
         <p class="hero-sub" id="heroSub"></p>
         <section class="search" id="searchBox" hidden>
+          <label class="ask-label" for="askInput" id="askLabel"></label>
           <form id="askForm" class="ask" autocomplete="off" role="search">
             <span class="ask-ico" aria-hidden="true" id="askIco"></span>
-            <input type="text" id="askInput" maxlength="300">
+            <input type="search" id="askInput" maxlength="300" enterkeyhint="search">
             <button type="submit" class="btn-primary" id="askBtn"></button>
           </form>
         </section>
@@ -218,6 +228,14 @@
     var useLocal = onLocalhost && /[?&]local=1(&|$)/.test(window.location.search);
     var BASE = (useFixture || useLocal) ? (window.location.origin + "/") : String(cfg.base || "");
     var GUIDES_URL = useFixture ? (BASE + "scripts/fixtures/help-guides-fixture.json") : (BASE + "help/guides.json");
+
+    // The mountain photo comes from the site (not the app bundle), like the guide pictures.
+    (function () {
+      if (typeof Image !== "function") { return; }
+      var bg = new Image();
+      bg.onload = function () { var h = document.getElementById("heroBg"); if (h) { h.style.backgroundImage = "url(" + bg.src + ")"; h.className = "hero-bg on"; } };
+      bg.src = BASE + "help/img/hero.jpg";
+    }());
 
     var currentLang = "pt";
     var guides = null;
@@ -306,9 +324,10 @@
         ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
         : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
       byId("askIco").innerHTML = ICON_SEARCH;
+      byId("askLabel").textContent = t("Busque um guia ou faça uma pergunta", "Search for a guide or ask a question");
       byId("bannerClose").setAttribute("aria-label", t("Fechar", "Close"));
       byId("bannerClose").setAttribute("title", t("Fechar", "Close"));
-      var ph = t("O que você quer fazer?", "What do you want to do?");
+      var ph = t("Ex.: orçamento", "Ex.: estimate");
       byId("askInput").setAttribute("placeholder", ph);
       byId("askInput").setAttribute("aria-label", ph);
       if (!byId("askBtn").disabled) { setAskLabel(false); }
@@ -321,7 +340,7 @@
       var ic = el("span", "ico");
       ic.innerHTML = ICON_SEARCH;
       b.appendChild(ic);
-      b.appendChild(document.createTextNode(busy ? t("Buscando...", "Searching...") : t("Perguntar", "Ask")));
+      b.appendChild(document.createTextNode(busy ? t("Buscando...", "Searching...") : t("Buscar", "Search")));
     }
 
     // ---- banner

@@ -324,6 +324,7 @@
         : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");
       byId("askIco").innerHTML = ICON_SEARCH;
       byId("askLabel").textContent = t("Busque um guia ou faça uma pergunta", "Search for a guide or ask a question");
+      if (!enabled) { byId("banner").hidden = true; }
       byId("bannerClose").setAttribute("aria-label", t("Fechar", "Close"));
       byId("bannerClose").setAttribute("title", t("Fechar", "Close"));
       var ph = t("Ex.: orçamento", "Ex.: estimate");

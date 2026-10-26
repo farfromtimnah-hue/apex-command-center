@@ -9,6 +9,11 @@
   // Preview switch: only the browser that holds aprenda-preview = on sees the feature.
   // Used to test it on the real site before it is turned on for everyone.
   var preview = false;
+  // A link ending in ?aprenda=on turns the preview on in that browser; ?aprenda=off turns it off.
+  try {
+    var m = /[?&]aprenda=(on|off)(&|$)/.exec(window.location.search);
+    if (m) { if (m[1] === "on") { window.localStorage.setItem("aprenda-preview", "on"); } else { window.localStorage.removeItem("aprenda-preview"); } }
+  } catch (e) { /* works without storage */ }
   try { preview = window.localStorage.getItem("aprenda-preview") === "on"; } catch (e) { preview = false; }
   window.APEX_HELP = { enabled: preview, base: HELP_BASE };
 }());

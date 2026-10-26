@@ -63,8 +63,14 @@
     .hero #answer { color: var(--text); }
 
     .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px calc(72px + env(safe-area-inset-bottom)); }
-    .banner { display: flex; align-items: flex-start; gap: 10px; padding: 0 0 18px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
-    .banner p { flex: 1; font-size: 15px; line-height: 1.55; color: var(--muted); }
+    .banner { display: flex; align-items: flex-start; gap: 16px; padding: 22px 12px 22px 22px; margin-bottom: 8px; border-radius: 14px; background: var(--header); color: var(--on-dark); }
+    .banner-ico { flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--gold); color: var(--header); display: inline-flex; align-items: center; justify-content: center; }
+    .banner-ico svg { width: 26px; height: 26px; }
+    .banner-body { flex: 1; min-width: 0; }
+    .banner-title { font-family: var(--serif); font-size: 24px; font-weight: 500; line-height: 1.2; color: #fff; margin: 2px 0 6px; }
+    .banner-body p#bannerText { font-size: 16px; line-height: 1.55; color: #ddd8cd; }
+    .banner .icon-btn { margin: -8px 0 0 0; color: #fff; }
+    @media (hover: hover) { .banner .icon-btn:hover { background: rgba(255,255,255,0.14); } }
     .icon-btn { width: 44px; height: 44px; margin: -10px -10px -10px 0; flex: none; border: none; background: transparent; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 120ms ease-out, background-color 120ms ease-out; }
     .icon-btn:active { transform: scale(0.97); }
     .icon-btn svg, .ico { width: 18px; height: 18px; flex: none; }
@@ -174,7 +180,11 @@
     <main class="wrap">
       <div id="answer" aria-live="polite"></div>
       <div class="banner" id="banner">
-        <p id="bannerText"></p>
+        <span class="banner-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="10" opacity="0.5"/></svg></span>
+        <div class="banner-body">
+          <p class="banner-title" id="bannerTitle"></p>
+          <p id="bannerText"></p>
+        </div>
         <button type="button" class="icon-btn" id="bannerClose"></button>
       </div>
 
@@ -326,9 +336,10 @@
       document.documentElement.lang = currentLang;
       document.title = t("Aprenda", "Learn");
       byId("pageTitle").textContent = t("Aprenda", "Learn");
+      byId("bannerTitle").textContent = t("Dica: aprenda sem sair da tela", "Tip: learn without leaving the screen");
       byId("bannerText").textContent = t(
-        "Não sabe como fazer algo? Pergunte aqui. Ou, em qualquer tela do Apex, toque e segure um botão (no computador, clique com o botão direito) para aprender sobre ele.",
-        "Not sure how to do something? Ask here. Or, on any Apex screen, press and hold a button (on a computer, right click it) to learn about it.");
+        "Em qualquer tela do Apex, toque e segure um botão para aprender sobre ele. No computador, clique nele com o botão direito.",
+        "On any Apex screen, press and hold a button to learn about it. On a computer, right click it.");
       byId("heroSub").textContent = enabled
         ? t("Pergunte com as suas palavras, ou escolha um guia abaixo.", "Ask in your own words, or pick a guide below.")
         : t("Passo a passo com imagens, para fazer cada coisa no Apex.", "Step by step with pictures, to do each thing in Apex.");

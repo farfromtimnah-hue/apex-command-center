@@ -3162,34 +3162,34 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Preços. Toque em Negócio e depois em Preços. A página se chama Tabela de preços e custos: o que cada item custa contra o que você cobra. A linha embaixo conta os seus itens e quantos têm os custos preenchidos.",
-                "en": "Open Pricing. Tap Business, then Pricing. The page is called Pricing & costs: what each item costs against what you charge. The line under it counts your items and how many have their costs filled in."
+                "pt": "Abra Preços. Toque em Negócio e depois em Preços. A página se chama Tabela de preços e custos (1): o que cada item custa contra o que você cobra. A linha embaixo (2) conta os seus itens e quantos têm os custos preenchidos. Os botões (3) mostram Todos ou só os itens que faltam dados.",
+                "en": "Open Pricing. Tap Business, then Pricing. The page is called Pricing & costs (1): what each item costs against what you charge. The line under it (2) counts your items and how many have their costs filled in. The buttons (3) show All or only the items that need info."
               },
               "image": {
-                "en": "help/img/guides/pricing-setup/pricing-01.en.jpg",
-                "pt": "help/img/guides/pricing-setup/pricing-01.pt.jpg"
+                "pt": "help/img/guides/pricing-setup/pricing-01.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Leia a lista. Cada linha mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo, e à direita a margem em dólares e em percentual. Toque em Faltam dados para ver só os itens com essa etiqueta. Toque em Todos para ver todos os itens de novo.",
-                "en": "Read the list. Each row shows the item name, then its category, unit, cost and price, then the cost breakdown, and on the right the margin in dollars and percent. Tap Needs info to see only the items that carry that tag. Tap All to see every item again."
+                "pt": "Leia a lista. Cada linha (1) mostra o nome do item, depois a categoria, a unidade, o custo e a venda, depois o detalhamento do custo, e à direita a margem em dólares e em percentual (2). A etiqueta dourada Faltam dados (3) marca um item que ainda precisa de informação, por exemplo a descrição para o cliente. Toque em Faltam dados no alto para ver só esses itens, e em Todos para ver todos de novo.",
+                "en": "Read the list. Each row (1) shows the item name, then its category, unit, cost and price, then the cost breakdown, and on the right the margin in dollars and percent (2). The gold tag Needs info (3) marks an item that still needs information, for example the customer description. Tap Needs info at the top to see only those items, and All to see every item again."
               },
               "image": {
-                "en": "help/img/guides/pricing-setup/pricing-02.en.jpg",
-                "pt": "help/img/guides/pricing-setup/pricing-02.pt.jpg"
+                "pt": "help/img/guides/pricing-setup/pricing-02.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Adicione itens. No fim da lista, toque em + Novo item para adicionar um item. Toque em Importar planilha para trazer uma planilha de preços. Você configura os preços uma vez e depois os mantém atualizados aqui. O guia Tabela de preços: adicione um item e importe uma planilha mostra cada tela do item novo e da importação.",
-                "en": "Add items. At the bottom of the list, tap + New item to add one item. Tap Import spreadsheet to bring in a pricing spreadsheet. You set your prices up once and then keep them up to date here. The guide Price list: add an item and import a spreadsheet shows every screen of the new item form and of the import."
+                "pt": "Adicione itens. No fim da lista, toque em + Novo item (1) para adicionar um item. Toque em Importar planilha (2) para trazer uma planilha de preços. O guia Tabela de preços: adicione um item e importe uma planilha mostra cada tela do item novo e da importação.",
+                "en": "Add items. At the bottom of the list, tap + New item (1) to add one item. Tap Import spreadsheet (2) to bring in a pricing spreadsheet. The guide Price list: add an item and import a spreadsheet shows every screen of the new item form and of the import."
               },
               "image": {
-                "en": "help/img/guides/pricing-setup/pricing-03.en.jpg",
-                "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg"
+                "pt": "help/img/guides/pricing-setup/pricing-03.pt.jpg",
+                "en": "help/img/guides/pricing-setup/pricing-03.en.jpg"
               }
             }
           ]
@@ -4149,10 +4149,13 @@
             {
               "n": 8,
               "text": {
-                "pt": "Revise a comissão quando o valor muda. Às vezes um orçamento muda o valor de um lead depois que você definiu a comissão. Aí aparece uma linha vermelha na seção Orçamentos da ficha do lead: O valor mudou de um número para outro depois de a comissão ter sido definida. Revise a comissão. O Apex não muda a comissão por você. Confira, corrija se precisar e toque em Dispensar ao lado da linha (o dono vê esse botão, o vendedor não). Se você mesmo mudar a comissão, a linha some. Não conseguimos mostrar essa linha no nosso teste, porque o cliente de teste não tinha nenhum lead nesse estado, então este passo vem do código do app.",
-                "en": "Review the commission when the value changes. Sometimes an estimate changes the value of a lead after you set its commission. Then a red line appears in the Estimates section of the lead sheet: Value changed from one amount to another after commission was set. Review commission. Apex does not change the commission for you. Check it, fix it if you need to, and tap Dismiss next to the line (the owner sees this button, a salesperson does not). If you change the commission yourself, the line goes away. We could not show this line in our test, because the test client had no lead in this state, so this step comes from the app's code."
+                "pt": "Revise a comissão quando o valor muda. Se um orçamento mudar o valor de um lead depois que você definiu a comissão, uma linha vermelha (1) aparece na parte Orçamentos da ficha do lead: Valor mudou de um valor para outro depois de a comissão ter sido definida. Revise a comissão. O Apex não muda a comissão por você. Confira, corrija se precisar, e toque em Dispensar (2) para tirar a linha.",
+                "en": "Review the commission when the value changes. If an estimate changes the value of a lead after you set its commission, a red line (1) appears in the Estimates part of the lead sheet: Value changed from one amount to another after commission was set. Review commission. Apex does not change the commission for you. Check it, fix it if you need to, and tap Dismiss (2) to remove the line."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/pipeline/lead-sheet-08.pt.jpg",
+                "en": "help/img/guides/pipeline/lead-sheet-08.en.jpg"
+              }
             }
           ]
         },
@@ -6950,8 +6953,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra os ajustes da página de indicação. Toque em Ajustes no alto à direita e role até Página de indicação. É a página pública que os links dos seus parceiros abrem. Os ajustes só mudam como ela aparece para os seus clientes. Escolha o Idioma inicial (1): quem abrir ainda pode trocar o idioma, isto só define em qual ele abre. Defina a Cor de fundo (2) e a Cor de destaque (3). Deixe uma cor vazia para voltar ao padrão. O seu logo (4) aparece na página: para trocar, toque no logo no topo da aba Início.",
-                "en": "Open the referral page settings. Tap Settings at the top right, then scroll to Referral page. This is the public page your partners' links open. The settings only change how it looks to your customers. Choose the Starting language (1): the visitor can still switch language, this only sets which one it opens in. Set the Background color (2) and the Accent color (3). Leave a color empty to go back to the default. Your logo (4) appears on the page: to change it, tap the logo at the top of the Home tab."
+                "pt": "Abra os ajustes da página de indicação. Toque em Ajustes no alto à direita e role até Página de indicação. É a página pública que os links dos seus parceiros abrem. Os ajustes só mudam como ela aparece para os seus clientes. Escolha o Idioma inicial (1): quem abrir ainda pode trocar o idioma, isto só define em qual ele abre. Defina a Cor de fundo (2) e a Cor de destaque (3), digitando o código da cor. Deixe um campo vazio para voltar ao padrão. O seu logo (4) aparece na página: para trocar, toque no logo no topo da aba Início.",
+                "en": "Open the referral page settings. Tap Settings at the top right and scroll to Referral page. This is the public page your partners' links open. The settings only change how it looks to your customers. Choose the Starting language (1): the visitor can still switch language, this only sets which one it opens in. Set the Background color (2) and the Accent color (3) by typing the color code. Leave a field empty to go back to the default. Your logo (4) appears on the page: to change it, tap the logo at the top of the Home tab."
               },
               "image": {
                 "pt": "help/img/guides/referral-page-settings/page-01.pt.jpg",
@@ -6961,8 +6964,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Salve. Role até o fim de Suas listas e toque em Salvar ajustes (3). O mesmo botão salva as suas listas e a margem mínima.",
-                "en": "Save. Scroll down to the end of Your lists and tap Save settings (3). The same button saves your lists and the minimum margin."
+                "pt": "Salve. Role até o fim de Suas listas e toque em Salvar ajustes (1). O mesmo botão salva as suas listas e a margem mínima. Aparece Ajustes salvos. Depois, abra a página de indicação de um parceiro: a cor nova já aparece nela.",
+                "en": "Save. Scroll to the end of Your lists and tap Save settings (1). The same button saves your lists and the minimum margin. Settings saved appears. Then open a partner's referral page: the new color already shows on it."
               },
               "image": {
                 "pt": "help/img/guides/referral-page-settings/page-02.pt.jpg",
@@ -6981,8 +6984,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "A services list also appears as options on this page. You edit it in a different place: Business, then Estimates, then Settings, then Services. The guide Your list of services shows how to add and remove a service.",
-                "en": "Uma lista de serviços também aparece como opções nesta página. Você a edita em outro lugar: Negócio, depois Orçamentos, depois Configurações, depois Serviços. O guia Sua lista de serviços mostra como adicionar e remover um serviço."
+                "pt": "Uma lista de serviços também aparece como opções nesta página. Você a edita em outro lugar: Negócio, depois Orçamentos, depois Configurações, depois Serviços. O guia Sua lista de serviços mostra como adicionar e remover um serviço.",
+                "en": "A list of services also appears as options on this page. You edit it in a different place: Business, then Estimates, then Settings, then Services. The guide Your list of services shows how to add and remove a service."
               },
               "image": null
             }
@@ -7463,8 +7466,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Copie o link da sua página. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. A caixa Link da sua página (link na bio) (3) guarda o link da sua página pública. Toque em Copiar link (4) e cole na sua bio do Instagram ou onde você publicar.",
-                "en": "Copy your page link. Tap Business, then Estimates, then Settings, and scroll to Marketing. The Your page link (link in bio) box (3) holds the link of your public page. Tap Copy link (4) and paste it in your Instagram bio or anywhere you post."
+                "pt": "Copie o link da sua página. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Marketing. A caixa Link da sua página (link na bio) (1) guarda o link da sua página pública. Toque em Copiar link (2): aparece Link copiado. Cole na sua bio do Instagram ou onde você publicar.",
+                "en": "Copy your page link. Tap Business, then Estimates, then Settings, and scroll to Marketing. The box Your page link (link in bio) (1) holds the link of your public page. Tap Copy link (2): Link copied appears. Paste it in your Instagram bio or anywhere you post."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-01.pt.jpg",
@@ -7474,8 +7477,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Veja o que o visitante vê. A página mostra o seu logo e o seu nome, um formulário curto com Seu nome e Telefone, e os seus serviços como botões que o visitante marca, mais de um se quiser. O visitante toca em Enviar. A página abre em português ou inglês, e o visitante troca com o botão no alto à direita.",
-                "en": "See what a visitor sees. The page shows your logo and name, a short form with Your name and Phone, and the services you offer as buttons the visitor can tick, more than one if they want. The visitor taps Send. The page opens in Portuguese or English, and the visitor can switch with the button at the top right."
+                "pt": "Veja o que o visitante vê. A página mostra o seu logo e o seu nome, um formulário curto com Seu nome (1) e Telefone (2), e os seus serviços como botões (3) que o visitante marca, mais de um se quiser. O visitante toca em Enviar (4) e vê Recebido!. A página abre em português e o visitante troca com o botão no alto à direita.",
+                "en": "See what a visitor sees. The page shows your logo and name, a short form with Your name (1) and Phone (2), and your services as buttons (3) the visitor can tick, more than one if they want. The visitor taps Send (4) and sees Received!. The page opens in Portuguese and the visitor switches with the button at the top right."
               },
               "image": {
                 "pt": "help/img/guides/link-in-bio-page/page-02.pt.jpg",
@@ -7485,10 +7488,13 @@
             {
               "n": 3,
               "text": {
-                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a origem Link da bio. Ninguém é creditado como quem indicou. Os serviços da sua lista nas configurações são os que aparecem como botões. O guia Sua lista de serviços mostra onde editar essa lista.",
-                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the source Link da bio. No one is credited as the referrer. The services you list in your settings are the ones that appear as buttons. The guide Your list of services shows where to edit that list."
+                "pt": "Ache o lead novo. Cada visitante que envia o formulário vira um lead novo no seu Pipeline, com a Origem (1) Link da bio e os Serviços (2) que ele marcou. Ninguém é creditado como quem indicou: a linha Parceiro fica vazia. Os serviços da sua lista são os que aparecem como botões. O guia Sua lista de serviços mostra onde editar essa lista.",
+                "en": "Find the new lead. Every visitor who sends the form becomes a new lead in your Pipeline, with the Source (1) Link da bio and the Services (2) they ticked. No one is credited as the referrer: the Partner row stays empty. The services in your list are the ones that appear as buttons. The guide Your list of services shows where to edit that list."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/link-in-bio-page/page-03.pt.jpg",
+                "en": "help/img/guides/link-in-bio-page/page-03.en.jpg"
+              }
             }
           ]
         }
@@ -8054,8 +8060,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra as configurações do Contrato. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Contrato (1). A marca, o logo, a licença, o nome legal e as formas de pagamento vêm das configurações dos documentos acima, então nada é pedido duas vezes. Escolha os Ofícios da empresa (2). Marque a caixa (3) se a empresa constrói piscinas ou spas. Em Opção padrão por área (4), escolha a cláusula com que cada contrato começa. Cada contrato ainda pode trocar. A biblioteca de cláusulas é um rascunho que um advogado ainda não revisou, e todo contrato diz isso até a revisão ser registrada.",
-                "en": "Open the Contract settings. Tap Business, then Estimates, then Settings, and scroll to Contract (1). The brand, logo, license, legal name and payment methods come from the document settings above, so nothing is asked twice. Choose the Trades the business does (2). Tick the box (3) if you build pools or spas. Under Default option per clause area (4), pick the clause you want each contract to start with. Each contract can still switch it. The clause library is a draft that an attorney has not reviewed yet, and every contract says so until a review is recorded."
+                "pt": "Abra as configurações do Contrato. Toque em Negócio, depois em Orçamentos, depois em Configurações, e role até Contrato. A marca, o logo, a licença, o nome legal e as formas de pagamento vêm das configurações dos documentos acima, então nada é pedido duas vezes. Escolha os Ofícios da empresa (1). Marque a caixa (2) se a empresa constrói piscinas ou spas. Em Opção padrão por área (3), escolha a cláusula com que cada contrato começa. Cada contrato ainda pode trocar. A biblioteca de cláusulas é um rascunho que um advogado ainda não revisou, e todo contrato diz isso até a revisão ser registrada.",
+                "en": "Open the Contract settings. Tap Business, then Estimates, then Settings, and scroll to Contract. The brand, logo, license, legal name and payment methods come from the document settings above, so nothing is asked twice. Choose the Trades the business does (1). Tick the box (2) if you build pools or spas. Under Default option per clause area (3), pick the clause you want each contract to start with. Each contract can still switch it. The clause library is a draft that an attorney has not reviewed yet, and every contract says so until a review is recorded."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-01.pt.jpg",
@@ -8076,8 +8082,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Preencha os seus valores fixos. Eles são usados pelas cláusulas. O que você deixar em branco é perguntado no contrato. Escolha o estado onde a empresa está registrada (1) e responda as duas perguntas de seguro (2): responsabilidade civil geral e acidentes de trabalho. Alguns estados exigem uma declaração sobre o seguro, e o contrato imprime a que vale para você. Depois preencha o Tipo de empresa (3), o Tipo de licença (4), o Qualificador, o horário de trabalho e os outros valores abaixo.",
-                "en": "Fill in your standard values. These are used by the clauses. Anything you leave blank is asked on the contract. Choose the state where your business is registered (1) and answer the two insurance questions (2): general liability and workers' compensation. Some states require a statement about insurance, and the contract prints the one that is true for you. Then fill in the Entity type (3), the License type (4), the Qualifying agent, the work hours and the other values below."
+                "pt": "Preencha os seus valores fixos. Eles são usados pelas cláusulas. O que você deixar em branco é perguntado no contrato. Escolha o estado onde a empresa está registrada (1) e responda as perguntas de seguro: responsabilidade civil geral (2) e acidentes de trabalho (3). Se você responde Sim para a responsabilidade civil, aparecem três campos: a seguradora, o telefone dela e o número da apólice. Alguns estados exigem uma declaração sobre o seguro, e o contrato imprime a que vale para você. Depois preencha o Tipo de empresa (4), o Tipo de licença (5), o Qualificador, o horário de trabalho e os outros valores abaixo.",
+                "en": "Fill in your standard values. These are used by the clauses. Anything you leave blank is asked on the contract. Choose the state where your business is registered (1) and answer the insurance questions: general liability (2) and workers' compensation (3). If you answer Yes for general liability, three fields appear: the insurance company, its phone and the policy number. Some states require a statement about insurance, and the contract prints the one that is true for you. Then fill in the Entity type (4), the License type (5), the Qualifying agent, the work hours and the other values below."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-03.pt.jpg",
@@ -8087,8 +8093,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Salve. No fim da seção Contrato, depois dos valores de dias, entulho e aditivo, toque em Salvar contrato (1). Daí em diante cada contrato novo começa com estas escolhas.",
-                "en": "Save. At the end of the Contract section, after the days, debris and change order values, tap Save contract settings (1). From now on each new contract starts from these choices."
+                "pt": "Salve. No fim da seção Contrato, depois dos valores de dias, entulho e aditivo, toque em Salvar contrato (1). Aparece Configurações do contrato salvas. Daí em diante cada contrato novo começa com estas escolhas.",
+                "en": "Save. At the end of the Contract section, after the days, debris and change order values, tap Save contract settings (1). Contract settings saved appears. From now on each new contract starts from these choices."
               },
               "image": {
                 "pt": "help/img/guides/contract-settings/csettings-04.pt.jpg",
@@ -8122,18 +8128,6 @@
           },
           "section": "csettings",
           "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Configurações de contrato"
-            ],
-            "en": [
-              "Contract settings"
-            ]
-          },
-          "section": "csettings",
-          "step": 1
         }
       ]
     },
@@ -9032,8 +9026,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escolha a foto. Toque em Próxima ou Anterior (1) para navegar. O contador mostra onde você está, por exemplo 15 de 18. Quando gostar de uma, toque em Usar esta imagem (2). Quando você está vendo a foto que já usa, o botão avisa que ela já está em uso nos seus documentos.",
-                "en": "Pick the photo. Tap Next or Previous (1) to browse. The counter shows where you are, for example 15 of 18. When you like one, tap Use this image (2). The button says that your current photo is already in use when you are looking at it."
+                "pt": "Escolha a foto. Toque em Próxima ou Anterior (1) para navegar. O contador mostra onde você está, por exemplo 2 / 3. Quando gostar de uma, toque em Usar esta imagem (2). Quando você está vendo a foto que já usa, o botão diz Em uso nos seus documentos.",
+                "en": "Pick the photo. Tap Next or Previous (1) to browse. The counter shows where you are, for example 2 / 3. When you like one, tap Use this image (2). When you are looking at the photo you already use, the button says In use on your documents."
               },
               "image": {
                 "pt": "help/img/guides/cover-image/cover-02.pt.jpg",
@@ -9043,18 +9037,24 @@
             {
               "n": 3,
               "text": {
-                "pt": "Use a sua própria foto. Toque em Enviar a minha própria imagem (3) e escolha um arquivo JPG, PNG ou WebP de até 5 MB. Toque em Ver a minha imagem enviada (4) para olhá-la de novo depois. A sua foto pode ser ajustada para aparecer a parte que você quer no topo.",
-                "en": "Use your own photo instead. Tap Upload my own image (3) and choose a JPG, PNG or WebP file up to 5 MB. Tap See my uploaded image (4) to look at it again later. Your photo can be adjusted so the part you want shows at the top."
+                "pt": "Use a sua própria foto. Toque em Enviar a minha própria imagem (1) e escolha um arquivo JPG, PNG ou WebP de até 5 MB. Depois toque em Ver a minha imagem enviada (2): a prévia abre com as suas ferramentas de ajuste. Você pode voltar a ela quando quiser.",
+                "en": "Use your own photo. Tap Upload my own image (1) and choose a JPG, PNG or WebP file up to 5 MB. Then tap See my uploaded image (2): the preview opens with the adjustment tools. You can come back to it whenever you want."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-03.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Ajuste a sua foto. Depois que você envia a sua foto, a pré-visualização tem ferramentas. Tom dos quadros: escolha Escuro ou Claro. As setas para cima, para baixo, esquerda e direita movem a foto um pouco a cada toque, para aparecer a parte que você quer. Espelhar vira a foto como um espelho. Aproximar deixa maior, aos poucos, até 200 por cento, e mostra a porcentagem. Redefinir volta a foto ao começo. Quando estiver bom, toque em Usar a minha imagem assim.",
-                "en": "Adjust your own photo. After you upload your photo, the preview has tools. Tile tone: pick Dark or Light. The arrows Up, Down, Left and Right move the photo a little each time you tap, so the part you want shows. Flip mirrors the photo. Zoom in makes it bigger, in steps, up to 200 percent, and shows the percent. Reset puts the photo back as it was. When it looks right, tap Use my image like this."
+                "pt": "Ajuste a sua foto. Tom dos quadros (1): escolha Escuro ou Claro. As setas (2) movem a foto um pouco a cada toque, para aparecer a parte que você quer. Espelhar (3) vira a foto como um espelho. Aproximar (4) deixa maior, 10 por cento a cada toque, e mostra a porcentagem. Redefinir (5) volta a foto ao começo. Quando estiver bom, toque em Usar a minha imagem assim (6): aparece Imagem de capa salva.",
+                "en": "Adjust your photo. Tile tone (1): pick Dark or Light. The arrows (2) move the photo a little each time you tap, so the part you want shows. Flip (3) mirrors the photo. Zoom in (4) makes it bigger, 10 percent each tap, and shows the percent. Reset (5) puts the photo back as it was. When it looks right, tap Use my image like this (6): Cover image saved appears."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-04.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-04.en.jpg"
+              }
             }
           ]
         }
@@ -10939,85 +10939,115 @@
       "video": null,
       "sections": [
         {
-          "id": "seller",
-          "title": {
-            "pt": "O que o vendedor faz",
-            "en": "What the salesperson does"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Informe o pagamento. O vendedor abre a fatura (Negócio, depois Faturas) e toca em Informar pagamento. O dono e o escritório veem esse mesmo botão como Registrar pagamento. A tela diz: Você informa o pagamento; o dono verifica antes de contar como recebido. Preencha o valor, a data e a forma de pagamento, e coloque uma referência se tiver. Depois toque em Informar pagamento. Uma mensagem diz Pagamento informado; aguarda verificação do dono. Este passo vem do código do app. Nosso teste não pôde usar um login de vendedor.",
-                "en": "Report the payment. A salesperson opens the invoice (Business, then Invoices) and taps Report payment. The owner and the office see this same button as Record payment. The screen says: You report the payment; the owner verifies it before it counts as paid. Fill in the amount, the date and the method, and add a reference if you have one. Then tap Report payment. A message says Payment reported; awaiting owner verification. This step comes from the app's code. Our test could not use a salesperson login."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Saiba que ainda não conta. Até o dono verificar, o saldo da fatura não diminui. A fatura mostra uma etiqueta dourada, aguardando verificação. Embaixo do saldo aparece mais o valor informado, aguardando verificação. O cliente ainda não recebe recibo.",
-                "en": "Know that it does not count yet. Until the owner verifies it, the invoice balance does not go down. The invoice shows a gold tag, awaiting verification. Under the balance it says plus the amount reported, awaiting verification. The customer gets no receipt yet."
-              },
-              "image": null
-            }
-          ]
-        },
-        {
           "id": "owner",
           "title": {
-            "pt": "O que o dono faz",
-            "en": "What the owner does"
+            "pt": "O dono verifica",
+            "en": "The owner verifies"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Ache os pagamentos que esperam por você. Um cartão chamado Pagamentos aguardando verificação aparece no alto da aba Faturas e na aba Início, com um número. Cada linha diz o nome de quem informou, diz que isto foi pago, e o valor. Embaixo estão o número da fatura, a forma de pagamento, a referência e a data. A etiqueta dourada diz verificar. Toque numa linha para abrir essa fatura.",
-                "en": "Find the payments waiting for you. A card called Payments awaiting verification shows at the top of the Invoices tab and on the Home tab, with a number. Each row says the name of the person who reported, says this is paid, and the amount. Under it are the invoice number, the method, the reference and the date. The gold tag says verify. Tap a row to open that invoice."
+                "pt": "Ache os pagamentos que esperam por você. Quando um vendedor informa um pagamento, um cartão chamado Pagamentos aguardando verificação (1) aparece na aba Início, com um número. Cada linha (2) diz o nome da pessoa e que isto foi pago, com o valor. Embaixo ficam o número da fatura, a forma, a referência e a data. A etiqueta diz verificar. (Não rodamos a tela do próprio vendedor no nosso teste, então este guia começa do lado do dono.)",
+                "en": "Find the payments waiting for you. When a salesperson reports a payment, a card called Payments awaiting verification (1) shows on the Home tab, with a number. Each row (2) says the name of the person and that this is paid, with the amount. Under it are the invoice number, the method, the reference and the date. The tag says verify. (We did not run the salesperson's own screen in our test, so this guide starts on the owner's side.)"
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-01.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Verifique. Na seção Pagamentos da fatura, o pagamento informado tem a etiqueta aguardando. Confira se o dinheiro realmente chegou. Depois toque em Verificar. O pagamento passa a contar: o saldo diminui, um número de recibo é criado, e o pagamento é lançado nas suas Finanças. Depois você pode enviar o recibo ao cliente (veja o guia sobre enviar um recibo). Verificar não pede motivo.",
-                "en": "Verify it. In the Payments section of the invoice, the reported payment has the tag pending. Check that the money really arrived. Then tap Verify. The payment now counts: the balance goes down, a receipt number is made, and the payment is posted to your Finances. You can then send the receipt to the customer (see the guide on sending a receipt). Verify asks for no reason."
+                "pt": "O mesmo cartão fica no topo da aba Faturas. Toque em uma linha (2) para abrir aquela fatura.",
+                "en": "The same card is at the top of the Invoices tab. Tap a row (2) to open that invoice."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-02.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Rejeite. Se o dinheiro não chegou, toque em Rejeitar. O Apex pede o motivo. Ele é obrigatório. O pagamento aparece como rejeitado, com o seu motivo, e nunca conta. A fatura fica como estava.",
-                "en": "Reject it. If the money did not arrive, tap Reject. Apex asks for the reason. It is required. The payment shows rejected, with your reason, and it never counts. The invoice stays as it was."
+                "pt": "Ainda não conta. Na fatura, o Status (1) mostra uma etiqueta dourada, aguardando verificação. O Saldo desta fatura (2) não diminui. O cliente não recebe recibo.",
+                "en": "It does not count yet. In the invoice, the Status (1) shows a gold tag, awaiting verification. The Balance due now (2) does not go down. The customer gets no receipt."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-03.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Estorne um pagamento que você verificou por engano. Abra a fatura. Em um pagamento verificado, toque em Estornar e escreva o motivo. O motivo é obrigatório e é impresso no recibo do cliente com a data do estorno. O recibo mantém os números antigos. Você não pode estornar um pagamento que tem reembolso. Estorne o reembolso primeiro. Para anular uma fatura, veja o guia sobre juros de atraso, créditos, reembolsos e anulação. Os passos deste guia vêm do código do app. Nosso teste não pôde informar um pagamento, então não vimos os botões Verificar e Rejeitar na tela.",
-                "en": "Reverse a payment you verified by mistake. Open the invoice. On a verified payment, tap Reverse and write the reason. The reason is required, and it is printed on the customer's receipt with the date of the reversal. The receipt keeps its old numbers. You cannot reverse a payment that has a refund. Reverse the refund first. For the steps to void an invoice, see the guide on late fees, credits, refunds and voiding. The steps in this guide come from the app's code. Our test could not report a payment, so we did not see the Verify and Reject buttons on screen."
+                "pt": "Em Valores, embaixo do saldo, uma linha (1) diz mais o valor informado, aguardando verificação. Ela aparece separada do dinheiro que você recebeu e conferiu.",
+                "en": "In Amounts, under the balance, a line (1) says plus the amount reported, awaiting verification. It is shown apart from the money you received and checked."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-04.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Escolha Verificar ou Rejeitar. Na parte Pagamentos da fatura, o pagamento informado (1) tem a etiqueta aguardando, e dois botões: Verificar (2) e Rejeitar (3). Um pagamento que você já rejeitou (4) fica na lista com o motivo. Confira se o dinheiro chegou mesmo antes de tocar.",
+                "en": "Choose Verify or Reject. In the Payments part of the invoice, the reported payment (1) has the tag pending, and two buttons: Verify (2) and Reject (3). A payment you already rejected (4) stays in the list with its reason. Check that the money really arrived before you tap."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-05.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Verifique. Toque em Verificar. Ele não pede motivo. A linha (1) passa a mostrar verificado e um número de recibo, o saldo diminui, e aparecem os botões Enviar recibo (2) e Estornar (3). Enviar recibo é outro passo: veja o guia sobre enviar um recibo.",
+                "en": "Verify it. Tap Verify. It asks for no reason. The row (1) now shows verified and a receipt number, the balance goes down, and the buttons Send receipt (2) and Reverse (3) appear. Send receipt is a separate step: see the guide on sending a receipt."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-06.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Rejeite. Se o dinheiro não chegou, toque em Rejeitar. Uma caixa pede o motivo (1). O motivo é obrigatório. Toque em Salvar (2). Cancelar (3) volta. O pagamento passa a mostrar rejeitado, com o seu motivo, e nunca conta. A fatura fica como estava.",
+                "en": "Reject it. If the money did not arrive, tap Reject. A box asks for the reason (1). The reason is required. Tap Save (2). Cancel (3) goes back. The payment then shows rejected, with your reason, and it never counts. The invoice stays as it was."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-07.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Estorne um pagamento que você verificou por engano. Em um pagamento verificado, toque em Estornar. A caixa diz Motivo do estorno (visível ao cliente). Digite o motivo (1). Ele é obrigatório. A nota diz que ele é impresso no recibo do cliente com a data do estorno, e que o recibo mantém os números originais. Toque em Salvar (2).",
+                "en": "Reverse a payment you verified by mistake. On a verified payment, tap Reverse. The box says Reverse reason (visible to the customer). Type the reason (1). It is required. The note says it is printed on the customer's receipt with the date of the reversal, and the receipt keeps its original numbers. Tap Save (2)."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-08.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Depois de estornar, a linha (1) mostra estornado, com o número do recibo, a data e o seu motivo. Uma linha rejeitada (2) também mostra o motivo. O saldo volta a subir.",
+                "en": "After you reverse it, the row (1) shows reversed, with the receipt number, the date and your reason. A rejected row (2) shows the reason too. The balance goes back up."
+              },
+              "image": {
+                "pt": "help/img/guides/reported-payments/owner-09.pt.jpg",
+                "en": "help/img/guides/reported-payments/owner-09.en.jpg"
+              }
             }
           ]
         }
       ],
       "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Informar pagamento"
-            ],
-            "en": [
-              "Report payment"
-            ]
-          },
-          "section": "seller",
-          "step": 1
-        },
         {
           "labels": {
             "pt": [
@@ -11028,7 +11058,7 @@
             ]
           },
           "section": "owner",
-          "step": 2
+          "step": 5
         },
         {
           "labels": {
@@ -11040,7 +11070,19 @@
             ]
           },
           "section": "owner",
-          "step": 3
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Estornar"
+            ],
+            "en": [
+              "Reverse"
+            ]
+          },
+          "section": "owner",
+          "step": 8
         }
       ]
     },
@@ -12387,8 +12429,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra um item novo. Toque em Negócio, depois Preços, depois + Novo item no fim da lista. Digite o nome do Item. A Categoria (1) agrupa o item: no orçamento, a sua tabela de preços aparece por categoria. O Tipo (2) é Produto ou Adicional. Produto é um item principal. Adicional é um extra que o cliente pode somar, e aparece no passo Adicionais de um orçamento. A Unidade (3) é como você conta, por exemplo ea, sq ft ou hora. A Descrição para o cliente (4) é impressa embaixo da linha, no orçamento do seu cliente.",
-                "en": "Open a new item. Tap Business, then Pricing, then + New item at the bottom of the list. Type the Item name. The Category (1) groups the item: in the estimate, your price list is shown by category. Type (2) is Product or Add-on. A Product is a main item. An Add-on is an extra your customer can add, and it shows in the Add-ons step of an estimate. Unit (3) is how you count it, for example each, sq ft or hour. Customer description (4) is printed under the line on your customer's estimate."
+                "pt": "Abra um item novo. Toque em Negócio, depois Preços, depois + Novo item, no fim da lista. Digite o nome em Item. A Categoria (1) agrupa o item: no orçamento, a tabela de preços aparece por categoria. O Tipo (2) é Produto ou Adicional. Produto é um item principal. Adicional é um extra que o cliente pode somar, e aparece na etapa Adicionais do orçamento. A Unidade (3) é como você conta, por exemplo each, sq ft ou hour. A Descrição para o cliente (4) aparece embaixo da linha no orçamento do cliente.",
+                "en": "Open a new item. Tap Business, then Pricing, then + New item at the bottom of the list. Type the name in Item. The Category (1) groups the item: in the estimate, your price list is shown by category. Type (2) is Product or Add-on. A Product is a main item. An Add-on is an extra your customer can add, and it shows in the Add-ons step of an estimate. Unit (3) is how you count it, for example each, sq ft or hour. Customer description (4) is printed under the line on your customer's estimate."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-01.pt.jpg",
@@ -12398,8 +12440,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Ponha os custos e o preço. Embaixo de Custos, toque em + Adicionar custo (2). Uma linha de custo abre: um nome (1), um valor e um tipo: Material, Mão de obra ou Outros. Ponha uma linha para cada custo. Depois digite o Preço de venda (3), o preço que o seu cliente paga por uma unidade. Embaixo, o Apex mostra os números enquanto você digita: Material, Mão de obra, Outros, Custo total, Margem e Margem (%). Margem é o preço de venda menos o custo total. No nosso exemplo o preço é $300.00 e o custo é $200.00, então a margem é $100.00, ou 33.3%. Uma margem negativa mostra um aviso vermelho.",
-                "en": "Add the costs and the price. Under Costs, tap + Add cost (2). A cost line opens: a name (1), an amount and a type: Material, Labor or Other. Add one line for each cost. Then type the Sale price (3), the price your customer pays for one unit. Under it, Apex shows the numbers while you type: Materials, Labor, Other, Total cost, Margin and Margin (%). Margin is the sale price minus the total cost. In our example the price is $300.00, the cost is $200.00, so the margin is $100.00, or 33.3%. A negative margin shows a red warning."
+                "pt": "Adicione os custos e o preço. Embaixo de Custos, toque em + Adicionar custo. Abre uma linha de custo: um nome (1), um valor e um tipo, Material, Mão de obra ou Outro. Adicione uma linha para cada custo. Depois digite o Preço de venda (2), o que o cliente paga por uma unidade. Embaixo, o Apex mostra os números enquanto você digita (3): Material, Mão de obra, Outros, Custo total, Margem e Margem (%). Margem é o preço de venda menos o custo total. No exemplo o preço é $200.00, o custo é $150.00, então a margem é $50.00, ou 25%.",
+                "en": "Add the costs and the price. Under Costs, tap + Add cost. A cost line opens: a name (1), an amount and a type, Material, Labor or Other. Add one line for each cost. Then type the Sale price (2), the price your customer pays for one unit. Under it, Apex shows the numbers while you type (3): Materials, Labor, Other, Total cost, Margin and Margin (%). Margin is the sale price minus the total cost. In the example the price is $200.00, the cost is $150.00, so the margin is $50.00, or 25%."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/item-02.pt.jpg",
@@ -12409,10 +12451,24 @@
             {
               "n": 3,
               "text": {
-                "pt": "Salve e encontre os itens que precisam de mais dados. Ponha uma observação, se quiser, e toque em Salvar no fim do formulário. Um item com dados faltando, por exemplo categoria, unidade, descrição ou custos, mostra uma etiqueta dourada Faltam dados nas listas. No alto da tabela de preços, toque em Faltam dados para ver só esses itens, e toque em Todos para ver todos de novo.",
-                "en": "Save, and find items that need more. Add a note if you want, and tap Save at the bottom of the form. An item that is missing details, for example a category, a unit, a description or its costs, shows a gold Needs info tag in the lists. At the top of the price list, tap Needs info to see only those items, and tap All to see every item again."
+                "pt": "Salve. Escreva uma observação se quiser (1) e toque em Salvar (2), no fim do formulário. O item aparece na lista. Para mudar um item depois, toque nele: a mesma tela abre, com o botão Excluir item.",
+                "en": "Save. Add a note if you want (1) and tap Save (2) at the bottom of the form. The item appears in the list. To change an item later, tap it: the same screen opens, with the button Delete item."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-03.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ache os itens que faltam dados. Um item sem alguma informação, por exemplo sem descrição para o cliente, mostra uma etiqueta dourada Faltam dados (2) nas listas. No alto da tabela, toque em Faltam dados (1) para ver só esses itens, e em Todos para ver todos de novo. Um item completo, como o que você acabou de criar, não tem a etiqueta.",
+                "en": "Find items that need more. An item missing something, for example the customer description, shows a gold Needs info tag (2) in the lists. At the top of the price list, tap Needs info (1) to see only those items, and All to see every item again. A complete item, like the one you just created, has no tag."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/item-04.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/item-04.en.jpg"
+              }
             }
           ]
         },
@@ -12426,7 +12482,7 @@
             {
               "n": 1,
               "text": {
-                "pt": "Comece a importação. Em Preços, toque em Importar planilha. Abre uma tela chamada Importar tabela de preços. Toque em Escolher arquivo (1) e escolha um arquivo Excel (.xlsx ou .xls) ou um arquivo CSV. Se a sua lista está no Numbers ou no Google Sheets, exporte primeiro: Arquivo, depois Exportar, depois Excel ou CSV.",
+                "pt": "Comece a importação. Em Preços, toque em Importar planilha. Abre a tela Importar tabela de preços. Toque em Escolher arquivo (1) e escolha um arquivo Excel (.xlsx ou .xls) ou CSV. Se a sua lista está no Numbers ou no Google Sheets, exporte primeiro: Arquivo, depois Exportar, depois Excel ou CSV.",
                 "en": "Start the import. In Pricing, tap Import spreadsheet. A screen called Import pricing table opens. Tap Choose file (1) and pick an Excel file (.xlsx or .xls) or a CSV file. If your list is in Numbers or Google Sheets, export it first: File, then Export, then Excel or CSV."
               },
               "image": {
@@ -12437,16 +12493,19 @@
             {
               "n": 2,
               "text": {
-                "pt": "Só no Excel: escolha a aba e a linha do cabeçalho. Se o arquivo Excel tem mais de uma aba, o Apex pergunta qual tem a tabela de preços: escolha e toque em Continuar. Depois o Apex diz qual linha está usando como cabeçalho, por exemplo Linha de cabeçalho usada: linha 1, e pergunta Errado? Se estiver errado, digite o Número da linha do cabeçalho, toque em Usar essa linha e depois em Continuar. Este passo vem do código do aplicativo: no nosso teste usamos um arquivo CSV.",
-                "en": "Excel only: choose the sheet and the header row. If the Excel file has more than one sheet, Apex asks which one has the price list: choose it and tap Continue. Then Apex says which row it is using as the header, for example Header row used: row 1, and asks Wrong? If it is wrong, type the Header row number, tap Use this row and then Continue. This step comes from the app's code: we used a CSV file in our test."
+                "pt": "Excel com mais de uma aba. Se o arquivo Excel tem mais de uma aba, o Apex pergunta qual tem a tabela de preços. Escolha a aba (1) e toque em Continuar (2). Um arquivo CSV ou com uma aba só pula este passo.",
+                "en": "Excel with more than one sheet. If the Excel file has more than one sheet, Apex asks which one has the price list. Choose the sheet (1) and tap Continue (2). A CSV file or a file with one sheet skips this step."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-02.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Combine as colunas. O Apex mostra um menu para cada campo. Item (1) e Preço (2) são obrigatórios, têm uma estrela. Unidade, Categoria, Tipo (produto / adicional) e Descrição para o cliente são opcionais: escolha Não está nesta planilha se você não tem. Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex preenche um menu sozinho só quando o nome da coluna é exatamente igual. Confira todos os menus. No nosso exemplo as colunas eram Item, Category, Unit, Price, Stone e Installer.",
-                "en": "Match the columns. Apex shows a menu for each field. Item (1) and Price (2) are required, they have a star. Unit, Category, Type (product or add-on) and Customer description are optional: choose Not on this spreadsheet if you do not have them. Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu. In our example the columns were Item, Category, Unit, Price, Stone and Installer."
+                "pt": "Confira a linha do cabeçalho. O Apex procura sozinho a linha com os nomes das colunas e diz, por exemplo, Linha de cabeçalho usada: linha 3 (1), seguida dos nomes que achou. Se estiver errado, digite o número certo na caixa (2), toque em Usar essa linha (3) e depois em Continuar (4). Se estiver certo, toque em Continuar.",
+                "en": "Check the header row. Apex looks for the row with the column names by itself and says, for example, Header row used: row 3 (1), followed by the names it found. If it is wrong, type the right number in the box (2), tap Use this row (3) and then Continue (4). If it is right, tap Continue."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-03.pt.jpg",
@@ -12456,8 +12515,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Diga quais colunas são custos. Em Colunas de custo (1), cada coluna que você não usou pode virar uma linha de custo. Para cada uma, escolha Material, Mão de obra ou Outros, ou escolha Ignorar para pular. Depois toque em Ver o que será importado (2). Nada foi salvo ainda.",
-                "en": "Say which columns are costs. Under Cost columns (1), every column you did not use becomes a possible cost line. For each one, choose Material, Labor or Other, or choose Ignore to skip it. Then tap Preview the import (2). Nothing is saved yet."
+                "pt": "Combine as colunas. O Apex mostra um menu para cada campo. Item (1) e Preço (2) são obrigatórios, têm uma estrela. Unidade, Categoria, Tipo (produto ou adicional) e Descrição para o cliente são opcionais: escolha Não está nesta planilha se você não tem. Cada menu mostra o nome da sua coluna e um exemplo da primeira linha. O Apex só preenche um menu sozinho quando o nome da coluna é exatamente igual. Confira todos os menus (3).",
+                "en": "Match the columns. Apex shows a menu for each field. Item (1) and Price (2) are required, they have a star. Unit, Category, Type (product or add-on) and Customer description are optional: choose Not on this spreadsheet if you do not have them. Each menu shows the name of your column and a sample from your first row. Apex fills in a menu by itself only when the column name is exactly the same. Check every menu (3)."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-04.pt.jpg",
@@ -12467,30 +12526,40 @@
             {
               "n": 5,
               "text": {
-                "pt": "Leia a prévia e importe. A primeira linha conta os itens: por exemplo 1 a criar e 1 a atualizar. Um item com o mesmo nome de um que já está na sua lista é atualizado (2), um nome novo é criado (1). Cada linha mostra categoria, unidade, custo, venda e margem, e as linhas de custo. Uma linha sem preço ou sem nome de item é ignorada, e o Apex diz quais linhas. Uma etiqueta dourada Faltam dados quer dizer que a linha não tem categoria, unidade ou descrição. Se estiver certo, toque em Importar (3). Para mudar um menu, toque em Voltar às colunas. Neste guia a prévia foi preenchida com dados de exemplo, porque o nosso teste não conseguiu ler um arquivo.",
-                "en": "Read the preview and import. The first line counts the items: for example 1 to create and 1 to update. An item with the same name as one already in your list is updated (2), a new name is created (1). Each row shows category, unit, cost, price and margin, and the cost lines. A row without a price or without an item name is skipped, and Apex says which lines. A gold Needs info tag means the row has no category, unit or description. If it looks right, tap Import (3). To change a menu, tap Back to the columns. In this guide the preview was filled with sample data, because our test could not read a file."
+                "pt": "Diga quais colunas são custos. Em Colunas de custo (1), cada coluna que você não usou vira uma possível linha de custo. Para cada uma, escolha Material, Mão de obra ou Outros, ou escolha Ignorar para pular. O Apex já deixa uma escolha marcada: confira. Depois toque em Ver o que será importado (2). Nada é salvo ainda.",
+                "en": "Say which columns are costs. Under Cost columns (1), every column you did not use becomes a possible cost line. For each one, choose Material, Labor or Other, or choose Ignore to skip it. Apex already leaves a choice picked: check it. Then tap Preview the import (2). Nothing is saved yet."
               },
               "image": {
                 "pt": "help/img/guides/pricing-item-and-import/import-05.pt.jpg",
                 "en": "help/img/guides/pricing-item-and-import/import-05.en.jpg"
+              }
+            },
+            {
+              "n": 6,
+              "text": {
+                "pt": "Leia a prévia e importe. A primeira linha conta os itens, por exemplo 2 a criar · 1 a atualizar (1). Um item novo é criado (2). Um item com o mesmo nome de um que já existe é atualizado (3), e as linhas de custo dele são trocadas pelas colunas de custo da planilha. Cada linha mostra categoria, unidade, custo, venda e margem. Uma linha sem preço ou sem nome é pulada, e o Apex diz quais. Uma etiqueta Faltam dados quer dizer que a linha não traz descrição. Se estiver certo, toque em Importar (4). Para mudar um menu, toque em Voltar às colunas.",
+                "en": "Read the preview and import. The first line counts the items, for example 2 to create · 1 to update (1). A new item is created (2). An item with the same name as one already in your list is updated (3), and its cost lines are replaced by the cost columns of the spreadsheet. Each row shows category, unit, cost, price and margin. A row without a price or without an item name is skipped, and Apex says which lines. A Needs info tag means the row has no description. If it looks right, tap Import (4). To change a menu, tap Back to the columns."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-06.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Veja o resultado. Os itens novos (1, 2) aparecem na lista com os custos da planilha, e o item atualizado (3) mostra os novos custos. O contador do alto sobe. Os produtos novos também entram sozinhos na sua lista de serviços.",
+                "en": "See the result. The new items (1, 2) appear in the list with the costs from the spreadsheet, and the updated item (3) shows the new costs. The counter at the top goes up. The new products also join your list of services by themselves."
+              },
+              "image": {
+                "pt": "help/img/guides/pricing-item-and-import/import-07.pt.jpg",
+                "en": "help/img/guides/pricing-item-and-import/import-07.en.jpg"
               }
             }
           ]
         }
       ],
       "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "+ Adicionar custo"
-            ],
-            "en": [
-              "+ Add cost"
-            ]
-          },
-          "section": "item",
-          "step": 2
-        },
         {
           "labels": {
             "pt": [
@@ -12502,30 +12571,6 @@
           },
           "section": "import",
           "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver o que será importado"
-            ],
-            "en": [
-              "Preview the import"
-            ]
-          },
-          "section": "import",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Voltar às colunas"
-            ],
-            "en": [
-              "Back to the columns"
-            ]
-          },
-          "section": "import",
-          "step": 5
         }
       ]
     },
@@ -13140,28 +13185,53 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços. Uma linha curta diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço é uma linha da lista. Se a lista estiver vazia, a tela diz Vazio: este campo fica desligado.",
-                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services. A short line says these are the options on your public referral page and your link in bio page. Each service is one line in the list. If the list is empty, the screen says Empty: this field is turned off."
+                "pt": "Ache a lista. Toque em Negócio, depois Orçamentos, depois Configurações, e role até Serviços (1). Uma linha curta (1) diz que são as opções da sua página pública de indicação e da sua página de link na bio. Cada serviço (2) é uma linha da lista.",
+                "en": "Find the list. Tap Business, then Estimates, then Settings, and scroll to Services (1). A short line (1) says these show up on your public referral page and your link in bio page. Each service (2) is one line of the list."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/services-list/services-01.pt.jpg",
+                "en": "help/img/guides/services-list/services-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Adicione, mude ou remova um serviço. Toque em + Adicionar para ter uma linha vazia nova, e digite o nome do serviço. Você muda o nome de uma linha digitando nela. Toque em × à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva. Depois role até o fim da página e toque em Salvar configurações. Nada muda até você salvar.",
-                "en": "Add, change or remove a service. Tap + Add to get a new empty line, and type the name of the service. You can change the name of a line by typing in it. Tap × at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save. Then scroll to the end of the page and tap Save settings. Nothing changes until you save."
+                "pt": "Adicione ou remova um serviço. Toque em + Adicionar (1). Uma linha vazia aparece no fim da lista (2). Toque nela e digite o nome do serviço. Você muda o nome de qualquer linha digitando nela. Toque em × (3) à direita de uma linha para removê-la. Um nome pode ter até 80 caracteres, e as linhas vazias são descartadas quando você salva.",
+                "en": "Add or remove a service. Tap + Add (1). An empty line appears at the end of the list (2). Tap it and type the name of the service. You can change the name of any line by typing in it. Tap × (3) at the right of a line to remove it. A name can have up to 80 characters, and empty lines are dropped when you save."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/services-list/services-02.pt.jpg",
+                "en": "help/img/guides/services-list/services-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1, 2). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (3) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um. Estas imagens são do nosso cliente de teste, cuja lista tem seis serviços.",
-                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1, 2). Tap one or more: each one you tap turns gold. Tap Save (3) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one. These pictures come from our test client, whose list has six services."
+                "pt": "Salve. Role até o fim do primeiro cartão, depois de Mensagens de envio, e toque em Salvar configurações (1). Aparece Configurações salvas. Nada muda até você salvar.",
+                "en": "Save. Scroll to the end of the first card, after Send messages, and tap Save settings (1). Settings saved appears. Nothing changes until you save."
               },
               "image": {
                 "pt": "help/img/guides/services-list/services-03.pt.jpg",
                 "en": "help/img/guides/services-list/services-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Produtos novos entram sozinhos. Quando você adiciona um produto à tabela de preços, ou importa uma planilha, o nome dele também entra nesta lista. Um adicional não entra. Se um nome já existe na lista, o Apex não repete.",
+                "en": "New products join by themselves. When you add a product to your price list, or import a spreadsheet, its name also joins this list. An add-on does not. If a name is already in the list, Apex does not repeat it."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja onde os serviços aparecem. Em um lead, toque na linha Serviço(s). A tela lista os seus serviços como botões (1). Toque em um ou mais: cada um que você toca fica dourado. Toque em Salvar (2) para guardar a escolha. Um lead pode ter mais de um serviço. A mesma lista aparece como opções na sua página de indicação e na sua página de link na bio, onde o visitante pode marcar mais de um.",
+                "en": "See where the services show up. On a lead, tap the Service(s) row. The sheet lists your services as buttons (1). Tap one or more: each one you tap turns gold. Tap Save (2) to keep the choice. A lead can have more than one service. The same list shows as options on your referral page and on your link in bio page, where a visitor can tick more than one."
+              },
+              "image": {
+                "pt": "help/img/guides/services-list/services-05.pt.jpg",
+                "en": "help/img/guides/services-list/services-05.en.jpg"
               }
             }
           ]

@@ -1919,8 +1919,8 @@
       {
        "n": 1,
        "text": {
-        "pt": "Antes de começar. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Se o seu app atual cuidava disso para você, talvez você nunca tenha ouvido o nome Stripe. Isso é normal. No Apex você conecta a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. As imagens deste guia usam uma empresa de teste, então os nomes, números e o banco que aparecem digitados não são para você copiar. Você sempre digita as suas próprias informações reais. Já usa a Stripe pelo Jobber ou por outro app? É só entrar: veja o segundo passo da Stripe.",
-        "en": "Before you start. Already take card payments in Jobber or a similar app? You can do the same in Apex. Your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. If your current app handled this for you, you may never have heard the name Stripe. That is normal. In Apex you connect your own Stripe account once, and the next steps show where. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The pictures in this guide use a pretend test business, so the names, numbers and bank you see typed in are not for you to copy. You always enter your own real information. Already use Stripe through Jobber or another app? You only sign in: see the second Stripe step."
+        "pt": "Antes de começar. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Se o seu app atual cuidava disso para você, talvez você nunca tenha ouvido o nome Stripe. Isso é normal. No Apex você conecta a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. As imagens deste guia usam uma empresa de teste, então os nomes, números e o banco que aparecem digitados não são para você copiar. Você sempre digita as suas próprias informações reais. Este guia é para quem nunca usou a Stripe. Já usa a Stripe pelo Jobber ou por outro app? Então você já tem um login na Stripe. Na primeira página da Stripe, digite esse mesmo e-mail e entre com a sua senha. Você não cria um login novo, então pode pular os passos da senha e do código de segurança.",
+        "en": "Before you start. Already take card payments in Jobber or a similar app? You can do the same in Apex. Your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. If your current app handled this for you, you may never have heard the name Stripe. That is normal. In Apex you connect your own Stripe account once, and the next steps show where. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The pictures in this guide use a pretend test business, so the names, numbers and bank you see typed in are not for you to copy. You always enter your own real information. This guide is for owners who have never used Stripe. Already use Stripe through Jobber or another app? Then you already have a Stripe login. On Stripe's first page, type that same email and sign in with your password. You do not create a new login, so you can skip the steps about the password and the security code."
        },
        "image": null
       },
@@ -2013,17 +2013,6 @@
       {
        "n": 2,
        "text": {
-        "pt": "Já usa a Stripe pelo Jobber ou por outro app? Então é só entrar. Se você configurou pagamentos por cartão no Jobber ou em um app parecido, você já tem um login na Stripe. Nesta primeira página da Stripe, digite esse mesmo e-mail. A Stripe vai pedir para você entrar com a sua senha. Não crie um login novo. A Stripe também pode reaproveitar os dados da sua empresa, sem digitar tudo de novo. A sua conta antiga, os clientes dela e o histórico ficam onde estão. O que a Stripe mostra pode variar, então siga a página da Stripe. Ainda não tem login na Stripe? Continue com os próximos passos.",
-        "en": "Already use Stripe through Jobber or another app? Then just sign in. If you set up card payments in Jobber or a similar app, you already have a Stripe login. On this first Stripe page, type that same email. Stripe then asks you to sign in with your password. Do not create a new login. Stripe may also reuse your business details, so you do not type everything again. Your older account, its customers and its history stay where they are. What Stripe shows can vary, so follow Stripe's page. No Stripe login yet? Keep going with the next steps."
-       },
-       "image": {
-        "pt": "help/img/guides/card-payments-setup/stripe-01.pt.jpg",
-        "en": "help/img/guides/card-payments-setup/stripe-01.en.jpg"
-       }
-      },
-      {
-       "n": 3,
-       "text": {
         "pt": "Crie uma senha. O Stripe cria um login para você, para que você possa abrir o seu painel do Stripe depois. Escolha uma senha com pelo menos 10 caracteres que você não use em nenhum outro lugar, guarde-a bem e toque em Submit.",
         "en": "Create a password. Stripe makes a login for you, so you can open your own Stripe dashboard later. Choose a password of at least 10 characters that you do not use anywhere else, keep it safe, and tap Submit."
        },
@@ -2033,7 +2022,7 @@
        }
       },
       {
-       "n": 4,
+       "n": 3,
        "text": {
         "pt": "Escolha como o Stripe confirma que é você. O Stripe pede uma segunda etapa quando você entra. Você pode ler o código com um aplicativo autenticador no celular, ou tocar no link Use your phone or a security key instead, embaixo do botão, para receber uma mensagem de texto.",
         "en": "Choose how Stripe checks it is you. Stripe asks for a second step when you sign in. You can scan the code with an authenticator app on your phone, or tap the link under the button, Use your phone or a security key instead, to get a text message."
@@ -2044,7 +2033,7 @@
        }
       },
       {
-       "n": 5,
+       "n": 4,
        "text": {
         "pt": "Digite o seu telefone e depois o código. Digite o número do seu celular e toque em Send text. O Stripe envia um código de seis dígitos por mensagem de texto. Digite o código nas caixas e a página continua sozinha.",
         "en": "Enter your phone number, then the code. Type your mobile number and tap Send text. Stripe sends you a six digit code by text message. Type it in the boxes and the page continues by itself."
@@ -2055,7 +2044,7 @@
        }
       },
       {
-       "n": 6,
+       "n": 5,
        "text": {
         "pt": "Guarde o seu código de emergência. O Stripe mostra um código de reserva. Anote e guarde em um lugar seguro. Você só precisa dele se perder o celular. Depois toque em Next. Não há imagem aqui, porque o código é privado.",
         "en": "Save your emergency code. Stripe shows a backup code. Write it down and keep it somewhere safe. You only need it if you lose your phone. Then tap Next. There is no picture here, because the code is private."
@@ -2063,7 +2052,7 @@
        "image": null
       },
       {
-       "n": 7,
+       "n": 6,
        "text": {
         "pt": "Escolha o tipo de empresa. Escolha Registered business se você tem uma LLC, uma sociedade (partnership) ou uma corporação. As outras opções são para negócio não registrado, organização sem fins lucrativos ou governo. Depois escolha a estrutura da empresa, por exemplo Single-member LLC, e toque em Continue.",
         "en": "Choose your business type. Choose Registered business if you have an LLC, a partnership or a corporation. The other choices are for an unregistered business, a nonprofit or a government office. Then choose your business structure, for example Single-member LLC, and tap Continue."
@@ -2074,7 +2063,7 @@
        }
       },
       {
-       "n": 8,
+       "n": 7,
        "text": {
         "pt": "Digite o nome e o número fiscal da empresa. Digite o nome legal da empresa, o nome pelo qual os clientes conhecem você (Doing Business As) e o número fiscal (EIN). Digite exatamente como aparece nos papéis do IRS, com as mesmas letras maiúsculas e a mesma pontuação. Role a página para ver o EIN e o endereço da empresa.",
         "en": "Enter your business name and tax ID. Type your legal business name, the name your customers know you by (Doing Business As), and your tax ID (EIN). Type them exactly as they appear on your IRS papers, with the same capital letters and punctuation. Scroll down for the EIN and your business address."
@@ -2085,7 +2074,7 @@
        }
       },
       {
-       "n": 9,
+       "n": 8,
        "text": {
         "pt": "Diga o que a sua empresa faz. Escolha o ramo (Industry), coloque o endereço do seu site e escreva uma ou duas frases sobre o que você vende e quando cobra os clientes. Depois toque em Continue.",
         "en": "Say what your business does. Choose your industry, add your website, and write one or two sentences about what you sell and when you charge your customers. Then tap Continue."
@@ -2096,7 +2085,7 @@
        }
       },
       {
-       "n": 10,
+       "n": 9,
        "text": {
         "pt": "Digite os dados do dono. O Stripe precisa que o dono da empresa (o representante da conta) prove quem é. Digite o nome legal, a data de nascimento e o endereço residencial. Tudo aqui tem que ser a informação real do dono.",
         "en": "Enter the owner's details. Stripe needs the business owner (the account representative) to prove who they are. Type their legal name, date of birth and home address. Everything here must be the real owner's information."
@@ -2107,7 +2096,7 @@
        }
       },
       {
-       "n": 11,
+       "n": 10,
        "text": {
         "pt": "Telefone e número de identificação. Digite o telefone do dono e os últimos 4 dígitos do número do Social Security, e toque em Submit. Se 4 dígitos não bastarem para o Stripe confirmar a pessoa, o próximo passo pede o número completo.",
         "en": "Phone and ID number. Type the owner's phone number and the last 4 digits of their Social Security number, then tap Submit. If 4 digits are not enough for Stripe to confirm the person, the next step asks for the full number."
@@ -2118,7 +2107,7 @@
        }
       },
       {
-       "n": 12,
+       "n": 11,
        "text": {
         "pt": "Se o Stripe pedir o número de identificação completo, informe. O Stripe pode pausar os seus pagamentos até receber o número completo do Social Security (ou ITIN) do dono. Se isso acontecer, o Apex mostra que o cadastro não terminou: toque em Continuar no Stripe, digite o número completo e continue. Há mais sobre isso na seção De volta ao Apex.",
         "en": "If Stripe asks for the full ID number, give it. Stripe may pause your payments until it has the owner's full Social Security number (or ITIN). If that happens, Apex shows that your sign up is not finished: tap Continue on Stripe, type the full number and continue. The section Back in Apex has more about this."
@@ -2126,7 +2115,7 @@
        "image": null
       },
       {
-       "n": 13,
+       "n": 12,
        "text": {
         "pt": "Adicione a conta bancária onde você recebe. O Stripe envia os pagamentos por cartão para esta conta. Informe a conta bancária da sua empresa, com o routing number e o número da conta, e escolha quando quer receber os repasses. As nossas imagens usam um banco de teste do Stripe, então não copie. Toque em Continue.",
         "en": "Add the bank account where you get paid. Stripe sends your card payments to this account. Enter your own business bank account, with the routing number and the account number, and choose when you want payouts. Our pictures use a Stripe test bank, so do not copy it. Tap Continue."
@@ -2137,7 +2126,7 @@
        }
       },
       {
-       "n": 14,
+       "n": 13,
        "text": {
         "pt": "Confira o que o cliente vê. O statement descriptor é o nome que aparece no extrato do cartão do seu cliente. Coloque um telefone e um endereço de suporte e toque em Continue.",
         "en": "Check what customers see. The statement descriptor is the name that shows on your customer's card statement. Add a support phone number and a support address, then tap Continue."
@@ -2148,7 +2137,7 @@
        }
       },
       {
-       "n": 15,
+       "n": 14,
        "text": {
         "pt": "Confira o plano de proteção contra fraude. O Stripe pode mostrar planos pagos. Escolha a opção simples e incluída, Use baseline protection with Lite (included). Na página de revisão da nossa conta de teste a lista ainda mostrava Radar Pro, US$ 0,09 por transação analisada. Por isso olhe essa linha antes de confirmar e mude se não for o que você quer. Não conseguimos confirmar como isso funciona numa conta real.",
         "en": "Check the fraud protection plan. Stripe may show paid plans. Choose the plain, included choice, Use baseline protection with Lite (included). On the review page of our test account the list still showed Radar Pro, $0.09 per screened transaction. So look at that line before you confirm and change it if it is not what you want. We could not verify how this works on a live account."
@@ -2159,7 +2148,7 @@
        }
       },
       {
-       "n": 16,
+       "n": 15,
        "text": {
         "pt": "Pule a doação para o clima. O Stripe oferece dar uma porcentagem da sua receita para um programa do clima. É opcional. Toque em No thanks, a não ser que você queira.",
         "en": "Skip the climate donation. Stripe offers to give a percent of your revenue to a climate program. It is optional. Tap No thanks unless you want it."
@@ -2170,7 +2159,7 @@
        }
       },
       {
-       "n": 17,
+       "n": 16,
        "text": {
         "pt": "Pule a ferramenta de imposto sobre vendas por enquanto. O Stripe oferece uma ferramenta que acompanha as regras de sales tax. É opcional e você pode ativar depois. Toque em Not right now.",
         "en": "Skip the sales tax tool for now. Stripe offers a tool that watches sales tax rules. It is optional and you can add it later. Tap Not right now."
@@ -2181,7 +2170,7 @@
        }
       },
       {
-       "n": 18,
+       "n": 17,
        "text": {
         "pt": "Revise, concorde e envie. Confira cada parte da lista. Quando estiver tudo certo, toque em Agree and submit (em algumas páginas é Confirm). Isso diz ao Stripe que as suas informações estão completas e corretas. O Stripe então leva você de volta ao Apex.",
         "en": "Review, then agree and submit. Check every part of the list. When it is all correct, tap Agree and submit (some pages say Confirm). This tells Stripe your information is complete and correct. Stripe then takes you back to Apex."

@@ -12610,15 +12610,15 @@
         {
           "id": "cards",
           "title": {
-            "pt": "O aviso e os cartões do Início",
-            "en": "The warning and the Home cards"
+            "pt": "O aviso e o cartão do Início",
+            "en": "The warning and the Home card"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Leia o aviso Sem contrato assinado. Quando um projeto não tem contrato assinado, o Apex mostra uma janela chamada Sem contrato assinado antes de três coisas: pôr uma foto no projeto, mudar o status do projeto para Em andamento ou Atrasada e enviar uma segunda fatura do projeto (quando outra fatura dele já foi enviada). Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Para um serviço em outro estado, o texto cita esse estado. Para um contrato de limpeza, ele diz que o projeto não tem contrato de serviço assinado. Toque em Enviar contrato (2) para ir fazer o contrato (veja o guia Enviar um contrato). Toque em Continuar sem contrato (3) para seguir sem ele: o Apex registra com o seu nome e a hora. Se você fechar a janela, a ação não é feita, e o Apex avisa.",
-                "en": "Read the No signed contract warning. When a project has no signed contract, Apex shows a window called No signed contract before three things: adding a project photo, changing the project status to In progress or Late, and sending a second invoice of the project (when another invoice of it was already sent). In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. For a job in another state, the text names that state. For a cleaning agreement, it says the project has no signed service agreement. Tap Send contract (2) to go and make the contract (see the guide Send a contract). Tap Continue without contract (3) to go on without one: Apex logs it with your name and the time. If you close the window, the action is not done, and Apex tells you so."
+                "pt": "Leia o aviso Sem contrato assinado. Quando um projeto não tem contrato assinado, o Apex abre uma janela chamada Sem contrato assinado antes de uma ação do projeto, por exemplo mudar o status para Em andamento. Na Flórida, para um serviço acima de $2,500, o texto vermelho (1) diz que o contrato precisa do aviso de lien (gravame) de construção e do aviso do Recovery Fund. Toque em Enviar contrato (2) para ir fazer o contrato (veja o guia Enviar um contrato). Toque em Continuar sem contrato (3) para seguir sem ele. A linha embaixo diz que continuar fica registrado com o seu nome e a hora.",
+                "en": "Read the No signed contract warning. When a project has no signed contract, Apex opens a window called No signed contract before a project action, for example changing the status to In progress. In Florida, for a job over $2,500, the red text (1) says the contract needs the construction lien notice and the Recovery Fund notice. Tap Send contract (2) to go and make the contract (see the guide Send a contract). Tap Continue without contract (3) to go on without one. The line under it says that continuing is logged with your name and the time."
               },
               "image": {
                 "pt": "help/img/guides/contracts-that-need-you/cards-01.pt.jpg",
@@ -12628,26 +12628,13 @@
             {
               "n": 2,
               "text": {
-                "pt": "O vendedor vê uma janela diferente. O vendedor não pode continuar sozinho. A janela diz para avisar o dono, e oferece os botões Mensagem de texto e WhatsApp, que abrem uma mensagem com palavras fixas. Se o dono não tem telefone salvo, a mensagem abre sem número. Este passo vem do código do aplicativo.",
-                "en": "A salesperson sees a different window. A salesperson cannot continue alone. The window says to tell the owner, and offers Text message and WhatsApp buttons that open a message with fixed words. If the owner has no phone number saved, the message opens without a number. This step comes from the app's code."
+                "pt": "Ache os projetos sem contrato assinado no Início. Depois do aviso, o Apex guarda uma pendência. Na aba Início, um cartão chamado Projetos sem contrato assinado (1) mostra um número. Cada linha tem o nome do projeto e o valor, e depois quando a pendência foi aberta. Toque em Enviar contrato (2) para fazer o contrato. Toque em Continuar sem contrato (3) para seguir sem ele.",
+                "en": "Find the projects without a signed contract on Home. After the warning, Apex keeps a notice. On the Home tab, a card called Projects without a signed contract (1) shows a number. Each row has the project name and the value, and then when the notice was opened. Tap Send contract (2) to make the contract. Tap Continue without contract (3) to go on without one."
               },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Ache os projetos sem contrato assinado. Depois do aviso, o Apex guarda uma pendência. Na aba Início, um cartão chamado Projetos sem contrato assinado mostra um número. Cada linha tem o nome do projeto, o valor, e quando a pendência foi aberta e por quem. Toque em Enviar contrato para ir ao projeto e fazer o contrato. Se o projeto não veio de um lead com orçamento aceito, a linha diz isso, porque o contrato é montado a partir do orçamento. Toque em Continuar sem contrato para seguir sem ele: fica registrado com o seu nome e a hora. Este passo vem do código do aplicativo: o nosso cliente de teste não tem pendência aberta.",
-                "en": "Find the projects without a signed contract. After the warning, Apex keeps a notice. On the Home tab, a card called Projects without a signed contract shows a number. Each row has the project name, the value, and when the notice was opened and by whom. Tap Send contract to go to the project and make the contract. If the project did not come from a lead with an accepted estimate, the row says so instead, because the contract is built from the estimate. Tap Continue without contract to go on without one: it is logged with your name and time. This step comes from the app's code: our test client has no notice open."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Ache os contratos esperando uma assinatura. Um cartão chamado Contratos aguardando a sua assinatura lista os contratos que alguém pediu para você assinar pela empresa (veja o guia Pedir a assinatura de outra pessoa). Cada linha tem o número do contrato, o projeto e quando foi encaminhado a você. Toque em uma linha para abrir o contrato e assinar. Como dono, você também vê um segundo cartão, Contratos aguardando assinatura de outra pessoa, em que cada linha diz Aguardando assinatura de e o nome da pessoa. Um vendedor que foi chamado para assinar vê este cartão no alto do Pipeline e dos Projetos. Este passo vem do código do aplicativo: o nosso cliente de teste não tem contrato esperando.",
-                "en": "Find the contracts waiting for a signature. A card called Contracts awaiting your signature lists the contracts that someone asked you to sign for the company (see the guide Ask another person to sign for the company). Each row has the contract number, the project and when it was sent to you. Tap a row to open the contract and sign it. As the owner, you also see a second card, Contracts awaiting someone else's signature, where each row says Awaiting the signature of the person's name. A salesperson who was asked to sign sees this card at the top of the Pipeline and of the Projects. This step comes from the app's code: our test client has no contract waiting."
-              },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/contracts-that-need-you/cards-02.pt.jpg",
+                "en": "help/img/guides/contracts-that-need-you/cards-02.en.jpg"
+              }
             }
           ]
         }
@@ -12664,6 +12651,18 @@
           },
           "section": "cards",
           "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Projetos sem contrato assinado"
+            ],
+            "en": [
+              "Projects without a signed contract"
+            ]
+          },
+          "section": "cards",
+          "step": 2
         }
       ]
     },
@@ -12716,8 +12715,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Mude o preço do contrato se você renegociou. Abra o contrato enquanto ainda é rascunho (Negócio, depois Contratos, e toque nele). O Preço do contrato ($) (1) começa com o preço do orçamento aceito. A linha embaixo diz Preço do orçamento e avisa para mudar só se você renegociou depois do orçamento. As parcelas seguem este preço. Digite o preço novo e toque em Salvar preço (2). O Valor atual, no alto, mostra o preço em uso. Depois que os dois lados assinam, o preço não muda mais: faça um aditivo (veja o guia Enviar um aditivo).",
-                "en": "Change the contract price if you renegotiated. Open the contract while it is still a draft (Business, then Contracts, then tap it). Contract price ($) (1) starts with the price of the accepted estimate. The line under it says Estimate price and tells you to change it only if you renegotiated after the estimate. The payment schedule follows this price. Type the new price and tap Save price (2). Current amount at the top shows the price in use. After both sides sign, the price no longer changes: add a change order (see the guide Send a change order)."
+                "pt": "Mude o preço do contrato se você renegociou. Abra o contrato enquanto ainda é rascunho (Negócio, depois Contratos, e toque nele). Digite o preço novo em Preço do contrato ($) (1) e toque em Salvar preço (2). O Valor atual (4) passa a mostrar o preço novo. Embaixo do campo, o Apex mostra o preço do orçamento e a diferença, por exemplo ajuste negociado de -$1,300.00. As parcelas seguem este preço. O botão Voltar ao preço do orçamento (3) desfaz a mudança. Depois que os dois lados assinam, o preço não muda mais: faça um aditivo (veja o guia Enviar um aditivo).",
+                "en": "Change the contract price if you renegotiated. Open the contract while it is still a draft (Business, then Contracts, then tap it). Type the new price in Contract price ($) (1) and tap Save price (2). Current amount (4) now shows the new price. Under the box, Apex shows the estimate price and the difference, for example negotiated adjustment -$1,300.00. The payment schedule follows this price. The button Back to the estimate price (3) undoes the change. After both sides sign, the price no longer changes: add a change order (see the guide Send a change order)."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/price-01.pt.jpg",
@@ -12727,8 +12726,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Responda às perguntas sobre este contrato. Na parte chamada Este contrato (1), toque em Sim ou Não em Vendido durante uma visita à casa do cliente? Dependendo do estado, vêm mais perguntas: o imóvel é o homestead do cliente (a casa própria onde ele mora), o cliente é casado, subempreiteiros ou fornecedores vão participar do serviço, e a venda foi feita em inglês. Algumas têm Não sei. Depois escolha o Estado onde o serviço será feito. O Apex sugere pelo endereço da obra ou pelo estado da sua empresa, e mostra o aviso Confira o estado até você escolher na lista. Tipo do imóvel, Obra de piscina e Proposta válida até vêm em seguida. Uma nota dá o prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar. Sábado conta, domingo e feriados federais não. O Apex calcula quando o cliente assina.",
-                "en": "Answer the questions about this contract. In the part called This contract (1), tap Yes or No for Sold during a visit to the customer's home? Depending on the state, more questions follow: is this the customer's homestead (the home they own and live in), is the customer married, will subcontractors or suppliers work on the job, and was the sale made in English. Some have Not sure. Then choose the State where the work is done. Apex suggests it from the job address or from your company's state, and shows a warning, Check the state, until you pick it from the list. Property type, Pool job and Offer valid until come next. A note gives the cancellation deadline: midnight of the 3rd business day after the customer signs. Saturday counts, Sunday and federal holidays do not. Apex calculates it when the customer signs."
+                "pt": "Responda às perguntas sobre este contrato. Na parte chamada Este contrato, toque em Sim ou Não para a venda ter sido feita durante uma visita à casa do cliente (1). Escolha o Estado onde o serviço será feito (2) e o Tipo do imóvel (3). Marque Obra de piscina (4) se for uma piscina: o contrato leva os dois documentos do Capítulo 515. Aí escolha o Item de segurança da piscina (5). Em Proposta válida até (6), escolha a data. Uma nota dá o prazo de cancelamento: meia-noite do 3º dia útil depois de o cliente assinar. Sábado conta, domingo e feriados federais não.",
+                "en": "Answer the questions about this contract. In the part called This contract, tap Yes or No for whether the sale was made during a visit to the customer's home (1). Choose the State where the work is done (2) and the Property type (3). Tick Pool job (4) if it is a pool: the contract carries the two Chapter 515 documents. Then choose the Pool safety feature (5). Under Offer valid until (6), pick the date. A note gives the cancellation deadline: midnight of the 3rd business day after the customer signs. Saturday counts, Sunday and federal holidays do not."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/price-02.pt.jpg",
@@ -12747,12 +12746,23 @@
             {
               "n": 1,
               "text": {
-                "pt": "Veja de onde veio cada valor. A parte chamada Dados deste contrato (toque para mudar só neste contrato) lista cada valor que entra no contrato. A linha pequena embaixo do valor diz de onde ele veio: das configurações, do lead, do orçamento, calculado, ou deste contrato. Os códigos depois, por exemplo L4 ou C01-A, são as áreas de cláusula que usam o valor. Toque em uma linha para mudar aquele valor só neste contrato. A mudança não mexe nas suas configurações. Deixe a caixa em branco para voltar ao valor original. Um valor que foi mudado diz que substitui o valor das configurações. Uma linha que diz Toque para preencher (2) está vazia, e o contrato pede esse dado. O número da licença, o qualificador e o telefone da imagem estão cobertos.",
-                "en": "See where each value came from. The part called This contract's details (tap to change for this contract only) lists every value that goes into the contract. The small line under a value says where it came from: from the settings, from the lead, from the estimate, calculated, or this contract. The codes after it, for example L4 or C01-A, name the clause areas that use that value. Tap a row to change that value for this contract only. The change does not touch your settings. Leave the box blank to go back to the original value. A value that was changed says it overrides the value from the settings. A row that says Tap to fill in (2) is empty, and the contract asks for it. The license number, the qualifier and the phone in the picture are covered."
+                "pt": "Veja de onde veio cada valor. A parte chamada Dados deste contrato (toque para mudar só neste contrato) lista cada valor que entra no contrato. A linha pequena embaixo de cada valor diz de onde ele veio, por exemplo das configurações (1) ou calculado (2), e os códigos depois, como L4 ou C01-A, são as áreas de cláusula que usam o valor. Um valor que você mudou diz neste contrato e que substitui o valor das configurações (3). O número da licença está coberto na imagem.",
+                "en": "See where each value came from. The part called This contract's details (tap to change for this contract only) lists every value that goes into the contract. The small line under each value says where it came from, for example from the settings (1) or calculated (2), and the codes after it, like L4 or C01-A, are the clause areas that use the value. A value you changed says this contract and that it overrides the value from the settings (3). The license number is covered in the picture."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/values-01.pt.jpg",
                 "en": "help/img/guides/contract-price-values-and-clauses/values-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Mude um valor só neste contrato. Toque na linha. Abre uma janela com o nome do valor. Digite o valor novo na caixa (1) e toque em Salvar (2). A mudança vale só para este contrato e não mexe nas suas configurações. Deixe a caixa em branco e salve para voltar ao valor original.",
+                "en": "Change a value for this contract only. Tap the row. A window opens with the name of the value. Type the new value in the box (1) and tap Save (2). The change counts only for this contract and does not touch your settings. Leave the box blank and save to go back to the original value."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/values-02.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/values-02.en.jpg"
               }
             }
           ]
@@ -12767,8 +12777,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Escolha uma cláusula para uma área. Na parte chamada Cláusulas (padrão das configurações; troque só neste contrato), cada área tem um menu (1), por exemplo C01 Partes, imóvel e descrição da obra. O menu começa com a opção que você escolheu nas configurações do contrato (veja o guia Configure o seu contrato uma vez). Escolha outra opção para usá-la só neste contrato. O texto embaixo do menu explica a opção em palavras simples. Embaixo dele, Escrever cláusula própria nesta área (2) serve para uma cláusula sua. Uma nota pode dizer que uma regra do estado vale, por exemplo que no Texas uma opção é impressa sem o texto da Flórida. Ver como o cliente mostra o resultado.",
-                "en": "Choose a clause for one area. In the part called Clauses (defaults from settings; switch for this contract only), each area has a menu (1), for example C01 Parties, property and project description. The menu starts with the option you chose in your contract settings (see the guide Set up your contract once). Pick another option to use it in this contract only. The text under the menu explains the option in plain words. Under it, Write a custom clause for this area (2) is for a clause of your own. A note can say that a state rule applies, for example that in Texas an option is printed without its Florida wording. Preview as customer shows the result."
+                "pt": "Escolha uma cláusula para uma área. Na parte chamada Cláusulas, cada área tem um menu (1), por exemplo C03 Preço do contrato. O menu começa com a opção das configurações do contrato (veja o guia Configure o seu contrato uma vez). Escolha outra opção para usá-la só neste contrato. O texto embaixo (2) explica a opção em palavras simples. O botão Escrever cláusula própria nesta área (3) serve para uma cláusula sua.",
+                "en": "Choose a clause for one area. In the part called Clauses, each area has a menu (1), for example C03 Contract price. The menu starts with the option from your contract settings (see the guide Set up your contract once). Pick another option to use it in this contract only. The text under it (2) explains the option in plain words. The button Write a custom clause for this area (3) is for a clause of your own."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/clauses-01.pt.jpg",
@@ -12778,8 +12788,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Escreva a sua própria cláusula. Toque em Escrever cláusula própria nesta área. Um aviso vermelho (1) diz que este contrato vai dizer que a cláusula personalizada não foi revisada por advogado e deixa de trazer a linha revisado por, e que a Apex será avisada. Digite a cláusula em inglês, do jeito que vai no contrato, na caixa (2). Marque Entendi o aviso acima e toque em Salvar cláusula. O Apex responde Cláusula salva; a Apex foi avisada. Cancelar volta e não salva nada.",
-                "en": "Write your own clause. Tap Write a custom clause for this area. A red warning (1) says that this contract will say the custom clause was not reviewed by an attorney and will drop the reviewed by line, and that Apex will be notified. Type the clause in English, the way it goes in the contract, in the box (2). Tick I understand the warning above and tap Save clause. Apex answers Clause saved; Apex was notified. Cancel goes back and saves nothing."
+                "pt": "Escreva a sua própria cláusula. Toque em Escrever cláusula própria nesta área. Um aviso vermelho (1) diz que o contrato vai dizer que a cláusula personalizada não foi revisada por advogado, e que a Apex será avisada. Digite a cláusula em inglês, do jeito que vai no contrato, na caixa (2). Marque Entendi o aviso acima (3) e toque em Salvar cláusula (4). O Apex responde Cláusula salva; a Apex foi avisada. Cancelar volta e não salva nada.",
+                "en": "Write your own clause. Tap Write a custom clause for this area. A red warning (1) says the contract will say the custom clause was not reviewed by an attorney, and that Apex will be notified. Type the clause in English, the way it goes in the contract, in the box (2). Tick I understand the warning above (3) and tap Save clause (4). Apex answers Clause saved; Apex was notified. Cancel goes back and saves nothing."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/clauses-02.pt.jpg",
@@ -12789,12 +12799,34 @@
             {
               "n": 3,
               "text": {
-                "pt": "Registre a revisão do seu advogado. Depois de salvar uma cláusula própria, ela mostra uma etiqueta dourada, aguardando o seu advogado. Dois botões ficam embaixo: Baixar PDF para o seu advogado dá uma página com a cláusula para entregar, e Registrar revisão do advogado abre esta tela. Escolha a Decisão (1): Aprovada, Aprovada com edições ou Não aprovada. Com Aprovada com edições, uma caixa aparece para o texto revisado pelo advogado, e esse texto passa a ser o texto usado. Digite o Nome do advogado (2), o Florida Bar # (3) e a Data da revisão (4). Toque em Salvar revisão. Uma cláusula aprovada fica salva palavra por palavra na sua biblioteca privada. Este passo vem do código do aplicativo: o nosso contrato de teste não tem cláusula própria, então a imagem abre a tela com a própria função do aplicativo.",
-                "en": "Record your attorney's review. After you save a custom clause, it shows a gold tag, awaiting your attorney. Two buttons sit under it: Download PDF for your attorney gives a page with the clause to hand over, and Record attorney review opens this sheet. Choose the Decision (1): Approved, Approved with edits or Not approved. With Approved with edits, a box appears for the attorney's revised text, and that text becomes the text used. Type the Attorney name (2), the Florida Bar # (3) and the Review date (4). Tap Save review. An approved clause is saved word for word in your private library. This step comes from the app's code: our test contract has no custom clause, so the picture opens the sheet with the app's own function."
+                "pt": "Veja a etiqueta do advogado. Depois de salvar, o menu (1) mostra Cláusula personalizada (pendente). Embaixo do texto que você escreveu, uma etiqueta dourada diz aguardando o seu advogado (2). Dois botões ficam embaixo: Baixar PDF para o seu advogado (3) dá uma página com a cláusula para entregar, e Registrar revisão do advogado (4) abre a tela da revisão.",
+                "en": "See the attorney tag. After you save, the menu (1) shows Custom clause (pending). Under the text you wrote, a gold tag says awaiting your attorney (2). Two buttons sit under it: Download PDF for your attorney (3) gives a page with the clause to hand over, and Record attorney review (4) opens the review screen."
               },
               "image": {
                 "pt": "help/img/guides/contract-price-values-and-clauses/clauses-03.pt.jpg",
                 "en": "help/img/guides/contract-price-values-and-clauses/clauses-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Registre a revisão do seu advogado. Escolha a Decisão (1): Aprovada, Aprovada com edições ou Não aprovada. Digite o Nome do advogado (2), o Florida Bar # (3) e a Data da revisão (4). Toque em Salvar revisão (5). O Apex responde Revisão registrada.",
+                "en": "Record your attorney's review. Choose the Decision (1): Approved, Approved with edits or Not approved. Type the Attorney name (2), the Florida Bar # (3) and the Review date (4). Tap Save review (5). Apex answers Review recorded."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-04.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja o resultado. O menu (1) passa a mostrar Cláusula personalizada (aprovada). Uma linha (2) mostra a etiqueta verde aprovada, o nome do advogado, o número da Bar e a data da revisão. Uma cláusula aprovada fica salva palavra por palavra na sua biblioteca privada. A etiqueta dourada e os dois botões do advogado somem.",
+                "en": "See the result. The menu (1) now shows Custom clause (approved). A line (2) shows the green approved tag, the attorney name, the Bar number and the review date. An approved clause is saved word for word in your private library. The gold tag and the two attorney buttons go away."
+              },
+              "image": {
+                "pt": "help/img/guides/contract-price-values-and-clauses/clauses-05.pt.jpg",
+                "en": "help/img/guides/contract-price-values-and-clauses/clauses-05.en.jpg"
               }
             }
           ]
@@ -12808,6 +12840,18 @@
             ],
             "en": [
               "Save price"
+            ]
+          },
+          "section": "price",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Voltar ao preço do orçamento"
+            ],
+            "en": [
+              "Back to the estimate price"
             ]
           },
           "section": "price",
@@ -12871,7 +12915,7 @@
             ]
           },
           "section": "clauses",
-          "step": 3
+          "step": 4
         }
       ]
     },

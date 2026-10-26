@@ -213,10 +213,12 @@
     ".aph-p{font-size:14px;line-height:1.5;margin:0 0 10px}" +
     ".aph-muted{color:var(--ah-muted);font-size:13px;line-height:1.45}" +
     ".aph-form{display:flex;gap:8px;margin:10px 0 6px}" +
-    ".aph-ask{align-items:center;gap:4px;margin:16px 0 8px;padding:4px 4px 4px 42px;border:2px solid #1a1a1d;border-radius:16px;background:#fff url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a665f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E\") no-repeat 14px center/20px 20px}" +
-    ".aph-ask:focus-within{border-color:#C9A43A}" +
-    ".aph-ask .aph-input{border:none;outline:none;background:transparent;padding:0 6px 0 0;min-height:48px;font-size:16px}" +
-    ".aph-ask .aph-primary{border-radius:11px}" +
+    ".aph-ask{position:relative;align-items:stretch;gap:8px;margin:16px 0 8px;padding:0;border:none;background:none}" +
+    ".aph-ask::before{content:\"\";position:absolute;left:14px;top:50%;width:20px;height:20px;margin-top:-10px;z-index:1;pointer-events:none;background:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E\") no-repeat center/20px 20px}" +
+    ".aph-ask .aph-input{border:2px solid #1a1a1d;border-radius:12px;background:#f3f0e9;box-shadow:inset 0 2px 5px rgba(0,0,0,0.16);padding:0 12px 0 44px;min-height:54px;font-size:16px;caret-color:#111}" +
+    ".aph-ask .aph-input::placeholder{color:#4d4a44;opacity:1}" +
+    ".aph-ask .aph-input:focus{outline:none;background:#fff;border-color:#C9A43A}" +
+    ".aph-ask .aph-primary{border-radius:12px;min-height:54px}" +
     ".aph-ask .aph-ico{display:inline-flex}" +
     ".aph-input{flex:1;min-width:0;min-height:48px;border:1px solid var(--ah-line);border-radius:var(--ah-r);background:var(--ah-card);padding:0 14px;font:500 15px 'Inter',sans-serif;color:var(--ah-text)}" +
     ".aph-primary{min-height:48px;padding:0 16px;border:none;border-radius:var(--ah-r);background:#1a1a1d;color:#fff;font:600 14px 'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}" +

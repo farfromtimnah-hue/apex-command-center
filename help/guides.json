@@ -6852,6 +6852,248 @@
           "step": 2
         }
       ]
+    },
+    {
+      "id": "punch-list-and-completion",
+      "audience": "client",
+      "title": {
+        "pt": "Fotos de antes, pendências e aceite de conclusão",
+        "en": "Before photos, punch list and completion sign-off"
+      },
+      "summary": {
+        "pt": "Guarde as fotos de antes da obra, faça a lista de pendências e peça ao cliente o aceite de conclusão.",
+        "en": "Keep the before work photos, make the punch list and ask the customer for the completion sign-off."
+      },
+      "keywords": {
+        "pt": [
+          "fotos de antes",
+          "condições existentes",
+          "adicionar fotos",
+          "vistoria final",
+          "pendências",
+          "adicionar pendência",
+          "lista de pendências",
+          "aceite de conclusão",
+          "enviar aceite de conclusão",
+          "reenviar aceite",
+          "conclusão da obra",
+          "cliente assina a conclusão",
+          "sem telefone do cliente no lead"
+        ],
+        "en": [
+          "before photos",
+          "existing conditions",
+          "add photos",
+          "walkthrough",
+          "punch list",
+          "add item",
+          "completion sign-off",
+          "send completion sign-off",
+          "resend completion sign-off",
+          "job complete",
+          "customer signs completion",
+          "no customer phone on the lead"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "completion",
+          "title": {
+            "pt": "Do começo ao fim da obra",
+            "en": "From the start to the end of the job"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Guarde as fotos de antes e a lista de pendências. Abra o projeto (Negócio e depois Projetos) e role para baixo. Antes de começar a obra, toque em Adicionar fotos (1) e fotografe rachaduras, manchas, calçadas, grama e cercas, para o cliente confirmar que já estavam assim. No fim, ande pela obra com o cliente e toque em Adicionar pendência (3) para cada coisa a corrigir. Toque em um item (2) para marcar como feito: o Apex anota a hora e quem fez. Remover pede um motivo, e um item removido pode voltar.",
+                "en": "Keep the before photos and the punch list. Open the project (Business, then Projects) and scroll down. Before the work starts, tap Add photos (1) and photograph cracks, stains, driveways, lawn and fences, so the homeowner can confirm they were already like that. At the end, walk the job with the homeowner and tap Add item (3) for each thing to fix. Tap an item (2) to mark it done: Apex notes the time and who did it. Remove asks for a reason, and a removed item can be brought back."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-01.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Envie o aceite de conclusão. Quando todos os itens estão feitos, o botão Enviar aceite de conclusão aparece embaixo da lista (4 no passo anterior). Toque nele e escolha como enviar: Mensagem de texto ou WhatsApp (1). A mensagem (3) já vem escrita e tem o link onde o cliente confere a lista e assina. Se o projeto não tem telefone do cliente, o Apex avisa (2): coloque o telefone no lead do cliente primeiro, ou use Marcar como enviada sem abrir mensagem (4) se você mesmo vai mandar o link.",
+                "en": "Send the completion sign-off. When every item is done, the button Send completion sign-off appears below the list (4 in the step before). Tap it and choose how to send: Text message or WhatsApp (1). The message (3) is already written and has the link where the customer reviews the list and signs. If the project has no customer phone, Apex says so (2): add the phone to the customer's lead first, or use Mark as sent without opening a message (4) if you will send the link yourself."
+              },
+              "image": {
+                "pt": "help/img/guides/punch-list-and-completion/completion-02.pt.jpg",
+                "en": "help/img/guides/punch-list-and-completion/completion-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Acompanhe o que acontece. O aceite aparece na lista, embaixo dos itens, com o status: Enviado, Visto, Assinado ou Não concordou. Se o cliente não concorda, o motivo dele aparece ali. Se você mudar a lista depois de enviar, o aceite sem assinatura é anulado e você manda um novo com Reenviar aceite de conclusão. Quando o cliente assina, o projeto mostra Conclusão aceita por e o nome.",
+                "en": "Follow what happens. The sign-off shows in the list under the items with its status: Sent, Viewed, Signed or Declined. If the customer does not agree, their reason shows there. If you change the list after sending, the unsigned sign-off is voided and you send a new one with Resend completion sign-off. When the customer signs, the project shows Completion signed by and the name."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar aceite de conclusão",
+              "Reenviar aceite de conclusão"
+            ],
+            "en": [
+              "Send completion sign-off",
+              "Resend completion sign-off"
+            ]
+          },
+          "section": "completion",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar pendência"
+            ],
+            "en": [
+              "Add item"
+            ]
+          },
+          "section": "completion",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "liens-and-final-affidavit",
+      "audience": "client",
+      "title": {
+        "pt": "Notice to Owner, liberações e declaração final",
+        "en": "Notice to Owner, releases and final affidavit"
+      },
+      "summary": {
+        "pt": "Registre quem mandou um Notice to Owner, guarde as liberações e prepare a declaração de pagamento final.",
+        "en": "Record who served a Notice to Owner, keep the releases and prepare the final payment affidavit."
+      },
+      "keywords": {
+        "pt": [
+          "notice to owner",
+          "registrar notice to owner",
+          "liberação",
+          "liberação condicional",
+          "liberação final",
+          "sem liberação",
+          "gravame",
+          "lien",
+          "fornecedor",
+          "subempreiteiro cobrou",
+          "declaração de pagamento final",
+          "baixar pdf da declaração",
+          "reconhecer firma",
+          "notarize",
+          "notário"
+        ],
+        "en": [
+          "notice to owner",
+          "record notice to owner",
+          "release",
+          "conditional release",
+          "final release",
+          "no release",
+          "lien",
+          "supplier",
+          "subcontractor claim",
+          "final payment affidavit",
+          "download affidavit",
+          "notarize",
+          "notary",
+          "get it notarized"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "liens",
+          "title": {
+            "pt": "Antes do pagamento final",
+            "en": "Before the final payment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Registre um Notice to Owner. Quando um fornecedor ou subempreiteiro mandar um Notice to Owner, abra o projeto, role até Notices to Owner e liberações e toque em Registrar Notice to Owner. O Apex pergunta três coisas curtas, uma de cada vez: quem mandou (1), a data do aviso e o valor reclamado, que é opcional. Toque em Salvar (2) a cada uma.",
+                "en": "Record a Notice to Owner. When a supplier or subcontractor serves a Notice to Owner, open the project, scroll to Notices to Owner and lien releases and tap Record a Notice to Owner. Apex asks three short things one at a time: who served it (1), the date of the notice and the amount claimed, which is optional. Tap Save (2) after each one."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-01.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Vigie a lista. Cada aviso (1) mostra o nome, o valor, a data e uma etiqueta vermelha, Sem liberação, até você guardar uma liberação dele. A linha vermelha (2) diz quantos ainda estão sem liberação final: não faça o pagamento final antes de ter a liberação final de cada um. Na Flórida, em geral, o subempreiteiro ou fornecedor precisa ser pago em até 45 dias depois que você recebe pelo trabalho dele, salvo disputa real. Toque em Registrar Notice to Owner (3) para outro, ou em Declaração de pagamento final (4).",
+                "en": "Watch the list. Each notice (1) shows the name, the amount, the date and a red tag, No release, until you keep a release for it. The red line (2) says how many are still without a final release: do not make the final payment before you have a final release from each one. Florida generally requires paying a subcontractor or supplier within 45 days after you are paid for their work, unless there is a genuine dispute. Tap Record a Notice to Owner (3) for another one, or Final payment affidavit (4)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-02.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Guarde as liberações. Toque em um aviso. Uma liberação condicional (2) vale quando o pagamento compensar. Uma liberação final, incondicional (3), vem depois que o pagamento compensou. Envie cada uma como foto ou PDF. Quando uma liberação final é enviada, a etiqueta muda. Remover (4) pede um motivo e guarda o registro.",
+                "en": "Keep the releases. Tap a notice. A conditional release (2) takes effect when the payment clears. A final, unconditional release (3) comes after the payment has cleared. Upload each one as a photo or PDF. When a final release is uploaded, the tag changes. Remove (4) asks for a reason and keeps the record."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-03.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Prepare a declaração de pagamento final. Antes do pagamento final, o cliente pode pedir uma declaração juramentada que diz quem já foi pago e quem ainda falta (1). O Apex preenche o valor do contrato, o que foi pago e o pagamento final, e avisa de qualquer aviso sem liberação (2). Toque em Baixar PDF da declaração (3). Em Onde reconhecer firma (notarize) (4), o Apex lista onde reconhecer: online, presencialmente ou com um notário seu. Leve o documento sem assinar. Depois envie a cópia assinada (5).",
+                "en": "Prepare the final payment affidavit. Before the final payment, the homeowner can ask for a sworn statement listing who has been paid and who is still owed (1). Apex fills in the contract amount, what was paid and the final payment, and warns about any notice that has no release (2). Tap Download affidavit (PDF) (3). Under Get it notarized (4), Apex lists where to notarize: online, in person, or with your own notary. Bring the document unsigned. Then upload the signed copy (5)."
+              },
+              "image": {
+                "pt": "help/img/guides/liens-and-final-affidavit/liens-04.pt.jpg",
+                "en": "help/img/guides/liens-and-final-affidavit/liens-04.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Registrar Notice to Owner"
+            ],
+            "en": [
+              "Record a Notice to Owner"
+            ]
+          },
+          "section": "liens",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Declaração de pagamento final"
+            ],
+            "en": [
+              "Final payment affidavit"
+            ]
+          },
+          "section": "liens",
+          "step": 4
+        }
+      ]
     }
   ],
   "pages": {
@@ -6971,7 +7213,9 @@
         "ask-for-google-review",
         "contact-card",
         "subcontractors",
-        "project-from-scratch"
+        "project-from-scratch",
+        "punch-list-and-completion",
+        "liens-and-final-affidavit"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",

@@ -1901,7 +1901,13 @@
      "take payments"
     ]
    },
-   "video": null,
+   "video": {
+    "pt": {
+     "src": "https://apex.resonateai.online/help/video/card-payments-setup-pt.mp4",
+     "poster": "https://apex.resonateai.online/help/video/card-payments-setup-pt.jpg"
+    },
+    "en": null
+   },
    "sections": [
     {
      "id": "connect",

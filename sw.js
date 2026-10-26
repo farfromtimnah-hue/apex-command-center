@@ -4,13 +4,14 @@
 // the app requires an internet connection to function. This worker exists
 // only so the app is installable and opens with a standalone look.
 // (2026-10-26: touched so the cache key is re-stamped and help-config.js, now enabled, reaches every browser.)
+// (2026-10-26: touched again so the cache key is re-stamped and the Aprenda menu entry reaches every browser.)
 
 // Auto-stamped by .git/hooks/pre-commit with a fresh timestamp on every
 // commit that touches sw.js — do not hand-edit the suffix, it will be
 // overwritten. This is what makes the activate handler's cache cleanup below
 // actually fire on each deploy instead of silently serving stale
 // nav.js/pwa.js/mobile.css/icons forever.
-var CACHE_NAME = "apex-static-1793026395";
+var CACHE_NAME = "apex-static-1793041561";
 
 var PRECACHE_URLS = [
   "nav.js",

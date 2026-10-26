@@ -522,6 +522,18 @@
     ].join("\n").slice(0, 1500);
   }
 
+  // ---- the library address and the way back ------------------------------
+  // The one place the "open the full Learn page" address is built. Only fixed values go
+  // in: the side is admin or client, the language is pt or en, anything else is replaced.
+  function libraryPath(audience, lang) {
+    return "help.html?audience=" + (audience === "admin" ? "admin" : "client") + "&lang=" + (lang === "en" ? "en" : "pt");
+  }
+  // The page a menu remembers so the library can offer Back. Only a plain page file name
+  // (portal.html, dashboard.html) passes; an address, a path or a script comes back as null.
+  function safeReturn(v) {
+    return (typeof v === "string" && /^[a-z0-9-]{1,40}\.html$/.test(v)) ? v : null;
+  }
+
   // ---- flag guard -------------------------------------------------------
   // The whole feature is off unless the config says enabled === true exactly.
   function isEnabled(win) {
@@ -577,6 +589,8 @@
     SUGGEST_MAX_QUESTIONS: SUGGEST_MAX_QUESTIONS,
     SUGGEST_MAX_ITEMS: SUGGEST_MAX_ITEMS,
     isEnabled: isEnabled,
+    libraryPath: libraryPath,
+    safeReturn: safeReturn,
     splitStep: splitStep,
     splitStepTag: splitStepTag
   };

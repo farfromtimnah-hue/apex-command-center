@@ -119,6 +119,7 @@
     .list-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 26px 0 12px; }
 
     .back { margin-bottom: 20px; }
+    #returnBtn[hidden] { display: none; }
     .guide-title { font-family: var(--serif); font-size: 38px; font-weight: 400; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 8px; }
     .guide-sum { font-size: 17px; line-height: 1.55; color: var(--muted); margin-bottom: 20px; }
     .sec-title { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.25; margin: 40px 0 6px; padding-top: 26px; border-top: 2px solid var(--text); }
@@ -169,6 +170,7 @@
       <div class="hero-bg" id="heroBg"></div>
       <div class="hero-scrim"></div>
       <div class="hero-in">
+        <button type="button" class="btn-quiet back" id="returnBtn" hidden></button>
         <h1 class="page-title" id="pageTitle">Aprenda</h1>
         <p class="hero-sub" id="heroSub"></p>
         <section class="search" id="searchBox" hidden>
@@ -335,6 +337,24 @@
       var tab = null;
       try { tab = sessionStorage.getItem("apex_lang"); } catch (e) { tab = null; }
       return tab === "en" ? "en" : "pt";
+    }
+    // The Voltar / Back button on the library: shown only when a menu sent the person here
+    // (it left the page to come back to in sessionStorage). Back goes back in history, so the
+    // person lands on the screen they came from; with no history it opens the remembered page.
+    var returnPage = null;
+    function renderReturn() {
+      var rb = byId("returnBtn");
+      if (!rb) { return; }
+      if (returnPage === null) {
+        try { returnPage = HC.safeReturn(window.sessionStorage.getItem("apex_learn_return")) || ""; } catch (e) { returnPage = ""; }
+      }
+      rb.hidden = !returnPage;
+      clear(rb);
+      if (!returnPage) { return; }
+      var bi = el("span", "ico");
+      bi.innerHTML = ICON_BACK;
+      rb.appendChild(bi);
+      rb.appendChild(document.createTextNode(t("Voltar", "Back")));
     }
     function applyLanguage() {
       document.body.classList.remove("lang-pt", "lang-en");
@@ -971,11 +991,17 @@
       currentLang = pickLanguage();
       setupBanner();
       applyLanguage();
+      renderReturn();
+      byId("returnBtn").addEventListener("click", function () {
+        try { window.sessionStorage.removeItem("apex_learn_return"); } catch (e) { /* nothing to clear */ }
+        if (window.history.length > 1) { window.history.back(); } else if (returnPage) { window.location.href = returnPage; }
+      });
       setupAsk();
       byId("langBtn").addEventListener("click", function () {
         currentLang = currentLang === "en" ? "pt" : "en";
         store("apex_help_lang", currentLang);
         applyLanguage();
+        renderReturn();
         renderList();
         renderGuideView();
         byId("answer").textContent = "";

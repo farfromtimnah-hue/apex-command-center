@@ -166,6 +166,8 @@
       body = '<path d="M3 9l2-5h14l2 5"/><path d="M4 9v11h16V9"/><line x1="2" y1="9" x2="22" y2="9"/><rect x="9.5" y="14" width="5" height="6"/>';
     } else if (type === "peak") {
       body = '<polyline points="2 20 9.5 6 13.5 13"/><polyline points="11 20 16 11 22 20"/><line x1="2" y1="20" x2="22" y2="20"/>';
+    } else if (type === "book") {
+      body = '<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>';
     } else if (type === "view") {
       body = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
     }
@@ -295,6 +297,7 @@
       html +=
         '<a class="apex-nav-item' + activeClass + '" href="' + item.href + '"' +
         ' data-apex-track="nav:' + item.key + '"' +
+        (item.learn ? ' data-apex-learn="1"' : '') +
         ' data-tip-pt="' + item.tipPt + '" data-tip-en="' + item.tipEn + '">';
       html += '<span class="apex-nav-icon">' + navSvg(item.icon) + '</span>';
       html += '<span class="apex-nav-label">';
@@ -768,6 +771,38 @@
     return { key: key, group: true, icon: icon, labelPt: labelPt, labelEn: labelEn, items: items };
   }
 
+  // Learn (Aprenda): a direct link to the library page, shown only while the feature is
+  // switched on (the same check the widget uses). The address comes from HelpCore.libraryPath,
+  // so there is one way to build it; the language is read again at the click.
+  var LEARN_ITEM = {
+    key: "learn", learn: true, href: "help.html", icon: "book",
+    labelPt: "Aprenda", labelEn: "Learn", tipPt: "Aprenda", tipEn: "Learn"
+  };
+  function learnOn() {
+    return !!(window.HelpCore && window.HelpCore.isEnabled && window.HelpCore.isEnabled(window));
+  }
+  function learnHref() {
+    return window.HelpCore.libraryPath("admin", document.body.classList.contains("lang-en") ? "en" : "pt");
+  }
+  function learnEntry() {
+    var e = {};
+    for (var k in LEARN_ITEM) { if (Object.prototype.hasOwnProperty.call(LEARN_ITEM, k)) { e[k] = LEARN_ITEM[k]; } }
+    e.href = learnHref();
+    return e;
+  }
+  var learnWired = false;
+  function wireLearn() {
+    if (learnWired) { return; }
+    learnWired = true;
+    document.addEventListener("click", function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest("[data-apex-learn]") : null;
+      if (!a || !learnOn()) { return; }
+      a.href = learnHref();
+      var back = window.HelpCore.safeReturn(getActivePage());
+      if (back) { try { sessionStorage.setItem("apex_learn_return", back); } catch (e) { /* Back is a courtesy */ } }
+    });
+  }
+
   var MTAB_INICIO     = mobileTabDef("dashboard", "dashboard.html", "home",         "In&iacute;cio",                "Home");
   var MTAB_CLIENTES   = mobileTabDef("clients",   "clients.html",   "users",        "Clientes",                     "Clients");
   var MTAB_SESSOES    = mobileTabDef("sessions",  "sessions.html",  "calendar",     "Sess&otilde;es",               "Sessions");
@@ -808,6 +843,8 @@
         [MTAB_FINANCENOVO, MTAB_VENDORS, MTAB_APEXCLUB]);
       business = [MTAB_VENDAS, MTAB_DOCUMENTOS];
     }
+
+    if (opts && opts.learn) { business = [learnEntry()].concat(business); }
 
     return {
       spots: [
@@ -864,12 +901,12 @@
     }
   }
 
-  function populateMobileNav(navRole, contractReview) {
+  function populateMobileNav(navRole, contractReview, learn) {
     var bar  = document.getElementById("mobile-tab-bar");
     var menu = document.getElementById("mobile-more-menu");
     if (!bar || !menu) { return; }
 
-    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview });
+    var cfg = getMobileNavConfig(navRole, { contractReview: contractReview, learn: learn });
     var activePage = getActivePage();
     var i;
 
@@ -988,6 +1025,7 @@
       var here = (activePage === m.href);
       html += '<a class="mg-item' + (here ? " mg-item-active" : "") + '" role="menuitem" href="' + m.href + '"' +
         ' data-apex-track="docktool:' + m.key + '"' +
+        (m.learn ? ' data-apex-learn="1"' : '') +
         (here ? ' aria-current="page"' : '') + '>';
       html += '<span class="mg-item-ico">' + navSvg(m.icon) + '</span>';
       html += '<span class="mg-item-label">' + buildMobileLabelSpan(m) + '</span>';
@@ -1116,6 +1154,16 @@
       });
     }
 
+    // Learn (Aprenda) sits with the main entries, just above Settings.
+    var showLearn = learnOn();
+    if (showLearn) {
+      items = items.slice();
+      var at = items.length;
+      for (var li = 0; li < items.length; li++) { if (items[li].key === "settings") { at = li; break; } }
+      items.splice(at, 0, learnEntry());
+      wireLearn();
+    }
+
     sidebar.innerHTML = buildNavHTML(role, items, devView);
 
     if (sessionStorage.getItem("apex_nav_collapsed") === "1") {
@@ -1127,7 +1175,7 @@
     // Same gate as the two side-menu pushes above.
     var showContractReview = (navRole === "developer") ||
       (navRole === "rafa" && sessionStorage.getItem("apex_contract_review_released") === "1");
-    populateMobileNav(navRole, showContractReview);
+    populateMobileNav(navRole, showContractReview, showLearn);
 
     setupTabStrips();
   };

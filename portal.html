@@ -5649,12 +5649,24 @@
     // PORTAL_TAB_GATES still decide what exists; a group left empty is dropped,
     // and a group left with one tool shows as that tool. Assigned joins Apex
     // only while something is waiting. Leads keep their own shape.
+    // A group can also hold a LINK item. It is not a tab: choosing it opens a page and
+    // switches no panel. Aprenda / Learn opens the library (help.html), and shows only
+    // while the feature is switched on (the same check the "?" widget uses).
+    var PORTAL_LINKS = {
+      learn: {
+        entry: { tab: "learn", link: true, icon: "book", labelPt: "Aprenda", labelEn: "Learn" },
+        enabled: function() { return portalLearnEnabled(); }
+      }
+    };
+    function portalLearnEnabled() {
+      return !!(window.HelpCore && window.HelpCore.isEnabled && window.HelpCore.isEnabled(window));
+    }
     var PORTAL_GROUPS = [
       { key: "grp-home",      icon: "home",      labelPt: "In\u00edcio",   labelEn: "Home",      tabs: ["home"] },
       { key: "grp-negocio",   icon: "store",     labelPt: "Neg\u00f3cio",  labelEn: "Business",  tabs: ["gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance", "gmpricing"] },
       { key: "grp-agenda",    icon: "calendar",  labelPt: "Agenda",       labelEn: "Calendar",  tabs: ["gmcalendar"] },
       { key: "grp-analytics", icon: "bar-chart", labelPt: "Analytics",    labelEn: "Analytics", tabs: ["analytics"] },
-      { key: "grp-apex",      icon: "peak",      labelPt: "Apex",         labelEn: "Apex",      tabs: ["assigned", "goals", "gmroadmap", "tasks", "documents"] }
+      { key: "grp-apex",      icon: "peak",      labelPt: "Apex",         labelEn: "Apex",      tabs: ["learn", "assigned", "goals", "gmroadmap", "tasks", "documents"] }
     ];
     var PORTAL_GEAR_TABS = ["worksched"];
 
@@ -5662,6 +5674,7 @@
     function portalGroupTabs(g) {
       var avail = portalTabs().map(function(t) { return t.tab; });
       var list = g.tabs.filter(function(k) {
+        if (PORTAL_LINKS[k]) { return PORTAL_LINKS[k].enabled(); }
         if (k === "assigned") { return !isSeller() && anyIncompleteAssigned(); }
         return avail.indexOf(k) !== -1;
       });
@@ -5669,7 +5682,10 @@
       if (ritmoDeprioritized() && list.indexOf("goals") !== -1) {
         list = list.filter(function(k) { return k !== "goals"; }).concat(["goals"]);
       }
-      return list.map(function(k) { return k === "assigned" ? ASSIGNED_DOCK_TAB : portalTabByKey(k); });
+      return list.map(function(k) {
+        if (PORTAL_LINKS[k]) { return PORTAL_LINKS[k].entry; }
+        return k === "assigned" ? ASSIGNED_DOCK_TAB : portalTabByKey(k);
+      });
     }
     // The dock / desktop entries: one per group that has anything in it.
     function portalGroups() {
@@ -5677,7 +5693,8 @@
       PORTAL_GROUPS.forEach(function(g) {
         var tabs = portalGroupTabs(g);
         if (!tabs.length) { return; }
-        var solo = tabs.length === 1 && g.tabs.length > 1;
+        // A link never gives the group its name: a group left with only a link stays itself.
+        var solo = tabs.length === 1 && g.tabs.length > 1 && !tabs[0].link;
         out.push({
           tab: g.key, group: g, tabs: tabs,
           icon: solo ? tabs[0].icon : g.icon,
@@ -5708,8 +5725,10 @@
     function portalGroupLanding(g) {
       var last = null;
       try { last = localStorage.getItem("apex_nav_last_" + g.tab); } catch (e) { last = null; }
-      var hit = g.tabs.filter(function(t) { return t.tab === last; })[0];
-      return (hit || g.tabs[0]).tab;
+      // A link is not a place to land: only real tabs count here.
+      var real = g.tabs.filter(function(t) { return !t.link; });
+      var hit = real.filter(function(t) { return t.tab === last; })[0];
+      return (hit || real[0] || { tab: "home" }).tab;
     }
     function portalRememberTab(tab) {
       var g = portalGroupOfTab(tab);
@@ -5808,13 +5827,13 @@
     // absent (the phone dock), it sits above the dock.
     function portalDockTap(key, anchor) {
       var g = key.indexOf("grp-") === 0 ? portalGroupByKey(key) : null;
-      if (!g || g.tabs.length < 2) { portalGroupSheetClose(); switchTab(key); return; }
+      if (!g || (g.tabs.length < 2 && !g.tabs[0].link)) { portalGroupSheetClose(); switchTab(key); return; }
       var sheet = document.getElementById("portalGroupSheet");
       var panel = document.getElementById("portalGroupPanel");
       if (!sheet || !panel) { switchTab(key); return; }
       if (!sheet.hidden && sheet.getAttribute("data-group") === key) { portalGroupSheetClose(); return; }
       panel.innerHTML = '<div class="pg-title">' + portalLabelHtml(g) + '</div>' + g.tabs.map(function(t) {
-        return '<button type="button" class="pg-item' + (t.tab === currentTab ? " active" : "") + '" role="menuitem" onclick="portalGroupSheetGo(\'' + t.tab + '\')">' +
+        return '<button type="button" class="pg-item' + (t.tab === currentTab ? " active" : "") + '" role="menuitem" onclick="' + (t.link ? 'portalLearnGo()' : 'portalGroupSheetGo(\'' + t.tab + '\')') + '">' +
           window.apexNavSvg(t.icon) + '<span>' + portalLabelHtml(t) + '</span>' + portalNewPillHtml(t.tab) + portalBadgeHtml(portalNavBadge(t)) + '</button>';
       }).join("");
       sheet.setAttribute("data-group", key);
@@ -5844,6 +5863,22 @@
       if (sheet) { sheet.hidden = true; }
     }
     function portalGroupSheetGo(tab) { portalGroupSheetClose(); switchTab(tab); }
+    // Aprenda / Learn: opens the library in this window, in the language on screen, on the
+    // client side. The address comes from HelpCore.libraryPath (one builder, fixed values only).
+    // The current tab is written into this page's own address first, so Back lands on it.
+    function portalLearnGo() {
+      portalGroupSheetClose();
+      if (!portalLearnEnabled()) { return; }
+      try { sessionStorage.setItem("apex_learn_return", "portal.html"); } catch (e) { /* Back is a courtesy */ }
+      try {
+        if (/^[a-z0-9_]{1,40}$/.test(currentTab || "")) {
+          var kept = window.location.search.replace(/^\?/, "").split("&").filter(function(p) { return p && p.indexOf("tab=") !== 0 && p.indexOf("import=") !== 0; });
+          kept.push("tab=" + currentTab);
+          window.history.replaceState(null, "", "?" + kept.join("&"));
+        }
+      } catch (e2) { /* Back still works, it just opens the default screen */ }
+      window.location.href = window.HelpCore.libraryPath("client", document.body.classList.contains("lang-en") ? "en" : "pt");
+    }
     function portalGearToggle() {
       var gear = portalGearTabs();
       // One item (Ajustes): open it directly. "Meus aparelhos" is a card on

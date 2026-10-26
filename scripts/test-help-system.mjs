@@ -1769,6 +1769,186 @@ ok(idxW.helpBuildIndex(EMPTY).text === "" && Object.keys(idxW.helpBuildIndex(EMP
     ok(read(f) === read("ios/App/App/public/" + f), "(g) the iPhone copy of " + f + " is identical");
   });
 
+  // ------------------------------------------------------------ (h) the Aprenda / Learn menu entry
+  const sliceBetween = (src, a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i + 1); return (i === -1 || j === -1) ? "" : src.slice(i, j); };
+  ok(typeof core.libraryPath === "function", "(h) help-core.js has libraryPath, the one address builder");
+  if (typeof core.libraryPath === "function") {
+    ok(core.libraryPath("client", "en") === "help.html?audience=client&lang=en", "(h) libraryPath client + en");
+    ok(core.libraryPath("admin", "pt") === "help.html?audience=admin&lang=pt", "(h) libraryPath admin + pt");
+    ok(core.libraryPath("<b>", "fr") === "help.html?audience=client&lang=pt", "(h) libraryPath ignores anything that is not a known side or language");
+    ok(core.safeReturn("portal.html") === "portal.html" && core.safeReturn("dashboard.html") === "dashboard.html", "(h) safeReturn accepts a plain page file name");
+    ok(core.safeReturn("https://evil.example/x.html") === null && core.safeReturn("../a.html") === null && core.safeReturn("javascript:1") === null && core.safeReturn(null) === null, "(h) safeReturn rejects addresses, paths and scripts");
+  }
+  ok(/HC\.libraryPath\(/.test(widgetSrc.slice(widgetSrc.indexOf("function libraryLink()"), widgetSrc.indexOf("// ---- styles"))), "(h) help-widget.js builds its own library link with the same libraryPath");
+
+  ["portal.html", "ios/App/App/public/portal.html"].forEach(function (rel) {
+    const src = read(rel);
+    const groupsSrc = sliceBetween(src, "var PORTAL_LINKS", "// Badges follow the destination");
+    const sheetSrc = sliceBetween(src, "function portalDockTap(", "function portalGearToggle(");
+    ok(groupsSrc !== "" && sheetSrc !== "", "(h) " + rel + " has the group code and the sheet code");
+    if (groupsSrc === "" || sheetSrc === "") { return; }
+    function world(opts) {
+      const log = { switched: [], href: null, store: {}, replaced: [], panel: { innerHTML: "", style: {} } };
+      const ALL = ["home", "gmcrm", "gmestimates", "gmcontracts", "gmjobs", "gminvoices", "gmfinance", "gmpricing", "gmcalendar", "analytics", "goals", "gmroadmap", "tasks", "documents"];
+      const avail = opts.avail || ALL;
+      const sheet = { hidden: true, attrs: {}, classList: { toggle() {} }, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } };
+      const win = {
+        APEX_HELP: { enabled: opts.enabled !== false }, HelpCore: core,
+        addEventListener() {}, innerHeight: 800,
+        history: { replaceState(a, b, c) { log.replaced.push(c); } },
+        location: { search: opts.search || "", pathname: "/portal.html" }
+      };
+      const ctx = {
+        window: win, console, JSON,
+        document: {
+          body: { classList: { contains: (c) => c === "lang-en" && opts.lang === "en" } },
+          getElementById: (id) => id === "portalGroupSheet" ? sheet : (id === "portalGroupPanel" ? log.panel : null)
+        },
+        location: win.location, history: win.history,
+        sessionStorage: { getItem: (k) => (k in log.store ? log.store[k] : null), setItem: (k, v) => { log.store[k] = String(v); } },
+        localStorage: { getItem: () => null, setItem() {} },
+        portalTabs: () => avail.map((k) => ({ tab: k })),
+        portalTabByKey: (k) => ({ tab: k, icon: "x", labelPt: k, labelEn: k }),
+        ASSIGNED_DOCK_TAB: { tab: "assigned", icon: "view", labelPt: "Atribuidos", labelEn: "Assigned" },
+        isSeller: () => false, anyIncompleteAssigned: () => !!opts.assigned, ritmoDeprioritized: () => false,
+        anyPendingEntries: () => false, gmAttentionBadgeCount: () => 0,
+        portalNewPillHtml: () => "", portalBadgeHtml: () => "", portalLabelHtml: (t) => '<span class="show-pt">' + t.labelPt + '</span><span class="show-en">' + t.labelEn + '</span>',
+        portalNavBadge: () => ({ count: 0, dot: false }),
+        switchTab: (t) => { log.switched.push(t); }, currentTab: opts.currentTab || "goals",
+        setTimeout
+      };
+      ctx.window.apexNavSvg = (n) => '<svg data-icon="' + n + '"></svg>';
+      ctx.apexNavSvg = ctx.window.apexNavSvg;
+      ctx.window.document = ctx.document;
+      Object.defineProperty(win.location, "href", { get() { return log.href; }, set(v) { log.href = v; } });
+      vm.createContext(ctx);
+      vm.runInContext(groupsSrc + "\n" + sheetSrc + "\nthis.__api = { portalGroups, portalGroupByKey, portalGroupLanding, portalDockTap, portalLearnGo, PORTAL_GROUPS };", ctx);
+      return { api: ctx.__api, log, sheet, ctx };
+    }
+    const apexOf = (w) => w.api.portalGroups().filter((g) => g.tab === "grp-apex")[0];
+
+    // On: first item of the Apex group, a link, with the right words and a book.
+    const on = world({ enabled: true });
+    const apexOn = apexOf(on);
+    ok(apexOn && apexOn.tabs[0] && apexOn.tabs[0].tab === "learn" && apexOn.tabs[0].link === true, "(h) " + rel + ": Aprenda is the FIRST item of the Apex group and is a link");
+    ok(apexOn && apexOn.tabs[0].labelPt === "Aprenda" && apexOn.tabs[0].labelEn === "Learn" && apexOn.tabs[0].icon === "book", "(h) " + rel + ": words Aprenda / Learn and a book icon");
+    ok(apexOn && apexOn.tabs.slice(1).map((t) => t.tab).join(",") === "goals,gmroadmap,tasks,documents", "(h) " + rel + ": every other Apex item keeps its place and order");
+    ok(on.api.portalGroups().length === 5 && on.api.portalGroups().map((g) => g.tab).join(",") === "grp-home,grp-negocio,grp-agenda,grp-analytics,grp-apex", "(h) " + rel + ": still five groups, no sixth entry on the strip or the bar");
+    ok(apexOn && apexOn.labelPt === "Apex" && apexOn.labelEn === "Apex" && apexOn.icon === "peak", "(h) " + rel + ": the Apex group keeps its own name and icon");
+    // Off: exactly as before.
+    const off = world({ enabled: false });
+    const apexOff = apexOf(off);
+    ok(apexOff && apexOff.tabs.map((t) => t.tab).join(",") === "goals,gmroadmap,tasks,documents" && apexOff.labelPt === "Apex", "(h) " + rel + ": switched off, the Apex group is exactly as before");
+    ok(!/learn|Aprenda/.test(JSON.stringify(off.api.portalGroups().map((g) => g.tabs))), "(h) " + rel + ": switched off, no trace of the entry");
+    const offNoFlag = world({ enabled: false }); offNoFlag.ctx.window.APEX_HELP = {};
+    ok(!/learn/.test(JSON.stringify(apexOf(offNoFlag).tabs)), "(h) " + rel + ": an APEX_HELP without enabled true shows nothing");
+    // The solo rule: one real tool left.
+    const soloOff = world({ enabled: false, avail: ["documents"] });
+    ok(apexOf(soloOff).labelPt === "Documentos" || apexOf(soloOff).labelPt === "documents", "(h) " + rel + ": switched off, a single tool still gives the group that tool's name (solo rule unchanged)");
+    const soloOn = world({ enabled: true, avail: ["documents"] });
+    ok(apexOf(soloOn).labelPt === "Apex" && apexOf(soloOn).tabs.length === 2, "(h) " + rel + ": switched on, Apex always has two items so the solo rule never renames it");
+    const linkOnly = world({ enabled: true, avail: ["home"] });
+    ok(apexOf(linkOnly) && apexOf(linkOnly).labelPt === "Apex" && apexOf(linkOnly).labelEn === "Apex" && apexOf(linkOnly).icon === "peak", "(h) " + rel + ": with only the link left the group is still named Apex");
+    // Landing never picks the link.
+    ok(on.api.portalGroupLanding(apexOn) === "goals" && linkOnly.api.portalGroupLanding(apexOf(linkOnly)) !== "learn", "(h) " + rel + ": opening the Apex group never lands on the link");
+    // The pop-up sheet.
+    on.api.portalDockTap("grp-apex");
+    const firstItem = (/<button[^>]*class="pg-item[^"]*"[^>]*>[\s\S]*?<\/button>/.exec(on.log.panel.innerHTML) || [""])[0];
+    ok(/portalLearnGo\(\)/.test(firstItem) && /Aprenda/.test(firstItem) && /Learn/.test(firstItem) && !/portalGroupSheetGo/.test(firstItem), "(h) " + rel + ": the first item in the Apex sheet is Aprenda and calls portalLearnGo, not a tab switch");
+    ok((on.log.panel.innerHTML.match(/class="pg-item/g) || []).length === 5, "(h) " + rel + ": the Apex sheet lists Aprenda plus the four tools");
+    off.api.portalDockTap("grp-apex");
+    ok(!/Aprenda|portalLearnGo/.test(off.log.panel.innerHTML) && (off.log.panel.innerHTML.match(/class="pg-item/g) || []).length === 4, "(h) " + rel + ": switched off, the Apex sheet is exactly the four tools");
+    linkOnly.api.portalDockTap("grp-apex");
+    ok(/portalLearnGo/.test(linkOnly.log.panel.innerHTML) && linkOnly.log.switched.length === 0, "(h) " + rel + ": a group holding only the link still opens its sheet instead of switching a panel");
+    // Choosing it.
+    const goPt = world({ enabled: true, lang: "pt", currentTab: "goals" });
+    goPt.api.portalLearnGo();
+    ok(goPt.log.href === "help.html?audience=client&lang=pt", "(h) " + rel + ": in Portuguese it opens help.html?audience=client&lang=pt");
+    ok(goPt.log.switched.length === 0, "(h) " + rel + ": choosing it does not switch a panel");
+    ok(goPt.log.store.apex_learn_return === "portal.html", "(h) " + rel + ": it remembers the page to come back to");
+    ok(goPt.log.replaced.length === 1 && /tab=goals/.test(goPt.log.replaced[0]), "(h) " + rel + ": it marks the current screen in the address so Back lands on the same tab");
+    const goEn = world({ enabled: true, lang: "en", currentTab: "gmcrm" });
+    goEn.api.portalLearnGo();
+    ok(goEn.log.href === "help.html?audience=client&lang=en", "(h) " + rel + ": in English it opens help.html?audience=client&lang=en");
+    const goOff = world({ enabled: false, lang: "en" });
+    goOff.api.portalLearnGo();
+    ok(goOff.log.href === null, "(h) " + rel + ": switched off, nothing opens");
+    ok(!/[\u2013\u2014]/.test(groupsSrc + sheetSrc), "(h) " + rel + ": the new code has no long dash");
+    ok(!/innerHTML\s*=[^;]*(location|search|hash|referrer)/.test(sheetSrc), "(h) " + rel + ": no innerHTML built from the address");
+  });
+
+  // The staff app: nav.js builds the side menu and the phone dock.
+  ["nav.js", "ios/App/App/public/nav.js"].forEach(function (rel) {
+    const src = read(rel);
+    function staff(opts) {
+      const log = { store: {}, clicks: [], href: null };
+      const els = {};
+      const mk = (id) => (els[id] = { id, innerHTML: "", style: {}, className: "", classList: { add() {}, remove() {}, contains: () => false, toggle() {} }, setAttribute() {}, getAttribute: () => null, removeAttribute() {}, querySelector: () => null, querySelectorAll: () => [], appendChild() {}, addEventListener() {} });
+      ["navSidebar", "mobile-tab-bar", "mobile-more-menu"].forEach(mk);
+      const session = { apex_role: opts.role || "alice" };
+      const win = { APEX_HELP: { enabled: opts.enabled !== false }, HelpCore: core, location: { pathname: "/" + (opts.page || "dashboard.html") } };
+      const ctx = {
+        window: win, console, JSON, setTimeout,
+        document: {
+          body: { classList: { add() {}, remove() {}, contains: (c) => c === "lang-en" && opts.lang === "en" } },
+          head: { appendChild() {} }, getElementById: (id) => els[id] || null, createElement: () => ({ style: {}, setAttribute() {}, appendChild() {} }),
+          querySelector: () => null, querySelectorAll: () => [],
+          addEventListener: (type, fn) => { if (type === "click") { log.clicks.push(fn); } }
+        },
+        sessionStorage: { getItem: (k) => (k in session ? session[k] : null), setItem: (k, v) => { session[k] = String(v); }, removeItem: (k) => { delete session[k]; } },
+        localStorage: { getItem: () => null, setItem() {} }
+      };
+      ctx.window.document = ctx.document; ctx.window.sessionStorage = ctx.sessionStorage; ctx.window.localStorage = ctx.localStorage; ctx.location = win.location;
+      vm.createContext(ctx);
+      vm.runInContext(src, ctx);
+      return { win, els, log, session, ctx };
+    }
+    const baseCfg = staff({ enabled: false }).win.apexStaffDockConfig("alice", { contractReview: true });
+    ok(JSON.stringify(baseCfg.spots).indexOf("help.html") === -1, "(h) " + rel + ": the dock config has no Learn item unless asked");
+    ["alice", "rafa", "developer"].forEach(function (role) {
+      const w = staff({ enabled: true, role });
+      const cfg = w.win.apexStaffDockConfig(role, { contractReview: true, learn: true });
+      const biz = cfg.spots.filter((s) => s.key === "business")[0];
+      ok(biz && biz.items[0].learn === true && /^help\.html\?audience=admin&lang=pt$/.test(biz.items[0].href) && biz.items[0].labelPt === "Aprenda" && biz.items[0].labelEn === "Learn", "(h) " + rel + ": " + role + ": Aprenda / Learn is the first item of the phone Business group, audience=admin");
+      const plain = w.win.apexStaffDockConfig(role, { contractReview: true });
+      ok(JSON.stringify(cfg.spots.map((s) => s.group ? s.items.filter((i) => !i.learn).map((i) => i.href) : s.href)) === JSON.stringify(plain.spots.map((s) => s.group ? s.items.map((i) => i.href) : s.href)), "(h) " + rel + ": " + role + ": every other dock item keeps its place and order");
+      ok(cfg.spots.length === 5, "(h) " + rel + ": " + role + ": still five spots on the dock");
+    });
+    const onSide = staff({ enabled: true, role: "alice", lang: "pt" });
+    onSide.win.initNav();
+    const sb = onSide.els.navSidebar.innerHTML;
+    const learnA = (/<a class="apex-nav-item[^"]*" href="([^"]*)"[^>]*data-apex-learn[^>]*>[\s\S]*?<\/a>/.exec(sb) || []);
+    ok(learnA.length > 0 && learnA[1] === "help.html?audience=admin&lang=pt" && /Aprenda/.test(learnA[0]) && /Learn/.test(learnA[0]), "(h) " + rel + ": the staff side menu has Aprenda / Learn pointing at help.html?audience=admin");
+    ok(sb.indexOf("data-apex-learn") < sb.indexOf('href="settings.html"') && sb.indexOf("data-apex-learn") > sb.indexOf('href="sales.html"'), "(h) " + rel + ": it sits with the main entries, before Settings");
+    ok(onSide.els["mobile-tab-bar"].innerHTML.indexOf("help.html") === -1, "(h) " + rel + ": the phone bar itself still has only its five spots");
+    const offSide = staff({ enabled: false, role: "alice" });
+    offSide.win.initNav();
+    ok(offSide.els.navSidebar.innerHTML.indexOf("help.html") === -1 && offSide.els.navSidebar.innerHTML.indexOf("data-apex-learn") === -1, "(h) " + rel + ": switched off, the staff side menu is unchanged");
+    // Clicking it: the address follows the language chosen at that moment.
+    const en = staff({ enabled: true, role: "alice", lang: "en", page: "clients.html" });
+    en.win.initNav();
+    const anchor = { href: "help.html?audience=admin&lang=pt", getAttribute: () => null };
+    const ev = { target: { closest: (sel) => (sel === "[data-apex-learn]" ? anchor : null) }, preventDefault() { ev.prevented = true; } };
+    en.log.clicks.forEach((fn) => fn(ev));
+    ok(anchor.href === "help.html?audience=admin&lang=en", "(h) " + rel + ": a click uses the language on screen now (English)");
+    ok(en.session.apex_learn_return === "clients.html", "(h) " + rel + ": a click remembers the page to come back to");
+    ok(!ev.prevented, "(h) " + rel + ": the click is a normal link, same window");
+    const other = { target: { closest: () => null } };
+    en.log.clicks.forEach((fn) => fn(other));
+    ok(anchor.href === "help.html?audience=admin&lang=en", "(h) " + rel + ": a click on anything else changes nothing");
+    ok(!/[\u2013\u2014]/.test(src.slice(src.indexOf("LEARN_ITEM"), src.indexOf("LEARN_ITEM") + 2500)), "(h) " + rel + ": the new staff code has no long dash");
+  });
+  ok(read("nav.js").indexOf('type === "book"') !== -1, "(h) nav.js has a book icon in the same style as the other icons");
+
+  // help.html: Back on the library page, only when the person came from a menu.
+  const helpSrcH = read("help.html");
+  ok(/id="returnBtn"/.test(helpSrcH) && /HC\.safeReturn\(/.test(helpSrcH) && /apex_learn_return/.test(helpSrcH), "(h) help.html has a Voltar / Back button on the library, driven by the remembered page");
+  ok(/history\.back\(\)/.test(helpSrcH.slice(helpSrcH.indexOf("returnBtn"))), "(h) the library Back goes back in history, so it returns to the screen the person came from");
+  ["portal.html", "nav.js", "help.html", "help-core.js", "help-widget.js", "sw.js"].forEach(function (f) {
+    ok(read(f) === read("ios/App/App/public/" + f), "(h) the iPhone copy of " + f + " is identical to the root copy");
+  });
+  ok(!/\b(Ajuda|Help)\b/.test(sliceBetween(read("nav.js"), "var LEARN_ITEM", "};")) && !/\b(Ajuda|Help)\b/.test(sliceBetween(read("portal.html"), "var PORTAL_LINKS", "var PORTAL_GROUPS")), "(h) the new entry never uses the words Ajuda or Help");
+
   // ------------------------------------------------------------ plumbing: headers, service worker, pages
   const headers = read("_headers");
   ok(/\/help\/\*[\s\S]{0,200}Access-Control-Allow-Origin: \*/.test(headers), "(plumbing) _headers sends Access-Control-Allow-Origin: * for /help/");

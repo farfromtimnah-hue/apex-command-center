@@ -182,7 +182,7 @@
     return linkOrigin() + "/help.html?" + q + "&lang=" + lang();
   }
   function libraryLink() {
-    return linkOrigin() + "/help.html?audience=" + side + "&lang=" + lang();
+    return linkOrigin() + "/" + HC.libraryPath(side, lang());
   }
 
   // ---- styles ----------------------------------------------------------

@@ -3377,7 +3377,6 @@
           "convite",
           "copiar link",
           "desativar",
-          "em análise pela apex",
           "enviar pelo whatsapp",
           "equipe",
           "link de convite",
@@ -3407,8 +3406,7 @@
           "salesperson",
           "send on whatsapp",
           "staff",
-          "team",
-          "under apex review"
+          "team"
         ]
       },
       "video": null,
@@ -3423,41 +3421,41 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Ajustes. Toque em Ajustes no canto de cima à direita do portal, ao lado de Ajuda, e role até Pessoas e acessos.",
-                "en": "Open Settings. Tap Settings at the top right of the portal, next to Help, then scroll down to People and access."
+                "pt": "Abra Ajustes. Toque em Ajustes (1) no alto do portal, ao lado de Ajuda (2). Ajustes é uma página longa. Role até o cartão Pessoas e acessos.",
+                "en": "Open Settings. Tap Settings (1) at the top of the portal, next to Help (2). Settings is one long page. Scroll down to the card People and access."
               },
               "image": {
-                "en": "help/img/guides/people-and-access/people-01.en.jpg",
-                "pt": "help/img/guides/people-and-access/people-01.pt.jpg"
+                "pt": "help/img/guides/people-and-access/people-01.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-01.en.jpg"
               }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Veja quem tem acesso. Pessoas e acessos mostra as pessoas da sua conta com o papel de cada uma, o último acesso e quantos aparelhos usam. A tela explica que você adiciona alguém e envia um link: a pessoa cria uma passkey no próprio celular ou computador, então não há senha para compartilhar.",
-                "en": "See who has access. People and access shows the people on your account with their role, the last time they signed in and how many devices they use. The screen explains that you add someone and send them a link: they create a passkey on their own phone or laptop, so there is no password to share."
+                "pt": "Adicione uma pessoa. Em Adicionar pessoa, digite o Nome (1). Escolha o Acesso (2): Sócio(a) ou assistente executivo(a) (pode tudo o que o dono pode, exceto excluir a empresa; só o dono adiciona), Equipe com acesso ao financeiro (vê tudo, exceto ajustes e pessoas), Equipe sem acesso ao financeiro (não vê Financeiro nem Faturas) ou Vendedor(a) (visão mínima: só os próprios leads e projetos). Escolha o país e digite o Celular (3). Depois toque em Criar link de convite (4). A figura mostra uma pessoa de teste com um número inventado.",
+                "en": "Add a person. Under Add a person, type the Name (1). Choose the Access (2): Partner or executive assistant (can do everything the owner can, except delete the business; only the owner can add one), Staff with finance access (sees everything except settings and people), Staff without finance access (cannot see Finance or Invoices) or Salesperson (minimal view: only their own leads and projects). Pick the country and type the Mobile number (3). Then tap Create invite link (4). The picture shows a test person with a made-up number."
               },
               "image": {
-                "en": "help/img/guides/people-and-access/people-02.en.jpg",
-                "pt": "help/img/guides/people-and-access/people-02.pt.jpg"
+                "pt": "help/img/guides/people-and-access/people-02.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-02.en.jpg"
               }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Adicione uma pessoa. Em Adicionar pessoa, digite o Nome e escolha o Acesso: Sócio(a) ou assistente executivo(a) (pode tudo o que o dono pode, exceto excluir a empresa; só o dono adiciona), Equipe com acesso ao financeiro (vê tudo, exceto ajustes e pessoas), Equipe sem acesso ao financeiro (não vê Financeiro nem Faturas) ou Vendedor(a) (visão mínima: só os próprios leads e projetos). Escolha o país, digite o Celular e toque em Criar link de convite.",
-                "en": "Add a person. Under Add a person, type the Name, then choose the Access: Partner or executive assistant (can do everything the owner can, except delete the business; only the owner can add one), Staff with finance access (sees everything except settings and people), Staff without finance access (cannot see Finance or Invoices) or Salesperson (minimal view: only their own leads and projects). Pick the country, type the Mobile number and tap Create invite link."
+                "pt": "Compartilhe o link de convite. Um cartão mostra o link da pessoa (1). Ele vale por 72 horas (4). Toque em Copiar link (2): o botão muda para Copiado e você cola o link onde quiser. Enviar pelo WhatsApp (3) é a outra forma de compartilhar. Quando você cria o link, a Apex não manda nada para a pessoa. Depois a pessoa abre o link e cria uma passkey. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar. Veja o guia Você recebeu um link de convite. Na figura, o link está coberto de cinza.",
+                "en": "Share the invite link. A card shows the link for the person (1). It is valid for 72 hours (4). Tap Copy link (2): the button changes to Copied and you paste the link where you like. Send on WhatsApp (3) is the other way to share it. When you create the link, Apex does not send anything to the person. The person then opens the link and creates a passkey. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember. See the guide You got an invite link. In the picture the link is covered with grey."
               },
               "image": {
-                "en": "help/img/guides/people-and-access/people-03.en.jpg",
-                "pt": "help/img/guides/people-and-access/people-03.pt.jpg"
+                "pt": "help/img/guides/people-and-access/people-03.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Envie o link de convite. Depois que você toca em Criar link de convite, um card mostra o link da pessoa (1). Ele vale por 72 horas (4). Toque em Copiar link (2) para copiar a mensagem com o link e cole onde quiser. Ou toque em Enviar pelo WhatsApp (3): o WhatsApp abre com a mensagem e o link prontos. Escolha a pessoa e aperte enviar lá você mesmo. A Apex não envia nada sozinha. Depois a pessoa abre o link e cria uma passkey. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar. Veja o guia Você recebeu um link de convite. (A figura mostra um link de exemplo.)",
-                "en": "Send the invite link. After you tap Create invite link, a card shows the link for the person (1). It is valid for 72 hours (4). Tap Copy link (2) to copy the message with the link, then paste it where you like. Or tap Send on WhatsApp (3): WhatsApp opens with the message and the link ready. Choose the person and press send there yourself. Apex does not send anything on its own. The person then opens the link and creates a passkey. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password. See the guide You got an invite link."
+                "pt": "Leia a lista. Cada pessoa tem uma etiqueta ao lado do nome: Ativo (1), Desativado (2) ou Convidado (3). Convidado quer dizer que o link foi criado e a pessoa ainda não usou. Embaixo do nome (4) você vê o tipo de acesso, o celular com o meio escondido, a data até quando o link vale (ou o último acesso, ou Nunca entrou) e o número de aparelhos. A sua linha, como dono, não tem botões.",
+                "en": "Read the list. Each person has a tag by the name: Active (1), Disabled (2) or Invited (3). Invited means the link was made and the person has not used it yet. Under the name (4) you see the type of access, the mobile number with the middle hidden, the date the link is valid until (or the last sign in, or Never signed in) and the number of devices. Your own row, as the owner, has no buttons."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-04.pt.jpg",
@@ -3467,8 +3465,8 @@
             {
               "n": 5,
               "text": {
-                "pt": "Leia a lista. Cada pessoa da lista tem uma etiqueta ao lado do nome: Convidado (o link foi enviado e ainda não foi usado), Ativo ou Desativado. Embaixo do nome você vê o tipo de acesso, o celular com o meio escondido, a data do último acesso (ou a data até quando o link vale, ou Nunca entrou) e o número de aparelhos. A sua linha, como dono, não tem botões. A linha de um sócio só tem botões para o dono. A figura mostra uma pessoa de exemplo.",
-                "en": "Read the list. Each person in the list has a tag by the name: Invited (the link was sent and not used yet), Active or Disabled. Under the name you see the type of access, the mobile number with the middle hidden, the date of the last sign in (or the date the link is valid until, or Never signed in) and the number of devices. Your own row, as the owner, has no buttons. A partner's row has buttons only for the owner. The picture shows a sample person."
+                "pt": "Dê ou mude o acesso ao financeiro. Para uma pessoa com acesso de Equipe, a caixa Acesso ao financeiro (1) fica embaixo do nome, com a nota: por exemplo, o cônjuge que cuida da contabilidade. Marque a caixa. A Apex pede que você confirme e diz que a pessoa passará a ver o Financeiro e as Faturas. Toque em Confirmar (2), ou em Cancelar (3) para não mudar nada.",
+                "en": "Give or change finance access. For a person with Staff access, the box Finance access (1) sits under the name, with the note: for example, a spouse who does the books. Tick the box. Apex asks you to confirm and says the person will now see Finance and Invoices. Tap Confirm (2), or Cancel (3) to change nothing."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-05.pt.jpg",
@@ -3478,8 +3476,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Mude o acesso ao financeiro depois. Para uma pessoa com acesso de Equipe, uma caixa chamada Acesso ao financeiro (4) fica embaixo do nome. Marque a caixa para a pessoa ver o Financeiro e as Faturas, por exemplo o cônjuge que cuida da contabilidade. Desmarque para esconder. A Apex pede que você confirme: ela diz que a pessoa passará a ver o Financeiro e as Faturas, ou deixará de ver. Toque em Confirmar, ou em Cancelar para não mudar nada.",
-                "en": "Change finance access later. For a person with Staff access, a box called Finance access (4) sits under the name. Tick it to let the person see Finance and Invoices, for example a spouse who does the books. Untick it to hide them. Apex asks you to confirm: it says the person will now see Finance and Invoices, or will no longer see them. Tap Confirm, or Cancel to change nothing."
+                "pt": "Veja o acesso novo. Depois de confirmar, a linha de acesso (1) muda de Equipe sem acesso ao financeiro para Equipe com acesso ao financeiro, e a caixa (2) fica marcada.",
+                "en": "See the new access. After you confirm, the access line (1) changes from Staff without finance access to Staff with finance access, and the box (2) stays ticked."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-06.pt.jpg",
@@ -3489,8 +3487,8 @@
             {
               "n": 7,
               "text": {
-                "pt": "Desative uma pessoa. Toque em Desativar (1) na linha da pessoa. A Apex pergunta: Desativar esta pessoa? A pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo. Toque em Desativar (2) para confirmar, ou em Manter acesso (3) para parar. Use quando alguém sai e você não precisa explicar o motivo.",
-                "en": "Disable a person. Tap Disable (1) on the person's row. Apex asks: Disable this person? They are signed out everywhere right away and cannot sign in until enabled again. Tap Disable (2) to confirm, or Keep access (3) to stop. Use this when someone leaves and you do not need to explain why."
+                "pt": "Adicione um aparelho para a mesma pessoa. Toque em Novo aparelho (manter os atuais) (1) na linha da pessoa. A Apex cria um novo link na hora (2), sem fazer pergunta. Toque em Copiar link (3) e envie. A pessoa abre o link no telefone ou computador novo e cria uma passkey lá.",
+                "en": "Add a device for the same person. Tap Add a device (keep current ones) (1) on the person's row. Apex makes a new link at once (2), with no question. Tap Copy link (3) and send it. The person opens the link on the new phone or computer and creates a passkey there."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-07.pt.jpg",
@@ -3500,8 +3498,8 @@
             {
               "n": 8,
               "text": {
-                "pt": "Ative uma pessoa de novo. Uma pessoa desativada tem a etiqueta Desativado (1) e um botão, Ativar (2). Toque em Ativar. Não pede confirmação. A pessoa pode entrar de novo com uma passkey que já existe.",
-                "en": "Enable a person again. A disabled person has the tag Disabled (1) and one button, Enable (2). Tap Enable. It needs no confirmation. The person can sign in again with a passkey that already exists."
+                "pt": "Avise de um aparelho ou de uma pessoa que saiu. Toque em Aparelho perdido, trocado ou saída na linha da pessoa. A Apex mostra três opções: Saiu da empresa (1), Comprei um celular novo (2) e Perdido ou roubado (3). Cancelar (4) fecha as opções.",
+                "en": "Report a device, or a person who left. Tap Lost, replaced or leaving on the person's row. Apex shows three choices: Left the company (1), Got a new phone (2) and Lost or stolen (3). Cancel (4) closes the choices."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-08.pt.jpg",
@@ -3511,8 +3509,8 @@
             {
               "n": 9,
               "text": {
-                "pt": "Adicione um aparelho para a mesma pessoa. Toque em Novo aparelho (manter os atuais) (1) na linha da pessoa. A Apex cria um novo link para a mesma pessoa, por exemplo para um computador novo, e os aparelhos que ela já tem continuam funcionando. Envie o link como no passo 4. A pessoa abre e cria uma passkey no aparelho novo. Este botão fica escondido para uma pessoa desativada.",
-                "en": "Add a device for the same person. Tap Add a device (keep current ones) (1) on the person's row. Apex makes a new link for the same person, for example for a new computer, and the devices they already have keep working. Send the link as in step 4. The person opens it and creates a passkey on the new device. This button is hidden for a disabled person."
+                "pt": "Se a pessoa saiu da empresa. Toque em Saiu da empresa. A Apex diz: O acesso desta pessoa será desligado agora. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um aviso curto e a etiqueta da pessoa vira Desativado.",
+                "en": "If the person left the company. Tap Left the company. Apex says: This person's access will be turned off now. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a short message and the person's tag becomes Disabled."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-09.pt.jpg",
@@ -3522,8 +3520,8 @@
             {
               "n": 10,
               "text": {
-                "pt": "Avise de aparelho perdido, trocado, ou de uma pessoa que saiu. Toque em Aparelho perdido, trocado ou saída (2) na linha da pessoa. Escolha o motivo: Saiu da empresa (1), Comprei um celular novo (2) ou Perdido ou roubado (3). Use Perdido ou roubado quando um celular pode estar em mãos erradas, porque isso também pede que a Apex revise o que aconteceu.",
-                "en": "Report a lost or replaced device, or a person who left. Tap Lost, replaced or leaving (2) on the person's row. Pick the reason: Left the company (1), Got a new phone (2) or Lost or stolen (3). Use Lost or stolen when a phone could be in the wrong hands, because it also asks Apex to review what happened."
+                "pt": "Se a pessoa comprou um celular novo. Toque em Comprei um celular novo. A Apex diz: As sessões atuais são encerradas agora; um novo link de aparelho será criado. Toque em Confirmar (1), ou em Cancelar (2). Depois de confirmar, a Apex mostra um novo link de convite. Envie o link para a pessoa, que cria uma passkey no celular novo.",
+                "en": "If the person got a new phone. Tap Got a new phone. Apex says: Current sessions end now; a new device link will be created. Tap Confirm (1), or Cancel (2). After you confirm, Apex shows a new invite link. Send it to the person, who creates a passkey on the new phone."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-10.pt.jpg",
@@ -3533,8 +3531,8 @@
             {
               "n": 11,
               "text": {
-                "pt": "Diga quando foi. Se você escolheu Perdido ou roubado, a Apex pergunta: Quando foi? Toque em Agora (1), Hoje (2), Neste fim de semana, a partir de sexta-feira (3) ou Em uma data específica (4). Para uma data, escolha o dia, ponha uma hora aproximada se souber e toque em Continuar. Depois a Apex diz o que vai acontecer e pede que você confirme. Para Saiu da empresa: o acesso da pessoa será desligado agora. Para Comprei um celular novo: as sessões atuais são encerradas agora e um novo link de aparelho é criado para você enviar. Para Perdido ou roubado: o acesso é desligado agora e a Apex revisa a atividade desde a hora que você informou. Toque em Confirmar, ou em Cancelar. Depois de um aviso de perda, a linha da pessoa mostra a etiqueta Em análise pela Apex, e depois Revisado.",
-                "en": "Say when it was lost. If you chose Lost or stolen, Apex asks: When was it? Tap Now (1), Today (2), This weekend, from Friday (3) or On a specific date (4). For a date, pick the day, add an approximate time if you know it and tap Continue. Then Apex says what will happen and asks you to confirm. For Left the company: this person's access will be turned off now. For Got a new phone: the current sessions end now and a new device link is created for you to send. For Lost or stolen: access is turned off now and Apex reviews activity since the time you gave. Tap Confirm, or Cancel. After a lost report, the person's row shows the tag Under Apex review, and later Reviewed."
+                "pt": "Se o aparelho foi perdido ou roubado. Toque em Perdido ou roubado. A Apex pergunta: Quando foi? Escolha Agora (1), Hoje (2), Neste fim de semana (a partir de sexta-feira) (3) ou Em uma data específica (4). Cancelar (5) volta atrás. Use esta opção só quando o aparelho foi mesmo perdido ou roubado.",
+                "en": "If the device was lost or stolen. Tap Lost or stolen. Apex asks: When was it? Choose Now (1), Today (2), This weekend (from Friday) (3) or On a specific date (4). Cancel (5) goes back. Use this only when the device was really lost or stolen."
               },
               "image": {
                 "pt": "help/img/guides/people-and-access/people-11.pt.jpg",
@@ -3544,8 +3542,30 @@
             {
               "n": 12,
               "text": {
-                "pt": "Escolha o jeito certo para um vendedor. Há dois jeitos de dar um login a um vendedor. O jeito 1 é este card, Pessoas e acessos: escolha o acesso Vendedor(a), digite o nome e o celular, e envie o link de convite. Você mesmo faz, e fica pronto na hora. A pessoa cria uma passkey, então não há senha. O card só aparece se o login por passkey estiver ligado para a sua empresa. O jeito 2 é Solicitar Login em Suas listas (veja o guia Vendedores e as listas do seu negócio): você pede à Apex, a Apex analisa o pedido e cria um login com usuário e senha. Use o jeito 1 quando você vê Pessoas e acessos em Ajustes. Use o jeito 2 quando não vê. Dê a cada pessoa um dos dois, não os dois. Se você adicionar uma pessoa com um nome que um login da sua empresa já usa, a Apex diz: Já existe um acesso com este nome nesta empresa. Use um nome diferente, por exemplo com o sobrenome.",
-                "en": "Choose the right way for a salesperson. There are two ways to give a salesperson a login. Way 1 is this card, People and access: choose the access Salesperson, type the name and the mobile number, and send the invite link. You do it yourself and it is done at once. The person creates a passkey, so there is no password. The card shows only if passkey sign in is turned on for your business. Way 2 is Request Login in Your lists (see the guide Salespeople and your business lists): you ask Apex, Apex reviews the request, and Apex creates a login with a username and a password. Use way 1 when you see People and access in Settings. Use way 2 when you do not. Give each person one of the two, not both. If you add a person with a name that a login at your business already uses, Apex says: An access with this name already exists at this business. Use a different name, for example with the last name."
+                "pt": "Desative uma pessoa. Toque em Desativar (1) na linha da pessoa. A Apex pergunta: Desativar esta pessoa? A pessoa sai de todos os aparelhos na hora e não consegue entrar até ser ativada de novo. Toque em Desativar (2) para confirmar, ou em Manter acesso (3) para parar.",
+                "en": "Disable a person. Tap Disable (1) on the person's row. Apex asks: Disable this person? They are signed out everywhere right away and cannot sign in until enabled again. Tap Disable (2) to confirm, or Keep access (3) to stop."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-12.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-12.en.jpg"
+              }
+            },
+            {
+              "n": 13,
+              "text": {
+                "pt": "A pessoa desativada. Uma pessoa desativada tem a etiqueta Desativado e um só botão, Ativar (1). Se a pessoa nunca aceitou o convite, a Apex responde com um aviso (2): Esta pessoa ainda não aceitou o convite. Envie um novo link.",
+                "en": "A disabled person. A disabled person has the tag Disabled and one button, Enable (1). If the person never accepted the invite, Apex answers with a message (2): This person has not accepted the invite yet. Send a new link."
+              },
+              "image": {
+                "pt": "help/img/guides/people-and-access/people-13.pt.jpg",
+                "en": "help/img/guides/people-and-access/people-13.en.jpg"
+              }
+            },
+            {
+              "n": 14,
+              "text": {
+                "pt": "Escolha o jeito certo para um vendedor. Aqui você dá um login a um vendedor assim: em Adicionar pessoa, escolha o acesso Vendedor(a) e envie o link de convite. O guia Vendedores e as listas do seu negócio descreve o outro jeito, Solicitar login, em que você pede à Apex para criar o login. Veja esse guia para escolher.",
+                "en": "Choose the right way for a salesperson. Here you give a salesperson a login like this: under Add a person, choose the access Salesperson and send the invite link. The guide Salespeople and your business lists describes the other way, Request Login, where you ask Apex to create the login. See that guide to choose."
               },
               "image": null
             }
@@ -3563,7 +3583,7 @@
             ]
           },
           "section": "people",
-          "step": 3
+          "step": 2
         },
         {
           "labels": {
@@ -3575,43 +3595,7 @@
             ]
           },
           "section": "people",
-          "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Novo aparelho (manter os atuais)"
-            ],
-            "en": [
-              "Add a device (keep current ones)"
-            ]
-          },
-          "section": "people",
-          "step": 9
-        },
-        {
-          "labels": {
-            "pt": [
-              "Aparelho perdido, trocado ou saída"
-            ],
-            "en": [
-              "Lost, replaced or leaving"
-            ]
-          },
-          "section": "people",
-          "step": 10
-        },
-        {
-          "labels": {
-            "pt": [
-              "Manter acesso"
-            ],
-            "en": [
-              "Keep access"
-            ]
-          },
-          "section": "people",
-          "step": 7
+          "step": 3
         },
         {
           "labels": {
@@ -3623,7 +3607,43 @@
             ]
           },
           "section": "people",
-          "step": 6
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Novo aparelho (manter os atuais)"
+            ],
+            "en": [
+              "Add a device (keep current ones)"
+            ]
+          },
+          "section": "people",
+          "step": 7
+        },
+        {
+          "labels": {
+            "pt": [
+              "Aparelho perdido, trocado ou saída"
+            ],
+            "en": [
+              "Lost, replaced or leaving"
+            ]
+          },
+          "section": "people",
+          "step": 8
+        },
+        {
+          "labels": {
+            "pt": [
+              "Manter acesso"
+            ],
+            "en": [
+              "Keep access"
+            ]
+          },
+          "section": "people",
+          "step": 12
         }
       ]
     },
@@ -5404,30 +5424,6 @@
                 "pt": "help/img/guides/home-alerts/home-03.pt.jpg",
                 "en": "help/img/guides/home-alerts/home-03.en.jpg"
               }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Preencha os registros diários pendentes. Quando você tem dias sem registro diário, o Início mostra um card: Você tem dias pendentes de registro. Toque em Preencher agora para abrir o registro diário e preencher os dias que faltam. Veja o guia Registro diário.",
-                "en": "Fill in your pending daily entries. When you have days without a daily entry, Home shows a card: You have pending daily entries. Tap Fill in now to open the daily entry and fill in the days you missed. See the guide Daily log."
-              },
-              "image": null
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Veja as suas reuniões. Se a Apex deu a você um link de agendamento, ou se você tem uma reunião marcada, o Início mostra um card de reuniões. Nele você escolhe o horário, entra na reunião ou muda. Veja o guia Sua reunião com a Apex.",
-                "en": "Check your meetings. If Apex gave you a booking link, or you have a meeting booked, Home shows a meetings card. It lets you pick a time, join the meeting or move it. See the guide Your meeting with Apex."
-              },
-              "image": null
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Saiba quando não há nada esperando. Quando não há nada a fazer, o Início diz: Nada precisa da sua atenção agora.",
-                "en": "Know when nothing is waiting. When there is nothing to do, Home says: Nothing needs your attention right now."
-              },
-              "image": null
             }
           ]
         }
@@ -7413,17 +7409,17 @@
       "id": "get-help",
       "audience": "client",
       "title": {
-        "pt": "Peça ajuda dentro do Apex",
+        "pt": "Peça ajuda dentro da Apex",
         "en": "Ask for help inside Apex"
       },
       "summary": {
-        "pt": "Conte o que deu errado ou peça ajuda com o seu negócio, e o Apex manda junto os dados da sua tela.",
+        "pt": "Conte o que deu errado ou peça ajuda com o seu negócio, e a Apex envia junto os dados da sua tela.",
         "en": "Tell us what went wrong or ask for help with your business, and Apex sends the details of your screen along."
       },
       "keywords": {
         "pt": [
           "ajuda",
-          "precisa de ajuda",
+          "preciso de ajuda",
           "algo não está funcionando",
           "erro",
           "tela em branco",
@@ -7433,7 +7429,7 @@
           "enviar pelo whatsapp",
           "problema",
           "suporte",
-          "falar com o apex"
+          "falar com a apex"
         ],
         "en": [
           "help",
@@ -7462,8 +7458,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra a Ajuda. Toque em Ajuda no topo do portal. Escolha o tipo de problema (1): Algo não está funcionando, para um erro, tela em branco ou botão que não responde, ou Preciso de ajuda com o meu negócio, para uma dúvida de consultoria sobre metas ou estratégia. Descreva o que aconteceu na caixa (2): o que você estava fazendo e o que deu errado. A caixa cinza (3) mostra o que o Apex manda junto com a sua mensagem: o seu negócio, a aba em que você estava, o seu aparelho e a hora. Toque em Enviar pelo WhatsApp (4). O botão liga depois que você escolhe um tipo e escreve a mensagem.",
-                "en": "Open Help. Tap Help at the top of the portal. Choose the kind of problem (1): Something isn't working, for an error, a blank screen or a button that does nothing, or I need help with my business, for a consulting question about goals or strategy. Describe what happened in the box (2): what you were doing and what went wrong. The gray box (3) shows what Apex sends along with your message: your business, the tab you were on, your device and the time. Tap Send via WhatsApp (4). The button turns on after you choose a type and write your message."
+                "pt": "Abra Ajuda. Toque em Ajuda no alto do portal. Escolha o tipo de problema (1): Algo não está funcionando, para um erro, uma tela em branco ou um botão que não responde, ou Preciso de ajuda com o meu negócio, para uma dúvida de consultoria sobre metas ou estratégia. Descreva o que aconteceu na caixa (2): o que você fazia e o que deu errado. A caixa cinza (3) mostra o que a Apex envia junto com a sua mensagem: o seu negócio, a aba em que você estava, o seu aparelho e a hora. Toque em Enviar pelo WhatsApp (4). O botão só liga depois que você escolhe o tipo e escreve a mensagem. Na figura nada foi enviado.",
+                "en": "Open Help. Tap Help at the top of the portal. Choose the kind of problem (1): Something isn't working, for an error, a blank screen or a button that does nothing, or I need help with my business, for a consulting question about goals or strategy. Describe what happened in the box (2): what you were doing and what went wrong. The grey box (3) shows what Apex sends along with your message: your business, the tab you were on, your device and the time. Tap Send via WhatsApp (4). The button only turns on after you choose a type and write your message. In the picture nothing was sent."
               },
               "image": {
                 "pt": "help/img/guides/get-help/help-01.pt.jpg",
@@ -7473,10 +7469,13 @@
             {
               "n": 2,
               "text": {
-                "pt": "Aprenda antes de perguntar. Toque e segure qualquer botão, ou clique nele com o botão direito do mouse no computador, para abrir o guia daquele botão. A interrogação no topo abre o Aprenda com uma caixa de busca.",
-                "en": "Learn before you ask. Press and hold any button, or right click it on a computer, to open the guide for that button. The question mark at the top opens Learn with a search box."
+                "pt": "Aprenda antes de pedir. No computador, clique com o botão direito em qualquer botão (2): um menuzinho (1) diz Aprender sobre este botão. Clique nele para abrir o guia daquele botão. O ponto de interrogação no alto abre o Aprenda com uma caixa de busca. Veja o guia Use o Aprenda e troque o idioma.",
+                "en": "Learn before you ask. On a computer, right click any button (2): a small menu (1) says Learn about this button. Click it to open the guide for that button. The question mark at the top opens Learn with a search box. See the guide Use Learn and switch the language."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/get-help/help-02.pt.jpg",
+                "en": "help/img/guides/get-help/help-02.en.jpg"
+              }
             }
           ]
         }
@@ -7500,11 +7499,11 @@
       "id": "my-devices",
       "audience": "client",
       "title": {
-        "pt": "Seus aparelhos e a entrada com passkey",
+        "pt": "Seus aparelhos e o login com passkey",
         "en": "Your devices and passkey sign in"
       },
       "summary": {
-        "pt": "Veja em quais aparelhos você entra com passkey, adicione um aparelho ou remova um que não usa mais.",
+        "pt": "Veja os aparelhos que entram com passkey, adicione um aparelho ou tire um que você não usa mais.",
         "en": "See which devices sign in with a passkey, add a device or remove one you no longer use."
       },
       "keywords": {
@@ -7549,8 +7548,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra Meus aparelhos. Toque em Ajustes no alto à direita e role até Meus aparelhos. A nota (1) explica: no iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque. Cada aparelho que você usa aparece na lista (2) com o nome e a data em que foi adicionado. Toque em Remover para tirar um da lista, por exemplo um celular antigo. Para usar um computador novo, abra o Apex nele e toque em Adicionar este aparelho (3).",
-                "en": "Open My devices. Tap Settings at the top right and scroll to My devices. The note (1) explains it: on iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap. Each device you use is listed (2) with its name and the date it was added. Tap Remove to take one off the list, for example an old phone. To use a new computer, open Apex on it and tap Add this device (3)."
+                "pt": "Abra Meus aparelhos. Toque em Ajustes e role até Meus aparelhos, logo depois de Pessoas e acessos. A nota (1) explica: no iPhone, iPad e Mac a passkey sincroniza sozinha pelo iCloud. Em um computador Windows, adicione uma passkey para entrar com um toque. Cada aparelho que você usa aparece na lista (2) com o nome e a data em que foi adicionado, e tem o botão Remover (3). No fim está Adicionar este aparelho (4). Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
+                "en": "Open My devices. Tap Settings and scroll to My devices, just after People and access. The note (1) explains: on iPhone, iPad and Mac the passkey syncs by itself through iCloud. On a Windows computer, add a passkey to sign in with one tap. Each device you use is listed (2) with its name and the date it was added, and has a Remove button (3). At the end is Add this device (4). A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
               },
               "image": {
                 "pt": "help/img/guides/my-devices/devices-01.pt.jpg",
@@ -7560,16 +7559,16 @@
             {
               "n": 2,
               "text": {
-                "pt": "Convide outra pessoa. Um novo membro da equipe recebe o próprio link e cria uma passkey no próprio celular ou computador, então não existe senha para compartilhar. Veja o guia Adicionar pessoas e escolher o acesso.",
-                "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. See the Add people and choose their access guide."
+                "pt": "Convide outra pessoa. Um novo membro da equipe recebe o próprio link e cria uma passkey no próprio celular ou computador, então não há senha para compartilhar. Veja o guia Adicionar pessoas e escolher o acesso.",
+                "en": "Invite another person. A new team member gets their own link and creates a passkey on their own phone or computer, so there is no password to share. See the guide Add people and choose their access."
               },
               "image": null
             },
             {
               "n": 3,
               "text": {
-                "pt": "Celular novo ou aparelho perdido de alguém da equipe. Se uma pessoa da sua equipe ganha um celular ou computador novo, ou perde um aparelho, você resolve em Pessoas e acessos: Novo aparelho (manter os atuais) cria um novo link, e Aparelho perdido, trocado ou saída desliga o acesso ou cria um novo link. Veja o guia Adicionar pessoas e escolher o acesso, passos 9 a 11.",
-                "en": "New phone or lost device for a team member. If a person on your team gets a new phone or computer, or loses a device, you handle it in People and access: Add a device (keep current ones) makes a new link, and Lost, replaced or leaving turns the access off or makes a new link. See the guide Add people and choose their access, steps 9 to 11."
+                "pt": "Celular novo ou aparelho perdido de alguém da equipe. Isso você resolve em Pessoas e acessos: Novo aparelho (manter os atuais) cria um novo link, e Aparelho perdido, trocado ou saída desliga o acesso ou cria um novo link. Veja o guia Adicionar pessoas e escolher o acesso, passos 7 a 11.",
+                "en": "New phone or lost device for a team member. You handle it in People and access: Add a device (keep current ones) makes a new link, and Lost, replaced or leaving turns the access off or makes a new link. See the guide Add people and choose their access, steps 7 to 11."
               },
               "image": null
             }
@@ -8347,11 +8346,11 @@
       "id": "use-learn-and-language",
       "audience": "client",
       "title": {
-        "pt": "Usar o Aprenda e trocar o idioma",
+        "pt": "Use o Aprenda e troque o idioma",
         "en": "Use Learn and switch the language"
       },
       "summary": {
-        "pt": "Pergunte com suas palavras, abra o guia certo e troque entre português e inglês.",
+        "pt": "Pergunte com as suas palavras, abra o guia certo e troque entre português e inglês.",
         "en": "Ask in your own words, open the right guide and switch between Portuguese and English."
       },
       "keywords": {
@@ -8367,9 +8366,9 @@
           "inglês",
           "EN",
           "PT",
-          "toque e segure",
-          "botão direito",
-          "copiar link"
+          "clique direito",
+          "copiar link",
+          "vídeo"
         ],
         "en": [
           "learn",
@@ -8383,9 +8382,9 @@
           "english",
           "EN",
           "PT",
-          "press and hold",
           "right click",
-          "copy link"
+          "copy link",
+          "video"
         ]
       },
       "video": null,
@@ -8400,8 +8399,8 @@
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Aprenda. Toque em Apex nas abas (a aba com a bolinha vermelha) e depois em Aprenda (1). A biblioteca abre em uma página própria.",
-                "en": "Open Learn. Tap Apex on the tabs (the tab with the small red dot), then tap Learn (1). The library opens on its own page."
+                "pt": "Abra o Aprenda. Toque em Apex (1) nas abas e depois em Aprenda (2). A biblioteca abre na própria página. O botão Voltar leva você de volta ao portal.",
+                "en": "Open Learn. Tap Apex (1) on the tabs, then tap Learn (2). The library opens on its own page. The Back button takes you back to the portal."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-01.pt.jpg",
@@ -8411,7 +8410,7 @@
             {
               "n": 2,
               "text": {
-                "pt": "Pergunte com as suas palavras. Escreva uma palavra ou uma pergunta inteira na caixa de busca (1), por exemplo como envio uma fatura. Depois toque em Buscar (2) ou aperte Enter. Você não precisa saber o nome exato do guia.",
+                "pt": "Pergunte com as suas palavras. Digite uma palavra ou uma pergunta inteira na caixa de busca (1), por exemplo como enviar uma fatura. Depois toque em Buscar (2) ou aperte Enter. Você não precisa saber o nome do guia.",
                 "en": "Ask in your own words. Type a word or a whole question in the search box (1), for example how do I send an invoice. Then tap Search (2) or press Enter. You do not need the exact name of the guide."
               },
               "image": {
@@ -8422,8 +8421,8 @@
             {
               "n": 3,
               "text": {
-                "pt": "Abra o guia. O Apex responde em uma ou duas linhas e mostra o guia certo. Toque em Ver passo a passo (1) para ler com as fotos. Toque em Copiar link (2) para mandar o guia a alguém da equipe. Se nenhum guia servir, o Apex avisa e anota a sua pergunta para escrevermos um guia.",
-                "en": "Open the guide. Apex answers in one or two lines and shows the guide that fits. Tap See step by step (1) to read it with pictures. Tap Copy link (2) to send the guide to a teammate. If no guide fits, Apex tells you and notes your question so a guide can be written."
+                "pt": "Abra o guia. A Apex responde em uma ou duas linhas (1) e mostra o guia que serve. Toque em Ver passo a passo (2) para ler com figuras. Toque em Copiar link (3) para mandar o guia a alguém da equipe. Quando o guia tem vídeo, aparece a etiqueta Vídeo (4).",
+                "en": "Open the guide. Apex answers in one or two lines (1) and shows the guide that fits. Tap See step by step (2) to read it with pictures. Tap Copy link (3) to send the guide to a teammate."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-03.pt.jpg",
@@ -8433,16 +8432,19 @@
             {
               "n": 4,
               "text": {
-                "pt": "Aprenda em qualquer botão sem sair da tela. No app do celular, toque e segure o botão. No computador, clique no botão com o botão direito do mouse. Se existir um guia sobre esse botão, abre um cartão pequeno com o passo certo.",
-                "en": "Learn from any button without leaving the screen. In the phone app, press and hold the button. On a computer, right click the button. If a guide explains that button, a small card opens with the right step."
+                "pt": "Aprenda a partir de qualquer botão. No computador, clique com o botão direito no botão (2). Um menuzinho (1) diz Aprender sobre este botão. A própria página do Aprenda explica: no app do celular, toque e segure o botão.",
+                "en": "Learn from any button. On a computer, right click the button (2). A small menu (1) says Learn about this button. The Learn page itself explains: in the phone app, press and hold the button."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-04.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Troque o idioma. No alto, à direita, o botão (1) mostra o idioma para onde você pode trocar: EN muda a página para inglês e PT volta para português. Os guias seguem o idioma da tela.",
-                "en": "Switch the language. At the top right, the button (1) shows the language you can change to: EN switches the page to English and PT switches it back to Portuguese. The guides follow the language of the screen."
+                "pt": "O guia abre no passo certo. Toque em Aprender sobre este botão. Abre um cartão do Aprenda no passo que explica aquele botão, com a figura. Neste exemplo, o botão Criar link de convite abriu o passo 3 do guia Adicionar pessoas e escolher o acesso. Toque no X para fechar.",
+                "en": "The guide opens at the right step. Click Learn about this button. A Learn card opens at the step that explains that button, with its picture. In this example, the button Create invite link opened step 3 of the guide Add people and choose their access. Tap the X to close."
               },
               "image": {
                 "pt": "help/img/guides/use-learn-and-language/learn-05.pt.jpg",
@@ -8452,18 +8454,24 @@
             {
               "n": 6,
               "text": {
-                "pt": "Veja um vídeo. Alguns guias têm vídeo. Na biblioteca, uma etiqueta pequena Vídeo aparece no card desse guia. Quando você abre o guia, um card no alto diz Assistir ao vídeo. Toque nele e o vídeo toca ali mesmo, na página. Embaixo a página diz: Ou siga os passos abaixo. Se o vídeo não carregar, a página avisa e você segue os passos. Por enquanto os vídeos estão só em português. Quando um guia não tem vídeo no seu idioma, você não vê card nem etiqueta.",
-                "en": "Watch a video. Some guides have a video. In the library, a small tag Video shows on the card of that guide. When you open the guide, a card at the top says Watch the video. Tap it and the video plays right there, on the page. Under it the page says: Or follow the steps below. If the video cannot load, the page says so and you follow the steps. For now the videos are in Portuguese only. When a guide has no video in your language, you see no card and no tag."
+                "pt": "Troque o idioma. No alto, à direita, o botão (1) mostra o idioma para o qual você pode mudar: EN muda a página para inglês e PT muda de volta para português. Os guias seguem o idioma da tela.",
+                "en": "Switch the language. At the top right, the button (1) shows the language you can change to: EN switches the page to English and PT switches it back to Portuguese. The guides follow the language of the screen."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-06.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-06.en.jpg"
+              }
             },
             {
               "n": 7,
               "text": {
-                "pt": "Quando a Apex não faz o que você pediu. Se você pede algo que a Apex ainda não faz, ela avisa: O Apex ainda não faz isso. Quer nos contar mais para enviarmos uma sugestão? Toque em Sim, contar mais, ou em Não, obrigada. Se você toca em Sim, a Apex faz algumas perguntas curtas, uma de cada vez, até cinco, sobre o que você quer, quando deve acontecer, que informação precisa e que resultado você espera. Toque em Enviar para responder cada uma. Você pode tocar em Enviar assim mesmo para parar antes. Quando termina, a página diz Sugestão enviada. Se a Apex não tiver certeza, ela pergunta: você quer aprender a fazer isso no Apex, ou quer que o Apex passe a fazer isso? Toque em Aprender, ou em Quero que o Apex faça.",
-                "en": "When Apex does not do what you asked. If you ask for something Apex does not do yet, Apex says so: Apex does not do that yet. Want to tell us more so we can send a suggestion? Tap Yes, tell more, or No thanks. If you tap Yes, Apex asks you a few short questions, one at a time, up to five, about what you want, when it should happen, what information it needs and what result you expect. Tap Send to answer each one. You can tap Send it as it is to stop early. When it is done, the page says Suggestion sent. If Apex is not sure, it asks: do you want to learn how to do this in Apex, or do you want Apex to start doing it? Tap Learn, or I want Apex to do it."
+                "pt": "Assista ao vídeo. Alguns guias têm vídeo. Ao abrir o guia, um cartão no alto (1) diz Assistir ao vídeo. Toque nele e o vídeo toca ali mesmo, na página. Embaixo (2) a página diz: Ou siga os passos abaixo. Por enquanto os vídeos existem só em português. Voltar (3) leva à biblioteca.",
+                "en": "Watch a video. For now the videos exist only in Portuguese. When you open a guide in English there is no video card, as in the picture: you read the steps with pictures. Switch to PT (1) to see the video card. Back (2) takes you to the library."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-07.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-07.en.jpg"
+              }
             }
           ]
         }
@@ -11012,21 +11020,20 @@
       "id": "assigned-tools",
       "audience": "client",
       "title": {
-        "pt": "Suas ferramentas: as avaliações que a Apex liberou",
+        "pt": "Suas ferramentas: os diagnósticos que a Apex liberou",
         "en": "Your tools: the assessments Apex gave you"
       },
       "summary": {
-        "pt": "Encontre as avaliações que a Apex liberou e abra uma.",
+        "pt": "Ache os diagnósticos que a Apex liberou para você e abra um.",
         "en": "Find the assessments Apex gave you and open one."
       },
       "keywords": {
         "pt": [
           "atribuídos",
           "suas ferramentas",
-          "avaliação",
+          "diagnóstico",
           "raio x",
           "questionário",
-          "diagnóstico",
           "ponto vermelho",
           "aba apex"
         ],
@@ -11046,15 +11053,15 @@
         {
           "id": "assigned",
           "title": {
-            "pt": "Abrir uma avaliação",
+            "pt": "Abrir um diagnóstico",
             "en": "Open an assessment"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Abra Atribuídos. Toque em Apex na fileira de abas no alto (1). Um pontinho vermelho nela quer dizer que tem uma avaliação esperando por você. Depois toque em Atribuídos. A página se chama Suas ferramentas. Avaliação é um conjunto curto de perguntas sobre a sua empresa que a Apex libera para você. Toque em Abrir (2) na que você quer responder.",
-                "en": "Open Assigned. Tap Apex in the row of tabs at the top (1). A small red dot on it means an assessment is waiting for you. Then tap Assigned. The page is called Your tools. An assessment is a short set of questions about your business that Apex gives you. Tap Open (2) on the one you want to answer."
+                "pt": "Abra Atribuídos. Toque em Apex (1) nas abas do alto. Um pontinho vermelho nela quer dizer que tem um diagnóstico esperando por você. Depois toque em Atribuídos (2). Diagnóstico é um conjunto curto de perguntas sobre o seu negócio que a Apex dá a você.",
+                "en": "Open Assigned. Tap Apex (1) in the row of tabs at the top. A small red dot on it means an assessment is waiting for you. Then tap Assigned (2). An assessment is a short set of questions about your business that Apex gives you."
               },
               "image": {
                 "pt": "help/img/guides/assigned-tools/assigned-01.pt.jpg",
@@ -11064,18 +11071,24 @@
             {
               "n": 2,
               "text": {
-                "pt": "Entenda o que a página mostra. Ela lista só as avaliações que você ainda não terminou. Quando você termina uma, ela sai da lista. Quando não sobra nenhuma, a aba Atribuídos e o pontinho vermelho somem. Se a Apex ainda não liberou nada, a página diz: Nenhuma ferramenta liberada ainda. A Apex avisa você assim que houver novidade.",
-                "en": "Know what the page shows. It lists only the assessments you have not finished. When you finish one, it leaves the list. When none is left, the Assigned tab and the red dot disappear. If Apex has not given you anything yet, the page says: No tools unlocked yet. Apex will let you know as soon as there is something new."
+                "pt": "Veja a página. A página se chama Suas ferramentas e diz: O que a Apex liberou para você até agora. Cada diagnóstico tem o nome, uma linha curta e o botão dourado Abrir (2). Toque em Abrir para responder. Veja o guia Responda o Feedback 360º.",
+                "en": "See the page. The page is called Your tools and says: What Apex has unlocked for you so far. Each assessment has its name, a short line and a gold Open button (2). Tap Open to answer it. See the guide Answer the 360º Feedback."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/assigned-tools/assigned-02.pt.jpg",
+                "en": "help/img/guides/assigned-tools/assigned-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Seu primeiro acesso. Se você ainda não definiu metas mensais e tem uma avaliação esperando, a Apex abre a avaliação para você logo depois que você entra. Se você tem o Raio X Empresarial e outras, o Raio X Empresarial abre primeiro. Suas avaliações terminadas e os relatórios ficam em Documentos.",
-                "en": "Your first sign in. If you have not set any monthly goals yet and an assessment is waiting, Apex opens the assessment for you right after you sign in. If you have the Business X-Ray and others, the Business X-Ray opens first. Your finished assessments and their reports are kept in Documents."
+                "pt": "Quando você termina. Ao terminar o último diagnóstico, o pontinho vermelho some e Atribuídos deixa de aparecer no menu Apex (1), que fica com Aprenda (2), Ritmo, Execução, Tarefas e Documentos. Os diagnósticos terminados ficam guardados em Documentos.",
+                "en": "When you finish. When you finish the last assessment, the red dot goes away and Assigned no longer shows in the Apex menu (1), which keeps Learn (2), Pace, Execution, Tasks and Documents. Finished assessments are kept in Documents."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/assigned-tools/assigned-03.pt.jpg",
+                "en": "help/img/guides/assigned-tools/assigned-03.en.jpg"
+              }
             }
           ]
         }
@@ -11099,35 +11112,33 @@
       "id": "business-xray",
       "audience": "client",
       "title": {
-        "pt": "Raio X Empresarial: responda e leia o seu resultado",
-        "en": "Business X-Ray: answer and read your result"
+        "pt": "Raio X Empresarial: leia o seu relatório",
+        "en": "Business X-Ray: read your report"
       },
       "summary": {
-        "pt": "Responda as perguntas do Raio X Empresarial e leia o resultado.",
-        "en": "Answer the Business X-Ray questions and read the result."
+        "pt": "Ache o seu Raio X Empresarial terminado e leia a nota, o nível de maturidade e o resultado por área.",
+        "en": "Find your finished Business X-Ray and read the score, the maturity level and the result by area."
       },
       "keywords": {
         "pt": [
           "raio x empresarial",
           "raio x",
           "xray",
-          "perguntas sim não",
           "diagnóstico",
           "maturidade",
-          "pontuação",
-          "seções de prática",
-          "relatório"
+          "nota",
+          "relatório",
+          "ver relatório"
         ],
         "en": [
           "business x-ray",
           "x-ray",
           "xray",
-          "yes no questions",
           "diagnostic",
           "maturity",
           "score",
-          "practice sections",
-          "report"
+          "report",
+          "view report"
         ]
       },
       "video": null,
@@ -11135,15 +11146,15 @@
         {
           "id": "xray",
           "title": {
-            "pt": "Responder o Raio X Empresarial",
-            "en": "Answer the Business X-Ray"
+            "pt": "Ler o relatório do Raio X Empresarial",
+            "en": "Read your Business X-Ray report"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Abra o Raio X. Toque em Apex, depois em Atribuídos, depois em Abrir no Raio X Empresarial. Ele faz perguntas de Sim ou Não sobre a sua empresa: 62 perguntas com nota, em 6 áreas, e depois 36 campos de prática em duas seções no final. A linha no alto (1) conta o que você já preencheu, por exemplo 0 de 98. Cada linha é uma seção com a sua própria contagem: a primeira (2) e a última (3). Toque em Começar (4). Se você já começou, o botão diz Continuar.",
-                "en": "Open the X-Ray. Tap Apex, then Assigned, then Open on Business X-Ray. It asks Yes or No questions about your business: 62 scored questions in 6 areas, then 36 practice fields in two last sections. The line at the top (1) counts what you filled in, for example 0 of 98. Each row is one section with its own count: the first (2) and the last (3). Tap Start (4). If you already began, the button says Continue."
+                "pt": "Ache o relatório em Documentos. Toque em Apex e depois em Documentos. Em Diagnósticos e relatórios concluídos (1), cada diagnóstico terminado tem uma linha (3) com a data e Concluído. Toque em Ver relatório (2) na linha do Raio X Empresarial.",
+                "en": "Find the report in Documents. Tap Apex, then Documents. Under Completed assessments & reports (1), each finished assessment has a row (3) with its date and Completed. Tap View report (2) on the Business X-Ray row."
               },
               "image": {
                 "pt": "help/img/guides/business-xray/xray-01.pt.jpg",
@@ -11153,8 +11164,8 @@
             {
               "n": 2,
               "text": {
-                "pt": "Responda Sim ou Não. Embaixo de cada pergunta, toque em Sim ou Não (2). A resposta é salva sozinha. Se uma palavra não estiver clara, toque no i pequeno (1) ao lado da pergunta. Abre uma explicação curta (3). Toque no i de novo para fechar.",
-                "en": "Answer Yes or No. Under each question, tap Yes or No (2). Your answer is saved by itself. If a word is not clear, tap the small i (1) next to the question. A short explanation opens (3). Tap the i again to close it."
+                "pt": "Leia o relatório. O relatório abre na própria página. A nota (1) mostra quantas respostas Sim você deu, de 62, por exemplo 17 de 62, com a porcentagem de respostas Sim embaixo. O quadro seguinte (2) diz o nível de maturidade, por exemplo Maturidade Baixa, com uma frase curta. Maturidade quer dizer o quanto o negócio está organizado hoje. Resultado por Área (3) lista cada área com os Sim sobre o total, a porcentagem e uma etiqueta: Atenção, Moderado ou Crítico.",
+                "en": "Read the report. The report opens on its own page. The score (1) shows how many Yes answers you gave out of 62, for example 17 of 62, with the percent of Yes answers under it. The next box (2) says the maturity level, for example Low Maturity, with one short line. Maturity means how well organized the business is today. Results by Area (3) lists each area with its Yes answers out of the total, the percent and a tag: Attention, Moderate or Critical."
               },
               "image": {
                 "pt": "help/img/guides/business-xray/xray-02.pt.jpg",
@@ -11164,39 +11175,150 @@
             {
               "n": 3,
               "text": {
-                "pt": "Vá de uma seção para outra. No fim de cada seção há três botões. Na primeira seção o botão da esquerda (1) é Visão geral, que leva você de volta à lista de seções. Nas outras seções ele é Anterior. O botão dourado (2) é Próxima. Salvar e continuar depois (3) deixa você parar. Suas respostas são salvas enquanto você vai, então você volta e continua de onde parou.",
-                "en": "Move between sections. At the bottom of each section there are three buttons. On the first section the left button (1) is Overview, which takes you back to the list of sections. On the other sections it is Back. The gold button (2) is Next. Save and continue later (3) lets you stop. Your answers are saved as you go, so you can come back and pick up where you stopped."
+                "pt": "Os botões do alto. No alto do relatório estão Voltar, PT / EN, que troca o idioma do relatório, e Exportar PDF. Voltar leva você de volta ao portal.",
+                "en": "The buttons at the top. At the top of the report are Back, PT / EN, which changes the language of the report, and Export PDF. Back takes you to the portal."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "other-assessments",
+      "audience": "client",
+      "title": {
+        "pt": "Responda o Feedback 360º",
+        "en": "Answer the 360º Feedback"
+      },
+      "summary": {
+        "pt": "Abra o Feedback 360º em Atribuídos, responda 7 perguntas de Sim ou Não, termine e leia o relatório.",
+        "en": "Open the 360º Feedback from Assigned, answer 7 Yes or No questions, finish and read the report."
+      },
+      "keywords": {
+        "pt": [
+          "feedback 360",
+          "diagnóstico",
+          "perguntas sim ou não",
+          "concluir",
+          "enviar respostas",
+          "relatório",
+          "percepção"
+        ],
+        "en": [
+          "360 feedback",
+          "assessment",
+          "yes no questions",
+          "finish",
+          "submit answers",
+          "report",
+          "perception"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "others",
+          "title": {
+            "pt": "Responder um diagnóstico",
+            "en": "Answer an assessment"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o diagnóstico. Toque em Apex (1), depois em Atribuídos e em Abrir (2) no Feedback 360º. Veja o guia Suas ferramentas: os diagnósticos que a Apex liberou.",
+                "en": "Open the assessment. Tap Apex (1), then Assigned, then Open (2) on 360º Feedback. See the guide Your tools: the assessments Apex gave you."
               },
               "image": {
-                "pt": "help/img/guides/business-xray/xray-03.pt.jpg",
-                "en": "help/img/guides/business-xray/xray-03.en.jpg"
+                "pt": "help/img/guides/other-assessments/others-01.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Comece. A primeira página diz: São 7 perguntas de Sim ou Não. Responda com base na sua percepção de hoje. Suas respostas são salvas automaticamente, você pode parar e continuar depois. A linha 0 de 7 respostas preenchidas conta as suas respostas. Toque em Começar.",
+                "en": "Start. The first page says: There are 7 Yes/No questions. Answer based on how you see things today. Your answers are saved automatically, you can stop and pick up later. The line 0 of 7 answers filled in counts your answers. Tap Start."
+              },
+              "image": null
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Responda Sim ou Não. As perguntas ficam todas em uma página. Embaixo de cada uma, toque em Não ou Sim. O número no alto (1) sobe e a linha que você tocou (2) fica colorida. Role para a próxima pergunta (3).",
+                "en": "Answer Yes or No. The questions are all on one page. Under each one, tap No or Yes. The count at the top (1) goes up and the row you tapped (2) turns color. Scroll down to the next question (3)."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-03.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-03.en.jpg"
               }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Preencha as seções de prática. As duas últimas seções, Marketing na Prática e Sistemas e IA, perguntam como as coisas funcionam na prática hoje. Elas mostram como você trabalha e não entram na nota. Mesmo assim, precisam estar preenchidas para você poder concluir.",
-                "en": "Fill in the practice sections. The last two sections, Marketing in Practice and Business Systems and AI, ask how things work in practice today. They are a picture of how you work and are not part of the score. They still have to be filled in before you can finish."
+                "pt": "Termine ou volte depois. No fim da página há dois botões: Concluir (1) e Salvar e continuar depois (2). Cada toque é salvo sozinho, então você pode sair a qualquer hora.",
+                "en": "Finish, or come back later. At the bottom of the page there are two buttons: Finish (1) and Save and continue later (2). Every tap is saved by itself, so you can leave at any time."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-04.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Conclua. Na última seção o botão dourado diz Concluir. Toque nele. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas, ou em Continuar editando. Se faltar alguma coisa, a Apex diz quantas perguntas ou campos faltam e leva você de volta à visão geral para você achar a seção.",
-                "en": "Finish. In the last section the gold button says Finish. Tap it. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers, or Keep editing. If something is missing, Apex tells you how many questions or fields are left and takes you back to the overview so you can find the section."
+                "pt": "Confirme o envio. A Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas (1) ou em Continuar editando (2).",
+                "en": "Confirm the submit. Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers (1) or Keep editing (2)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-05.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-05.en.jpg"
+              }
             },
             {
               "n": 6,
               "text": {
-                "pt": "Leia o seu resultado. Depois de concluir, a página de resultado mostra a sua nota de 62 (1), por exemplo 17 de 62, a porcentagem e o nível de maturidade. Maturidade quer dizer o quanto a empresa está organizada hoje. Cada área tem a sua linha (2) com os pontos, a porcentagem e uma etiqueta (3): Bom, Moderado, Atenção ou Crítico. Toque em Ver relatório completo (4) para abrir o relatório completo em uma página própria. Seu consultor apresenta o relatório e o plano de ação prioritário. Você pode abrir o relatório de novo depois, em Documentos.",
-                "en": "Read your result. After you finish, the result page shows your score out of 62 (1), for example 17 of 62, the percent and the maturity level. Maturity means how well organized the business is today. Each area has its own row (2) with the points, the percent and a tag (3): Good, Moderate, Attention or Critical. Tap View full report (4) to open the full report on its own page. Your consultant walks you through it and through the priority action plan. You can open the report again later from Documents."
+                "pt": "Leia o resultado. A página diz Feedback 360º concluído: Obrigado! Seu diagnóstico foi enviado. A nota (1) é a porcentagem de respostas Sim e quantos Sim de 7, por exemplo 57% e 4/7. Uma etiqueta (2) dá o veredito, por exemplo Percepção Moderada. Cada pergunta tem uma linha (3) com Sim ou Não.",
+                "en": "Read your result. The page says 360º Feedback completed: Thank you! Your diagnostic has been submitted. The score (1) is the percent of Yes answers and how many Yes out of 7, for example 57% and 4/7. A tag (2) gives the verdict, for example Moderate Perception. Each question has a row (3) with Yes or No."
               },
               "image": {
-                "pt": "help/img/guides/business-xray/xray-06.pt.jpg",
-                "en": "help/img/guides/business-xray/xray-06.en.jpg"
+                "pt": "help/img/guides/other-assessments/others-06.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-06.en.jpg"
+              }
+            },
+            {
+              "n": 7,
+              "text": {
+                "pt": "Abra o relatório completo. Embaixo da lista, toque em Ver relatório completo (1). Embaixo do botão (2) a página diz: Seu consultor vai apresentar o relatório completo com o plano de ação prioritário.",
+                "en": "Open the full report. Under the list, tap View full report (1). Under the button (2) the page says: Your consultant will walk you through the full report and the priority action plan."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-07.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-07.en.jpg"
+              }
+            },
+            {
+              "n": 8,
+              "text": {
+                "pt": "Veja o relatório. O relatório abre na própria página. No alto estão Voltar (1), PT / EN (2), que troca o idioma do relatório, e Exportar PDF (3). Embaixo estão a nota (4), a avaliação, quantos Sim e Não você deu e a lista das 7 perguntas com as suas respostas. Voltar (1) leva você de volta ao portal.",
+                "en": "See the report. The report opens on its own page. At the top are Back (1), PT / EN (2), which changes the language of the report, and Export PDF (3). Below are the score (4), the assessment, how many Yes and No answers you gave and the list of the 7 questions with your answers. Back (1) takes you to the portal."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-08.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-08.en.jpg"
+              }
+            },
+            {
+              "n": 9,
+              "text": {
+                "pt": "Ache de novo mais tarde. Os diagnósticos terminados ficam em Apex, Documentos, Diagnósticos e relatórios concluídos (1). A sua linha do Feedback 360º é a (3). Cada linha tem um botão Ver relatório, como o (2). A mesma lista mostra os outros diagnósticos quando estão concluídos: Raio X Empresarial, Raio X de Gestão, Raio X Nível de Liderança, Raio X de Permissividade, Raio X Falhas e Pilares de Crescimento.",
+                "en": "Find it again later. Finished assessments are kept in Apex, Documents, Completed assessments & reports (1). Your 360º Feedback row is (3). Each row has a View report button, like (2). The same list shows the other assessments once they are done: Business X-Ray, Management X-Ray, Leadership Level X-Ray, Permissiveness X-Ray, Failures X-Ray and Growth Pillars."
+              },
+              "image": {
+                "pt": "help/img/guides/other-assessments/others-09.pt.jpg",
+                "en": "help/img/guides/other-assessments/others-09.en.jpg"
               }
             }
           ]
@@ -11206,38 +11328,14 @@
         {
           "labels": {
             "pt": [
-              "Visão geral"
-            ],
-            "en": [
-              "Overview"
-            ]
-          },
-          "section": "xray",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
               "Salvar e continuar depois"
             ],
             "en": [
               "Save and continue later"
             ]
           },
-          "section": "xray",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Ver relatório completo"
-            ],
-            "en": [
-              "View full report"
-            ]
-          },
-          "section": "xray",
-          "step": 6
+          "section": "others",
+          "step": 4
         },
         {
           "labels": {
@@ -11248,143 +11346,20 @@
               "Yes, submit my answers"
             ]
           },
-          "section": "xray",
+          "section": "others",
           "step": 5
-        }
-      ]
-    },
-    {
-      "id": "other-assessments",
-      "audience": "client",
-      "title": {
-        "pt": "As outras avaliações: liderança, gestão, 360 e mais",
-        "en": "The other assessments: leadership, management, 360 and more"
-      },
-      "summary": {
-        "pt": "Responda as avaliações de Sim ou Não e de 0 a 10 que a Apex liberou.",
-        "en": "Answer the Yes or No and 0 to 10 assessments Apex gave you."
-      },
-      "keywords": {
-        "pt": [
-          "raio x liderança",
-          "raio x gestão",
-          "permissividade",
-          "raio x falhas",
-          "feedback 360",
-          "pilares de crescimento",
-          "avaliação",
-          "de 0 a 10",
-          "nota",
-          "questionário"
-        ],
-        "en": [
-          "leadership x-ray",
-          "management x-ray",
-          "permissiveness",
-          "failures x-ray",
-          "360 feedback",
-          "growth pillars",
-          "assessment",
-          "0 to 10",
-          "score",
-          "questionnaire"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "others",
-          "title": {
-            "pt": "Responder uma avaliação",
-            "en": "Answer an assessment"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Conheça as seis avaliações. A Apex pode liberar qualquer uma destas. Raio X de Gestão: 11 categorias de gestão, respondidas em uma escala de maturidade. Raio X Nível de Liderança: 10 competências de liderança, com nota de 0 a 10. Raio X de Permissividade: 4 indicadores, com nota de 0 a 10. Raio X Falhas: 27 falhas, avaliadas pela intensidade com que aparecem. Feedback 360: 7 perguntas de Sim ou Não sobre como as finanças são vistas. Pilares de Crescimento: 7 perguntas de Sim ou Não. Você só vê as que a Apex liberou. Elas ficam em Atribuídos. Veja o guia Suas ferramentas.",
-                "en": "Know the six assessments. Apex can give you any of these. Management X-Ray: 11 management categories, answered on a maturity scale. Leadership Level X-Ray: 10 leadership skills, scored from 0 to 10. Permissiveness X-Ray: 4 indicators, scored from 0 to 10. Failures X-Ray: 27 failures, rated by how strongly each one shows up. 360 Feedback: 7 Yes or No questions on how the finances are seen. Growth Pillars: 7 Yes or No questions. You only see the ones Apex gave you. They are listed under Assigned. See the guide Your tools."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Comece. Abra a avaliação em Atribuídos. A primeira página diz quantas perguntas há e que as suas respostas são salvas sozinhas. A linha (1) conta as suas respostas, por exemplo 0 de 7. Toque em Começar (2). Se você já começou, o botão diz Continuar. Se você respondeu tudo mas não concluiu, ele diz Revisar e concluir.",
-                "en": "Start. Open the assessment from Assigned. The first page says how many questions there are and that your answers are saved by themselves. The line (1) counts your answers, for example 0 of 7. Tap Start (2). If you already began, the button says Continue. If you answered everything but did not finish, it says Review and finish."
-              },
-              "image": {
-                "pt": "help/img/guides/other-assessments/others-02.pt.jpg",
-                "en": "help/img/guides/other-assessments/others-02.en.jpg"
-              }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Responda as perguntas de Sim ou Não. Todas as perguntas ficam em uma só página. Toque em Não ou Sim (2) embaixo de cada uma. Cada toque é salvo sozinho, e a contagem no alto (1) sobe. Role para baixo até a próxima pergunta.",
-                "en": "Answer the Yes or No questions. All the questions are on one page. Tap No or Yes (2) under each one. Each tap is saved by itself, and the count at the top (1) goes up. Scroll down to the next question."
-              },
-              "image": {
-                "pt": "help/img/guides/other-assessments/others-03.pt.jpg",
-                "en": "help/img/guides/other-assessments/others-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Responda as perguntas de 0 a 10. Nas avaliações de Liderança, Permissividade e Falhas, toque em um número de 0 a 10 (1) embaixo de cada pergunta. 0 é o mais baixo e 10 é o mais alto. As cores pequenas embaixo da pergunta (2) dizem o que o número significa: 0 a 3 é Crítico (vermelho), 4 a 7 é Atenção (amarelo) e 8 a 10 é Adequado (verde). O Raio X Falhas junta as suas 27 perguntas em grupos com título.",
-                "en": "Answer the 0 to 10 questions. For the Leadership, Permissiveness and Failures assessments, tap one number from 0 to 10 (1) under each question. 0 is the lowest and 10 is the highest. The small colors under the question (2) tell what the number means: 0 to 3 is Critical (red), 4 to 7 is Attention (yellow) and 8 to 10 is Adequate (green). The Failures X-Ray groups its 27 questions under headings."
-              },
-              "image": {
-                "pt": "help/img/guides/other-assessments/others-04.pt.jpg",
-                "en": "help/img/guides/other-assessments/others-04.en.jpg"
-              }
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Responda o Raio X de Gestão. Cada uma das 11 categorias tem uma pergunta e algumas opções. Toque na opção que melhor descreve a sua empresa hoje. Cada opção tem uma bolinha colorida que mostra o quanto aquela resposta é madura.",
-                "en": "Answer the Management X-Ray. Each of the 11 categories has one question and a few choices. Tap the choice that best describes your company today. Each choice has a colored dot that shows how mature that answer is."
-              },
-              "image": null
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Conclua, ou volte depois. No fim há dois botões: Concluir (1) e Salvar e continuar depois (2). Você pode sair a qualquer hora, porque cada toque é salvo. Quando tudo estiver respondido, toque em Concluir. Se faltar alguma coisa, a Apex diz quantas perguntas faltam e leva você até a primeira. Depois a Apex pergunta: Enviar suas respostas? Depois de concluir, não será possível alterá-las. Toque em Sim, enviar minhas respostas, ou em Continuar editando.",
-                "en": "Finish, or come back later. At the bottom there are two buttons: Finish (1) and Save and continue later (2). You can leave at any time, because every tap is saved. When everything is answered, tap Finish. If something is missing, Apex says how many questions are left and takes you to the first one. Then Apex asks: Submit your answers? They cannot be changed after finishing. Tap Yes, submit my answers, or Keep editing."
-              },
-              "image": {
-                "pt": "help/img/guides/other-assessments/others-06.pt.jpg",
-                "en": "help/img/guides/other-assessments/others-06.en.jpg"
-              }
-            },
-            {
-              "n": 7,
-              "text": {
-                "pt": "Leia o seu resultado. A página de resultado mostra a sua nota (1) e uma etiqueta com o veredito, por exemplo Liderança de Alta Performance. Embaixo, cada pergunta ou categoria tem a sua linha (2) com o número e uma etiqueta colorida. A avaliação de Permissividade mostra pontos em vez de porcentagem. Toque em Ver relatório completo para abrir o relatório completo. Seu consultor apresenta o relatório e o plano de ação prioritário. Você pode abrir o relatório de novo depois, em Documentos.",
-                "en": "Read your result. The result page shows your score (1) and a tag with the verdict, for example High-Performance Leadership. Under it, each question or category has its own row (2) with its number and a colored tag. The Permissiveness assessment shows points instead of a percent. Tap View full report to open the full report. Your consultant walks you through it and through the priority action plan. You can open the report again later from Documents."
-              },
-              "image": {
-                "pt": "help/img/guides/other-assessments/others-07.pt.jpg",
-                "en": "help/img/guides/other-assessments/others-07.en.jpg"
-              }
-            }
-          ]
-        }
-      ],
-      "buttons": [
+        },
         {
           "labels": {
             "pt": [
-              "Revisar e concluir"
+              "Ver relatório completo"
             ],
             "en": [
-              "Review and finish"
+              "View full report"
             ]
           },
           "section": "others",
-          "step": 2
+          "step": 7
         }
       ]
     },
@@ -11392,11 +11367,11 @@
       "id": "sign-in-screens",
       "audience": "client",
       "title": {
-        "pt": "Entrar no Apex: passkey, senha ou Google",
+        "pt": "Entre na Apex: passkey, senha ou Google",
         "en": "Sign in to Apex: passkey, password or Google"
       },
       "summary": {
-        "pt": "Entre com passkey, com usuário e senha, ou com o Google.",
+        "pt": "Entre com uma passkey, com usuário e senha ou com o Google.",
         "en": "Sign in with a passkey, a username and password, or Google."
       },
       "keywords": {
@@ -11407,8 +11382,6 @@
           "senha",
           "usuário",
           "google",
-          "nova senha",
-          "primeira senha",
           "qr code",
           "face id"
         ],
@@ -11420,9 +11393,6 @@
           "password",
           "username",
           "google",
-          "new password",
-          "first password",
-          "forgot",
           "qr code",
           "face id"
         ]
@@ -11432,62 +11402,63 @@
         {
           "id": "signin",
           "title": {
-            "pt": "Entrar no Apex",
+            "pt": "Entrar na Apex",
             "en": "Sign in to Apex"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Abra a página de entrada. Vá para apex.resonateai.online, ou abra o app Apex no seu iPhone. A página mostra o logo da Apex e as formas de entrar. No canto de cima à direita, um botão pequeno troca o idioma: ele mostra EN para mudar para inglês e PT para mudar para português.",
-                "en": "Open the sign in page. Go to apex.resonateai.online, or open the Apex app on your iPhone. The page shows the Apex logo and the ways to sign in. At the top right, a small button switches the language: it shows EN to change to English and PT to change to Portuguese."
+                "pt": "Abra a página de entrar. Abra apex.resonateai.online no navegador. A página mostra a logo da Apex e as formas de entrar. No alto, à direita, um botão pequeno (1) troca o idioma: mostra EN para mudar para inglês e PT para mudar para português. As figuras mostram a página no iPhone.",
+                "en": "Open the sign in page. Open apex.resonateai.online in your browser. The page shows the Apex logo and the ways to sign in. At the top right, a small button (1) switches the language: it shows EN to change to English and PT to change to Portuguese. The pictures show the page on an iPhone."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-01.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Entre com uma passkey. Passkey é uma forma de entrar com o seu rosto, a sua digital ou a senha de desbloqueio do seu celular ou computador. Você não digita nem precisa lembrar de nada. Se a sua empresa tem passkeys ligadas, você vê o botão Entrar com passkey. Toque nele e faça o que o seu aparelho pedir. Em um computador novo, toque no botão e escolha usar um celular, depois leia o QR code da tela com a câmera do celular. Se aparecer a mensagem Nenhuma passkey neste aparelho, peça um novo link de convite. Se você não vê o botão, o seu navegador pode não aceitar passkeys. Use o Safari ou o Chrome atualizado.",
-                "en": "Sign in with a passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your phone or computer. You do not type or remember anything. If your business has passkeys turned on, you see the button Sign in with passkey. Tap it and do what your device asks. On a new computer, tap the button and choose to use a phone, then scan the QR code on the screen with your phone camera. If you see the message No passkey on this device, ask for a new invite link. If you do not see the button, your browser may not support passkeys. Use an up to date Safari or Chrome."
+                "pt": "Entre com uma passkey. Passkey é uma forma de entrar com o rosto, a digital ou a senha do seu celular ou computador. Você não digita nem lembra de nada. O botão Entrar com passkey (1) fica embaixo da caixa de usuário e senha. Toque nele e faça o que o seu aparelho pedir. Embaixo dele, uma nota (2) diz: em um computador novo, toque no botão e escolha usar um celular para ler o QR code.",
+                "en": "Sign in with a passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your phone or computer. You do not type or remember anything. The button Sign in with passkey (1) is below the username and password box. Tap it and do what your device asks. Under it, a note (2) says: on a new computer, tap the button and choose to use a phone, then scan the QR code."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-02.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Entre com usuário e senha. Se você recebeu um usuário e uma senha, digite nas caixas Usuário e Senha e toque em Entrar. Se alguma caixa estiver vazia, a Apex diz: Informe usuário e senha.",
-                "en": "Sign in with a username and password. If you were given a username and a password, type them in the boxes Username and Password, then tap Sign in. If a box is empty, Apex says: Enter your username and password."
+                "pt": "Entre com usuário e senha. Se você recebeu um usuário e uma senha, digite nas caixas Usuário (1) e Senha (2) e toque em Entrar (3).",
+                "en": "Sign in with a username and password. If you were given a username and a password, type them in the boxes Username (1) and Password (2), then tap Sign in (3)."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-03.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Entre com o Google. Toque em Entrar com Google no alto e escolha a sua conta Google. No app do iPhone, a tela do Google abre dentro do app.",
-                "en": "Sign in with Google. Tap Sign in with Google at the top and choose your Google account. In the iPhone app, the Google screen opens inside the app."
+                "pt": "Entre com o Google. Toque em Entrar com Google (1), o botão dourado no alto.",
+                "en": "Sign in with Google. Tap Sign in with Google (1), the gold button at the top."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/sign-in-screens/signin-04.pt.jpg",
+                "en": "help/img/guides/sign-in-screens/signin-04.en.jpg"
+              }
             },
             {
               "n": 5,
               "text": {
-                "pt": "Defina a sua própria senha. Na primeira vez que você entra com uma senha que recebeu, a Apex pede que você crie uma senha pessoal: Defina sua nova senha. Digite na primeira caixa (1) e de novo na segunda caixa (2). Ela precisa ter pelo menos 10 caracteres. A Apex também recusa senhas muito comuns e uma senha igual ao seu usuário. Toque em Salvar nova senha (3).",
-                "en": "Set your own password. The first time you sign in with a password you were given, Apex asks you to set a personal one: Set your new password. Type it in the first box (1) and again in the second box (2). It needs at least 10 characters. Apex also refuses very common passwords and a password that is the same as your username. Tap Save new password (3)."
+                "pt": "A página do Google. Abre a página do próprio Google, Sign in with Google, que pede Email or phone (1). Digite o e-mail da sua conta Google e toque em Next (2). A figura mostra a página sem nada digitado.",
+                "en": "Google's own page. Google's own page opens, Sign in with Google, asking for Email or phone (1). Type the email of your Google account and tap Next (2). The picture shows the page with nothing typed."
               },
               "image": {
                 "pt": "help/img/guides/sign-in-screens/signin-05.pt.jpg",
                 "en": "help/img/guides/sign-in-screens/signin-05.en.jpg"
-              }
-            },
-            {
-              "n": 6,
-              "text": {
-                "pt": "Vincule o Google, ou pule. Logo depois, a Apex oferece vincular a sua conta Google, para você também poder entrar com um toque. Toque em Vincular conta Google (1), ou toque em Pular por enquanto (2). Você pode pular esta etapa a qualquer momento.",
-                "en": "Link Google, or skip. Right after, Apex offers to link your Google account, so you can also sign in with one tap. Tap Link Google account (1), or tap Skip for now (2). You can skip this step at any time."
-              },
-              "image": {
-                "pt": "help/img/guides/sign-in-screens/signin-06.pt.jpg",
-                "en": "help/img/guides/sign-in-screens/signin-06.en.jpg"
               }
             }
           ]
@@ -11517,42 +11488,6 @@
           },
           "section": "signin",
           "step": 4
-        },
-        {
-          "labels": {
-            "pt": [
-              "Salvar nova senha"
-            ],
-            "en": [
-              "Save new password"
-            ]
-          },
-          "section": "signin",
-          "step": 5
-        },
-        {
-          "labels": {
-            "pt": [
-              "Vincular conta Google"
-            ],
-            "en": [
-              "Link Google account"
-            ]
-          },
-          "section": "signin",
-          "step": 6
-        },
-        {
-          "labels": {
-            "pt": [
-              "Pular por enquanto"
-            ],
-            "en": [
-              "Skip for now"
-            ]
-          },
-          "section": "signin",
-          "step": 6
         }
       ]
     },
@@ -11560,24 +11495,21 @@
       "id": "invited-person-sign-in",
       "audience": "client",
       "title": {
-        "pt": "Você recebeu um link de convite: crie a sua passkey",
-        "en": "You got an invite link: create your passkey"
+        "pt": "Você recebeu um link de convite",
+        "en": "You got an invite link"
       },
       "summary": {
-        "pt": "Abra o link, digite o código e crie a sua passkey.",
-        "en": "Open the link, enter the code and create your passkey."
+        "pt": "Abra o link de convite e veja a primeira tela.",
+        "en": "Open the invite link and see the first screen."
       },
       "keywords": {
         "pt": [
           "link de convite",
           "convite",
           "convidado",
-          "convite de acesso",
-          "código por sms",
-          "criar passkey",
-          "novo aparelho",
-          "link indisponível",
-          "link expirado"
+          "código por texto",
+          "enviar código",
+          "passkey"
         ],
         "en": [
           "invite link",
@@ -11585,11 +11517,8 @@
           "invited",
           "access invite",
           "code by text",
-          "sms code",
-          "create passkey",
-          "new device",
-          "link unavailable",
-          "expired link"
+          "send code",
+          "passkey"
         ]
       },
       "video": null,
@@ -11597,49 +11526,20 @@
         {
           "id": "invite",
           "title": {
-            "pt": "Criar a sua passkey pelo link",
-            "en": "Create your passkey from the link"
+            "pt": "Abra o link de convite",
+            "en": "Open the invite link"
           },
           "steps": [
             {
               "n": 1,
               "text": {
-                "pt": "Abra o link. O dono da empresa manda um link para você, pelo WhatsApp ou de outro jeito. Abra no Safari ou no Chrome, no celular ou no computador. A página diz Olá, com o seu nome, depois o nome da empresa e o seu tipo de acesso. O link funciona uma vez e por 72 horas. Se a página disser Link indisponível, o link expirou ou já foi usado. Peça um novo link para quem convidou você. Se disser Este navegador não aceita passkeys, abra o mesmo link no Safari ou no Chrome.",
-                "en": "Open the link. The owner of the business sends you a link, on WhatsApp or another way. Open it in Safari or Chrome, on your phone or computer. The page says Hi, with your name, then the name of the business and your type of access. The link works once and for 72 hours. If the page says Link unavailable, the link expired or was already used. Ask the person who invited you for a new link. If it says This browser does not support passkeys, open the same link in Safari or Chrome."
+                "pt": "Abra o link. O dono do negócio envia um link para você. Abra o link no navegador do celular ou do computador. A página diz Olá, com o seu nome (1), e depois o nome do negócio e o seu tipo de acesso (2). O passo 1 é Código por SMS (3): Vamos enviar um código por SMS para o seu celular, com o meio escondido. Toque em Enviar código (4). A Apex manda o código para esse número, então deixe esse celular com você. Passkey é uma forma de entrar com rosto, digital ou a senha do aparelho, sem senha para lembrar.",
+                "en": "Open the link. The owner of the business sends you a link. Open it in the browser of your phone or computer. The page says Hi, with your name (1), then the name of the business and your type of access (2). Step 1 is Code by text (3): We will text a code to your mobile number, with the middle hidden. Tap Send code (4). Apex sends the code to that number, so keep that phone with you. A passkey is a way to sign in with face, fingerprint or the device passcode, with no password to remember."
               },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Receba um código. O passo 1 é Código por SMS. A página mostra o seu celular com o meio escondido. Toque em Enviar código. A Apex manda um código de 6 números para esse número, por mensagem de texto. Para alguns números a página diz que vai mandar o código pelo WhatsApp.",
-                "en": "Get a code. Step 1 is Code by text. The page shows your mobile number with the middle hidden. Tap Send code. Apex sends a code with 6 numbers to that number, by text message. For some numbers the page says it will send the code on WhatsApp instead."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Digite o código. O passo 2 é Digite o código. Digite os 6 números e toque em Confirmar código. O código vale por 5 minutos. Se ele não chegar, espere a contagem (Reenviar em alguns segundos) e toque em Reenviar código.",
-                "en": "Enter the code. Step 2 is Enter the code. Type the 6 numbers and tap Confirm code. The code is valid for 5 minutes. If it does not arrive, wait for the countdown (Resend in some seconds) and tap Resend code."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Crie a sua passkey. O passo 3 é Criar sua passkey. Passkey é uma forma de entrar com o seu rosto, a sua digital ou a senha de desbloqueio do aparelho, sem senha para lembrar. Toque em Criar sua passkey. O seu aparelho pede Face ID, digital ou a senha do aparelho. Depois a Apex deixa você entrar. Se você cancelar, toque no botão de novo para tentar outra vez.",
-                "en": "Create your passkey. Step 3 is Create your passkey. A passkey is a way to sign in with your face, your fingerprint or the passcode of your device, with no password. Tap Create your passkey. Your device asks for Face ID, fingerprint or the device passcode. Then Apex signs you in. If you cancel, tap the button again to try again."
-              },
-              "image": null
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Entre da próxima vez. Vá para a página de entrada e toque em Entrar com passkey. Veja o guia Entrar no Apex. Se você trocar de celular ou de computador, peça um novo link de aparelho ao dono. O dono encontra isso em Pessoas e acessos.",
-                "en": "Sign in next time. Go to the sign in page and tap Sign in with passkey. See the guide Sign in to Apex. If you get a new phone or computer, ask the owner for a new device link. The owner finds it in People and access."
-              },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/invited-person-sign-in/invite-01.pt.jpg",
+                "en": "help/img/guides/invited-person-sign-in/invite-01.en.jpg"
+              }
             }
           ]
         }
@@ -11655,219 +11555,19 @@
             ]
           },
           "section": "invite",
-          "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Confirmar código"
-            ],
-            "en": [
-              "Confirm code"
-            ]
-          },
-          "section": "invite",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Reenviar código"
-            ],
-            "en": [
-              "Resend code"
-            ]
-          },
-          "section": "invite",
-          "step": 3
-        },
-        {
-          "labels": {
-            "pt": [
-              "Criar sua passkey"
-            ],
-            "en": [
-              "Create your passkey"
-            ]
-          },
-          "section": "invite",
-          "step": 4
+          "step": 1
         }
       ]
-    },
-    {
-      "id": "push-notifications",
-      "audience": "client",
-      "title": {
-        "pt": "Notificações push: o que você recebe e como ligar ou desligar",
-        "en": "Push notifications: what you get and how to switch them on or off"
-      },
-      "summary": {
-        "pt": "Veja quais avisos a Apex manda para o seu iPhone e como controlá-los.",
-        "en": "See which alerts Apex sends to your iPhone and how to control them."
-      },
-      "keywords": {
-        "pt": [
-          "push",
-          "notificação push",
-          "notificações",
-          "avisos",
-          "lembrete",
-          "iphone",
-          "permitir notificações",
-          "desligar notificações",
-          "aviso de agendamento"
-        ],
-        "en": [
-          "push",
-          "push notification",
-          "notifications",
-          "alerts",
-          "reminder",
-          "iphone",
-          "allow notifications",
-          "turn off notifications",
-          "booking alert"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "push",
-          "title": {
-            "pt": "Receber avisos no iPhone",
-            "en": "Get alerts on your iPhone"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Entenda o que é uma notificação push. Notificação push é uma mensagem curta que aparece na tela do seu celular, mesmo com o Apex fechado. Ao tocar nela, abre a tela de que ela fala.",
-                "en": "Know what a push notification is. A push notification is a short message that shows on your phone screen, even when Apex is closed. Tapping it opens the screen it is about."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Ligue. Instale o app Apex no seu iPhone (veja o guia Instalar o Apex no seu iPhone). Na primeira vez que você desbloqueia o app, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir. O iPhone pergunta só uma vez.",
-                "en": "Switch it on. Install the Apex app on your iPhone (see the guide Get Apex on your iPhone). The first time you unlock the app, your iPhone asks if Apex may send you notifications. Tap Allow. The iPhone asks only once."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Saiba o que você recebe. A Apex manda uma notificação push quando: um cliente marca, muda ou cancela uma visita na sua página de agendamento; um contrato está esperando a sua assinatura; um cliente recusa ou pede mudanças; chega um novo lead pela sua página de indicação; e uma hora antes de um compromisso da sua agenda, como lembrete de tempo sensível. O texto de alguns avisos está só em português por enquanto.",
-                "en": "Know what you get. Apex sends you a push when: a customer books, changes or cancels a visit on your booking page; a contract is waiting for your signature; a customer declines or asks for changes; a new lead arrives from your referral page; and one hour before an appointment on your calendar, as a time sensitive reminder. The wording of a few alerts is only in Portuguese for now."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Desligue, ou ligue de novo. Abra o app Ajustes do seu iPhone, toque em Notificações, ache o Apex e desligue ou ligue Permitir Notificações. Se você tocou em Não Permitir antes, este é o único jeito de ligar, porque o iPhone não pergunta de novo.",
-                "en": "Switch it off, or on again. Open the Settings app of your iPhone, tap Notifications, find Apex and turn Allow Notifications off or on. If you tapped Don't Allow before, this is the only way to turn it on, because the iPhone does not ask again."
-              },
-              "image": null
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "No site não existe essa opção. As notificações push funcionam só no app Apex do iPhone. O site no computador ou no navegador do celular não envia notificações.",
-                "en": "On the website there is no switch. Push notifications work only in the Apex iPhone app. The website on a computer or in a phone browser does not send them."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": []
-    },
-    {
-      "id": "install-the-app",
-      "audience": "client",
-      "title": {
-        "pt": "Instalar o Apex no seu iPhone",
-        "en": "Get Apex on your iPhone"
-      },
-      "summary": {
-        "en": "Install the Apex app on your iPhone, sign in and allow notifications.",
-        "pt": "Instale o app Apex no seu iPhone, entre e permita as notificações."
-      },
-      "keywords": {
-        "pt": [
-          "instalar",
-          "app store",
-          "app do iphone",
-          "baixar o app",
-          "face id",
-          "app"
-        ],
-        "en": [
-          "install",
-          "app store",
-          "iphone app",
-          "download app",
-          "face id",
-          "app"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "install",
-          "title": {
-            "pt": "Instalar o app",
-            "en": "Install the app"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Baixe o app. No seu iPhone, abra este link: https://apps.apple.com/us/app/apex-business-leadership/id6808500506 . O app se chama Apex Business and Leadership. Procurar Apex na App Store pode não achar, então use o link. Toque em Obter. O app é grátis.",
-                "en": "Get the app. On your iPhone, open this link: https://apps.apple.com/us/app/apex-business-leadership/id6808500506 . The app is called Apex Business and Leadership. Searching the App Store for Apex may not find it, so use the link. Tap Get. The app is free."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Entre. Abra o app e entre com o mesmo usuário e senha que você já usa no site, ou com a sua passkey. O app não tem cadastro: a Apex cria as contas dos seus clientes. Veja o guia Entrar no Apex.",
-                "en": "Sign in. Open the app and sign in with the username and password you already use on the website, or with your passkey. The app has no sign up: Apex creates the accounts for its clients. See the guide Sign in to Apex."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Desbloqueie o app. O app pede Face ID ou a senha do seu celular quando você abre. Isso protege os números da sua empresa se outra pessoa pegar o seu celular. Depois que você desbloqueia uma vez, você continua conectado.",
-                "en": "Unlock the app. The app asks for Face ID or your passcode when you open it. This keeps your business numbers safe if someone else holds your phone. After you unlock it once, you stay signed in."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Permita as notificações. Na primeira vez que você desbloqueia, o iPhone pergunta se o Apex pode mandar notificações. Toque em Permitir. Veja o guia Notificações push.",
-                "en": "Allow notifications. The first time you unlock, the iPhone asks if Apex may send you notifications. Tap Allow. See the guide Push notifications."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": []
     },
     {
       "id": "delete-my-account",
       "audience": "client",
       "title": {
-        "pt": "Pedir para excluir a sua conta",
+        "pt": "Peça para excluir a sua conta",
         "en": "Ask to delete your account"
       },
       "summary": {
-        "pt": "Como pedir à Apex que exclua a sua conta e os dados da sua empresa.",
+        "pt": "Como pedir à Apex para excluir a sua conta e os dados da sua empresa.",
         "en": "How to ask Apex to delete your account and your company's data."
       },
       "keywords": {
@@ -11876,7 +11576,7 @@
           "excluir minha conta",
           "apagar conta",
           "apagar dados",
-          "encerrar conta",
+          "fechar conta",
           "pedido de exclusão",
           "privacidade"
         ],
@@ -11902,7 +11602,7 @@
             {
               "n": 1,
               "text": {
-                "pt": "Ache o link. Role até o final de qualquer página do portal. Toque em Excluir minha conta (1). Ele fica no rodapé, ao lado de Política de Privacidade e Termos de Uso.",
+                "pt": "Ache o link. Role até o fim de qualquer página do portal. Toque em Excluir minha conta (1). Ele fica embaixo, ao lado de Política de Privacidade e Termos de Uso.",
                 "en": "Find the link. Scroll to the very bottom of any page in the portal. Tap Delete my account (1). It sits at the bottom, next to Privacy Policy and Terms of Use."
               },
               "image": {
@@ -11913,21 +11613,13 @@
             {
               "n": 2,
               "text": {
-                "pt": "Leia, depois envie. A janela diz que a sua conta e os dados da sua empresa serão excluídos em até 30 dias, e que a Apex confirma por escrito quando estiver concluído. Ela também diz que o pedido passa antes por uma confirmação, para que ninguém apague sozinho os registros de uma empresa. Toque em Enviar pedido de exclusão (1) para continuar. Toque em Cancelar (2) para parar.",
-                "en": "Read it, then send. The window says your account and your company's data will be deleted within 30 days, and that Apex confirms in writing when it is done. It also says the request is confirmed first, so that no single person can erase a company's records alone. Tap Send deletion request (1) to go on. Tap Cancel (2) to stop."
+                "pt": "Leia e depois decida. A janela (1) diz que a sua conta e os dados da sua empresa serão excluídos em até 30 dias, e que a Apex confirma por escrito quando terminar. Diz também que o pedido é confirmado primeiro, para que ninguém apague sozinho os registros de uma empresa. Toque em Enviar pedido de exclusão (2) só se você quer mesmo sair. Toque em Cancelar (3) para parar. Na figura o pedido não foi enviado.",
+                "en": "Read it, then decide. The window (1) says your account and your company's data will be deleted within 30 days, and that Apex confirms in writing when it is done. It also says the request is confirmed first, so that no single person can erase a company's records alone. Tap Send deletion request (2) only if you really want to leave. Tap Cancel (3) to stop. In the picture the request was not sent."
               },
               "image": {
                 "pt": "help/img/guides/delete-my-account/delete-02.pt.jpg",
                 "en": "help/img/guides/delete-my-account/delete-02.en.jpg"
               }
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Envie pelo WhatsApp. Depois que você toca em Enviar pedido de exclusão, o WhatsApp abre com uma mensagem pronta, com o nome da sua empresa. Nada foi excluído e nada foi enviado ainda. Aperte enviar no WhatsApp para fazer o pedido. A Apex analisa o pedido e confirma com você.",
-                "en": "Send it in WhatsApp. After you tap Send deletion request, WhatsApp opens with a message ready, with your business name. Nothing is deleted yet and nothing is sent yet. Press send in WhatsApp to ask. Apex reviews the request and confirms it with you."
-              },
-              "image": null
             }
           ]
         }
@@ -11956,378 +11648,6 @@
           },
           "section": "delete",
           "step": 2
-        }
-      ]
-    },
-    {
-      "id": "apex-invoice-and-receipt",
-      "audience": "client",
-      "title": {
-        "pt": "Uma fatura ou um recibo da Apex",
-        "en": "An invoice or receipt from Apex"
-      },
-      "summary": {
-        "pt": "Abra, pague e guarde a fatura e o recibo que a Apex envia para você.",
-        "en": "Open, pay and save the invoice and receipt Apex sends you."
-      },
-      "keywords": {
-        "pt": [
-          "fatura da apex",
-          "recibo da apex",
-          "pagar a apex",
-          "zelle",
-          "ach",
-          "pagar com cartão",
-          "baixar pdf",
-          "saldo a pagar"
-        ],
-        "en": [
-          "apex invoice",
-          "apex receipt",
-          "invoice from apex",
-          "pay apex",
-          "zelle",
-          "ach",
-          "pay by card",
-          "download pdf",
-          "balance due"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "apexbill",
-          "title": {
-            "pt": "Abrir e pagar a fatura da Apex",
-            "en": "Open and pay an Apex invoice"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Abra o link. Quando a Apex cobra pelos seus serviços, você recebe um link da fatura. Ele abre uma página com a cara da Apex. Você não precisa entrar: o próprio link é a sua chave, então guarde com cuidado. A página mostra Faturado para, Data da fatura, Vencimento, as linhas da fatura, o Total, o que você Pagou e o Saldo. Um botão no alto troca a página entre português e inglês.",
-                "en": "Open the link. When Apex bills you for its services, you get a link to the invoice. It opens a page with the Apex look. You do not sign in: the link itself is your key, so keep it private. The page shows Billed to, Invoice date, Due date, the lines of the invoice, the Total, what you Paid and the Balance. A button at the top switches the page between Portuguese and English."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Pague. Em Formas de pagamento você vê só as formas que a Apex ligou. Zelle: toque em Copiar valor, cole na tela do Zelle do seu banco, envie para o contato mostrado e escreva o número da fatura na mensagem. Você também pode tocar em Copiar contato do Zelle. Transferência ACH: toque em Pagar por transferência ACH. Pode levar até 4 dias úteis para compensar. Cartão: toque em Pagar com cartão. Depois de pagar com cartão você volta para a página, e ela diz Pagamento recebido. Obrigado! ou Pagamento em processamento.",
-                "en": "Pay. Under Ways to pay you see only the ways Apex turned on. Zelle: tap Copy amount, then paste it in your bank's Zelle screen, send it to the contact shown and write the invoice number in the message. You can also tap Copy Zelle contact. ACH bank transfer: tap Pay by ACH bank transfer. It can take up to 4 business days to clear. Card: tap Pay by card. After a card payment you come back to the page, and it says Payment received. Thank you! or Payment processing."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Guarde uma cópia. Toque em Baixar fatura (PDF) para pegar um PDF. Se o PDF não carregar, a página avisa e você pode tocar em Imprimir.",
-                "en": "Save a copy. Tap Download your invoice (PDF) to get a PDF. If the PDF does not load, the page says so and you can tap Print."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Abra o seu recibo. Depois de um pagamento, a Apex pode enviar um link de recibo com a mesma cara. Ele mostra Recebido de, o Número do recibo, a Fatura, a Data do recebimento, o Valor recebido, a Forma de pagamento, e o saldo da fatura antes e depois deste pagamento. Toque em Baixar o recibo (PDF) para guardar. Se um pagamento foi desfeito, o recibo diz ANULADO e deixa de ser prova de pagamento.",
-                "en": "Open your receipt. After a payment, Apex can send you a receipt link with the same look. It shows Received from, the Receipt number, the Invoice, the Date received, the Amount received, the Payment method, and the invoice balance before and after this payment. Tap Download the receipt (PDF) to save it. If a payment was undone, the receipt says VOIDED and is no longer proof of payment."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": []
-    },
-    {
-      "id": "meetings-and-booking",
-      "audience": "client",
-      "title": {
-        "pt": "Sua reunião com a Apex: escolha o horário e remarque",
-        "en": "Your meeting with Apex: pick a time and reschedule"
-      },
-      "summary": {
-        "pt": "Escolha o horário da sua reunião com a Apex, entre nela ou mude.",
-        "en": "Pick a time for your meeting with Apex, join it or move it."
-      },
-      "keywords": {
-        "pt": [
-          "reunião",
-          "card de reuniões",
-          "escolher horário",
-          "reagendar",
-          "entrar",
-          "como chegar",
-          "página de agendamento",
-          "agendar reunião",
-          "google meet"
-        ],
-        "en": [
-          "meeting",
-          "meetings card",
-          "pick a time",
-          "choose time",
-          "reschedule",
-          "join",
-          "directions",
-          "booking page",
-          "schedule meeting",
-          "google meet"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "meeting",
-          "title": {
-            "pt": "Escolher, entrar e remarcar",
-            "en": "Pick, join and reschedule"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Ache o card no Início. Quando a Apex dá a você um link de agendamento e você ainda não escolheu o horário, a aba Início mostra um card chamado Sua reunião desta semana. Ele diz: Você ainda não escolheu um horário. Toque em Escolher horário. Se a Apex não deu nenhum link e você não tem reunião, não aparece card.",
-                "en": "Find the card on Home. When Apex gives you a booking link and you have not picked a time yet, the Home tab shows a card called Your meeting this week. It says: You have not picked a time yet. Tap Pick a time. If Apex gave you no link and you have no meeting, there is no card."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Escolha o dia. Abre a página de agendamento da Apex. Ela é só em português. Diz Vamos marcar nossa reunião, e o tempo da reunião, por exemplo 60 minutos. Em Que dia funciona melhor? toque em um ou mais dias. Depois toque em Ver horários.",
-                "en": "Choose the day. The Apex booking page opens. It is only in Portuguese. It says Vamos marcar nossa reunião, which means Let's schedule our meeting, and the length of the meeting, for example 60 minutes. Under Que dia funciona melhor? (Which day works best?) tap one or more days. Then tap Ver horários (See times)."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Escolha o horário. A página Escolha o horário lista os horários livres mais próximos do seu costume. Toque no horário que você quer. Se nenhum servir, toque em Mais cedo? ou Mais tarde? para ver outros, ou em Voltar aos dias. Se nenhum horário funcionar, toque em Nenhum destes funciona. A equipe da Apex então fala com você pelo WhatsApp para achar um horário melhor.",
-                "en": "Choose the time. The page Escolha o horário (Choose the time) lists the free times closest to your usual. Tap the time you want. If none is good, tap Mais cedo? (Earlier?) or Mais tarde? (Later?) to see others, or Voltar aos dias (Back to the days). If none of the times works, tap Nenhum destes funciona (None of these work). The Apex team then contacts you on WhatsApp to find a better time."
-              },
-              "image": null
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Confira a confirmação. A página diz Reunião confirmada, com o dia e o horário. Abaixo você vê o link do Google Meet, se a reunião for online, ou Presencial com o endereço. A página também diz que você vai receber um lembrete pelo WhatsApp no dia da reunião.",
-                "en": "Check the confirmation. The page says Reunião confirmada (Meeting confirmed) with the day and the time. Below it you see the Google Meet link for an online meeting, or Presencial (In person) with the address. The page also says you will get a reminder on WhatsApp on the day of the meeting."
-              },
-              "image": null
-            },
-            {
-              "n": 5,
-              "text": {
-                "pt": "Entre ou mude. De volta ao Início, o card agora mostra a sua reunião como Agendada, com o dia e o horário, e um botão Reagendar. Toque em Reagendar para abrir a página de agendamento de novo e escolher outro horário. Quando a reunião é hoje ou amanhã, o card se chama Próximas reuniões, mostra Hoje ou Amanhã com o horário, e tem um botão Entrar para reunião online, ou um botão Como chegar para reunião presencial.",
-                "en": "Join or move it. Back on Home, the card now shows your meeting as Scheduled, with the day and the time, and a Reschedule button. Tap Reschedule to open the booking page again and pick another time. When the meeting is today or tomorrow, the card is called Upcoming meetings, shows Today or Tomorrow with the time, and has a Join button for an online meeting, or a Directions button for a meeting in person."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Escolher horário"
-            ],
-            "en": [
-              "Pick a time"
-            ]
-          },
-          "section": "meeting",
-          "step": 1
-        },
-        {
-          "labels": {
-            "pt": [
-              "Reagendar"
-            ],
-            "en": [
-              "Reschedule"
-            ]
-          },
-          "section": "meeting",
-          "step": 5
-        },
-        {
-          "labels": {
-            "pt": [
-              "Como chegar"
-            ],
-            "en": [
-              "Directions"
-            ]
-          },
-          "section": "meeting",
-          "step": 5
-        }
-      ]
-    },
-    {
-      "id": "siri-shortcuts",
-      "audience": "client",
-      "title": {
-        "pt": "Pergunte à Siri sobre faturas e a sua agenda",
-        "en": "Ask Siri about invoices and your schedule"
-      },
-      "summary": {
-        "pt": "Use a voz para perguntar o que está em aberto e o que tem hoje.",
-        "en": "Use your voice to ask what is outstanding and what is on today."
-      },
-      "keywords": {
-        "pt": [
-          "siri",
-          "atalhos",
-          "voz",
-          "em aberto",
-          "agenda de hoje",
-          "perguntar à siri"
-        ],
-        "en": [
-          "siri",
-          "shortcuts",
-          "voice",
-          "outstanding",
-          "today's schedule",
-          "ask siri",
-          "hey siri"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "siri",
-          "title": {
-            "pt": "Falar com a Siri",
-            "en": "Talk to Siri"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Pergunte sobre o dinheiro. Use o app Apex no seu iPhone. Diga à Siri: How much is outstanding in Apex, ou What's outstanding in Apex, ou Check Apex invoices. A Siri responde em voz alta com o total que você faturou e ainda não recebeu, e quantas faturas são. Se tudo foi recebido, a Siri diz isso. Os comandos são em inglês.",
-                "en": "Ask about money. Use the Apex app on your iPhone. Say to Siri: How much is outstanding in Apex, or What's outstanding in Apex, or Check Apex invoices. Siri answers out loud with the total that you invoiced and have not collected yet, and how many invoices that is. If everything is collected, Siri says so."
-              },
-              "image": null
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Pergunte sobre o seu dia. Diga: What's on my Apex schedule, ou What's today in Apex, ou Check my Apex calendar. A Siri diz o que tem na sua agenda hoje, com o primeiro horário. Se nada estiver marcado, a Siri diz isso. Isso não funciona para o login de vendedor.",
-                "en": "Ask about your day. Say: What's on my Apex schedule, or What's today in Apex, or Check my Apex calendar. Siri tells you what is on your calendar today, with the first time. If nothing is booked, Siri says so. This does not work for a salesperson login."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Entre primeiro. Se você ainda não entrou no app, a Siri diz: Open Apex and sign in first, then ask me again. Diga o nome do app como ele aparece embaixo do ícone na sua tela de início.",
-                "en": "Sign in first. If you have not signed in to the app, Siri says: Open Apex and sign in first, then ask me again. Say the name of the app as it shows under its icon on your home screen."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": []
-    },
-    {
-      "id": "what-a-salesperson-sees",
-      "audience": "client",
-      "title": {
-        "pt": "O que um vendedor vê e faz",
-        "en": "What a salesperson sees and does"
-      },
-      "summary": {
-        "pt": "Suas abas, os seus leads, o material de vendas e o aviso de falta de contrato.",
-        "en": "Your tabs, your leads, sales material and the no contract warning."
-      },
-      "keywords": {
-        "pt": [
-          "vendedor",
-          "login de vendedor",
-          "material de vendas",
-          "sem contrato assinado",
-          "avisar o dono",
-          "meus leads",
-          "pipeline"
-        ],
-        "en": [
-          "salesperson",
-          "seller",
-          "salesperson login",
-          "sales material",
-          "no signed contract",
-          "notify owner",
-          "my leads",
-          "pipeline"
-        ]
-      },
-      "video": null,
-      "sections": [
-        {
-          "id": "seller",
-          "title": {
-            "pt": "Seu portal de vendedor",
-            "en": "Your salesperson portal"
-          },
-          "steps": [
-            {
-              "n": 1,
-              "text": {
-                "pt": "Conheça as suas abas. O login de vendedor tem três abas: Negócio (1), Agenda e Apex (2). Negócio tem as suas ferramentas de leads, projetos, preços, orçamentos e contratos. Apex tem Documentos. Você não vê Financeiro, Faturas, metas, analytics nem Ajustes.",
-                "en": "Know your tabs. A salesperson login has three tabs: Business (1), Calendar and Apex (2). Business holds your tools for leads, projects, pricing, estimates and contracts. Apex holds Documents. You do not see Finance, Invoices, goals, analytics or Settings."
-              },
-              "image": {
-                "pt": "help/img/guides/what-a-salesperson-sees/seller-01.pt.jpg",
-                "en": "help/img/guides/what-a-salesperson-sees/seller-01.en.jpg"
-              }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Saiba o que cada uma mostra. O Pipeline mostra só os leads que você cria ou que o dono dá a você. Os Projetos são só para ler. Os Preços aparecem sem os custos. A agenda mostra menos detalhes do que o dono vê. Orçamentos e Contratos estão aí para você trabalhar.",
-                "en": "Know what each one shows. Pipeline shows only the leads you create or that the owner gives to you. Projects are for reading only. Pricing is shown without the costs. The calendar shows less detail than the owner sees. Estimates and Contracts are there for you to work with."
-              },
-              "image": null
-            },
-            {
-              "n": 3,
-              "text": {
-                "pt": "Leia o material de vendas. Toque em Apex, depois em Documentos. A seção Material de Vendas (2) tem os arquivos que o dono compartilha com os vendedores. Você pode abrir, não mudar. Quando não há nenhum, a página diz Nenhum material de vendas ainda.",
-                "en": "Read the sales material. Tap Apex, then Documents. The section Sales material (2) holds the files the owner shares for salespeople. You can open them, not change them. When there are none, the page says Nenhum material de vendas ainda, which means there is no sales material yet."
-              },
-              "image": {
-                "pt": "help/img/guides/what-a-salesperson-sees/seller-03.pt.jpg",
-                "en": "help/img/guides/what-a-salesperson-sees/seller-03.en.jpg"
-              }
-            },
-            {
-              "n": 4,
-              "text": {
-                "pt": "Resolva o aviso de falta de contrato. Se um projeto passa de $2,500 e não tem contrato assinado, abre uma janela chamada Sem contrato assinado quando você tenta mudar o status do projeto, adicionar uma foto de andamento ou enviar uma segunda fatura. Você não pode continuar sozinho. Toque em Avisar o dono e continuar, ou em WhatsApp. O seu telefone abre uma mensagem para o dono com um texto fixo. Envie, e depois você pode continuar. Toque em Voltar para parar.",
-                "en": "Handle the no contract warning. If a project is over $2,500 and has no signed contract, a window called No signed contract opens when you try to change the project status, add a progress photo or send a second invoice. You cannot go on alone. Tap Notify owner and continue, or WhatsApp. Your phone opens a message to the owner with a fixed text. Send it, and then you can continue. Tap Back to stop."
-              },
-              "image": null
-            }
-          ]
-        }
-      ],
-      "buttons": [
-        {
-          "labels": {
-            "pt": [
-              "Avisar o dono e continuar"
-            ],
-            "en": [
-              "Notify owner and continue"
-            ]
-          },
-          "section": "seller",
-          "step": 4
         }
       ]
     },
@@ -13855,7 +13175,8 @@
       "guides": [
         "working-days-and-blocked-periods",
         "people-and-access",
-        "online-booking-page"
+        "online-booking-page",
+        "my-devices"
       ],
       "overview": {
         "pt": "Aqui você define os dias de trabalho e os períodos bloqueados, adiciona pessoas e escolhe o acesso delas, e configura o agendamento online.",
@@ -13922,7 +13243,9 @@
       },
       "guides": [
         "documents",
-        "admin-resources-documents"
+        "admin-resources-documents",
+        "business-xray",
+        "other-assessments"
       ],
       "overview": {
         "pt": "Aqui ficam os documentos, os arquivos e os relatórios.",
@@ -14071,6 +13394,59 @@
       "overview": {
         "pt": "Aqui o consultor se prepara para a reunião com um cliente.",
         "en": "Here the consultant prepares for the meeting with a client."
+      }
+    },
+    "home": {
+      "title": {
+        "pt": "Início",
+        "en": "Home"
+      },
+      "guides": [
+        "home-alerts"
+      ],
+      "overview": {
+        "pt": "Aqui ficam os avisos: documentos de subempreiteiros que estão vencendo e orçamentos que os seus clientes assinaram online.",
+        "en": "Here are your alerts: subcontractor documents that are expiring and estimates your customers signed online."
+      }
+    },
+    "assigned": {
+      "title": {
+        "pt": "Atribuídos",
+        "en": "Assigned"
+      },
+      "guides": [
+        "assigned-tools",
+        "other-assessments"
+      ],
+      "overview": {
+        "pt": "Aqui ficam os diagnósticos que a Apex liberou para você. Toque em Abrir para responder um.",
+        "en": "Here are the assessments Apex gave you. Tap Open to answer one."
+      }
+    },
+    "feedback360": {
+      "title": {
+        "pt": "Feedback 360º",
+        "en": "360º Feedback"
+      },
+      "guides": [
+        "other-assessments"
+      ],
+      "overview": {
+        "pt": "São 7 perguntas de Sim ou Não. Suas respostas são salvas sozinhas.",
+        "en": "There are 7 Yes or No questions. Your answers are saved by themselves."
+      }
+    },
+    "xray": {
+      "title": {
+        "pt": "Raio X Empresarial",
+        "en": "Business X-Ray"
+      },
+      "guides": [
+        "business-xray"
+      ],
+      "overview": {
+        "pt": "Aqui você lê o resultado do seu Raio X Empresarial.",
+        "en": "Here you read the result of your Business X-Ray."
       }
     }
   }

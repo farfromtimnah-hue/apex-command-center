@@ -7094,6 +7094,546 @@
           "step": 4
         }
       ]
+    },
+    {
+      "id": "use-learn-and-language",
+      "audience": "client",
+      "title": {
+        "pt": "Usar o Aprenda e trocar o idioma",
+        "en": "Use Learn and switch the language"
+      },
+      "summary": {
+        "pt": "Pergunte com suas palavras, abra o guia certo e troque entre português e inglês.",
+        "en": "Ask in your own words, open the right guide and switch between Portuguese and English."
+      },
+      "keywords": {
+        "pt": [
+          "aprenda",
+          "ajuda",
+          "como usar",
+          "buscar guia",
+          "pergunta",
+          "idioma",
+          "trocar idioma",
+          "português",
+          "inglês",
+          "EN",
+          "PT",
+          "toque e segure",
+          "botão direito",
+          "copiar link"
+        ],
+        "en": [
+          "learn",
+          "help",
+          "how to use",
+          "search guide",
+          "question",
+          "language",
+          "switch language",
+          "portuguese",
+          "english",
+          "EN",
+          "PT",
+          "press and hold",
+          "right click",
+          "copy link"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "learn",
+          "title": {
+            "pt": "Do primeiro toque ao guia",
+            "en": "From the first tap to the guide"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o Aprenda. Toque em Apex nas abas (a aba com a bolinha vermelha) e depois em Aprenda (1). A biblioteca abre em uma página própria.",
+                "en": "Open Learn. Tap Apex on the tabs (the tab with the small red dot), then tap Learn (1). The library opens on its own page."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-01.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Pergunte com as suas palavras. Escreva uma palavra ou uma pergunta inteira na caixa de busca (1), por exemplo como envio uma fatura. Depois toque em Buscar (2) ou aperte Enter. Você não precisa saber o nome exato do guia.",
+                "en": "Ask in your own words. Type a word or a whole question in the search box (1), for example how do I send an invoice. Then tap Search (2) or press Enter. You do not need the exact name of the guide."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-02.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Abra o guia. O Apex responde em uma ou duas linhas e mostra o guia certo. Toque em Ver passo a passo (1) para ler com as fotos. Toque em Copiar link (2) para mandar o guia a alguém da equipe. Se nenhum guia servir, o Apex avisa e anota a sua pergunta para escrevermos um guia.",
+                "en": "Open the guide. Apex answers in one or two lines and shows the guide that fits. Tap See step by step (1) to read it with pictures. Tap Copy link (2) to send the guide to a teammate. If no guide fits, Apex tells you and notes your question so a guide can be written."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-03.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Aprenda em qualquer botão sem sair da tela. No app do celular, toque e segure o botão. No computador, clique no botão com o botão direito do mouse. Se existir um guia sobre esse botão, abre um cartão pequeno com o passo certo.",
+                "en": "Learn from any button without leaving the screen. In the phone app, press and hold the button. On a computer, right click the button. If a guide explains that button, a small card opens with the right step."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Troque o idioma. No alto, à direita, o botão (1) mostra o idioma para onde você pode trocar: EN muda a página para inglês e PT volta para português. Os guias seguem o idioma da tela.",
+                "en": "Switch the language. At the top right, the button (1) shows the language you can change to: EN switches the page to English and PT switches it back to Portuguese. The guides follow the language of the screen."
+              },
+              "image": {
+                "pt": "help/img/guides/use-learn-and-language/learn-05.pt.jpg",
+                "en": "help/img/guides/use-learn-and-language/learn-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Aprenda"
+            ],
+            "en": [
+              "Learn"
+            ]
+          },
+          "section": "learn",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "job-notes",
+      "audience": "client",
+      "title": {
+        "pt": "Notas do projeto",
+        "en": "Project notes"
+      },
+      "summary": {
+        "pt": "Escreva notas com data em cada projeto: o que foi combinado, o que falta e o que aconteceu.",
+        "en": "Write dated notes on each project: what was agreed, what is missing and what happened."
+      },
+      "keywords": {
+        "pt": [
+          "nota do projeto",
+          "notas",
+          "anotação",
+          "anotar",
+          "escrever uma nota",
+          "editar nota",
+          "excluir nota",
+          "o que foi combinado",
+          "histórico da obra"
+        ],
+        "en": [
+          "project note",
+          "notes",
+          "write a note",
+          "edit note",
+          "delete note",
+          "what was agreed",
+          "job history",
+          "add note to project"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "notes",
+          "title": {
+            "pt": "Escrever e cuidar das notas",
+            "en": "Write and keep your notes"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Adicione uma nota a um projeto. Abra o projeto (Negócio e depois Projetos) e role até Notas. Escreva o que aconteceu ou o que foi combinado na caixa (1) e toque em Adicionar (2). O Apex guarda a nota com a data, a hora e o nome de quem escreveu, e mostra logo abaixo.",
+                "en": "Add a note to a project. Open the project (Business, then Projects) and scroll down to Notes. Write what happened or what was agreed in the box (1) and tap Add (2). Apex saves the note with the date, the time and the name of who wrote it, and shows it right below."
+              },
+              "image": {
+                "pt": "help/img/guides/job-notes/notes-01.pt.jpg",
+                "en": "help/img/guides/job-notes/notes-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Corrija ou remova uma nota. Embaixo de cada nota, toque em Editar (3) para mudar o texto ou em Excluir (4) para remover. As notas de um lead, antes de virar projeto, ficam na ficha do lead, como explica o guia \"Notas, arquivos e histórico do lead\".",
+                "en": "Fix or remove a note. Under each note, tap Edit (3) to change the words, or Delete (4) to remove it. The notes of a lead, before it becomes a project, live in the lead sheet, as explained in the guide \"Notes, files and history of a lead\"."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "lead-salesperson-and-filter",
+      "audience": "client",
+      "title": {
+        "pt": "Vendedor do lead, divisão de comissão e filtro",
+        "en": "Lead salesperson, commission split and filter"
+      },
+      "summary": {
+        "pt": "Escolha quem vende cada lead, divida a comissão com um segundo vendedor e filtre o Pipeline por vendedor.",
+        "en": "Choose who sells each lead, split the commission with a second salesperson and filter the Pipeline by salesperson."
+      },
+      "keywords": {
+        "pt": [
+          "vendedor",
+          "trocar vendedor",
+          "vendedor secundário",
+          "segundo vendedor",
+          "dividir comissão",
+          "comissão dividida",
+          "50/50",
+          "filtrar por vendedor",
+          "sem vendedor",
+          "não atribuído",
+          "ex-vendedor"
+        ],
+        "en": [
+          "salesperson",
+          "change salesperson",
+          "second salesperson",
+          "split commission",
+          "commission split",
+          "50/50",
+          "filter by salesperson",
+          "unassigned",
+          "former salesperson"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "seller",
+          "title": {
+            "pt": "Quem vende e quem ganha",
+            "en": "Who sells and who earns"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Escolha o vendedor do lead. Abra o lead e role até Dados do lead. A linha Vendedor (1) mostra quem cuida desse lead. Toque nela e escolha um nome na lista dos seus vendedores. Um lead criado por um vendedor fica sempre com esse vendedor. Um lead sem ninguém escolhido aparece como Sem vendedor, e o Apex nunca escolhe alguém por você.",
+                "en": "Choose the salesperson of a lead. Open the lead and scroll to Lead details. The row Salesperson (1) shows who is in charge of this lead. Tap it and pick a name from the list of your salespeople. A lead that a salesperson creates is always set to that salesperson. A lead with nobody chosen shows as Unassigned, and Apex never picks someone for you."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-01.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Divida com um segundo vendedor. Quando duas pessoas fizeram a visita juntas, role até Outros campos e toque em Vendedor secundário (opcional) (1). Escolha o segundo nome. A comissão passa a ser dividida 50 por cento para cada um, só para leitura, e o lead também abre para a segunda pessoa.",
+                "en": "Split with a second salesperson. When two people did the visit together, scroll to Other fields and tap Second salesperson (optional) (1). Pick the second name. The commission is then split 50/50 between the two, shown for reading only, and the lead also opens for the second person."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-02.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Filtre o Pipeline por vendedor. Na lista de Leads, toque no filtro de vendedor (1). Ele mostra cada nome com o número de leads, e Sem vendedor para os leads sem ninguém escolhido. Um vendedor que saiu continua na lista marcado como ex-vendedor, então os leads dele continuam fáceis de achar.",
+                "en": "Filter the Pipeline by salesperson. In the Leads list, tap the salesperson filter (1). It shows each name with the number of leads, plus Unassigned for leads with nobody chosen. A salesperson who left stays on the list marked as former, so their leads are still easy to find."
+              },
+              "image": {
+                "pt": "help/img/guides/lead-salesperson-and-filter/seller-03.pt.jpg",
+                "en": "help/img/guides/lead-salesperson-and-filter/seller-03.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "ask-another-signer",
+      "audience": "client",
+      "title": {
+        "pt": "Pedir a assinatura de outra pessoa",
+        "en": "Ask another person to sign for the company"
+      },
+      "summary": {
+        "pt": "Encaminhe o contrato para outra pessoa da empresa assinar no seu lugar.",
+        "en": "Send the contract to another person at the company to sign in your place."
+      },
+      "keywords": {
+        "pt": [
+          "pedir a assinatura de outra pessoa",
+          "encaminhar para assinatura",
+          "outro assinante",
+          "quem assina pela empresa",
+          "assinante autorizado",
+          "sócio assina",
+          "encaminhar contrato"
+        ],
+        "en": [
+          "ask another signer",
+          "route for signature",
+          "other signer",
+          "who signs for the company",
+          "authorized signer",
+          "partner signs",
+          "route contract"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "route",
+          "title": {
+            "pt": "Encaminhar o contrato",
+            "en": "Route the contract"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Abra o contrato e toque em Pedir a assinatura de outra pessoa (1). Ele fica em Negócio, depois Contratos, em um contrato que ainda é rascunho, ao lado de Assinar pela empresa.",
+                "en": "Open the contract and tap Ask another signer (1). You will find it under Business, then Contracts, on a contract that is still a draft, next to Sign as company."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-another-signer/route-01.pt.jpg",
+                "en": "help/img/guides/ask-another-signer/route-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha quem assina. Em Quem assina pela empresa (1) escolha a pessoa na lista de pessoas autorizadas. Depois toque em Encaminhar (2). Essa pessoa recebe um alerta dentro do Apex, e uma mensagem abre no seu celular para você mandar o link você mesmo, porque o Apex nunca manda mensagem sozinho. Se a pessoa que você precisa não está na lista, cadastre primeiro em Configurações do contrato, como explica o guia \"Configure o seu contrato uma vez\".",
+                "en": "Choose who signs. Under Who signs for the company (1) pick the person from the list of authorized people. Then tap Route (2). That person gets an alert inside Apex, and a message opens on your phone so you can send them the link yourself, because Apex never texts on its own. If the person you need is not on the list, add them first under Contract settings, as explained in the guide \"Set up your contract once\"."
+              },
+              "image": {
+                "pt": "help/img/guides/ask-another-signer/route-02.pt.jpg",
+                "en": "help/img/guides/ask-another-signer/route-02.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Pedir a assinatura de outra pessoa"
+            ],
+            "en": [
+              "Ask another signer"
+            ]
+          },
+          "section": "route",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "what-a-referred-person-sees",
+      "audience": "client",
+      "title": {
+        "pt": "O que a pessoa indicada vê e o que chega ao seu Pipeline",
+        "en": "What a referred person sees and what reaches your Pipeline"
+      },
+      "summary": {
+        "pt": "Veja a página pública de indicação e como o lead chega ao Pipeline já ligado a quem indicou.",
+        "en": "See the public referral page and how the lead reaches your Pipeline already linked to who referred it."
+      },
+      "keywords": {
+        "pt": [
+          "página de indicação",
+          "link de indicação",
+          "pessoa indicada",
+          "indicado por",
+          "não foi",
+          "confirmar quem indicou",
+          "formulário de indicação",
+          "lead novo por indicação",
+          "indicação de uma indicação"
+        ],
+        "en": [
+          "referral page",
+          "referral link",
+          "referred person",
+          "referred by",
+          "not him",
+          "confirm who referred",
+          "referral form",
+          "new lead from referral",
+          "referral of a referral"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "referral",
+          "title": {
+            "pt": "Da página até o Pipeline",
+            "en": "From the page to the Pipeline"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Saiba quem mandou a pessoa. Alguém abre o link de indicação de um dos seus parceiros ou clientes (veja o guia de parceiros de indicação). A página mostra o seu logo e o seu nome, e uma linha Indicado por com o nome de quem indicou (1). Se a pessoa veio por outro nome, ela toca em Não foi essa pessoa (2) para corrigir.",
+                "en": "Know who sent the person. Someone opens the referral link of one of your partners or customers (see the guide on referral partners). The page shows your logo and name, and a line saying Referred by and the name of the person (1). If the visitor was sent by someone else, they tap Not that person (2) to correct it."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-01.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Veja o que a pessoa preenche. A pessoa escreve o nome (1) e, se quiser, o telefone (2), toca nos serviços que procura (3) e toca em Enviar (4). Os serviços são os que você definiu nas configurações da página de indicação. A página abre no seu idioma e a pessoa pode trocar no botão do alto.",
+                "en": "See what the visitor fills in. The visitor writes their name (1) and, if they want, a phone (2), taps the services they are looking for (3), and taps Send (4). The services are the ones you set up in the referral page settings. The page opens in your language and the visitor can switch with the button at the top."
+              },
+              "image": {
+                "pt": "help/img/guides/what-a-referred-person-sees/referral-02.pt.jpg",
+                "en": "help/img/guides/what-a-referred-person-sees/referral-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Acompanhe o novo lead. A pessoa chega ao seu Pipeline como Novo Lead, já ligada ao parceiro ou cliente que indicou, e o vendedor desse parceiro recebe o crédito. Se a pessoa tocou em Não foi essa pessoa, o lead mostra uma etiqueta dourada pedindo que você confirme quem realmente indicou, e você registra o nome certo no lead.",
+                "en": "Follow the new lead. The person lands in your Pipeline as a New lead, already linked to the partner or customer who referred them, and the salesperson of that partner gets the credit. If the visitor tapped Not that person, the lead shows a gold tag asking you to confirm who really referred them, and you record the right name on the lead."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": "cover-image",
+      "audience": "client",
+      "title": {
+        "pt": "Escolher a imagem de capa dos seus documentos",
+        "en": "Choose the cover image of your documents"
+      },
+      "summary": {
+        "pt": "Escolha uma foto da galeria ou envie a sua para o topo do orçamento, do contrato e da fatura.",
+        "en": "Pick a photo from the gallery or upload your own for the top of your estimate, contract and invoice."
+      },
+      "keywords": {
+        "pt": [
+          "imagem de capa",
+          "foto de capa",
+          "capa do orçamento",
+          "galeria de fotos",
+          "trocar capa",
+          "usar esta imagem",
+          "enviar minha própria imagem",
+          "minha imagem enviada",
+          "ramo",
+          "cor principal"
+        ],
+        "en": [
+          "cover image",
+          "cover photo",
+          "estimate cover",
+          "photo gallery",
+          "change cover",
+          "use this image",
+          "upload my own image",
+          "my uploaded image",
+          "industry",
+          "primary color"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "cover",
+          "title": {
+            "pt": "Da galeria até os seus documentos",
+            "en": "From the gallery to your documents"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "Encontre a galeria. Abra Negócio, depois Orçamentos, depois a aba Configurações, e role até Imagem de capa. É a imagem no topo dos documentos que o seu cliente abre. Toque no seu ramo (1), como Piscinas ou Pavers, e a prévia embaixo mostra a foto em um orçamento de exemplo com o seu logo e as suas cores. Exclusivas aparece primeiro quando o Apex tem fotos feitas só para você.",
+                "en": "Find the gallery. Open Business, then Estimates, then the Settings tab, and scroll to Cover image. It is the picture at the top of the documents your customer opens. Tap your industry (1), such as Pools or Pavers, and the preview below shows the photo on a sample estimate with your logo and your colors. Exclusive appears first when Apex has photos made just for you."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-01.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Escolha a foto. Toque em Próxima ou Anterior (1) para navegar. O contador mostra onde você está, por exemplo 15 de 18. Quando gostar de uma, toque em Usar esta imagem (2). Quando você está vendo a foto que já usa, o botão avisa que ela já está em uso nos seus documentos.",
+                "en": "Pick the photo. Tap Next or Previous (1) to browse. The counter shows where you are, for example 15 of 18. When you like one, tap Use this image (2). The button says that your current photo is already in use when you are looking at it."
+              },
+              "image": {
+                "pt": "help/img/guides/cover-image/cover-02.pt.jpg",
+                "en": "help/img/guides/cover-image/cover-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Use a sua própria foto. Toque em Enviar a minha própria imagem (3) e escolha um arquivo JPG, PNG ou WebP de até 5 MB. Toque em Ver a minha imagem enviada (4) para olhá-la de novo depois. A sua foto pode ser ajustada para aparecer a parte que você quer no topo.",
+                "en": "Use your own photo instead. Tap Upload my own image (3) and choose a JPG, PNG or WebP file up to 5 MB. Tap See my uploaded image (4) to look at it again later. Your photo can be adjusted so the part you want shows at the top."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Usar esta imagem"
+            ],
+            "en": [
+              "Use this image"
+            ]
+          },
+          "section": "cover",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar a minha própria imagem"
+            ],
+            "en": [
+              "Upload my own image"
+            ]
+          },
+          "section": "cover",
+          "step": 3
+        }
+      ]
     }
   ],
   "pages": {
@@ -7112,7 +7652,8 @@
         "edit-send-messages",
         "revise-or-void-estimate",
         "link-in-bio-page",
-        "contract-settings"
+        "contract-settings",
+        "cover-image"
       ],
       "overview": {
         "pt": "Aqui você cria e envia orçamentos.",
@@ -7178,7 +7719,9 @@
         "salespeople-and-lists",
         "win-back-past-customers",
         "contact-card",
-        "link-in-bio-page"
+        "link-in-bio-page",
+        "lead-salesperson-and-filter",
+        "what-a-referred-person-sees"
       ],
       "overview": {
         "pt": "Aqui você vê a lista dos seus leads no Pipeline, filtra por estágio e cadastra um novo lead.",
@@ -7194,7 +7737,8 @@
         "contract",
         "change-order",
         "contracts-tab",
-        "contract-settings"
+        "contract-settings",
+        "ask-another-signer"
       ],
       "overview": {
         "pt": "Aqui você vê os seus contratos. Você também pode abrir o contrato dentro do projeto.",
@@ -7215,7 +7759,8 @@
         "subcontractors",
         "project-from-scratch",
         "punch-list-and-completion",
-        "liens-and-final-affidavit"
+        "liens-and-final-affidavit",
+        "job-notes"
       ],
       "overview": {
         "pt": "Aqui ficam os seus projetos, com os números de margem. Toque em um projeto para abrir a ficha dele.",

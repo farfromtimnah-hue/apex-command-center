@@ -1850,12 +1850,12 @@
    "id": "card-payments-setup",
    "audience": "client",
    "title": {
-    "pt": "Configurar pagamentos por cartão",
-    "en": "Set up card payments"
+    "pt": "Configurar pagamentos por cartão (primeira vez)",
+    "en": "Set up card payments (first time)"
    },
    "summary": {
-    "pt": "Conecte a sua conta Stripe, passe pelas páginas do Stripe e veja o cliente pagar a fatura com cartão.",
-    "en": "Connect your Stripe account, go through Stripe's pages, and see your client pay an invoice by card."
+    "pt": "Para quem nunca recebeu cartão: crie a sua conta Stripe, conecte ao Apex e veja o cliente pagar a fatura com cartão.",
+    "en": "For owners who never took card payments: create your Stripe account, connect it to Apex, and see your client pay an invoice by card."
    },
    "keywords": {
     "pt": [
@@ -1871,13 +1871,15 @@
      "fatura com cartão",
      "formas de pagamento",
      "imposto sobre vendas",
-     "jobber",
      "pagamento com cartão",
      "pagar com cartão",
      "radar",
      "receber pagamentos",
      "stripe",
-     "stripe conectado"
+     "stripe conectado",
+     "primeira vez",
+     "criar conta stripe",
+     "nunca usei stripe"
     ],
     "en": [
      "bank account",
@@ -1887,7 +1889,6 @@
      "connect stripe",
      "continue on stripe",
      "credit card",
-     "jobber",
      "pay by card",
      "pay by card button",
      "payment methods",
@@ -1898,12 +1899,15 @@
      "stripe",
      "stripe connected",
      "stripe sign up",
-     "take payments"
+     "take payments",
+     "first time",
+     "create stripe account",
+     "never used stripe"
     ]
    },
    "video": {
     "pt": {
-     "src": "https://apex.resonateai.online/help/video/card-payments-setup-pt.mp4",
+     "src": "https://apex.resonateai.online/help/video/card-payments-setup-pt.mp4?v=3",
      "poster": "https://apex.resonateai.online/help/video/card-payments-setup-pt.jpg"
     },
     "en": null
@@ -1919,8 +1923,8 @@
       {
        "n": 1,
        "text": {
-        "pt": "Antes de começar. Você já recebe pagamentos por cartão no Jobber ou em um app parecido? No Apex você faz o mesmo. Seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Se o seu app atual cuidava disso para você, talvez você nunca tenha ouvido o nome Stripe. Isso é normal. No Apex você conecta a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. As imagens deste guia usam uma empresa de teste, então os nomes, números e o banco que aparecem digitados não são para você copiar. Você sempre digita as suas próprias informações reais. Este guia é para quem nunca usou a Stripe. Já usa a Stripe pelo Jobber ou por outro app? Então você já tem um login na Stripe. Na primeira página da Stripe, digite esse mesmo e-mail e entre com a sua senha. Você não cria um login novo, então pode pular os passos da senha e do código de segurança.",
-        "en": "Before you start. Already take card payments in Jobber or a similar app? You can do the same in Apex. Your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. If your current app handled this for you, you may never have heard the name Stripe. That is normal. In Apex you connect your own Stripe account once, and the next steps show where. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The pictures in this guide use a pretend test business, so the names, numbers and bank you see typed in are not for you to copy. You always enter your own real information. This guide is for owners who have never used Stripe. Already use Stripe through Jobber or another app? Then you already have a Stripe login. On Stripe's first page, type that same email and sign in with your password. You do not create a new login, so you can skip the steps about the password and the security code."
+        "pt": "Antes de começar. Este guia é para quem ainda não recebe pagamentos por cartão e nunca teve uma conta Stripe. A Stripe é a empresa de pagamentos que cuida dos cartões. No Apex você cria a sua própria conta Stripe uma vez, e os próximos passos mostram onde. Depois, seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Antes de começar, deixe isto à mão: o nome legal da empresa e o número fiscal (EIN), a data de nascimento e o número de identificação do dono, e a conta bancária onde você quer receber. As imagens deste guia usam uma empresa de teste, então os nomes, números e o banco que aparecem digitados não são para você copiar. Você sempre digita as suas próprias informações reais. Já recebe cartão pelo Jobber ou por outro app? Então não use este guia. Abra o guia Conectar a conta Stripe que você já tem.",
+        "en": "Before you start. This guide is for owners who do not take card payments yet and have never had a Stripe account. Stripe is the payment company that handles the cards. In Apex you create your own Stripe account once, and the next steps show where. After that, your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Before you start, have these ready: your legal business name and tax ID (EIN), the business owner's date of birth and ID number, and the bank account where you want to be paid. The pictures in this guide use a pretend test business, so the names, numbers and bank you see typed in are not for you to copy. You always enter your own real information. Already take card payments in Jobber or another app? Then do not use this guide. Open the guide Connect the Stripe account you already have."
        },
        "image": null
       },
@@ -2341,6 +2345,286 @@
      "step": 1
     }
    ]
+  },
+  {
+   "id": "card-payments-existing-account",
+   "audience": "client",
+   "title": {
+    "pt": "Conectar a conta Stripe que você já tem",
+    "en": "Connect the Stripe account you already have"
+   },
+   "summary": {
+    "pt": "Para quem já recebe cartão pelo Jobber ou por outro app: entre na Stripe com o login que você já tem e conecte ao Apex.",
+    "en": "For owners who already take card payments in Jobber or another app: sign in to Stripe with the login you already have and connect it to Apex."
+   },
+   "keywords": {
+    "pt": [
+     "jobber",
+     "housecall pro",
+     "já uso stripe",
+     "já tenho conta stripe",
+     "conta stripe existente",
+     "entrar na stripe",
+     "mesmo login",
+     "mesmo e-mail",
+     "esqueci a senha da stripe",
+     "conectar stripe",
+     "stripe",
+     "cartão",
+     "pagamento com cartão",
+     "receber pagamentos",
+     "stripe conectado",
+     "atualizar status",
+     "continuar no stripe"
+    ],
+    "en": [
+     "jobber",
+     "housecall pro",
+     "already use stripe",
+     "existing stripe account",
+     "sign in to stripe",
+     "same login",
+     "same email",
+     "forgot stripe password",
+     "connect stripe",
+     "stripe",
+     "card",
+     "card payments",
+     "receive payments",
+     "stripe connected",
+     "refresh status",
+     "continue on stripe"
+    ]
+   },
+   "video": {
+    "pt": null,
+    "en": null
+   },
+   "sections": [
+    {
+     "id": "connect",
+     "title": {
+      "pt": "Conectar o Stripe",
+      "en": "Connect Stripe"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Antes de começar. Este guia é para quem já recebe pagamentos por cartão no Jobber ou em um app parecido. No Apex é igual: seu cliente abre a fatura, toca em pagar com cartão, e o pagamento é registrado na fatura sozinho. Por trás, apps como o Jobber usam uma empresa de pagamentos chamada Stripe para cuidar dos cartões, e o Apex usa a mesma empresa. Se o seu app configurou isso para você, você já tem um login na Stripe. Não é o login do Jobber. É o login dos pagamentos por cartão que você configurou. Deixe à mão o e-mail e a senha da Stripe. Se você não lembra da senha, a página de entrada da Stripe tem a opção de esqueci a senha, e a Stripe manda um e-mail para você escolher uma nova. Nunca recebeu cartão antes? Então não use este guia. Abra o guia Configurar pagamentos por cartão (primeira vez).",
+        "en": "Before you start. This guide is for owners who already take card payments in Jobber or a similar app. In Apex it works the same way: your client opens the invoice, taps pay by card, and the payment is recorded on the invoice by itself. Behind the scenes, apps like Jobber use a payment company called Stripe to handle the cards, and Apex uses the same company. If your app set this up for you, you already have a Stripe login. It is not your Jobber login. It is the login for the card payments you set up. Have your Stripe email and password ready. If you do not remember the password, Stripe's sign in page has a forgot password option, and Stripe emails you a way to choose a new one. Never took card payments before? Then do not use this guide. Open the guide Set up card payments (first time)."
+       },
+       "image": null
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Abra Negócio, depois Orçamentos. Toque em Negócio no menu de cima e depois em Orçamentos. A configuração do pagamento com cartão fica dentro da aba Orçamentos.",
+        "en": "Open Business, then Estimates. Tap Business in the top menu, then tap Estimates. The card payment setting lives inside the Estimates tab."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-02.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-02.pt.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Toque em Configurações. Na aba Orçamentos, toque em Configurações ao lado de Orçamentos. Esta é a página Configurações dos documentos: ela controla o que aparece nos seus orçamentos, faturas e recibos para os seus clientes.",
+        "en": "Tap Settings. In the Estimates tab, tap Settings next to Estimates. This is the Document settings page: it controls what appears on your estimates, invoices and receipts for your customers."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-03.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-03.pt.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Ache Formas de pagamento aceitas. Role até Pagamentos e prazos. Em Formas de pagamento aceitas (só as marcadas aparecem nos documentos) você vê as formas de receber: Zelle, Cheque, Dinheiro, Money order, Transferência / ACH, Cartão / Stripe e Outro.",
+        "en": "Find Accepted payment methods. Scroll down to Payments & terms. Under Accepted payment methods (only ticked ones print on documents) you see the ways you can accept payment: Zelle, Check, Cash, Money order, Bank transfer / ACH, Card / Stripe and Other."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-04.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-04.pt.jpg"
+       }
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Marque Cartão / Stripe. Toque na caixa ao lado de Cartão / Stripe. Aparecem embaixo uma explicação curta, uma linha de concordância e o botão Conectar Stripe.",
+        "en": "Tick Card / Stripe. Tap the box next to Card / Stripe. A short explanation, an agreement line and a Connect Stripe button appear under it."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-05.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-05.pt.jpg"
+       }
+      },
+      {
+       "n": 6,
+       "text": {
+        "pt": "Leia o que a conexão faz. A tela diz: Conecte a sua própria conta Stripe. Cada fatura ganha um botão para o cliente pagar com cartão, com o valor já preenchido. O dinheiro vai direto para a sua conta Stripe, e o Stripe cobra a taxa dele de você. A Apex não processa nem recebe pagamentos. O sistema da Apex lê os pagamentos feitos nas suas faturas da Apex e o status da sua conta Stripe, para que as faturas se marquem como pagas.",
+        "en": "Read what connecting does. The screen says: Connect your own Stripe account. Every invoice gets a button so the customer can pay by card, with the amount already filled in. The money goes straight to your Stripe account, and Stripe charges its fee to you. Apex does not process or receive payments. The Apex system reads the payments made on your Apex invoices and the status of your Stripe account, so invoices mark themselves paid."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-06.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-06.pt.jpg"
+       }
+      },
+      {
+       "n": 7,
+       "text": {
+        "pt": "Marque a caixa de concordância e toque em Conectar Stripe. Leia a linha que começa com Concordo com os Termos de Uso e a Política de Privacidade e marque a caixa. O botão Conectar Stripe só funciona depois que a caixa está marcada. Quando você toca nele, a Stripe abre as páginas dela, e a próxima seção mostra como entrar com o login que você já tem. No app do iPhone, a Stripe abre em uma janela separada: quando terminar, volte para o Apex.",
+        "en": "Tick the agreement box, then tap Connect Stripe. Read the line that starts with I agree to the Terms and the Privacy Policy, and tick its box. The Connect Stripe button only works after the box is ticked. When you tap it, Stripe opens its own pages, and the next section shows how to sign in with the login you already have. In the iPhone app, Stripe opens in a separate window: when you finish, come back to Apex."
+       },
+       "image": {
+        "en": "help/img/guides/card-payments-setup/connect-07.en.jpg",
+        "pt": "help/img/guides/card-payments-setup/connect-07.pt.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "stripe",
+     "title": {
+      "pt": "Entrar na Stripe",
+      "en": "Sign in to Stripe"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Digite o mesmo e-mail. A primeira página da Stripe pede o seu e-mail. Digite o e-mail que você usou quando configurou os pagamentos por cartão. Ele pode já estar preenchido com o e-mail da sua empresa. Se for outro, troque. Depois toque em Continue. A própria Stripe diz nessa página que, se você já tem uma conta, pode usar o mesmo e-mail. Estas páginas são da Stripe, por isso aparecem em inglês. (Página da Stripe · inglês)",
+        "en": "Type the same email. Stripe's first page asks for your email. Type the email you used when you set up your card payments. It may already be filled in with your business email. If it is a different one, change it. Then tap Continue. Stripe's own page says that if you already have an account, you can use the same email. These pages belong to Stripe, so they are in English. (Stripe's page · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/stripe-01.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/stripe-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Entre com a sua senha da Stripe. Como esse e-mail já tem um login, a Stripe deve pedir a sua senha em vez de criar uma nova. Digite a senha da Stripe. Se a Stripe mandar um código de segurança para o seu celular, digite o código. Você não cria um login novo. Se a Stripe pedir para você criar uma senha, pare: o e-mail provavelmente não é o dos seus pagamentos por cartão. Volte e tente o outro e-mail.",
+        "en": "Sign in with your Stripe password. Because that email already has a login, Stripe should ask for your password instead of making a new one. Type your Stripe password. If Stripe sends a security code to your phone, type the code. You do not create a new login. If Stripe asks you to create a password, stop: that email is probably not the one for your card payments. Go back and try the other email."
+       },
+       "image": null
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "Confira os dados que a Stripe mostra. A Stripe pode preencher as informações da sua empresa com o que ela já tem da sua conta, ou pode pedir de novo. Confira cada página: o nome da empresa, o número fiscal (EIN), os dados do dono e a conta bancária onde você recebe. Corrija o que estiver velho. O que a Stripe mostra pode variar. Use sempre as suas informações reais.",
+        "en": "Check the details Stripe shows. Stripe may fill in your business information from the account it already has, or it may ask again. Check each page: the business name, the tax ID (EIN), the owner's details, and the bank account where you get paid. Correct anything out of date. What Stripe shows can vary. Always use your real information."
+       },
+       "image": null
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "Diga não ao que você não quer. A Stripe pode oferecer planos de proteção contra fraude, uma doação para o clima e uma ferramenta de imposto sobre vendas. Veja o que cada um custa. Escolha a opção simples e incluída, ou toque em No thanks ou Not right now.",
+        "en": "Say no to what you do not want. Stripe may offer fraud protection plans, a climate donation, and a sales tax tool. Look at what each one costs. Choose the plain, included option, or tap No thanks or Not right now."
+       },
+       "image": null
+      },
+      {
+       "n": 5,
+       "text": {
+        "pt": "Revise, concorde e envie. Confira cada parte da lista. Quando estiver tudo certo, toque em Agree and submit (em algumas páginas é Confirm). Isso diz ao Stripe que as suas informações estão completas e corretas. O Stripe então leva você de volta ao Apex.",
+        "en": "Review, then agree and submit. Check every part of the list. When it is all correct, tap Agree and submit (some pages say Confirm). This tells Stripe your information is complete and correct. Stripe then takes you back to Apex."
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/stripe-17.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/stripe-17.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "back",
+     "title": {
+      "pt": "De volta ao Apex",
+      "en": "Back in Apex"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Se o Apex disser que o cadastro não terminou, toque em Atualizar status. De volta ao Apex, o Stripe pode levar um minuto para ligar a sua conta. O Apex mostra que o cadastro no Stripe ainda não terminou, com dois botões. Toque em Atualizar status depois de um minuto. Se o Stripe ainda precisar de algo, por exemplo o número completo de identificação, toque em Continuar no Stripe para voltar à página dele.",
+        "en": "If Apex says the sign up is not finished, tap Refresh status. Back in Apex, Stripe can take a minute to switch your account on. Apex then says Stripe setup is not finished yet, with two buttons. Tap Refresh status after a minute. If Stripe still needs something, for example the full ID number, tap Continue on Stripe to go back to its page. (Apex screen · Portuguese)"
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/back-01.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/back-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "Quando estiver conectado, a configuração terminou. O Apex mostra: Stripe conectado. As faturas já mostram o botão de pagamento com cartão, e o pagamento é registrado automaticamente. Aparece o botão Desconectar, se um dia você quiser parar.",
+        "en": "When it is connected, the setup is done. Apex shows: Stripe connected. Invoices now show the card payment button, and the payment is recorded automatically. A Disconnect button appears, in case you ever want to stop."
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/back-02.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/back-02.en.jpg"
+       }
+      }
+     ]
+    },
+    {
+     "id": "invoice",
+     "title": {
+      "pt": "A fatura com botão de cartão",
+      "en": "The invoice with the card button"
+     },
+     "steps": [
+      {
+       "n": 1,
+       "text": {
+        "pt": "Veja a fatura como o seu cliente vê. Abra Negócio, depois Faturas, toque em uma fatura e toque em Ver como o cliente. Abre a página da fatura que o seu cliente recebe.",
+        "en": "See an invoice the way your client sees it. Open Business, then Invoices, tap an invoice, and tap Preview as customer. This opens the invoice page your client gets."
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/invoice-01.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/invoice-01.en.jpg"
+       }
+      },
+      {
+       "n": 2,
+       "text": {
+        "pt": "O seu cliente vê um botão de cartão. A página da fatura agora tem um botão, por exemplo Pay $450.00 by card, com o valor já preenchido. As outras formas de pagar, como Zelle ou cheque, continuam embaixo. (Página do cliente · inglês)",
+        "en": "Your client sees a card button. The invoice page now has a button, for example Pay $450.00 by card, with the amount already filled in. The other ways to pay, such as Zelle or check, stay below it. (Customer's page · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/invoice-02.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/invoice-02.en.jpg"
+       }
+      },
+      {
+       "n": 3,
+       "text": {
+        "pt": "O seu cliente paga na página do Stripe. O botão abre a página de pagamento segura do Stripe. O cliente escolhe Card, digita os dados do cartão e toca em Pay. Na nossa conta de teste a página dizia Sandbox, porque era um teste. Você não vai ver isso.",
+        "en": "Your client pays on Stripe's page. The button opens Stripe's secure payment page. The client chooses Card, types the card details and taps Pay. In our test account the page said Sandbox, because it was a test. You will not see that."
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/invoice-03.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/invoice-03.en.jpg"
+       }
+      },
+      {
+       "n": 4,
+       "text": {
+        "pt": "O pagamento se registra sozinho. Depois de pagar, o cliente vê: Thank you. Your card payment was received. A fatura mostra Paid in full, e o recibo aparece em Payments received. Você não marca nada como pago: o Apex faz isso. O Stripe leva o dinheiro para a sua conta Stripe e depois para o seu banco, no ritmo de repasses que você escolheu. (Página do cliente · inglês)",
+        "en": "The payment records itself. After paying, the client sees: Thank you. Your card payment was received. The invoice says Paid in full, and the receipt is under Payments received. You do not mark anything as paid: Apex does it. Stripe moves the money to your Stripe account and then to your bank, on the payout schedule you chose. (Customer's page · English)"
+       },
+       "image": {
+        "pt": "help/img/guides/card-payments-setup/invoice-04.pt.jpg",
+        "en": "help/img/guides/card-payments-setup/invoice-04.en.jpg"
+       }
+      }
+     ]
+    }
+   ],
+   "buttons": []
   },
   {
    "id": "business-setup",
@@ -4284,6 +4568,7 @@
     "estimate",
     "send-by-email",
     "card-payments-setup",
+    "card-payments-existing-account",
     "business-setup",
     "payments-and-terms"
    ],

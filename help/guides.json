@@ -4345,34 +4345,57 @@
             {
               "n": 1,
               "text": {
-                "pt": "Toque em um item para abri-lo. Um item de projeto abre esse projeto. Uma visita de orçamento abre o lead dela. Os seus próprios eventos abrem o formulário do evento, como em Criar um evento. Itens que parecem apagados são de leads Fechados ou Perdidos. Eles ficam na agenda como histórico, para não competir com os leads que você ainda está trabalhando. Se você é vendedor, as reservas de outras pessoas aparecem só como Horário reservado, e você não consegue abri-las. Este passo vem do código do app.",
-                "en": "Tap an item to open it. A project item opens that project. An estimate visit opens its lead. Your own events open the event form, as in Create an event. Items that look faded belong to leads that are Closed or Lost. They stay on the calendar as history, so they do not compete with the leads you are still working. If you are a salesperson, other people's bookings show only as Booked, and you cannot open them. This step comes from the app's code."
+                "pt": "Toque em um item para abrir. Um evento que você mesmo fez, ou uma visita que um cliente marcou na sua página de agendamento, abre o formulário do evento (1 é o tipo, 2 é o lead). Mude o que precisar, ou feche com o X. Itens de leads e de projetos também aparecem na agenda. Não tocamos neles no nosso teste.",
+                "en": "Tap an item to open it. An event you made yourself, or a visit a customer booked on your booking page, opens the event form (1 is the type, 2 is the lead). Change what you need, or close it with the X. Items for leads and projects are also on the calendar. We did not tap those in our test."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/calendar/more-01.pt.jpg",
+                "en": "help/img/guides/calendar/more-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Abra uma reunião com a Apex. Toque em um item chamado Reunião com a Apex. Uma ficha mostra a data, a hora e o local. Se a reunião tem um link de vídeo, o botão Entrar no Google Meet abre o link. Se a reunião foi agendada pelo portal, o botão Reagendar deixa você escolher outro horário. Se não foi, a ficha manda você falar com a Alice para mudar. Este passo vem do código do app. O nosso cliente de teste não tinha nenhuma reunião com a Apex na agenda.",
-                "en": "Open a meeting with Apex. Tap an item called Meeting with Apex. A sheet shows the date, the time and the place. If the meeting has a video link, the button Join Google Meet opens it. If the meeting was booked through the portal, the button Reschedule lets you pick another time. If it was not, the sheet tells you to contact Alice to move it. This step comes from the app's code. Our test client had no meeting with Apex on its calendar."
+                "pt": "Abra uma reunião com a Apex. Toque em um item chamado Reunião com a Apex. Uma folha mostra a data e a hora. Se a reunião tem link de vídeo, o botão Entrar no Google Meet (1) abre o link. A linha embaixo (2) diz Reunião com a Apex. Para remarcar, fale com a Alice. Não tocamos em Entrar no Google Meet.",
+                "en": "Open a meeting with Apex. Tap an item called Meeting with Apex. A sheet shows the date and time. If the meeting has a video link, the button Join Google Meet (1) opens it. The line under it (2) says A meeting with Apex. To reschedule, contact Alice. We did not tap Join Google Meet."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/calendar/more-02.pt.jpg",
+                "en": "help/img/guides/calendar/more-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Inscreva-se em um evento do Apex Club. Um evento do Apex Club tem uma estrela na frente do nome. Toque nele para ver o cartaz, a data, o local e os palestrantes. O botão Confirmar presença abre a página onde você se inscreve. O evento é organizado pela Apex. Este passo vem do código do app. O nosso cliente de teste não tinha nenhum evento do Apex Club na agenda.",
-                "en": "Register for an Apex Club event. An Apex Club event has a star in front of its name. Tap it to see the flyer, the date, the place and the speakers. The button Register opens the page where you sign up. The event is held by Apex. This step comes from the app's code. Our test client had no Apex Club event on its calendar."
+                "pt": "Abra um evento do Apex Club. Um evento do Apex Club tem uma estrela na frente do nome. Toque nele para ver a data, o local e os palestrantes. O botão Confirmar presença (1) é o caminho para se inscrever (não tocamos nele). A linha (2) diz que é um evento do Apex Club, organizado pela Apex.",
+                "en": "Open an Apex Club event. An Apex Club event has a star in front of its name. Tap it to see the date, the place and the speakers. The button Register (1) is the way to sign up (we did not tap it). The line (2) says it is an Apex Club event, hosted by Apex."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/calendar/more-03.pt.jpg",
+                "en": "help/img/guides/calendar/more-03.en.jpg"
+              }
             },
             {
               "n": 4,
               "text": {
-                "pt": "Leia o cartão de chuva na visão do Dia. Na visão do Dia, um cartão chamado Chuva por obra hoje lista cada projeto em andamento nesse dia. Um ponto verde com Sem chuva quer dizer que não é esperada chuva. Um ponto vermelho com Chuva e as horas quer dizer que chuva é provável nesse horário. Um ponto cinza com Sem previsão quer dizer que o Apex não tem previsão: o endereço não foi achado no mapa, ou o dia está longe demais.",
-                "en": "Read the rain card in Day view. In Day view, a card called Rain by site today lists each project that is in progress on that day. A green dot with No rain means no rain is expected. A red dot with Rain and the hours means rain is likely then. A grey dot with No forecast means Apex has no forecast for it: the address was not found on the map, or the day is too far ahead."
+                "pt": "Leia o cartão de chuva na visão Dia. Na visão Dia, um cartão chamado Chuva por obra hoje (1) lista os projetos em andamento. Um ponto verde com Sem chuva quer dizer que não é esperada chuva. Um ponto cinza com Sem previsão quer dizer que o Apex não tem previsão para o projeto, por exemplo porque o endereço não foi achado no mapa. (Os nomes dos projetos estão cobertos de cinza aqui.)",
+                "en": "Read the rain card in Day view. In Day view, a card called Rain by site today (1) lists the projects that are in progress. A green dot with No rain means no rain is expected. A grey dot with No forecast means Apex has no forecast for that project, for example because its address was not found on the map. (Project names are covered in grey here.)"
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/calendar/more-04.pt.jpg",
+                "en": "help/img/guides/calendar/more-04.en.jpg"
+              }
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Veja uma visita marcada por um cliente. Quando um cliente marca na sua página de agendamento, uma entrada aparece na sua agenda na hora. Aqui, na visão Semana, ela está no domingo às 10:00 AM (1), com o título Visita e o nome do cliente.",
+                "en": "See a visit booked by a customer. When a customer books on your booking page, an entry appears on your calendar at once. Here, in Week view, it sits on Sunday at 10:00 AM (1), with the title Visit and the customer's name."
+              },
+              "image": {
+                "pt": "help/img/guides/calendar/more-05.pt.jpg",
+                "en": "help/img/guides/calendar/more-05.en.jpg"
+              }
             }
           ]
         }
@@ -4425,6 +4448,18 @@
           },
           "section": "more",
           "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Confirmar presença"
+            ],
+            "en": [
+              "Register"
+            ]
+          },
+          "section": "more",
+          "step": 3
         }
       ]
     },
@@ -4594,8 +4629,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Subempreiteiros, fornecedores e arquivos. Subempreiteiros (1) e Fornecedores (2) listam quem está neste projeto; os botões Adicionar subempreiteiro ao projeto e Adicionar fornecedor ao projeto adicionam. Arquivos do projeto (3) tem + Adicionar foto ou PDF. Esses arquivos ficam guardados no projeto e aparecem no portal do seu negócio, para as pessoas que entram pelo seu negócio. Isso não é uma forma de enviar arquivos ao seu cliente.",
-                "en": "Subcontractors, suppliers and project files. Subcontractors (1) and Suppliers (2) list who is on this project; the buttons Add a subcontractor to this project and Add a supplier to this project add them. Project files (3) has + Add photo or PDF. These files are kept on the project and show in your business portal, for the people who sign in for your business. This is not a way to send files to your customer."
+                "pt": "Subempreiteiros e arquivos do projeto. Subempreiteiros (1) lista quem está neste projeto; o botão Adicionar subempreiteiro ao projeto adiciona um. Arquivos do projeto (2) tem + Adicionar foto ou PDF. Embaixo, uma linha diz que os arquivos ficam visíveis no portal do seu negócio, para as pessoas que entram pelo seu negócio. Isso não é uma forma de enviar arquivos ao seu cliente.",
+                "en": "Subcontractors and project files. Subcontractors (1) lists who is on this project; the button Add a subcontractor to this project adds one. Project files (2) has + Add photo or PDF. Under it, a line says the files are visible in your business portal, to the people who sign in for your business. This is not a way to send files to your customer."
               },
               "image": {
                 "pt": "help/img/guides/projects/project-06.pt.jpg",
@@ -4632,14 +4667,6 @@
                 "en": "help/img/guides/projects/weather-01.en.jpg",
                 "pt": "help/img/guides/projects/weather-01.pt.jpg"
               }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Adicione fornecedores ao projeto. Role até Fornecedores. Toque em Adicionar fornecedor ao projeto, digite o nome do fornecedor e salve. Depois toque no fornecedor na lista para preencher O que fornece, Endereço e Telefone. Cada linha abre uma caixa pequena para digitar. Uma marca dourada com um número quer dizer que falta o endereço ou o telefone. Um visto verde quer dizer que os dois estão preenchidos. Para tirar um, abra o fornecedor e toque em Tirar deste projeto, depois em Sim, tirar do projeto. O Apex usa os fornecedores e os subempreiteiros do projeto para montar a lista de nomes que vai no link do contrato do seu cliente. Ela acompanha o projeto: se você mudar a lista aqui, o link do contrato mostra a mudança. A parte dos fornecedores deste passo vem do código do app, porque o projeto de teste não tinha fornecedor.",
-                "en": "Add suppliers to the project. Scroll to Suppliers. Tap Add a supplier to this project, type the name of the supplier and save it. Then tap the supplier in the list to fill in What they supply, Address and Telephone. Each row opens a small box to type in. A gold mark with a number means the address or the telephone is missing. A green check means both are filled in. To take one off, open the supplier and tap Remove from this project, then Yes, remove from the project. Apex uses the suppliers and the subcontractors of the project to build the list of names that goes on your customer's contract link. It follows the project: if you change the list here, the contract link shows the change. The suppliers part of this step comes from the app's code, because the test project had no supplier."
-              },
-              "image": null
             }
           ]
         },
@@ -4653,26 +4680,46 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quando o valor fica travado. Depois que o cliente assina o contrato, a linha Valor ($) não aceita mais digitação. Ela mostra Valor do contrato + aditivos, e muda sozinha quando um aditivo é assinado. Para mudar o preço depois disso, use um aditivo (veja o guia sobre aditivos).",
-                "en": "Know when the value is locked. Once the customer signs the contract, the Value ($) row can no longer be typed in. It shows Contract + change orders, and it moves by itself when a change order is signed. To change the price after that, use a change order (see the guide on change orders)."
+                "pt": "Adicione um arquivo. Em Arquivos do projeto, toque em + Adicionar foto ou PDF (2) e escolha uma imagem. Ela aparece como uma imagem pequena com um x pequeno (1) no canto. Um PDF aparece com o nome do arquivo. A linha embaixo do botão diz que os arquivos ficam visíveis no portal do seu negócio, para as pessoas que entram pelo seu negócio.",
+                "en": "Add a file. In Project files, tap + Add photo or PDF (2) and pick a picture. It appears as a small picture with a small x (1) on its corner. A PDF is listed with its file name. The line under the button says the files are visible in your business portal, to the people who sign in for your business."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/projects/more-01.pt.jpg",
+                "en": "help/img/guides/projects/more-01.en.jpg"
+              }
             },
             {
               "n": 2,
               "text": {
-                "pt": "Abra ou remova um arquivo do projeto. Em Arquivos do projeto, toque em uma foto para abrir grande. Um PDF aparece com o nome do arquivo: toque na linha para abrir. Para apagar um arquivo, toque no x pequeno da foto, ou no botão de remover da linha do PDF. O Apex pergunta Remover esta foto? Toque em Sim, remover, ou em Manter. Esses arquivos ficam no projeto, para as pessoas que entram no portal da sua empresa. O seu cliente não os recebe por aqui. Não apagamos um arquivo no nosso teste, então este passo vem do código do app.",
-                "en": "Open or remove a project file. In Project files, tap a photo to open it big. A PDF is listed with its file name: tap the row to open it. To delete a file, tap the small x on the photo, or the remove button on the PDF row. Apex asks Remove this photo? Tap Yes, remove, or Keep it. These files stay on the project, for the people who sign in for your business. Your customer does not get them from here. We did not delete a file in our test, so this step comes from the app's code."
+                "pt": "Remova um arquivo. Toque no x pequeno da imagem. O Apex pergunta Remover esta foto? Toque em Sim, remover (1) para apagar, ou em Manter (2) para deixar. Depois de remover, a lista diz Ainda sem fotos.",
+                "en": "Remove a file. Tap the small x on the picture. Apex asks Remove this photo? Tap Yes, remove (1) to delete it, or Keep it (2) to leave it. After you remove it, the list says No photos yet."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/projects/more-02.pt.jpg",
+                "en": "help/img/guides/projects/more-02.en.jpg"
+              }
             },
             {
               "n": 3,
               "text": {
-                "pt": "Veja como um lead vira projeto. Quando você move um lead para a etapa Fechado, o Apex cria o projeto dele. Uma mensagem diz Lead ganho virou projeto, com um botão Ver projeto. Toque nele para ir à sua lista de Projetos. Isso acontece só uma vez para cada lead. Se o Apex não conseguiu criar, a mensagem diz Lead salvo, mas o projeto não foi criado. Marcar um orçamento como aceito faz o mesmo, veja o guia sobre marcar um orçamento como aceito. Este passo vem do código do app.",
-                "en": "See how a lead becomes a project. When you move a lead to the stage Closed, Apex makes the project for it. A message says Won lead is now a project, with a button View project. Tap it to go to your Projects list. This happens only once for each lead. If Apex could not make it, the message says Lead saved, but the project was not created. Marking an estimate as accepted does the same, see the guide on marking an estimate accepted. This step comes from the app's code."
+                "pt": "Veja como um lead vira projeto. Em um lead, toque na linha Estágio e escolha Fechado. Uma mensagem diz Lead ganho virou projeto, com o link Ver projeto (1). Isso funcionou até para um lead sem orçamento.",
+                "en": "See how a lead becomes a project. In a lead, tap the Stage row and choose Closed. A message says Won lead is now a project, with the link View project (1). This worked even for a lead with no estimate."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/projects/more-03.pt.jpg",
+                "en": "help/img/guides/projects/more-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Ache o projeto novo. Ver projeto leva você para a lista de Projetos. O projeto novo está na lista com o status Em andamento (1).",
+                "en": "Find the new project. View project takes you to the Projects list. The new project is in the list with the status In progress (1)."
+              },
+              "image": {
+                "pt": "help/img/guides/projects/more-04.pt.jpg",
+                "en": "help/img/guides/projects/more-04.en.jpg"
+              }
             }
           ]
         }
@@ -4713,30 +4760,6 @@
           },
           "section": "project",
           "step": 6
-        },
-        {
-          "labels": {
-            "pt": [
-              "Adicionar fornecedor ao projeto"
-            ],
-            "en": [
-              "Add a supplier to this project"
-            ]
-          },
-          "section": "weather",
-          "step": 2
-        },
-        {
-          "labels": {
-            "pt": [
-              "Tirar deste projeto"
-            ],
-            "en": [
-              "Remove from this project"
-            ]
-          },
-          "section": "weather",
-          "step": 2
         }
       ]
     },
@@ -5153,8 +5176,8 @@
             {
               "n": 4,
               "text": {
-                "pt": "Abra o formulário de metas. Role até o fim da lista e toque em Definir / editar metas deste mês (1). É o mesmo botão para metas que você define pela primeira vez e para metas que você quer mudar.",
-                "en": "Open the goals form. Scroll to the end of the list and tap Set / edit this month's goals (1). It is the same button for goals you are setting for the first time and for goals you want to change."
+                "pt": "Abra o formulário de metas. Role até o fim da lista e toque em Editar metas de (o mês) (1). É o mesmo botão para metas que você define pela primeira vez e para metas que você quer mudar.",
+                "en": "Open the goals form. Scroll to the end of the list and tap Edit goals for (the month) (1). It is the same button for goals you are setting for the first time and for goals you want to change."
               },
               "image": {
                 "pt": "help/img/guides/monthly-goals/goals-04.pt.jpg",
@@ -5184,18 +5207,32 @@
             {
               "n": 1,
               "text": {
-                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define uma meta, ela é salva e já começa a valer. Se você mantém o mesmo número, também é salva na hora. Nesses dois casos nada espera aprovação.",
-                "en": "Know which changes are saved at once. The first time you set a goal, it is saved and starts counting right away. If you keep the same number, it is also saved at once. Nothing waits for approval in these two cases."
+                "pt": "Saiba quais mudanças são salvas na hora. Na primeira vez que você define as metas de um mês, elas são salvas e a lista diz que o mês já tem metas. Nada espera aprovação neste caso. Salvamos as metas de novembro assim.",
+                "en": "Know which changes are saved at once. The first time you set the goals of a month, they are saved and the list says that month already has goals. Nothing waits for approval in this case. We saved the goals of November like this."
               },
               "image": null
             },
             {
               "n": 2,
               "text": {
-                "pt": "Mude uma meta que você já definiu. Abra o formulário com Definir / editar as metas deste mês e digite um número novo. O Apex ainda não usa esse número. A meta que você tinha antes continua valendo. Na lista da aba Ritmo, embaixo dessa meta, aparece Proposto e o número novo, com as palavras aguardando aprovação. No formulário, uma linha embaixo da caixa diz o mesmo. A equipe da Apex olha o pedido e aprova ou rejeita. Quando aprovam, o número novo vira a sua meta. Quando rejeitam, a meta antiga continua. Não conseguimos fazer uma mudança no nosso teste, então este passo vem do código do app.",
-                "en": "Change a goal you already set. Open the form with Set / edit this month's goals and type a new number. Apex does not use it yet. The goal you had before keeps counting. In the list on the Pace tab, under that goal, you see Proposed and the new number, with the words awaiting approval. In the form, a line under the box says the same. The Apex team looks at it and approves or rejects it. When they approve, the new number becomes your goal. When they reject, the old goal stays. We could not make a change ourselves in our test, so this step comes from the app's code."
+                "pt": "Mude uma meta que você já definiu. Abra o formulário com Editar metas de (o mês) e digite um número novo, depois vá até a última seção e toque em Salvar. O Apex mostra a mensagem: Algumas metas alteradas foram enviadas para aprovação. As metas atuais continuam valendo até a aprovação. Na lista, a meta mantém o número antigo, e uma etiqueta (1) mostra Proposto, o número novo e aguardando aprovação. A equipe do Apex decide. Não vimos essa decisão no nosso teste.",
+                "en": "Change a goal you already set. Open the form with Edit goals for (the month) and type a new number, then go to the last section and tap Save. Apex shows a message: Some changed goals were sent for approval. Current goals stay valid until approved. In the list, the goal keeps its old number, and a tag (1) shows Proposed, the new number and awaiting approval. The Apex team decides. We did not see that decision in our test."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/monthly-goals/approval-02.pt.jpg",
+                "en": "help/img/guides/monthly-goals/approval-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Veja a proposta no formulário. Se você abrir o formulário de novo, a caixa (1) ainda mostra o número atual, e uma linha embaixo (2) diz Proposto com o número novo e aguardando aprovação.",
+                "en": "See the proposal in the form. If you open the form again, the box (1) still shows the current number, and a line under it (2) says Proposed with the new number and awaiting approval."
+              },
+              "image": {
+                "pt": "help/img/guides/monthly-goals/approval-03.pt.jpg",
+                "en": "help/img/guides/monthly-goals/approval-03.en.jpg"
+              }
             }
           ]
         },
@@ -5209,21 +5246,13 @@
             {
               "n": 1,
               "text": {
-                "pt": "O mês que vem está sem metas. Nos últimos dias do mês (faltando menos de 8 dias), se o mês seguinte ainda não tem metas, este cartão aparece quando você abre o portal. Definir metas agora (1) abre o formulário de metas do mês que vem. Deixar para depois (2) esconde o cartão nesta visita e leva você ao registro diário. Ele pode voltar na próxima vez que você entrar.",
-                "en": "Next month has no goals. In the last days of the month (fewer than 8 days left), if the next month has no goals yet, this card appears when you open the portal. Set goals now (1) opens the goals form for the next month. Later (2) hides the card for this visit and takes you on to the daily log. It can come back the next time you sign in."
+                "pt": "O próximo mês não tem metas. Nos últimos dias do mês, se o próximo mês ainda não tem metas, este cartão aparece quando você abre o portal. Ele diz quantos dias faltam. Definir metas agora (1) abre o formulário de metas do próximo mês. Deixar para depois (2) esconde o cartão nesta visita. Tudo isso só aparece quando as metas estão ligadas para a sua empresa.",
+                "en": "Next month has no goals. In the last days of the month, if the next month has no goals yet, this card appears when you open the portal. It says how many days are left. Set goals now (1) opens the goals form for the next month. Later (2) hides the card for this visit. All of this shows only when goals are switched on for your company."
               },
               "image": {
-                "en": "help/img/guides/monthly-goals/login-01.en.jpg",
-                "pt": "help/img/guides/monthly-goals/login-01.pt.jpg"
+                "pt": "help/img/guides/monthly-goals/login-01.pt.jpg",
+                "en": "help/img/guides/monthly-goals/login-01.en.jpg"
               }
-            },
-            {
-              "n": 2,
-              "text": {
-                "pt": "Este mês está sem metas. Se o mês em que você está não tem nenhuma meta, o formulário de metas abre sozinho quando você entra, com um botão Deixar para depois. Esse botão deixa você pular por hoje. Ele volta amanhã, até as metas serem definidas. Tudo isso só aparece quando as metas estão ligadas para a sua empresa. A equipe da Apex pode desligá-las. Aí o formulário e o cartão não aparecem. De qualquer jeito, as suas metas ficam na aba Ritmo.",
-                "en": "This month has no goals. If the month you are in has no goals at all, the goals form opens by itself when you sign in, with a Later button. Later lets you skip it for today. It comes back tomorrow, until the goals are set. All of this shows only when goals are switched on for your company. The Apex team can switch them off. Then the form and the card do not appear. Your goals stay on the Pace tab either way."
-              },
-              "image": null
             }
           ]
         }

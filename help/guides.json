@@ -3976,8 +3976,8 @@
             {
               "n": 6,
               "text": {
-                "pt": "Subempreiteiros, fornecedores e arquivos. Subempreiteiros (1) e Fornecedores (2) listam quem está neste projeto; os botões Adicionar subempreiteiro ao projeto e Adicionar fornecedor ao projeto adicionam. Arquivos do projeto (3) tem + Adicionar foto ou PDF, e diz que o cliente vê estes arquivos no portal dele.",
-                "en": "Subcontractors, suppliers and project files. Subcontractors (1) and Suppliers (2) list who is on this project; the buttons Add a subcontractor to this project and Add a supplier to this project add them. Project files (3) has + Add photo or PDF, and says your client sees these files in their portal."
+                "pt": "Subempreiteiros, fornecedores e arquivos. Subempreiteiros (1) e Fornecedores (2) listam quem está neste projeto; os botões Adicionar subempreiteiro ao projeto e Adicionar fornecedor ao projeto adicionam. Arquivos do projeto (3) tem + Adicionar foto ou PDF. Esses arquivos ficam guardados no projeto e aparecem no portal do seu negócio, para as pessoas que entram pelo seu negócio. Isso não é uma forma de enviar arquivos ao seu cliente.",
+                "en": "Subcontractors, suppliers and project files. Subcontractors (1) and Suppliers (2) list who is on this project; the buttons Add a subcontractor to this project and Add a supplier to this project add them. Project files (3) has + Add photo or PDF. These files are kept on the project and show in your business portal, for the people who sign in for your business. This is not a way to send files to your customer."
               },
               "image": {
                 "pt": "help/img/guides/projects/project-06.pt.jpg",
@@ -8163,6 +8163,533 @@
       ]
     },
     {
+      "id": "admin-sessions-summary",
+      "audience": "admin",
+      "title": {
+        "pt": "Sessões: ligar a gravação ao cliente e gerar o resumo",
+        "en": "Sessions: match the recording to the client and make the summary"
+      },
+      "summary": {
+        "pt": "Atribua uma reunião gravada a um cliente, gere o resumo e aprove.",
+        "en": "Assign a recorded meeting to a client, make the summary and approve it."
+      },
+      "keywords": {
+        "pt": [
+          "sessões",
+          "sessoes",
+          "fireflies",
+          "transcrição",
+          "transcript",
+          "resumo",
+          "resumir",
+          "aprovar",
+          "atribuir cliente",
+          "caixa de entrada",
+          "relatório",
+          "pdf",
+          "nova sessão"
+        ],
+        "en": [
+          "sessions",
+          "fireflies",
+          "transcript",
+          "summary",
+          "summarize",
+          "approve",
+          "assign client",
+          "inbox",
+          "report",
+          "pdf",
+          "new session"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "sessions",
+          "title": {
+            "pt": "Da gravação ao resumo aprovado",
+            "en": "From the recording to the approved summary"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. As reuniões gravadas pelo Fireflies chegam sozinhas em Sessões e a Apex tenta ligar cada uma ao cliente certo. Você só age quando uma reunião não foi ligada a ninguém, ou na hora de gerar e aprovar o resumo. Abra Sessões no menu da esquerda.",
+                "en": "What it is. Meetings recorded by Fireflies arrive in Sessions by themselves and Apex tries to match each one to the right client. You only act when a meeting is not matched, or when it is time to make and approve the summary. Open Sessões in the left menu."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A Caixa de Entrada. 1. Os três botões do alto: Caixa de Entrada, Nova Sessao (para colar uma transcrição) e Transcricoes. 2. As abas da caixa seguem a vida de uma reunião: Nova Reunião, Processando, Resumido, Arquivo e Próximas. 3. Puxar do Fireflies busca agora as gravações novas. 4. Atribuir a: escolha o cliente quando a reunião não foi ligada a ninguém. 5. Resumir começa o resumo. Fica claro enquanto você não escolher um cliente. 6. Excluir descarta uma gravação que não é reunião de cliente. Ver transcript abre o texto da gravação. Os nomes estão escondidos nesta imagem.",
+                "en": "The Inbox. 1. The three buttons at the top: Caixa de Entrada (Inbox), Nova Sessao (New Session, to paste a transcript) and Transcricoes (Transcripts). 2. The tabs of the inbox follow the life of a meeting: Nova Reunião, Processando, Resumido, Arquivo and Próximas. 3. Puxar do Fireflies (Pull from Fireflies) fetches new recordings now. 4. Atribuir a (Assign to): choose the client when the meeting was not matched. 5. Resumir (Summarize) starts the summary. It stays pale until you choose a client. 6. Excluir (Delete) throws away a recording that is not a client meeting. Ver transcript opens the text of the recording. Names are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-summary/sessions-02.pt.jpg",
+                "en": "help/img/guides/admin-sessions-summary/sessions-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Gere o resumo. Toque em Resumir na reunião. Abre uma tela onde você escolhe quais seções o relatório terá (por exemplo Recomendações, Ações do Cliente e Foco da Próxima Sessão) e depois toque em Gerar Resumo. A Apex escreve o resumo em português e em inglês. Demora um pouco. Há um limite de 20 resumos por hora para cada pessoa. Este passo não tem imagem porque mostraria a reunião de um cliente real.",
+                "en": "Make the summary. Tap Resumir on the meeting. A screen opens where you choose which sections the report will have (for example Recommendations, Client Action Items and Next Session Focus), then tap Gerar Resumo. Apex writes a summary in Portuguese and English. It takes a short while. There is a limit of 20 summaries per hour for each person. This step is not pictured because it would show a real client's meeting."
+              },
+              "image": null
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Confira e aprove. Leia o resumo na aba Resumido. Corrija o que estiver errado. Depois toque em Aprovar & Enviar. Depois de aprovado, Gerar PDF cria o relatório com a marca da Apex para o cliente.",
+                "en": "Check and approve. Read the summary in the Resumido tab. Fix what is wrong. Then tap Aprovar & Enviar (Approve & Send). After it is approved, Gerar PDF (Generate PDF) makes the branded report for the client."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Uma reunião que não foi gravada. Toque em Nova Sessao no alto. 1. Cliente: escolha o cliente. 2. Data da sessão: o dia da reunião. 3. Transcript: cole o texto da reunião. 4. Toque em Salvar Transcript. A reunião vai para a lista como uma reunião gravada.",
+                "en": "A meeting that was not recorded. Tap Nova Sessao at the top. 1. Cliente: choose the client. 2. Data da sessão: the day of the meeting. 3. Transcript: paste the text of the meeting. 4. Tap Salvar Transcript (Save Transcript). The meeting then goes to the list like a recorded one."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-sessions-summary/sessions-05.pt.jpg",
+                "en": "help/img/guides/admin-sessions-summary/sessions-05.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Puxar do Fireflies"
+            ],
+            "en": [
+              "Pull from Fireflies"
+            ]
+          },
+          "section": "sessions",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar Transcript"
+            ],
+            "en": [
+              "Save Transcript"
+            ]
+          },
+          "section": "sessions",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Aprovar & Enviar"
+            ],
+            "en": [
+              "Approve & Send"
+            ]
+          },
+          "section": "sessions",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Gerar PDF"
+            ],
+            "en": [
+              "Generate PDF"
+            ]
+          },
+          "section": "sessions",
+          "step": 4
+        }
+      ]
+    },
+    {
+      "id": "admin-resources-documents",
+      "audience": "admin",
+      "title": {
+        "pt": "Documentos: criar um recurso e dar documentos a um cliente",
+        "en": "Documents: add a resource and give documents to a client"
+      },
+      "summary": {
+        "pt": "Guarde recursos na Central, anexe a um cliente e controle o que ele vê.",
+        "en": "Keep resources in the Hub, attach them to a client and control what the client sees."
+      },
+      "keywords": {
+        "pt": [
+          "documentos",
+          "recurso",
+          "recursos",
+          "central de recursos",
+          "arquivo de pdfs",
+          "anexar recurso",
+          "enviar arquivo",
+          "mostrar ao cliente",
+          "ocultar do cliente",
+          "contato",
+          "link"
+        ],
+        "en": [
+          "documents",
+          "resource",
+          "resources",
+          "resource hub",
+          "pdf archive",
+          "attach resource",
+          "upload file",
+          "show to client",
+          "hide from client",
+          "contact",
+          "link"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "hub",
+          "title": {
+            "pt": "A Central de Recursos",
+            "en": "The Resource Hub"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. A página Documentos guarda a biblioteca de recursos da Apex: arquivos, links e cartões de contato que você pode dar aos clientes. 1. Central de Recursos é a biblioteca. Arquivo de PDFs guarda os PDFs que a Apex criou. 2. + Novo Recurso adiciona um novo. Os cartões do alto contam os recursos, e Envios pendentes conta o que está esperando para ser enviado.",
+                "en": "What it is. The Documents page holds the library of resources of Apex: files, links and contact cards that you can give to clients. 1. Resource Hub (Central de Recursos) is the library. PDF Archive (Arquivo de PDFs) keeps the PDFs that Apex has made. 2. + Add Resource (+ Novo Recurso) adds a new one. The tiles at the top count the resources, and Pending sends counts what is waiting to be sent."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-resources-documents/hub-01.pt.jpg",
+                "en": "help/img/guides/admin-resources-documents/hub-01.en.jpg"
+              }
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "Adicione um recurso. Toque em + Novo Recurso e preencha. 1. Título: um nome claro. 2. Categoria, por exemplo Legal. 3. Tipo: Contato, Arquivo ou Link. Depois aparecem os campos que combinam. 4. Material interno Apex: marque quando for só para uso do consultor. Um recurso com esta marca nunca pode ser enviado a clientes. 5. Toque em Salvar Recurso. Cada linha da lista tem um botão Editar.",
+                "en": "Add a resource. Tap + Novo Recurso and fill in. 1. Título (Title): a clear name. 2. Categoria (Category), for example Legal. 3. Tipo (Type): Contato, Arquivo (file) or Link. Then the matching fields appear. 4. Material interno Apex: tick it for consultant use only. A resource with this tick can never be sent to clients. 5. Tap Salvar Recurso (Save Resource). Each line in the list has an Editar (Edit) button."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-resources-documents/hub-02.pt.jpg",
+                "en": "help/img/guides/admin-resources-documents/hub-02.en.jpg"
+              }
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "title": {
+            "pt": "Dar um recurso ou documento a um cliente",
+            "en": "Give a resource or document to a client"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "No registro do cliente. Abra o cliente, toque em Trabalho Apex e escolha Recursos ou Documentos. 1. + Anexar Recurso dá um recurso ao cliente: escolha From Library para pegar um que você guardou, ou Create New para criar ali mesmo, e toque em Attach to Client. 2. Enviar Arquivo coloca um arquivo no cartão Documentos deste cliente. 3. Ver abre um documento. 4. Ocultar do cliente tira o documento da vista do cliente. Um documento oculto mostra Mostrar ao cliente para você trazê-lo de volta. Excluir apaga. Os nomes da equipe estão escondidos nesta imagem.",
+                "en": "On the client record. Open the client, tap Apex work and choose Resources or Documents. 1. + Anexar Recurso (+ Attach Resource) gives the client a resource: choose From Library to pick one you saved, or Create New to make one right there, then tap Attach to Client. 2. Enviar Arquivo (Upload File) puts a file in the Documents card of this client. 3. Ver (View) opens a document. 4. Ocultar do cliente (Hide from client) takes it off the client's view. A hidden document shows Mostrar ao cliente (Show to client) so you can bring it back. Excluir (Delete) removes it. Names of staff are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-resources-documents/client-01.pt.jpg",
+                "en": "help/img/guides/admin-resources-documents/client-01.en.jpg"
+              }
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Novo Recurso"
+            ],
+            "en": [
+              "+ Add Resource"
+            ]
+          },
+          "section": "hub",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Salvar Recurso"
+            ],
+            "en": [
+              "Save Resource"
+            ]
+          },
+          "section": "hub",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "+ Anexar Recurso"
+            ],
+            "en": [
+              "+ Attach Resource"
+            ]
+          },
+          "section": "client",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar Arquivo"
+            ],
+            "en": [
+              "Upload File"
+            ]
+          },
+          "section": "client",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Ocultar do cliente"
+            ],
+            "en": [
+              "Hide from client"
+            ]
+          },
+          "section": "client",
+          "step": 1
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mostrar ao cliente"
+            ],
+            "en": [
+              "Show to client"
+            ]
+          },
+          "section": "client",
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "admin-invoices",
+      "audience": "admin",
+      "title": {
+        "pt": "Faturas da Apex: criar um rascunho, revisar e enviar",
+        "en": "Apex invoices: make a draft, review and send"
+      },
+      "summary": {
+        "pt": "Crie uma fatura como rascunho, revise e envie ao cliente pelo WhatsApp.",
+        "en": "Make an invoice as a draft, review it and send it to the client on WhatsApp."
+      },
+      "keywords": {
+        "pt": [
+          "fatura",
+          "faturas",
+          "nova fatura",
+          "rascunho",
+          "revisar e enviar",
+          "marcar enviada",
+          "marcar como erro",
+          "vencimento",
+          "financeiro",
+          "cobrar",
+          "link do cliente"
+        ],
+        "en": [
+          "invoice",
+          "invoices",
+          "new invoice",
+          "draft",
+          "review and send",
+          "mark sent",
+          "mark as mistake",
+          "due date",
+          "finance",
+          "charge",
+          "client link"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "invoices",
+          "title": {
+            "pt": "Da fatura rascunho ao cliente",
+            "en": "From a draft invoice to the client"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. São as faturas que a Apex envia aos seus clientes. Toda fatura começa como rascunho. Nada sai da Apex até você enviar pelo WhatsApp. Abra Financeiro no menu da esquerda e toque no botão Faturas embaixo dos quatro totais. Os valores e os nomes dos clientes estão escondidos nas imagens.",
+                "en": "What it is. These are the invoices that Apex sends to its own clients. Every invoice starts as a draft. Nothing leaves Apex until you send it on WhatsApp yourself. Open Financeiro in the left menu and tap the Faturas button under the four totals. Money amounts and client names are hidden in the pictures."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "A tela de Faturas. 1. Faturas é a aba. 2. + Nova fatura cria um novo rascunho. 3. As três abas: Rascunho, Não Pagas (enviadas e ainda não pagas) e Arquivo (pagas ou encerradas). A caixa de cima, Faturas prontas para enviar, lista os rascunhos. 4. Revisar e enviar abre a fatura como o cliente vai ver. 5. Marcar como erro abre uma caixa onde você escolhe por que anula a fatura (erro ou cancelada). Nada muda até você confirmar.",
+                "en": "The Invoices screen. 1. Faturas is the tab. 2. + Nova fatura makes a new draft. 3. The three tabs: Rascunho (drafts), Não Pagas (sent and not paid yet) and Arquivo (paid or closed). The box on top, Faturas prontas para enviar (Invoices ready to send), lists the drafts. 4. Revisar e enviar opens the invoice as the client will see it. 5. Marcar como erro opens a box where you choose why you void the invoice (a mistake or canceled). Nothing changes until you confirm."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-02.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Crie um novo rascunho. Toque em + Nova fatura. 1. Cliente: escolha o cliente. 2. Valor (USD): o valor em dólares. 3. Vencimento: a data de vencimento. 4. Descrição do serviço: para que serve a fatura. Se deixar vazio, a Apex usa o nome do pacote do cliente. Detalhes é opcional. 5. Toque em Criar rascunho. A tela avisa que nada sai até você enviar pelo WhatsApp.",
+                "en": "Make a new draft. Tap + Nova fatura. 1. Cliente: choose the client. 2. Valor (USD): the amount in dollars. 3. Vencimento: the due date. 4. Descrição do serviço: what the invoice is for. If you leave it empty, Apex uses the name of the client's package. Detalhes is optional. 5. Tap Criar rascunho. The page says that nothing leaves until you send it on WhatsApp."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-invoices/invoices-03.pt.jpg",
+                "en": "help/img/guides/admin-invoices/invoices-03.en.jpg"
+              }
+            },
+            {
+              "n": 4,
+              "text": {
+                "pt": "Revise e envie. No rascunho, toque em Revisar e enviar. A fatura abre numa nova aba em modo de revisão, exatamente como o cliente vai ver. Confira e envie ao cliente pelo WhatsApp a partir dessa página. Marcar enviada é outro botão: use só quando você enviou a fatura de outro jeito, sem o WhatsApp da Apex, e quer apenas marcar a fatura como enviada.",
+                "en": "Review and send. On the draft, tap Revisar e enviar. The invoice opens in a new tab in review mode, exactly as the client will see it. Check it, then send it to the client on WhatsApp from that page. Marcar enviada is a different button: use it only when you sent the invoice some other way, without WhatsApp from Apex, and you just want the invoice marked as sent."
+              },
+              "image": null
+            },
+            {
+              "n": 5,
+              "text": {
+                "pt": "Outros botões da fatura. Ver abre a fatura. Copiar link do cliente copia o link que o cliente abre. Editar descrição muda o texto. Mudar vencimento muda a data. Voltar para rascunho devolve a fatura para rascunho. Quando o cliente pagar, use Registrar pagamento: é o guia Registrar um pagamento e enviar o recibo.",
+                "en": "Other buttons on an invoice. Ver opens it. Copiar link do cliente copies the link the client opens. Editar descrição changes the words. Mudar vencimento changes the due date. Voltar para rascunho brings it back to a draft. When the client pays, use Registrar pagamento: that is the guide Registrar um pagamento e enviar o recibo."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "+ Nova fatura"
+            ],
+            "en": [
+              "+ New invoice"
+            ]
+          },
+          "section": "invoices",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Criar rascunho"
+            ],
+            "en": [
+              "Create draft"
+            ]
+          },
+          "section": "invoices",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Revisar e enviar"
+            ],
+            "en": [
+              "Review and send"
+            ]
+          },
+          "section": "invoices",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Marcar enviada"
+            ],
+            "en": [
+              "Mark sent"
+            ]
+          },
+          "section": "invoices",
+          "step": 4
+        },
+        {
+          "labels": {
+            "pt": [
+              "Marcar como erro"
+            ],
+            "en": [
+              "Mark as mistake"
+            ]
+          },
+          "section": "invoices",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Editar descrição",
+              "Editar descricao"
+            ],
+            "en": [
+              "Edit description"
+            ]
+          },
+          "section": "invoices",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Mudar vencimento"
+            ],
+            "en": [
+              "Change due date"
+            ]
+          },
+          "section": "invoices",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Copiar link do cliente"
+            ],
+            "en": [
+              "Copy client link"
+            ]
+          },
+          "section": "invoices",
+          "step": 5
+        },
+        {
+          "labels": {
+            "pt": [
+              "Voltar para rascunho"
+            ],
+            "en": [
+              "Back to draft"
+            ]
+          },
+          "section": "invoices",
+          "step": 5
+        }
+      ]
+    },
+    {
       "id": "admin-calendar-sessions",
       "audience": "admin",
       "title": {
@@ -8397,10 +8924,13 @@
             {
               "n": 3,
               "text": {
-                "pt": "Envie e acompanhe. Depois de criado, o link é enviado ao cliente pelo WhatsApp. Na fila de pedidos você pode editar um pedido, adicionar um horário, enviar, cobrar quando o cliente demora, reagendar ou pular a semana. Quanto mais antigo o pedido, mais forte ele aparece.",
-                "en": "Send and follow up. After the link is made you send it to the client on WhatsApp. In the queue of requests you can edit a request, add a time, send it, follow up with Cobrar when the client is slow, reschedule, or skip the week. The older a request is, the bolder it shows."
+                "pt": "Acompanhe os pedidos. Cada link que você cria fica esperando numa lista no Dashboard, na caixa Aguardando horário. O botão Calendário no canto da caixa leva ao calendário. Cada pedido tem: 1. Editar muda o pedido. 2. Enviar via WhatsApp abre uma mensagem pronta com o link. O lápis ao lado edita o texto dessa mensagem. 3. Cobrar envia um lembrete quando o cliente demora. O lápis ao lado edita essa mensagem. 4. Adicionar horário marca um horário por você quando o cliente respondeu de outro jeito. 5. Reagendar faz um novo link quando o cliente precisa de outro horário. 6. Pular esta semana deixa o cliente fora desta semana. Quando o cliente escolhe um horário, o pedido passa para Agendados. Os nomes estão escondidos nesta imagem.",
+                "en": "Follow the requests. Every link you make waits in a list on the Dashboard, in the box Waiting on a time (Aguardando horário). The Calendar button in the corner of the box takes you to the calendar. Each request has: 1. Edit (Editar) changes it. 2. Send on WhatsApp (Enviar via WhatsApp) opens a ready message with the link. The pencil next to it edits the words of that message. 3. Follow up (Cobrar) sends a reminder when the client is slow. The pencil next to it edits that message. 4. Add time manually (Adicionar horário) books a time yourself when the client answered another way. 5. New link (Reagendar) makes a fresh link when the client needs another time. 6. Skip this week (Pular esta semana) leaves the client out of this week. Once the client picks a time, the request moves to Scheduled (Agendados). Names are hidden in this picture."
               },
-              "image": null
+              "image": {
+                "pt": "help/img/guides/admin-send-times/send-03.pt.jpg",
+                "en": "help/img/guides/admin-send-times/send-03.en.jpg"
+              }
             }
           ]
         }
@@ -8429,6 +8959,143 @@
             ]
           },
           "section": "send",
+          "step": 2
+        },
+        {
+          "labels": {
+            "pt": [
+              "Enviar via WhatsApp"
+            ],
+            "en": [
+              "Send on WhatsApp"
+            ]
+          },
+          "section": "send",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Cobrar"
+            ],
+            "en": [
+              "Follow up"
+            ]
+          },
+          "section": "send",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Adicionar horário"
+            ],
+            "en": [
+              "Add time manually"
+            ]
+          },
+          "section": "send",
+          "step": 3
+        },
+        {
+          "labels": {
+            "pt": [
+              "Pular esta semana"
+            ],
+            "en": [
+              "Skip this week"
+            ]
+          },
+          "section": "send",
+          "step": 3
+        }
+      ]
+    },
+    {
+      "id": "admin-dashboard-reminders",
+      "audience": "admin",
+      "title": {
+        "pt": "Dashboard: o dia de trabalho, lembretes de reunião e tarefas",
+        "en": "Dashboard: the work day, meeting reminders and tasks"
+      },
+      "summary": {
+        "pt": "Veja o que precisa de você hoje e envie os lembretes de reunião.",
+        "en": "See what needs you today and send the meeting reminders."
+      },
+      "keywords": {
+        "pt": [
+          "dashboard",
+          "lembrete",
+          "lembretes de reunião",
+          "enviar lembrete",
+          "faturas vencidas",
+          "faturas não enviadas",
+          "tarefas",
+          "hoje",
+          "início"
+        ],
+        "en": [
+          "dashboard",
+          "reminder",
+          "meeting reminders",
+          "send reminder",
+          "overdue invoices",
+          "unsent invoices",
+          "tasks",
+          "today",
+          "home"
+        ]
+      },
+      "video": null,
+      "sections": [
+        {
+          "id": "today",
+          "title": {
+            "pt": "O Dashboard de Alice",
+            "en": "The Dashboard for Alice"
+          },
+          "steps": [
+            {
+              "n": 1,
+              "text": {
+                "pt": "O que é. O Dashboard é a primeira página do app da equipe. Ele muda conforme quem entrou. Este guia mostra o dashboard da Alice, de operações e finanças. O Rafa vê as próximas reuniões, o microfone para marcar uma reunião por voz e a revisão de contrato. A Nicole, como desenvolvedora, vê as filas que precisam dela.",
+                "en": "What it is. The Dashboard is the first page of the staff app. It changes with who signs in. This guide shows the dashboard of Alice, the operations and finance person. Rafa sees his upcoming meetings, the microphone to book a meeting by voice and the contract review. Nicole, as developer, sees the queues that need her."
+              },
+              "image": null
+            },
+            {
+              "n": 2,
+              "text": {
+                "pt": "O topo do dashboard da Alice. 1. Cinco cartões: Faturas não enviadas, Faturas vencidas com o total, Lembretes de reunião, Tarefas e Envios pendentes (de recursos). 2. Lembretes de Reunião lista cada reunião das próximas 24 horas, para ninguém esquecer de lembrar o cliente. 3. Enviar Lembrete abre o WhatsApp com o lembrete já escrito. Envie de lá. 4. O lápis muda o texto dessa mensagem de lembrete. Os nomes das reuniões estão escondidos nesta imagem.",
+                "en": "The top of Alice's dashboard. 1. Five tiles: Faturas não enviadas (invoices not sent), Faturas vencidas (overdue invoices) with the total, Lembretes de reunião (meeting reminders), Tarefas (tasks) and Envios pendentes (pending sends of resources). 2. Lembretes de Reunião lists every meeting in the next 24 hours, so nobody forgets to remind the client. 3. Enviar Lembrete (Send Reminder) opens WhatsApp with the reminder already written. Send it from there. 4. The pencil changes the words of that reminder message. Meeting names are hidden in this picture."
+              },
+              "image": {
+                "pt": "help/img/guides/admin-dashboard-reminders/today-02.pt.jpg",
+                "en": "help/img/guides/admin-dashboard-reminders/today-02.en.jpg"
+              }
+            },
+            {
+              "n": 3,
+              "text": {
+                "pt": "Abaixo dos lembretes. Tarefas para você mostra as suas tarefas abertas, e Passei para outros mostra as tarefas que você entregou a alguém. Mais embaixo, Aguardando horário é a lista de links de horário esperando o cliente: veja o guia Enviar horários.",
+                "en": "Below the reminders. Tarefas para você (Tasks for you) shows your open tasks, and Passei para outros (Given to others) shows the tasks you handed to someone. Further down, Aguardando horário is the list of time links waiting for the client: see the guide Enviar horários."
+              },
+              "image": null
+            }
+          ]
+        }
+      ],
+      "buttons": [
+        {
+          "labels": {
+            "pt": [
+              "Enviar Lembrete"
+            ],
+            "en": [
+              "Send Reminder"
+            ]
+          },
+          "section": "today",
           "step": 2
         }
       ]
@@ -8495,7 +9162,8 @@
         "en": "Financial"
       },
       "guides": [
-        "admin-record-payment"
+        "admin-record-payment",
+        "admin-invoices"
       ],
       "overview": {
         "pt": "Aqui você acompanha o financeiro e as faturas.",
@@ -8652,11 +9320,12 @@
         "en": "Documents"
       },
       "guides": [
-        "documents"
+        "documents",
+        "admin-resources-documents"
       ],
       "overview": {
-        "pt": "Aqui você abre os seus arquivos e os relatórios que já estão prontos.",
-        "en": "Here you open your files and the reports that are finished."
+        "pt": "Aqui ficam os documentos, os arquivos e os relatórios.",
+        "en": "Here are the documents, files and reports."
       }
     },
     "clients": {
@@ -8697,6 +9366,32 @@
       "overview": {
         "pt": "Aqui estão todas as sessões da Apex. Veja o mês, a semana ou o dia, marque uma sessão ou envie horários ao cliente.",
         "en": "Here are all the Apex sessions. See the month, week or day, book a session or send times to a client."
+      }
+    },
+    "sessions": {
+      "title": {
+        "pt": "Sessões",
+        "en": "Sessions"
+      },
+      "guides": [
+        "admin-sessions-summary"
+      ],
+      "overview": {
+        "pt": "Aqui chegam as reuniões gravadas. Ligue cada uma ao cliente, gere o resumo e aprove.",
+        "en": "Recorded meetings arrive here. Match each one to a client, make the summary and approve it."
+      }
+    },
+    "dashboard": {
+      "title": {
+        "pt": "Dashboard",
+        "en": "Dashboard"
+      },
+      "guides": [
+        "admin-dashboard-reminders"
+      ],
+      "overview": {
+        "pt": "Aqui você vê o que precisa de você hoje: lembretes de reunião, faturas, tarefas e horários esperando o cliente.",
+        "en": "Here you see what needs you today: meeting reminders, invoices, tasks and times waiting on a client."
       }
     }
   }
